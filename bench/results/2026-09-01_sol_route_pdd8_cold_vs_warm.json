@@ -1,0 +1,24 @@
+{
+ "produced_by": "bench/compare_sol_records.py",
+ "a": {
+  "record": "sol_observe_20260901_162624.jsonl",
+  "pid": 642831,
+  "prompt_id": "7c4de733-0dd2-4f20-84b0-d8416af6cce5",
+  "workflow_file": null,
+  "process_render_index": null
+ },
+ "b": {
+  "record": "sol_observe_20260901_164357.jsonl",
+  "pid": 655374,
+  "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+  "workflow_file": "h3_text_to_video_pdd_api.json",
+  "process_render_index": 1
+ },
+ "paired": 184,
+ "only_in_a": 0,
+ "only_in_b": 1,
+ "bitwise_identical": 184,
+ "differing": [],
+ "worst_abs_diff_blocks": 0,
+ "claim": "routing did not depend on the cache state"
+}

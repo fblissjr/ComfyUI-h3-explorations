@@ -499,6 +499,12 @@ nothing.
 tokens and every token-refiner call is ~311 rows, so no value selects
 differently. The only live question is where the Sol-against-sage crossover
 sits, and that needs a short-sequence arm this repo does not render.
+**Refined 2026-09-01 by the live route record:** on the shipped t2v graphs
+no token-refiner attention call reaches the override at sampling time at
+all -- the text arrives already projected, so `_forward` skips the refiner
+and a forward is exactly 50 DiT calls. The ~311-row refiner call exists only
+when raw Qwen states reach the sampler. Same conclusion (inert), different
+mechanism, and the record is the observable rather than a source read.
 
 **Anything needing Comfy-Org/ComfyUI#15908.** The trial ran on a branch and is
 reverted; core is stock. Re-applying is one `gh pr diff` away.

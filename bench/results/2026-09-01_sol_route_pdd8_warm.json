@@ -1,0 +1,453 @@
+{
+ "produced_by": "bench/sol_observe_report.py",
+ "record": "internal/sol_observe/2026-09-01_canonical_base16",
+ "headers": [
+  {
+   "kind": "header",
+   "schema": 1,
+   "produced_by": "sol_observe.py",
+   "started_at": "2026-09-01T16:43:57",
+   "comfy_kitchen_version": "0.2.31+sol.24908e1",
+   "pack_git_head": "ef1f8d3-dirty",
+   "pid": 655374,
+   "host": "vojo",
+   "device": "NVIDIA GeForce RTX 4090",
+   "torch": "2.13.0+cu132",
+   "arming_spec": "dir=/home/fbliss/ComfyUI/custom_nodes/ComfyUI-h3-explorations/internal/sol_observe/2026-09-01_canonical_base16",
+   "raw_sidecar": true,
+   "timing_quotable": false,
+   "why_not_quotable": "every Sol call synchronizes the stream to copy its counts to the host; wall times from an armed render are not measurements",
+   "denominators": {
+    "forced": "|sink range clamped to [0, NTB)| + |{q-1,q,q+1} existing and not sink| as a set; sink_q rows are NTB",
+    "kernel_density": "cnt / NTB over every query block; forced pairs INCLUDED",
+    "ordering_effect_density": "sum(cnt - forced) / sum(NTB - forced) over query blocks not in sink_q: PAIR-weighted, the bench/analyze_routing.py number; null on a zero denominator",
+    "routed_density": "distribution of (cnt - forced) / (NTB - forced) per query block not in sink_q: QUERY-weighted, every block weighs the same; statistics, not the join key",
+    "per_segment": "overlap-weighted QUERY-segment figures: `ordering_effect` aggregates numerator and denominator with the row weights, `routed` averages per-block fractions",
+    "path": "override = reached optimized_attention_override; composed_patch = Sol's gate declined and the composed foreign forward ran, no counts (route composed_patch, gate verdict in reason)"
+   }
+  }
+ ],
+ "renders": [
+  {
+   "kind": "render",
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "process_render_index": 1,
+   "prior_prompt_ids": [
+    "a7b3be67-8a1f-4b6d-bc34-150b4eba9342"
+   ],
+   "graph_sha256": "272830b7c5da2d3b6aa1064ba52ca9abbd6804f377799009fbe57c86cda8b482",
+   "workflow_file": "h3_text_to_video_pdd_api.json",
+   "match": "shipped graph, byte-identical",
+   "summary": {
+    "class_types": [
+     "BasicGuider",
+     "KSamplerSelect",
+     "MiniMaxH3Conditioning",
+     "MiniMaxH3EncoderLoader",
+     "MiniMaxH3PDDLoRA",
+     "MiniMaxH3Preflight",
+     "MiniMaxH3Resolution",
+     "MiniMaxH3SageAttention",
+     "MiniMaxH3SolAttn",
+     "PrimitiveInt",
+     "RandomNoise",
+     "SageChainAssert",
+     "SamplerCustomAdvanced",
+     "UNETLoader",
+     "VAEDecode",
+     "VAEDecodeAudio",
+     "VAELoader",
+     "VHS_VideoCombine"
+    ],
+    "pdd": {
+     "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+     "steps": 8,
+     "strength": 1.0,
+     "nfe": 0
+    },
+    "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "sampler": "euler",
+    "scheduler": null,
+    "resolution": {
+     "shape": "wide",
+     "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+     "length": 345
+    },
+    "sol_nodes": 1,
+    "sage_nodes": 1
+   },
+   "seq": 804,
+   "schema": 1
+  }
+ ],
+ "configs": {
+  "c8ddabcb36b7": {
+   "node": "MiniMaxH3SolAttn",
+   "tau": 1.0,
+   "topk_ratio": 0.0,
+   "tail": true,
+   "min_tokens": 12288,
+   "sink_conditioning": "exact_kv_and_rows",
+   "start_percent": 0.2,
+   "end_percent": 0.9,
+   "sigma_start": 0.979591836734694,
+   "sigma_end": 0.5714285714285714,
+   "dense_blocks": [
+    0,
+    1,
+    2,
+    32
+   ],
+   "tau_profile": {},
+   "morton": false,
+   "morton_curve": null,
+   "n_blocks": 50,
+   "chained_previous": true
+  },
+  "9a8e94826c42": {
+   "node": "MiniMaxH3SolAttn",
+   "tau": 1.0,
+   "topk_ratio": 0.0,
+   "tail": true,
+   "min_tokens": 12288,
+   "sink_conditioning": "exact_kv_and_rows",
+   "start_percent": 0.2,
+   "end_percent": 0.74,
+   "sigma_start": 0.979591836734694,
+   "sigma_end": 0.8082901554404145,
+   "dense_blocks": [
+    0,
+    1,
+    2,
+    32
+   ],
+   "tau_profile": {},
+   "morton": false,
+   "morton_curve": null,
+   "n_blocks": 50,
+   "chained_previous": true
+  }
+ },
+ "errors": 0,
+ "forwards": [
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 0,
+   "sigma": 1.0,
+   "routes": {
+    "composed_patch": 50
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 1,
+   "sigma": 0.9882352948188782,
+   "routes": {
+    "composed_patch": 50
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 2,
+   "sigma": 0.9729729890823364,
+   "routes": {
+    "dense_block": 4,
+    "sol": 46
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 3,
+   "sigma": 0.9523809552192688,
+   "routes": {
+    "dense_block": 4,
+    "sol": 46
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 4,
+   "sigma": 0.9230769276618958,
+   "routes": {
+    "dense_block": 4,
+    "sol": 46
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 5,
+   "sigma": 0.8780487775802612,
+   "routes": {
+    "dense_block": 4,
+    "sol": 46
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 6,
+   "sigma": 0.800000011920929,
+   "routes": {
+    "composed_patch": 50
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  },
+  {
+   "prompt_id": "cbbebfc9-fb79-4a87-94c0-ed374adff886",
+   "schedule_index": 7,
+   "sigma": 0.6315789222717285,
+   "routes": {
+    "composed_patch": 50
+   },
+   "dit_blocks": 50,
+   "no_block_rows": 0
+  }
+ ],
+ "sol": {
+  "rows": 184,
+  "rows_note": "forward rows only; probe rows are under probe_rows",
+  "kernel_density_mean_over_rows": 0.2308245301127935,
+  "ordering_effect_density_mean_over_rows": 0.2081709579240461,
+  "routed_density_query_weighted_mean_over_rows": 0.2081712570693781,
+  "shape_ok_false": 0,
+  "geometry": {
+   "B": 1,
+   "H": 56,
+   "T": 104361,
+   "NQ": 1631,
+   "NTB": 1631
+  },
+  "block_by_step_ordering_effect": {
+   "2": {
+    "3": 0.20328537218786502,
+    "4": 0.20479107540349634,
+    "5": 0.20846008589375994,
+    "6": 0.20750776934732507,
+    "7": 0.20039034564266409,
+    "8": 0.2028017609304354,
+    "9": 0.19689106416977253,
+    "10": 0.19688398780831376,
+    "11": 0.19761974972678611,
+    "12": 0.2039858283146451,
+    "13": 0.19548894257709584,
+    "14": 0.199198047841953,
+    "15": 0.1993379787434947,
+    "16": 0.20140263158825836,
+    "17": 0.19575689066225455,
+    "18": 0.20153075934002315,
+    "19": 0.20739356627167302,
+    "20": 0.20489953584597237,
+    "21": 0.20919258605187238,
+    "22": 0.19982660012012124,
+    "23": 0.20513242691777137,
+    "24": 0.20468434949883882,
+    "25": 0.2052395467214554,
+    "26": 0.20817768102327724,
+    "27": 0.2137250784923281,
+    "28": 0.22055662825086939,
+    "29": 0.21903905278036875,
+    "30": 0.2289594550471927,
+    "31": 0.23404146427167213,
+    "33": 0.2494824235896701,
+    "34": 0.24968875757447095,
+    "35": 0.23950547953626836,
+    "36": 0.24198599991641048,
+    "37": 0.21951788887591556,
+    "38": 0.20785632852273436,
+    "39": 0.2113626863570847,
+    "40": 0.2175636245057051,
+    "41": 0.21082975479523,
+    "42": 0.21710312890167352,
+    "43": 0.20193306845627848,
+    "44": 0.20408016367624054,
+    "45": 0.19774645391364803,
+    "46": 0.19814180414710164,
+    "47": 0.19275506910730372,
+    "48": 0.19967515631019053,
+    "49": 0.1910243528004037
+   },
+   "3": {
+    "3": 0.2044649200990337,
+    "4": 0.205467821573084,
+    "5": 0.21028902817895587,
+    "6": 0.20830750876031434,
+    "7": 0.20061481280370305,
+    "8": 0.2025282775273778,
+    "9": 0.19618127885552236,
+    "10": 0.19609205036025315,
+    "11": 0.19749225774187115,
+    "12": 0.20350512638160428,
+    "13": 0.19583394284024805,
+    "14": 0.19914891412127733,
+    "15": 0.1984344918553291,
+    "16": 0.2009875311194052,
+    "17": 0.1961823430739449,
+    "18": 0.20078264834154413,
+    "19": 0.20622501989120978,
+    "20": 0.20520720553822583,
+    "21": 0.21065390306667392,
+    "22": 0.2007632436316064,
+    "23": 0.20502309575113145,
+    "24": 0.20340945038121686,
+    "25": 0.203841426313627,
+    "26": 0.206554630450291,
+    "27": 0.21300426400533556,
+    "28": 0.21947883067770757,
+    "29": 0.2168401149201101,
+    "30": 0.2247821420499954,
+    "31": 0.23031453680349254,
+    "33": 0.24725687335833943,
+    "34": 0.2459028765519898,
+    "35": 0.23611017358535794,
+    "36": 0.24061410489113683,
+    "37": 0.21772582797851794,
+    "38": 0.20615556927337708,
+    "39": 0.20857102029854285,
+    "40": 0.21512771837319758,
+    "41": 0.2079786721782677,
+    "42": 0.21444663931431826,
+    "43": 0.1997265981409514,
+    "44": 0.20287193715173799,
+    "45": 0.19693142845422634,
+    "46": 0.19748180214139543,
+    "47": 0.1936375480473886,
+    "48": 0.19986590018615252,
+    "49": 0.18966714951776809
+   },
+   "4": {
+    "3": 0.20550325866445177,
+    "4": 0.20545270137887325,
+    "5": 0.2112433695045972,
+    "6": 0.2083012201969086,
+    "7": 0.1996930545291146,
+    "8": 0.20201656813939017,
+    "9": 0.1951604238784741,
+    "10": 0.19509587972219974,
+    "11": 0.19742810057411406,
+    "12": 0.20341658202674953,
+    "13": 0.1961340109723407,
+    "14": 0.1989441142695271,
+    "15": 0.19796345081420172,
+    "16": 0.20058570573879647,
+    "17": 0.1967958580840132,
+    "18": 0.2001437164785018,
+    "19": 0.20540409285689962,
+    "20": 0.20540454204000003,
+    "21": 0.21153953319897092,
+    "22": 0.2013239416195757,
+    "23": 0.20398482629080572,
+    "24": 0.2018532589850994,
+    "25": 0.20258054170873785,
+    "26": 0.20516960545746687,
+    "27": 0.21249158714605476,
+    "28": 0.2189984950016563,
+    "29": 0.2162223430363517,
+    "30": 0.2229740833237139,
+    "31": 0.22964432797564316,
+    "33": 0.24641200140952274,
+    "34": 0.24445076433549207,
+    "35": 0.23496689202666549,
+    "36": 0.23990161065726573,
+    "37": 0.2176164138857672,
+    "38": 0.20580764586481762,
+    "39": 0.20747563547937262,
+    "40": 0.21189281225218914,
+    "41": 0.20698228731442794,
+    "42": 0.21388030926132073,
+    "43": 0.19921025871177495,
+    "44": 0.20291976478616783,
+    "45": 0.195491948648614,
+    "46": 0.19642619421339388,
+    "47": 0.19395441562743665,
+    "48": 0.19795543462348672,
+    "49": 0.18804605461889592
+   },
+   "5": {
+    "3": 0.20627893568427752,
+    "4": 0.20484029205028287,
+    "5": 0.21142703010859118,
+    "6": 0.2078077752848346,
+    "7": 0.19827033270840216,
+    "8": 0.20151822367626707,
+    "9": 0.19402012765977208,
+    "10": 0.19416890401313727,
+    "11": 0.19713950388735493,
+    "12": 0.2036496596822979,
+    "13": 0.19629516404774952,
+    "14": 0.19869175629320726,
+    "15": 0.19754861294469955,
+    "16": 0.20030567808349134,
+    "17": 0.1976594920654086,
+    "18": 0.1997747367482969,
+    "19": 0.20499805206565624,
+    "20": 0.20576872587679435,
+    "21": 0.21204523044392226,
+    "22": 0.20144083288332096,
+    "23": 0.2028112283280902,
+    "24": 0.20076298794276462,
+    "25": 0.20238526453871633,
+    "26": 0.2044662883798626,
+    "27": 0.21237885600887021,
+    "28": 0.2186884342732068,
+    "29": 0.21658452973597653,
+    "30": 0.22378350436014435,
+    "31": 0.23098578220772747,
+    "33": 0.24495214942267948,
+    "34": 0.2429509419632215,
+    "35": 0.23450057086334705,
+    "36": 0.2397169894924878,
+    "37": 0.21805738039069475,
+    "38": 0.2056649576700903,
+    "39": 0.2071340213657466,
+    "40": 0.21032677338040884,
+    "41": 0.20689414376910895,
+    "42": 0.21350535885113503,
+    "43": 0.1985141769373419,
+    "44": 0.20269858702752572,
+    "45": 0.19431641574331207,
+    "46": 0.19580366098877114,
+    "47": 0.19504092735274645,
+    "48": 0.19604758814382173,
+    "49": 0.18704097633443592
+   }
+  },
+  "per_segment_ordering_effect_by_step": {
+   "2": {
+    "text[0:395)": 0.16526027203886048,
+    "video[1545:104361)": 0.2094350950606855
+   },
+   "3": {
+    "text[0:395)": 0.16463329639885627,
+    "video[1545:104361)": 0.20847802131891588
+   },
+   "4": {
+    "text[0:395)": 0.163357550232178,
+    "video[1545:104361)": 0.20788014043438938
+   },
+   "5": {
+    "text[0:395)": 0.16493125385137,
+    "video[1545:104361)": 0.20754288567264892
+   }
+  }
+ },
+ "not_quotable": "timings; every Sol call synchronized the stream to copy its counts",
+ "probe_rows": {
+  "count": 2,
+  "routes": {
+   "ineligible": 1,
+   "sol": 1
+  }
+ }
+}

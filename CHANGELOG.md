@@ -41,9 +41,21 @@ artifact.
   the run.
 - **First live records**, under `internal/sol_observe/` (gitignored): the
   canonical PDD graph as shipped, 400 rows over eight forwards, graded
-  clean; the canonical 16-step base graph in its own file; each with a
-  `provenance.md` explaining the header's dirty marker and what else the
-  file holds.
+  clean; the canonical 16-step base graph in its own file, 800 rows over
+  sixteen forwards, eleven inside the window; a warm repeat of the PDD graph
+  in that same process; each directory with a `provenance.md` explaining the
+  header's dirty marker and what else the file holds. **Tracked summaries**
+  from `bench/sol_observe_report.py --json` and
+  `bench/compare_sol_records.py --json`:
+  `bench/results/2026-09-01_sol_route_{pdd8_cold,base16_cold,pdd8_warm,pdd8_cold_vs_warm}.json`.
+  The last one is the cache-state control: cold and warm PDD raw counts
+  bitwise identical on every paired Sol call.
+- `docs/research/pdd/`: the README's Sol coverage figures marked as
+  observed, `queued_arms.md`'s `min_tokens` mechanism refined (no
+  sampler-time refiner call on the shipped graphs), `tier1_gate.md` item 10
+  (choose capture cells from the route record), and a 2026-09-01 addendum
+  on the 2026-08-31 handoff: render both bake arms armed and compare their
+  routing before attributing anything to the bake.
 
 ### Fixed
 

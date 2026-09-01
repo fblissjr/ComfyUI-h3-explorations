@@ -106,6 +106,23 @@ replace the second scene/seed that generalisation needs.**
 
 ---
 
+### 10. Choose the cells from the live route record, not from a guess
+
+Added 2026-09-01. The Sol route record (`sol_observe.py`, armed by
+`H3_SOL_OBSERVE`) now reports, for every attention call of a real render at
+the trained canvas, which route it took and how dense the routed walk was,
+by block and step -- `bench/results/2026-09-01_sol_route_pdd8_cold.json` is
+the 8-evaluation PDD graph as shipped. That is a few hundred kilobytes per
+render against the tens of gigabytes a Tier 1 activation capture writes, so
+it should decide WHICH `(block, step)` cells the capture holds: the
+in-window forwards are knots 8 through 20 on the 8-evaluation grid (four of
+eight), the dense blocks are 0-2 and 32, and everything outside the window
+runs on Sage through the composed patch. A cell the router never touches
+needs no Sol-side capture; a cell with an unusual density is the one to
+spend disk on. Item 8's bit-identity assertion still applies to the
+observer + PDD + Sol composition; the route record has its own
+(`bench/check_sol_observe.py`, `bench/grade_sol_record.py`).
+
 ## What a good first capture looks like
 
 - `shape_check.ok` true, four kinds at every requested block and step, no

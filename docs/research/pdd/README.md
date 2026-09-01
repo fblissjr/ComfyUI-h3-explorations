@@ -104,7 +104,18 @@ finding worth keeping — the final evaluation is 44% of the path at 16 NFE and
 80% at 4, while Sol's coverage falls from 11 of 16 steps to 2 of 4, so the two
 accelerations are buying time from overlapping budgets. Every number on it was
 computed from `pdd_math.py` rather than quoted, and it shows the trace lines of
-a real 4-step render so the diagrams can be checked against a log.
+a real 4-step render so the diagrams can be checked against a log. **Two of
+those coverages were observed rather than computed on 2026-09-01**, by the
+live Sol route record on the shipped graphs at the trained canvas: the
+16-step base graph ran Sol on 11 of 16 forwards and the 8-evaluation PDD
+graph on 4 of 8, each forward carrying blocks 0-49 once, with the actual
+routed density per (block, step) beside it --
+`bench/results/2026-09-01_sol_route_base16_cold.json` and
+`..._pdd8_cold.json`, plus `..._pdd8_cold_vs_warm.json`, which shows the
+PDD graph's counts bitwise identical across a restart and a warm process.
+The kernel figures include the forced pairs; the ordering-effect figures
+are the `analyze_routing.py` number. Routing, not quality: nothing in them
+says what the density cost.
 
 [`queued_arms.md`](queued_arms.md) — the arms waiting on the GPU, each with
 what it decides. A session queue rather than a roadmap: `docs/roadmap.md` and

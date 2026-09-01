@@ -57,6 +57,7 @@ def main() -> int:
     ap.add_argument("b")
     ap.add_argument("--prompt-a")
     ap.add_argument("--prompt-b")
+    ap.add_argument("--json", metavar="PATH", help="also write the verdict as a tracked record")
     args = ap.parse_args()
     obs = _load_observer()
 
@@ -94,6 +95,22 @@ def main() -> int:
     print(f"bitwise identical: {exact} of {len(common)}")
     for k, why in differ[:12]:
         print(f"  differs at block {k[0]} step {k[1]}: {why}")
+    if args.json:
+        import json
+        verdict = {"produced_by": "bench/compare_sol_records.py",
+                   "a": {"record": ja.name, "pid": ha.get("pid"), "prompt_id": ca[0].get("prompt_id"),
+                         "workflow_file": (ra.get(ca[0].get("prompt_id")) or {}).get("workflow_file"),
+                         "process_render_index": (ra.get(ca[0].get("prompt_id")) or {}).get("process_render_index")},
+                   "b": {"record": jb.name, "pid": hb.get("pid"), "prompt_id": cb[0].get("prompt_id"),
+                         "workflow_file": (rb.get(cb[0].get("prompt_id")) or {}).get("workflow_file"),
+                         "process_render_index": (rb.get(cb[0].get("prompt_id")) or {}).get("process_render_index")},
+                   "paired": len(common), "only_in_a": len(only_a), "only_in_b": len(only_b),
+                   "bitwise_identical": exact, "differing": [(list(k), why) for k, why in differ],
+                   "worst_abs_diff_blocks": worst,
+                   "claim": ("routing did not depend on the cache state" if not differ else
+                             "the cache state (or something else between the runs) reaches the routing")}
+        Path(args.json).write_text(json.dumps(verdict, indent=1) + "\n")
+        print(f"verdict written to {args.json}")
     if differ:
         print(f"\nDIFFER: {len(differ)} paired call(s), worst |diff| {worst} block(s); "
               "the cache state (or something else between the runs) reaches the routing")
