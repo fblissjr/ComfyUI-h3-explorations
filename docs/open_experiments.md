@@ -1801,10 +1801,12 @@ and splits the words across the cut with the tag in both parts. Neither side
 has rendered either, and neither side's gate can see the difference.
 
 **The arms**, all in [`bench/marker_arms.json`](../bench/marker_arms.json),
-seven patches of one shipped t2va graph, prompt and length only, base texts
+eight patches of one shipped t2va graph, prompt and length only, base texts
 from `prompt_bank/`: three split-line forms (ours in prose; the sister form;
-tag-only with the words unsplit, which isolates the tag from the split) and
-four cutoff forms (ours; the sister form; unpiped tight and piped spaced, which
+tag-only with the words unsplit, and split words with no tag, which together
+make split and tag a square so each effect can be told apart -- the last one
+added at the sister engine's suggestion after the owner's call, so it is not
+yet part of it) and four cutoff forms (ours; the sister form; unpiped tight and piped spaced, which
 isolate spelling from spacing). Every variant is an asserted single
 substitution, graded clean, and every patched graph passed preflight.
 
