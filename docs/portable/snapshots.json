@@ -2,8 +2,8 @@
   "2026-09-01_h3_prompt_standard.html": {
     "artifact_url": "https://claude.ai/code/artifact/daa73be5-0bb7-4d02-8456-5dc107acea54",
     "frozen": "2026-09-01",
-    "refrozen": "replaced twice on the freeze date; the first freeze wrapped the I2VA Part One line mid-sentence so it failed on paste, the second predated four guide-stated rules the page was missing. Nothing had been shared from either.",
-    "sha256": "2e1464e6edb4c5f334660a0baf1ffffa594c3a6854a4074352d448a0b4a642bc",
-    "source_sha256": "b3d674de48b68bb45951148b24ec29ca6868dee6b760b1593de73f6201aa4995"
+    "refrozen": "replaced three times on the freeze date: a mid-sentence wrap in the I2VA Part One line, four missing guide-stated rules, and a rule that forbade the lyrics token pair that four shipped graphs emit. Nothing had been shared from any superseded copy.",
+    "sha256": "99480a09d3bf6582c92676606f97a04d0a75e55ace16824f73a616a81ec5e888",
+    "source_sha256": "cc1c8a8c7fd7771212f24a2b1fa999bed8d98519073fae291fc80dc650fcc3ea"
   }
 }

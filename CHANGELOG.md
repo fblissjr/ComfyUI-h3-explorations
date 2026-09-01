@@ -4,6 +4,28 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.16
+
+### Fixed
+
+- **Both portable artifacts forbade something this repo ships.** They said not
+  to use `<|lyrics_start|>` / `<|lyrics_end|>`, while four shipped graphs
+  (`h3_ref2v_scene_kitchen`, `h3_ref2v_scene_subway`, both forms) emit that
+  pair deliberately as marker arms -- they were the first graphs to carry a
+  marker other than `<d>`. Both now record the pair as OPEN, matching
+  `docs/prompting.md` §5.8: the `<d>` block is the only form the guides state
+  so default to it, the pair is emitted on purpose in marker experiments, and
+  nothing has been rendered and judged either way. Neither a licence nor a ban.
+- The artifact was republished and the dated snapshot re-frozen a third time,
+  with `snapshots.json` and the snapshot's own banner recording why.
+
+### Notes
+
+- Found by checking a peer's absolution rather than accepting it. The peer
+  reported the proposed wording as the only defect and the shipped files as
+  clean; the shipped files carried it too, in both artifacts. A second reader
+  being wrong in your favour is still a claim to verify.
+
 ## 0.99.15
 
 ### Added

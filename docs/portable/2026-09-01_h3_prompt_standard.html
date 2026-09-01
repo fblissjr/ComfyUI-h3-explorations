@@ -143,12 +143,12 @@ a{color:var(--accent)}
   against its sources by <code>bench/check_prompt_docs_sync.py</code>; this copy is
   checked only for having stayed unmodified. Do not edit it, and do not cite it as
   current — read it as "this is what we said on 2026-09-01".
-  <br><br><strong>Re-frozen twice, both on the freeze date.</strong> The first freeze
+  <br><br><strong>Re-frozen three times, all on the freeze date.</strong> The first freeze
   hard-wrapped the I2VA example's Part One line mid-sentence, so pasting it produced a
   prompt that fails the grader. The second predated four guide-stated rules the page was
   missing: sung lines using the dialogue block, naming who a line is spoken to, the
   sanctioned phrasings for a line crossing a cut, and the exact-words rules for reused
-  audio. Nothing had been shared from either copy, so re-freezing falsified no record —
+  audio. The third corrected a rule that forbade what this repo ships: the page said not to reach for the lyrics token pair, while four shipped graphs emit it deliberately as marker arms. Nothing had been shared from any superseded copy, so re-freezing falsified no record —
   but a snapshot is only worth trusting if replacing one is stated rather than silent.
 </div>
 
@@ -271,7 +271,7 @@ non_diegetic_music: ...</pre>
     <p>ref-en states it outright: <em>"Write dialogue and lyrics as <code>&lt;d&gt;[Language] …&lt;/d&gt;</code>."</em> There is no separate lyrics tag in either guide, and a singer is a vocal source, so they take a stable ID like any speaker — two singing together take a compound <code>(S1,S2)</code>.</p>
     <pre><code>The busker with a cracked, unhurried baritone (S1) leans into the mic
 and sings: &lt;d&gt;[English] I left the light on down the hall.&lt;/d&gt;</code></pre>
-    <p><strong>Do not reach for <code>&lt;|lyrics_start|&gt;</code>.</strong> The release declares it and its closing pair, neither guide mentions them, and nothing here has established what they do.</p>
+    <p><strong>The <code>&lt;|lyrics_start|&gt;</code> pair is open, not banned.</strong> The release declares it and its closing pair; neither guide mentions them. The <code>&lt;d&gt;</code> block is the only form the guides state, so default to it — but the pair is emitted deliberately in marker experiments, and nothing has been rendered and judged either way. Do not read this as a prohibition, and do not read the token list as a licence.</p>
     <p>Singing never belongs in <code>overall_soundscape</code>, and singing a character can hear is diegetic — it goes in the description, never in <code>non_diegetic_music</code>.</p></div>
 
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>A line that crosses a cut, and one that runs out of video</h4>

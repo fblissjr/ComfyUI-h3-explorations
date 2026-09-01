@@ -176,8 +176,12 @@ lyrics as `<d>[Language] ...</d>`." There is no separate lyrics tag. [guide]
     The busker with a cracked, unhurried baritone (S1) leans into the mic and
     sings: <d>[English] I left the light on down the hall.</d>
 
-The release declares <|lyrics_start|> and <|lyrics_end|>. Neither guide mentions
-them and nothing here has established what they do. Do not use them. [house]
+The release declares <|lyrics_start|> and <|lyrics_end|>, and neither guide
+mentions them. Default to the `<d>` block, which is the only form the guides
+state, and do not introduce the pair on your own initiative. It is not
+forbidden -- shipped graphs here emit it deliberately as marker arms -- but
+using it is an experimental choice somebody makes on purpose, not part of
+writing an ordinary prompt, and nothing has been rendered and judged. [open]
 
 A singer is a vocal source, so they take a stable ID like any speaker. Two or
 more singing together take a compound ID: (S1,S2). [guide]
