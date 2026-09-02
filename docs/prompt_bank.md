@@ -23,7 +23,42 @@
 | [`t2va_fireworks_barge`](#t2va-fireworks-barge) | t2va | 260 | 10.833 | — | 249 | 2 | 2 | Spanish | Pedestal Down, Roll Counterclockwise | N/A | clean |
 | [`t2va_desert_crew`](#t2va-desert-crew) | t2va | 294 | 12.250 | — | 235 | 3 | 2 | English | Push In, Static Shot | N/A | clean |
 | [`t2va_cable_car`](#t2va-cable-car) | t2va | 328 | 13.667 | — | 197 | 2 | 1 | English | Truck Right, Static Shot | scored | clean |
+| [`t2va_appalachian_folk_cabin`](#t2va-appalachian-folk-cabin) | t2va | 345 | 14.375 | — | 295 | 3 | 1 | English | Push In, Tilt Up, Static Shot | N/A | clean |
+| [`t2va_arena_rock_video`](#t2va-arena-rock-video) | t2va | 345 | 14.375 | — | 288 | 3 | 1 | English | Push In, Tilt Down, Tracking Shot | N/A | clean |
+| [`t2va_cartoon_vaudeville`](#t2va-cartoon-vaudeville) | t2va | 345 | 14.375 | — | 267 | 2 | 1 | English | Pull Out, Pan Right, Static Shot | N/A | clean |
+| [`t2va_castle_rampart`](#t2va-castle-rampart) | t2va | 345 | 14.375 | — | 313 | 3 | 2 | English | Zoom Out, Pedestal Up, Static Shot | scored | clean |
+| [`t2va_cooking_show_meltdown`](#t2va-cooking-show-meltdown) | t2va | 345 | 14.375 | — | 300 | 3 | 1 | English | Zoom In, Push In, Static Shot | scored | clean |
+| [`t2va_courtroom_verdict`](#t2va-courtroom-verdict) | t2va | 345 | 14.375 | — | 285 | 3 | 2 | English | Push In, Truck Right, Static Shot | scored | clean |
+| [`t2va_cyber_hacker_den`](#t2va-cyber-hacker-den) | t2va | 345 | 14.375 | — | 292 | 3 | 1 | English | Push In, Truck Right, Static Shot | scored | clean |
+| [`t2va_cyberpunk_music_video`](#t2va-cyberpunk-music-video) | t2va | 345 | 14.375 | — | 255 | 3 | 1 | English | Push In, Arc Shot, Tracking Shot | scored | clean |
+| [`t2va_delta_blues_porch`](#t2va-delta-blues-porch) | t2va | 345 | 14.375 | — | 310 | 3 | 1 | English | Push In, Pull Out, Tilt Down, Static Shot | N/A | clean |
+| [`t2va_diner_breakup`](#t2va-diner-breakup) | t2va | 345 | 14.375 | — | 316 | 3 | 2 | English | Push In, Pull Out, Static Shot | scored | clean |
+| [`t2va_disco_roller_rink`](#t2va-disco-roller-rink) | t2va | 345 | 14.375 | — | 292 | 3 | 1 | English | Zoom In, Tracking Shot, Static Shot, Roll Counterclockwise | scored | clean |
+| [`t2va_french_new_wave_cafe`](#t2va-french-new-wave-cafe) | t2va | 345 | 14.375 | — | 304 | 3 | 2 | French | Pull Out, Pan Left, Static Shot | scored | clean |
+| [`t2va_frontier_standoff`](#t2va-frontier-standoff) | t2va | 345 | 14.375 | — | 309 | 3 | 2 | English | Zoom In, Tilt Down, Pedestal Down, Static Shot | scored | clean |
+| [`t2va_gladiator_arena_tunnel`](#t2va-gladiator-arena-tunnel) | t2va | 345 | 14.375 | — | 297 | 3 | 2 | Latin | Push In, Pedestal Down, Static Shot | scored | clean |
+| [`t2va_hiphop_rooftop_cypher`](#t2va-hiphop-rooftop-cypher) | t2va | 345 | 14.375 | — | 298 | 3 | 1 | English | Zoom In, Pull Out, Tracking Shot, Static Shot | N/A | clean |
+| [`t2va_kpop_dance_studio`](#t2va-kpop-dance-studio) | t2va | 345 | 14.375 | — | 275 | 3 | 1 | English, Korean | Push In, Pull Out, Pan Right, Static Shot | scored | clean |
+| [`t2va_kungfu_tea_house`](#t2va-kungfu-tea-house) | t2va | 345 | 14.375 | — | 274 | 3 | 2 | Chinese | Zoom In, Push In, Static Shot | scored | clean |
 | [`t2va_marching_band`](#t2va-marching-band) | t2va | 345 | 14.375 | — | 317 | 3 | 1 | English | Pull Out, Truck Left, Static Shot | N/A | clean |
+| [`t2va_medical_er_triage`](#t2va-medical-er-triage) | t2va | 345 | 14.375 | — | 284 | 3 | 2 | English | Push In, Tilt Down, Static Shot | scored | clean |
+| [`t2va_nature_doc_arctic`](#t2va-nature-doc-arctic) | t2va | 345 | 14.375 | — | 296 | 3 | 1 | English | Pan Right, Tilt Down, Tracking Shot, Static Shot | scored | clean |
+| [`t2va_newsroom_breaking`](#t2va-newsroom-breaking) | t2va | 345 | 14.375 | — | 291 | 3 | 2 | English | Push In, Truck Right, Static Shot | scored | clean |
+| [`t2va_opera_grand_stage`](#t2va-opera-grand-stage) | t2va | 345 | 14.375 | — | 281 | 3 | 1 | Italian | Zoom In, Pedestal Down, Static Shot | scored | clean |
+| [`t2va_orbital_airlock`](#t2va-orbital-airlock) | t2va | 345 | 14.375 | — | 311 | 3 | 2 | English | Push In, Truck Left, Roll Clockwise | scored | clean |
+| [`t2va_pirate_deck_mutiny`](#t2va-pirate-deck-mutiny) | t2va | 345 | 14.375 | — | 319 | 3 | 2 | English | Push In, Tilt Up, Static Shot, Shake Slightly | scored | clean |
+| [`t2va_police_interrogation`](#t2va-police-interrogation) | t2va | 345 | 14.375 | — | 312 | 3 | 2 | English | Push In, Pull Out, Truck Left, Static Shot | scored | clean |
+| [`t2va_punk_basement_gig`](#t2va-punk-basement-gig) | t2va | 345 | 14.375 | — | 282 | 3 | 1 | English | Push In, Tilt Up, Static Shot, Shake Slightly | N/A | clean |
+| [`t2va_samurai_bamboo_duel`](#t2va-samurai-bamboo-duel) | t2va | 345 | 14.375 | — | 289 | 3 | 2 | Japanese | Zoom In, Pedestal Down, Static Shot | scored | clean |
+| [`t2va_screwball_restaurant`](#t2va-screwball-restaurant) | t2va | 345 | 14.375 | — | 291 | 3 | 2 | English | Zoom In, Pan Left, Static Shot | scored | clean |
+| [`t2va_sitcom_kitchen`](#t2va-sitcom-kitchen) | t2va | 345 | 14.375 | — | 285 | 3 | 2 | English | Zoom In, Pan Left, Static Shot | scored | clean |
+| [`t2va_slapstick_moving_piano`](#t2va-slapstick-moving-piano) | t2va | 345 | 14.375 | — | 336 | 3 | 2 | English | Zoom In, Pedestal Down, Static Shot | scored | clean |
+| [`t2va_speakeasy_heist`](#t2va-speakeasy-heist) | t2va | 345 | 14.375 | — | 289 | 3 | 2 | English | Truck Right, Tilt Up, Static Shot | scored | clean |
+| [`t2va_steampunk_airship_bridge`](#t2va-steampunk-airship-bridge) | t2va | 345 | 14.375 | — | 300 | 3 | 2 | English | Push In, Static Shot, Roll Clockwise | scored | clean |
+| [`t2va_subway_chase`](#t2va-subway-chase) | t2va | 345 | 14.375 | — | 242 | 3 | 1 | English | Push In, Tracking Shot, Static Shot, Shake Strongly | scored | clean |
+| [`t2va_trench_ww1_messenger`](#t2va-trench-ww1-messenger) | t2va | 345 | 14.375 | — | 284 | 3 | 2 | English | Push In, Truck Right, Tracking Shot | scored | clean |
+| [`t2va_victorian_seance`](#t2va-victorian-seance) | t2va | 345 | 14.375 | — | 315 | 3 | 2 | English | Zoom In, Push In, Static Shot | scored | clean |
+| [`t2va_ww2_sub_sonar`](#t2va-ww2-sub-sonar) | t2va | 345 | 14.375 | — | 285 | 3 | 2 | English | Zoom In, Truck Right, Static Shot, Shake Strongly | scored | clean |
 | [`t2va_silent_film`](#t2va-silent-film) | t2va | 362 | 15.083 | — | 258 | 3 | 0 | — | Pan Left, Static Shot | scored | clean |
 | [`i2va_kettle`](#i2va-kettle) | i2va | 90 | 3.750 | — | 123 | 1 | 0 | — | Push In | N/A | clean |
 | [`i2va_tattoo`](#i2va-tattoo) | i2va | 124 | 5.167 | — | 131 | 1 | 1 | English | Arc Shot | scored | clean |
@@ -55,7 +90,7 @@
 | [`ref2va_five_label`](#ref2va-five-label) | ref2va | 345 | 14.375 | `h3_ref_image_video_audio_api` | 424 | 3 | 2 | English | Push In, Tracking Shot, Static Shot | scored | clean |
 | [`ref2va_video_swap`](#ref2va-video-swap) | ref2va | 362 | 15.083 | `h3_ref_video_swap_api` | 353 | 2 | 1 | English | Static Shot | N/A | clean |
 
-Counted over the prompts above: 42 prompts, 15 with `non_diegetic_music: N/A`. The vendor's eight filled-in music lines across both guides carry two `N/A`; the shipped corpus, per `prompt_catalogue.md`, leans far harder to `N/A` than that, and this bank was written against that lean rather than to it.
+Counted over the prompts above: 77 prompts, 21 with `non_diegetic_music: N/A`. The vendor's eight filled-in music lines across both guides carry two `N/A`; the shipped corpus, per `prompt_catalogue.md`, leans far harder to `N/A` than that, and this bank was written against that lean rather than to it.
 
 ## Coverage, derived
 
@@ -63,7 +98,7 @@ Counted over the prompts above: 42 prompts, 15 with `non_diegetic_music: N/A`. T
 
 | mode | prompts |
 |---|---|
-| t2va | 13 |
+| t2va | 48 |
 | i2va | 6 |
 | fl2va | 6 |
 | l2va | 6 |
@@ -90,7 +125,7 @@ Duration is frames / 24. The Part One line of a keyframe prompt carries it to tw
 | `294` | `t2va_desert_crew`, `ref2va_ballroom`, `ref2va_jacket_transfer` |
 | `311` | `i2va_night_market`, `fl2va_carousel` |
 | `328` | `t2va_cable_car`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy` |
-| `345` | `t2va_marching_band`, `l2va_laundromat`, `ref2va_five_label` |
+| `345` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `l2va_laundromat`, `ref2va_five_label` |
 | `362` | `t2va_silent_film`, `fl2va_drawbridge`, `ref2va_video_swap` |
 
 Not exercised: nothing -- every value above appears at least once.
@@ -101,26 +136,26 @@ Recognised from the prose forms this bank writes (`pushes in`, `holds a static s
 
 | value | prompts |
 |---|---|
-| `Zoom In` | `t2va_night_porter`, `fl2va_potter_wheel` |
-| `Zoom Out` | `t2va_noodle_bar`, `i2va_glassblower`, `l2va_kite_festival`, `ref2va_soundtrack_fully_copy` |
-| `Push In` | `t2va_clay_apiary`, `t2va_desert_crew`, `i2va_kettle`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
-| `Pull Out` | `t2va_rooftop_pov`, `t2va_marching_band`, `fl2va_balloon`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade` |
-| `Pan Left` | `t2va_silent_film`, `l2va_bus_depot` |
-| `Pan Right` | `fl2va_paper_train` |
-| `Truck Left` | `t2va_marching_band`, `i2va_vet_night`, `l2va_laundromat`, `ref2va_ballroom` |
-| `Truck Right` | `t2va_cable_car`, `fl2va_carousel`, `ref2va_radio_handover`, `ref2va_soundtrack_fully_copy` |
-| `Tilt Up` | `t2va_swimming_lesson`, `fl2va_carousel`, `ref2va_observatory` |
-| `Tilt Down` | `t2va_box_office`, `l2va_chess_clock` |
-| `Pedestal Up` | `i2va_cargo_bay` |
-| `Pedestal Down` | `t2va_fireworks_barge`, `fl2va_drawbridge` |
-| `Arc Shot` | `i2va_tattoo`, `ref2va_ballroom`, `ref2va_observatory` |
-| `Tracking Shot` | `t2va_radio_drama`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_five_label` |
-| `Static Shot` | `t2va_post_office`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `t2va_silent_film`, `fl2va_origami_crane`, `l2va_telescope`, `l2va_kite_festival`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_jacket_transfer`, `ref2va_five_label`, `ref2va_video_swap` |
-| `Shake Slightly` | `i2va_night_market`, `ref2va_bouldering_regrade` |
-| `Shake Strongly` | `t2va_rooftop_pov` |
+| `Zoom In` | `t2va_night_porter`, `t2va_cooking_show_meltdown`, `t2va_disco_roller_rink`, `t2va_frontier_standoff`, `t2va_hiphop_rooftop_cypher`, `t2va_kungfu_tea_house`, `t2va_opera_grand_stage`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `fl2va_potter_wheel` |
+| `Zoom Out` | `t2va_noodle_bar`, `t2va_castle_rampart`, `i2va_glassblower`, `l2va_kite_festival`, `ref2va_soundtrack_fully_copy` |
+| `Push In` | `t2va_clay_apiary`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_gladiator_arena_tunnel`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `i2va_kettle`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
+| `Pull Out` | `t2va_rooftop_pov`, `t2va_cartoon_vaudeville`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_french_new_wave_cafe`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_police_interrogation`, `fl2va_balloon`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade` |
+| `Pan Left` | `t2va_french_new_wave_cafe`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_silent_film`, `l2va_bus_depot` |
+| `Pan Right` | `t2va_cartoon_vaudeville`, `t2va_kpop_dance_studio`, `t2va_nature_doc_arctic`, `fl2va_paper_train` |
+| `Truck Left` | `t2va_marching_band`, `t2va_orbital_airlock`, `t2va_police_interrogation`, `i2va_vet_night`, `l2va_laundromat`, `ref2va_ballroom` |
+| `Truck Right` | `t2va_cable_car`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_newsroom_breaking`, `t2va_speakeasy_heist`, `t2va_trench_ww1_messenger`, `t2va_ww2_sub_sonar`, `fl2va_carousel`, `ref2va_radio_handover`, `ref2va_soundtrack_fully_copy` |
+| `Tilt Up` | `t2va_swimming_lesson`, `t2va_appalachian_folk_cabin`, `t2va_pirate_deck_mutiny`, `t2va_punk_basement_gig`, `t2va_speakeasy_heist`, `fl2va_carousel`, `ref2va_observatory` |
+| `Tilt Down` | `t2va_box_office`, `t2va_arena_rock_video`, `t2va_delta_blues_porch`, `t2va_frontier_standoff`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `l2va_chess_clock` |
+| `Pedestal Up` | `t2va_castle_rampart`, `i2va_cargo_bay` |
+| `Pedestal Down` | `t2va_fireworks_barge`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_opera_grand_stage`, `t2va_samurai_bamboo_duel`, `t2va_slapstick_moving_piano`, `fl2va_drawbridge` |
+| `Arc Shot` | `t2va_cyberpunk_music_video`, `i2va_tattoo`, `ref2va_ballroom`, `ref2va_observatory` |
+| `Tracking Shot` | `t2va_radio_drama`, `t2va_arena_rock_video`, `t2va_cyberpunk_music_video`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_nature_doc_arctic`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_five_label` |
+| `Static Shot` | `t2va_post_office`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `fl2va_origami_crane`, `l2va_telescope`, `l2va_kite_festival`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_jacket_transfer`, `ref2va_five_label`, `ref2va_video_swap` |
+| `Shake Slightly` | `t2va_pirate_deck_mutiny`, `t2va_punk_basement_gig`, `i2va_night_market`, `ref2va_bouldering_regrade` |
+| `Shake Strongly` | `t2va_rooftop_pov`, `t2va_subway_chase`, `t2va_ww2_sub_sonar` |
 | `POV` | `t2va_rooftop_pov` |
-| `Roll Clockwise` | `ref2va_quarry_continuation` |
-| `Roll Counterclockwise` | `t2va_fireworks_barge` |
+| `Roll Clockwise` | `t2va_orbital_airlock`, `t2va_steampunk_airship_bridge`, `ref2va_quarry_continuation` |
+| `Roll Counterclockwise` | `t2va_fireworks_barge`, `t2va_disco_roller_rink` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -130,10 +165,10 @@ Medium amplitude and normal speed are written by omitting the phrase.
 
 | value | prompts |
 |---|---|
-| `with small amplitude` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
-| `with large amplitude` | `t2va_rooftop_pov`, `t2va_fireworks_barge`, `t2va_marching_band`, `fl2va_drawbridge`, `l2va_kite_festival`, `ref2va_quarry_continuation` |
-| `at slow speed` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
-| `at fast speed` | `t2va_rooftop_pov` |
+| `with small amplitude` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
+| `with large amplitude` | `t2va_rooftop_pov`, `t2va_fireworks_barge`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_subway_chase`, `fl2va_drawbridge`, `l2va_kite_festival`, `ref2va_quarry_continuation` |
+| `at slow speed` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
+| `at fast speed` | `t2va_rooftop_pov`, `t2va_arena_rock_video`, `t2va_cooking_show_meltdown`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_disco_roller_rink`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_pirate_deck_mutiny`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -141,11 +176,11 @@ Not exercised: nothing -- every value above appears at least once.
 
 | value | prompts |
 |---|---|
-| `the camera cuts to` | `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `fl2va_carousel`, `l2va_bus_depot`, `l2va_laundromat` |
-| `the shot cuts to` | `t2va_fireworks_barge`, `t2va_desert_crew`, `i2va_vet_night`, `i2va_glassblower`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
-| `the shot transitions to` | `t2va_rooftop_pov`, `l2va_kite_festival` |
-| `the shot changes to` | `t2va_silent_film`, `i2va_night_market` |
-| `the shot switches to` | `t2va_marching_band`, `t2va_silent_film` |
+| `the camera cuts to` | `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_castle_rampart`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_samurai_bamboo_duel`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `fl2va_carousel`, `l2va_bus_depot`, `l2va_laundromat` |
+| `the shot cuts to` | `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_gladiator_arena_tunnel`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_vet_night`, `i2va_glassblower`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
+| `the shot transitions to` | `t2va_rooftop_pov`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cooking_show_meltdown`, `t2va_french_new_wave_cafe`, `t2va_hiphop_rooftop_cypher`, `t2va_opera_grand_stage`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `l2va_kite_festival` |
+| `the shot changes to` | `t2va_cooking_show_meltdown`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_silent_film`, `i2va_night_market` |
+| `the shot switches to` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_frontier_standoff`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_punk_basement_gig`, `t2va_silent_film` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -157,7 +192,7 @@ Each of these is used only where the manifest brief records that the user asked 
 |---|---|
 | `cross-dissolve` | `l2va_kite_festival` |
 | `fade` | `t2va_box_office`, `t2va_silent_film`, `fl2va_balloon`, `ref2va_radio_handover`, `ref2va_bouldering_regrade` |
-| `wipe` | `i2va_tattoo` |
+| `wipe` | `t2va_french_new_wave_cafe`, `t2va_trench_ww1_messenger`, `i2va_tattoo` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -167,13 +202,13 @@ The guide says "common styles include", so the list is open; prompts using a sty
 
 | value | prompts |
 |---|---|
-| `Cinematic` | `t2va_noodle_bar`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_marching_band`, `i2va_kettle`, `i2va_vet_night`, `i2va_night_market`, `fl2va_origami_crane`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `ref2va_ballroom` |
-| `live-action` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_marching_band`, `i2va_kettle`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_origami_crane`, `fl2va_potter_wheel`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_telescope`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
-| `2D-animated` | `t2va_fireworks_barge`, `t2va_cable_car` |
+| `Cinematic` | `t2va_noodle_bar`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_castle_rampart`, `t2va_courtroom_verdict`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_samurai_bamboo_duel`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_vet_night`, `i2va_night_market`, `fl2va_origami_crane`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `ref2va_ballroom` |
+| `live-action` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_origami_crane`, `fl2va_potter_wheel`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_telescope`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
+| `2D-animated` | `t2va_fireworks_barge`, `t2va_cable_car`, `t2va_cartoon_vaudeville` |
 | `3D CG` | `i2va_cargo_bay` |
 | `claymation` | `t2va_clay_apiary` |
 | `watercolor` | `t2va_post_office`, `l2va_kite_festival` |
-| `vintage film` | `t2va_box_office`, `t2va_silent_film`, `fl2va_balloon` |
+| `vintage film` | `t2va_box_office`, `t2va_speakeasy_heist`, `t2va_silent_film`, `fl2va_balloon` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -183,11 +218,13 @@ Neither guide lists supported languages; the tag mechanism is GUIDE-stated and t
 
 | value | prompts |
 |---|---|
-| `Chinese` | `t2va_noodle_bar`, `i2va_night_market` |
-| `English` | `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `i2va_tattoo`, `i2va_vet_night`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
-| `French` | `t2va_swimming_lesson` |
-| `Italian` | `i2va_glassblower` |
-| `Japanese` | `ref2va_jacket_transfer` |
+| `Chinese` | `t2va_noodle_bar`, `t2va_kungfu_tea_house`, `i2va_night_market` |
+| `English` | `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_frontier_standoff`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
+| `French` | `t2va_swimming_lesson`, `t2va_french_new_wave_cafe` |
+| `Italian` | `t2va_opera_grand_stage`, `i2va_glassblower` |
+| `Japanese` | `t2va_samurai_bamboo_duel`, `ref2va_jacket_transfer` |
+| `Korean` | `t2va_kpop_dance_studio` |
+| `Latin` | `t2va_gladiator_arena_tunnel` |
 | `Portuguese` | `ref2va_continue_with_audio` |
 | `Russian` | `l2va_chess_clock` |
 | `Spanish` | `t2va_fireworks_barge` |
@@ -231,9 +268,9 @@ Not exercised: nothing -- every value above appears at least once.
 
 | value | prompts |
 |---|---|
-| `<d>` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_marching_band`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
-| `<|lyrics_start|>` | `t2va_marching_band` |
-| `<|lyrics_end|>` | `t2va_marching_band` |
+| `<d>` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
+| `<|lyrics_start|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig` |
+| `<|lyrics_end|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig` |
 | `<|caption_start|>` | `t2va_radio_drama` |
 | `<|caption_end|>` | `t2va_radio_drama` |
 | `<|cutoff|>` | `t2va_cable_car` |
@@ -245,15 +282,15 @@ Not exercised: nothing -- every value above appears at least once.
 | shape | prompts |
 |---|---|
 | no speaker | `t2va_post_office`, `t2va_silent_film`, `i2va_kettle`, `i2va_cargo_bay`, `fl2va_origami_crane`, `fl2va_paper_train`, `fl2va_balloon`, `fl2va_drawbridge`, `l2va_telescope`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_soundtrack_fully_copy` |
-| one speaker | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_cable_car`, `t2va_marching_band`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_kite_festival`, `l2va_rescue_hut`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_jacket_transfer`, `ref2va_video_swap` |
-| two speakers | `t2va_box_office`, `t2va_clay_apiary`, `t2va_fireworks_barge`, `t2va_desert_crew`, `i2va_night_market`, `l2va_chess_clock`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_five_label` |
+| one speaker | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cooking_show_meltdown`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_nature_doc_arctic`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_subway_chase`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_kite_festival`, `l2va_rescue_hut`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_jacket_transfer`, `ref2va_video_swap` |
+| two speakers | `t2va_box_office`, `t2va_clay_apiary`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_courtroom_verdict`, `t2va_diner_breakup`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_night_market`, `l2va_chess_clock`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_five_label` |
 | three or more speakers | `t2va_radio_drama` |
 | a compound id in unison | `t2va_clay_apiary` |
-| the exact voiceover phrase | `t2va_clay_apiary`, `l2va_laundromat` |
+| the exact voiceover phrase | `t2va_clay_apiary`, `t2va_nature_doc_arctic`, `l2va_laundromat` |
 | an off-screen speaker who is not a voiceover | `t2va_rooftop_pov` |
 | a `[unclear]` span in reused source words | `ref2va_soundtrack_fully_copy`, `ref2va_video_swap` |
 | a lyric cited via `<Audio N>` with no speaker id | `ref2va_soundtrack_fully_copy` |
-| on-screen text in double quotes | `t2va_noodle_bar`, `t2va_post_office`, `t2va_box_office`, `t2va_radio_drama`, `t2va_silent_film`, `i2va_cargo_bay`, `i2va_night_market`, `l2va_bus_depot` |
+| on-screen text in double quotes | `t2va_noodle_bar`, `t2va_post_office`, `t2va_box_office`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_cargo_bay`, `i2va_night_market`, `l2va_bus_depot` |
 | `overall_soundscape: N/A` (complete silence requested) | `t2va_silent_film` |
 
 ---
@@ -469,6 +506,329 @@ overall_soundscape: A steady rope hum runs through the cabin under the creak of 
 non_diegetic_music: A slow four-note synth arpeggio, joined by a low sustained pad that rises steadily in volume and is still rising at the final frame.
 ```
 
+## t2va_appalachian_folk_cabin
+
+**t2va, 345 frames, 14.375 s.** Appalachian folk cabin performance; 3 shots; diegetic clawhammer banjo and mountain fiddle so N/A; lyrics pair; on-screen text; silent banjoist; push in, tilt up, static shot.
+
+Derived: camera: Push In, Tilt Up, Static Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "FAITH AND HARVEST"; 295 words in the main field; 2167 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_appalachian_folk_cabin.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a rustic folk music documentary style captures an intimate mountain performance across the fourteen-second take, dried herbs and cast iron skillets hanging beside a stone fireplace with a carved mantel beam reading "FAITH AND HARVEST". A folk songstress in a homespun linen dress with auburn braids, on-screen, thirties, with a clear, lilting high soprano and a pure, unornamented delivery (S1), stands before the hearth holding a wooden acoustic violin. A banjo player in denim overalls sits in a rocking chair by the open window and produces no vocal sound. The banjo plucks a fast, intricate clawhammer folk progression with rolling thumb notes. The songstress (S1) rests the violin under her chin, draws the bow, and sings: <|lyrics_start|><d>[English] Cold mountain waters run down to the sea.</d><|lyrics_end|> Her lips close softly and her jaw rests as the fiddle note harmonizes with her voice. The camera pushes in with small amplitude at slow speed toward her face. [Shot 2] At 00:05.200, the camera cuts to a close shot of the songstress's fingers dancing across the violin fingerboard, dust motes drifting through the hearth glow. The songstress (S1) turns toward the open cabin doorway and sings the second mountain phrase: <|lyrics_start|><d>[English] Carry my longing back home to me.</d><|lyrics_end|> Her mouth closes gently into a serene smile as she draws the bow across two strings simultaneously. The camera tilts up with small amplitude at slow speed to her smiling eyes. [Shot 3] At 00:09.800, the shot switches to a wide shot framed through the open cabin window from outside on the grass, showing both musicians playing by the warm hearth light with the green mountain ridges rolling into the distance behind them. The camera holds a static shot as autumn leaves drift across the cabin sill.
+
+overall_soundscape: Fireplace pine logs pop and crackle softly in the hearth. A wooden rocking chair runners creak rhythmically on floorboards, horsehair bow scratches gently across rosin-dusted violin strings, and mountain wind sighs through timber eaves.
+
+non_diegetic_music: N/A
+```
+
+## t2va_arena_rock_video
+
+**t2va, 345 frames, 14.375 s.** 1980s arena rock music video; 3 shots; lead singer belting lyrics with lyrics pair; on-screen amplifier text; silent guitarist; tilt down, push in, tracking shot; diegetic so N/A.
+
+Derived: camera: Push In, Tilt Down, Tracking Shot; speakers: S1; languages: English; cuts: the shot transitions to, the shot switches to; on-screen text: "STAGE MASTER 100"; 288 words in the main field; 2135 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_arena_rock_video.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1980s arena rock music video style with heavy haze and vivid cyan-and-magenta backlighting captures an electrifying stage performance across the fourteen-second take. A lead vocalist in a studded denim vest and leather wristbands, on-screen, twenties, with a soaring, raspy rock tenor and an aggressive delivery (S1), stands at the edge of the stage runway gripping a chrome microphone stand before a drum riser flanked by amplifier stacks reading "STAGE MASTER 100" in bold white stencil. A lead guitarist in leather trousers wields a customized electric guitar at the stage left monitor and produces no vocal sound. The camera tilts down with small amplitude at slow speed from the crisscrossing overhead spotlights to frame the singer as he leans into the microphone and sings: <|lyrics_start|><d>[English] Lightning strikes across the wire tonight!</d><|lyrics_end|> His mouth snaps closed into a fierce grin and his jaw sets as sweat beads on his neck. [Shot 2] At 00:05.200, the shot switches to a low-angle medium shot looking up from the front row barrier as pyrotechnic spark fountains erupt in twin jets behind the drum riser. The singer (S1) drops to one knee on the metal grating, throws his head back into the falling sparks, and belts out: <|lyrics_start|><d>[English] Feel the stadium roar!</d><|lyrics_end|> His mouth closes tightly on the final consonant and his breathing heaves against his leather vest. The camera pushes in with small amplitude at fast speed toward his sunglasses. [Shot 3] At 00:10.000, the shot transitions to a wide tracking shot at fast speed tracing the edge of the stage as the singer leaps to his feet, spins the microphone stand in a wide circle, and pump-fists toward thousands of silhouettes cheering in the smoky arena bowl below.
+
+overall_soundscape: Pyrotechnic spark jets hiss sharply in synchronized blasts across the stage deck. Metal grating groans under stomping leather boots, heavy cables drag across plywood, and an off-screen arena audience roars and whistles in a cavernous stadium acoustic.
+
+non_diegetic_music: N/A
+```
+
+## t2va_cartoon_vaudeville
+
+**t2va, 345 frames, 14.375 s.** 1930s 2D-animated rubber-hose cartoon; 2 shots; vaudeville song and tap dance; diegetic ragtime piano so N/A; on-screen text; silent pianist; pan right, pull out, static shot.
+
+Derived: camera: Pull Out, Pan Right, Static Shot; speakers: S1; languages: English; cuts: the shot transitions to; on-screen text: "MIDNIGHT FOLLIES"; 267 words in the main field; 1983 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_cartoon_vaudeville.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] 2D-animated, a vintage 1930s black-and-white rubber-hose cartoon with hand-drawn cel jitter and soft vignetting stages a lively theatrical number across the fourteen-second take. A cheerful anthropomorphic hound in a striped blazer and straw boater hat, on-screen, with a buoyant, theatrical baritone and an elastic comic rhythm (S1), tap-dances across a wooden vaudeville stage beneath a painted banner reading "MIDNIGHT FOLLIES" in looping marquee script. A white-gloved cartoon alley cat pounds away vigorously at an upright piano at the stage wing, legs rubbery and ears bobbing to the tempo, and produces no vocal sound. The piano plays a brisk, jaunty ragtime melody with rolling left-hand octaves and syncopated treble runs. Tapping his cane against the floorboards, the hound (S1) tips his boater hat to the audience and sings: <|lyrics_start|><d>[English] Tip your boater high and let the music play!</d> He kicks his rubbery heels together, twirls his bamboo cane in a blur, and belts the second line: <d>[English] We dance until the midnight moon rolls away!</d><|lyrics_end|> His wide cartoon mouth snaps closed into a broad, toothy showman grin. The camera pans right with small amplitude at slow speed following his tap slide toward center stage. [Shot 2] At 00:07.000, the shot transitions to a wide shot from the orchestra pit looking up at the illuminated stage boards as the hound spins his bamboo cane around his index finger and tosses his boater hat straight up into the spotlight. The camera pulls out with small amplitude at slow speed to frame the glowing footlights, then holds a static shot as the hound drops into a theatrical splits bow.
+
+overall_soundscape: Wooden stage planks creak and clatter under rapid metal tap shoe taps. A cane swishes lightly through the air on the twirl, followed by a playful slide whistle rise and enthusiastic theater applause and laughter from the house.
+
+non_diegetic_music: N/A
+```
+
+## t2va_castle_rampart
+
+**t2va, 345 frames, 14.375 s.** Epic medieval fantasy; 3 shots; dawn battlements command dialogue; on-screen carved stone text; silent guardsman; pedestal up, zoom out, static shot; scored.
+
+Derived: camera: Zoom Out, Pedestal Up, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "HONOR AND VIGILANCE"; 313 words in the main field; 2456 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_castle_rampart.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, an epic medieval fortress defense unfolds atop rain-soaked stone battlements across the fourteen-second take, pre-dawn mist rising from forested mountain valleys below as iron torch braziers flicker against wet grey masonry. A warrior queen in blackened plate armor and a wolf-fur mantle, on-screen, thirties, with a clear, resonant contralto and an authoritative cadence (S1), stands at an embrasure looking out over the misty valley. A royal guardsman in an enameled sallet helmet stands beside an iron-banded doorway carved with an inscription reading "HONOR AND VIGILANCE" and produces no vocal sound. The queen (S1) turns toward a veteran archer captain standing at the parapet and commands: <d>[English] Light the beacon fires along the northern ridge.</d> Her lips close into a firm, resolute set and her hand settles onto the pommel of her longsword. The camera pedestals up with small amplitude at slow speed from the stone flagstones to the queen's silver-inlaid breastplate. [Shot 2] At 00:05.400, the camera cuts to a medium shot of the archer captain in a riveted chainmail coif, on-screen, forties, with a rough, gravelled baritone and an urgent delivery (S2), nocking an oil-soaked arrow to a yew longbow. The captain (S2) dips the arrowhead into a flaming brazier, looks back to the queen, and shouts: <d>[English] Northern pyre is primed and ready to ignite!</d> His mouth clamps shut and his jaw steadies as he draws the bowstring taut to his ear. The camera zooms out with small amplitude at slow speed to reveal archers lining the ramparts. [Shot 3] At 00:10.200, the shot cuts to an extreme wide shot from beyond the castle walls as the flaming arrow arcs high into the dark sky toward a towering timber beacon on the crag above, trailing orange sparks across the mist. The camera holds a static shot as the distant timber pyre bursts into a roaring golden blaze.
+
+overall_soundscape: Wind howls across high stone battlements under a wide open-mountain acoustic. Iron torch flames roar and snap rhythmically, chainmail links jingle with movement, and wet leather boots scrape against gritty flagstones as a bowstring releases with a sharp twang.
+
+non_diegetic_music: A sweeping epic orchestral brass theme at a slow tempo, featuring low French horn chords, pounding war drums on downbeats, and rising tremolo violins that swell as the beacon ignites before resolving.
+```
+
+## t2va_cooking_show_meltdown
+
+**t2va, 345 frames, 14.375 s.** Morning TV cooking show disaster; 3 shots; French chef comedic blender explosion; on-screen logo; silent co-host; push in, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Push In, Static Shot; speakers: S1; languages: English; cuts: the shot transitions to, the shot changes to; on-screen text: "MORNING BITES"; 300 words in the main field; 2391 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_cooking_show_meltdown.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a morning television studio demonstration kitchen captures a cooking catastrophe across the fourteen-second take, bright floodlights illuminating copper cookware beneath a hanging neon studio logo reading "MORNING BITES". An eccentric French celebrity chef in an oversized white toque and double-breasted chef coat, on-screen, fifties, with a loud, flamboyant tenor and an excitable cadence (S1), stands before an industrial blender filled with vibrant beetroot soup. A smiling television co-host in a pastel blazer stands beside the fruit basket and produces no vocal sound. The chef (S1) waves a wooden spoon toward the studio camera and declares: <d>[English] Now we blend the velvet potage at maximum velocity for absolute perfection!</d> His mouth closes into a proud theatrical grin and his mustache twitches with enthusiasm. The camera pushes in with small amplitude at slow speed toward the glass blender pitcher. [Shot 2] At 00:04.800, the shot transitions to a close shot of the chef pressing the pulse button as the blender lid flies off like a rocket, shooting a fountain of bright purple beetroot puree directly toward the ceiling. The chef (S1) clutches his cheeks in total horror, looks into the live broadcast camera lens, and gasps: <d>[English] Mon dieu, shut the power off before it covers the monitors!</d> His lips clamp together in mortified shock as purple droplets rain down across his white toque. The camera zooms in with small amplitude at fast speed on his wide-eyed terror. [Shot 3] At 00:09.600, the shot changes to a wide three-shot of the kitchen studio as purple puree drips from the ceiling lighting grid onto the marble counter, with the co-host laughing uncontrollably behind a dish towel while the chef frantically attempts to cover the spurting blender with a skillet. The camera holds a static shot as studio staff chuckle off-camera.
+
+overall_soundscape: A high-speed electric blender motor whirs and screeches, followed by a wet explosive pop as liquid erupts. Vegetable puree splatters heavily across marble counters, and studio production crew members break into muffled giggles and laughter.
+
+non_diegetic_music: A zany slapstick television comedy cue at a brisk tempo, featuring energetic pizzicato cellos, bouncy bassoons, slide whistle glissandos, and a triumphant comedic cymbal splash.
+```
+
+## t2va_courtroom_verdict
+
+**t2va, 345 frames, 14.375 s.** 1950s legal courtroom drama; 3 shots; intense cross-examination dialogue; on-screen carved seal text; silent judge; push in, static shot, truck right; scored.
+
+Derived: camera: Push In, Truck Right, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "JUSTICE UNDER LAW"; 285 words in the main field; 2304 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_courtroom_verdict.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a high-stakes 1950s black-and-white courtroom drama plays out across the fourteen-second take, stark sunlight cutting through tall Venetian blinds onto dark mahogany paneling and a carved oak seal reading "JUSTICE UNDER LAW" behind the elevated bench. A stern trial judge in black robes sits motionless with folded hands and produces no vocal sound. A relentless prosecuting attorney in a dark three-piece wool suit, on-screen, fifties, with a deep, resonant baritone and a precise, cutting delivery (S1), strides along the jury rail brandishing a gold pocket watch. Turning toward the witness stand, the prosecutor (S1) demands: <d>[English] Did you or did you not sign the transfer deed at midnight?</d> His lips clamp tightly shut and his jaw remains motionless as he pivots on his heel. The camera pushes in with small amplitude at slow speed toward the witness box. [Shot 2] At 00:05.000, the shot cuts to a close medium shot of the beleaguered defendant on the witness stand, on-screen, thirties, with a hoarse, trembling tenor and a defiant cadence (S2), gripping the polished brass railing until his knuckles pale. Leaning forward over the rail toward the prosecutor, the defendant (S2) retorts: <d>[English] That signature was forged before I even reached the docks.</d> His mouth seals firmly into a grimace and his breathing catches. The camera holds a static shot on his sweat-beaded brow. [Shot 3] At 00:09.800, the camera cuts to a high-angle shot looking down over the judicial bench across the well of the courtroom as the prosecutor sets the pocket watch down onto the defense table with a sharp tap. The camera trucks right with small amplitude at slow speed, framing the murmur among spectator benches behind the railing.
+
+overall_soundscape: Leather shoe soles squeak crisply against polished hardwood under cavernous high-ceiling room reverberation. The snap of a gold pocket watch lid closing resonates sharply, followed by an intake of breath from the gallery and the muffled shifting of wooden spectator benches.
+
+non_diegetic_music: A brooding orchestral string motif at a slow tempo, driven by a low sustained cello pedal note and quiet tremolo violins that rise in pitch until cutting off on the final strike.
+```
+
+## t2va_cyber_hacker_den
+
+**t2va, 345 frames, 14.375 s.** Y2K cyber-thriller; 3 shots; hacker breach command dialogue; on-screen stenciled text; silent collaborator; truck right, push in, static shot; scored.
+
+Derived: camera: Push In, Truck Right, Static Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "MAINFRAME NULL", "TRACE INITIATED: 30 SECONDS"; 292 words in the main field; 2368 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_cyber_hacker_den.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a Y2K cyber-thriller aesthetic captures an industrial server lair across the fourteen-second take, towering rack-mount server blades humming with blue LEDs beneath a spray-painted sign reading "MAINFRAME NULL". A renegade hacker in a black hooded cyber-vest and fingerless gloves, on-screen, twenties, with a quiet, razor-sharp contralto and a rapid cadence (S1), clatters across a mechanical keyboard with green code scrolling across dual CRT monitors. A silent collaborator in wireframe spectacles monitors network packet switches beside a rack of bypass modems and produces no vocal sound. The hacker (S1) keeps her eyes locked on the scrolling shell scripts and murmurs: <d>[English] Firewall perimeter breached. Accessing root directory now.</d> Her lips press shut into a focused line and her fingers accelerate across the keycaps. The camera trucks right with small amplitude at slow speed along the server faceplates. [Shot 2] At 00:05.200, the shot cuts to an extreme close shot of the CRT monitor screen as a red security warning window flashes with text reading "TRACE INITIATED: 30 SECONDS". The hacker, on-screen, twenties, with a sudden tense inflection in her clear voice (S1), turns to her partner and warns: <d>[English] Corporate security traced the proxy. Kill the primary power relay!</d> Her mouth clamps shut and her teeth grit as she grabs an external hard drive. The camera pushes in with small amplitude at fast speed toward the blinking red screen prompt. [Shot 3] At 00:09.800, the camera cuts to a wide shot of the server room as the main circuit breaker slams down, killing all warehouse floodlights in a shower of electrical sparks and leaving only pulsing cyan LEDs glowing along the rack cabinets in the dark. The camera holds a static shot as the cooling fans wind down into silence.
+
+overall_soundscape: High-speed mechanical keyboard switches clatter rhythmically under the heavy white noise drone of server rack cooling fans. High-voltage transformers hum, an emergency computer alarm beeps twice, and a heavy electrical breaker thuds shut.
+
+non_diegetic_music: A dark electronic industrial breakbeat track at a fast tempo, powered by a distorted 909 kick pattern, frantic sixteenth-note drum breaks, and dirty acid synth bass squelches that cut sharply when the power drops.
+```
+
+## t2va_cyberpunk_music_video
+
+**t2va, 345 frames, 14.375 s.** Cyberpunk music video; 3 shots; diegetic singing with lyrics pair; on-screen text; silent keyboardist; arc shot, push in, tracking shot; scored.
+
+Derived: camera: Push In, Arc Shot, Tracking Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "NEON DREAMS"; 255 words in the main field; 2123 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_cyberpunk_music_video.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a stylized cyberpunk music video opens on a rain-slicked neon alleyway across the fourteen-second take, towering cyan holographic billboards reflecting in deep puddles. A synth-pop vocalist in a reflective chromatic vinyl jacket, on-screen, twenties, with a clear, resonant tenor and an energetic delivery (S1), stands under a flickering magenta neon sign reading "NEON DREAMS" holding a glowing microphone. A synth player in a hooded dark techwear jacket stands beside a modular keyboard rack in a doorway alcove and produces no vocal sound. The camera performs an arc shot at slow speed around the singer as he lifts the microphone and sings: <|lyrics_start|><d>[English] We chase the electric current through the rain.</d><|lyrics_end|> His lips close and his jaw settles into a steady expression as light glints off his chromatic sleeve. [Shot 2] At 00:05.500, the camera cuts to a medium close shot of the vocalist from a low angle, rain droplets cascading through the magenta backlighting. The singer (S1) steps forward, meets the camera lens, and sings the soaring second line: <|lyrics_start|><d>[English] And leave the burning skyline far behind.</d><|lyrics_end|> He closes his mouth firmly as the vocal note sustains, his breath misting in the cold air. The camera pushes in with small amplitude at slow speed toward his face. [Shot 3] At 00:10.000, the shot switches to a wide tracking shot at fast speed following the singer as he strides down the alley past chrome steam vents, water splashing beneath his heavy boots while the neon signs blur into brilliant streaks behind him.
+
+overall_soundscape: Rain patters continuously against concrete walls and splashes under rubber boot soles. Steam hisses in rhythmic bursts from an alley grate, while distant elevated train wheels screech softly on wet steel tracks.
+
+non_diegetic_music: An upbeat electronic synthesizer groove at a fast tempo, driven by a punchy four-on-the-floor kick drum, sixteenth-note analog bassline, and bright detuned sawtooth chord stabs that peak before the final bar.
+```
+
+## t2va_delta_blues_porch
+
+**t2va, 345 frames, 14.375 s.** 1930s Mississippi Delta blues; 3 shots; acoustic resonator guitar diegetic so N/A; on-screen text; silent pea-sheller; push in, tilt down, pull out, static shot.
+
+Derived: camera: Push In, Pull Out, Tilt Down, Static Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "CLARKSVILLE 5 MILES"; 310 words in the main field; 2163 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_delta_blues_porch.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, sepia-toned vintage aesthetic with warm afternoon sunbeams captures a musical performance on a weathered cabin porch across the fourteen-second take. A blues singer-guitarist in a rumpled linen shirt and suspenders, on-screen, fifties, with a deep, raspy baritone and a melancholic slide vibrato (S1), sits on an overturned wooden crate picking a battered steel resonator guitar with a brass thumb pick. An elderly woman in a floral print apron shells field peas into an enameled bowl on the porch steps beside a rusted tin sign reading "CLARKSVILLE 5 MILES" and produces no vocal sound. The resonator guitar plays a slow, rhythmic 12-bar delta blues riff with driving bass-note thumps. The singer (S1) leans over the sound hole and sings: <|lyrics_start|><d>[English] Early in the morning when the whistle blows.</d><|lyrics_end|> His lips close firmly into a weathered pout as the metal slide rings against brass strings. The camera pushes in with small amplitude at slow speed toward his strumming fingers. [Shot 2] At 00:05.400, the camera cuts to a medium close shot of the bluesman's face under the shade of a frayed straw hat, sweat tracing the deep lines of his cheek. The singer (S1) tilts his head back toward the open sky and sings out: <|lyrics_start|><d>[English] Lord I got the highway on my mind.</d><|lyrics_end|> He closes his mouth tightly as the chord hums out and his foot taps the hollow porch floor. The camera tilts down with small amplitude at slow speed to the heel of his dusty work boot. [Shot 3] At 00:10.000, the shot switches to a wide profile shot framing the whole porch against the golden sunset as dust settles over the dirt lane. The camera pulls out with small amplitude at slow speed to capture the solitary cabin under the spreading willow boughs, then holds a static shot as evening crickets begin to chirp.
+
+overall_soundscape: Dry breeze rustles through willow leaves and dry grass under an open-country acoustic. A boot heel thumps steadily against hollow wooden porch planks, and peas ping softly against an enameled tin basin.
+
+non_diegetic_music: N/A
+```
+
+## t2va_diner_breakup
+
+**t2va, 345 frames, 14.375 s.** 1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored.
+
+Derived: camera: Push In, Pull Out, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "BLUE STAR DINER"; 316 words in the main field; 2417 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_diner_breakup.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a 1950s roadside diner illuminated by blue-and-ruby neon glow captures a quiet personal moment across the fourteen-second take, steady rain streaming down the exterior window beside a vintage diner menu reading "BLUE STAR DINER". A young greaser in a cuffed denim jacket with slicked-back pompadour hair, on-screen, twenties, with a vulnerable, gravelly tenor and a hesitant delivery (S1), sits across from his sweetheart staring down into a cup of black coffee. A weary short-order cook in a paper soda jerk hat flips burger patties on the griddle in the background and produces no vocal sound. The young man (S1) pushes an unlit matchbook across the formica table, looks up, and confesses: <d>[English] I took the mechanic job in Chicago. Bus leaves the depot at midnight.</d> His lips close tightly and his jaw clenches as he awaits her reaction. The camera pushes in with small amplitude at slow speed toward his hands. [Shot 2] At 00:05.200, the shot cuts to a close medium shot of the young woman in a pastel cardigan and silver hairpin, on-screen, twenties, with a soft, heartbroken contralto and a quiet, level delivery (S2), holding a ceramic mug with both hands. The young woman (S2) raises her gaze to meet his, tears welling in her eyes, and murmurs: <d>[English] You always looked for a reason to leave this valley behind.</d> Her mouth closes into a sorrowful line and she swallows gently as a single tear rolls down her cheek. The camera holds a static shot on her wistful expression. [Shot 3] At 00:09.800, the camera cuts to a wide exterior shot looking in through the rain-spattered diner window, framing the two lovers seated opposite each other in the glowing booth as neon light shimmers in street puddles outside. The camera pulls out with small amplitude at slow speed, then holds a static shot as rain streaks the plate glass.
+
+overall_soundscape: Steady rain taps and patters against plate glass windows under a warm indoor restaurant room tone. A commercial diner griddle spatters softly with sizzling grease, ceramic coffee mugs clink against formica, and chrome napkin dispensers rattle slightly.
+
+non_diegetic_music: A bittersweet, nostalgic slow dance melody at a slow tempo, featuring a warm hollow-body electric jazz guitar, lush upright bass accompaniment, and a muted vibraphone that gently decrescendos to silence.
+```
+
+## t2va_disco_roller_rink
+
+**t2va, 345 frames, 14.375 s.** 1970s roller disco music video; 3 shots; lead singer on quad skates belting lyrics with lyrics pair; on-screen text; silent DJ; tracking shot, zoom in, roll counterclockwise, static shot; scored.
+
+Derived: camera: Zoom In, Tracking Shot, Static Shot, Roll Counterclockwise; speakers: S1; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "DISCO ROLLERLAND"; 292 words in the main field; 2364 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_disco_roller_rink.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1970s vintage roller disco aesthetic with warm tungsten spill and motorized mirror ball reflections captures an energetic dance performance across the fourteen-second take beneath an illuminated neon sign reading "DISCO ROLLERLAND". A charismatic female disco lead singer in a gold lamé jumpsuit and quad roller skates, on-screen, twenties, with a soaring, velvet-rich mezzo-soprano and a buoyant delivery (S1), glides backward in rhythmic figure-eights holding a chrome stick microphone. A male DJ in oversized aviator glasses adjusts slipmats at an elevated turntable booth in the background and produces no vocal sound. The camera tracks alongside the singer executing a tracking shot at fast speed as she belts: <|lyrics_start|><d>[English] Spin me round the floor until the morning light!</d><|lyrics_end|> Her lips close into a dazzling smile and her jaw rests as she catches her balance on the glide. [Shot 2] At 00:05.200, the shot cuts to a low-angle medium shot looking up from the hardwood floor as the singer spins on one skate toe, gold lamé fabric catching the kaleidoscopic mirror ball beams. Facing the camera lens with sparkling eye shadow, the singer (S1) belts the soaring second phrase: <|lyrics_start|><d>[English] Feel the groove take flight!</d><|lyrics_end|> Her mouth closes firmly on the sustained note and her breathing steadies as she drops into a low backward roll. The camera zooms in with small amplitude at fast speed on her face. [Shot 3] At 00:09.800, the camera cuts to an expansive overhead shot looking down from the rink ceiling rafters as the singer glides into the center of a swirling spiral of roller skaters in satin jackets circling beneath the giant mirror ball. The camera rolls counterclockwise with small amplitude at slow speed, then holds a static shot framing the spinning kaleidoscope of color.
+
+overall_soundscape: Polyurethane roller skate wheels hum and hiss smoothly over polished maple floorboards. Mirror ball motor whirs faintly overhead, punctuated by rhythmic handclaps and roller rink crowd cheers.
+
+non_diegetic_music: An infectious 1970s disco funk arrangement at a fast tempo, driven by a punchy four-on-the-floor kick, sixteenth-note open hi-hat sizzles, slap bass octaves, and soaring orchestral string sweeps that peak before concluding.
+```
+
+## t2va_french_new_wave_cafe
+
+**t2va, 345 frames, 14.375 s.** 1960s French New Wave cinema; 3 shots; Left Bank philosophical banter in French; on-screen facade sign; silent waiter; pan left, static shot, pull out; scored.
+
+Derived: camera: Pull Out, Pan Left, Static Shot; speakers: S1, S2; languages: French; cuts: the camera cuts to, the shot transitions to; on-screen text: "CAFÉ DE FLORE"; 304 words in the main field; 2319 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_french_new_wave_cafe.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1960s French New Wave black-and-white aesthetic captures a Parisian sidewalk café across the fourteen-second take, fallen plane tree leaves scattering along wet cobblestones beside an enameled facade sign reading "CAFÉ DE FLORE". A bohemian writer in a dark wool turtleneck and round tortoiseshell glasses, on-screen, twenties, with a dry, philosophical baritone and an unhurried cadence (S1), sits at a tiny round marble table smoking an unfiltered cigarette. A waiter in a long white apron wipes an adjacent zinc table with a damp cloth and produces no vocal sound. The writer (S1) taps his cigarette ash onto a porcelain saucer, looks across the table at his companion, and remarks: <d>[French] Le cinéma n'est pas un miroir, c'est une preuve de notre existence.</d> His lips settle closed into a pensive expression as smoke curls past his temple. The camera pans left with small amplitude at slow speed from the street view to the table. [Shot 2] At 00:05.400, the shot transitions to a medium close-up of a young Parisian woman in a trench coat and silk headscarf, on-screen, twenties, with a melodic, playful mezzo-soprano and a witty delivery (S2), leaning her chin on her palm over an espresso cup. The woman (S2) raises one eyebrow, smiles faintly, and retorts: <d>[French] Tu parles toujours de cinéma quand tu as peur de m'aimer.</d> Her mouth closes into an ironic, charming pout as she takes a delicate sip of black coffee. The camera holds a static shot on her radiant gaze. [Shot 3] At 00:10.000, the camera cuts to a wide profile shot of the couple seated at the sidewalk table as an old Citroën DS glides past in the foreground, reflecting the grey Seine sky. The camera pulls out with small amplitude at slow speed as pedestrians with umbrellas walk past the cafe terrace.
+
+overall_soundscape: Rain tires hiss smoothly across wet Parisian cobblestones under an open street acoustic. Ceramic espresso cups clatter against small saucers, an unfiltered cigarette sizzles softly, and cafe terrace chairs scrape gently over damp stone.
+
+non_diegetic_music: A breezy French New Wave jazz waltz at a slow tempo, led by a melancholic solo accordion, brushed snare brush work, and a playful walking acoustic bassline that strolls along with the scene.
+```
+
+## t2va_frontier_standoff
+
+**t2va, 345 frames, 14.375 s.** 1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored.
+
+Derived: camera: Zoom In, Tilt Down, Pedestal Down, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "BADGER SALOON"; 309 words in the main field; 2340 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_frontier_standoff.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a widescreen western showdown unfolds on a sun-baked frontier street across the fourteen-second take, blinding midday light casting razor-sharp shadows across bleached wooden boardwalks. A silver-bearded town marshal in a canvas duster with a brass star pinned to his lapel, on-screen, fifties, with a deep, weather-beaten bass and a slow, steady drawl (S1), stands in the dirt road outside a saloon with a painted sign reading "BADGER SALOON" above the swing doors. An undertaker in a black frock coat leans against a hitching post at the boardwalk edge and produces no vocal sound. The marshal (S1) rests his right palm above his holstered revolver, looks down the thoroughfare toward a rival gunslinger, and announces: <d>[English] Put your horse in the livery and walk away clean.</d> His lips press into a hard line and his beard settles motionless. The camera pedestals down with small amplitude at slow speed to the level of his gun belt. [Shot 2] At 00:05.400, the shot switches to a medium shot of the rival outlaw in a sun-bleached hat, on-screen, thirties, with a raspy, taunting tenor and a dry delivery (S2), spurs resting in the red dust. The outlaw (S2) hooks one thumb into his cartridge belt, faces the marshal, and replies: <d>[English] This town is too small for both our saddles, lawman.</d> His mouth closes into a sardonic grin while his fingers hover over his bone-handled pistol. The camera zooms in with small amplitude at slow speed toward his squinting eyes. [Shot 3] At 00:10.200, the camera cuts to an extreme wide profile framing both men sixty paces apart under a vast desert sky as a whirlwind of red dust sweeps between them. The camera tilts down with small amplitude at slow speed to capture the desolate expanse, then holds a static shot as heat waves shimmer along the horizon.
+
+overall_soundscape: Dry desert gusts whistle across hard-packed earth under an expansive open-air acoustic. A wooden saloon sign squeaks persistently on iron eyebolts, a horse snorts in the distance, and brass spur rowels tinkle faintly as the outlaw shifts his boots.
+
+non_diegetic_music: Sparse acoustic guitar notes plucked at a slow tempo, joined by a lonely tremolo harmonica line and a subtle sustained cello drone that ceases before the final frame.
+```
+
+## t2va_gladiator_arena_tunnel
+
+**t2va, 345 frames, 14.375 s.** Ancient Roman gladiator epic; 3 shots; veteran and rookie Latin dialogue; on-screen pillar inscription; silent guard; pedestal down, push in, static shot; scored.
+
+Derived: camera: Push In, Pedestal Down, Static Shot; speakers: S1, S2; languages: Latin; cuts: the camera cuts to, the shot cuts to; on-screen text: "PORTA LIBITINENSIS"; 297 words in the main field; 2336 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_gladiator_arena_tunnel.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a Roman historical epic unfolds in a subterranean stone corridor beneath the Colosseum across the fourteen-second take, dust falling through iron grate ceilings above an inscribed marble pillar reading "PORTA LIBITINENSIS". A scarred veteran gladiator in boiled leather harness and bronze greaves, on-screen, thirties, with a deep, rumbling baritone and a fierce cadence (S1), straps a curved thraex shield to his forearm. A lanista guard in a red tunic stands beside an iron winch lever and produces no vocal sound. The veteran gladiator (S1) grips the pommel of his short gladius sword, turns to a rookie fighter, and growls: <d>[Latin] Memento, solum qui non timet mortem hic vivit.</d> His mouth sets into a hard, battle-ready snarl and his jaw steadies as he tests the balance of his blade. The camera pedestals down with small amplitude at slow speed along his bronze armor. [Shot 2] At 00:05.400, the shot cuts to a medium shot of the nervous young rookie gladiator in a plain tunic, on-screen, late teens, with a breathless, hoarse tenor and a defiant delivery (S2), tightening the leather straps of a heavy bronze helmet. The rookie (S2) looks up through the visor slit toward the arena ceiling and vows: <d>[Latin] Hodie gloriam et libertatem accipiam.</d> His lips close tightly behind the grilled helmet visor and his chest rises with a heavy breath. The camera pushes in with small amplitude at slow speed toward the helmet visor. [Shot 3] At 00:10.000, the camera cuts to a wide shot from inside the tunnel looking toward the rising iron portcullis gate as blinding midday sunlight floods the tunnel floor and eighty thousand spectators roar from the arena bowl above. The camera holds a static shot as both gladiators stride forward into the golden sand arena.
+
+overall_soundscape: Iron chains clank and groan as an arena portcullis gate hoists upward under a cavernous subterranean stone acoustic. Bronze armor plates clatter against leather straps, sand crunches under hobnailed sandals, and a massive arena crowd roars and stomps overhead.
+
+non_diegetic_music: A thunderous ancient epic orchestral anthem at a slow tempo, driven by deep bronze horn calls, rhythmic war drum beats, and rising modal choir chants that culminate on the tunnel threshold.
+```
+
+## t2va_hiphop_rooftop_cypher
+
+**t2va, 345 frames, 14.375 s.** 1990s East Coast hip-hop music video; 3 shots; boombox diegetic beat so N/A; lyrics pair; on-screen text; silent beatmaker; tracking shot, zoom in, pull out, static shot.
+
+Derived: camera: Zoom In, Pull Out, Tracking Shot, Static Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot transitions to; on-screen text: "SECTION 8 ROOFTOP"; 298 words in the main field; 2137 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_hiphop_rooftop_cypher.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1990s 35mm music video aesthetic with rich film grain and golden-hour sunset light frames a Brooklyn rooftop cipher across the fourteen-second take, water towers and clotheslines framing the skyline beside a painted sign reading "SECTION 8 ROOFTOP". An MC in an oversized yellow windbreaker and backward wool cap, on-screen, twenties, with a gritty, resonant baritone and a crisp, rhythmic cadence (S1), steps to the edge of the parapet gesturing with rhythmic hand chops. A beatmaker in baggy carpenter denim nods his head beside a portable boombox resting on an overturned milk crate and produces no vocal sound. The boombox plays a dusty, boom-bap drum loop with a crackling upright bassline. The MC (S1) looks into the lens and delivers: <|lyrics_start|><d>[English] Concrete jungles grow beneath the streetlights glow.</d><|lyrics_end|> His lips close tight and his head bobs to the snare hit. The camera executes a tracking shot at slow speed along the rooftop parapet. [Shot 2] At 00:05.400, the camera cuts to a low-angle medium shot from below the parapet, the setting sun creating an orange halo behind the MC's cap. The MC (S1) points down toward the avenues below, leans into frame, and rhymes the second bar: <|lyrics_start|><d>[English] We keep the rhythm moving everywhere we go.</d><|lyrics_end|> His mouth seals firmly on the last word and his jaw steadies as he gestures with two fingers. The camera zooms in with small amplitude at slow speed on his eyes. [Shot 3] At 00:10.000, the shot transitions to a wide panoramic shot showing the whole rooftop crew gathered by the water tower as pigeons scatter into the evening sky over the city bridges. The camera pulls out with small amplitude at slow speed, then holds a static shot as city lights begin to blink on across the horizon.
+
+overall_soundscape: Evening city wind whips across asphalt roof gravel under an expansive urban acoustic. Distant police sirens wail softly in street canyons below, pigeons flutter their wings taking flight, and rubber sneakers scuff across tar paper.
+
+non_diegetic_music: N/A
+```
+
+## t2va_kpop_dance_studio
+
+**t2va, 345 frames, 14.375 s.** Modern K-pop music video; 3 shots; Korean and English lyrics with lyrics pair; on-screen text; silent backup dancer; pan right, push in, pull out, static shot; scored.
+
+Derived: camera: Push In, Pull Out, Pan Right, Static Shot; speakers: S1; languages: English, Korean; cuts: the camera cuts to, the shot switches to; on-screen text: "STUDIO ZERO"; 275 words in the main field; 2277 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_kpop_dance_studio.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a sleek cinematic modern music video in a minimalist rehearsal studio bathed in crisp ice-blue rim lighting unfolds across the fourteen-second take, back-wall mirrors reflecting synchronized movement beneath an illuminated wall graphic reading "STUDIO ZERO". A K-pop lead vocalist in a monochrome cropped street-dance jacket, on-screen, twenties, with a bright, crystalline soprano and an energetic rhythm (S1), executes a sharp isolation dance routine before a centered standing microphone. A backup dancer in dark cargo joggers holds a frozen freeze pose at the mirrored corner and produces no vocal sound. The camera pans right with small amplitude at fast speed across the dance line as the singer steps forward and sings: <|lyrics_start|><d>[Korean] 심장이 뛰는 소리를 들어봐.</d><|lyrics_end|> Her lips seal into a sharp, poised pout and her head snaps to the camera angle. [Shot 2] At 00:05.000, the shot switches to a tight medium close shot of the vocalist from a low perspective, vertical LED light bars strobing in white and violet behind her. The singer (S1) performs a crisp hand-tutting combination, smiles into the lens, and delivers the punchy hook: <|lyrics_start|><d>[English] Never stop the beat, light up the night!</d><|lyrics_end|> Her mouth firmly closes on the final syllable and her jaw locks into a confident posture. The camera pushes in with small amplitude at fast speed toward her eyes. [Shot 3] At 00:09.800, the camera cuts to a wide center-stage shot framing the singer dropping into a synchronized floor spin alongside four silhouette dancers against the glowing back wall. The camera pulls out with small amplitude at slow speed, then holds a static shot as the performers freeze in a sharp final silhouette formation.
+
+overall_soundscape: Clean sneaker soles squeak crisply against polished polyurethane flooring during sudden dance pivots. Fabric swishes sharply on arm movements, followed by controlled panting breaths and the click of light bar relays.
+
+non_diegetic_music: A high-octane electronic K-pop dance track at a fast tempo, powered by hard-hitting trap 808 sub-bass, snappy synth claps, arpeggiated supersaw chords, and aggressive vocal stutter chops that end on an abrupt downbeat.
+```
+
+## t2va_kungfu_tea_house
+
+**t2va, 345 frames, 14.375 s.** 1970s martial arts cinema; 3 shots; Shaolin master and assassin Chinese dialogue; on-screen calligraphy; silent apprentice; push in, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Push In, Static Shot; speakers: S1, S2; languages: Chinese; cuts: the camera cuts to, the shot switches to; on-screen text: "DRAGON WELL TEA HOUSE"; 274 words in the main field; 2230 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_kungfu_tea_house.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1970s martial arts cinema aesthetic captures a bustling two-story wooden tea house across the fourteen-second take, lanterns hanging from cedar rafters beneath a painted gold calligraphy signboard reading "DRAGON WELL TEA HOUSE". A traveling Shaolin martial arts master in an unadorned saffron robe and cloth wraps, on-screen, fifties, with a calm, resonant bass and a measured delivery (S1), calmly pours hot tea into a ceramic cup at a central table. A young tea house apprentice in a white apron scrubs an adjacent table and produces no vocal sound. The master (S1) sets his cup down without looking up and observes: <d>[Chinese] 既然各位已经亮了兵刃，就请现身吧。</d> His mouth closes into a peaceful, centered line and his breathing remains completely steady. The camera pushes in with small amplitude at slow speed toward his steady hand. [Shot 2] At 00:05.000, the camera cuts to the second-floor wooden balcony as three masked assassins in midnight-blue tunics draw twin broadswords over the railing. The lead assassin, on-screen, thirties, with a harsh, mocking tenor and a menacing delivery (S2), points his sword blade downward and sneers: <d>[Chinese] 少林寺的余孽，今日就是你的死期！</d> His lips snap tightly together and his stance sinks into a low crouch. The camera zooms in with small amplitude at fast speed on his glinting sword steel. [Shot 3] At 00:09.600, the shot switches to a wide three-shot from the tea house floor as the assassins leap from the balcony with swords slashing through paper lanterns while the master rises in one fluid motion, deflecting the first blade with his wooden tea tray in an explosion of splinters. The camera holds a static shot as the duelists clash in mid-air.
+
+overall_soundscape: Boiling water bubbles inside heavy clay tea kettles under an airy wooden hall acoustic. Porcelain teacups clink against polished pine, steel swords slide smoothly from leather scabbards, and wooden floorboards creak under leaping footwork.
+
+non_diegetic_music: Traditional 1970s martial arts cinematic percussion at a fast tempo, featuring rapid wooden clapper rhythms, dramatic Chinese gong crashes, and sharp Peking opera drum accents that strike on each movement.
+```
+
 ## t2va_marching_band
 
 **t2va, 345 frames, 14.375 s.** The band is DIEGETIC music described in the body, so N/A; HOUSE marker under test: the lyrics pair wrapping two sung <d> blocks; the shot switches to; truck left, pull out, static shot.
@@ -486,6 +846,348 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot 
 overall_soundscape: Boots strike the road in unison under a wide open-air reverb, with the crowd cheering, clapping and whistling along both kerbs. Flags snap in a light wind, a mace ferrule taps the tarmac on the count, and cross-belt buckles jingle with every step.
 
 non_diegetic_music: N/A
+```
+
+## t2va_medical_er_triage
+
+**t2va, 345 frames, 14.375 s.** Hospital ER procedural; 3 shots; trauma surgeon and triage nurse urgent dialogue; on-screen sign; silent therapist; push in, tilt down, static shot; scored.
+
+Derived: camera: Push In, Tilt Down, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "TRAUMA ROOM 1"; 284 words in the main field; 2311 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_medical_er_triage.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a television medical drama style with high-key cool fluorescent lighting captures a hospital emergency ward across the fourteen-second take, heart rate monitors flashing green traces beneath an illuminated door sign reading "TRAUMA ROOM 1". A chief trauma surgeon in blood-splattered blue scrubs and latex gloves, on-screen, forties, with a sharp, commanding alto and a rapid-fire delivery (S1), leans over an incoming gurney holding a manual defibrillator paddle. A respiratory therapist in purple scrubs ventilates a patient with an ambu-bag and produces no vocal sound. The surgeon (S1) turns toward the attending triage nurse and shouts: <d>[English] Push one milligram of epinephrine and prep the central line!</d> Her lips snap tightly together and her jaw hardens as she reaches for the suction tube. The camera pushes in with large amplitude at fast speed toward the surgical table. [Shot 2] At 00:04.800, the camera cuts to a medium close shot of the triage nurse in surgical scrubs, on-screen, thirties, with a calm, focused tenor and a brisk delivery (S2), drawing medication into a clear syringe from a glass ampoule. The nurse (S2) confirms the dose to the surgeon: <d>[English] Epinephrine is in. Blood pressure is stabilizing at eighty over sixty.</d> His mouth seals firmly shut and his eyes remain fixed on the syringe markings. The camera tilts down with small amplitude at slow speed to his steady hands. [Shot 3] At 00:09.600, the shot switches to a wide three-shot from the trauma bay threshold as the medical team works in fluid coordination around the gurney while double doors swing open behind them admitting an ultrasound cart. The camera holds a static shot as the monitor flatline pulse converts into a steady rhythmic beep.
+
+overall_soundscape: Electronic cardiac monitor displays beep in high-frequency rhythms under a sterile indoor room tone. Rubber sneaker soles squeak on linoleum flooring, latex gloves snap, stainless steel instrument trays clatter, and pneumatic air valves hiss softly.
+
+non_diegetic_music: A driving electronic procedural pulse at a fast tempo, featuring a sixteenth-note analog synth bassline, subtle digital ticking arpeggios, and low sub-bass sweeps that drop in volume as the patient stabilizes.
+```
+
+## t2va_nature_doc_arctic
+
+**t2va, 345 frames, 14.375 s.** Arctic wildlife documentary; 3 shots; biologist dialogue and off-screen voiceover with lips closed; on-screen marker; silent camerawoman; pan right, tracking shot, tilt down, static shot; scored.
+
+Derived: camera: Pan Right, Tilt Down, Tracking Shot, Static Shot; speakers: S1; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "BASE CAMP 79 NORTH"; 296 words in the main field; 2334 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_nature_doc_arctic.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 35mm naturalist documentary style captures an expansive frozen coastal fjord across the fourteen-second take, towering blue icebergs grounded in pack ice beside an expedition wooden marker reading "BASE CAMP 79 NORTH". A veteran arctic wildlife biologist in a heavy red parka with fur-trimmed hood, on-screen, fifties, with a warm, gravelly baritone and an observant cadence (S1), stands on an ice ridge observing through binoculars. An expedition camerawoman in snow goggles adjusts a telephoto lens on a wooden tripod and produces no vocal sound. The biologist (S1) lowers his binoculars, turns toward the camera, and says: <d>[English] The female polar bear has emerged onto the sea ice after six months in the winter den.</d> His mouth closes into a calm, reverent line as his breath billows white in the freezing sub-zero air. The camera pans right with small amplitude at slow speed along the pressure ridge. [Shot 2] At 00:05.200, the shot switches to a telephoto medium shot of a majestic adult polar bear with two playful cubs lumbering across the frozen snowpack, the cubs tumbling over blue ice mounds. The biologist (S1) says in an off-screen voiceover: <d>[English] Her cubs must learn to navigate the melting ice floes before the spring thaw arrives.</d> while his lips remain completely closed. The camera executes a tracking shot at slow speed following the mother bear as she pauses at a seal breathing hole. [Shot 3] At 00:10.000, the camera cuts to an extreme wide cinematic high-angle shot capturing the endless white wilderness of the polar ice sheet stretching toward jagged black mountains under a pale gold midnight sun. The camera tilts down with small amplitude at slow speed, then holds a static shot as the three bears become small dark figures against the vast ice.
+
+overall_soundscape: Arctic wind gusts whistle over frozen sea ice under an immense, crystalline open polar acoustic. Dense snow crunches crisply beneath heavy paws, distant glacial ice cracks with a deep resonant boom, and breathing mists softly against parkas.
+
+non_diegetic_music: A sublime, expansive orchestral documentary score at a slow tempo, featuring warm French horns, sustained shimmering string pads, and a delicate harp arpeggio that breathes with the glacial vista.
+```
+
+## t2va_newsroom_breaking
+
+**t2va, 345 frames, 14.375 s.** 1980s TV newsroom drama; 3 shots; anchor and producer dialogue; on-screen neon text; silent camera technician; push in, truck right, static shot; scored.
+
+Derived: camera: Push In, Truck Right, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "ON AIR"; 291 words in the main field; 2348 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_newsroom_breaking.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1980s television broadcast aesthetic captures a newsroom studio bullpen across the fourteen-second take, teletype machines chattering under glowing red neon signs reading "ON AIR". A veteran evening news anchor in a padded grey suit and maroon silk tie, on-screen, fifties, with a deep, authoritative baritone and an urgent cadence (S1), sits at the curved anchor desk clutching a freshly torn teletype wire. A teleprompter technician in a headset kneels at the base of the pedestal studio camera and produces no vocal sound. The anchor (S1) looks into the camera with furrowed brows and announces: <d>[English] We interrupt this broadcast with breaking news from the offshore drilling platform.</d> His mouth seals into a grave, resolute line and his jaw sets as he repositions the dispatch paper under the desk lamp. The camera pushes in with small amplitude at slow speed toward his face. [Shot 2] At 00:05.200, the camera cuts to a medium shot of the control room producer behind the tinted glass gallery, on-screen, forties, with a sharp, clipped mezzo-soprano and a rapid delivery (S2), speaking into her talkback gooseneck microphone. The producer (S2) points at the monitor bank and directs: <d>[English] Roll satellite feed three and cue the coastal weather map.</d> Her lips snap firmly shut and her jaw steadies as she punches an illuminated video switcher button. The camera trucks right with small amplitude at slow speed along the control panel. [Shot 3] At 00:09.800, the shot switches to a wide studio wide shot as bank overhead studio floodlights power down to a dramatic deep blue wash while a giant rear-projection map of the coastline illuminates behind the anchor desk. The camera holds a static shot as the anchor points toward the glowing satellite display.
+
+overall_soundscape: Teletype printers clatter rhythmically against paper ribbon under an active indoor studio room tone. Control room headset switches click, paper dispatches rustle crisply, and a heavy pneumatic pedestal camera rolls across smooth studio linoleum.
+
+non_diegetic_music: A pulse-pounding 1980s television news theme at a fast tempo, driven by punchy synthetic brass fanfares, an analog sixteenth-note synth bass sequencer, and dramatic timpani strikes that punctuate each segment transition.
+```
+
+## t2va_opera_grand_stage
+
+**t2va, 345 frames, 14.375 s.** 19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Pedestal Down, Static Shot; speakers: S1; languages: Italian; cuts: the camera cuts to, the shot transitions to; on-screen text: "TEATRO REALE"; 281 words in the main field; 2339 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_opera_grand_stage.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, an opulent 19th-century opera house performance unfolds across the fourteen-second take, dramatic gaslight footlights casting long shadows across painted canvas castle backdrops. A dramatic soprano in an embroidered emerald velvet ballgown and pearl tiara, on-screen, forties, with a powerful, ringing operatic vibrato and a grand delivery (S1), stands at the proscenium arch gripping a satin handkerchief. A masked courtier in a brocade doublet stands motionless beside a gilded pedestal bearing a marble plaque reading "TEATRO REALE" and produces no vocal sound. The soprano (S1) clasps her hands to her bosom, looks toward the royal gallery, and sings: <|lyrics_start|><d>[Italian] Vissi d'arte, vissi d'amore per sempre.</d><|lyrics_end|> Her mouth settles into a soft, sorrowful closure and her chest lowers as the breath concludes. The camera pedestals down with small amplitude at slow speed from the gilded proscenium crown to her face. [Shot 2] At 00:05.600, the shot transitions to a medium shot of the soprano as she steps toward the footlights, her velvet train sweeping across the stage planks. Raising one gloved hand toward the darkened auditorium, the singer (S1) sustains a soaring high crescendo: <|lyrics_start|><d>[Italian] Non feci mai male ad anima viva!</d><|lyrics_end|> Her lips close gently as the vibrato decays into the acoustic space and her eyes fill with tears. The camera zooms in with small amplitude at slow speed toward her expression. [Shot 3] At 00:10.200, the camera cuts to a grand wide shot from the center aisle of the orchestra stalls looking up at the illuminated stage, showing the full proscenium and the darkened tiers of private box balconies. The camera holds a static shot as the heavy crimson velvet curtain begins to descend at both wings.
+
+overall_soundscape: Silk and velvet fabric rustles as the ballgown sweeps stage boards under a vast theatrical hall acoustic. The distant faint creak of counterweighted fly ropes carries overhead, followed by the soft gasps of spectators in the balconies.
+
+non_diegetic_music: An opulent classical opera orchestra accompaniment at a slow tempo, featuring lush tremolo violins, somber woodwind passages, and deep pizzicato cellos that crescendo in volume before fading to silence.
+```
+
+## t2va_orbital_airlock
+
+**t2va, 345 frames, 14.375 s.** Sci-fi TV cockpit drama; 3 shots; emergency airlock command dialogue; on-screen HUD text; silent crewmember; roll clockwise, truck left, push in; scored.
+
+Derived: camera: Push In, Truck Left, Roll Clockwise; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "VENT VALVE OPEN"; 311 words in the main field; 2570 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_orbital_airlock.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a tense hard science-fiction crisis unfolds inside a spacecraft control cabin across the fourteen-second take, curved titanium bulkheads bathed in pulsing amber alert strobes as Earth's blue curved horizon reflects in thick quartz viewports. A flight commander in a white pressurized flight suit with blue mission patches, on-screen, forties, with a firm, commanding alto and a clipped delivery (S1), stands over the primary flight console beneath a digital heads-up display reading "VENT VALVE OPEN" in flashing amber. An avionics specialist in a dark flight jumpsuit sits at the lateral monitoring station and produces no vocal sound. The commander (S1) grips a manual valve lever, turns toward the flight engineer, and orders: <d>[English] Manual override failed. Seal the secondary airlock bulkhead immediately.</d> Her lips snap closed and her jaw hardens as she drives the mechanical lever downward. The camera rolls clockwise with small amplitude at slow speed along the axis of the cabin corridor. [Shot 2] At 00:05.200, the shot cuts to a tight medium shot of the flight engineer in a lightweight headset, on-screen, thirties, with a high, strained tenor and a rapid cadence (S2), flipping guarded toggle switches along the overhead console. The engineer (S2) peers through his sweat-streaked visor toward the commander and responds: <d>[English] Secondary seals engaging. Pressure stabilizing in chamber four.</d> His mouth seals firmly shut and his shoulders drop slightly in relief as heavy pneumatic latches engage behind him. The camera trucks left with small amplitude at slow speed across the console. [Shot 3] At 00:09.800, the camera cuts to a wide view from the aft hatchway looking forward through the flight deck as heavy circular steel blast doors slide shut, cutting off the amber strobe light and locking with three solid green indicators. The camera pushes in with small amplitude at slow speed as the flight crew stabilizes the control thrusters.
+
+overall_soundscape: Pressurized atmosphere rushes through recessed air vents under a deep mechanical airframe vibration. Electronic alert tones ping in three-beat cycles, heavy steel hydraulic latches clamp shut with a resonant clank, and pressurized glove fabric crinkles with every switch movement.
+
+non_diegetic_music: A tense electronic synthesizer pulse at a fast tempo, powered by a sixteenth-note sequenced bassline, resonant low-pass filter sweeps, and sparse industrial metallic percussion that fades as the doors seal.
+```
+
+## t2va_pirate_deck_mutiny
+
+**t2va, 345 frames, 14.375 s.** 1700s pirate galleon mutiny; 3 shots; captain and mutineer armed standoff dialogue; on-screen bell text; silent helmsman; tilt up, push in, static shot with camera shake; scored.
+
+Derived: camera: Push In, Tilt Up, Static Shot, Shake Slightly; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "SEA HAWK 1718"; 319 words in the main field; 2430 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_pirate_deck_mutiny.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a high seas adventure unfolds on the stormy quarterdeck of a pirate galleon across the fourteen-second take, lightning illuminating tattered sails above a brass ship bell engraved with "SEA HAWK 1718". A defiant pirate captain in an embroidered tricorne hat and leather coat, on-screen, forties, with a thunderous, gravelly baritone and a ferocious cadence (S1), stands beside the helm wheel gripping a brass flintlock pistol. A silent helmsman in canvas trousers fights the bucking ship wheel and produces no vocal sound. The captain (S1) aims his pistol at the mutinous crew gathering at the main deck hatch and roars: <d>[English] Lay down your cutlasses or I blow the powder magazine to hell!</d> His mouth snaps shut into a fierce sneer and his jaw locks against the lashing rain. The camera tilts up with small amplitude at slow speed from the wet deck planks to his weathered face. [Shot 2] At 00:05.400, the shot cuts to a medium shot of the mutineer ringleader in a striped waistcoat and bandana, on-screen, thirties, with a raspy, snarling tenor and a mocking delivery (S2), drawing a gleaming steel cutlass from his belt. The mutineer (S2) spits onto the deck, gestures toward the crew, and retorts: <d>[English] The crew takes the gold and you take the long walk off the plank, captain!</d> His lips seal into an arrogant grin and his grip tightens on the brass cutlass basket. The camera pushes in with small amplitude at fast speed toward his flashing blade. [Shot 3] At 00:10.000, the camera cuts to a wide profile shot of the entire pitching deck as a massive sea wave crashes over the starboard bulwark in a torrent of white foam, sending barrels rolling across the deck while the captain and mutineer charge toward each other with drawn steel. The camera holds a static shot with the camera shaking slightly as seawater cascades across the timbers.
+
+overall_soundscape: Heavy ocean waves crash over oak bulwarks with a thunderous roar under an open-sea storm acoustic. Gale-force wind howls through rigging ropes, oak deck timbers groan under stress, and sea spray hisses across wet canvas sails.
+
+non_diegetic_music: Epic cinematic seafaring orchestral action music at a fast tempo, powered by crashing orchestral brass fanfares, pounding timpani and anvil strikes, and tempestuous swirling string runs that swell before cutting on the impact.
+```
+
+## t2va_police_interrogation
+
+**t2va, 345 frames, 14.375 s.** Police procedural drama; 3 shots; detective and suspect interrogation; on-screen plaque; silent observer; push in, static shot, truck left; scored.
+
+Derived: camera: Push In, Pull Out, Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "INTERVIEW ROOM B"; 312 words in the main field; 2408 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_police_interrogation.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a television crime drama unfolds inside an interrogation room across the fourteen-second take, a single bare industrial lamp casting harsh downward shadows onto a metal table beneath a wall placard reading "INTERVIEW ROOM B". A veteran homicide detective in an unbuttoned trench coat and loosened necktie, on-screen, fifties, with a husky, cigarette-burned baritone and a menacingly calm delivery (S1), leans both knuckles on the steel table. A junior detective in a grey suit stands with folded arms in the corner by the two-way mirror and produces no vocal sound. The veteran detective (S1) leans down toward a seated suspect and says: <d>[English] Your alibi placed you five miles from the docks, but your phone pinged the warehouse gate at two in the morning.</d> His lips press shut into a grim, unyielding line and his jaw locks as he drops a manila case file onto the table. The camera pushes in with small amplitude at slow speed toward his face. [Shot 2] At 00:05.200, the shot cuts to a tight medium shot of the handcuffed suspect in a stained flannel shirt, on-screen, thirties, with a raspy, trembling tenor and a cornered, defensive cadence (S2), slumping back against the metal chair. The suspect (S2) glares up at the detective and sneers: <d>[English] Anyone could have taken that phone out of my jacket.</d> His mouth seals into a defiant scowl and his jaw twitches with nervous anger. The camera holds a static shot on his sweat-glistening forehead. [Shot 3] At 00:09.800, the camera cuts to a profile two-shot framed through the reflection of the two-way observation mirror, showing the detective towering over the seated suspect while smoke curls from a cigarette burning in the tin ashtray. The camera trucks left with small amplitude at slow speed as the detective slowly pulls out a chair and sits down directly opposite the suspect.
+
+overall_soundscape: Low electrical hum from the overhead fluorescent tube buzzes under a close, unyielding room acoustic. Steel handcuffs clink against chair rungs, a heavy paper file folder thuds onto sheet metal, and shoes scrape across bare concrete.
+
+non_diegetic_music: A tense cinematic crime thriller underscore at a slow tempo, driven by a deep bowed bass drone, sparse eerie vibraphone notes, and a faint muted heartbeat pulse that fades to silence before the final second.
+```
+
+## t2va_punk_basement_gig
+
+**t2va, 345 frames, 14.375 s.** 1970s London underground punk gig; 3 shots; raw abrasive frontwoman vocals with lyrics pair; on-screen text; silent bassist; push in, camera shaking slightly, tilt up, static shot; diegetic so N/A.
+
+Derived: camera: Push In, Tilt Up, Static Shot, Shake Slightly; speakers: S1; languages: English; cuts: the shot cuts to, the shot switches to; on-screen text: "THE 100 CLUB"; 282 words in the main field; 2061 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_punk_basement_gig.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a gritty 16mm punk rock style captures a chaotic club basement performance across the fourteen-second take, peeling gig posters plastered across damp brick beneath a stenciled sign reading "THE 100 CLUB". A wild punk rock frontwoman in a torn leather motorcycle jacket covered in safety pins, on-screen, twenties, with a raw, abrasive contralto and a snarling cadence (S1), leans over the front of the stage spitting into a battered metal microphone. A mohawked bass guitarist in ripped tartan trousers pummels his bass guitar against an amplifier stack at stage right and produces no vocal sound. The camera pushes in with small amplitude at fast speed with the camera shaking slightly as the frontwoman (S1) screams: <|lyrics_start|><d>[English] Smash the clocks and burn the routine down!</d><|lyrics_end|> Her lips curl into a sneer and her teeth clamp shut as sweat flies from her hair. [Shot 2] At 00:05.000, the shot cuts to a low-angle close shot of her combat boots stomping the beer-soaked stage floor, microphone cable coiling around her ankles. The frontwoman (S1) drops to her knees on the beer-stained wood, grabs the microphone by its grille, and bellows: <|lyrics_start|><d>[English] No more promises today!</d><|lyrics_end|> Her mouth snaps closed into a grimace and her head thrashes forward. The camera tilts up with small amplitude at fast speed to her gasping face. [Shot 3] At 00:09.800, the shot switches to a wide view looking over the surging heads of the pogoing audience toward the low stage as the frontwoman throws the microphone stand onto the stage deck and leaps forward into the crowd. The camera holds a static shot as stage dust and cigarette haze swirl into the glare of the overhead bulb.
+
+overall_soundscape: Combat boots stomp violently on wet wooden floorboards under a dense, enclosed basement acoustic. Microphone metal clatters against concrete, feedback squeals momentarily, and off-screen crowd shouts and chants echo off brick walls.
+
+non_diegetic_music: N/A
+```
+
+## t2va_samurai_bamboo_duel
+
+**t2va, 345 frames, 14.375 s.** Feudal Japan 1600s samurai duel; 3 shots; Japanese dialogue confrontation; on-screen kanji marker; silent opponent in shot 1; pedestal down, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Pedestal Down, Static Shot; speakers: S1, S2; languages: Japanese; cuts: the camera cuts to, the shot cuts to; on-screen text: "SEKIGAHARA ROAD"; 289 words in the main field; 2319 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_samurai_bamboo_duel.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a traditional samurai period drama unfolds in a mist-shrouded bamboo grove across the fourteen-second take, dew dripping from emerald stalks onto mossy stones beside a weathered wooden trail marker reading "SEKIGAHARA ROAD" carved in kanji. A wandering rōnin in a threadbare grey kimono and straw waraji sandals, on-screen, forties, with a low, rasping baritone and an icy delivery (S1), stands with his hand resting on the corded hilt of a sheathed katana. A rival samurai in dark clan armor and a lacquered straw hat stands thirty paces away and produces no vocal sound. The rōnin (S1) raises his head, glares across the misty clearing, and warns: <d>[Japanese] この道を行くなら、剣を抜け。</d> His lips snap shut into a firm line and his eyes narrow under his dark eyebrows. The camera pedestals down with small amplitude at slow speed to his sheathed scabbard. [Shot 2] At 00:05.400, the shot cuts to an extreme close medium shot of the rival samurai's gloved fingers thumbing the circular iron tsuba of his katana, releasing the steel blade with a bright metallic click. The rival samurai, on-screen, thirties, with a sharp, piercing tenor and a venomous delivery (S2), steps into a fighting stance and sneers: <d>[Japanese] 我が刃はお前の首を望んでいる。</d> His mouth seals tight and his shoulders lock into a low stance. The camera zooms in with small amplitude at fast speed on the gleaming blade edge. [Shot 3] At 00:10.000, the camera cuts to a wide profile shot of both warriors as they sprint forward through the mist, their steel blades drawing in simultaneous flashes of silver light, shearing through three bamboo stalks that topple in the background. The camera holds a static shot as the duelists cross each other and freeze back-to-back with drawn swords.
+
+overall_soundscape: Morning mountain mist drips continuously from bamboo leaves onto damp earth under a quiet forest acoustic. A katana blade clicks cleanly out of its wooden saya, straw sandals crunch over wet gravel, and bamboo stalks creak in a sudden gust of wind.
+
+non_diegetic_music: A tense traditional Japanese cinematic score at a slow tempo, featuring sparse, resonant taiko drum strikes, a shivering shakuhachi flute melody, and an ominous low biwa strum that cuts abruptly on the blade cross.
+```
+
+## t2va_screwball_restaurant
+
+**t2va, 345 frames, 14.375 s.** 1930s screwball comedy; 3 shots; waiter and heiress dessert banter; on-screen plaque; silent sommelier; pan left, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Pan Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot transitions to, the shot changes to; on-screen text: "LE GRAND PALAIS"; 291 words in the main field; 2373 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_screwball_restaurant.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, vintage black-and-white screwball comedy with bright glamour lighting captures an opulent restaurant dining room across the fourteen-second take, crystal chandeliers sparkling above a bronze wall plaque reading "LE GRAND PALAIS". A pompous head waiter in a tails coat with a pencil-thin mustache, on-screen, forties, with a haughty, nasal tenor and an exasperated delivery (S1), balances an enormous silver tray laden with a flaming baked Alaska. A stoic sommelier in a black waistcoat stands beside an iced champagne bucket and produces no vocal sound. The head waiter (S1) glides toward a corner booth, turns to an unruly diner, and announces: <d>[English] Tonight's flaming confection, prepared especially for monsieur's distinguished anniversary.</d> His lips purse into a smug, priggish smile and his chin lifts haughtily. The camera pans left with small amplitude at slow speed following his gliding stride. [Shot 2] At 00:05.000, the shot transitions to a medium shot of an eccentric heiress in a feathered cloche hat, on-screen, twenties, with a bright, rapid contralto and a mischievous delivery (S2), playfully opening an enormous silk umbrella indoors. The heiress (S2) looks up at the towering flaming dessert and exclaims: <d>[English] Heavens, Pierre, did we order dessert or a volcanic eruption?</d> Her mouth closes into a merry, dimpled laugh and she twirls the umbrella handle. The camera zooms in with small amplitude at fast speed on her amused expression. [Shot 3] At 00:09.600, the shot changes to a wide view framing the dining area as the waiter's shoe catches the umbrella tip, sending the flaming silver tray somersaulting into an empty champagne fountain with a gigantic shower of harmless blue sparks. The camera holds a static shot as the waiter clutches his waistcoat in theatrical horror while patrons erupt into laughter.
+
+overall_soundscape: Silver cutlery clatters against porcelain plates under a lively high-ceiling restaurant reverberation. Champagne corks pop in the background, a dessert flame whooshes softly, and a dining room crowd giggles and gasps in amusement.
+
+non_diegetic_music: A whimsical, brisk orchestral comedy caper cue at a fast tempo, featuring fluttering piccolo flutes, jaunty pizzicato strings, and a comical xylophone slide that hits on the dessert splash.
+```
+
+## t2va_sitcom_kitchen
+
+**t2va, 345 frames, 14.375 s.** 1970s TV sitcom; 3 shots; comedic dialogue banter; on-screen text; silent pet; studio audience laughter in soundscape; pan left, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Pan Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot transitions to, the shot changes to; on-screen text: "SUNBEAM"; 285 words in the main field; 2205 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_sitcom_kitchen.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a 1970s television sitcom style with warm tungsten lighting and avocado green kitchen cabinetry captures a domestic mishap across the fourteen-second take. A flustered suburban father in a brown polyester knit vest, on-screen, forties, with a bright, excitable tenor and an urgent delivery (S1), grapples with an electric coffee percolator spurting brown foam across the counter beneath a wall clock reading "SUNBEAM" in black lettering. A golden retriever rests on the linoleum floor beside the kitchen table and produces no vocal sound. The father (S1) waves a kitchen towel toward the table and calls out: <d>[English] Grab the unplug cord before the whole counter floats away!</d> His mouth closes into an aghast round shape and his jaw tightens. The camera pans left with small amplitude at slow speed from the sink to the breakfast nook. [Shot 2] At 00:04.800, the shot transitions to a medium shot of his teenage daughter seated at the laminate table in denim bell-bottoms, on-screen, late teens, with a flat, dry contralto and a deadpan delivery (S2), calmly buttering a piece of toast. The daughter (S2) looks up over her horn-rimmed glasses toward her father and remarks: <d>[English] You said you wanted extra strong brew this morning.</d> Her lips press shut into a slight smirk and she takes a leisurely bite of toast. The camera zooms in with small amplitude at fast speed on her unbothered expression. [Shot 3] At 00:09.600, the shot changes to a wide view framing both father and daughter as the percolator lid pops loose with a puff of white steam, sending the father hopping backward onto one foot. The camera holds a static shot as coffee foam bubbles gently down the cabinet doors.
+
+overall_soundscape: Coffee liquid hisses and spatters rhythmically against hot metal, followed by the metallic pop of an aluminum lid bouncing. Studio audience laughter and chuckles swell across the room as linoleum squeaks under shuffling slippers.
+
+non_diegetic_music: A jaunty 1970s television sitcom cue at a brisk tempo, featuring funky clavinet chords, bouncy electric bass, and a sharp brass accent that punctuates the final comedic beat.
+```
+
+## t2va_slapstick_moving_piano
+
+**t2va, 345 frames, 14.375 s.** Classic slapstick comedy; 3 shots; moving men staircase piano disaster dialogue; on-screen street sign; silent bystander; pedestal down, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Pedestal Down, Static Shot; speakers: S1, S2; languages: English; cuts: the shot transitions to, the shot changes to; on-screen text: "HIGH STREET STAIRS"; 336 words in the main field; 2573 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_slapstick_moving_piano.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, a vintage slapstick comedy style captures an outdoor staircase mishap across the fourteen-second take, laundry flapping overhead beside a painted enamel street sign reading "HIGH STREET STAIRS". Two bumbling moving men in ill-fitting bowler hats and oversized work dungarees struggle to carry a massive upright wooden piano down the narrow steps. The lead mover at the lower end, on-screen, thirties, with a high, squeaky tenor and a panicked delivery (S1), strains under the crushing weight. A bystander walking a tiny poodle at the top landing pauses to watch and produces no vocal sound. The lead mover (S1) looks up the steps toward his partner and yelps: <d>[English] Hold the handbrake rope, Barnaby, it's slipping through my fingers!</d> His mouth flies open in theatrical terror, then snaps into an aghast round circle as his heels skid on the concrete. The camera pedestals down with small amplitude at slow speed following the groaning piano. [Shot 2] At 00:05.000, the shot transitions to a medium shot of his heavyset partner at the top of the stairs, on-screen, forties, with a deep, slow-witted baritone and a bewildered delivery (S2), holding a frayed hemp rope that suddenly snaps in two with a puff of dust. The partner (S2) stares at the broken rope end, looks down toward his partner, and mutters: <d>[English] Well, look on the bright side, it's much lighter now.</d> His lips close into a blank, deadpan expression and his bowler hat slips comically over his eyebrows. The camera zooms in with small amplitude at fast speed on his vacant expression. [Shot 3] At 00:09.600, the shot changes to a wide three-shot from the bottom of the long stairs as the upright piano careens uncontrollably down the concrete steps like a toboggan, striking all its internal strings with a cacophony of musical chords before crashing into an empty soft fruit cart at the curb in an explosion of flying oranges. The camera holds a static shot as both movers slide down the banister rails in pursuit.
+
+overall_soundscape: Heavy wooden piano casters rumble and bounce violently down concrete stairs under a reverberant outdoor alley acoustic. A thick hemp rope snaps with a sharp crack, piano keys and internal strings chime in chaotic dissonance, and crates of fresh oranges crash open.
+
+non_diegetic_music: An uproarious silent film ragtime piano score at a fast tempo, featuring lightning-fast stride piano bass, dizzying chromatic treble scales, and a comical trombone slide whistle that accents the piano crash.
+```
+
+## t2va_speakeasy_heist
+
+**t2va, 345 frames, 14.375 s.** 1920s vintage film noir; 3 shots; dramatic dialogue between boss and courier; on-screen text; silent bodyguard; truck right, static shot, tilt up; scored.
+
+Derived: camera: Truck Right, Tilt Up, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "PRIVATE OFFICE"; 289 words in the main field; 2162 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_speakeasy_heist.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, vintage film, a 1920s underground speakeasy backroom unfolds across the fourteen-second take, warm amber light falling from a green glass banker lamp onto a scarred mahogany desk. A syndicate boss in a charcoal pinstripe three-piece suit and fedora, on-screen, fifties, with a low, gravelled baritone and a measured delivery (S1), sits behind the desk with cigar smoke curling into the lamp light. A burly bodyguard in suspenders stands motionless beside a frosted glass door panel reading "PRIVATE OFFICE" and produces no vocal sound. The boss (S1) looks up at a courier standing before him and says: <d>[English] You were supposed to cross the county line before sunrise.</d> His lips settle closed and his jaw ceases movement as he taps cigar ash into a brass dish. The camera trucks right with small amplitude at slow speed along the edge of the desk. [Shot 2] At 00:05.200, the shot cuts to a medium close shot of the nervous young courier in a wet woolen trench coat, on-screen, late twenties, with a reedy, rapid tenor and an anxious delivery (S2), clutching a leather ledger against his chest. The courier (S2) leans forward toward the desk and answers: <d>[English] Federal agents blocked the river road at midnight.</d> His mouth closes into a tight line and his eyes dart toward the door. The camera holds a static shot on his tense expression. [Shot 3] At 00:09.800, the camera cuts to a low angle over the courier's shoulder looking up at the syndicate boss. The camera tilts up with small amplitude at slow speed as the boss leans forward into the golden lamp glow, resting his forearms on the desk blotter while the shadow of his fedora brim masks his eyes.
+
+overall_soundscape: Low room tone vibrates with the distant muffled thrum of a jazz band upstairs. A cigar sizzles faintly as ash drops into brass, heavy woolen fabric rustles, and leather creaks as the ledger is clutched tighter.
+
+non_diegetic_music: A melancholic muted trumpet melody at a slow tempo, supported by bowed double bass notes and sparse, brushed snare strokes that fade to silence before the final second.
+```
+
+## t2va_steampunk_airship_bridge
+
+**t2va, 345 frames, 14.375 s.** Steampunk airship bridge storm crisis; 3 shots; captain and first mate navigation command dialogue; on-screen helm plate; silent engineer; roll clockwise, push in, static shot; scored.
+
+Derived: camera: Push In, Static Shot, Roll Clockwise; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "HMS AETHERIA"; 300 words in the main field; 2453 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_steampunk_airship_bridge.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a Victorian steampunk aesthetic captures an airship navigation bridge across the fourteen-second take, lightning flashes illuminating swirling thunderclouds through panoramic curved glass windows beneath a brass helm plate reading "HMS AETHERIA". An airship captain in a brass-buttoned navy coat with a gilded epaulet and leather flight goggles, on-screen, forties, with a booming, resolute baritone and an urgent cadence (S1), grips the double-spoke mahogany steering wheel. An engineer in oil-stained leather overalls monitors an array of trembling steam pressure dials and produces no vocal sound. The captain (S1) spins the wheel against buffeting winds and bellows to his first mate: <d>[English] Vent the hydrogen cells and steer fifty degrees north into the wind vortex!</d> His lips snap shut into a grim, determined set and his jaw locks as brass gears click beneath the deck. The camera rolls clockwise with small amplitude at slow speed along the bridge axis. [Shot 2] At 00:05.400, the shot cuts to a medium shot of the intrepid first mate in a leather aviator jacket, on-screen, twenties, with a clear, sharp contralto and a decisive delivery (S2), hauling a heavy brass telegraph lever to full speed. The first mate (S2) shouts back above the howling gale: <d>[English] Steam pressure rising to maximum! Port turbines holding firm!</d> Her mouth clamps firmly shut and her goggles reflect the blinding flash of an adjacent lightning bolt. The camera pushes in with small amplitude at fast speed toward her steady hands. [Shot 3] At 00:10.000, the camera cuts to an exterior wide shot from above the airship as the massive rigid dirigible, its brass propellers spinning in glowing blue electrical coronas, breaks through the stormy cloud wall into clear, star-filled night skies. The camera holds a static shot as lightning flickers harmlessly in the storm banks below.
+
+overall_soundscape: Gale-force storm winds roar and buffet against riveted brass window frames under an enclosed airship bridge acoustic. Heavy brass telegraph gears clank loudly, steam whistles hiss from relief valves, and lightning cracks with thunderous resonance.
+
+non_diegetic_music: A thrilling orchestral adventure theme at a fast tempo, driven by soaring brass melodies, driving staccato strings, and bombastic snare rolls that resolve into a heroic fanfare as the ship emerges from the storm.
+```
+
+## t2va_subway_chase
+
+**t2va, 345 frames, 14.375 s.** Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored.
+
+Derived: camera: Push In, Tracking Shot, Static Shot, Shake Strongly; speakers: S1; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "DOWNTOWN PLATFORM"; 242 words in the main field; 2084 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_subway_chase.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a gritty subway action pursuit unfolds through an underground transit terminal across the fourteen-second take, flickering fluorescent tubes casting harsh shadows across glazed tile walls. A fleeing operative in a grey hooded windbreaker leaps over a metal turnstile beneath an illuminated sign reading "DOWNTOWN PLATFORM" and produces no vocal sound. An undercover agent in a scuffed black leather jacket, on-screen, thirties, with a gruff, breathless baritone and an urgent delivery (S1), sprints in relentless pursuit three paces behind. The camera executes a tracking shot at fast speed alongside the agent with the camera shaking strongly as turnstile arms spin wildly in the foreground. [Shot 2] At 00:05.000, the camera cuts to a medium close shot of the undercover agent rounding the tiled stairwell landing, his rubber sole skidding on the slick concrete. Touching his earpiece, the agent (S1) barks into his tactical comms: <d>[English] Suspect is heading down to the lower tracks!</d> His lips snap tightly shut and his jaw locks as he lunges down the concrete steps. The camera pushes in with large amplitude at fast speed toward his focused expression. [Shot 3] At 00:09.800, the shot cuts to a wide low-angle shot from the subway platform looking up the metal escalator, where yellow emergency warning strobes pulse against the soot-stained ceiling. The fleeing suspect drops onto the platform concrete with the agent diving after him into the open space as the camera holds a static shot.
+
+overall_soundscape: Rubber boot soles hammer against tiled stairs under the deep reverberating boom of subway tunnels. Metal turnstile gates click and rattle violently, accompanied by sharp gasps of heavy breathing and the distant metallic screech of approaching train wheels.
+
+non_diegetic_music: Relentless cinematic action percussion at a fast tempo, featuring rapid sixteenth-note taiko rhythms, gritty distorted synth bass pulses, and accelerating metal impacts that build in volume up to the final second.
+```
+
+## t2va_trench_ww1_messenger
+
+**t2va, 345 frames, 14.375 s.** 1917 WWI trench drama; 3 shots; runner and trench captain command dialogue; on-screen dugout sign; silent wounded rifleman; truck right, push in, tracking shot; scored.
+
+Derived: camera: Push In, Truck Right, Tracking Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "REDOUBT 4"; 284 words in the main field; 2287 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_trench_ww1_messenger.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a gritty historical battlefield drama unfolds inside a frontline trench dugout across the fourteen-second take, rain trickling down chalk walls beneath a tin sign reading "REDOUBT 4". A young British dispatch runner in a sodden wool tunic and Brodie helmet, on-screen, twenties, with a trembling, breathless tenor and an urgent delivery (S1), drops into the dugout clutching a sealed canvas dispatch pouch. A wounded rifleman with a bandaged arm sits on an ammunition crate against the wall and produces no vocal sound. The runner (S1) salutes a trench captain and gasps: <d>[English] Orders from division headquarters, sir. The artillery barrage begins at zero six hundred.</d> His lips seal tightly and he wipes wet clay from his jaw with a trembling fist. The camera trucks right with small amplitude at slow speed along the timber dugout wall. [Shot 2] At 00:05.200, the shot cuts to a medium shot of the weathered trench captain in a sheepskin trench coat, on-screen, forties, with a gravelled, weary baritone and an authoritative cadence (S2), unrolling a soggy topographic map across a wooden munitions crate. The captain (S2) studies the compass bearing, glances up at the runner, and replies: <d>[English] Tell them we hold the wire until the third wave crosses.</d> His mouth clamps shut and his teeth grind as distant artillery shakes mud from the timber roof beams. The camera pushes in with small amplitude at slow speed toward his hardened jaw. [Shot 3] At 00:09.800, the camera cuts to a low-angle tracking shot at fast speed tracing the runner as he scrambles back out into the trench corridor through pouring rain, splashing through boot-deep muddy puddles while soldiers fix bayonets along the trench firestep.
+
+overall_soundscape: Heavy rain splashes ceaselessly against tin roofs and muddy earth under a hollow, earth-walled trench acoustic. Deep artillery detonations boom and rumble in the distance, boot soles squelch through thick clay sludge, and rifle bolts cycle with oily metallic snaps.
+
+non_diegetic_music: A somber orchestral string adagio at a slow tempo, featuring a lonely solo cello melody supported by muted French horns and distant muffled snare drum rolls that fade before the end.
+```
+
+## t2va_victorian_seance
+
+**t2va, 345 frames, 14.375 s.** Victorian gothic horror; 3 shots; medium and widow supernatural séance dialogue; on-screen plaque; silent gentleman; push in, zoom in, static shot; scored.
+
+Derived: camera: Zoom In, Push In, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "MADAME VANE SPIRITUALIST"; 315 words in the main field; 2467 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_victorian_seance.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a dark Victorian gothic parlor draped in heavy damask unfolds across the fourteen-second take, gas chandeliers whistling softly above a round walnut table covered in green baize cloth beside a carved brass plaque reading "MADAME VANE SPIRITUALIST". A mysterious spiritualist medium in a black silk mourning gown and lace veil, on-screen, fifties, with a deep, hypnotic contralto and a slow, hushed cadence (S1), rests her fingertips on the walnut table around an antique wooden planchette. A skeptical gentleman in a tailored frock coat sits beside her clutching his gold pocket watch and produces no vocal sound. The medium (S1) closes her eyes, tilts her head back toward the ceiling, and intones: <d>[English] If a spirit walks this corridor, knock once on the timber.</d> Her lips close into a rigid trance-like set and her breathing slows to an imperceptible rhythm. The camera pushes in with small amplitude at slow speed toward her veiled brow. [Shot 2] At 00:05.400, the shot cuts to an overhead close shot of the green baize table as the wooden planchette suddenly twitches and slides smoothly across the polished wood, trailing thin white ectoplasmic frost along the varnish. A young widow in mourning black, on-screen, twenties, with a trembling, breathy soprano and an awestruck delivery (S2), clutches her pearl necklace, leans over the baize, and whispers: <d>[English] Edward, is that truly you?</d> Her lips part slightly, then seal tightly in trembling anticipation. The camera zooms in with small amplitude at slow speed on the planchette pointer. [Shot 3] At 00:10.000, the camera cuts to a wide shot of the whole parlor as a single heavy brass wall gas lamp extinguishes with a sharp hiss, plunging the room into cold moonlight pouring through the lace-curtained window while the green baize table lifts two inches off the rug. The camera holds a static shot as velvet curtains billow without wind.
+
+overall_soundscape: Victorian gas lamp jets hiss quietly under a heavy, suffocating parlor acoustic. An antique wooden planchette scrapes smoothly across polished walnut, lace fabric whispers, and an antique grandfather clock ticks heavily from a distant hall.
+
+non_diegetic_music: An eerie, dissonant gothic string underscore at a slow tempo, featuring microtonal cello glissandos, bowed glass harmonics, and chilling high violin tremolos that hang suspended without resolution.
+```
+
+## t2va_ww2_sub_sonar
+
+**t2va, 345 frames, 14.375 s.** WWII submarine drama; 3 shots; captain and sonar operator depth charge dialogue; on-screen bulkhead plate; silent crewman; truck right, zoom in, static shot with camera shake; scored.
+
+Derived: camera: Zoom In, Truck Right, Static Shot, Shake Strongly; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "COMPARTMENT 3"; 285 words in the main field; 2347 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode t2va --length 345 prompt_bank/t2va_ww2_sub_sonar.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a 1940s submarine drama unfolds inside a cramped control room running silent across the fourteen-second take, blood-red battle lamps casting deep shadows over pressure dials beneath a stenciled brass bulkhead plate reading "COMPARTMENT 3". A haggard submarine captain in a grease-stained khaki uniform, on-screen, forties, with a hushed, gravelled baritone and a tense whisper (S1), grips an overhead steel pipe. A young sonar operator wearing heavy bakelite headphones sits hunched over an illuminated green CRT sonar scope and produces no vocal sound. The captain (S1) leans over the sonar station and whispers: <d>[English] Any propeller cavitation on the starboard bearing?</d> His lips press shut into a grim, motionless line and his jaw clenches against the heavy silence. The camera trucks right with small amplitude at slow speed along the sweating steel pipes. [Shot 2] At 00:05.200, the shot cuts to an extreme close medium shot of the sonar operator's pale face as a high-pitched acoustic sonar ping echoes through his headphones. The sonar operator, on-screen, twenties, with a strained, trembling tenor and a terrified whisper (S2), turns his eyes toward the captain and breathes: <d>[English] Destroyer screws turning fast, sir. They just dropped charges.</d> His mouth seals tight and his eyes widen as distant underwater explosions rumble through the hull. The camera zooms in with small amplitude at slow speed on his sweating temple. [Shot 3] At 00:09.800, the camera cuts to a wide shot of the control room as the entire steel compartment violently shudders, rivets popping from overhead bulkheads with jets of pressurized steam while crewmen cling to valve wheels. The camera holds a static shot with the camera shaking strongly as water cascades down the steel deck plates.
+
+overall_soundscape: High-pitched active sonar pings pulse rhythmically under a hollow, pressurized steel hull acoustic. Distant muffled depth charges detonate with heavy underwater thuds, rivets ping off metal bulkheads, and steam hisses violently from ruptured valve joints.
+
+non_diegetic_music: A nail-biting suspense score at a slow tempo, featuring a low sub-bass drone, eerie waterphone scrapes, and a sparse, ticking metallic clock pulse that ceases before the final explosion.
 ```
 
 ## t2va_silent_film

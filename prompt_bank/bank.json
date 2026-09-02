@@ -93,6 +93,76 @@
    "brief": "The band is DIEGETIC music described in the body, so N/A; HOUSE marker under test: the lyrics pair wrapping two sung <d> blocks; the shot switches to; truck left, pull out, static shot."
   },
   {
+   "id": "t2va_cyberpunk_music_video",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Cyberpunk music video; 3 shots; diegetic singing with lyrics pair; on-screen text; silent keyboardist; arc shot, push in, tracking shot; scored."
+  },
+  {
+   "id": "t2va_speakeasy_heist",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1920s vintage film noir; 3 shots; dramatic dialogue between boss and courier; on-screen text; silent bodyguard; truck right, static shot, tilt up; scored."
+  },
+  {
+   "id": "t2va_sitcom_kitchen",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1970s TV sitcom; 3 shots; comedic dialogue banter; on-screen text; silent pet; studio audience laughter in soundscape; pan left, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_subway_chase",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored."
+  },
+  {
+   "id": "t2va_frontier_standoff",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored."
+  },
+  {
+   "id": "t2va_orbital_airlock",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Sci-fi TV cockpit drama; 3 shots; emergency airlock command dialogue; on-screen HUD text; silent crewmember; roll clockwise, truck left, push in; scored."
+  },
+  {
+   "id": "t2va_cartoon_vaudeville",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1930s 2D-animated rubber-hose cartoon; 2 shots; vaudeville song and tap dance; diegetic ragtime piano so N/A; on-screen text; silent pianist; pan right, pull out, static shot."
+  },
+  {
+   "id": "t2va_courtroom_verdict",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1950s legal courtroom drama; 3 shots; intense cross-examination dialogue; on-screen carved seal text; silent judge; push in, static shot, truck right; scored."
+  },
+  {
+   "id": "t2va_arena_rock_video",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1980s arena rock music video; 3 shots; lead singer belting lyrics with lyrics pair; on-screen amplifier text; silent guitarist; tilt down, push in, tracking shot; diegetic so N/A."
+  },
+  {
+   "id": "t2va_castle_rampart",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Epic medieval fantasy; 3 shots; dawn battlements command dialogue; on-screen carved stone text; silent guardsman; pedestal up, zoom out, static shot; scored."
+  },
+  {
    "id": "i2va_cargo_bay",
    "mode": "i2va",
    "frames": 192,
@@ -294,6 +364,181 @@
    "frames": 158,
    "donor": "h3_ref_video_continue_api",
    "brief": "[video continuation + audio reference]: resumes where the source ends and the new audio continues the original track's audible character without copying it; a [Portuguese] line; still inside the 350-500 budget because continuation is a generation task."
+  },
+  {
+   "id": "t2va_delta_blues_porch",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1930s Mississippi Delta blues; 3 shots; acoustic resonator guitar diegetic so N/A; on-screen text; silent pea-sheller; push in, tilt down, pull out, static shot."
+  },
+  {
+   "id": "t2va_disco_roller_rink",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1970s roller disco music video; 3 shots; lead singer on quad skates belting lyrics with lyrics pair; on-screen text; silent DJ; tracking shot, zoom in, roll counterclockwise, static shot; scored."
+  },
+  {
+   "id": "t2va_kpop_dance_studio",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Modern K-pop music video; 3 shots; Korean and English lyrics with lyrics pair; on-screen text; silent backup dancer; pan right, push in, pull out, static shot; scored."
+  },
+  {
+   "id": "t2va_opera_grand_stage",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_punk_basement_gig",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1970s London underground punk gig; 3 shots; raw abrasive frontwoman vocals with lyrics pair; on-screen text; silent bassist; push in, camera shaking slightly, tilt up, static shot; diegetic so N/A."
+  },
+  {
+   "id": "t2va_hiphop_rooftop_cypher",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1990s East Coast hip-hop music video; 3 shots; boombox diegetic beat so N/A; lyrics pair; on-screen text; silent beatmaker; tracking shot, zoom in, pull out, static shot."
+  },
+  {
+   "id": "t2va_appalachian_folk_cabin",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Appalachian folk cabin performance; 3 shots; diegetic clawhammer banjo and mountain fiddle so N/A; lyrics pair; on-screen text; silent banjoist; push in, tilt up, static shot."
+  },
+  {
+   "id": "t2va_samurai_bamboo_duel",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Feudal Japan 1600s samurai duel; 3 shots; Japanese dialogue confrontation; on-screen kanji marker; silent opponent in shot 1; pedestal down, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_trench_ww1_messenger",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1917 WWI trench drama; 3 shots; runner and trench captain command dialogue; on-screen dugout sign; silent wounded rifleman; truck right, push in, tracking shot; scored."
+  },
+  {
+   "id": "t2va_medical_er_triage",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Hospital ER procedural; 3 shots; trauma surgeon and triage nurse urgent dialogue; on-screen sign; silent therapist; push in, tilt down, static shot; scored."
+  },
+  {
+   "id": "t2va_police_interrogation",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Police procedural drama; 3 shots; detective and suspect interrogation; on-screen plaque; silent observer; push in, static shot, truck left; scored."
+  },
+  {
+   "id": "t2va_screwball_restaurant",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1930s screwball comedy; 3 shots; waiter and heiress dessert banter; on-screen plaque; silent sommelier; pan left, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_newsroom_breaking",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1980s TV newsroom drama; 3 shots; anchor and producer dialogue; on-screen neon text; silent camera technician; push in, truck right, static shot; scored."
+  },
+  {
+   "id": "t2va_victorian_seance",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Victorian gothic horror; 3 shots; medium and widow supernatural s\u00e9ance dialogue; on-screen plaque; silent gentleman; push in, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_diner_breakup",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored."
+  },
+  {
+   "id": "t2va_pirate_deck_mutiny",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1700s pirate galleon mutiny; 3 shots; captain and mutineer armed standoff dialogue; on-screen bell text; silent helmsman; tilt up, push in, static shot with camera shake; scored."
+  },
+  {
+   "id": "t2va_cooking_show_meltdown",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Morning TV cooking show disaster; 3 shots; French chef comedic blender explosion; on-screen logo; silent co-host; push in, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_ww2_sub_sonar",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "WWII submarine drama; 3 shots; captain and sonar operator depth charge dialogue; on-screen bulkhead plate; silent crewman; truck right, zoom in, static shot with camera shake; scored."
+  },
+  {
+   "id": "t2va_gladiator_arena_tunnel",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Ancient Roman gladiator epic; 3 shots; veteran and rookie Latin dialogue; on-screen pillar inscription; silent guard; pedestal down, push in, static shot; scored."
+  },
+  {
+   "id": "t2va_cyber_hacker_den",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Y2K cyber-thriller; 3 shots; hacker breach command dialogue; on-screen stenciled text; silent collaborator; truck right, push in, static shot; scored."
+  },
+  {
+   "id": "t2va_kungfu_tea_house",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1970s martial arts cinema; 3 shots; Shaolin master and assassin Chinese dialogue; on-screen calligraphy; silent apprentice; push in, zoom in, static shot; scored."
+  },
+  {
+   "id": "t2va_french_new_wave_cafe",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "1960s French New Wave cinema; 3 shots; Left Bank philosophical banter in French; on-screen facade sign; silent waiter; pan left, static shot, pull out; scored."
+  },
+  {
+   "id": "t2va_nature_doc_arctic",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Arctic wildlife documentary; 3 shots; biologist dialogue and off-screen voiceover with lips closed; on-screen marker; silent camerawoman; pan right, tracking shot, tilt down, static shot; scored."
+  },
+  {
+   "id": "t2va_steampunk_airship_bridge",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Steampunk airship bridge storm crisis; 3 shots; captain and first mate navigation command dialogue; on-screen helm plate; silent engineer; roll clockwise, push in, static shot; scored."
+  },
+  {
+   "id": "t2va_slapstick_moving_piano",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Classic slapstick comedy; 3 shots; moving men staircase piano disaster dialogue; on-screen street sign; silent bystander; pedestal down, zoom in, static shot; scored."
   }
  ]
 }
