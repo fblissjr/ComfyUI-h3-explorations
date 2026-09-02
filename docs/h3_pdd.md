@@ -143,6 +143,17 @@ directly; older ones are classified by key prefix
 (`h3_pdd.adaln_baked.` against `h3_pdd.adaln.`, which is not a prefix of the
 other and has been read as one before).
 
+**Converter version 2 (2026-09-02) adds the backbone pairing fields.**
+`h3_pdd_backbone` is `full` or `stripped`; `h3_pdd_backbone_strength_baked`
+is the strength a stripped file's bake used, which the node refuses to differ
+from; `h3_pdd_backbone_probe_key`, `_rows` and `_from` say where
+`h3_pdd.backbone_probe` was sliced from. `backbone_modules` now counts the
+modules the FILE carries (208 full, 8 stripped) and
+`backbone_modules_converted` the modules converted. Version-1 files carry none
+of these and load as before; the node logs that a baked checkpoint could not
+be told from the base for them. Both shipped `_comfy` files were regenerated
+at version 2 on 2026-09-02 with every prior tensor bit-identical.
+
 **Built 2026-08-29, and it was the first execution of that path.** Every file
 shipped before it was a `--pruned` conversion, so the converter's no-`--pruned`
 branch and the node's unpruned branch had both never run. The conversion
@@ -1996,14 +2007,18 @@ therefore describing a file format this repo deliberately removed four days
 before the claim was written**, and the trace above is the second witness
 rather than the first.
 
-**Which is also the footgun, and it needs a contract before anything is
-built.** `strength` today scales backbone, refiner, adaln and (via the
-`head_strength` sentinel) the heads together. Against a baked checkpoint it
-would scale the last three while the backbone sat pinned at whatever the bake
-used, so `strength=0.5` would render a configuration nobody asked for and would
-look entirely normal. A baked artifact must declare its baked strength in
-metadata and the node must refuse a mismatch rather than warn -- the same shape
-as the `adaln_installed` guard, and for the same reason.
+**Which is also the footgun, and the contract for it was decided and built on
+2026-09-02, on the owner's call.** `strength` scales backbone, refiner, adaln
+and (via the `head_strength` sentinel) the heads together. Against a baked
+checkpoint it would scale the last three while the backbone sat pinned at
+whatever the bake used, so `strength=0.5` would render a configuration nobody
+asked for and would look entirely normal. A stripped sidecar therefore declares
+the strength its bake used (`h3_pdd_backbone_strength_baked`) and
+`MiniMaxH3PDDLoRA` refuses any other value rather than warning -- the same
+shape as the `adaln_installed` guard, and for the same reason
+(`check_stripped_contract` in [`../pdd_lora.py`](../pdd_lora.py)). It refuses
+`unmerged_blocks` too: against a bake there is nothing to lift, and the module
+would be applied a second time at the call.
 
 **The sharper one: a baked checkpoint plus the unmodified sidecar applies the
 backbone LoRA TWICE.** The bake changes the checkpoint; it does not change the
@@ -2015,8 +2030,15 @@ should be made before a converter is written rather than discovered by whoever
 runs the first arm:
 
 - **a stripped sidecar** whose `diffusion_model.blocks.*` keys are removed and
-  whose `h3_pdd.*` payload and refiner keys remain. **It loads on the current
-  node as-is; what it lacks is an assertion, not a relocated guard.** This
+  whose `h3_pdd.*` payload and refiner keys remain. **CHOSEN, and built:**
+  [`../bench/convert_pdd_lora.py`](../bench/convert_pdd_lora.py)
+  `--omit-backbone` drops every backbone tensor after the self-checks have run
+  on them and asserts the shape of what it removed and what is left;
+  `check_stripped_targets` in the node asserts after `load_lora` that no
+  backbone target resolved and the refiner's modules did. Both partitions'
+  stripped files are on disk as `h3_config.PDD_*_STRIPPED_LORA`, wired by no
+  graph until a baked checkpoint exists. **It loads on the current node
+  as-is; what it lacked was an assertion, not a relocated guard.** This
   bullet was corrected twice on 2026-09-02, in opposite directions, and only
   the second traced the code. The first said the node's "matched no module"
   guard after `comfy.lora.load_lora` ([`../pdd_lora.py`](../pdd_lora.py))
@@ -2031,11 +2053,11 @@ runs the first arm:
   guard's line that did not read the line building its input, endorsed by a
   second read of the same line, and the refuting counts were already in the
   sub-bullet below. What a stripped sidecar DOES need, and nothing asserted
-  until it was built: that NO `blocks.N` backbone target matched (so the
-  double-apply above is refused rather than rendered), that the refiner
-  modules did, and that the loaded checkpoint is the baked one rather than
-  the base the file was converted against -- checked by content, not by
-  name. `len(applied) != len(loaded)` keeps grading what is left.
+  until it was built the same evening: that NO `blocks.N` backbone target
+  matched (so the double-apply above is refused rather than rendered), that
+  the refiner modules did, and that the loaded checkpoint is the baked one
+  rather than the base the file was converted against -- checked by content,
+  not by name. `len(applied) != len(loaded)` keeps grading what is left.
   - **Count keys off the file, not the metadata.** The shipped sidecar's
     `backbone_modules: 208` counts MODULES and includes the 8 refiner ones;
     under `diffusion_model.blocks.*` it carries 200 modules as 600 tensors
@@ -2046,10 +2068,33 @@ runs the first arm:
 - **detection in the node**, reading a bake marker off the checkpoint and
   skipping the backbone. One artifact pair fewer, one more branch in a node
   that already has several, and it fails open if the marker is ever absent.
+  **Rejected** for that last reason.
 
-**Neither has been built.** `unmerged_blocks` needs none of this, which is a
-real advantage of it that the fidelity table above does not show: it is a knob
-on the shipped artifacts, so it costs a render and no provenance surface.
+**Pairing is by content, not by name.** Every file from converter version 2
+carries `h3_pdd.backbone_probe`, 64 rows of `blocks.49.mlp.fc2.weight` as
+stored in the int8 checkpoint the file loads on -- `fc2` of block 49 because
+it carries the largest single update in the file, so a bake moves it furthest.
+The node compares it with the loaded module before anything is patched
+(`backbone_probe_distance`, `check_backbone_pairing`): the same int8 file is
+exactly 0.0 away and a bake of it about 0.044, with the tolerance an order of
+magnitude from each. A full sidecar whose checkpoint is not its base is
+refused (the backbone would go on twice), a stripped sidecar whose checkpoint
+IS its base is refused (it would never go on), and a checkpoint whose probed
+module is not int8 in the probe's shape is undecidable -- refused for a
+stripped file, which has nothing to fall back on, and loaded with a warning
+for a full one. The same probe from the pruned and unpruned builds is
+asserted bit-identical at conversion, which is the "pruning touches only
+adaln" premise made checkable. [`../bench/check_pdd_sidecar_contract.py`](../bench/check_pdd_sidecar_contract.py)
+grades every refusal on synthetic inputs and the real artifacts.
+
+**What does NOT exist yet is the baked checkpoint.** The stripped files have
+nothing to load on until the bake script in the 2026-08-31 handoff's step 2
+is written, and the node's stripped path has not run end to end -- the
+functions above are the whole of the decision and `execute` only routes their
+inputs, but that routing is unexercised. `unmerged_blocks` needs none of this,
+which is a real advantage of it that the fidelity table above does not show:
+it is a knob on the shipped artifacts, so it costs a render and no provenance
+surface.
 
 **It is not the memory trade this document first said it was, and the
 correction runs in the knob's favour.** The first version of this section

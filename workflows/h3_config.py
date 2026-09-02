@@ -1311,6 +1311,15 @@ LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
                        "MiniMaxH3PDDLoRA")
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
+# The STRIPPED sidecar: the same conversion with every `diffusion_model.blocks.*`
+# LoRA tensor dropped, for a checkpoint the backbone has been baked into
+# offline (docs/h3_pdd.md, "What a backbone bake pins"). Named here so
+# `check_lora_alpha.py` resolves and grades it. **No graph wires it, because
+# no baked checkpoint exists yet** -- the bake script is step 2 of
+# docs/research/pdd/2026-08-31_handoff.md. Loading it on the unbaked base is
+# refused by the node's backbone probe, so wiring it early cannot render
+# silently wrong.
+PDD_FL2VA_STRIPPED_LORA = "h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors"
 # The ref2v turbo, on disk since 2026-08-18 and NAMED here for the first time
 # on 2026-08-26. It exists to be the thing PDD is measured against.
 #
@@ -1336,6 +1345,7 @@ TURBO_REF2VA_STEPS = 4
 TURBO_REF2VA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
 PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
+PDD_REF2VA_STRIPPED_LORA = "h3/minimax_h3_ref2va_pdd_8step_stripped_comfy.safetensors"
 # The step counts one converted file serves. The published grid is 32 points,
 # so any divisor is a legal arm from the same weights and each lands exactly on
 # the plain shifted schedule for its own count -- the node fuses the heads at

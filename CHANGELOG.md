@@ -6,6 +6,29 @@ artifact.
 
 ## 0.99.25
 
+### Added
+
+- **The PDD bake contract, built: stripped sidecars, a backbone probe, and
+  the node-side refusals.** `bench/convert_pdd_lora.py` is converter version
+  2: it stores 64 rows of `blocks.49.mlp.fc2.weight` from the checkpoint the
+  file loads on as `h3_pdd.backbone_probe`, and `--omit-backbone` emits the
+  stripped sidecar (every `diffusion_model.blocks.*` LoRA tensor dropped
+  after the self-checks, refiner/adaln/heads/tables kept, `h3_pdd_backbone`
+  and `h3_pdd_backbone_strength_baked` in metadata). `MiniMaxH3PDDLoRA`
+  compares the probe with the loaded module before patching and refuses
+  both mismatches that render normally: a full sidecar on a checkpoint that
+  is not its base (the backbone applied twice) and a stripped sidecar on
+  the unbaked base (never applied). A stripped file also refuses any
+  `strength` other than its bake's and any `unmerged_blocks`, and asserts
+  after `load_lora` that no backbone target resolved and the refiner's did.
+  Both shipped `_comfy` files were regenerated at version 2 with every prior
+  tensor bit-identical; the stripped files sit beside them as
+  `PDD_*_STRIPPED_LORA`, wired by no graph because no baked checkpoint
+  exists yet. `bench/check_pdd_sidecar_contract.py` grades every refusal and
+  went red on its first run, on the strip's own shape assertion. The
+  converter also stops emitting 50 inert `h3_pdd.adaln.blocks.N.alpha`
+  tensors on the `--pruned` path.
+
 ### Changed
 
 - **`dense_blocks="0-2,32"` is demoted from every shipped Sol workflow back

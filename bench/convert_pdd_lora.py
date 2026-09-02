@@ -103,6 +103,31 @@ that `MiniMaxH3PDDLoRA` reads.
     from the same checkpoint that supplies the fingerprint below, is what makes
     that impossible rather than merely documented.
 
+`h3_pdd.backbone_probe`  [64, 14336] int8
+    The leading rows of `blocks.49.mlp.fc2.weight` from the checkpoint this
+    file loads on (`--pruned` when given, else `--base`), verbatim. The
+    backbone PAIRING check, and the reason a stripped sidecar (below) is safe
+    to ship: the node compares it with the loaded module and refuses the two
+    mismatches that both render normally -- a full sidecar on a checkpoint
+    with the backbone already baked in (applied twice), and a stripped one on
+    the unbaked base (applied never). `fc2` of block 49 because it carries the
+    largest single update in the file, so a bake moves it furthest; 64 rows
+    because that is 0.9 MB against 77 MB for the module, and int8 against
+    int8 compares exactly. Emitted since converter version 2. When `--base`
+    and `--pruned` are both given the two are asserted identical on this
+    slice, which is the "pruning touches only adaln" premise made checkable.
+
+`--omit-backbone`: the STRIPPED sidecar, for a baked checkpoint.
+    Every `diffusion_model.blocks.*` LoRA tensor is dropped after the
+    self-checks have run on them; the refiner, the adaln form, the head bank,
+    the tables and the probe stay. Metadata `h3_pdd_backbone` says
+    `stripped`, and `h3_pdd_backbone_strength_baked` records the strength
+    the bake used (`--baked-strength`), which the node refuses to differ
+    from. `backbone_modules` counts the modules the FILE carries (8: the
+    refiner), `backbone_modules_converted` the modules converted (208).
+    Chosen over detecting a bake in the node, which would fail open the day
+    the marker is absent; this fails closed on the probe either way.
+
 `h3_pdd.base_video_out`  [96, 5376]
     `final_layer.video_out.weight` from `--base`, verbatim. The partition
     check. fl2va and ref2va ship IDENTICAL key sets -- the whole silent-success
@@ -164,7 +189,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))              # this repo
 from pdd_math import silu_temb_grid   # noqa: E402
 
-CONVERTER_VERSION = "1"
+#: "2" since 2026-09-02: emits `h3_pdd.backbone_probe` and the
+#: `h3_pdd_backbone*` metadata; "1" files load as before, unprobed.
+CONVERTER_VERSION = "2"
 
 #: The release scheduler configs (`scheduler/`, `audio_scheduler/`) of
 #: MiniMaxAI/MiniMax-H3. `apply_pdd_lora` takes its shifts from the live
@@ -313,6 +340,65 @@ def base_video_out(base: Path) -> torch.Tensor:
         return f.get_tensor("final_layer.video_out.weight").to(torch.float32)
 
 
+#: Where `h3_pdd.backbone_probe` is taken from. The node reads both off the
+#: file's metadata, never from here, so a file and the node cannot disagree.
+BACKBONE_PROBE_KEY = "blocks.49.mlp.fc2.weight"
+BACKBONE_PROBE_ROWS = 64
+
+
+def backbone_probe(ckpt: Path, key: str = BACKBONE_PROBE_KEY,
+                   rows: int = BACKBONE_PROBE_ROWS) -> torch.Tensor:
+    """The leading `rows` of one int8 backbone weight, as stored."""
+    with safe_open(ckpt, framework="pt") as f:
+        if key not in set(f.keys()):
+            raise SystemExit(f"{ckpt.name} has no {key}; not an H3 DiT, or "
+                             f"a layout this converter does not know.")
+        sl = f.get_slice(key)
+        if sl.get_dtype() != "I8":
+            raise SystemExit(
+                f"{ckpt.name}: {key} is {sl.get_dtype()}, not I8. The probe "
+                f"compares int8 against int8 exactly; this converter targets "
+                f"the int8_convrot builds and does not know what a cast of "
+                f"another format would compare as.")
+        return sl[:rows].contiguous()
+
+
+def strip_backbone(out: dict, block_modules: int, refiner_modules: int) -> int:
+    """Drop every transformer-block backbone tensor from `out`, in place.
+
+    `block_modules` and `refiner_modules` are the counts `convert_backbone`
+    RETURNED as it wrote them -- what the converter did, not what it meant to
+    do. Asserts the shape of what it removes and of what is left against
+    those, so a dict short a kind or long a stray key refuses rather than
+    shipping a sidecar whose shape is the shape of what survived. Returns the
+    number of tensors removed.
+
+    The first version derived the kinds-per-block from the rename table and
+    expected 450 of the 600; `bench/check_pdd_sidecar_contract.py` went red
+    on its first run and so did the first real conversion. Counting what was
+    written is the fix, and the reason the counts are parameters.
+    """
+    per_module = 3                                   # lora_A, lora_B, alpha
+    keys = [k for k in out if k.startswith("diffusion_model.blocks.")]
+    expected = block_modules * per_module
+    if len(keys) != expected:
+        raise SystemExit(
+            f"--omit-backbone: {len(keys)} tensors under "
+            f"diffusion_model.blocks.* against {expected} expected "
+            f"({block_modules} modules x {per_module}); refusing to strip a "
+            f"dict whose shape is already wrong.")
+    for k in keys:
+        del out[k]
+    left = [k for k in out if k.startswith("diffusion_model.")]
+    expected_left = refiner_modules * per_module
+    if len(left) != expected_left:
+        raise SystemExit(
+            f"--omit-backbone: {len(left)} diffusion_model.* tensors remain "
+            f"against the refiner's {expected_left}; something other than "
+            f"the backbone and the refiner was under that prefix.")
+    return len(keys)
+
+
 def convert_backbone(src: dict, prefix_in: str, prefix_out: str, index: int,
                      rank: int, alpha: float, out: dict, seen: set) -> int:
     """One transformer or refiner block's attn+MLP modules. Returns modules written.
@@ -391,9 +477,24 @@ def main(argv=None) -> int:
                          "injection. Without it the file still works, through "
                          "the slower injection path.")
 
+    ap.add_argument("--omit-backbone", action="store_true",
+                    help="emit the STRIPPED sidecar for a checkpoint the "
+                         "backbone was baked into: every "
+                         "diffusion_model.blocks.* LoRA tensor dropped after "
+                         "the self-checks, refiner/adaln/heads/probe kept")
+    ap.add_argument("--baked-strength", type=float, default=None,
+                    help="with --omit-backbone: the strength the bake used, "
+                         "recorded for the node to refuse a mismatch "
+                         "(default 1.0)")
     ap.add_argument("--shift-video", type=float, default=DEFAULT_SHIFT_VIDEO)
     ap.add_argument("--shift-audio", type=float, default=DEFAULT_SHIFT_AUDIO)
     args = ap.parse_args(argv)
+    if args.baked_strength is not None and not args.omit_backbone:
+        raise SystemExit("--baked-strength means nothing without "
+                         "--omit-backbone: a full sidecar's backbone follows "
+                         "the node's strength knob.")
+    baked_strength = (1.0 if args.baked_strength is None
+                      else float(args.baked_strength))
 
     meta = read_metadata(args.pdd)
     num_steps = int(meta["pdd_num_steps"])
@@ -424,9 +525,10 @@ def main(argv=None) -> int:
 
     seen: set[str] = set()
     modules = 0
+    block_modules = 0
     for i in range(n_blocks):
-        modules += convert_backbone(src, "transformer_blocks", "blocks", i,
-                                    rank, alpha, out, seen)
+        block_modules += convert_backbone(src, "transformer_blocks", "blocks",
+                                          i, rank, alpha, out, seen)
         # adaln stays in a neutral namespace: which surface it reaches is a
         # property of the loaded checkpoint, not of this file.
         for suffix, dst in (("lora_down", "lora_A"), ("lora_up", "lora_B")):
@@ -441,10 +543,12 @@ def main(argv=None) -> int:
         # coincidence the explicit backbone alphas above exist to refuse.
         out[f"h3_pdd.adaln.blocks.{i}.alpha"] = torch.tensor(alpha)
         adaln_modules = i + 1
+    refiner_modules = 0
     for i in range(n_refiner):
-        modules += convert_backbone(src, "token_refiner.refiner_blocks",
-                                    "token_refiner.blocks", i, rank, alpha, out,
-                                    seen)
+        refiner_modules += convert_backbone(
+            src, "token_refiner.refiner_blocks", "token_refiner.blocks", i,
+            rank, alpha, out, seen)
+    modules = block_modules + refiner_modules
 
     # Parallel heads -> the fused heads a run at these shifts actually uses.
     head_keys = ("proj_out.weight", "proj_out.bias",
@@ -549,6 +653,10 @@ def main(argv=None) -> int:
             # would say which the node used.
             out.pop(f"h3_pdd.adaln.blocks.{i}.lora_A", None)
             out.pop(f"h3_pdd.adaln.blocks.{i}.lora_B", None)
+            # The alpha travelled with the pair and is meaningless without it;
+            # it was left behind from the day the alpha was added until
+            # 2026-09-02, 50 inert tensors the node never read.
+            out.pop(f"h3_pdd.adaln.blocks.{i}.alpha", None)
         print(f"  baked {baked} adaln modules into {args.pruned.name}'s basis, "
               f"worst reconstruction {worst:.2e}; dropped the 2688-dim pairs "
               f"and the grid this base cannot use")
@@ -577,6 +685,25 @@ def main(argv=None) -> int:
     if err > 1e-6:
         raise SystemExit(f"fc1 swap self-check failed: rel {err:.3e}")
 
+    # The backbone pairing probe, from the checkpoint this file will load on.
+    probe_src = args.pruned if args.pruned is not None else args.base
+    out["h3_pdd.backbone_probe"] = backbone_probe(probe_src)
+    if args.pruned is not None:
+        other = backbone_probe(args.base)
+        if not torch.equal(other, out["h3_pdd.backbone_probe"]):
+            raise SystemExit(
+                f"{args.base.name} and {args.pruned.name} differ on "
+                f"{BACKBONE_PROBE_KEY}[:{BACKBONE_PROBE_ROWS}]. Pruning is "
+                f"documented as touching only adaln_proj, and a probe taken "
+                f"from one would misjudge the other; that premise is false "
+                f"for these two files and needs looking at before anything "
+                f"is emitted.")
+
+    # Stripped AFTER the self-checks above, which read the backbone tensors.
+    stripped = 0
+    if args.omit_backbone:
+        stripped = strip_backbone(out, block_modules, refiner_modules)
+    modules_in_file = modules - (stripped // 3)
 
     metadata = {
         "format": "pt",
@@ -591,9 +718,12 @@ def main(argv=None) -> int:
         # than that carries neither, and the node classifies by key prefix
         # instead, which is the observable and needs no metadata at all.
         "h3_pdd_adaln_form": "baked" if args.pruned is not None else "2688",
-        "h3_pdd_loads_on": ("the pruned/curve-form build of this partition only"
-                            if args.pruned is not None
-                            else "either the pruned or the unpruned build"),
+        "h3_pdd_loads_on": (
+            ("a checkpoint with this backbone BAKED IN at strength "
+             f"{baked_strength:g}, built from " if args.omit_backbone else "")
+            + ("the pruned/curve-form build of this partition only"
+               if args.pruned is not None
+               else "either the pruned or the unpruned build")),
         "h3_pdd_pruned_base": (args.pruned.name if args.pruned is not None
                                else ""),
         # Informational only. The node compares the TENSOR by distance; this
@@ -610,7 +740,17 @@ def main(argv=None) -> int:
         "pdd_grid_rows": str(GRID_ROWS),
         "lora_rank": str(rank),
         "lora_alpha": repr(alpha),
-        "backbone_modules": str(modules),
+        # What the FILE carries, counted as modules including the refiner
+        # (208 full, 8 stripped); `backbone_modules_converted` is the number
+        # converted regardless. Neither is a tensor count: 3 tensors each.
+        "backbone_modules": str(modules_in_file),
+        "backbone_modules_converted": str(modules),
+        "h3_pdd_backbone": "stripped" if args.omit_backbone else "full",
+        "h3_pdd_backbone_strength_baked": (repr(baked_strength)
+                                           if args.omit_backbone else ""),
+        "h3_pdd_backbone_probe_key": BACKBONE_PROBE_KEY,
+        "h3_pdd_backbone_probe_rows": str(BACKBONE_PROBE_ROWS),
+        "h3_pdd_backbone_probe_from": probe_src.name,
         "adaln_modules": str(adaln_modules),
         "source_format": "alibaba-pai PDD (diffusers naming, stacked heads)",
         "target_format": "ComfyUI generic LoRA + h3_pdd.* sidecar tensors",
@@ -621,8 +761,14 @@ def main(argv=None) -> int:
     save_file(out, str(args.out), metadata=metadata)
 
     print(f"wrote {args.out}")
-    print(f"  {modules} backbone modules, {adaln_modules} adaln modules "
-          f"({len(src)} source tensors, all consumed)")
+    print(f"  {modules} backbone modules converted, {adaln_modules} adaln "
+          f"modules ({len(src)} source tensors, all consumed)")
+    if args.omit_backbone:
+        print(f"  STRIPPED: {stripped} backbone tensors dropped, "
+              f"{modules_in_file} modules left under diffusion_model.* (the "
+              f"refiner); baked strength {baked_strength:g}")
+    print(f"  backbone probe {BACKBONE_PROBE_KEY}[:{BACKBONE_PROBE_ROWS}] "
+          f"from {probe_src.name}")
     print(f"  {out['h3_pdd.bank.video.weight'].shape[0]}-interval head bank at "
           f"shift {args.shift_video}/{args.shift_audio}")
     print("  bank rows are verbatim heads, not deltas: "
