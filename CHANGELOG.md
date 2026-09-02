@@ -26,16 +26,21 @@ artifact.
   three-kind reach set and the full stochastic record: `mlp.fc2` remains
   merged, leaving `1.096307x` base error and recovering 76.2% of the merge gap.
 
-- **A stripped PDD sidecar cannot load on the current node, and
-  `docs/h3_pdd.md` said the opposite.** Its bake-contract bullet claimed the
-  stripped sidecar "needs no node change beyond the strength guard";
-  `pdd_lora.py`'s "matched no module" guard refuses an empty backbone as a
-  stale conversion, so the converter filter is half the change and the guard
-  has to move to asserting the eight refiner modules matched. The bullet now
-  says so, with the sidecar's real tensor counts (its `backbone_modules: 208`
-  metadata counts modules including the refiner, not `blocks.*` keys), and
-  the 2026-08-31 handoff's tooling step points at it. Docs only; nothing
-  built.
+- **A stripped PDD sidecar loads on the current node, and an earlier
+  0.99.25 entry said it could not.** That entry claimed `pdd_lora.py`'s
+  "matched no module" guard refuses an empty backbone and had to move to
+  asserting the refiner count. The guard's input is every key under
+  `diffusion_model.`, which includes the refiner's
+  `diffusion_model.token_refiner.blocks.*` keys and, on the pruned base, the
+  baked adaln diffs the node inserts before `load_lora`, so it cannot fire on
+  a stripped sidecar. The claim was two reads of the guard's line, neither of
+  which read the line building its input; the refuting tensor counts were in
+  the same bullet. `docs/h3_pdd.md` and the 2026-08-31 handoff now say what
+  the guard sees, keep the counts (600 tensors under `blocks.*` for 200
+  modules, 24 under `token_refiner.*` for 8; the `backbone_modules: 208`
+  metadata counts modules including the refiner), and name the assertion a
+  stripped sidecar actually needs: no backbone target matched, and the
+  checkpoint is the baked one.
 
 ### Measured
 

@@ -2015,24 +2015,34 @@ should be made before a converter is written rather than discovered by whoever
 runs the first arm:
 
 - **a stripped sidecar** whose `diffusion_model.blocks.*` keys are removed and
-  whose `h3_pdd.*` payload and refiner keys remain. **It needs a node change
-  beyond the strength guard, and this bullet said otherwise until
-  2026-09-02.** The node's `if not loaded: raise RuntimeError(...)` after
-  `comfy.lora.load_lora` ([`../pdd_lora.py`](../pdd_lora.py), the "matched no
-  module" guard) reads an empty backbone as a stale conversion and refuses the
-  whole file -- so a stripped sidecar cannot load today, and the converter
-  filter is half the change. The replacement is not to drop the guard but to
-  move what it asserts: with the backbone gone, `load_lora` should still match
-  exactly the 8 refiner modules, and that count is the thing to assert.
-  `len(applied) != len(loaded)` then keeps grading what is left. The baked
-  checkpoint and its sidecar only work as a pair, which is the thing to make
-  un-mixable by NAME. (Found by a Gemini read of the node on 2026-09-02,
-  verified by reading the guard; nothing has been built.)
+  whose `h3_pdd.*` payload and refiner keys remain. **It loads on the current
+  node as-is; what it lacks is an assertion, not a relocated guard.** This
+  bullet was corrected twice on 2026-09-02, in opposite directions, and only
+  the second traced the code. The first said the node's "matched no module"
+  guard after `comfy.lora.load_lora` ([`../pdd_lora.py`](../pdd_lora.py))
+  would refuse a stripped sidecar as a stale conversion, so the guard had to
+  move to asserting the refiner count. It cannot fire on one: the dict that
+  guard checks is every key under the `diffusion_model.` prefix, and the
+  refiner keys sit at `diffusion_model.token_refiner.blocks.*`, so they are in
+  it; on the pruned base the node also inserts the 50 baked adaln `diff` /
+  `diff_b` entries into that same dict before calling `load_lora`, and on an
+  unpruned base the 50 adaln LoRA pairs. `loaded` is non-empty on every base
+  a stripped sidecar could meet. The withdrawn claim came from a read of the
+  guard's line that did not read the line building its input, endorsed by a
+  second read of the same line, and the refuting counts were already in the
+  sub-bullet below. What a stripped sidecar DOES need, and nothing asserted
+  until it was built: that NO `blocks.N` backbone target matched (so the
+  double-apply above is refused rather than rendered), that the refiner
+  modules did, and that the loaded checkpoint is the baked one rather than
+  the base the file was converted against -- checked by content, not by
+  name. `len(applied) != len(loaded)` keeps grading what is left.
   - **Count keys off the file, not the metadata.** The shipped sidecar's
     `backbone_modules: 208` counts MODULES and includes the 8 refiner ones;
     under `diffusion_model.blocks.*` it carries 200 modules as 600 tensors
-    (`lora_A`, `lora_B`, `alpha` each). A shape assertion written from the
-    metadata number is wrong twice.
+    (`lora_A`, `lora_B`, `alpha` each), and the 8 refiner modules as 24
+    tensors under `diffusion_model.token_refiner.blocks.*` -- the prefix the
+    loader's dict is keyed on, which is why the guard above cannot fire. A
+    shape assertion written from the metadata number is wrong twice.
 - **detection in the node**, reading a bake marker off the checkpoint and
   skipping the backbone. One artifact pair fewer, one more branch in a node
   that already has several, and it fails open if the marker is ever absent.
