@@ -20,6 +20,12 @@ artifact.
 
 ### Corrected
 
+- **The PDD `unmerged_blocks=0-49` stored-weight estimate was an RTN hybrid.**
+  The dated handoff said `1.0236x` even though the shipped merge uses seeded
+  stochastic rounding. The executable aggregation now reads the node's literal
+  three-kind reach set and the full stochastic record: `mlp.fc2` remains
+  merged, leaving `1.096307x` base error and recovering 76.2% of the merge gap.
+
 - **A stripped PDD sidecar cannot load on the current node, and
   `docs/h3_pdd.md` said the opposite.** Its bake-contract bullet claimed the
   stripped sidecar "needs no node change beyond the strength guard";

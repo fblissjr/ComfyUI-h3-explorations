@@ -1,8 +1,11 @@
 {
-  "measured": "2026-08-31",
+  "measured": "2026-09-02",
   "produced_by": "bench/analyze_pdd_unmerge_curve.py",
   "what": "aggregation of the all-blocks stored-weight record by block, by kind, and as a recovery curve; no new measurement",
-  "source": "2026-08-31_pdd_quant_interaction_all_blocks.json",
+  "sources": [
+    "2026-08-31_pdd_quant_interaction_all_blocks.json",
+    "2026-08-31_merge_rounding_regimes.json"
+  ],
   "strength": 1.0,
   "is_not": "a runtime cost. int8_convrot is W8A8 and the source record is a stored-WEIGHT distance, so this is blind to the activation rounding -- which un-merging also avoids on the delta, and which is therefore not counted in any recovery figure here. docs/open_experiments.md #23",
   "shape": {
@@ -15,6 +18,12 @@
     ],
     "modules": 200
   },
+  "source_agreement": {
+    "e_shipped_max_abs": 0.0,
+    "e_merged_rtn_max_abs": 0.0,
+    "required": "both exactly zero before the records are joined"
+  },
+  "legacy_fields_scope": "means, recovery_curve, targeting_premium_over_arbitrary_choice, by_block_inflation and by_kind are the original deterministic RTN hypothetical in which all four kinds can be unmerged; use actual_shipped_path for the deployable node",
   "means": {
     "all_merged": 0.010451729694025521,
     "all_unmerged": 0.009361731405065538,
@@ -227,10 +236,124 @@
       "e_patched_mean": 0.010252551177170766
     }
   },
+  "actual_shipped_path": {
+    "rounding": "seeded stochastic",
+    "unmerged_kinds_from_runtime": [
+      "attn.qkv_proj",
+      "attn.out_proj",
+      "mlp.fc1"
+    ],
+    "unreachable_kinds": [
+      "mlp.fc2"
+    ],
+    "all_merged_mean_error": 0.013149734297238567,
+    "all_blocks_unmerged_mean_error": 0.010263331967970218,
+    "inflation_after_all_reachable_unmerged": 1.0963070316690386,
+    "fraction_of_shipped_merge_gap_recovered": 0.7619852495974555,
+    "recovery_curve": [
+      {
+        "n_blocks": 0,
+        "mean_error": 0.013149734297238567,
+        "fraction_of_reachable_gap_recovered": 0.0,
+        "extra_flops_pct_of_linears": 0.0
+      },
+      {
+        "n_blocks": 5,
+        "mean_error": 0.012784920891645924,
+        "fraction_of_reachable_gap_recovered": 0.1263903517168782,
+        "extra_flops_pct_of_linears": 0.24
+      },
+      {
+        "n_blocks": 10,
+        "mean_error": 0.012428756159924673,
+        "fraction_of_reachable_gap_recovered": 0.24978435265351542,
+        "extra_flops_pct_of_linears": 0.48
+      },
+      {
+        "n_blocks": 15,
+        "mean_error": 0.012083555915915698,
+        "fraction_of_reachable_gap_recovered": 0.3693796843606087,
+        "extra_flops_pct_of_linears": 0.72
+      },
+      {
+        "n_blocks": 20,
+        "mean_error": 0.01174797834143341,
+        "fraction_of_reachable_gap_recovered": 0.4856412224973768,
+        "extra_flops_pct_of_linears": 0.96
+      },
+      {
+        "n_blocks": 25,
+        "mean_error": 0.01142202888487574,
+        "fraction_of_reachable_gap_recovered": 0.598567079455195,
+        "extra_flops_pct_of_linears": 1.2
+      },
+      {
+        "n_blocks": 50,
+        "mean_error": 0.010263331967970218,
+        "fraction_of_reachable_gap_recovered": 1.0,
+        "extra_flops_pct_of_linears": 2.4
+      }
+    ],
+    "worst_first_blocks": [
+      7,
+      20,
+      15,
+      11,
+      8,
+      10,
+      9,
+      6,
+      14,
+      23,
+      5,
+      17,
+      18,
+      16,
+      21,
+      4,
+      19,
+      12,
+      24,
+      13,
+      3,
+      22,
+      25,
+      2,
+      26,
+      1,
+      27,
+      28,
+      49,
+      0,
+      29,
+      43,
+      30,
+      48,
+      39,
+      38,
+      37,
+      42,
+      31,
+      41,
+      32,
+      36,
+      45,
+      40,
+      44,
+      46,
+      33,
+      35,
+      34,
+      47
+    ],
+    "gain_spread_max_over_min": 1.8363044991446174,
+    "targeting_premium_over_arbitrary_choice": 0.09856707945519505
+  },
   "findings": [
-    "Un-merging every block recovers the whole inflation: 0.010452 merged against 0.009362, which IS the checkpoint's shipped error. The gap is 0.001090, 1.1164x.",
-    "THERE IS NO HOT SUBSET, only a mildly concave curve. Block inflation spans 1.131x across all 50 -- no hotspot -- so worst-first buys a modest premium over an arbitrary choice rather than a big one: worst-5 recovers 15.3% against 10% for any 5, and the premium peaks at 18.2 points around the halfway mark (worst-25 recovers 68.2%). So targeting is a COMPUTE optimisation, not a fidelity one: the full recovery is available at +2.4% FLOPs on the linears, and any subset trades fidelity away to save a fraction of that. Whoever picks a subset should say which of the two they are buying.",
-    "The 7-block sample's `worst-first 49, 7, 24, 16` is half right and reads as advice to target. Blocks 49 and 7 do rank 1st and 5th of 50; blocks 24 and 16 are mid-pack at 17th and 16th. Its `least worth it: 32 and 40` holds -- they rank 46th and 44th, in a quiet band running roughly 31-36.",
+    "On the actual shipped path, un-merging all reachable kinds in all 50 blocks leaves mlp.fc2 merged: 0.013150 becomes 0.010263, or 1.0963x the base error. It recovers 76.2% of the stochastic merge gap, not the whole gap.",
+    "The original deterministic RTN, hypothetical four-kind curve runs 0.010452 to 0.009362 (1.1164x). It remains for provenance and is not the shipped unmerged_blocks result.",
+    "THERE IS NO HOT SUBSET on the deployable arm. Reachable stochastic gain spans 1.836x across 50 blocks; worst-5 recovers 12.6% of the reachable gap against 10% for an arbitrary 5, and the largest sampled targeting premium is 9.9 points. Selecting all 50 recovers the reachable gap at +2.4% arithmetic FLOPs but still leaves fc2 merged.",
+    "The 7-block list and the old order [49, 15, 20, 11, 7, 10, 18, 23, 14, 17] describe the deterministic four-kind hypothetical. The shipped three-kind stochastic order starts [7, 20, 15, 11, 8, 10, 9, 6, 14, 23]. This is a stored-weight compute-allocation order, not a network-sensitivity or perceptual-quality ranking.",
     "INFLATION AND STORED ERROR RANK KINDS OPPOSITELY. attn.qkv_proj has the highest inflation (1.1636) and the lowest error before PDD (0.00883); attn.out_proj has the highest error before PDD (0.01041) and nearly the lowest inflation (1.0990). 'Which kind quantises worst' and 'which kind PDD damages most' are different questions and the answers are reversed."
   ],
   "not_measured": [

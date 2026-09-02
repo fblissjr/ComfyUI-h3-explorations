@@ -2068,18 +2068,22 @@ against the 7-block sample's 1.1234x; the correlation with `||BA||/||W||` is
 0.751 over 200 modules against 0.78 over 28; and `e_baked_from_release` is flat
 at 0.009362 at every strength, now over the whole checkpoint.
 
-**There is no hotspot.** Block inflation spans **1.131x** across all 50, so the
-worst-first recovery curve is only mildly concave -- the worst 5 recover 15.3%
-of the gap against 10% for any 5, and the premium peaks around 18 points near
-the halfway mark (worst-25 recovers 68.2% for +1.2% FLOPs). **A subset is a
-compute optimisation, not a fidelity one**, and whoever picks one should say
-which of the two they are buying.
+**There is no hotspot.** The original all-four-kind RTN block inflation spans
+**1.131x** across all 50. The deployable calculation now reads the node's three
+reachable kinds and the seeded-stochastic record: worst-first recovers 12.6%
+of the reachable gap with 5 blocks against 10% for an arbitrary 5, and 59.9%
+with 25 against 50%. The exact order changes, but the conclusion strengthens:
+**a subset is a compute optimisation, not a fidelity one**, and whoever picks
+one should say which of the two they are buying. With all 50 selected, the
+unreachable `mlp.fc2` modules leave the stored-weight error at **1.096307x**
+the base, recovering **76.2%** of the shipped stochastic merge gap.
 
-**The old worst-first list was half right and is corrected here.** It said
-`49, 7, 24, 16`. Blocks 49 and 7 do rank 1st and 5th of 50; **24 and 16 are
-mid-pack at 17th and 16th**. Worst-first over all 50 is
-`49, 15, 20, 11, 7, 10, 18, 23, 14, 17`, and `least worth it: 32 and 40` holds
--- they rank 46th and 44th, inside a quiet band running roughly 31-36.
+**The old worst-first list was an RTN, hypothetical four-kind result.** Its
+order is retained in the dated record for provenance. On the actual shipped
+three-kind stochastic path the first ten are
+`7, 20, 15, 11, 8, 10, 9, 6, 14, 23`; blocks 32 and 40 remain in the quiet
+tail. This is a stored-weight compute-allocation order, not a network
+sensitivity or perceptual-quality ranking.
 
 **Inflation and stored error rank the module KINDS oppositely, which the
 sample's framing hid.** `attn.qkv_proj` has the highest inflation (1.164x) and
