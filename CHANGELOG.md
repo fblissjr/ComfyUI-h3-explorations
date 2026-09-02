@@ -4,6 +4,21 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.25
+
+### Corrected
+
+- **A stripped PDD sidecar cannot load on the current node, and
+  `docs/h3_pdd.md` said the opposite.** Its bake-contract bullet claimed the
+  stripped sidecar "needs no node change beyond the strength guard";
+  `pdd_lora.py`'s "matched no module" guard refuses an empty backbone as a
+  stale conversion, so the converter filter is half the change and the guard
+  has to move to asserting the eight refiner modules matched. The bullet now
+  says so, with the sidecar's real tensor counts (its `backbone_modules: 208`
+  metadata counts modules including the refiner, not `blocks.*` keys), and
+  the 2026-08-31 handoff's tooling step points at it. Docs only; nothing
+  built.
+
 ## 0.99.21
 
 ### Added

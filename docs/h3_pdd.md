@@ -2013,10 +2013,24 @@ should be made before a converter is written rather than discovered by whoever
 runs the first arm:
 
 - **a stripped sidecar** whose `diffusion_model.blocks.*` keys are removed and
-  whose `h3_pdd.*` payload and refiner keys remain. Needs no node change beyond
-  the strength guard, and `len(applied) != len(loaded)` keeps grading what is
-  left. The baked checkpoint and its sidecar then only work as a pair, which is
-  the thing to make un-mixable by NAME.
+  whose `h3_pdd.*` payload and refiner keys remain. **It needs a node change
+  beyond the strength guard, and this bullet said otherwise until
+  2026-09-02.** The node's `if not loaded: raise RuntimeError(...)` after
+  `comfy.lora.load_lora` ([`../pdd_lora.py`](../pdd_lora.py), the "matched no
+  module" guard) reads an empty backbone as a stale conversion and refuses the
+  whole file -- so a stripped sidecar cannot load today, and the converter
+  filter is half the change. The replacement is not to drop the guard but to
+  move what it asserts: with the backbone gone, `load_lora` should still match
+  exactly the 8 refiner modules, and that count is the thing to assert.
+  `len(applied) != len(loaded)` then keeps grading what is left. The baked
+  checkpoint and its sidecar only work as a pair, which is the thing to make
+  un-mixable by NAME. (Found by a Gemini read of the node on 2026-09-02,
+  verified by reading the guard; nothing has been built.)
+  - **Count keys off the file, not the metadata.** The shipped sidecar's
+    `backbone_modules: 208` counts MODULES and includes the 8 refiner ones;
+    under `diffusion_model.blocks.*` it carries 200 modules as 600 tensors
+    (`lora_A`, `lora_B`, `alpha` each). A shape assertion written from the
+    metadata number is wrong twice.
 - **detection in the node**, reading a bake marker off the checkpoint and
   skipping the backbone. One artifact pair fewer, one more branch in a node
   that already has several, and it fails open if the marker is ever absent.
