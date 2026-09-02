@@ -6,6 +6,18 @@ artifact.
 
 ## 0.99.25
 
+### Changed
+
+- **`dense_blocks="0-2,32"` is demoted from every shipped Sol workflow back
+  to the experiment it was.** Both `SOL_RECOMMENDED_CUDA` and
+  `SOL_PDD_CUDA` now inherit the node's empty default, and all 156 governed
+  graphs were regenerated from that source. The 2026-08-29 propagation run
+  sampled 11 of 50 blocks on one base-model trajectory at one specially
+  isolated sigma; it did not measure the PDD head, canonical PDD active
+  sigmas, multi-block interactions, or watched output. That record motivates
+  a future arm and does not justify silently routing four blocks to Sage in
+  every production graph. Explicit block lists remain supported.
+
 ### Corrected
 
 - **A stripped PDD sidecar cannot load on the current node, and
@@ -18,6 +30,18 @@ artifact.
   metadata counts modules including the refiner, not `blocks.*` keys), and
   the 2026-08-31 handoff's tooling step points at it. Docs only; nothing
   built.
+
+### Measured
+
+- **The no-dense PDD8 arm ran at the production 1344x768 / 345-frame
+  geometry.** All 50 blocks routed through Sol on each of the four active
+  evaluations; the other four evaluations carried 50 composed Sage rows each.
+  The structural grader passed all 400 calls and verified all 200 raw count
+  pointers. Pair-weighted ordering-effect density averaged 0.207625; the four
+  formerly hidden blocks averaged 0.207809 (0), 0.200175 (1), 0.208215 (2),
+  and 0.232876 (32). These are route-cost observations, not a quality ranking.
+  The ignored record and provenance are under
+  `internal/sol_observe/2026-09-02_pdd8_dense_none/`.
 
 ## 0.99.21
 

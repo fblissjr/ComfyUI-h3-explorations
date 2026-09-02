@@ -51,9 +51,11 @@ Sources, in column order: `2026-08-29_block_propagation.json`,
 **Read across, and the disagreement is the finding.**
 
 - **Columns 1 and 2 run OPPOSITE.** Local error grows with depth; how much of
-  it reaches the output shrinks with depth. `workflows/h3_config.py` records
-  this as the reason `dense_blocks` is `0-2,32` and not the tail — propagation
-  decides the knob, local error does not.
+  it reaches the output shrinks with depth. This motivated the historical
+  `dense_blocks="0-2,32"` arm, but did not validate it as a default: the
+  propagation probe covered only 11/50 blocks and not the PDD head or its
+  canonical active sigmas. Both shared configs returned to empty on
+  2026-09-02; propagation still decides the future knob, local error does not.
 - **Column 3 is anti-aligned with column 1.** PDD's update is smallest exactly
   where perturbations propagate hardest, and largest at block 49 where they
   propagate least. Whatever the distillation was solving for, it was not

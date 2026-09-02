@@ -390,7 +390,7 @@ owns both spellings; regenerate.
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
 | `verbose` | False | Per-shape dispatch logging, once per distinct shape. |
-| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`vendor/sol_attn_minimax.py::parse_blocks`). **The node default is empty; nothing here ships empty.** **Both configs carry `0-2,32` since 2026-08-29**, measured -- see the propagation section. `SOL_RECOMMENDED_CUDA` carried NVLabs' `0-1` from 2026-08-26 until then, and `SOL_PDD_CUDA` briefly carried `0,1,2,48,49,-1` and then `0-5,48-49` on the same day; both are withdrawn. |
+| `dense_blocks` | `""` | Blocks routed to the chained Sage fallback instead of Sol, e.g. `0-2,-1`; this is not exact torch attention. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`block_spec.py`). **The node and both shared configs ship empty as of 2026-09-02.** `0-2,32` shipped from 2026-08-29 until then, but the owner demoted it to an explicit experiment: its propagation record covered only 11/50 blocks, one base-model trajectory at a specially isolated sigma, and no perceptual or set-interaction A/B. See the propagation section and the 2026-09-02 production-geometry route record. |
 | `tau_profile` NEW | unset | Only under `adaptive tau`. Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — a socket, not a widget value. |
 
 `routed_cap_percent` was here until 2026-08-22 and the v3 node does not
@@ -429,9 +429,12 @@ withdrawn.** It read `min_tokens` 12288/11776, `morton_curve` `3d`/`2d_frame`
 and `dense_blocks` `0-1`/`0,1,2,48,49,-1`. The first two were dropped as
 provably inert (every PDD graph packs 60,972-113,032 rows, so both `min_tokens`
 values select identically; `morton_curve` is unreachable with `morton=False`),
-and `dense_blocks` became `0-2,32` in BOTH configs once the propagation
-measurement landed. A stale comparison table is the failure this repo names
-most often: prose stating a fact the code already knows, with no invalidation.
+and `dense_blocks` became `0-2,32` in both configs once the propagation
+measurement landed. That last promotion was itself withdrawn on 2026-09-02:
+the record was an 11-block experiment, not a production-default result, and
+both configs now inherit empty. A stale comparison table is the failure this
+repo names most often: prose stating a fact the code already knows, with no
+invalidation.
 
 Everything else is shared, so a change to `tau`, `start_percent`,
 `sink_conditioning`, `morton`, `centroid_tail` or `reuse_qkv_memory` still
@@ -517,7 +520,7 @@ grid, so it would track a shift change instead of going stale as a literal.
 **Not built** — writing it is only worth doing once the prediction above has
 been run, or the derivation is just a prettier way to spell 0.74.
 
-##### `dense_blocks`: measured evidence exists at our tau, and it does not support 0-2
+##### `dense_blocks`: useful experimental evidence, not a validated default
 
 `bench/results/2026-08-19_sol_error_per_head_tau1.0.json` is Sol's **sparsity
 error** — the algorithm against exact attention, not the kernel against the
@@ -686,20 +689,20 @@ NEGATIVE). And it ran on the BASE model, so PDD's fused output head, the reason
 to protect the last blocks at all, was not in the path. Neither is enough to
 reinstate 48-49 against a measured ranking that puts them last.
 
-**Where this landed.** `SOL_PDD_CUDA` carries `dense_blocks="0-2,32"` -- the
-measured top four, +4.1 s. Two earlier states are withdrawn: the owner's
+**Where this landed at the time, and why it was later withdrawn as a default.**
+`SOL_PDD_CUDA` and `SOL_RECOMMENDED_CUDA` carried `dense_blocks="0-2,32"` from
+2026-08-29 through 2026-09-02. Two earlier states were already withdrawn: the owner's
 original `0,1,2,48,49`, which spent two of five blocks on the bottom of the
 ranking, and the same day's widening to `0-5,48-49`, whose blocks 3-5 were
 extrapolated from a three-point decay that turned out to be a plateau.
-`SOL_RECOMMENDED_CUDA` **also carries `0-2,32` since 2026-08-29**, on the
-owner's instruction and on the argument that the probe ran on the BASE model,
-so this config is the one it bears on most directly. **Corrected the same day:**
-this paragraph said the base config was "deliberately left at the vendor's
-`0-1`", which was true for about twenty minutes and then contradicted both
-`h3_config.py` and the state block at the top of this file. A reader who
-stopped here configured the opposite of what ships. What remains true is the
-caution: `0-1` had H3-specific external validation behind it, and two seeds is
-thin ground on which to overturn it across every non-distilled graph.
+
+The 11-block propagation ranking was a good experiment and an insufficient
+promotion gate: it did not measure 39 blocks, the PDD head, canonical PDD
+active sigmas, multi-block interactions, or watched output. On the owner's
+2026-09-02 correction, both configs returned to `dense_blocks=""`; any list is
+now an explicit arm until an all-50-block, actual-schedule scan survives a
+set-level multi-scene validation. The empty production-geometry PDD8 route
+capture measures all 50 router counts but is not itself a quality ranking.
 
 ##### Exact at a block: `MiniMaxH3ExactBlocks`, added 2026-08-29
 
@@ -780,13 +783,11 @@ bit-identical across the swap and the Sol arm differs by rel L2 **7.67e-05**
 survive is any figure quoted to more than three significant figures across the
 two builds.
 
-**`dense_blocks` is `0-2,32` in both configs, and it is the first value here
-chosen by measurement rather than inherited.** The reasoning is below under
-"What would replace the eyeballing"; the short form is that Sol's error at a
-block and that error's effect at the OUTPUT rank differently, and the second is
-what the knob should be chosen on. Block 0 is where Sol is most accurate and
-where its error matters most; the last five blocks are the worst place in the
-model to spend a dense block.
+**`dense_blocks` is empty in both configs as of 2026-09-02.** The former
+`0-2,32` setting is retained below as experimental evidence, not a current
+default. Sol's error at a block and that error's effect at the output rank
+differently; the second is what the knob should be chosen on, and the existing
+probe did not cover enough of the model or target schedules to finish that job.
 
 **`centroid_tail` and `reuse_qkv_memory` are now inert widgets.** The kernel
 evaluates the pooled tail at the centroid unconditionally, which is what
@@ -1269,15 +1270,11 @@ Two consequences, both live:
   `dense_blocks="0"` would cost roughly 1% of total compute **by arithmetic**
   and remove the depth where sparsity is least effective anyway.
 
-**`tau_profile` ships empty; `dense_blocks` no longer does.** **Corrected
-2026-08-29** — this said both ship empty and called `dense_blocks` unexploited
-headroom, which stopped being true on 2026-08-26 when `SOL_RECOMMENDED_CUDA`
-took NVLabs' `0-1`, and is doubly untrue on the distilled arms, where
-`SOL_PDD_CUDA` carries `0-2,32` (it carried `0,1,2,48,49,-1` when this was written). So block 0 is already dense everywhere
-and the outlier above is already paid for. The `dense_blocks="0"` figure below
-remains derived, not measured end-to-end, and neither shipped list was chosen
-from a paired render: `0-1` is the vendor's, and the PDD list is the owner's
-reading of rendered arms.
+**`tau_profile` and `dense_blocks` both ship empty as of 2026-09-02.** The
+former `0-1` and `0-2,32` states remain useful historical arms, not validated
+production lists. The `dense_blocks="0"` cost figure below remains derived, not
+measured end to end; block 0's high routed density is a cost observation and
+does not by itself say that the block should be protected.
 
 **The 16.6% is confirmed, by a second path.** It was derived from `video_start`
 when first reported; `bench/count_packed_rows.py` now builds the real
@@ -2078,5 +2075,5 @@ about 2 hours.
 | re-baseline the frontier above 60k tokens | most numbers here are the wrong regime | GPU hours |
 | CUDA e2e vs Triton e2e, ours | we have upstream's 1.4x, not our own | **the Triton pack is deleted**; recover from `kijai/ComfyUI-SolAttn_triton@842c4ea` first |
 | **comfy-kitchen's 4090 kernel vs NVLabs' own** | since PR #464 (2026-08-15) there are two independent sm89 implementations; which is faster or more accurate here is unknown, and it is the only external cross-check available on this card | one Python dep (`cutlass.cute`) and a seam -- their API has no `sink_q`, so `exact_kv_and_rows`'s query half needs doing at the integration layer. See [`docs/sol_upstream.md`](sol_upstream.md) |
-| ~~**`dense_blocks="0-1"`**~~ | **DONE, and overtaken.** NVLabs' `0-1` was adopted 2026-08-26; both configs now ship `0-2,32` on this repo's own propagation measurement, which ranks block 0 first and the last five blocks last | nothing further. The open question is now whether `0-2,32` beats `0-1` perceptually, which needs `docs/eval_comparison.md` section 3 |
+| **Which `dense_blocks`, if any?** | Empty is the honest default as of 2026-09-02. The historical `0-2,32` probe sampled only 11/50 blocks and did not cover the PDD head, actual active sigmas, interactions, or perceptual output | all-50-block scans at actual PDD/base schedule states, then a set-level multi-scene A/B; the route observer supplies costs, not sensitivity |
 | quality at tau 1.3, watched to the end | the artifact is temporal and length-dependent | a human watching |

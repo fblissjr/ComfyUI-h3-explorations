@@ -198,9 +198,6 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SolAttn", "end_percent"):
         ("RESOLVED", "h3_config.sol_for_graph(pdd, steps); graded by "
                      "bench/check_attention_defaults.py"),
-    ("MiniMaxH3SolAttn", "dense_blocks"):
-        ("RESOLVED", "h3_config.SOL_RECOMMENDED_CUDA; graded by "
-                     "bench/check_attention_defaults.py"),
     ("ManualSigmas", "sigmas"):
         ("RESOLVED", "h3_config.PDD_MANUAL_SIGMAS, the six-block tail-weighted "
                      "partition; its 6dp rounding is load-bearing and "

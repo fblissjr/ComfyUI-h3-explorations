@@ -210,9 +210,11 @@ def _sol_title(sol, sol_enabled, pdd=False):
     if end is None or end == base:
         return "Patch Sol-Attn"
     if pdd:
+        dense = sol.get("dense_blocks")
+        dense_note = f", dense_blocks {dense!r}" if dense else ""
         return (f"Patch Sol-Attn (PDD recipe - end_percent {end:g}, "
-                f"min_tokens {sol.get('min_tokens')}, dense_blocks "
-                f"{sol.get('dense_blocks')!r}; h3_config.SOL_PDD_CUDA)")
+                f"min_tokens {sol.get('min_tokens')}{dense_note}; "
+                "h3_config.SOL_PDD_CUDA)")
     return (f"Patch Sol-Attn (end_percent {end:g} - derived from the step "
             f"count so the LAST step stays dense; default is {base:g})")
 

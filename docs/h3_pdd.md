@@ -1913,9 +1913,11 @@ quantiser's.
 "turn PDD down where quantisation hurts most" is the same instruction as "turn
 PDD down where the distillation does the most work". It is anti-aligned a
 second time against `bench/results/2026-08-29_block_propagation.json`, which
-`dense_blocks` was chosen on: perturbations at early blocks reach the output
-hardest, while PDD's update is smallest early and largest at block 49, where
-propagation is lowest.
+motivated the now-withdrawn `dense_blocks="0-2,32"` experiment: perturbations
+at early blocks reach the output hardest, while PDD's update is smallest early
+and largest at block 49, where propagation is lowest. That 11-block probe did
+not validate a production list; both shared Sol configs ship empty as of
+2026-09-02.
 
 **So the knob is not a strength schedule, it is a placement one.** The
 inflation comes entirely from folding the delta into an already-quantised

@@ -701,51 +701,28 @@ SOL_RECOMMENDED_CUDA = dict(
     # against exactly that routing; on the base model it is a strictly worse
     # approximation with no compensating training. See docs/SOLATTN.md.
     pooled_tail=True, verbose=False,
-    # **"0-2,32" since 2026-08-29, measured here. "0-1" from 2026-08-26, which
-    # was NVLabs' number rather than ours, and "" before that.**
+    # Empty again by owner decision on 2026-09-02. `0-2,32` shipped from
+    # 2026-08-29 until this correction, but it came from an EXPERIMENT rather
+    # than a production-default result: `2026-08-29_block_propagation.json`
+    # sampled only 11 of 50 blocks, on one base-model trajectory at a specially
+    # isolated sigma, with one output-distance proxy and no perceptual A/B. It
+    # did not test the PDD head, canonical PDD active sigmas, a complete block
+    # sweep, or interactions among blocks. That is enough to motivate a future
+    # arm and not enough to hardcode four bypasses into every workflow.
     #
-    # `bench/results/2026-08-29_block_propagation.json` runs Sol at exactly ONE
-    # block with sage everywhere else and reads the output latent, which is the
-    # quantity this knob should be chosen on -- it folds together how large
-    # Sol's error is at a block and how much of it survives to the output.
-    # Video rel L2 against a sage-everywhere baseline:
-    #     0  0.0306   32 0.0272   1  0.0272   2  0.0254
-    #     24 0.0247   8  0.0243   16 0.0239   40 0.0177
-    #     49 0.0128   48 0.0110   45 0.0109
-    # Video and audio rank the SAME four highest, and block 32 replicated at a
-    # second seed. **The probe ran on the BASE model** -- this graph -- so it is
-    # this config the measurement bears on most directly, and SOL_PDD_CUDA
-    # inherits it.
-    #
-    # It keeps the vendor's front and extends it. NVLabs ship `0-1` on both
-    # their H3 profiles and that survives: blocks 0 and 1 are first and third
-    # here. What it adds is block 2 and block 32, and what it refutes is any
-    # instinct to protect the TAIL -- 45, 48 and 49 are the three lowest
-    # measured, less than half of block 0.
-    #
-    # **Do not read the Sol paper's "first layer" as agreement.** It says, of
-    # Wan2.1, HunyuanVideo, Bernini and Ideogram 4, that it runs dense "in the
-    # first layer" -- none of them this architecture, and H3 did not exist when
-    # it was submitted. Its cost trade does not transfer either: those models do
-    # not sit in attention the way this one does, where Sol is worth 1.896x on
-    # the whole sampler. See docs/SOLATTN.md.
-    #
-    # Cost is measured, not assumed: 1.01 s per dense block at 4 steps, linear
-    # from 2 to 8 blocks (`bench/results/2026-08-29_dense_block_cost.json`).
-    # Four blocks against the vendor's two is about +2 s on a 150 s render. At
-    # 16 steps Sol covers 11 of them rather than 2, so the same two extra
-    # blocks cost proportionally more there and still land near 1% -- priced,
-    # not measured at that step count.
-    #
-    # **One box, two seeds, and a fidelity proxy rather than a person looking
-    # at a clip.** Nothing here is a perceptual result.
-    dense_blocks="0-2,32",
+    # Keep the mechanism: an experiment may still set any block list explicitly.
+    # Do not repopulate the shared default until all 50 blocks have been measured
+    # on the actual target schedule/model and the resulting set survives a
+    # set-level, multi-scene validation. The 2026-09-02 production-geometry
+    # route capture deliberately runs with this empty so blocks 0-2 and 32 are
+    # observable instead of bypassed.
+    dense_blocks="",
 )
 
 
-# The Sol config for a PDD arm. **Two knobs, both measured on this box on
-# 2026-08-29; it carried five that afternoon and three of them were dropped
-# for having no evidence behind them.**
+# The Sol config for a PDD arm. It differs from the base recipe only in the
+# trajectory window. `dense_blocks` is inherited empty; any protected-block
+# list is an explicit experiment, not a PDD default.
 #
 #   end_percent   0.74 at EVERY PDD step count, against the step-count
 #                 derivation in SOL_END_PERCENT_BY_STEPS, which gives 0.87 at
@@ -765,33 +742,6 @@ SOL_RECOMMENDED_CUDA = dict(
 #                 should be WORSE than 0.74 if the mechanism is trajectory-
 #                 pinned rather than grid-pinned. Nothing has run that.
 #
-#   dense_blocks  INHERITED from SOL_RECOMMENDED_CUDA since 2026-08-29 evening,
-#                 where the reasoning now lives. Kept here only as the record
-#                 of how this dict got there:
-#                 `bench/results/2026-08-29_block_propagation.json`: Sol run at
-#                 exactly ONE block, sage everywhere else, reading the output
-#                 latent against a sage-everywhere baseline. Video rel L2 --
-#                     0  0.0306   32 0.0272   1  0.0272   2  0.0254
-#                     24 0.0247   8  0.0243   16 0.0239   40 0.0177
-#                     49 0.0128   48 0.0110   45 0.0109
-#                 Video and audio independently rank the SAME four highest,
-#                 and block 32 replicated at a second seed (video +5% and
-#                 +14% over block 16, audio +25% and +31%).
-#                 Cost is `bench/results/2026-08-29_dense_block_cost.json`:
-#                 **1.01 s per dense block** at 4 steps, linear from 2 to 8
-#                 blocks, against a 0.9 s noise floor. Four blocks is +4.1 s
-#                 on a 150 s render, 2.7%.
-#                 **This REVERSES the local error ranking** in
-#                 `2026-08-29_dense_block_ranking.json`, which put block 0
-#                 last and block 40 first. Propagation is why: an early
-#                 block's error is carried through the rest of the model,
-#                 block 40's and 49's are not. That file is still right about
-#                 what it measures; it just does not decide this knob.
-#                 **The tail is the worst place to spend a block** -- 45, 48
-#                 and 49 are the three lowest measured, so the "0,1,2,48,49"
-#                 this shipped that morning spent two of its five on the
-#                 bottom of the ranking.
-#
 # **Dropped 2026-08-29, all three for the same reason: no evidence, and no
 # effect either.** Keeping them made SOL_PDD_CUDA look like a five-knob
 # finding when it was one derivation and one measurement.
@@ -809,16 +759,11 @@ SOL_RECOMMENDED_CUDA = dict(
 # centroid_tail, reuse_qkv_memory. Spelled as an override dict rather than a
 # second full literal, because a full copy is the second copy this file forbids.
 #
-# **What none of this establishes.** One box, one canvas, two seeds, and a
-# fidelity proxy rather than a person looking at a clip. The probe also ran on
-# the BASE model, so PDD's fused output head was not in the path -- which is
-# the one argument for the tail that the measurement cannot see, and it is not
-# enough to reinstate 48-49 against a measured ranking that puts them last.
-# **ONE knob.** `dense_blocks` was here from 2026-08-29 morning until that
-# evening, when the propagation measurement moved SOL_RECOMMENDED_CUDA to the
-# same "0-2,32" -- so it is inherited now rather than restated, which is the
-# rule this file exists to keep. A PDD arm differs from the base recipe in
-# exactly one value, and that value is the one with a derivation behind it.
+# **What none of this establishes.** No protected-block list is validated for
+# the PDD head or its canonical active sigmas. The base-model propagation probe
+# that temporarily installed `0-2,32` did not establish that result either, so
+# both configurations inherit the empty default while the instrumentation lane
+# gathers the missing all-block evidence.
 SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
 )
