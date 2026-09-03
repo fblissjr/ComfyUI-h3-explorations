@@ -19,10 +19,13 @@ which file is which.
 
 **The source.** alibaba-pai publishes one PDD LoRA per partition,
 `MiniMax-H3-{FL2VA,Ref2VA}-Acc-8Step.safetensors`, in diffusers naming. Each
-holds three mechanisms: 312 LoRA modules over the 50 transformer blocks and the
-2 token-refiner blocks (the backbone), 50 LoRA modules on `adaln_proj.linear`
-(the modulation update), and `proj_out` / `audio_proj_out` replaced by a stack
-of 32 per-interval output heads. PDD is not a step distillation: the heads are
+holds three mechanisms: a LoRA module for each of the source's declared
+`lora_targets` on every transformer block and every token-refiner block (the
+backbone; both depths are the release's, `vendor_config.transformer_depth()`),
+one LoRA module per block on `adaln_proj.linear` (the modulation update), and
+`proj_out` / `audio_proj_out` replaced by a stack of per-interval output heads,
+one per point of the published time grid (the bank's leading dimension in the
+sidecar table below). PDD is not a step distillation: the heads are
 what makes parallel decoding possible, and the backbone and adaln updates are
 what the distillation taught the model to feed them.
 
@@ -32,8 +35,9 @@ file `MiniMaxH3PDDLoRA` can load, on three surfaces:
 - the **backbone**, renamed to ComfyUI's generic LoRA keys
   (`diffusion_model.blocks.N.{attn.qkv_proj, attn.out_proj, mlp.fc1, mlp.fc2}`
   after the q/k/v fuse and the SwiGLU half swap, plus
-  `diffusion_model.token_refiner.blocks.N.*`): 208 modules, applied by
-  ComfyUI's own weight-patch path;
+  `diffusion_model.token_refiner.blocks.N.*`): every block times the four
+  kinds (`pdd_lora.py::expected_population`), applied by ComfyUI's own
+  weight-patch path;
 - the **adaln update**, in one of two forms (next paragraph);
 - the **head bank**, `h3_pdd.bank.*`: the published 32 heads verbatim, fused
   at load time for whatever step count the sampler runs.
@@ -52,8 +56,8 @@ no table). Every checkpoint this repo ships graphs for is pruned.
 - `..._pdd_8step_adaln2688_comfy.safetensors`: the adaln update as the
   original **2688-dim LoRA pairs** (`h3_pdd.adaln.*`) plus the time grid the
   runtime injection needs (`h3_pdd.silu_temb_grid`). Loads on either build:
-  a weight patch on an unpruned base, 50 runtime forward patches on a pruned
-  one.
+  a weight patch on an unpruned base, one runtime forward patch per block on
+  a pruned one.
 
 Both carry the same backbone and the same bank, bit for bit.
 
@@ -74,8 +78,9 @@ a sentence that says "baked" without saying which is ambiguous:
    pruned checkpoint whose curves it was solved against, and why it is cheaper
    than `_adaln2688`, which has to do the conversion on every forward pass.
    The metadata says `h3_pdd_adaln_form: baked`.
-2. **The backbone bake (does not exist yet).** The 200 large attention and
-   MLP corrections are today added into the int8 weights at load time. Adding
+2. **The backbone bake (does not exist yet).** The large attention and MLP
+   corrections, one set per transformer block, are today added into the int8
+   weights at load time. Adding
    into an int8 weight forces a re-quantisation, and that adds noise about as
    large as the quantisation error the checkpoint already carries
    ([`h3_pdd.md`](h3_pdd.md) "What a backbone bake pins" has the numbers).
@@ -93,7 +98,8 @@ file on disk today). A *stripped* one carries none of it and is paired with
 exactly one baked checkpoint; the converter cuts it with
 `--omit-backbone --baked <that checkpoint>`.
 
-**The probe.** Since converter version 3 every file stores 64 rows of
+**The probe.** Since converter version 3 every file stores the leading rows
+(`bench/convert_pdd_lora.py::BACKBONE_PROBE_ROWS`, a chosen size) of
 `blocks.49.mlp.fc2.weight`'s int8 codes and fp32 row scales, cut from the
 checkpoint the file is paired with (`h3_pdd_backbone_probe_of`: `base` for a
 full file, `baked` for a stripped one). The node requires the loaded module to
@@ -161,8 +167,9 @@ whatever step count the sampler runs. Introduced in `548629e` (2026-08-26),
 REPLACING `h3_pdd.head.*` from the first converter that morning (`7f460f7`),
 which stored the heads already fused for the file's own step count. The gap:
 a fused head pins a step count into the artifact, so every other evaluation
-count needed another conversion; with the raw bank one file serves 8, 4, 2 or
-16 evaluations. The paper's own recommendation (its section 3.1) is to hold one
+count needed another conversion; with the raw bank one file serves any
+evaluation count the grid admits (`pdd_lora.py::resolve_emit_steps`). The
+paper's own recommendation (its section 3.1) is to hold one
 fused head per block, which the node does, at load rather than per forward.
 Then `ca0c245` (2026-08-28) made the converter refuse a bank whose rows are
 deltas from row 0 rather than verbatim heads, because a re-upload of the
@@ -191,25 +198,31 @@ one `diff` (F16, the weight) and one `diff_b` (F32, the bias) per block,
 applied by `comfy.lora` as ordinary weight patches. Introduced in `e917a35`
 (2026-08-26) with `--pruned`. The gap: on a pruned checkpoint the 2688-dim time
 space the update lives in does not exist, so the only path had been a runtime
-injection of 50 forward patches. The bake is possible because the update's
-time curve lies in the checkpoint's basis to a relative residual measured at
-1.2e-5 to 1.1e-4 over all fifty blocks (`h3_pdd.md`); the first measurement
-omitted the centring and read 0.93, i.e. "cannot be baked", and the positive
-control -- projecting the BASE curve, which must fit -- is what caught it.
-`c839e22` the same day made a pruned file carry ONLY this form, dropping the
-2688 pairs and the grid that were 40% of the file and dead on a pruned base.
+injection of one forward patch per block. The bake is possible because the
+update's time curve lies in the checkpoint's basis: the converter refuses any
+block whose fit residual exceeds its threshold (the `err > 1e-3` guard in
+`bench/convert_pdd_lora.py`, reasoned) and prints the worst it saw, and the
+sampled comparison of the baked patch against the true delta is
+`bench/results/2026-08-26_pdd_conversion_{fl2va,ref2va}.json::adaln_bake_vs_truth`,
+beside Kijai's independent bake. The first measurement omitted the centring
+and read as a non-fit, and the positive control -- projecting the BASE curve,
+which must fit -- is what caught it. `c839e22` the same day made a pruned file
+carry ONLY this form, dropping the 2688 pairs and the grid, which were the
+larger part of a pruned file's bytes and dead on a pruned base (the group
+shapes in the fingerprint record derive the share).
 
 ### `h3_pdd.adaln_table`
 
 The `adaln_t_table` the bake was solved against. Introduced in `e917a35`
 (2026-08-26). The gap: a bake solved against the OTHER partition's table fits
 its basis just as well -- both are SVDs of similar smooth curves, so the fit
-is blind to which basis -- and is 0.0205 wrong at run time against 0.0001 for
-the right one (`h3_pdd.md`). So the node compares this table with the loaded
-model's own, by distance, and refuses a mismatch. `TABLE_TOLERANCE` shipped for
-an hour at 1e-3, below the 1.6e-3 a bf16 cast costs, which would have sent
-every correct bake down the slow path silently; `bench/check_pdd_head_selection.py`
-grades both sides of it.
+is blind to which basis -- and is far worse at run time than the right one
+(`bench/results/2026-08-27_pdd_adaln_cross_partition.json`, both arms). So the
+node compares this table with the loaded model's own, by distance, and refuses
+a mismatch. `pdd_lora.py::TABLE_TOLERANCE` (reasoned) shipped for an hour
+BELOW the bf16 cast floor that record carries (`bf16_cast_floor`), which
+would have sent every correct bake down the slow path silently;
+`bench/check_pdd_head_selection.py` grades it from both sides.
 
 ### `h3_pdd.adaln.blocks.N.lora_A / lora_B`
 
@@ -237,15 +250,19 @@ dates (the archived 2026-08-28 files predate them and carry none).
 `silu(time_embedder(t))` over a 1025-point grid, derived from `--base`.
 Introduced in `7f460f7` (2026-08-26). Consumed only by the runtime injection,
 i.e. an `_adaln2688` file on a pruned base. The gap it closes is partition
-mixing: the fl2va and ref2va time curves differ by 7.8% relative, so a grid
-from the wrong partition feeds the injection a 7.8%-wrong input and nothing
-errors; deriving it from the same checkpoint that supplies
-`h3_pdd.base_video_out` makes that impossible rather than merely documented.
+mixing: the fl2va and ref2va time curves differ, so a grid from the wrong
+partition feeds the injection a wrong input and nothing errors; deriving it
+from the same checkpoint that supplies `h3_pdd.base_video_out` makes that
+impossible rather than merely documented. (The size of that difference was
+stated in the converter's docstring and `h3_pdd.md` from a 2026-08-26
+comparison no dated record carries; it is listed as unsupported in
+`evidence.md` and not repeated here.)
 
 ### `h3_pdd.backbone_probe`
 
-64 rows of `blocks.49.mlp.fc2.weight`'s int8 codes from the checkpoint the file
-is paired with. Introduced in `2404409` (2026-09-02, converter version 2),
+The leading rows (`bench/convert_pdd_lora.py::BACKBONE_PROBE_ROWS`) of
+`blocks.49.mlp.fc2.weight`'s int8 codes from the checkpoint the file is paired
+with. Introduced in `2404409` (2026-09-02, converter version 2),
 codes only and always from the base. The gap: a baked checkpoint plus the
 unmodified full sidecar applies the backbone TWICE and renders normally, and a
 stripped sidecar on the base applies it never; neither shows in the keys
@@ -256,11 +273,13 @@ admitted every wrong bake; Codex's 2026-09-03 audit (gitignored,
 *"it proves only 'not the base,' not 'this exact bake'"*) is why `e38655d`
 made it an exact identity cut from the PAIRED checkpoint
 (`h3_pdd_backbone_probe_of`). `fc2` of block 49 because it carries the largest
-single update in the file (0.044 relative), so a bake moves it furthest.
+single update in the file (`pdd_rel` per module in
+`bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json`), so a bake
+moves it furthest.
 
 ### `h3_pdd.backbone_probe_scale`
 
-The matching 64 rows of the fp32 per-row `weight_scale`. Introduced in
+The matching rows of the fp32 per-row `weight_scale`. Introduced in
 `e38655d` (2026-09-03, converter version 3). The gap, from the same audit: an
 int8_convrot weight is codes AND a scale, and a change confined to the scale
 moves the arithmetic while leaving every code equal, so the codes-only probe
@@ -322,8 +341,8 @@ pairings, and what the node does:
 
 | pairing | outcome |
 |---|---|
-| `_comfy` (adaln baked) on an unpruned base | **refused**: none of its 50 adaln modules can be applied, and the message names the `_adaln2688` file. Before 2026-08-31 this rendered with no modulation update and looked normal |
-| `_adaln2688` on a pruned base | **works**, through 50 runtime forward patches instead of weight patches: slower per step, same result to within the adaln bake's residual, which is far below the pruning error the checkpoint already carries |
+| `_comfy` (adaln baked) on an unpruned base | **refused**: none of its adaln modules can be applied, and the message names the `_adaln2688` file. Before 2026-08-31 this rendered with no modulation update and looked normal |
+| `_adaln2688` on a pruned base | **works**, through one runtime forward patch per block instead of weight patches: slower per step, same result to within the adaln bake's residual, which sits below the pruning error the checkpoint already carries (`bench/results/2026-08-20_adaln_pruning_residual.json` against `2026-08-26_pdd_conversion_*.json::adaln_bake_vs_truth`) |
 | fl2va file on a ref2va base, or the reverse | **refused** by the partition check on `final_layer.video_out`; the two partitions ship identical key sets, so nothing else would notice |
 | a `_comfy` file whose adaln was solved against another table | **refused** by the table guard |
 | full sidecar on a checkpoint that is not its base (a bake) | **refused** since converter version 3, by the probe: the backbone would be applied a second time |
@@ -376,8 +395,8 @@ during these changes, so a version-1 file's contents depend on its date.
   the pruned checkpoint's curve basis (`--pruned`) the same day, and one adaln
   form per file rather than both.
 - 2026-08-26, later (`548629e`): the precomputed fused heads
-  (`h3_pdd.head.*`) RETIRED for the raw 32-head bank (`h3_pdd.bank.*`), fused
-  at load for any step count, so one file serves 8, 4, 2 or 16 evaluations.
+  (`h3_pdd.head.*`) RETIRED for the raw per-interval bank (`h3_pdd.bank.*`),
+  fused at load for any evaluation count the grid admits.
   **Withdrawn: this page and the CHANGELOG dated the retirement to 2026-08-27;
   `git log -S "h3_pdd.head."` puts its last touch in `548629e` on 08-26.**
 - 2026-08-27 (`d28b7a6`, `142bfc9`): `--pruned` runs had exited non-zero
@@ -441,12 +460,13 @@ down.
 - **2026-08-31**: `MiniMaxH3PDDLoRA`'s file combo reordered to open on the
   `_comfy` file rather than the alphabetically earlier `_adaln2688` one.
 - **2026-09-02**: both `_comfy` files regenerated at converter version 2
-  (730 prior tensors verified identical; the codes-only probe added). Two
+  (every prior tensor verified identical; the codes-only probe added). Two
   stripped version-2 files staged beside them.
 - **2026-09-03**: both `_comfy` files regenerated at version 3 (tensors
   identical; probe now codes and scales), and again with the date and commit
-  stamp. Both `_adaln2688` files regenerated at version 3 likewise (780
-  tensors identical). The two version-2 stripped files DELETED: a stripped
+  stamp. Both `_adaln2688` files regenerated at version 3 likewise, every
+  prior tensor identical (the version-diff region derives it from the record).
+  The two version-2 stripped files DELETED: a stripped
   file is cut against its bake, and none exists. The 2026-08-28 dated copies
   moved to `pdd_archive/` with `v1` in their names; nothing in the repo
   named them, one saved UI graph names the ref2va one.
