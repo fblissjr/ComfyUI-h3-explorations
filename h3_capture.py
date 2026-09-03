@@ -296,7 +296,12 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
     record = {"q": qh, "k": kh, "v": vh,
               "kernel": kernel, "block": int(block), "step": int(step),
               "sigma": sigma, "seq_len": int(seq), "render": int(render),
-              "unmerged_blocks": unmerged}
+              "unmerged_blocks": unmerged,
+              # The process that wrote this: its launch flags (`--fast
+              # fp16_accumulation` changes the numerics a capture holds) and
+              # the versions under it. The manifest generator copies this
+              # into `provenance.server`; nothing offline can recover it.
+              "server": _server_stamp()}
     if segments is not None:
         record["segments"] = segments
 
@@ -331,6 +336,18 @@ def wants_final():
     """Whether `final=1` was declared. Read by the patching node."""
     _sync_spec()
     return bool(enabled and _config.get("final"))
+
+
+def _server_stamp() -> dict:
+    import sys
+    out = {"argv": list(sys.argv), "torch": torch.__version__,
+           "cuda": torch.version.cuda, "comfy_kitchen": None, "pid": os.getpid()}
+    try:
+        import importlib.metadata as _md
+        out["comfy_kitchen"] = _md.version("comfy_kitchen")
+    except Exception:                                  # noqa: BLE001 -- absent is a value here
+        pass
+    return out
 
 
 def maybe_capture_final(out, length_hint=None):

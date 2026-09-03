@@ -42,13 +42,27 @@ on the installed build, with an fp32 chunked dense reference computed here:
   exact_all_routed   tau -1e9: relative L2 and cosine against fp32 dense
   topk_0.10          topk_ratio 0.10, kijai's "10% keep": per-head cosine
                      against fp32 dense, mean and worst over heads
-  tau_1.0            the shipped tau: the same per-head cosine
+  tau_1.0_no_sinks   the shipped tau, but NOT the shipped call: the node
+                     passes sink ranges derived from the segment table, and
+                     a capture taken with Sol absent carries no table (the
+                     Sol rope hook is what publishes it). An UNSUNK
+                     DIAGNOSTIC, not a bound: forced-pair counts are
+                     monotone in the sink ranges, but relative L2 and
+                     cosine need not be, because errors can cancel. Codex
+                     caught the mislabel, then the "upper bound" that
+                     replaced it, on 2026-09-03.
+  sage_<mode>        every sage mode `attention.py::MODES` builds, on the
+                     SAME q/k/v, every row, the SAME fp32 reference -- the
+                     shipped fallback a `dense_blocks` entry actually runs.
+                     The first record graded sage with a separate script at
+                     512 sampled rows against float64 and called that "one
+                     footing"; it was not, and Codex said so. This is.
 
-Every arm also carries per-ROW relative L2 (mean, p99) and cosine (mean,
-min), the statistic `bench/grade_sage_on_capture.py` reports for the sage
-modes, so Sol and the shipped Sage fallback can be compared on identical
-cells against the same exact reference -- which is the comparison a
-`dense_blocks` decision needs, since a "dense" block runs Sage, not exact.
+Every arm carries whole-tensor relative L2 and cosine, per-head cosine
+(mean and worst), and per-ROW relative L2 (mean, p99) and cosine (mean,
+min). Whole-tensor relative L2 is norm-weighted, so a block whose error
+sits in a few high-norm rows reads far worse under it than per row; block
+49 on the first record is that case, and the two must be quoted together.
 
 Same seeded inputs are replaced by the SAME FILES, so two records from two
 builds are like-for-like exactly as the random arms are. Run once per wheel
@@ -70,6 +84,7 @@ try:
     import torch
 except Exception:  # noqa: BLE001  -- main() reports the SKIP
     torch = None
+_attn = None
 
 
 def main() -> int:
@@ -79,6 +94,8 @@ def main() -> int:
     ap.add_argument("--capture", help="directory of h3_capture.py qkv_*.pt files; grades those instead of random inputs")
     ap.add_argument("--topk", type=float, default=0.10, help="topk_ratio for the keep arm in capture mode")
     ap.add_argument("--chunk", type=int, default=2048, help="query rows per fp32 dense chunk in capture mode")
+    ap.add_argument("--no-sage", dest="sage", action="store_false",
+                    help="capture mode: skip the sage arms (the shipped fallback on the same cells)")
     args = ap.parse_args()
     try:
         import importlib.metadata as md
@@ -225,6 +242,10 @@ def grade_capture(args, ck, rec, cos, rel):
     import glob
     import os
     import torch
+    global _attn
+    if args.sage:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import attention as _attn  # noqa: E402  -- the pack's sage modes, built as the node builds them
     files = sorted(glob.glob(os.path.join(os.path.expanduser(args.capture), "qkv_*.pt")))
     if not files:
         print(f"no qkv_*.pt under {args.capture}")
@@ -253,12 +274,37 @@ def grade_capture(args, ck, rec, cos, rel):
         out = ck.sol_attn(q, k, v, tau=1.0)
         ph = per_head_cos(out, ref)
         rs = row_stats(out, ref)
+        r, c = rel_cos_lean(out, ref)
         del out
-        row["tau_1.0"] = {"cos_mean": sum(ph) / len(ph), "cos_worst": min(ph), "per_head": ph, **rs}
+        row["tau_1.0_no_sinks"] = {"rel_l2": r, "cos": c, "cos_mean": sum(ph) / len(ph),
+                                   "cos_worst": min(ph), "per_head": ph, **rs,
+                                   "note": "no sink ranges: an unsunk diagnostic, not the shipped call and not a bound on its error (errors can cancel)"}
+        if args.sage:
+            for mode in _attn.MODES:
+                try:
+                    fn, kw = _attn.build_kernel(mode)
+                except Exception as exc:                          # noqa: BLE001
+                    row[f"sage_{mode}"] = {"unavailable": str(exc)}
+                    continue
+                hnd = [x.permute(0, 2, 1, 3).contiguous() for x in (q, k, v)]
+                try:
+                    out = fn(hnd, **dict(kw, tensor_layout="HND")).permute(0, 2, 1, 3)
+                except Exception as exc:                          # noqa: BLE001
+                    row[f"sage_{mode}"] = {"raised": f"{type(exc).__name__}: {exc}"}
+                    del hnd
+                    continue
+                ph = per_head_cos(out, ref)
+                rs = row_stats(out, ref)
+                r, c = rel_cos_lean(out, ref)
+                row[f"sage_{mode}"] = {"rel_l2": r, "cos": c, "cos_mean": sum(ph) / len(ph),
+                                       "cos_worst": min(ph), "per_head": ph, **rs}
+                del out, hnd
+                torch.cuda.empty_cache()
         rec["arms"]["per_file"].append(row)
         print(f"  b{row['block']:>2} s{row['step']:>2} S={t}: all-routed rel L2 {row['exact_all_routed']['rel_l2']:.5f}  "
               f"topk {args.topk:.2f} cos {row[f'topk_{args.topk:.2f}']['cos_mean']:.4f}/{row[f'topk_{args.topk:.2f}']['cos_worst']:.4f}  "
-              f"tau 1.0 cos {row['tau_1.0']['cos_mean']:.4f}/{row['tau_1.0']['cos_worst']:.4f}")
+              f"tau 1.0 (no sinks) cos {row['tau_1.0_no_sinks']['cos_mean']:.4f}/{row['tau_1.0_no_sinks']['cos_worst']:.4f}"
+              + ("  sage auto row rel L2 %.4f" % row["sage_auto"]["rel_l2_row_mean"] if "sage_auto" in row and "rel_l2_row_mean" in row["sage_auto"] else ""))
         del d, q, k, v, ref
         torch.cuda.empty_cache()
     rows = rec["arms"]["per_file"]
@@ -268,17 +314,22 @@ def grade_capture(args, ck, rec, cos, rel):
         "all_routed_rel_l2_mean": sum(r["exact_all_routed"]["rel_l2"] for r in rows) / n,
         f"topk_{args.topk:.2f}_cos_mean": sum(r[f"topk_{args.topk:.2f}"]["cos_mean"] for r in rows) / n,
         f"topk_{args.topk:.2f}_cos_worst": min(r[f"topk_{args.topk:.2f}"]["cos_worst"] for r in rows),
-        "tau_1.0_cos_mean": sum(r["tau_1.0"]["cos_mean"] for r in rows) / n,
-        "tau_1.0_cos_worst": min(r["tau_1.0"]["cos_worst"] for r in rows),
+        "tau_1.0_no_sinks_cos_mean": sum(r["tau_1.0_no_sinks"]["cos_mean"] for r in rows) / n,
+        "tau_1.0_no_sinks_cos_worst": min(r["tau_1.0_no_sinks"]["cos_worst"] for r in rows),
         "all_routed_rel_l2_row_mean": sum(r["exact_all_routed"]["rel_l2_row_mean"] for r in rows) / n,
         f"topk_{args.topk:.2f}_rel_l2_row_mean": sum(r[f"topk_{args.topk:.2f}"]["rel_l2_row_mean"] for r in rows) / n,
-        "tau_1.0_rel_l2_row_mean": sum(r["tau_1.0"]["rel_l2_row_mean"] for r in rows) / n,
+        "tau_1.0_no_sinks_rel_l2_row_mean": sum(r["tau_1.0_no_sinks"]["rel_l2_row_mean"] for r in rows) / n,
+        **{f"{m}_rel_l2_mean": sum(r[m]["rel_l2"] for r in rows) / n
+           for m in rows[0] if m.startswith("sage_") and all("rel_l2" in r.get(m, {}) for r in rows)},
+        **{f"{m}_rel_l2_row_mean": sum(r[m]["rel_l2_row_mean"] for r in rows) / n
+           for m in rows[0] if m.startswith("sage_") and all("rel_l2_row_mean" in r.get(m, {}) for r in rows)},
         "note": "means over files weight every (block, step) equally; worst is the single worst head anywhere",
     }
     a = rec["arms"]["aggregate"]
     print(f"\naggregate over {n} files: all-routed rel L2 {a['all_routed_rel_l2_mean']:.5f}; "
           f"topk {args.topk:.2f} cos {a[f'topk_{args.topk:.2f}_cos_mean']:.4f}/{a[f'topk_{args.topk:.2f}_cos_worst']:.4f}; "
-          f"tau 1.0 cos {a['tau_1.0_cos_mean']:.4f}/{a['tau_1.0_cos_worst']:.4f}")
+          f"tau 1.0 (no sinks) cos {a['tau_1.0_no_sinks_cos_mean']:.4f}/{a['tau_1.0_no_sinks_cos_worst']:.4f}; "
+          + "; ".join(f"{k} {v:.5f}" for k, v in a.items() if k.startswith("sage_")))
     if args.out:
         Path(args.out).write_text(json.dumps(rec, indent=1) + "\n")
         print(f"record written to {args.out}")

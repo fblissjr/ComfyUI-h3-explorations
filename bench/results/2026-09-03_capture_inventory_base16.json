@@ -1,0 +1,691 @@
+{
+  "measured": "2026-08-30",
+  "produced_by": "bench/record_capture_inventory.py",
+  "what": "what each H3 capture contained, recorded so the capture itself can be deleted without orphaning the results that cite it",
+  "captures": [
+    {
+      "capture": "2026-09-03_base16_t2v_1344x768",
+      "existed_at_record_time": true,
+      "n_tensor_files": 25,
+      "arms": [],
+      "total_bytes": 112209012390,
+      "total_bytes_parsed_only": 112209012390,
+      "blocks": [
+        0,
+        24,
+        32,
+        40,
+        49
+      ],
+      "steps": [
+        4,
+        8,
+        12,
+        14,
+        15
+      ],
+      "sequence_lengths": [
+        104361
+      ],
+      "renders": [
+        0
+      ],
+      "unparsed_files": [],
+      "files": [
+        {
+          "file": "qkv_L104361_S104361_b0_s12.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 0,
+          "step": 12,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b0_s14.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 0,
+          "step": 14,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b0_s15.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 0,
+          "step": 15,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b0_s4.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 0,
+          "step": 4,
+          "render": 0,
+          "bytes": 4488360483
+        },
+        {
+          "file": "qkv_L104361_S104361_b0_s8.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 0,
+          "step": 8,
+          "render": 0,
+          "bytes": 4488360483
+        },
+        {
+          "file": "qkv_L104361_S104361_b24_s12.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 24,
+          "step": 12,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b24_s14.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 24,
+          "step": 14,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b24_s15.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 24,
+          "step": 15,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b24_s4.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 24,
+          "step": 4,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b24_s8.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 24,
+          "step": 8,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b32_s12.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 32,
+          "step": 12,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b32_s14.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 32,
+          "step": 14,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b32_s15.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 32,
+          "step": 15,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b32_s4.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 32,
+          "step": 4,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b32_s8.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 32,
+          "step": 8,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b40_s12.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 40,
+          "step": 12,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b40_s14.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 40,
+          "step": 14,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b40_s15.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 40,
+          "step": 15,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b40_s4.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 40,
+          "step": 4,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b40_s8.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 40,
+          "step": 8,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b49_s12.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 49,
+          "step": 12,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b49_s14.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 49,
+          "step": 14,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b49_s15.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 49,
+          "step": 15,
+          "render": 0,
+          "bytes": 4488360501
+        },
+        {
+          "file": "qkv_L104361_S104361_b49_s4.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 49,
+          "step": 4,
+          "render": 0,
+          "bytes": 4488360492
+        },
+        {
+          "file": "qkv_L104361_S104361_b49_s8.pt",
+          "length": 104361,
+          "sequence": 104361,
+          "block": 49,
+          "step": 8,
+          "render": 0,
+          "bytes": 4488360492
+        }
+      ],
+      "manifest": {
+        "schema_version": "1.4.0",
+        "timestamp": "2026-09-03T16:24:19.304690+00:00",
+        "provenance": {
+          "git_commit": "c911d5542cfd1ba77e9d484a2afb83f887a7b57b",
+          "gpu_device": "NVIDIA GeForce RTX 4090",
+          "gpu_power_limit_watts": 450.0,
+          "driver_version": "610.57.04",
+          "cuda_version": "13.3",
+          "pytorch_version": "2.13.0+cu132",
+          "comfyui_version": "0.34.0",
+          "comfy_kitchen_version": "0.2.31+sol.d25f2e8"
+        },
+        "workload": {
+          "workflow_file": "old_stamped_api.json",
+          "canvas": {
+            "width": 1024,
+            "height": 768,
+            "aspect": "4:3",
+            "length": 345,
+            "fps": 24.0,
+            "latent_frames": 102
+          },
+          "models": {
+            "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": null,
+            "video_vae": "minimax_h3_video_vae_fp16.safetensors",
+            "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "weight_quantization": "int8_convrot",
+            "vae_quantization": "fp16",
+            "loras": [],
+            "sha256": {
+              "_unavailable": "folder_paths not importable: No module named 'folder_paths'"
+            }
+          },
+          "sampling": {
+            "sampler_name": "er_sde",
+            "scheduler": "simple",
+            "steps": 16,
+            "denoise": 1.0,
+            "seed": 0,
+            "cfg": 1.0
+          },
+          "attention": {
+            "sage_mode": "auto",
+            "sol_attn": "absent",
+            "sol_start_percent": null,
+            "sol_end_percent": null,
+            "sol_dense_blocks": null,
+            "sol_tau": null,
+            "head_chunks": 1
+          },
+          "underived": [
+            "models.clip"
+          ]
+        },
+        "prompt": {
+          "full_prompt_text": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents and a hanging brass scale swaying gently at the edge of frame. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder. [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter. [Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.\noverall_soundscape:\nLoose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.\n\nnon_diegetic_music:\nN/A",
+          "sections": {
+            "overall_soundscape": "Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.",
+            "non_diegetic_music": "N/A"
+          }
+        },
+        "references": [],
+        "token_accounting": {
+          "total_sequence_length": 87253,
+          "video_tokens": 78336,
+          "text_tokens": 7711,
+          "reference_tokens": 0,
+          "audio_tokens": 1206
+        },
+        "captured_tensors": [
+          {
+            "filename": "qkv_L104361_S104361_b0_s12.pt",
+            "block": 0,
+            "step": 12,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "31f0661e7088d03e4ebbe5e3cfbb3eacdc7072d35d7b84a6c035e459d4f30ba9"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b0_s14.pt",
+            "block": 0,
+            "step": 14,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "ed83efc5756abe19189502f15f205929db62d35ba435e01fafa4bda8d1008328"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b0_s15.pt",
+            "block": 0,
+            "step": 15,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "da46bf810b48ef18d847ee3462adc19ef1c462ce264dc690cba535d63b0699b6"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b0_s4.pt",
+            "block": 0,
+            "step": 4,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360483,
+            "sha256": "1e0ff20e7641766d393be190123a6f566d6b75adb1e3bf0e19c133df822e091f"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b0_s8.pt",
+            "block": 0,
+            "step": 8,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360483,
+            "sha256": "0ce108b7b1fd0780d04be48da62fce8254b5a852a037ca65cfa06cc3f1c7f732"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b24_s12.pt",
+            "block": 24,
+            "step": 12,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "334b218b410d59eb4b74d3e4dd156ce17336e91717d71c6631c6e27349cdca8d"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b24_s14.pt",
+            "block": 24,
+            "step": 14,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "c24527d25aaa282037455c8441900e954341995a1770fd0943b4d5a6fd497f09"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b24_s15.pt",
+            "block": 24,
+            "step": 15,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "82b64ba5ec2fa9d20ac23f4f75c0c5d442962c354ff47671a3e5adaef7b7cb2d"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b24_s4.pt",
+            "block": 24,
+            "step": 4,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "dceb0dd12afb1ab905ac0f5ea324936c06bd7b6d3d21ae0454b381935634bece"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b24_s8.pt",
+            "block": 24,
+            "step": 8,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "e5029e9b6dcd7507e6f91048d1e17bc8f5663cb815155490083b25a29207d7ce"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b32_s12.pt",
+            "block": 32,
+            "step": 12,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "f6a63b99f10e472bd2901b516e5aa667dfce12251edc9b1eeba2faefe2e7220e"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b32_s14.pt",
+            "block": 32,
+            "step": 14,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "88529327d23169b872fc7a4c79564add4e49633ea177fb6592f4d2c2cc983c90"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b32_s15.pt",
+            "block": 32,
+            "step": 15,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "683b5cc6e6dbbe20fe235671ffd040413eff54e9f8074d45016a575d783081a9"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b32_s4.pt",
+            "block": 32,
+            "step": 4,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "9d9a8782760bb0b04efe3f10d36e1225f5eaf8d131728c0b806670d4877a2727"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b32_s8.pt",
+            "block": 32,
+            "step": 8,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "48b43083337117f1fdf4a71bc5b50535720cfa83e73123608acfb643b58afaa3"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b40_s12.pt",
+            "block": 40,
+            "step": 12,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "bfb504033a739530f7990201fe614394c167a01792f60598293883fd949f849d"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b40_s14.pt",
+            "block": 40,
+            "step": 14,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "a82b26230f8b290b9321cd7990294de61f29d111f0643db4eacc11508caf440a"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b40_s15.pt",
+            "block": 40,
+            "step": 15,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "01f5727208c8e35c7f011b460dd2a4e6e6e4c2cb9c706a5b4eac0d5a758e30fe"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b40_s4.pt",
+            "block": 40,
+            "step": 4,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "ef20f0f6cf1aa22ec23b70c8ccc2b85a30875278f9a026593316e616fb257ba8"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b40_s8.pt",
+            "block": 40,
+            "step": 8,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "55cd3ea00722b3825db996ee8c25964ce7f44d0ee15cf292d760601a0a5d2206"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b49_s12.pt",
+            "block": 49,
+            "step": 12,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "dc8771ab7eca153ca13b5a7e52eaead390df4790d72c8e212bc752777e1d0e00"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b49_s14.pt",
+            "block": 49,
+            "step": 14,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "2797efff37cf608edb6030f16c9a08591d7e1eea851c2a2c854f9d6672aa5c6f"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b49_s15.pt",
+            "block": 49,
+            "step": 15,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360501,
+            "sha256": "ae1e2c4481faa1aee450c7e7e0183fef54efab310676c62940316b7be4163344"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b49_s4.pt",
+            "block": 49,
+            "step": 4,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "d624949cd762aba8b7be0a59c4e9b8cf3bca8792d79d33ec0b9f2970c51ca2b0"
+          },
+          {
+            "filename": "qkv_L104361_S104361_b49_s8.pt",
+            "block": 49,
+            "step": 8,
+            "shape": [
+              1,
+              56,
+              104361,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4488360492,
+            "sha256": "f7d89aab5eaa12f70a1e2a67a61430962fa8e5a2bc682a49268bf6a6f7458adb"
+          }
+        ]
+      },
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    }
+  ],
+  "already_absent": [],
+  "capture_root": "names only; captures live outside the repo and their location is not recorded here by policy",
+  "total_bytes_recorded": 112209012390
+}

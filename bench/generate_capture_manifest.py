@@ -33,9 +33,12 @@ from substrate import infer_quantization  # noqa: E402
 
 sys.path.insert(0, str(_REPO / "workflows"))
 from h3_config import LORA_LOADER_CLASSES, graph_schedule  # noqa: E402
+import prompts as _prompts  # noqa: E402  -- bank id, prompt sha, canvas, length, seed from the graph
+from sol_observe import graph_sha256  # noqa: E402  -- the hash provenance.py and the route record use
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _paths  # noqa: E402
+from grade_prompt_text import mode_of  # noqa: E402  -- the render type, by socket presence
 
 
 def sha256_file(path: str | Path) -> str:
@@ -466,12 +469,25 @@ def extract_from_workflow(wf: dict, input_base: Path):
         inputs = node.get("inputs", {})
 
         if ct == "MiniMaxH3Resolution":
-            canvas["width"] = int(inputs.get("width", 1024))
-            canvas["height"] = int(inputs.get("height", 768))
-            canvas["length"] = int(inputs.get("length", 362))
-            canvas["aspect"] = str(inputs.get("aspect", "4:3"))
+            # The node's inputs are `shape`, `shape.<shape>_resolution` (a
+            # combo whose value starts "WxH ...") and `length`. This read
+            # `width`/`height`/`aspect`, which the node never had, and fell
+            # back to 1024x768 -- so every manifest ever written here
+            # claimed that canvas whatever the graph said. Found 2026-09-03
+            # on the first Base16 capture, which rendered 1344x768.
+            desc = _prompts.describe({node_id: node})
+            if desc["canvas"]:
+                w, h = (int(x) for x in desc["canvas"].split("x"))
+                canvas["width"], canvas["height"] = w, h
+                g = math.gcd(w, h)
+                canvas["aspect"] = f"{w // g}:{h // g}"
+            else:
+                canvas["width"] = canvas["height"] = UNSET
+                canvas["aspect"] = UNSET
+            canvas["length"] = int(inputs.get("length", 0)) or UNSET
             length = canvas["length"]
-            canvas["latent_frames"] = ((length - 5) // 17) * 5 + 2 if length > 0 else 1
+            canvas["latent_frames"] = (((length - 5) // 17) * 5 + 2 if isinstance(length, int) and length > 0
+                                       else UNSET)
 
         elif ct == "UNETLoader":
             models["unet"] = str(inputs.get("unet_name", ""))
@@ -480,7 +496,10 @@ def extract_from_workflow(wf: dict, input_base: Path):
             # leaving every other build mislabelled. One implementation, in
             # `substrate.infer_quantization`.
             models["weight_quantization"] = infer_quantization(models["unet"])
-        elif ct in ("CLIPLoader", "MiniMaxH3AWQEncoderLoader"):
+        elif ct in ("CLIPLoader", "MiniMaxH3AWQEncoderLoader", "MiniMaxH3EncoderLoader"):
+            # `MiniMaxH3EncoderLoader` is what every shipped graph wires
+            # since the INT8 lane; it was missing here, the seventh instance
+            # of the defect the comment below records (2026-09-03).
             # Both loader classes. Only `CLIPLoader` was matched, and no graph
             # this repo ships uses it -- every one loads the encoder through
             # `MiniMaxH3AWQEncoderLoader` -- so `models.clip` emitted "" on
@@ -508,8 +527,13 @@ def extract_from_workflow(wf: dict, input_base: Path):
             sampling["scheduler"] = str(inputs.get("scheduler", "simple"))
             sampling["steps"] = int(inputs.get("steps", 16))
             sampling["denoise"] = float(inputs.get("denoise", 1.0))
-        elif ct == "SamplerCustomAdvanced":
+        elif ct == "RandomNoise":
             sampling["seed"] = int(inputs.get("noise_seed", 0))
+        elif ct == "SamplerCustomAdvanced":
+            # carries no seed in this pack's graphs (RandomNoise does); kept
+            # so an older graph that put it here still reads
+            if "noise_seed" in inputs:
+                sampling["seed"] = int(inputs.get("noise_seed", 0))
         elif ct == "BasicGuider":
             sampling["cfg"] = float(inputs.get("cfg", 1.0))
         elif "prompt" in inputs and isinstance(inputs["prompt"], str) and len(inputs["prompt"]) > len(prompt_text):
@@ -558,6 +582,40 @@ def extract_from_workflow(wf: dict, input_base: Path):
     return canvas, models, sampling, attention, prompt_text, references, underived
 
 
+def _record_meta(pt_path: Path) -> dict:
+    """The scalars a capture record carries, read WITHOUT paging in the
+    tensors: `mmap=True` maps the file and only the touched pages load.
+    Loading each 4.5 GB file whole to read its shape is why the first
+    manifest of the Base16 capture took ten minutes."""
+    try:
+        data = torch.load(pt_path, map_location="cpu", weights_only=False, mmap=True)
+    except Exception as exc:                          # noqa: BLE001 -- a record we cannot read is reported, not guessed
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    q = data.get("q")
+    out = {k: data.get(k) for k in ("block", "step", "sigma", "kernel", "render", "segments", "server")}
+    if q is not None:
+        out["shape"] = list(q.shape)
+        out["dtype"] = str(q.dtype)
+    return out
+
+
+def _sequence_length(pt_files) -> int | None:
+    for pt in pt_files:
+        meta = _record_meta(Path(pt))
+        if meta.get("shape"):
+            return int(meta["shape"][2])
+    return None
+
+
+def _audio_rows(length) -> int:
+    """Target audio rows for a frame count, from the same core helper
+    `bench/preflight_graph.py` prices with; never a typed constant."""
+    if not isinstance(length, int) or length <= 0:
+        return 0
+    import preflight_graph as _pf
+    return int(_pf._core_minimax_cpu().temporal_shape(length)[2] * 2)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capture-dir", required=True, help="Path to capture directory")
@@ -580,17 +638,36 @@ def main():
         wf_in_dir.write_text(json.dumps(wf, indent=2) + "\n")
 
     canvas, models, sampling, attention, prompt_text, references, underived = extract_from_workflow(wf, input_base)
+    rendered = _prompts.describe(wf)
+    # The render TYPE (t2va, i2va, fl2va, l2va, ref2va) by the conditioner's
+    # sockets, the same rule the prompt graders use; None when no conditioner
+    # is in the graph, which the checker refuses from 1.5.0.
+    task = next((m for m in (mode_of(n) for n in wf.values() if isinstance(n, dict)) if m), None)
 
     # Calculate token accounting dynamically
+    pt_files = sorted(glob.glob(str(cap_dir / "qkv_*.pt")))
+    # Token accounting, DERIVED. Until 2026-09-03 text and audio were typed
+    # here as 7711 and 1206 under a docstring that promised no hardcoded
+    # workload constants; the Base16 capture's own files said 104,361 rows
+    # where this file summed 87,253. Now: the sequence length is what the
+    # capture asserts (every file carries it), video rows come from the
+    # canvas, audio rows from the same core helper preflight uses, reference
+    # rows from the references, and text is the remainder -- labelled so.
     tokens_per_frame = (canvas["width"] // 32) * (canvas["height"] // 32)
     video_tokens = tokens_per_frame * canvas["latent_frames"]
     ref_tokens = sum(r["latent_rows"] for r in references)
-    text_tokens = 7711  # Qwen3-VL text encoding tokens
-    audio_tokens = 1206 # Audio latent tokens for 15.08s
-    total_sequence_length = video_tokens + ref_tokens + text_tokens + audio_tokens
+    audio_tokens = _audio_rows(canvas["length"])
+    seq_from_files = _sequence_length(pt_files)
+    if seq_from_files is None:
+        sys.exit("refusing to write a manifest: no qkv_*.pt file carries a sequence length")
+    text_tokens = seq_from_files - video_tokens - ref_tokens - audio_tokens
+    if text_tokens < 0:
+        sys.exit(f"refusing to write a manifest: derived text rows are negative "
+                 f"({seq_from_files} - {video_tokens} - {ref_tokens} - {audio_tokens}); "
+                 f"the canvas or length read off the graph is wrong")
+    total_sequence_length = seq_from_files
 
     # Scan captured tensors
-    pt_files = sorted(glob.glob(str(cap_dir / "qkv_*.pt")))
     captured_tensors = []
     for pt in pt_files:
         pt_path = Path(pt)
@@ -605,18 +682,20 @@ def main():
             elif p.startswith("s") and p[1:].isdigit():
                 step_val = int(p[1:])
 
-        try:
-            data = torch.load(pt_path, map_location="cpu", weights_only=True)
-            shape = list(data["q"].shape)
-            dtype_str = str(data["q"].dtype)
-        except Exception:
-            shape = [1, 56, total_sequence_length, 128]
-            dtype_str = "torch.bfloat16"
+        meta = _record_meta(pt_path)
+        shape = meta.get("shape") or [1, 56, total_sequence_length, 128]
+        dtype_str = meta.get("dtype") or "torch.bfloat16"
 
         captured_tensors.append({
             "filename": pt_path.name,
-            "block": block_val,
-            "step": step_val,
+            "block": meta.get("block", block_val),
+            "step": meta.get("step", step_val),
+            # the record's own top-level scalars (h3_capture.py writes them;
+            # the filename is the convenience copy)
+            "sigma": meta.get("sigma"),
+            "kernel": meta.get("kernel"),
+            "render": meta.get("render"),
+            "segments": meta.get("segments"),
             "shape": shape,
             "dtype": dtype_str,
             "size_bytes": size_bytes,
@@ -651,7 +730,7 @@ def main():
     models["sha256"] = hash_model_files(models)
 
     manifest = {
-        "schema_version": "1.4.0",
+        "schema_version": "1.5.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provenance": {
             "git_commit": get_git_commit(),
@@ -662,6 +741,12 @@ def main():
             "pytorch_version": torch_ver,
             "comfyui_version": sub["comfyui_version"],
             "comfy_kitchen_version": sub["comfy_kitchen_version"],
+            # What the SERVER that wrote the capture was launched with,
+            # copied from the records themselves when h3_capture.py stamped
+            # it (records from 2026-09-03 on); null for older captures, whose
+            # launch flags -- `--fast fp16_accumulation` changes numerics --
+            # are known only from the log of the day.
+            "server": next((_record_meta(Path(pt)).get("server") for pt in pt_files[:1]), None),
         },
         "workload": {
             # Repo-relative when it is inside the repo. When it is not -- a
@@ -671,6 +756,12 @@ def main():
             "workflow_file": (str(wf_path.relative_to(Path.cwd()))
                               if wf_path.is_relative_to(Path.cwd())
                               else wf_path.name),
+            # The graph's identity, so a record naming a workflow FILE that
+            # has since been regenerated (the bench t2v graph changed scene
+            # on 2026-09-03) still says which graph this was.
+            "task": task,
+            "workflow_sha256": sha256_file(wf_path) if wf_path.is_file() else None,
+            "graph_sha256": graph_sha256(wf) if wf else None,
             "canvas": canvas,
             "models": models,
             "sampling": sampling,
@@ -683,6 +774,11 @@ def main():
         "prompt": {
             "full_prompt_text": prompt_text,
             "sections": parse_prompt_sections(prompt_text),
+            # the bank join (owner's rule 2026-09-03: the exact prompt in
+            # every record). `bank_id` is null for a prompt not in the bank;
+            # the text above is then the only copy.
+            "bank_id": rendered["prompt_id"],
+            "prompt_sha256": rendered["prompt_sha256"],
         },
         "references": references,
         "token_accounting": {

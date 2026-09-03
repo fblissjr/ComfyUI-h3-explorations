@@ -4,6 +4,47 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.29
+
+### Corrected
+
+- **Three overclaims in 0.99.27, on Codex's review, withdrawn in place
+  there** (block 49 "on both builds" and "no `dense_blocks` list touches
+  it"; the `tau_1.0` arm called the shipped call; "one footing" for a sage
+  record that scored different rows against a different reference). The
+  grader now carries `sage_<mode>` arms -- every sage mode on the same
+  q/k/v, every row, the same fp32 reference -- and both Base16 records were
+  regenerated with them; the tau arm is `tau_1.0_no_sinks` and says why.
+  The direction the matched arms give lives in the research record's
+  addendum, next to the retraction.
+
+### Fixed
+
+- **`bench/generate_capture_manifest.py` described a capture it had not
+  read.** Its first manifest of the Base16 capture claimed a 1024x768
+  canvas for a 1344x768 render, no text encoder, no seed, and a token
+  total that disagreed with the files by tens of thousands of rows: four
+  reads had met one implementation (the ref3 capture graphs) and none of
+  this pack's current nodes, and text and audio rows were typed constants
+  under a docstring promising none. Canvas now comes from
+  `MiniMaxH3Resolution`'s real inputs, the encoder from
+  `MiniMaxH3EncoderLoader`, the seed from `RandomNoise`, audio rows from
+  the core helper preflight uses, the sequence length from the files, and
+  text as the labelled remainder; the generator refuses to write when that
+  remainder goes negative. Schema 1.5.0 adds the bank id and prompt hash,
+  the workflow and graph hashes, and each tensor's sigma, kernel, render
+  and segments (read through a memory map, which also took the run from
+  minutes to seconds per file). `bench/check_capture_manifest.py` accepts
+  1.5.0, requires the new keys from it, and allows an empty `references`
+  when the accounting agrees there were none -- a text-to-video capture is
+  a state, not a defect. `docs/capture_manifest_schema.md` has the record.
+- **The Base16 capture has provenance now**:
+  `bench/results/2026-09-03_capture_manifest_base16.json` (the manifest,
+  names only) and `2026-09-03_capture_inventory_base16.json` (the
+  inventory-then-delete record). The capture itself stays outside the repo
+  for the moment; both records survive its deletion. The graph it rendered
+  is the bench t2v graph as of `4b9c85f`, before the pair changed scene.
+
 ## 0.99.28
 
 ### Changed
@@ -102,23 +143,36 @@ artifact.
   running-max build (`24908e1`) sits several times further from fp32 than
   the block-max build on all 25 cells, mean relative L2 0.0503 against
   0.0134 (kijai's own capture: 0.0196 against 0.0140), and block 0 moves
-  from under half a percent to several percent. At the shipped `tau=1.0` the
-  gap is small (whole-tensor cosine 0.9893 against 0.9911) because routing
-  error dominates the exact branch's arithmetic. Block 49 carries about four
-  times any other block's error with EVERY block routed on both builds: that
-  is INT8 quantisation, not sparsity, and no `dense_blocks` list touches it.
-  Block 40 holds the worst single heads at 10% keep, which is sparsity.
-  Records above; the random-input records from 2026-09-01 stand as what
-  they are.
-- **Sol against the shipped fallback on the same cells**
-  (`bench/results/2026-09-03_sage_on_base16_capture.json`, the sage modes
-  via `bench/grade_sage_on_capture.py` at 512 sampled rows per cell): per
-  row, Sol with every block routed is as close to exact as the sage `auto`
-  (fp8) fallback and on par with sage's fp16 mode, while Sol at the shipped
-  `tau=1.0` is several times further than either. So the exact branch's
-  INT8 arithmetic is not what a `dense_blocks` entry would buy back;
-  routing is, and only where routing error exceeds sage's own. Five blocks,
-  one scene, dense trajectory: a ranking of these cells, not a default.
+  from under half a percent to several percent. At `tau=1.0` WITHOUT sink
+  ranges (the record's `tau_1.0_no_sinks` arm; see the correction below)
+  the gap is small (whole-tensor cosine 0.9893 against 0.9911) because
+  routing error dominates the exact branch's arithmetic. Records above; the
+  random-input records from 2026-09-01 stand as what they are.
+- **Corrected the same day, on Codex's review of this entry.** Three
+  claims above the line were overclaims and are withdrawn: (1) "block 49
+  carries about four times any other block's error on both builds ... and
+  no `dense_blocks` list touches it" -- true only on the new build and only
+  under the norm-weighted whole-tensor metric (per row, block 49 is barely
+  above block 40; on the old build block 40 is the worse one), and a
+  `dense_blocks` entry sends the block to sage, bypassing Sol's exact stage
+  entirely, so it does touch it. What stands: block 49 is a large
+  exact-stage hotspot on the new build under the whole-tensor metric, in a
+  few high-norm rows, and this five-block record does not say whether
+  making it dense is worthwhile. (2) The `tau_1.0` arm was called "the
+  shipped tau"; it is the shipped tau but not the shipped CALL, because the
+  node passes sink ranges from the segment table and a capture taken with
+  Sol absent has no table. Renamed `tau_1.0_no_sinks`: an unsunk
+  diagnostic, not a bound on the shipped call's error, since relative L2
+  and cosine are not monotone in the sink ranges the way forced-pair
+  counts are (errors can cancel). (3) "Sol against the shipped
+  fallback on the same cells ... on one footing" -- the first sage record
+  (`2026-09-03_sage_on_base16_capture.json`, kept) scored 512 sampled rows
+  against float64 while Sol was scored on every row against fp32; the
+  statistic matched, the sample and reference did not. The grader now
+  runs every sage mode on the same q/k/v, every row, the same fp32
+  reference (`sage_<mode>` arms), and both records were regenerated with
+  them; the direction those arms give is stated in the research record's
+  addendum, not here, so this entry cannot go stale twice.
 
 ### Fixed
 

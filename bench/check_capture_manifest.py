@@ -103,7 +103,7 @@ def assert_substrate(block: dict, keys: set, where: str) -> None:
 # schema and the only existing manifest were both 1.1.0, so it would have kept
 # claiming 1.0.0 through every future bump. One constant for the accepted set,
 # and the report states the versions it actually saw rather than a fixed string.
-SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0")
+SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0")
 
 #: Model-file hashes were added in 1.2.0, gated the same way and for the same
 #: reason as the substrate keys above: a 1.1.0 manifest that never carried them
@@ -258,7 +258,21 @@ def check_manifest(manifest_path: Path):
 
     # References & Reference Token Invariant
     refs = data["references"]
-    assert len(refs) > 0, "Manifest lists 0 references"
+    # A text-to-video capture has no references, and that is a state, not a
+    # defect: the assertion inherited a third case when the Base16 capture
+    # landed (2026-09-03). Zero references is legal only when the token
+    # accounting agrees there were none.
+    assert len(refs) > 0 or data["token_accounting"]["reference_tokens"] == 0, (
+        "Manifest lists 0 references but token_accounting.reference_tokens is nonzero")
+    if data["schema_version"] not in ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"):
+        for k in ("bank_id", "prompt_sha256"):
+            assert k in data["prompt"], f"Missing prompt key {k!r} (required from schema 1.5.0)"
+        assert data["prompt"]["prompt_sha256"], "prompt_sha256 must be set from schema 1.5.0"
+        for k in ("workflow_sha256", "graph_sha256"):
+            assert k in data["workload"], f"Missing workload key {k!r} (required from schema 1.5.0)"
+        assert data["workload"].get("task") in ("t2va", "i2va", "fl2va", "l2va", "ref2va"), (
+            f"workload.task must name the render type from schema 1.5.0, got {data['workload'].get('task')!r}")
+        assert "server" in data["provenance"], "provenance.server key missing (null is legal for pre-1.5.0 captures)"
     ref_row_sum = 0
     for r in refs:
         for k in REQUIRED_REFERENCE_KEYS:

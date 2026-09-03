@@ -301,10 +301,29 @@ block's on both builds, so it is quantisation rather than sparsity. The Sage
 modes were graded on the same cells with `bench/grade_sage_on_capture.py`
 ([`2026-09-03_sage_on_base16_capture.json`](../../bench/results/2026-09-03_sage_on_base16_capture.json)),
 which is the Sol-versus-fallback comparison section 6 asks for, on five
-blocks and one scene. Direction there: per row, Sol with every block
-routed is as close to exact as the shipped `auto` fallback, and Sol at the
-shipped tau is several times further than the fallback, so what a dense
-block buys back is routing error, not exact-branch arithmetic. The first "not established" item below is therefore
+blocks and one scene -- **but not on matched footing**: that record scored
+512 sampled rows against float64 while the Sol records scored every row
+against fp32 (Codex's review). The Sol records were regenerated the same
+day with `sage_<mode>` arms on the same q/k/v, every row, the same fp32
+reference; read the numbers from their `aggregate` block. The direction on
+matched footing: the sage arms are identical across the two Sol records
+(the consistency check the rerun carried), Sol with every block routed on
+the block-max build is closer to exact than the shipped sage `auto`
+fallback under both the whole-tensor and the per-row metric and sits near
+sage's fp16 mode, the old running-max build is further from exact than
+the fallback, and the unsunk tau arm is far further than either. So on
+this one scene and five blocks, the exact branch's arithmetic is not what
+a dense block would buy back; routing is. Two further
+corrections from the same review: the `tau_1.0` arm passes no sink ranges
+(the capture has no segment table; Sol's rope hook publishes it and Sol was
+absent), so it is renamed `tau_1.0_no_sinks`, an unsunk diagnostic rather
+than a bound on the shipped call (errors can cancel, so relative L2 and
+cosine are not monotone in the sink ranges); and block 49's "four times" holds only on the new build and
+only under the whole-tensor, norm-weighted metric -- per row it is barely
+above block 40, on the old build block 40 is worse, and a `dense_blocks`
+entry does bypass Sol's exact stage, so the earlier "no list touches it"
+was wrong. This five-block record does not say whether a dense block 49
+is worthwhile. The first "not established" item below is therefore
 established; the rest stand. The scene is the covered-market prompt, so
 every magnitude here is one scene's.
 

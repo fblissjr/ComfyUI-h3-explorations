@@ -250,6 +250,52 @@ this repo has never heard of still has to account for it. Gated on
 `schema_version` >= 1.2.0, so the 1.1.0 manifests already on disk conform to the
 version they declare and are not failed for a field that did not exist.
 
+### What was rendered, and a capture with no references (1.5.0)
+
+Added 2026-09-03 on the first Base16 text-to-video capture, whose first
+manifest claimed a 1024x768 canvas for a 1344x768 render, no text encoder,
+no seed, and a token total that disagreed with the capture's own files. Four
+reads in the generator had met exactly one implementation (the ref3 capture
+graphs) and none of this pack's current nodes: `MiniMaxH3Resolution` carries
+`shape`, `shape.<shape>_resolution` and `length`, not `width`/`height`;
+`MiniMaxH3EncoderLoader` is the encoder loader every shipped graph wires;
+the seed lives on `RandomNoise`; and text and audio rows were typed
+constants. All four now derive from the graph or the files, and the
+generator refuses to write when the derived text rows go negative, which is
+what a wrong canvas produces.
+
+New keys, all required from 1.5.0 and checked by
+`bench/check_capture_manifest.py`:
+
+- `prompt.bank_id` (null for a prompt not in `prompt_bank/`; the full text
+  is then the only copy) and `prompt.prompt_sha256` -- the owner's rule that
+  every record says what was rendered, joined through
+  `workflows/prompts.py::describe`.
+- `workload.workflow_sha256` (the file's bytes) and `workload.graph_sha256`
+  (the canonical hash `provenance.py` and the Sol route record use), so a
+  manifest naming a workflow FILE that has since been regenerated still says
+  which graph it was.
+- `workload.task`: the render type (`t2va`, `i2va`, `fl2va`, `l2va`,
+  `ref2va`) by the conditioner's sockets, the rule the prompt graders use;
+  required. A manifest that named the DiT and the sidecar but not whether
+  the render was a text-to-video or a reference one was the owner's first
+  question of the 1.5.0 output.
+- `provenance.server`: the launch flags and versions of the process that
+  wrote the capture, stamped into every record by `h3_capture.py` from
+  2026-09-03 and copied here; null for older captures. `--fast
+  fp16_accumulation` changes the numerics a capture holds, and nothing
+  offline can recover which mode the server ran in.
+- `captured_tensors[].sigma`, `kernel`, `render` and `segments`: the
+  record's own top-level scalars, read through a memory map rather than by
+  paging in the tensors. `segments` is null when the capture ran with Sol
+  absent, because Sol's rope hook is what publishes the table; a consumer
+  that needs sink ranges must derive them from geometry, and the tau arm in
+  `bench/measure_sol_exact_variants.py` says so.
+
+And one assertion that inherited a third case: `references` may be empty,
+but only when `token_accounting.reference_tokens` is zero. A text-to-video
+capture has no references and that is a state, not a defect.
+
 ### `vae_quantization` is deliberately not required
 
 It is singular, and a reference graph loads two VAEs at different quantizations --
