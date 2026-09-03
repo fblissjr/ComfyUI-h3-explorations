@@ -24,6 +24,35 @@ artifact.
   `spec_from_file_location` path and reads the release population. The
   bundle README's notice and the staged Hub README's install step say to
   replace the broken copy. Upload is the owner's.
+- **The Hub bundle's node started on the wrong file.** `shipped_pdd_loras`
+  reads the two shipped names off `workflows/h3_config.py` by path to put
+  the checkpoint-matching sidecar first in the combo; the bundle has no
+  `workflows/`, the read returned empty, and every Hub user's fresh node
+  started on the alphabetically first file, the `adaln2688` one. The bundler
+  now writes `shipped_pdd_defaults.json` beside the node from `h3_config` at
+  build time, the node reads that file first, and `--check` compares its
+  bytes. `pdd_lora_options` matches by file name rather than path, since the
+  Hub README puts the file in `models/loras/` directly and Windows spells
+  the subfolder with a backslash; the entry offered is the population's own
+  spelling.
+- **`schedule_knots` cast the sampler's sigmas to float64 on their own
+  device.** `torch.as_tensor` keeps a tensor's device, and at run time
+  `sample_sigmas` is on the model's device, which on a Mac is MPS and has no
+  float64. The same hazard in `fuse_block` was closed in `72b8d42` and this
+  one was named in the same review and missed. Computed on the CPU now; the
+  result is `steps + 1` Python ints. A CUDA float32 and bf16 sigma tensor
+  give the same knots as the list, and `check_pdd_sigmas.py` is green; MPS
+  itself is not reachable from this box.
+
+### Added
+
+- **`build_sidecar_node.py` load-tests the bundle** in both modes: imports
+  the built folder in a subprocess exactly as `nodes.load_custom_node`
+  does, with the ComfyUI checkout beside the pack on the path, and compares
+  the node list, the release population and the shipped defaults read back
+  off the loaded module with what the source says. Exit 2 without that
+  checkout. Red on a bundle missing a module and on a defaults file naming
+  the wrong file, before the staged bundle was rebuilt.
 
 ## 0.99.33
 

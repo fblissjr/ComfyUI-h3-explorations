@@ -43,6 +43,23 @@ above warns about, in this file's own constant.
     python bench/build_sidecar_node.py --out <the staged Hub repo>/comfyui_minimax_h3_pdd
     python bench/build_sidecar_node.py --out <same> --check
 
+## Two things the bundle carries that the source tree does not
+
+`shipped_pdd_defaults.json`: the two filenames `h3_config` names as the
+shipped PDD files, read from `workflows/h3_config.py` at build time and
+written beside the node. In the source tree the node reads them off
+`h3_config` by path; the bundle has no `workflows/`, so until 2026-09-03 the
+read came back empty and every Hub user's freshly dragged node started on the
+alphabetically first file. `--check` re-derives the JSON and compares bytes.
+
+A load test, in both modes: the built folder is imported in a subprocess the
+way `nodes.load_custom_node` imports it, with the ComfyUI checkout beside this
+pack on the path, and the node list, the release population and the shipped
+defaults are read back off the loaded module and compared with what the
+source says. The import-surface check above catches one class of escape; a
+real load catches the classes nobody has named yet. Needs that checkout
+(exit 2 without it); no GPU, no server.
+
 ## Where it goes
 
 The bundle is published to the Hub repo `fbjr/MiniMax-H3-Acc-LoRAs-sidecar`,
@@ -63,6 +80,8 @@ from __future__ import annotations
 import argparse
 import ast
 import filecmp
+import importlib.util
+import json
 import shutil
 import subprocess
 import sys
@@ -89,6 +108,35 @@ DATA_DIRS = ("vendor_config",)
 
 #: The module the closure is walked from.
 ENTRY = "pdd_lora.py"
+
+#: Written beside the node from `h3_config` at build time; the node reads it
+#: first (`pdd_lora.shipped_pdd_loras`). Compared byte for byte by `--check`.
+DEFAULTS = "shipped_pdd_defaults.json"
+DEFAULT_NAMES = ("PDD_FL2VA_LORA", "PDD_REF2VA_LORA")
+
+#: The ComfyUI checkout this pack lives under, for the load test.
+COMFY = ROOT.parent.parent
+
+#: What the load test runs inside the subprocess. Loads the bundle exactly as
+#: `nodes.load_custom_node` does and prints what it read back off the module.
+LOAD_SCRIPT = """
+import asyncio, importlib.util, json, sys
+comfy, bundle = sys.argv[1], sys.argv[2]
+sys.path.insert(0, comfy)
+name = bundle.rstrip("/").rsplit("/", 1)[-1]
+spec = importlib.util.spec_from_file_location(name, bundle + "/__init__.py",
+                                              submodule_search_locations=[bundle])
+mod = importlib.util.module_from_spec(spec)
+sys.modules[name] = mod
+spec.loader.exec_module(mod)
+nodes = asyncio.run(mod.comfy_entrypoint()).get_node_list()
+nodes = asyncio.run(nodes)
+print(json.dumps({
+    "nodes": [n.__name__ for n in nodes],
+    "population": mod.pdd_lora.expected_population(),
+    "defaults": list(mod.pdd_lora.shipped_pdd_loras()),
+}))
+"""
 
 #: The node code is this repo's, under its own terms -- NOT the MiniMax license
 #: that covers the weights it loads. Two licenses in one Hub repo, so they get
@@ -196,6 +244,60 @@ def surface_drift() -> list[str]:
     return out
 
 
+def shipped_defaults() -> bytes:
+    """The defaults JSON, read off `workflows/h3_config.py` by path.
+
+    Loaded by path rather than imported, so nothing lands on `sys.path`, which
+    is how the node itself reads the same constants in the source tree.
+    """
+    path = ROOT / "workflows" / "h3_config.py"
+    spec = importlib.util.spec_from_file_location("_h3_config_for_bundle", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    names = [getattr(module, k) for k in DEFAULT_NAMES]
+    for k, n in zip(DEFAULT_NAMES, names):
+        if not isinstance(n, str) or not n:
+            raise SystemExit(f"h3_config.{k} is not a filename: {n!r}")
+    doc = {"generated_by": "bench/build_sidecar_node.py",
+           "read_from": "workflows/h3_config.py",
+           "constants": list(DEFAULT_NAMES),
+           "names": names}
+    return (json.dumps(doc, indent=2) + "\n").encode()
+
+
+def load_test(out: Path, want_defaults: list[str]) -> int:
+    """Import the bundle as ComfyUI would and compare what comes back."""
+    if not (COMFY / "nodes.py").exists() or not (COMFY / "comfy_api").is_dir():
+        print(f"  SKIP  no ComfyUI checkout at {COMFY}; the bundle was not load-tested")
+        return 2
+    proc = subprocess.run([sys.executable, "-c", LOAD_SCRIPT, str(COMFY), str(out)],
+                          capture_output=True, text=True, cwd=str(out.parent))
+    if proc.returncode != 0:
+        tail = proc.stderr.strip().splitlines()[-3:]
+        print("  LOAD  the bundle did not load as ComfyUI loads it:")
+        for line in tail:
+            print(f"        {line}")
+        return 1
+    got = json.loads(proc.stdout.strip().splitlines()[-1])
+    bad = []
+    if got["nodes"] != ["MiniMaxH3PDDLoRA"]:
+        bad.append(f"node list {got['nodes']}")
+    if got["defaults"] != want_defaults:
+        bad.append(f"shipped defaults read back as {got['defaults']}, "
+                   f"h3_config says {want_defaults}")
+    pop = got["population"]
+    if not all(isinstance(pop.get(k), int) and pop[k] > 0
+               for k in ("blocks", "refiner_blocks", "block_modules", "refiner_modules")):
+        bad.append(f"population {pop}")
+    for b in bad:
+        print(f"  LOAD  {b}")
+    if bad:
+        return 1
+    print(f"  ok    loaded as ComfyUI loads it: {got['nodes'][0]}, "
+          f"defaults {got['defaults']}, population {pop}")
+    return 0
+
+
 def data_files() -> list[str]:
     """Relative paths of every file under `DATA_DIRS`, sorted."""
     out = []
@@ -231,6 +333,9 @@ def build(out: Path, check: bool) -> int:
     verbatim = list(SOURCES) + data_files()
     for name in verbatim:
         want[name] = (ROOT / name).read_bytes()
+    want[DEFAULTS] = shipped_defaults()
+    verbatim.append(DEFAULTS)
+    want_defaults = json.loads(want[DEFAULTS])["names"]
     want["__init__.py"] = INIT.format(commit=rev).encode()
     want["README.md"] = README.format(
         commit=rev, notice=f"{NOTICE}\n\n" if NOTICE else "").encode()
@@ -252,7 +357,7 @@ def build(out: Path, check: bool) -> int:
                   f"then push the bundle.")
             return 1
         print(f"  ok    bundle matches {ROOT.name} at {rev}")
-        return 0
+        return load_test(out, want_defaults)
 
     out.mkdir(parents=True, exist_ok=True)
     for name, blob in want.items():
@@ -263,8 +368,9 @@ def build(out: Path, check: bool) -> int:
     # maintains
     shutil.copyfile(ROOT / LICENSE, out / LICENSE)
     print(f"  wrote {LICENSE}  (copied from {ROOT.name}/{LICENSE})")
+    rc = load_test(out, want_defaults)
     print(f"\nbundle at {out}, from {ROOT.name} at {rev}")
-    return 0
+    return rc
 
 
 def main(argv=None) -> int:

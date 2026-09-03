@@ -127,7 +127,13 @@ def schedule_knots(sample_sigmas, shift: float, num_steps: int) -> list[int]:
     That is correct and is the reason this reads the sigmas rather than
     assuming a full trajectory.
     """
-    s = torch.as_tensor(sample_sigmas, dtype=torch.float64).flatten()
+    # On the CPU before the cast: `torch.as_tensor` keeps a tensor's device,
+    # and at run time `sample_sigmas` is the sampler's tensor on the model's
+    # device -- on a Mac that is MPS, which has no float64. The whole
+    # computation is `steps + 1` scalars ending in Python ints, so nothing is
+    # lost by doing it here. The same hazard in `fuse_block` was closed the
+    # same way in `72b8d42`; this one was named in the same review and missed.
+    s = torch.as_tensor(sample_sigmas).detach().to("cpu", torch.float64).flatten()
     idx = torch.round((1.0 - base_sigma(s.clamp(0.0, 1.0), shift)) * num_steps)
     out: list[int] = []
     for k in idx.to(torch.int64).clamp(0, num_steps).tolist():

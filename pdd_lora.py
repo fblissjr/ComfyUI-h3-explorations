@@ -159,6 +159,7 @@ from __future__ import annotations
 
 import functools
 import importlib.util
+import json
 import logging
 import os
 from pathlib import Path
@@ -1527,12 +1528,27 @@ def shipped_pdd_loras() -> tuple[str, ...]:
     rather than imported, which is `h3_awq_encoder.shipped_encoder_name`'s
     reasoning and adds nothing to `sys.path`.
 
-    An empty tuple is ordinary, not an error: the standalone distribution
-    carries this module with no `workflows/` beside it, and a name absent from
-    the loras directory must not become a menu item either way -- the caller
-    intersects with the real population.
+    The standalone distribution carries this module with no `workflows/`
+    beside it. There, `bench/build_sidecar_node.py` writes the same two names
+    into `shipped_pdd_defaults.json` next to this file at build time, read
+    from `h3_config` then rather than typed, and that file is consulted first.
+    Until 2026-09-03 the bundle had no such file, the read below returned
+    empty, and every Hub user's freshly dragged node started on the
+    alphabetically first file -- the defect this function exists to prevent.
+
+    An empty tuple is still ordinary when neither source is present: a name
+    absent from the loras directory must not become a menu item either way,
+    and the caller intersects with the real population.
     """
-    path = Path(__file__).resolve().parent / "workflows" / "h3_config.py"
+    here = Path(__file__).resolve().parent
+    stamped = here / "shipped_pdd_defaults.json"
+    if stamped.exists():
+        try:
+            names = json.loads(stamped.read_text())["names"]
+            return tuple(n for n in names if isinstance(n, str))
+        except Exception:
+            return ()
+    path = here / "workflows" / "h3_config.py"
     try:
         spec = importlib.util.spec_from_file_location("_h3_config_pdd_default",
                                                       path)
@@ -1556,9 +1572,21 @@ def pdd_lora_options(population) -> list[str]:
 
     A name in `h3_config` that is not on disk is dropped rather than offered,
     so the menu never lists something the loader would fail to open.
+
+    Matched by file name, not by path: `h3_config` names the file under the
+    `h3/` subfolder this checkout keeps, the Hub README tells people to put it
+    in `models/loras/` directly, and Windows spells the subfolder with a
+    backslash. The menu entry offered is the population's own spelling.
     """
+    def leaf(n: str) -> str:
+        return n.replace("\\", "/").rsplit("/", 1)[-1]
     pdd = [n for n in population if "pdd" in n.lower()]
-    head = [n for n in shipped_pdd_loras() if n in pdd]
+    by_leaf = {leaf(n): n for n in pdd}
+    head = []
+    for want in shipped_pdd_loras():
+        hit = by_leaf.get(leaf(want))
+        if hit is not None and hit not in head:
+            head.append(hit)
     return head + [n for n in pdd if n not in head]
 
 
