@@ -34,12 +34,29 @@ Generated rather than hand-written for the reason `CLAUDE.md` gives about
 targets and nothing says so. This at least drifts in one place.
 
     python bench/build_sidecar_examples.py --out <the staged Hub repo>/workflows
+    python bench/build_sidecar_examples.py --out <same> --check
+
+## Validated against the live schemas before anything is written
+
+The widget names, combo values and link types below are typed by hand, and
+until 2026-09-03 nothing compared them with the nodes they target; the owner
+asked whether they were still aligned with the PDD node and the honest answer
+was "nobody has looked". So `main` now hands every graph to a subprocess that
+loads core ComfyUI (the checkout this pack lives under), its bundled extras,
+and the STAGED node bundle beside `--out` -- the node as shipped, not the one
+in this tree -- and checks each node's inputs against the class actually
+loaded: no unknown input, no required input missing, every literal combo
+value among that combo's options (file combos excepted, since those depend on
+the reader's folders), and every link's source output type equal to the
+input's type. Red means nothing is written. Needs the checkout and the staged
+bundle (exit 2 without either); no GPU, no server.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -65,6 +82,137 @@ VAE_A = "minimax_h3_audio_vae_fp32.safetensors"
 LORA = "minimax_h3_fl2va_pdd_8step_comfy.safetensors"
 
 SEED = 730451892
+
+#: The ComfyUI checkout this pack lives under, for the validation subprocess.
+COMFY = HERE.parent.parent.parent
+
+#: The staged node bundle, beside the workflows folder on the Hub. Overridable
+#: with `--node`, but the default is the point: validate against what ships.
+BUNDLE_NAME = "comfyui_minimax_h3_pdd"
+
+#: Combo inputs whose options come from the reader's own model folders. A
+#: literal there is checked for being a string, not for membership.
+FILE_COMBOS = {("UNETLoader", "unet_name"), ("CLIPLoader", "clip_name"),
+               ("VAELoader", "vae_name"), ("MiniMaxH3PDDLoRA", "lora_name")}
+
+#: Runs inside the subprocess. `sys.argv`: comfy root, bundle dir, a JSON file
+#: of `{graph name: graph}`, a JSON list of file-combo pairs. Prints one JSON
+#: object `{graph name: [problem, ...]}`.
+VALIDATE_SCRIPT = r"""
+import asyncio, importlib.util, json, os, sys
+comfy, bundle, graphs_path, file_combos = sys.argv[1:5]
+os.chdir(comfy); sys.path.insert(0, comfy)
+import nodes
+from comfy_api.latest import io
+asyncio.run(nodes.init_builtin_extra_nodes())
+registry = dict(nodes.NODE_CLASS_MAPPINGS)
+name = bundle.rstrip("/").rsplit("/", 1)[-1]
+spec = importlib.util.spec_from_file_location(name, bundle + "/__init__.py",
+                                              submodule_search_locations=[bundle])
+mod = importlib.util.module_from_spec(spec); sys.modules[name] = mod
+spec.loader.exec_module(mod)
+for cls in asyncio.run(asyncio.run(mod.comfy_entrypoint()).get_node_list()):
+    registry[cls.define_schema().node_id] = cls
+file_combos = {tuple(x) for x in json.loads(file_combos)}
+
+def describe(cls):
+    if hasattr(cls, "define_schema"):
+        sch = cls.define_schema()
+        ins = {}
+        for i in sch.inputs:
+            # `io.Combo.Input` is its own class, not a subclass of `io.Combo`,
+            # so the combo is recognised by its io_type; the first revision
+            # used isinstance and checked no combo on any v3 node.
+            opts = getattr(i, "options", None) if i.io_type == "COMBO" else None
+            ins[i.id] = {"required": not getattr(i, "optional", False),
+                         "type": i.io_type,
+                         "options": list(opts) if opts is not None else None}
+        outs = [o.io_type for o in sch.outputs]
+        return ins, outs
+    it = cls.INPUT_TYPES(); ins = {}
+    for group, req in (("required", True), ("optional", False)):
+        for k, v in it.get(group, {}).items():
+            t = v[0] if isinstance(v, (tuple, list)) else v
+            if isinstance(t, list):
+                ins[k] = {"required": req, "type": "COMBO", "options": list(t)}
+            else:
+                ins[k] = {"required": req, "type": t, "options": None}
+    return ins, list(getattr(cls, "RETURN_TYPES", ()))
+
+graphs = json.loads(open(graphs_path).read())
+report = {}
+for gname, g in graphs.items():
+    problems = []
+    described = {}
+    for nid, n in g.items():
+        cls = registry.get(n["class_type"])
+        if cls is None:
+            problems.append(f"{nid} {n['class_type']}: no such node in core or the bundle")
+            continue
+        described[nid] = describe(cls)
+    for nid, n in g.items():
+        if nid not in described:
+            continue
+        ins, _ = described[nid]; ct = n["class_type"]
+        for k, v in n["inputs"].items():
+            if k not in ins:
+                problems.append(f"{nid} {ct}.{k}: not an input of the loaded node"
+                                f" (has {sorted(ins)})")
+                continue
+            spec = ins[k]
+            if isinstance(v, list) and len(v) == 2 and isinstance(v[0], str):
+                src, idx = v
+                if src not in described:
+                    problems.append(f"{nid} {ct}.{k}: linked to node {src}, which is absent or unknown")
+                    continue
+                outs = described[src][1]
+                if not isinstance(idx, int) or idx >= len(outs):
+                    problems.append(f"{nid} {ct}.{k}: linked to output {idx} of {src} "
+                                    f"{g[src]['class_type']}, which has {len(outs)} outputs")
+                    continue
+                if spec["type"] not in ("*", "COMBO") and outs[idx] != "*" and outs[idx] != spec["type"]:
+                    problems.append(f"{nid} {ct}.{k} wants {spec['type']} but {src} "
+                                    f"{g[src]['class_type']} output {idx} is {outs[idx]}")
+            elif spec["options"] is not None:
+                if (ct, k) in file_combos:
+                    if not isinstance(v, str) or not v:
+                        problems.append(f"{nid} {ct}.{k}: file combo needs a filename, got {v!r}")
+                elif v not in spec["options"]:
+                    problems.append(f"{nid} {ct}.{k}: {v!r} is not among the options "
+                                    f"{spec['options'][:8]}{'...' if len(spec['options']) > 8 else ''}")
+        for k, spec in ins.items():
+            if spec["required"] and k not in n["inputs"]:
+                problems.append(f"{nid} {ct}.{k}: required input missing")
+    report[gname] = problems
+print("VALIDATION " + json.dumps(report))
+"""
+
+
+def validate(graphs: dict, bundle: Path) -> "dict[str, list[str]] | None":
+    """Every graph against the live schemas; `None` when it cannot run."""
+    if not (COMFY / "nodes.py").exists() or not (COMFY / "comfy_api").is_dir():
+        print(f"  SKIP  no ComfyUI checkout at {COMFY}; graphs were not validated")
+        return None
+    if not (bundle / "__init__.py").exists():
+        print(f"  SKIP  no node bundle at {bundle}; build it first "
+              f"(bench/build_sidecar_node.py), graphs were not validated")
+        return None
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump(graphs, f); tmp = f.name
+    try:
+        proc = subprocess.run([sys.executable, "-c", VALIDATE_SCRIPT, str(COMFY), str(bundle),
+                               tmp, json.dumps(sorted(FILE_COMBOS))],
+                              capture_output=True, text=True, cwd=str(COMFY))
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+    lines = [l for l in proc.stdout.splitlines() if l.startswith("VALIDATION ")]
+    if proc.returncode != 0 or not lines:
+        print("  FAIL  the validator did not run to completion:")
+        for line in proc.stderr.strip().splitlines()[-4:]:
+            print(f"        {line}")
+        return {"<validator>": ["did not run"]}
+    return json.loads(lines[-1][len("VALIDATION "):])
 
 
 def graph(steps: int, sampler: str, head_strength: float = 1.0) -> dict:
@@ -156,20 +304,54 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description="Generate the example graphs that ship with the sidecar weights.")
     ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--node", type=Path, default=None,
+                    help=f"the staged node bundle to validate against "
+                         f"(default: <out>/../{BUNDLE_NAME})")
+    ap.add_argument("--check", action="store_true",
+                    help="validate and compare with the files in --out instead of writing")
     args = ap.parse_args(argv)
-    args.out.mkdir(parents=True, exist_ok=True)
+    bundle = args.node or (args.out.parent / BUNDLE_NAME)
 
+    graphs, notes = {}, {}
     for name, spec in EXAMPLES.items():
         spec = dict(spec)
-        note = spec.pop("note")
-        g = graph(**spec)
+        notes[name] = spec.pop("note")
+        graphs[name] = graph(**spec)
+
+    report = validate(graphs, bundle)
+    if report is None:
+        return 2
+    bad = {k: v for k, v in report.items() if v}
+    for name, problems in bad.items():
+        for pr in problems:
+            print(f"  RED   {name}: {pr}")
+    if bad:
+        print(f"\n{sum(len(v) for v in bad.values())} problem(s) against the loaded "
+              f"schemas; nothing written.")
+        return 1
+    print(f"  ok    {len(graphs)} graph(s) validated against core and {bundle.name}")
+
+    if args.check:
+        drift = [name for name, g in graphs.items()
+                 if not (args.out / name).exists()
+                 or (args.out / name).read_text(encoding="utf-8") != json.dumps(g, indent=2) + "\n"]
+        for name in drift:
+            print(f"  DRIFT {name}: differs from the generator, or missing")
+        if drift:
+            print(f"\n{len(drift)} difference(s). Rerun without --check to rebuild, then push.")
+            return 1
+        print(f"  ok    {len(graphs)} graph(s) match {args.out}")
+        return 0
+
+    args.out.mkdir(parents=True, exist_ok=True)
+    for name, g in graphs.items():
         (args.out / name).write_text(json.dumps(g, indent=2) + "\n", encoding="utf-8")
         used = sorted({v["class_type"] for v in g.values()})
         noncore = [c for c in used if c.startswith("MiniMaxH3PDD")]
         print(f"  {name}")
-        print(f"     {note}")
+        print(f"     {notes[name]}")
         print(f"     {len(g)} nodes, {len(used)} classes; from the pack: {noncore or 'none'}")
-    print(f"\nwrote {len(EXAMPLES)} example(s) to {args.out}")
+    print(f"\nwrote {len(graphs)} example(s) to {args.out}")
     return 0
 
 

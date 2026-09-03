@@ -53,6 +53,21 @@ artifact.
   off the loaded module with what the source says. Exit 2 without that
   checkout. Red on a bundle missing a module and on a defaults file naming
   the wrong file, before the staged bundle was rebuilt.
+- **`build_sidecar_examples.py` validates every example graph against the
+  live schemas before writing**, and gained `--check`. The widget names,
+  combo values and links in it are typed by hand and nothing had compared
+  them with the nodes since the file was written; the owner asked whether
+  they were still aligned with the PDD node and nobody could say. A
+  subprocess loads core ComfyUI with its bundled extras and the STAGED node
+  bundle beside `--out`, then refuses an input the loaded node lacks, a
+  missing required input, a literal combo value off that combo's options
+  (file combos need only a filename), a link whose source output type is not
+  the input's type, and a class neither core nor the bundle registers. Red
+  means nothing is written. Six deliberate breaks each red, an untouched
+  graph green; the first revision recognised combos by `isinstance` against
+  `io.Combo`, which `io.Combo.Input` is not, and checked no combo on any v3
+  node until the red proof said so. The four staged graphs validate and
+  match the generator byte for byte, so the upload of 2026-09-03 stands.
 
 ## 0.99.33
 
