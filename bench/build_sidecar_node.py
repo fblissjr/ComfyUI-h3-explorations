@@ -128,8 +128,7 @@ async def comfy_entrypoint() -> MiniMaxH3PDDExtension:
 NOTICE = ("**Updated 2026-09-03.** If your copy fails to load with "
           "`No module named 'pdd_observe'`, replace this folder: the copy "
           "uploaded earlier on 2026-09-03 was missing three of the node's own "
-          "modules. The 2026-08-29 copy had a GPU memory leak after a PDD "
-          "render; replace that one too.")
+          "modules.")
 
 README = '''# MiniMaxH3PDDLoRA — standalone node
 
