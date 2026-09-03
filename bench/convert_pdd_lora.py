@@ -817,9 +817,28 @@ def main(argv=None) -> int:
                                   pop["refiner_modules"])
     modules_in_file = modules - (stripped // 3)
 
+    # Provenance the file carries about its own making, so an inventory can
+    # date it without trusting a filesystem mtime that a copy resets.
+    import datetime as _dt
+    import subprocess
+    try:
+        commit = subprocess.run(
+            ["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "-C", str(HERE.parent), "status", "--porcelain",
+             "--", "bench/convert_pdd_lora.py"],
+            capture_output=True, text=True, check=True).stdout.strip()
+        if dirty:
+            commit += "+dirty"
+    except Exception:  # not a checkout, or no git: say so rather than guess
+        commit = "unknown"
+
     metadata = {
         "format": "pt",
         "h3_pdd_converter_version": CONVERTER_VERSION,
+        "h3_pdd_converted_on": _dt.date.today().isoformat(),
+        "h3_pdd_converter_commit": commit,
         "h3_pdd_source": args.pdd.name,
         "h3_pdd_base": args.base.name,
         # `h3_pdd_base` is the `--base` argument -- the checkpoint the partition
