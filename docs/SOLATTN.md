@@ -18,6 +18,12 @@ deep dives hang off it, each owning a topic this page deliberately does not:
 | [`docs/research/sglang_h3_pipeline.md`](research/sglang_h3_pipeline.md) §11 | **a second training-free block-sparse attention for H3**, sglang's SubBlock router, documented 2026-08-30. The nearest comparison target Sol has. It **cannot run on this box** -- its resolver rejects anything that is not compute capability 9.0 or 10.0 and fails closed rather than falling back to dense, and this is sm_89 -- so it is a design comparison, not an arm. That page owns it; do not restate its claims here |
 | [`docs/h3_input_impacts.md`](h3_input_impacts.md) | how canvas, frame count and Sol settings interact: the per-canvas Morton `3d` ranking over all 48 legal canvases, the `latent_t % 4` length effect, the token floor crossed with both axes, and block maps | read its geometry tables as a quality ranking |
 
+Dated implementation and capture audit:
+[`2026-09-03_sol_exact_pquant_and_base_capture.md`](research/2026-09-03_sol_exact_pquant_and_base_capture.md)
+records how comfy-kitchen PR #150 relates to the installed kernel, why a
+no-Sol Base16 capture is a dense-trajectory control rather than production
+evidence, and what still has to be measured before choosing dense blocks.
+
 The rule that keeps them from drifting, after `docs/SOLATTN.md` and
 `docs/morton.md` spent a day asserting opposite Morton figures: **a number is
 stated once, in the page that owns it, and everywhere else is a one-line verdict
