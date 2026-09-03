@@ -6,6 +6,23 @@ artifact.
 
 ## 0.99.25
 
+### Added
+
+- **`docs/pdd_artifacts.md`, generated: which PDD file loads on which
+  checkpoint.** `bench/pdd_artifact_inventory.py` reads every PDD file's own
+  metadata (converter version, backbone kind, adaln form, probe origin, what
+  it loads on) plus which `h3_config` constant names it, and writes the
+  page; `--check` goes red when folder and page disagree. Earned by the
+  owner asking which file goes with which base while `docs/h3_pdd.md`
+  carried a hand-typed table whose sizes had gone stale that same day. The
+  loras folder is organised to match: the two dated 2026-08-28 copies moved
+  to `pdd_archive/` with `v1` in their names (one saved UI graph names the
+  ref2va one; nothing in the repo does), the two `adaln2688` files were
+  regenerated at converter version 3 with every prior tensor bit-identical,
+  and the alibaba-pai sources and Kijai's conversions stay where the dated
+  comparison records cite them. No graph changed: every shipped PDD graph
+  already wires the current `_comfy` file for its partition.
+
 ### Corrected
 
 - **The PDD bake contract from 2026-09-02 proved "not the base", not "this

@@ -91,10 +91,18 @@ as a reference rather than leaving two answers in the tree.
 One PDD source converts two ways, and the adaln encoding is the whole
 difference. Both carry the same backbone and the same 32-head bank.
 
-| file | adaln form | size | loads on |
-|---|---|---|---|
-| `minimax_h3_{fl2va,ref2va}_pdd_8step_comfy.safetensors` | baked into the checkpoint's rank-8 curve basis | 1069 MiB | the **pruned** base only |
-| `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors` | the 2688-dim pairs, plus `silu_temb_grid` | 1594 MiB | **either** base |
+| file | adaln form | loads on |
+|---|---|---|
+| `minimax_h3_{fl2va,ref2va}_pdd_8step_comfy.safetensors` | baked into the checkpoint's rank-8 curve basis | the **pruned** base only |
+| `minimax_h3_{fl2va,ref2va}_pdd_8step_adaln2688_comfy.safetensors` | the 2688-dim pairs, plus `silu_temb_grid` | **either** base |
+
+**Which files are on disk, at which converter version, wired by which
+constant, and where the superseded ones went is GENERATED, not written here:**
+[`pdd_artifacts.md`](pdd_artifacts.md), from the files' own metadata by
+`bench/pdd_artifact_inventory.py`, whose `--check` goes red when the folder
+and the page disagree. This table carried sizes until 2026-09-03; they went
+stale the first time the files were regenerated, which is the cache failure
+`docs/config_drift.md` describes, so they are gone.
 
 The name says the difference: `adaln2688` carries the modulation update in the
 full time space rather than pre-solved into a curve basis. That is what makes
