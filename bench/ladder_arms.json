@@ -3,7 +3,8 @@
   "scenes": {
     "standoff": "t2va_frontier_standoff -- two speakers, a figure at distance, a painted sign, a silent bystander",
     "diner": "t2va_diner_breakup -- close-up two-person dialogue over scored music: the audio-judgeable one",
-    "opera": "t2va_opera_grand_stage -- a sung Italian aria with a lyrics pair: the singing one"
+    "opera": "t2va_opera_grand_stage -- a sung Italian aria with a lyrics pair: the singing one",
+    "stairwell": "t2va_stairwell_dialogue -- the shipped dialogue scene (DIALOGUE_T2V_PROMPT): two-person stairwell dialogue over a hard room tone, no music; added by the owner during the first run"
   },
   "rungs": {
     "dense": "stock attention, no sage, no Sol, no LoRA (h3_text_to_video_dense_stamped_api)",
@@ -28,7 +29,12 @@
     "opera_sage": "workflows/bench/h3_text_to_video_stamped_api.json",
     "opera_sol": "workflows/h3_text_to_video_api.json",
     "opera_solfp16": "workflows/h3_text_to_video_api.json",
-    "opera_pdd8": "workflows/h3_text_to_video_pdd_api.json"
+    "opera_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+    "stairwell_dense": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "stairwell_sage": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "stairwell_sol": "workflows/h3_text_to_video_api.json",
+    "stairwell_solfp16": "workflows/h3_text_to_video_api.json",
+    "stairwell_pdd8": "workflows/h3_text_to_video_pdd_api.json"
   },
   "patches": [
     "standoff_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
@@ -48,8 +54,14 @@
     "opera_sol:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
     "opera_solfp16:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
     "opera_solfp16:MiniMaxH3SageAttention.mode=\"fp16 (most accurate)\"",
-    "opera_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage"
+    "opera_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "stairwell_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue",
+    "stairwell_sage:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue",
+    "stairwell_sol:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue",
+    "stairwell_solfp16:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue",
+    "stairwell_solfp16:MiniMaxH3SageAttention.mode=\"fp16 (most accurate)\"",
+    "stairwell_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue"
   ],
-  "run": "bench/run_graph_arms.py --manifest bench/ladder_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/<date>_ladder_arms.jsonl; then bench/blind_batch.py on the jsonl, score, bench/score_session.py",
+  "run": "bench/run_graph_arms.py --manifest bench/ladder_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/<date>_ladder_arms.jsonl; then bench/blind_batch.py on the jsonl, score, bench/score_session.py; the stairwell scene was added while the first fifteen arms were rendering and ran as a second invocation into a second jsonl",
   "how_to_read": "Compare rungs within a scene, never scenes against each other. The dense rung shows what the model itself does with a distant face or a small figure (blur and drift there are the model's own limit, per the owner); the question each higher rung answers is whether the speedup made THAT worse, and where."
 }
