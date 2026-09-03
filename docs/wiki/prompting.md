@@ -1,6 +1,6 @@
 # Prompting H3: where all of it comes from
 
-last updated: 2026-09-01
+last updated: 2026-09-03
 
 **A router, not an authority.** It states no prompting rule of its own. Where it
 disagrees with an owner below, the owner is right.
@@ -26,6 +26,8 @@ answers where a claim came from and what guards it.
 | from | to | how, and what guards it |
 |---|---|---|
 | vendor guides | alignment templates, camera vocabulary | **parsed at import** by `preflight_graph.py` / `check_prompt_guide_conformance.py` / `check_camera_vocabulary.py`; a missing guide is a loud error, never a silent pass |
+| `prompt_bank/*.txt` + `bank.json` | `build_workflows.py` | **the only home of prompt text since 2026-09-03.** The generator loads every shipped prompt by id through `workflows/prompts.py` and refuses the build if an entry is missing; the two keyframe defaults are re-timed from their bank text at the graph's length and asserted equal at the declared one |
+| `prompt_bank/` | `prompt_bank.md` | generated; `build_prompt_bank.py --check` regrades every entry through the same function `grade_prompt_text.py` runs, derives which graphs ship each entry, and reports (never gates) an entry whose `recorded_findings` names the audit verdict that adjudicates it |
 | `build_workflows.py` | `workflows/*.json` | generated; graphs are never hand-edited, and nothing is true of a graph until rebuilt |
 | the graphs | `prompt_catalogue.md` | generated; `build_prompt_catalogue.py --check` |
 | catalogue scenes | `prompt_audit.md` verdicts | hand-written, **coverage checked** by `check_prompt_docs_sync.py` |
@@ -73,17 +75,25 @@ in backticks rather than linked.
 
 | question | owner |
 |---|---|
-| how do I write a prompt, in any mode | [`docs/prompting.md`](../prompting.md) — **start here, it is the single source of truth** |
-| what does this repo actually render | [`docs/prompt_catalogue.md`](../prompt_catalogue.md) — generated from the graphs; judges nothing |
+| how do I write a prompt, in any mode | [`docs/prompting.md`](../prompting.md) — **start here, it is the single source of truth for the RULES** |
+| where does prompt TEXT live, and where do I get a conformant one to start from | `prompt_bank/` — every shipped prompt and every house-authored one, one file per id; [`docs/prompt_bank.md`](../prompt_bank.md) is its generated table, with a `ships` column saying which graphs render an entry, an `adapt` column saying which can take another frame count without a rewrite, and a `tests` line per scene saying what it is a test OF (a distant figure, close-up dialogue, sung vocals, fast motion), so rungs are compared within a scene and scenes are not compared against each other |
+| what does this repo actually render | [`docs/prompt_catalogue.md`](../prompt_catalogue.md) — generated from the graphs; judges nothing; its `bank id` column is the join to the bank |
 | is what we render any good | [`docs/prompt_audit.md`](../prompt_audit.md) — hand-written, one verdict per scene |
 | what do the reference labels mean, and how are images sized | [`docs/h3_references.md`](../h3_references.md) |
 | what canvases and lengths are legal | [`docs/h3_resolutions.md`](../h3_resolutions.md), [`docs/h3_geometry_and_nodes.md`](../h3_geometry_and_nodes.md) |
 | how do I compare two prompts fairly | [`docs/eval_comparison.md`](../eval_comparison.md) — and read the warning in §5 below first |
 
-**The catalogue is generated and nothing regenerates it**, and it has been stale
-before. Run this before trusting it:
+**The catalogue and the bank table are generated and nothing regenerates
+them**, and the catalogue has been stale before. Run these before trusting either:
 
     python bench/build_prompt_catalogue.py --check
+    python bench/build_prompt_bank.py --check
+
+**An experiment names its prompts by bank id.** `bench/run_graph_arms.py`
+takes `@bank:<id>` as a widget value, so a manifest carries no second copy of
+the text, and every render row and capture manifest records the bank id, the
+text's hash, length, canvas and seed (`workflows/prompts.py::describe`). A
+render nobody can trace to a bank entry is a render nobody can compare.
 
 ---
 
@@ -104,7 +114,8 @@ we render*, not *what is exemplary*: read them through the audit's verdict.
 The shipped column is deliberately a pointer. How many scenes exist per mode is
 a property of the graphs, and a number written here would be a second copy of it
 with nothing to invalidate it. `bench/grade_prompt_text.py --list-donors` names
-the canonical graph per mode; the catalogue lists them all.
+the canonical graph per mode; the catalogue lists them all, and the bank table
+lists every entry per mode whether or not a graph ships it.
 
 **The keyframe modes are where the examples were needed.** Each shipped exactly
 one prompt, so a reader had one specimen and no sense of the range. The four new
