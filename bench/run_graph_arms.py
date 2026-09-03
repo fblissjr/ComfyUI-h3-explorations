@@ -61,6 +61,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent / "workflows"))
+import prompts as _prompts  # noqa: E402  -- bank id, hash, length, canvas, seed per row
 sys.path.insert(0, str(HERE / "results"))
 
 from bench_e2e_h3 import run_once  # noqa: E402
@@ -306,6 +308,10 @@ def main() -> int:
             "patches": arm["patches"],
             "seed": seed_used,
             "prompt_id": prompt_id,
+            # What was rendered, not only which file (owner's rule
+            # 2026-09-03): bank id or the full text when foreign, its hash,
+            # length, canvas. `seed` above is the one actually used.
+            "rendered": _prompts.describe(arm["graph"]),
             "warmup": warmup,
             "total_s": total_s,
             "sampler_s": _class_seconds(arm["graph"], per_node,

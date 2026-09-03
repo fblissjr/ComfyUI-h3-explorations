@@ -173,6 +173,7 @@ def load() -> tuple[list[dict], list[str]]:
 
 def grade_all(entries: list[dict]) -> list[dict]:
     rows = []
+    shipped = shipped_by()
     for e in entries:
         path = BANK / f"{e['id']}.txt"
         if not path.exists():
@@ -186,8 +187,31 @@ def grade_all(entries: list[dict]) -> list[dict]:
         warns = [m for lvl, m in r["findings"] if lvl == "WARN"]
         rows.append({**e, "text": text, "facts": facts(text, e["mode"]),
                      "fails": fails, "warns": warns,
-                     "duration": h3_rules.duration_of(e["frames"])})
+                     "duration": h3_rules.duration_of(e["frames"]),
+                     "ships": sorted(shipped.get(text, ())),
+                     "adaptable": adaptable(text)})
     return rows
+
+
+_TIMED = re.compile(r"\bAt \d\d:\d\d(?:\.\d+)?\b|\b\d+(?:\.\d+)?\s*(?:s|sec|secs|seconds?)\b"
+                    r"|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+                    r"thirteen|fourteen|fifteen)-second\b", re.I)
+
+
+def adaptable(text: str) -> bool:
+    """Whether the text can be rendered at another frame count without a
+    rewrite: it names no cut time and no duration. Mechanical, so it can be
+    wrong in both directions (a prompt can pace itself in prose); it says
+    which entries the length knob is free on, not that the result is good."""
+    return _TIMED.search(text) is None
+
+
+def shipped_by() -> dict[str, set[str]]:
+    """prompt text -> the graph stems that carry it, from the graphs
+    themselves (the catalogue's scanner), so this file never holds a second
+    copy of which prompt ships where."""
+    import build_prompt_catalogue as cat
+    return {k.strip(): v for k, v in cat.scan_graphs().items()}
 
 
 def shape_problems(rows: list[dict]) -> list[str]:
@@ -258,7 +282,12 @@ def render(rows: list[dict]) -> str:
       "a marker, a reference task type. **Every one grades 0 FAIL and 0 WARN** through "
       "`bench/grade_prompt_text.py` at the frame count and donor the manifest names, "
       "and that is the whole of what is established: they satisfy the guides' "
-      "MECHANICAL rules, the ones a script can decide. **None has been rendered.** "
+      "MECHANICAL rules, the ones a script can decide -- except where the manifest "
+      "carries `recorded_findings`, a shipped prompt whose failings `prompt_audit.md` "
+      "already adjudicates; those are reported in the table and not gated. **An entry with graphs in its "
+      "`ships` column is a shipped prompt: since 2026-09-03 the generator loads every "
+      "shipped prompt from this bank by id (`workflows/prompts.py`), so those have "
+      "rendered as their graphs have; an entry with none has never been rendered.** "
       "Nothing here says they are in-distribution the way the vendor's own five worked "
       "examples are (`vendor_guides/base_en.md` Cases 1-4, `ref_en.md` section 7), and "
       "a downstream consumer that wants attested specimens should take those, not "
@@ -280,21 +309,28 @@ def render(rows: list[dict]) -> str:
     w("**Re-grading one:** the command under each prompt, from the repo root with the "
       "ComfyUI venv's python. A prompt is conformant AT A DURATION: `S.SS` and every "
       "`At MM:SS.mmm` resolve against the snapped frame count, so grading at another "
-      "`--length` is expected to fail. **Adding one:** write the file, add a manifest "
-      "entry, run the builder, commit all three. **For a bridge from another repo:** "
-      "the manifest is the contract -- mode and frames per file, donor stem for ref2va.")
+      "`--length` is expected to fail. The `adapt` column is the mechanical exception: "
+      "a prompt that names no cut time and no duration can take another length from "
+      "the graph alone. **Adding one:** write the file, add a manifest "
+      "entry, run the builder, commit all three. **Shipping one:** name it by id in "
+      "`workflows/build_workflows.py`; the text never goes anywhere else. **For a "
+      "bridge from another repo:** the manifest is the contract -- mode and frames "
+      "per file, donor stem for ref2va.")
     w("")
     n_na = sum(1 for r in rows if r["facts"]["music"] == "N/A")
     w("## Every prompt")
     w("")
-    w("| id | mode | frames | s | donor | words | shots | speakers | languages | camera | music | grade |")
-    w("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    w("| id | mode | frames | s | adapt | ships | donor | words | shots | speakers | languages | camera | music | grade |")
+    w("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in rows:
         f = r["facts"]
         grade = ("clean" if not r["fails"] and not r["warns"]
                  else f"{len(r['fails'])} FAIL, {len(r['warns'])} WARN")
+        if r.get("recorded_findings") and grade != "clean":
+            grade += " (recorded; see the entry)"
         w(f"| [`{r['id']}`](#{r['id'].replace('_', '-')}) | {r['mode']} | {r['frames']} "
-          f"| {r['duration']:.3f} | {('`' + r['donor'] + '`') if r.get('donor') else '—'} "
+          f"| {r['duration']:.3f} | {'yes' if r['adaptable'] else 'pinned'} | {len(r['ships'])} "
+          f"| {('`' + r['donor'] + '`') if r.get('donor') else '—'} "
           f"| {f['words']} | {f['shots']} | {len(f['speakers'])}{' +compound' if f['compound'] else ''} "
           f"| {', '.join(f['languages']) or '—'} | {', '.join(f['motions'])} | {f['music']} | {grade} |")
     w("")
@@ -387,7 +423,9 @@ def render(rows: list[dict]) -> str:
         w(f"## {r['id']}")
         w("")
         w(f"**{r['mode']}, {r['frames']} frames, {r['duration']:.3f} s"
-          + (f", donor `{r['donor']}`" if r.get("donor") else "") + ".** " + r["brief"])
+          + (f", donor `{r['donor']}`" if r.get("donor") else "") + ".** " + r["brief"]
+          + (f" **Recorded findings:** {r['recorded_findings']}" if r.get("recorded_findings") else "")
+          + (f" Ships in: " + ", ".join(f"`{g}`" for g in r["ships"]) + "." if r["ships"] else ""))
         w("")
         bits = [f"camera: {', '.join(f['motions'])}"]
         if f["speakers"]:
@@ -426,15 +464,26 @@ def main() -> int:
 
     entries, problems = load()
     rows = grade_all(entries)
-    problems += shape_problems(rows)
-    red = [(r["id"], m) for r in rows for m in r["fails"]]
-    amber = [(r["id"], m) for r in rows for m in r["warns"]]
+    # A shipped prompt whose findings are already adjudicated (the manifest's
+    # `recorded_findings` names where) is reported, never gated: the bank
+    # became the only home of shipped text on 2026-09-03 and two shipped
+    # prompts do not meet the bank's own bar -- `prompt_audit.md` already
+    # says so. Silently passing them would hide that; failing the bank on
+    # them would train everyone to ignore red. The table shows the grade.
+    recorded = {r["id"] for r in rows if r.get("recorded_findings")}
+    problems += [m for m in shape_problems(rows) if m.split(":")[0] not in recorded]
+    red = [(r["id"], m) for r in rows for m in r["fails"] if r["id"] not in recorded]
+    amber = [(r["id"], m) for r in rows for m in r["warns"] if r["id"] not in recorded]
     for pid, m in red:
         print(f"  FAIL  {pid}: {m}")
     for pid, m in amber:
         print(f"  WARN  {pid}: {m}")
     for p in problems:
         print(f"  FAIL  shape: {p}")
+    for r in rows:
+        if r["id"] in recorded and (r["fails"] or r["warns"]):
+            print(f"  noted {r['id']}: {len(r['fails'])} FAIL, {len(r['warns'])} WARN, "
+                  f"recorded -- {r['recorded_findings']}")
     clean = sum(1 for r in rows if not r["fails"] and not r["warns"])
     print(f"  {clean} of {len(rows)} prompt(s) grade clean; {len(problems)} shape problem(s)")
     if not rows:

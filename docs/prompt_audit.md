@@ -54,6 +54,7 @@ Ordered by blast radius — how many graphs carry the scene.
 | `derived:h3_first_last_frame_to_video` | fl2va | keep | conforms |
 | `I2V_PROMPT` | i2va | keep | conforms. **Was listed as fl2va until 2026-09-01; that was wrong** -- it carries base-en's I2VA Part One template and ships in `h3_first_frame_to_video*`, and the fl2va scene is `derived:h3_first_last_frame_to_video` |
 | `derived:h3_probe_ref2v_split_turbo_pack` | ref2va | revise | budget |
+| `BENCH_T2V_PROMPT` (bank `t2va_frontier_standoff`) | t2v | keep | the t2v bench pair's scene since 2026-09-03, chosen off the market prompt for its failure surfaces (a figure at distance, a painted sign, dialogue, a silent bystander); grades clean in the bank and had never rendered before |
 | `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`, `f5b3651`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; soundscape closed |
 | `derived:h3_probe_release_video_policy` | ref2va | keep | a policy probe |
 | `DIALOGUE_T2V_PROMPT` (stairwell t2v) | t2v | ~~revise~~ **done `d5be353`, `f5b3651`** | out-of-table motion phrase replaced; soundscape closed |

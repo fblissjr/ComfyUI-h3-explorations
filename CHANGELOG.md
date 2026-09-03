@@ -4,6 +4,53 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.28
+
+### Changed
+
+- **Prompt text has one home: `prompt_bank/`.** Until now the generator
+  held every shipped prompt as a string literal, the bank held a second
+  population that had never rendered, and no record of a render said what
+  was rendered beyond the workflow file -- which is how every
+  real-activation Sol number came from one scene without anyone noticing.
+  Owner's call, 2026-09-03: the seventeen literals moved to
+  `prompt_bank/<id>.txt` with manifest entries, `workflows/build_workflows.py`
+  loads them by id through the new `workflows/prompts.py`, and the constant
+  NAMES stay because five bench scripts and `prompt_audit.md`'s scene keys
+  bind to them. Regenerating every graph changed nothing but the bench t2v
+  pair (below), which is the proof the move was a move. The bank builder
+  now derives a `ships` column from the graphs (the catalogue's scanner, so
+  no second copy of what ships where) and an `adapt` column, mechanical:
+  a prompt naming no cut time and no duration can take another length from
+  the graph alone. Two shipped prompts do not meet the bank's own bar and
+  `prompt_audit.md` already says so; the manifest's `recorded_findings`
+  carries that adjudication, the table shows the grade, and the check does
+  not gate on them. The catalogue names scenes by resolving the bank call
+  as it resolved the literal, plus a `bank id` column.
+- **What was rendered goes into every record.** `workflows/prompts.py::describe`
+  reads an API graph for bank id (or the full text when the prompt is not
+  in the bank), prompt sha256, length, canvas and seed;
+  `bench/run_graph_arms.py` rows and the Sol route record's render row
+  carry it as `rendered`. `h3_capture.py` records are unchanged: they see
+  tensors, not graphs, and the route record joins them by prompt id.
+- **The bench t2v pair renders `t2va_frontier_standoff`**, not the covered
+  market: a bank scene with a figure at distance, a painted sign, dialogue
+  and a silent bystander. Records that name
+  `h3_text_to_video_stamped_api` carry the graph hash, so pre-change rows
+  still say which prompt they were.
+
+### Added
+
+- **`workflows/bench/h3_text_to_video_dense_stamped_api.json`, the true
+  baseline**: the DiT and encoder every graph loads, ComfyUI's stock
+  attention, the base step count, no LoRA -- no sage node, no Sol node;
+  `SageChainAssert` stays in warn-only mode with nothing to require, the
+  shape the PDD reference arms use. The render you would otherwise make on
+  this box. Every "dense baseline" number before this was sage alone
+  (`h3_text_to_video_stamped_api`, kept beside it on the same scene, seed
+  and length as the matched pair). Bench graphs are outside
+  `check_attention_defaults`' scope, so no exemption entry.
+
 ## 0.99.27
 
 ### Added

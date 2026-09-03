@@ -1,544 +1,665 @@
 {
- "_comment": "Manifest for prompt_bank/. One entry per prompt: id (also the file stem), mode, frames on the 17k+5 grid, donor stem for ref2va (the shipped graph whose sockets the labels are graded against), and a one-line brief saying what the prompt was written to exercise. bench/build_prompt_bank.py grades every entry and derives docs/prompt_bank.md; run it after adding or editing one.",
- "prompts": [
-  {
-   "id": "t2va_post_office",
-   "mode": "t2va",
-   "frames": 141,
-   "donor": null,
-   "brief": "Watercolor; static shot; no dialogue; on-screen text with typography and position; a silent animal marked as producing no vocal sound; scored."
-  },
-  {
-   "id": "t2va_desert_crew",
-   "mode": "t2va",
-   "frames": 294,
-   "donor": null,
-   "brief": "Documentary; three shots; a line that continues across a cut written with the guide's continuity phrases and no tag, because <scenetrans> matches no declared token; N/A."
-  },
-  {
-   "id": "t2va_night_porter",
-   "mode": "t2va",
-   "frames": 175,
-   "donor": null,
-   "brief": "One sung line in a plain <d> block, no lyrics pair; the singing is diegetic so non_diegetic_music is N/A; zoom in."
-  },
-  {
-   "id": "t2va_clay_apiary",
-   "mode": "t2va",
-   "frames": 226,
-   "donor": null,
-   "brief": "Claymation; the exact voiceover phrase with lips-remain-closed; a compound (S1,S2) in unison after both speakers are numbered; scored."
-  },
-  {
-   "id": "t2va_box_office",
-   "mode": "t2va",
-   "frames": 209,
-   "donor": null,
-   "brief": "Vintage film; three speaking turns inside one shot; on-screen text; tilt down; N/A."
-  },
-  {
-   "id": "t2va_cable_car",
-   "mode": "t2va",
-   "frames": 328,
-   "donor": null,
-   "brief": "2D-animated; a final line truncated by the end, closed as </d><|cutoff|> tight against the tag; a silent passenger; scored and still rising at the last frame."
-  },
-  {
-   "id": "t2va_noodle_bar",
-   "mode": "t2va",
-   "frames": 107,
-   "donor": null,
-   "brief": "One shot at the second-shortest count; an on-screen sign in its original language per base 4.5; a radio playing as DIEGETIC music described in the body; a [Chinese] line; zoom out; N/A."
-  },
-  {
-   "id": "t2va_silent_film",
-   "mode": "t2va",
-   "frames": 362,
-   "donor": null,
-   "brief": "The longest count. The user asked for complete silence, so overall_soundscape is N/A under base 4.6's only condition, while the piano accompaniment is a real non-diegetic score; an intertitle card as on-screen text; characters who mouth words and are marked silent; the shot changes to / switches to; a user-requested fade."
-  },
-  {
-   "id": "t2va_rooftop_pov",
-   "mode": "t2va",
-   "frames": 192,
-   "donor": null,
-   "brief": "POV and Shake Strongly; the shot transitions to; an OFF-SCREEN speaker who is not a voiceover; a runner who pants (non-verbal, soundscape) and takes no id; scored."
-  },
-  {
-   "id": "t2va_fireworks_barge",
-   "mode": "t2va",
-   "frames": 260,
-   "donor": null,
-   "brief": "2D-animated; Pedestal Down and Roll Counterclockwise; two [Spanish] lines each addressed to the other speaker; a crowd heard only in the soundscape; N/A."
-  },
-  {
-   "id": "t2va_radio_drama",
-   "mode": "t2va",
-   "frames": 243,
-   "donor": null,
-   "brief": "Three speakers plus a silent foley artist; Tracking Shot; on-screen text; HOUSE marker under test: one caption pair as a sibling of one </d>, with the same subtitle also written as base 4.5's quoted string."
-  },
-  {
-   "id": "t2va_swimming_lesson",
-   "mode": "t2va",
-   "frames": 124,
-   "donor": null,
-   "brief": "Documentary; tilt up; a [French] line spoken to a child; the child laughs (non-verbal sound in the soundscape, no id, no silence marker); N/A."
-  },
-  {
-   "id": "t2va_marching_band",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "The band is DIEGETIC music described in the body, so N/A; HOUSE marker under test: the lyrics pair wrapping two sung <d> blocks; the shot switches to; truck left, pull out, static shot."
-  },
-  {
-   "id": "t2va_cyberpunk_music_video",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Cyberpunk music video; 3 shots; diegetic singing with lyrics pair; on-screen text; silent keyboardist; arc shot, push in, tracking shot; scored."
-  },
-  {
-   "id": "t2va_speakeasy_heist",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1920s vintage film noir; 3 shots; dramatic dialogue between boss and courier; on-screen text; silent bodyguard; truck right, static shot, tilt up; scored."
-  },
-  {
-   "id": "t2va_sitcom_kitchen",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1970s TV sitcom; 3 shots; comedic dialogue banter; on-screen text; silent pet; studio audience laughter in soundscape; pan left, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_subway_chase",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored."
-  },
-  {
-   "id": "t2va_frontier_standoff",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored."
-  },
-  {
-   "id": "t2va_orbital_airlock",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Sci-fi TV cockpit drama; 3 shots; emergency airlock command dialogue; on-screen HUD text; silent crewmember; roll clockwise, truck left, push in; scored."
-  },
-  {
-   "id": "t2va_cartoon_vaudeville",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1930s 2D-animated rubber-hose cartoon; 2 shots; vaudeville song and tap dance; diegetic ragtime piano so N/A; on-screen text; silent pianist; pan right, pull out, static shot."
-  },
-  {
-   "id": "t2va_courtroom_verdict",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1950s legal courtroom drama; 3 shots; intense cross-examination dialogue; on-screen carved seal text; silent judge; push in, static shot, truck right; scored."
-  },
-  {
-   "id": "t2va_arena_rock_video",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1980s arena rock music video; 3 shots; lead singer belting lyrics with lyrics pair; on-screen amplifier text; silent guitarist; tilt down, push in, tracking shot; diegetic so N/A."
-  },
-  {
-   "id": "t2va_castle_rampart",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Epic medieval fantasy; 3 shots; dawn battlements command dialogue; on-screen carved stone text; silent guardsman; pedestal up, zoom out, static shot; scored."
-  },
-  {
-   "id": "i2va_cargo_bay",
-   "mode": "i2va",
-   "frames": 192,
-   "donor": null,
-   "brief": "3D CG; the I2VA Part One line; no dialogue; on-screen text; a machine marked as producing no vocal sound; pedestal up; scored."
-  },
-  {
-   "id": "i2va_vet_night",
-   "mode": "i2va",
-   "frames": 260,
-   "donor": null,
-   "brief": "Two shots; a line addressed to a named listener who takes no id; truck left, push in; N/A."
-  },
-  {
-   "id": "i2va_tattoo",
-   "mode": "i2va",
-   "frames": 124,
-   "donor": null,
-   "brief": "A style off the guide's list (high-contrast black-and-white), legal because the list is open; arc shot; scored."
-  },
-  {
-   "id": "i2va_glassblower",
-   "mode": "i2va",
-   "frames": 277,
-   "donor": null,
-   "brief": "Documentary; two shots; an [Italian] line spoken to a silent assistant; zoom out, push in; scored."
-  },
-  {
-   "id": "i2va_kettle",
-   "mode": "i2va",
-   "frames": 90,
-   "donor": null,
-   "brief": "The shortest count; no person in frame, so no silence marker; push in; N/A with the whistle in the soundscape."
-  },
-  {
-   "id": "i2va_night_market",
-   "mode": "i2va",
-   "frames": 311,
-   "donor": null,
-   "brief": "Handheld: Shake Slightly; the shot changes to; an on-screen sign in its original language; a [Chinese] line answered in [English], each addressed to the other; scored."
-  },
-  {
-   "id": "fl2va_balloon",
-   "mode": "fl2va",
-   "frames": 209,
-   "donor": null,
-   "brief": "The FL2VA Part One line with bare Picture and Shot; one shot; no dialogue; pull out; N/A."
-  },
-  {
-   "id": "fl2va_carousel",
-   "mode": "fl2va",
-   "frames": 311,
-   "donor": null,
-   "brief": "FL2VA over TWO shots, so Part One resolves to (from Shot 2); truck right, tilt up; scored."
-  },
-  {
-   "id": "fl2va_paper_train",
-   "mode": "fl2va",
-   "frames": 158,
-   "donor": null,
-   "brief": "A style off the guide's list (paper cut-out); no character on screen; pan right; scored."
-  },
-  {
-   "id": "fl2va_potter_wheel",
-   "mode": "fl2va",
-   "frames": 175,
-   "donor": null,
-   "brief": "Documentary; one shot; zoom in; one line with nobody else present; scored."
-  },
-  {
-   "id": "fl2va_origami_crane",
-   "mode": "fl2va",
-   "frames": 107,
-   "donor": null,
-   "brief": "Overhead; static shot throughout; hands only; scored."
-  },
-  {
-   "id": "fl2va_drawbridge",
-   "mode": "fl2va",
-   "frames": 362,
-   "donor": null,
-   "brief": "The longest count; pedestal down with large amplitude; no dialogue; a ship's horn in the soundscape; scored."
-  },
-  {
-   "id": "l2va_rescue_hut",
-   "mode": "l2va",
-   "frames": 243,
-   "donor": null,
-   "brief": "The L2VA Part One line; the line ends early so the mouth is closed and still on the endpoint; push in; scored."
-  },
-  {
-   "id": "l2va_telescope",
-   "mode": "l2va",
-   "frames": 90,
-   "donor": null,
-   "brief": "The shortest count; static shot; no dialogue; N/A."
-  },
-  {
-   "id": "l2va_bus_depot",
-   "mode": "l2va",
-   "frames": 277,
-   "donor": null,
-   "brief": "L2VA over TWO shots, so Part One resolves to (from [Shot 2]); on-screen text; push in, pan left; scored."
-  },
-  {
-   "id": "l2va_chess_clock",
-   "mode": "l2va",
-   "frames": 141,
-   "donor": null,
-   "brief": "A [Russian] line answered in [English]; the closed-mouth endpoint rule; tilt down; N/A."
-  },
-  {
-   "id": "l2va_kite_festival",
-   "mode": "l2va",
-   "frames": 226,
-   "donor": null,
-   "brief": "Watercolor; THREE shots, so Part One resolves to (from [Shot 3]); the shot transitions to; a user-requested cross-dissolve; a laughing child with no id; zoom out with large amplitude; scored."
-  },
-  {
-   "id": "l2va_laundromat",
-   "mode": "l2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Documentary; the exact voiceover phrase from an on-screen character whose lips remain closed; a second on-screen speaker; truck left, push in; scored."
-  },
-  {
-   "id": "ref2va_radio_handover",
-   "mode": "ref2va",
-   "frames": 243,
-   "donor": "h3_ref2v_market_api",
-   "brief": "One identity image cited inside its <Subject> definition with no standalone <Picture> entry; a speaker with no subject given a stable voice description; three shots, three turns; [reference generation]."
-  },
-  {
-   "id": "ref2va_observatory",
-   "mode": "ref2va",
-   "frames": 328,
-   "donor": "h3_ref_image_audio_api",
-   "brief": "Two identity images plus an audio clip used for TIMBRE ONLY, so none of its words are carried over; [reference generation + audio reference]; tilt up, push in, arc shot."
-  },
-  {
-   "id": "ref2va_bouldering_regrade",
-   "mode": "ref2va",
-   "frames": 260,
-   "donor": "h3_ref_video_edit_api",
-   "brief": "[video editing + audio reuse]: the fixed opening sentence, partially_preserved and partially_copy markers, exempt from the 350-500 budget; Shake Slightly and Tracking Shot carried from the source."
-  },
-  {
-   "id": "ref2va_ballroom",
-   "mode": "ref2va",
-   "frames": 294,
-   "donor": "h3_ref_video_motion_api",
-   "brief": "A motion pattern from a video as a <Subject>, with the <Video> itself weak_reference for tempo only; a sung line and a spoken line; the band is diegetic so N/A; truck left, arc shot, push in."
-  },
-  {
-   "id": "ref2va_quarry_continuation",
-   "mode": "ref2va",
-   "frames": 209,
-   "donor": "h3_ref_video_only_api",
-   "brief": "[video continuation] from a video with no audio label wired; no person on screen; tracking shot, roll clockwise, pull out."
-  },
-  {
-   "id": "ref2va_storyboard_bakery",
-   "mode": "ref2va",
-   "frames": 192,
-   "donor": "h3_probe_capture_ref3_api",
-   "brief": "A STANDALONE <Picture 3> as a storyboard reference for two shots per ref 2.2, with its own weak_reference retention line, beside two identity-only images that get none; [reference generation]."
-  },
-  {
-   "id": "ref2va_soundtrack_fully_copy",
-   "mode": "ref2va",
-   "frames": 328,
-   "donor": "h3_ref_video_audio_api",
-   "brief": "[reference generation + audio reuse]: <Audio 1> fully_copy as the complete final track; a lyric that lives only in the reused soundtrack, so it is cited via <Audio 1> reaching the phrase and takes NO speaker id (ref 5.4); an [unclear] span; <Video 1> weak_reference for cut rhythm only."
-  },
-  {
-   "id": "ref2va_jacket_transfer",
-   "mode": "ref2va",
-   "frames": 294,
-   "donor": "h3_image_ref_plus_text_to_video_api",
-   "brief": "A garment as a <Subject> with attribute_transfer onto another subject, the final outfit stated once (wardrobe grammar); a [Japanese] line spoken to a silent companion; [reference generation]."
-  },
-  {
-   "id": "ref2va_video_swap",
-   "mode": "ref2va",
-   "frames": 362,
-   "donor": "h3_ref_video_swap_api",
-   "brief": "[video editing + audio reuse]: a person from an image replaces the presenter in the source video; the reused speech is lip-synced by a concrete on-screen source, so it takes (S1) and cites <Audio 1>; source words verbatim with an [unclear] span; fully_copy; exempt from the word budget."
-  },
-  {
-   "id": "ref2va_five_label",
-   "mode": "ref2va",
-   "frames": 345,
-   "donor": "h3_ref_image_video_audio_api",
-   "brief": "All five label kinds on one donor: two identity images, a video for camera movement (weak_reference), its soundtrack partially_copy for ambience only, and a standalone clip as a voice-timbre reference bound to (S1); a second speaker with a voice description and no subject; [reference generation + audio reuse + audio reference]."
-  },
-  {
-   "id": "ref2va_continue_with_audio",
-   "mode": "ref2va",
-   "frames": 158,
-   "donor": "h3_ref_video_continue_api",
-   "brief": "[video continuation + audio reference]: resumes where the source ends and the new audio continues the original track's audible character without copying it; a [Portuguese] line; still inside the 350-500 budget because continuation is a generation task."
-  },
-  {
-   "id": "t2va_delta_blues_porch",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1930s Mississippi Delta blues; 3 shots; acoustic resonator guitar diegetic so N/A; on-screen text; silent pea-sheller; push in, tilt down, pull out, static shot."
-  },
-  {
-   "id": "t2va_disco_roller_rink",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1970s roller disco music video; 3 shots; lead singer on quad skates belting lyrics with lyrics pair; on-screen text; silent DJ; tracking shot, zoom in, roll counterclockwise, static shot; scored."
-  },
-  {
-   "id": "t2va_kpop_dance_studio",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Modern K-pop music video; 3 shots; Korean and English lyrics with lyrics pair; on-screen text; silent backup dancer; pan right, push in, pull out, static shot; scored."
-  },
-  {
-   "id": "t2va_opera_grand_stage",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_punk_basement_gig",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1970s London underground punk gig; 3 shots; raw abrasive frontwoman vocals with lyrics pair; on-screen text; silent bassist; push in, camera shaking slightly, tilt up, static shot; diegetic so N/A."
-  },
-  {
-   "id": "t2va_hiphop_rooftop_cypher",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1990s East Coast hip-hop music video; 3 shots; boombox diegetic beat so N/A; lyrics pair; on-screen text; silent beatmaker; tracking shot, zoom in, pull out, static shot."
-  },
-  {
-   "id": "t2va_appalachian_folk_cabin",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Appalachian folk cabin performance; 3 shots; diegetic clawhammer banjo and mountain fiddle so N/A; lyrics pair; on-screen text; silent banjoist; push in, tilt up, static shot."
-  },
-  {
-   "id": "t2va_samurai_bamboo_duel",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Feudal Japan 1600s samurai duel; 3 shots; Japanese dialogue confrontation; on-screen kanji marker; silent opponent in shot 1; pedestal down, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_trench_ww1_messenger",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1917 WWI trench drama; 3 shots; runner and trench captain command dialogue; on-screen dugout sign; silent wounded rifleman; truck right, push in, tracking shot; scored."
-  },
-  {
-   "id": "t2va_medical_er_triage",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Hospital ER procedural; 3 shots; trauma surgeon and triage nurse urgent dialogue; on-screen sign; silent therapist; push in, tilt down, static shot; scored."
-  },
-  {
-   "id": "t2va_police_interrogation",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Police procedural drama; 3 shots; detective and suspect interrogation; on-screen plaque; silent observer; push in, static shot, truck left; scored."
-  },
-  {
-   "id": "t2va_screwball_restaurant",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1930s screwball comedy; 3 shots; waiter and heiress dessert banter; on-screen plaque; silent sommelier; pan left, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_newsroom_breaking",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1980s TV newsroom drama; 3 shots; anchor and producer dialogue; on-screen neon text; silent camera technician; push in, truck right, static shot; scored."
-  },
-  {
-   "id": "t2va_victorian_seance",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Victorian gothic horror; 3 shots; medium and widow supernatural s\u00e9ance dialogue; on-screen plaque; silent gentleman; push in, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_diner_breakup",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored."
-  },
-  {
-   "id": "t2va_pirate_deck_mutiny",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1700s pirate galleon mutiny; 3 shots; captain and mutineer armed standoff dialogue; on-screen bell text; silent helmsman; tilt up, push in, static shot with camera shake; scored."
-  },
-  {
-   "id": "t2va_cooking_show_meltdown",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Morning TV cooking show disaster; 3 shots; French chef comedic blender explosion; on-screen logo; silent co-host; push in, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_ww2_sub_sonar",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "WWII submarine drama; 3 shots; captain and sonar operator depth charge dialogue; on-screen bulkhead plate; silent crewman; truck right, zoom in, static shot with camera shake; scored."
-  },
-  {
-   "id": "t2va_gladiator_arena_tunnel",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Ancient Roman gladiator epic; 3 shots; veteran and rookie Latin dialogue; on-screen pillar inscription; silent guard; pedestal down, push in, static shot; scored."
-  },
-  {
-   "id": "t2va_cyber_hacker_den",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Y2K cyber-thriller; 3 shots; hacker breach command dialogue; on-screen stenciled text; silent collaborator; truck right, push in, static shot; scored."
-  },
-  {
-   "id": "t2va_kungfu_tea_house",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1970s martial arts cinema; 3 shots; Shaolin master and assassin Chinese dialogue; on-screen calligraphy; silent apprentice; push in, zoom in, static shot; scored."
-  },
-  {
-   "id": "t2va_french_new_wave_cafe",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "1960s French New Wave cinema; 3 shots; Left Bank philosophical banter in French; on-screen facade sign; silent waiter; pan left, static shot, pull out; scored."
-  },
-  {
-   "id": "t2va_nature_doc_arctic",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Arctic wildlife documentary; 3 shots; biologist dialogue and off-screen voiceover with lips closed; on-screen marker; silent camerawoman; pan right, tracking shot, tilt down, static shot; scored."
-  },
-  {
-   "id": "t2va_steampunk_airship_bridge",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Steampunk airship bridge storm crisis; 3 shots; captain and first mate navigation command dialogue; on-screen helm plate; silent engineer; roll clockwise, push in, static shot; scored."
-  },
-  {
-   "id": "t2va_slapstick_moving_piano",
-   "mode": "t2va",
-   "frames": 345,
-   "donor": null,
-   "brief": "Classic slapstick comedy; 3 shots; moving men staircase piano disaster dialogue; on-screen street sign; silent bystander; pedestal down, zoom in, static shot; scored."
-  }
- ]
+  "_comment": "Manifest for prompt_bank/. One entry per prompt: id (also the file stem), mode, frames on the 17k+5 grid, donor stem for ref2va (the shipped graph whose sockets the labels are graded against), and a one-line brief saying what the prompt was written to exercise. bench/build_prompt_bank.py grades every entry and derives docs/prompt_bank.md; run it after adding or editing one.",
+  "prompts": [
+    {
+      "id": "t2va_post_office",
+      "mode": "t2va",
+      "frames": 141,
+      "donor": null,
+      "brief": "Watercolor; static shot; no dialogue; on-screen text with typography and position; a silent animal marked as producing no vocal sound; scored."
+    },
+    {
+      "id": "t2va_desert_crew",
+      "mode": "t2va",
+      "frames": 294,
+      "donor": null,
+      "brief": "Documentary; three shots; a line that continues across a cut written with the guide's continuity phrases and no tag, because <scenetrans> matches no declared token; N/A."
+    },
+    {
+      "id": "t2va_night_porter",
+      "mode": "t2va",
+      "frames": 175,
+      "donor": null,
+      "brief": "One sung line in a plain <d> block, no lyrics pair; the singing is diegetic so non_diegetic_music is N/A; zoom in."
+    },
+    {
+      "id": "t2va_clay_apiary",
+      "mode": "t2va",
+      "frames": 226,
+      "donor": null,
+      "brief": "Claymation; the exact voiceover phrase with lips-remain-closed; a compound (S1,S2) in unison after both speakers are numbered; scored."
+    },
+    {
+      "id": "t2va_box_office",
+      "mode": "t2va",
+      "frames": 209,
+      "donor": null,
+      "brief": "Vintage film; three speaking turns inside one shot; on-screen text; tilt down; N/A."
+    },
+    {
+      "id": "t2va_cable_car",
+      "mode": "t2va",
+      "frames": 328,
+      "donor": null,
+      "brief": "2D-animated; a final line truncated by the end, closed as </d><|cutoff|> tight against the tag; a silent passenger; scored and still rising at the last frame."
+    },
+    {
+      "id": "t2va_noodle_bar",
+      "mode": "t2va",
+      "frames": 107,
+      "donor": null,
+      "brief": "One shot at the second-shortest count; an on-screen sign in its original language per base 4.5; a radio playing as DIEGETIC music described in the body; a [Chinese] line; zoom out; N/A."
+    },
+    {
+      "id": "t2va_silent_film",
+      "mode": "t2va",
+      "frames": 362,
+      "donor": null,
+      "brief": "The longest count. The user asked for complete silence, so overall_soundscape is N/A under base 4.6's only condition, while the piano accompaniment is a real non-diegetic score; an intertitle card as on-screen text; characters who mouth words and are marked silent; the shot changes to / switches to; a user-requested fade."
+    },
+    {
+      "id": "t2va_rooftop_pov",
+      "mode": "t2va",
+      "frames": 192,
+      "donor": null,
+      "brief": "POV and Shake Strongly; the shot transitions to; an OFF-SCREEN speaker who is not a voiceover; a runner who pants (non-verbal, soundscape) and takes no id; scored."
+    },
+    {
+      "id": "t2va_fireworks_barge",
+      "mode": "t2va",
+      "frames": 260,
+      "donor": null,
+      "brief": "2D-animated; Pedestal Down and Roll Counterclockwise; two [Spanish] lines each addressed to the other speaker; a crowd heard only in the soundscape; N/A."
+    },
+    {
+      "id": "t2va_radio_drama",
+      "mode": "t2va",
+      "frames": 243,
+      "donor": null,
+      "brief": "Three speakers plus a silent foley artist; Tracking Shot; on-screen text; HOUSE marker under test: one caption pair as a sibling of one </d>, with the same subtitle also written as base 4.5's quoted string."
+    },
+    {
+      "id": "t2va_swimming_lesson",
+      "mode": "t2va",
+      "frames": 124,
+      "donor": null,
+      "brief": "Documentary; tilt up; a [French] line spoken to a child; the child laughs (non-verbal sound in the soundscape, no id, no silence marker); N/A."
+    },
+    {
+      "id": "t2va_marching_band",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The band is DIEGETIC music described in the body, so N/A; HOUSE marker under test: the lyrics pair wrapping two sung <d> blocks; the shot switches to; truck left, pull out, static shot."
+    },
+    {
+      "id": "t2va_cyberpunk_music_video",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Cyberpunk music video; 3 shots; diegetic singing with lyrics pair; on-screen text; silent keyboardist; arc shot, push in, tracking shot; scored."
+    },
+    {
+      "id": "t2va_speakeasy_heist",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1920s vintage film noir; 3 shots; dramatic dialogue between boss and courier; on-screen text; silent bodyguard; truck right, static shot, tilt up; scored."
+    },
+    {
+      "id": "t2va_sitcom_kitchen",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1970s TV sitcom; 3 shots; comedic dialogue banter; on-screen text; silent pet; studio audience laughter in soundscape; pan left, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_subway_chase",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored."
+    },
+    {
+      "id": "t2va_frontier_standoff",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored."
+    },
+    {
+      "id": "t2va_orbital_airlock",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Sci-fi TV cockpit drama; 3 shots; emergency airlock command dialogue; on-screen HUD text; silent crewmember; roll clockwise, truck left, push in; scored."
+    },
+    {
+      "id": "t2va_cartoon_vaudeville",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1930s 2D-animated rubber-hose cartoon; 2 shots; vaudeville song and tap dance; diegetic ragtime piano so N/A; on-screen text; silent pianist; pan right, pull out, static shot."
+    },
+    {
+      "id": "t2va_courtroom_verdict",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1950s legal courtroom drama; 3 shots; intense cross-examination dialogue; on-screen carved seal text; silent judge; push in, static shot, truck right; scored."
+    },
+    {
+      "id": "t2va_arena_rock_video",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1980s arena rock music video; 3 shots; lead singer belting lyrics with lyrics pair; on-screen amplifier text; silent guitarist; tilt down, push in, tracking shot; diegetic so N/A."
+    },
+    {
+      "id": "t2va_castle_rampart",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Epic medieval fantasy; 3 shots; dawn battlements command dialogue; on-screen carved stone text; silent guardsman; pedestal up, zoom out, static shot; scored."
+    },
+    {
+      "id": "i2va_cargo_bay",
+      "mode": "i2va",
+      "frames": 192,
+      "donor": null,
+      "brief": "3D CG; the I2VA Part One line; no dialogue; on-screen text; a machine marked as producing no vocal sound; pedestal up; scored."
+    },
+    {
+      "id": "i2va_vet_night",
+      "mode": "i2va",
+      "frames": 260,
+      "donor": null,
+      "brief": "Two shots; a line addressed to a named listener who takes no id; truck left, push in; N/A."
+    },
+    {
+      "id": "i2va_tattoo",
+      "mode": "i2va",
+      "frames": 124,
+      "donor": null,
+      "brief": "A style off the guide's list (high-contrast black-and-white), legal because the list is open; arc shot; scored."
+    },
+    {
+      "id": "i2va_glassblower",
+      "mode": "i2va",
+      "frames": 277,
+      "donor": null,
+      "brief": "Documentary; two shots; an [Italian] line spoken to a silent assistant; zoom out, push in; scored."
+    },
+    {
+      "id": "i2va_kettle",
+      "mode": "i2va",
+      "frames": 90,
+      "donor": null,
+      "brief": "The shortest count; no person in frame, so no silence marker; push in; N/A with the whistle in the soundscape."
+    },
+    {
+      "id": "i2va_night_market",
+      "mode": "i2va",
+      "frames": 311,
+      "donor": null,
+      "brief": "Handheld: Shake Slightly; the shot changes to; an on-screen sign in its original language; a [Chinese] line answered in [English], each addressed to the other; scored."
+    },
+    {
+      "id": "fl2va_balloon",
+      "mode": "fl2va",
+      "frames": 209,
+      "donor": null,
+      "brief": "The FL2VA Part One line with bare Picture and Shot; one shot; no dialogue; pull out; N/A."
+    },
+    {
+      "id": "fl2va_carousel",
+      "mode": "fl2va",
+      "frames": 311,
+      "donor": null,
+      "brief": "FL2VA over TWO shots, so Part One resolves to (from Shot 2); truck right, tilt up; scored."
+    },
+    {
+      "id": "fl2va_paper_train",
+      "mode": "fl2va",
+      "frames": 158,
+      "donor": null,
+      "brief": "A style off the guide's list (paper cut-out); no character on screen; pan right; scored."
+    },
+    {
+      "id": "fl2va_potter_wheel",
+      "mode": "fl2va",
+      "frames": 175,
+      "donor": null,
+      "brief": "Documentary; one shot; zoom in; one line with nobody else present; scored."
+    },
+    {
+      "id": "fl2va_origami_crane",
+      "mode": "fl2va",
+      "frames": 107,
+      "donor": null,
+      "brief": "Overhead; static shot throughout; hands only; scored."
+    },
+    {
+      "id": "fl2va_drawbridge",
+      "mode": "fl2va",
+      "frames": 362,
+      "donor": null,
+      "brief": "The longest count; pedestal down with large amplitude; no dialogue; a ship's horn in the soundscape; scored."
+    },
+    {
+      "id": "l2va_rescue_hut",
+      "mode": "l2va",
+      "frames": 243,
+      "donor": null,
+      "brief": "The L2VA Part One line; the line ends early so the mouth is closed and still on the endpoint; push in; scored."
+    },
+    {
+      "id": "l2va_telescope",
+      "mode": "l2va",
+      "frames": 90,
+      "donor": null,
+      "brief": "The shortest count; static shot; no dialogue; N/A."
+    },
+    {
+      "id": "l2va_bus_depot",
+      "mode": "l2va",
+      "frames": 277,
+      "donor": null,
+      "brief": "L2VA over TWO shots, so Part One resolves to (from [Shot 2]); on-screen text; push in, pan left; scored."
+    },
+    {
+      "id": "l2va_chess_clock",
+      "mode": "l2va",
+      "frames": 141,
+      "donor": null,
+      "brief": "A [Russian] line answered in [English]; the closed-mouth endpoint rule; tilt down; N/A."
+    },
+    {
+      "id": "l2va_kite_festival",
+      "mode": "l2va",
+      "frames": 226,
+      "donor": null,
+      "brief": "Watercolor; THREE shots, so Part One resolves to (from [Shot 3]); the shot transitions to; a user-requested cross-dissolve; a laughing child with no id; zoom out with large amplitude; scored."
+    },
+    {
+      "id": "l2va_laundromat",
+      "mode": "l2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Documentary; the exact voiceover phrase from an on-screen character whose lips remain closed; a second on-screen speaker; truck left, push in; scored."
+    },
+    {
+      "id": "ref2va_radio_handover",
+      "mode": "ref2va",
+      "frames": 243,
+      "donor": "h3_ref2v_market_api",
+      "brief": "One identity image cited inside its <Subject> definition with no standalone <Picture> entry; a speaker with no subject given a stable voice description; three shots, three turns; [reference generation]."
+    },
+    {
+      "id": "ref2va_observatory",
+      "mode": "ref2va",
+      "frames": 328,
+      "donor": "h3_ref_image_audio_api",
+      "brief": "Two identity images plus an audio clip used for TIMBRE ONLY, so none of its words are carried over; [reference generation + audio reference]; tilt up, push in, arc shot."
+    },
+    {
+      "id": "ref2va_bouldering_regrade",
+      "mode": "ref2va",
+      "frames": 260,
+      "donor": "h3_ref_video_edit_api",
+      "brief": "[video editing + audio reuse]: the fixed opening sentence, partially_preserved and partially_copy markers, exempt from the 350-500 budget; Shake Slightly and Tracking Shot carried from the source."
+    },
+    {
+      "id": "ref2va_ballroom",
+      "mode": "ref2va",
+      "frames": 294,
+      "donor": "h3_ref_video_motion_api",
+      "brief": "A motion pattern from a video as a <Subject>, with the <Video> itself weak_reference for tempo only; a sung line and a spoken line; the band is diegetic so N/A; truck left, arc shot, push in."
+    },
+    {
+      "id": "ref2va_quarry_continuation",
+      "mode": "ref2va",
+      "frames": 209,
+      "donor": "h3_ref_video_only_api",
+      "brief": "[video continuation] from a video with no audio label wired; no person on screen; tracking shot, roll clockwise, pull out."
+    },
+    {
+      "id": "ref2va_storyboard_bakery",
+      "mode": "ref2va",
+      "frames": 192,
+      "donor": "h3_probe_capture_ref3_api",
+      "brief": "A STANDALONE <Picture 3> as a storyboard reference for two shots per ref 2.2, with its own weak_reference retention line, beside two identity-only images that get none; [reference generation]."
+    },
+    {
+      "id": "ref2va_soundtrack_fully_copy",
+      "mode": "ref2va",
+      "frames": 328,
+      "donor": "h3_ref_video_audio_api",
+      "brief": "[reference generation + audio reuse]: <Audio 1> fully_copy as the complete final track; a lyric that lives only in the reused soundtrack, so it is cited via <Audio 1> reaching the phrase and takes NO speaker id (ref 5.4); an [unclear] span; <Video 1> weak_reference for cut rhythm only."
+    },
+    {
+      "id": "ref2va_jacket_transfer",
+      "mode": "ref2va",
+      "frames": 294,
+      "donor": "h3_image_ref_plus_text_to_video_api",
+      "brief": "A garment as a <Subject> with attribute_transfer onto another subject, the final outfit stated once (wardrobe grammar); a [Japanese] line spoken to a silent companion; [reference generation]."
+    },
+    {
+      "id": "ref2va_video_swap",
+      "mode": "ref2va",
+      "frames": 362,
+      "donor": "h3_ref_video_swap_api",
+      "brief": "[video editing + audio reuse]: a person from an image replaces the presenter in the source video; the reused speech is lip-synced by a concrete on-screen source, so it takes (S1) and cites <Audio 1>; source words verbatim with an [unclear] span; fully_copy; exempt from the word budget."
+    },
+    {
+      "id": "ref2va_five_label",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_image_video_audio_api",
+      "brief": "All five label kinds on one donor: two identity images, a video for camera movement (weak_reference), its soundtrack partially_copy for ambience only, and a standalone clip as a voice-timbre reference bound to (S1); a second speaker with a voice description and no subject; [reference generation + audio reuse + audio reference]."
+    },
+    {
+      "id": "ref2va_continue_with_audio",
+      "mode": "ref2va",
+      "frames": 158,
+      "donor": "h3_ref_video_continue_api",
+      "brief": "[video continuation + audio reference]: resumes where the source ends and the new audio continues the original track's audible character without copying it; a [Portuguese] line; still inside the 350-500 budget because continuation is a generation task."
+    },
+    {
+      "id": "t2va_delta_blues_porch",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1930s Mississippi Delta blues; 3 shots; acoustic resonator guitar diegetic so N/A; on-screen text; silent pea-sheller; push in, tilt down, pull out, static shot."
+    },
+    {
+      "id": "t2va_disco_roller_rink",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1970s roller disco music video; 3 shots; lead singer on quad skates belting lyrics with lyrics pair; on-screen text; silent DJ; tracking shot, zoom in, roll counterclockwise, static shot; scored."
+    },
+    {
+      "id": "t2va_kpop_dance_studio",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Modern K-pop music video; 3 shots; Korean and English lyrics with lyrics pair; on-screen text; silent backup dancer; pan right, push in, pull out, static shot; scored."
+    },
+    {
+      "id": "t2va_opera_grand_stage",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_punk_basement_gig",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1970s London underground punk gig; 3 shots; raw abrasive frontwoman vocals with lyrics pair; on-screen text; silent bassist; push in, camera shaking slightly, tilt up, static shot; diegetic so N/A."
+    },
+    {
+      "id": "t2va_hiphop_rooftop_cypher",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1990s East Coast hip-hop music video; 3 shots; boombox diegetic beat so N/A; lyrics pair; on-screen text; silent beatmaker; tracking shot, zoom in, pull out, static shot."
+    },
+    {
+      "id": "t2va_appalachian_folk_cabin",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Appalachian folk cabin performance; 3 shots; diegetic clawhammer banjo and mountain fiddle so N/A; lyrics pair; on-screen text; silent banjoist; push in, tilt up, static shot."
+    },
+    {
+      "id": "t2va_samurai_bamboo_duel",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Feudal Japan 1600s samurai duel; 3 shots; Japanese dialogue confrontation; on-screen kanji marker; silent opponent in shot 1; pedestal down, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_trench_ww1_messenger",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1917 WWI trench drama; 3 shots; runner and trench captain command dialogue; on-screen dugout sign; silent wounded rifleman; truck right, push in, tracking shot; scored."
+    },
+    {
+      "id": "t2va_medical_er_triage",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Hospital ER procedural; 3 shots; trauma surgeon and triage nurse urgent dialogue; on-screen sign; silent therapist; push in, tilt down, static shot; scored."
+    },
+    {
+      "id": "t2va_police_interrogation",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Police procedural drama; 3 shots; detective and suspect interrogation; on-screen plaque; silent observer; push in, static shot, truck left; scored."
+    },
+    {
+      "id": "t2va_screwball_restaurant",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1930s screwball comedy; 3 shots; waiter and heiress dessert banter; on-screen plaque; silent sommelier; pan left, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_newsroom_breaking",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1980s TV newsroom drama; 3 shots; anchor and producer dialogue; on-screen neon text; silent camera technician; push in, truck right, static shot; scored."
+    },
+    {
+      "id": "t2va_victorian_seance",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Victorian gothic horror; 3 shots; medium and widow supernatural séance dialogue; on-screen plaque; silent gentleman; push in, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_diner_breakup",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored."
+    },
+    {
+      "id": "t2va_pirate_deck_mutiny",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1700s pirate galleon mutiny; 3 shots; captain and mutineer armed standoff dialogue; on-screen bell text; silent helmsman; tilt up, push in, static shot with camera shake; scored."
+    },
+    {
+      "id": "t2va_cooking_show_meltdown",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Morning TV cooking show disaster; 3 shots; French chef comedic blender explosion; on-screen logo; silent co-host; push in, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_ww2_sub_sonar",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "WWII submarine drama; 3 shots; captain and sonar operator depth charge dialogue; on-screen bulkhead plate; silent crewman; truck right, zoom in, static shot with camera shake; scored."
+    },
+    {
+      "id": "t2va_gladiator_arena_tunnel",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Ancient Roman gladiator epic; 3 shots; veteran and rookie Latin dialogue; on-screen pillar inscription; silent guard; pedestal down, push in, static shot; scored."
+    },
+    {
+      "id": "t2va_cyber_hacker_den",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Y2K cyber-thriller; 3 shots; hacker breach command dialogue; on-screen stenciled text; silent collaborator; truck right, push in, static shot; scored."
+    },
+    {
+      "id": "t2va_kungfu_tea_house",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1970s martial arts cinema; 3 shots; Shaolin master and assassin Chinese dialogue; on-screen calligraphy; silent apprentice; push in, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_french_new_wave_cafe",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "1960s French New Wave cinema; 3 shots; Left Bank philosophical banter in French; on-screen facade sign; silent waiter; pan left, static shot, pull out; scored."
+    },
+    {
+      "id": "t2va_nature_doc_arctic",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Arctic wildlife documentary; 3 shots; biologist dialogue and off-screen voiceover with lips closed; on-screen marker; silent camerawoman; pan right, tracking shot, tilt down, static shot; scored."
+    },
+    {
+      "id": "t2va_steampunk_airship_bridge",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Steampunk airship bridge storm crisis; 3 shots; captain and first mate navigation command dialogue; on-screen helm plate; silent engineer; roll clockwise, push in, static shot; scored."
+    },
+    {
+      "id": "t2va_slapstick_moving_piano",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Classic slapstick comedy; 3 shots; moving men staircase piano disaster dialogue; on-screen street sign; silent bystander; pedestal down, zoom in, static shot; scored."
+    },
+    {
+      "id": "t2va_covered_market",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from"
+    },
+    {
+      "id": "t2va_rehearsal_room",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action static tripod; rehearsal room under practical light"
+    },
+    {
+      "id": "t2va_clinic_corridor",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; clinic under cool fluorescent light"
+    },
+    {
+      "id": "t2va_subway_platform",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld with fast reframing; subway platform",
+      "recorded_findings": "camera phrased as tracking and whip pan, outside MOTION_PROSE's vocabulary, so the bank's shape rule reads no motion; the guide check on its graphs passes"
+    },
+    {
+      "id": "t2va_restaurant_kitchen",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; restaurant kitchen, hard practical light off steel"
+    },
+    {
+      "id": "t2va_lighthouse",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action; lighthouse keeper at dawn, two shots with a cut at 3 s; the generator's short default"
+    },
+    {
+      "id": "i2va_lighthouse_keyframe",
+      "mode": "i2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "First-frame continuation of the lighthouse scene: <Picture 1> fully referenced at 0 s"
+    },
+    {
+      "id": "t2va_hardware_aisle_short",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; hardware aisle; the SHORT conditioning arm of the length-of-conditioning pair"
+    },
+    {
+      "id": "t2va_hardware_aisle_long",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; hardware aisle; the LONG conditioning arm of the pair"
+    },
+    {
+      "id": "t2va_sortline_short",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; recycling sorting line; SHORT arm"
+    },
+    {
+      "id": "t2va_sortline_long",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld; recycling sorting line; LONG arm"
+    },
+    {
+      "id": "t2va_rail_dolly_long",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "One continuous rail-dolly take, no cuts; LONG conditioning"
+    },
+    {
+      "id": "t2va_crowd_churn_long",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "One continuous fast handheld take through a crowd, no cuts; LONG conditioning"
+    },
+    {
+      "id": "ref2va_market_stallholder",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref2v_market_api",
+      "brief": "Reference-conditioned market stallholder carried from <Picture 1>; the ref2v market family"
+    },
+    {
+      "id": "ref2va_image_ref_default",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_image_ref_plus_text_to_video_api",
+      "brief": "Two picture subjects carried into the target; the generator's default r2v prompt, shipped only by the stamped bench graph",
+      "recorded_findings": "prompt_audit.md verdict `rewrite` for R2V_PROMPT: a ten-second description on a 15.083 s graph, two sections absent, under the guide's length; shipped as-is by the r2v bench graph"
+    },
+    {
+      "id": "t2va_stairwell_dialogue",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; two-person stairwell dialogue, three shots with cuts, S1/S2 tags"
+    },
+    {
+      "id": "ref2va_stairwell_dialogue",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_image_ref_plus_text_to_video_dialogue_api",
+      "brief": "The stairwell dialogue with both speakers carried from pictures"
+    }
+  ]
 }

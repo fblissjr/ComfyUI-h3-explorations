@@ -474,7 +474,27 @@ def _ensure_render(prompt_id: str | None) -> None:
                     "match": ("shipped graph, byte-identical" if sha in shipped
                               else "no shipped graph matches this hash; a modified or foreign graph"),
                     "summary": graph_summary(graph)})
+        # What was rendered, not only which file: bank id (None for a foreign
+        # prompt, whose text is then carried in full), prompt hash, length,
+        # canvas, seed. Owner's rule 2026-09-03: the exact prompt in every
+        # record, because every Sol number before it came from one scene and
+        # no record said so.
+        row["rendered"] = _describe_prompt(graph)
     _write_row(row)
+
+
+def _describe_prompt(graph) -> dict:
+    try:
+        import importlib.util
+        wf = Path(__file__).resolve().parent / "workflows"
+        spec = importlib.util.spec_from_file_location("_prompts_for_observe", wf / "prompts.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.describe(graph)
+    except Exception as exc:                          # noqa: BLE001 -- identity, not the render
+        logging.warning(f"{_LOG} could not describe the prompt: {exc}")
+        return {"prompt_id": None, "prompt_sha256": None, "prompt_text": None,
+                "length": None, "canvas": None, "seed": None, "error": str(exc)}
 
 
 def config_digest(settings: dict) -> str:

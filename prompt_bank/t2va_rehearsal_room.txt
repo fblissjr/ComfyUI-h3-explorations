@@ -1,0 +1,10 @@
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, static tripod framing with motivated practical light and fine film grain. A medium shot frames a basement rehearsal room, foam panels on the walls, a drum kit lit by one clamp lamp. A drummer in his thirties with a low, unhurried baritone (S1) rests his sticks across the snare, looks off toward the vocal booth, and says: <d>[English] From the second verse. Count me in this time.</d> His lips close and he rolls his shoulders once and resets his grip.
+[Shot 2] At 00:05.000, the shot cuts to a close shot of a singer in the booth behind glass, headphones on one ear. The singer, a woman in her twenties with a clear, slightly breathy mezzo (S2), leans to the microphone and sings: <|lyrics_start|><d>[English] I walked the long way home again.</d><d>[English] The lights were out on Seventh Street.</d><|lyrics_end|> Her lips close on the last word and she lifts her chin as the drummer's first hit lands.
+[Shot 3] At 00:10.000, the camera pushes in with small amplitude at slow speed on the kit as both hands work, the hi-hat opening and closing, one cymbal ringing longer than the rest while the clamp lamp shakes very slightly on its arm.
+
+overall_soundscape:
+A snare rimshot and hi-hat chatter in a small treated room, a cymbal ringing down and cut short by a hand, headphone spill leaking thinly, a chair leg scraping once on concrete, and close breathing between phrases.
+
+non_diegetic_music:
+N/A

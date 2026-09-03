@@ -1,0 +1,14 @@
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the fifteen-second sequence.
+[Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.

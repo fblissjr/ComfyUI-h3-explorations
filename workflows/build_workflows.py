@@ -79,6 +79,10 @@ _OUR_NODES = {
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
+# Every shipped prompt is a prompt_bank/ entry, loaded by id; the constant
+# names stay because the bench and the catalogue import them. Adopted
+# 2026-09-03 (owner): one source of truth for prompt text.
+from prompts import text as _bank_prompt  # noqa: E402
 from h3_config import (  # noqa: E402
     ENCODER_V2, ENCODER_INT8, CORE_LOADED_ENCODERS, IMAGE_VAE, IMAGE_EDIT_BUDGET,
     ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
@@ -344,41 +348,19 @@ def sol_api_inputs(sol):
 # renders well are the motion phrasing and the speaker identity. **Do not read a
 # render of this prompt as evidence about anything but this prompt.**
 
-LONG_T2V_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents and a hanging brass scale swaying gently at the edge of frame. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder. [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter. [Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
-overall_soundscape:
-Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.
-
-non_diegetic_music:
-N/A"""
+LONG_T2V_PROMPT = _bank_prompt("t2va_covered_market")
+# The bench pair's scene (see the bench block near the end of main).
+BENCH_T2V_PROMPT = _bank_prompt("t2va_frontier_standoff")
 
 # Sung lines: the lyrics markers WRAP one or more `<d>` blocks rather than
 # replacing them.
-T2V_REHEARSAL_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, static tripod framing with motivated practical light and fine film grain. A medium shot frames a basement rehearsal room, foam panels on the walls, a drum kit lit by one clamp lamp. A drummer in his thirties with a low, unhurried baritone (S1) rests his sticks across the snare, looks off toward the vocal booth, and says: <d>[English] From the second verse. Count me in this time.</d> His lips close and he rolls his shoulders once and resets his grip.
-[Shot 2] At 00:05.000, the shot cuts to a close shot of a singer in the booth behind glass, headphones on one ear. The singer, a woman in her twenties with a clear, slightly breathy mezzo (S2), leans to the microphone and sings: <|lyrics_start|><d>[English] I walked the long way home again.</d><d>[English] The lights were out on Seventh Street.</d><|lyrics_end|> Her lips close on the last word and she lifts her chin as the drummer's first hit lands.
-[Shot 3] At 00:10.000, the camera pushes in with small amplitude at slow speed on the kit as both hands work, the hi-hat opening and closing, one cymbal ringing longer than the rest while the clamp lamp shakes very slightly on its arm.
-
-overall_soundscape:
-A snare rimshot and hi-hat chatter in a small treated room, a cymbal ringing down and cut short by a hand, headphone spill leaking thinly, a chair leg scraping once on concrete, and close breathing between phrases.
-
-non_diegetic_music:
-N/A"""
+T2V_REHEARSAL_PROMPT = _bank_prompt("t2va_rehearsal_room")
 
 # On-screen text and a line truncated by the end of the clip. `<|cutoff|>` sits
 # directly against the closing `</d>` with no full stop between -- a full stop
 # before it is dragged into `.<` by BPE on an unpatched tokenizer, so the
 # spacing is load-bearing (`docs/comfyui_vendor_gaps.md`).
-T2V_CLINIC_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld with restrained depth of field and cool overhead fluorescent light. A medium-wide shot frames a night pharmacy counter, shelves receding behind it, a queue rope empty. <|caption_start|>24 HOUR DISPENSARY<|caption_end|> A pharmacist in her forties with a calm, level contralto (S1) turns a paper bag on the counter so the label faces the customer and says: <d>[English] Twice a day. Not on an empty stomach.</d> Her lips close and she folds the top of the bag over twice, pressing the crease flat with two fingers.
-[Shot 2] At 00:04.000, the shot cuts to a close shot of an older customer with a thin, tired tenor (S2) leaning on the counter with both forearms. He takes the bag, turns it once to read it, and asks: <d>[English] And if I forget one?</d> His lips close and he tucks the bag into his coat pocket.
-[Shot 3] At 00:08.500, the camera trucks right at small amplitude and slow speed as he walks toward the sliding door, which parts for him and lets in a wash of colder blue light. Behind him the pharmacist slides a drawer shut with her hip and calls after him: <d>[English] And if the swelling does not go down by Thursday you should</d><|cutoff|>
-
-overall_soundscape:
-A paper bag folded and pressed flat, a drawer rolling shut and latching, keyboard keys in short bursts, a sliding door motor starting and stopping, and unhurried footsteps on hard flooring.
-
-non_diegetic_music:
-N/A"""
+T2V_CLINIC_PROMPT = _bank_prompt("t2va_clinic_corridor")
 
 
 #: **The baseline t2v scene set (owner decision, 2026-08-22).** Future tests
@@ -404,29 +386,9 @@ N/A"""
 # speaker identity bleeding between two voices under motion, or singing
 # collapsing into speech, or a caption surviving a whip pan. **These are for
 # finding the failure, not for judging quality** -- read them as briefs met.
-T2V_SUBWAY_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld with fast reframing and shallow depth of field under cool platform fluorescents. A wide shot frames a crowded underground platform, tiled columns receding, a train already braking into frame from the right, still moving fast. A tiled platform sign above the busker's head reads "NORTHBOUND - PLATFORM 2" in white capitals on a dark blue ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> A busker in her twenties with a bright, slightly raw mezzo (S1) stands over an open guitar case, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the train's headlights wash across her face and commuters surge past her in both directions, coats swinging, one man breaking into a run.
-[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
-[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, bodies turning sideways, a dropped umbrella skidding across the tiles. The busker keeps playing through it, and over the crowd she sings again: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close.
-[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, as she calls back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
+T2V_SUBWAY_PROMPT = _bank_prompt("t2va_subway_platform")
 
-overall_soundscape:
-Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
-
-non_diegetic_music:
-N/A"""
-
-T2V_KITCHEN_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, fast reframing, hard practical light off stainless steel with fine film grain. A medium-wide shot frames a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. A printed ticket hangs closest to camera, reading "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> An expediter in his fifties with a hard, carrying baritone (S1) slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks working, one tossing a pan so the flame climbs above the rim.
-[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and then she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in a single motion and the flame flares up behind her shoulder.
-[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, tongs setting garnish, a thumb wiping a rim clean. The expediter and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position.
-[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam, while the expediter calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
-
-overall_soundscape:
-A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
-
-non_diegetic_music:
-N/A"""
+T2V_KITCHEN_PROMPT = _bank_prompt("t2va_restaurant_kitchen")
 
 
 T2V_SCENES = {
@@ -674,19 +636,9 @@ def _ref_image_slots(ref_images_on: bool, ref_image_count: int,
             "number of image positions in its typed append-id budget.")
     return [(ld, fit, f) for (ld, fit), f in zip(_REF_IMAGE_NODES, files)]
 
-T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a lone lighthouse keeper on a wet stone balcony at dawn, wearing a heavy oilskin coat, the lamp housing glowing behind him. Grey-blue sea fog rolls past below the railing and gulls cross the frame. The camera pushes in with small amplitude at slow speed as he raises a brass telescope, holds it steady against his eye, then lowers it and turns toward the light. [Shot 2] At 00:03.000, the shot cuts to a close-up of the rotating lamp assembly, the beam sweeping past the lens and out into the fog.
+T2V_PROMPT = _bank_prompt("t2va_lighthouse")
 
-overall_soundscape: A low sea swell breaks against stone under a steady wind, with gulls calling overhead. A distant foghorn sounds twice, and the lamp mechanism turns with a slow mechanical grind.
-
-non_diegetic_music: Sustained low strings at a slow tempo with a single sparse piano figure, holding without a swell."""
-
-I2V_PROMPT = """For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
-
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.
-
-overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.
-
-non_diegetic_music: N/A"""
+I2V_PROMPT = _bank_prompt("i2va_lighthouse_keyframe")
 
 #: The fl2va graphs' configured canvas. 3:2 at the 768 short edge the 4-step
 #: turbo LoRA is named for, and `h3_config`'s `fast` row -- 864 tokens a frame
@@ -909,22 +861,12 @@ def resolve_default_prompt(task: str, prompt: str | None, *,
 #:
 #: **Deliberately NOT a marker arm.** No caption, no lyrics, no cutoff -- those
 #: are `h3_ref2v_scene_*`'s job, and a marker here would be a second axis.
-T2V_AISLE_SHORT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, a pegboard wall of hand tools on the left and open bins of fasteners along a low counter on the right. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins with a paper bag open in one hand. The camera trucks left with small amplitude at slow speed as a customer, a woman in her forties with a clipped alto (S2), stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge. [Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim. The camera holds a static shot. He scoops once, lets the bolts run back into the bin, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice. [Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting behind the woman and the pegboard wall receding out of focus. The camera pushes in with small amplitude at slow speed. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle.
-overall_soundscape: Steady interior air handling under a high ceiling, the dry rattle of loose metal fasteners settling in a bin, paper creasing, and unhurried footsteps on a sealed concrete floor.
-
-non_diegetic_music: N/A
-"""
+T2V_AISLE_SHORT = _bank_prompt("t2va_hardware_aisle_short")
 
 #: The long arm. **Same content, elaborated.** Read the two side by side before
 #: changing either: any edit that adds a subject, an action, a camera move or a
 #: line to this one and not to the short one destroys the comparison.
-T2V_AISLE_LONG = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, lit by bare fluorescent tubes in a high open ceiling with daylight reaching the far end from a roller door out of frame. A pegboard wall of hand tools fills the left of frame, wrenches and pliers hung in graded rows on steel hooks with their painted grips turned outward, each tool casting a short hard shadow on the board behind it. Along the right runs a low counter of open bins, galvanised bolts and washers and hex nuts sorted by size, the metal dull and slightly oiled, a folded paper price card wedged at the front of each bin. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins in a canvas apron over a checked shirt, sleeves turned back to the forearm, a paper bag open in one hand and his weight settled on one hip. The camera trucks left with small amplitude at slow speed, carrying the pegboard through the foreground, as a customer, a woman in her forties with a clipped alto (S2) in a dark quilted jacket, stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge, one finger still resting on its lid. [Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim with the thumb hooked inside it, the skin of his knuckles dry and the nails cut short. The camera holds a static shot. He scoops once, tips his palm, and lets the bolts run back into the bin in a thin bright stream that separates into individual threads as it falls, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice, creasing each fold flat with his thumbnail. [Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting a pace behind the woman, one holding a length of chain and one with both hands in his pockets, the pegboard wall receding out of focus toward the back of the store. The camera pushes in with small amplitude at slow speed, the bins passing close on the right of frame. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle, the bag swinging once against her thigh.
-overall_soundscape: Steady interior air handling under a high open ceiling, the dry rattle of loose metal fasteners settling in a bin and the finer ring of a few running back into the pile, paper creasing twice under a thumb, and unhurried footsteps on a sealed concrete floor with a faint echo off the roof.
-
-non_diegetic_music: N/A
-"""
+T2V_AISLE_LONG = _bank_prompt("t2va_hardware_aisle_long")
 
 
 #: **The second description-length pair, on a different scene.** Owner-requested
@@ -946,20 +888,10 @@ non_diegetic_music: N/A
 #: Same discipline as the aisle: identical dialogue, camera moves, cut times,
 #: shot structure and subjects across the two lengths. The long arm elaborates
 #: and does not extend.
-T2V_SORTLINE_SHORT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, a wide rubber belt running left to right through the frame loaded with mixed plastics, flattened cans and paper, four workers in high-visibility vests standing along its far side picking items into chutes behind them. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side of the belt with a tablet under one arm. The camera trucks right with small amplitude at slow speed, following the belt, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down. [Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, items passing under two pairs of gloved hands that pick and release in short movements. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt and drops it left out of frame. [Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked bales at the far wall under high roof lights, all four workers still picking. The camera pulls out with small amplitude at slow speed. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales.
-overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other, the hollow drop of items into chutes, and a low motor hum with occasional footsteps on a steel walkway.
-
-non_diegetic_music: N/A
-"""
+T2V_SORTLINE_SHORT = _bank_prompt("t2va_sortline_short")
 
 #: The long arm of the sorting-line pair. **Same content, elaborated.**
-T2V_SORTLINE_LONG = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, lit from a high metal roof by rows of cold overhead lamps with the far end of the building falling into haze. A wide rubber belt runs left to right through the frame, its surface scuffed pale along the centre where the load rides, carrying mixed plastics in blue and green and clear, flattened aluminium cans, and folded paper that lifts slightly at the edges as it moves. Four workers in high-visibility vests over dark work clothes stand along the far side, gloved to the wrist, picking items into steel chutes set behind them at hip height, each of them working a different fraction of the width. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side in a vest over a grey fleece, a tablet held under one arm and a pen clipped at her collar. The camera trucks right with small amplitude at slow speed, following the belt so the load stays roughly stationary in frame while the hall slides behind it, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down at it. [Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, the rubber grain visible between items, mixed containers and paper passing under two pairs of gloved hands that pick and release in short economical movements, the glove fabric darkened at the fingertips. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt, turns it once to check the neck, and drops it left out of frame, and the belt visibly eases as the load spaces out. [Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked and strapped bales at the far wall under the high roof lights, the bales colour-sorted so the stack reads as bands of blue and clear and grey. All four workers are still picking, their movements no longer synchronised now the belt has slowed. The camera pulls out with small amplitude at slow speed, taking in the walkway rail in the near foreground. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales, the tablet swinging down to her side.
-overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other with the lighter paper making almost no sound, the hollow drop of items into steel chutes at irregular intervals, and a low motor hum that drops in pitch partway through, with occasional footsteps on a steel walkway.
-
-non_diegetic_music: N/A
-"""
+T2V_SORTLINE_LONG = _bank_prompt("t2va_sortline_long")
 
 
 #: **The PREDICTABILITY pair, and the sharpest discriminator built here.**
@@ -994,63 +926,18 @@ non_diegetic_music: N/A
 #: repo. Predictability says the rail arm is CLEAN and churn breaks. They
 #: cannot both be right, and the rail arm is cheap to judge because ghosting on
 #: a rigid boxy building is unmissable.
-T2V_RAIL_LONG = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, one continuous take with no cuts, shot on a rail dolly so the camera moves with no vibration whatsoever. A two-storey boxy concrete house stands square to the road in flat overcast afternoon light, its front face a plain grey slab broken by four identical square windows in two rows, a shallow flat roof with a thin metal drip edge, and a single dark door set slightly left of centre with two concrete steps below it. A low wall of the same grey concrete runs along the front of the plot, unbroken, with a strip of clipped grass between it and the house. Three young cypress trees stand evenly spaced along the wall, still, with no wind moving them. The camera trucks right with small amplitude at slow speed on the rail, holding the house at the same height in frame throughout and keeping its front face parallel to the sensor, so the building translates steadily across the frame from the right side to the left without rotating, tilting or changing size. Nothing in the scene moves except by that translation: no people, no vehicles, no animals, no leaves moving, no doors or windows opening, no shadows shifting, no lighting change of any kind, no reflections travelling across the glass. The light stays flat and even from an overcast sky for the whole take, so exposure and colour do not change. As the camera continues, the far edge of the house passes out of frame on the left and a plain grey neighbouring wall of similar height enters from the right, of the same material and finish, continuing the same steady rate of travel. The concrete surface holds its texture and its slight staining below the windows throughout, the window frames stay square and their spacing stays even, and the drip edge along the roof stays a single unbroken straight line for the entire shot. The concrete is board-formed, the horizontal seams from the shuttering visible as faint regular lines across the whole facade, with small blowholes clustered near the base and a darker band of weathering rising about a foot from the ground. Each window is a plain aluminium frame with a single fixed pane, no glazing bars, the glass reflecting only flat grey sky with no detail in it. The door is painted dark and flat with a plain lever handle and no glazing, and the two concrete steps below it have a chipped front edge on the upper step. The clipped grass is uniform and short with a straight mown edge along the wall. The cypress trees are the same height as each other, narrow, and evenly dense from top to bottom. All of this holds exactly as it is for the whole take. The take ends with the camera still travelling at the same rate, mid-move, without slowing or stopping.
-
-overall_soundscape: Flat outdoor ambience under an overcast sky with no wind, a distant steady road hum well behind the house, and the faint continuous mechanical run of a dolly on rails. No voices, no footsteps, no birds.
-
-non_diegetic_music: N/A
-"""
+T2V_RAIL_LONG = _bank_prompt("t2va_rail_dolly_long")
 
 #: The churn arm. **Same length, same one-shot structure, same canvas. Every
 #: source of unpredictability the owner named, in one shot.**
-T2V_CHURN_LONG = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, one continuous handheld take with no cuts, the operator moving fast through a crowded indoor night market under a low ceiling. The camera shakes strongly and reframes constantly, swinging between subjects without settling, so the framing changes several times a second and no composition is held. Strings of coloured LED bulbs hang in overlapping rows overhead and change colour rapidly and independently of one another, red to green to orange to blue, each string on its own timing, so the light on every surface shifts continuously and unpredictably and no two moments share a colour cast. Dozens of people move through the frame in all directions at once, crossing in front of and behind each other, some entering fast from the frame edge and some stopping abruptly, their faces catching different colours as they pass under different strings. Vendors push loaded handcarts through the crowd at varying speeds, and stacked goods on the carts shift and settle as they move. Steam rises in irregular bursts from three separate food stalls and drifts across the lens unpredictably, sometimes obscuring the frame almost completely and sometimes clearing at once. Hanging fabric banners swing at different rates in the moving air, printed with dense patterns. Reflections from the LED strings travel across metal surfaces, wet floor tiles and glass cabinets, none of them in step with each other. The camera passes close to a stall of small bright objects, loses focus, regains it on a different subject entirely, then swings up toward the ceiling lights and back down into the crowd. A child is carried past on someone's shoulders and turns to look back the way they came. Two people stop directly in front of the lens and move apart again. A stack of empty crates is lifted from a cart and set down out of frame. Paper wrappers blow along the floor at ankle height in irregular gusts from the extractor. A vendor throws a cloth over a display and it settles unevenly. Someone lights a burner and the flame jumps. Nothing in the frame holds still for longer than a moment, no element continues on a predictable path, and the direction of travel changes repeatedly throughout the take without settling.
-
-overall_soundscape: A dense crowded indoor market at night, many overlapping voices at different distances with no single conversation legible, metal handcart wheels on tile, sizzling from several stalls at once, a hand bell struck irregularly, and the low roar of a ceiling extractor throughout.
-
-non_diegetic_music: N/A
-"""
+T2V_CHURN_LONG = _bank_prompt("t2va_crowd_churn_long")
 
 MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
-MARKET_REF2V_PROMPT = """subject_definitions:
-<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
-
-summary:
-[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
-
-detailed_description:
-The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
-[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder, glancing at the stacked fruit.
-[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and coins clatter one after another into a metal tin on the counter behind him. Past his shoulder the stall front stays in soft focus, the stacked crates and the hanging scale reduced to shape and colour.
-[Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as the porter carries both crates away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
-
-overall_soundscape:
-Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
-
-non_diegetic_music:
-N/A"""
+MARKET_REF2V_PROMPT = _bank_prompt("ref2va_market_stallholder")
 
 
-R2V_PROMPT = """subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
-
-detailed_description:
-The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the fifteen-second sequence.
-[Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.
-"""
+R2V_PROMPT = _bank_prompt("ref2va_image_ref_default")
 
 
 # --------------------------------------------------------------------------
@@ -2823,12 +2710,7 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #: re-rendered since either**, so the clips in
 #: `Video/20260808-stock-vs-vendortokens/` are the old prompt's output and this
 #: constant is not what produced them.
-DIALOGUE_T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He answers at once, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
-
-overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
-
-non_diegetic_music: N/A
-"""
+DIALOGUE_T2V_PROMPT = _bank_prompt("t2va_stairwell_dialogue")
 
 #: The ref2va twin. **Same eight lines, same three shots, same cut times, same
 #: pacing language** -- the only thing that changes is where the two people come
@@ -2855,32 +2737,7 @@ non_diegetic_music: N/A
 #: `(S1)`/`(S2)` on the definition lines until 2026-08-26;
 #: `bench/check_ref_prompt_labels.py` caught it, and the guide agreed with the
 #: check rather than with the prompt.
-DIALOGUE_REF2V_PROMPT = """subject_definitions:
-<Subject 1> is the woman shown in <Picture 2>, preserving her facial identity, shoulder-length dark brown hair, and warm features. She wears a charcoal wool coat in the target video. The daylight park background of <Picture 2> is not present in the target video.
-<Subject 2> is the elderly man shown in <Picture 1>, preserving his facial identity, white swept-back hair, and deeply lined face. He wears a navy jacket in the target video. The brown studio backdrop of <Picture 1> is not present in the target video.
-
-summary:
-[reference generation] In three shots on a concrete stairwell landing, <Subject 1> and <Subject 2> trade eight short clipped lines with almost no gap between them, about a plan that has moved.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1] and [Shot 2]): fully_preserved - retain the same face, shoulder-length dark brown hair and features in every frame she appears in.
-<Subject 2> (appears in [Shot 1] and [Shot 3]): fully_preserved - retain the same face, white swept-back hair and deeply lined face in every frame he appears in.
-
-detailed_description:
-Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.
-
-[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He answers at once: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
-
-[Shot 2] At 00:06.000, the camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
-
-[Shot 3] At 00:11.000, the camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
-
-overall_soundscape:
-Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
-
-non_diegetic_music:
-N/A
-"""
+DIALOGUE_REF2V_PROMPT = _bank_prompt("ref2va_stairwell_dialogue")
 
 
 def _ref_prompt(*, images: bool | tuple[str, ...] = True,
@@ -7799,12 +7656,29 @@ def main():
     # API-only, so cross_check skips them (it needs both formats to compare).
     bench = out / "bench"
     bench.mkdir(parents=True, exist_ok=True)
-    for fname, task, prompt in (
-        ("h3_text_to_video_stamped_api.json", "t2v", LONG_T2V_PROMPT),
-        ("h3_image_ref_plus_text_to_video_stamped_api.json", "r2v", None),
-        ("h3_first_frame_to_video_stamped_api.json", "i2v", None),
+    # The t2v bench pair renders BENCH_T2V_PROMPT, a bank scene chosen for
+    # its failure surfaces (a figure at distance, a painted sign, dialogue,
+    # a silent bystander) and NOT the covered-market scene the shipped t2v
+    # graphs carry: until 2026-09-03 every bench and capture number came
+    # from that one scene. Owner's call; the pair shares prompt, seed and
+    # length so the two are a matched pair.
+    #
+    # `_dense_stamped` is the TRUE BASELINE: no sage node, no Sol node, no
+    # LoRA -- the DiT and encoder every graph loads under ComfyUI's stock
+    # attention at the base step count, i.e. the render you would otherwise
+    # make on this box. `sage=False` leaves SageChainAssert in warn-only
+    # mode with nothing to require, the same shape as the PDD reference
+    # arms. The `_stamped` graph beside it is the repo's older "dense"
+    # convention, sage alone; every speedup number before 2026-09-03 was
+    # relative to that, not to this. Outside check_attention_defaults'
+    # scope like every bench graph.
+    for fname, task, prompt, sage in (
+        ("h3_text_to_video_dense_stamped_api.json", "t2v", BENCH_T2V_PROMPT, False),
+        ("h3_text_to_video_stamped_api.json", "t2v", BENCH_T2V_PROMPT, True),
+        ("h3_image_ref_plus_text_to_video_stamped_api.json", "r2v", None, True),
+        ("h3_first_frame_to_video_stamped_api.json", "i2v", None, True),
     ):
-        wf = build_api(task, sage=True, length=LONG_LENGTH,
+        wf = build_api(task, sage=sage, length=LONG_LENGTH,
                        sol=None, prompt=prompt, stamp=True)
         p = bench / fname
         written.append((f"{task}-stamped", "api", p, wf))

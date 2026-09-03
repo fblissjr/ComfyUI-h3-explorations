@@ -1,0 +1,10 @@
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld with restrained depth of field and cool overhead fluorescent light. A medium-wide shot frames a night pharmacy counter, shelves receding behind it, a queue rope empty. <|caption_start|>24 HOUR DISPENSARY<|caption_end|> A pharmacist in her forties with a calm, level contralto (S1) turns a paper bag on the counter so the label faces the customer and says: <d>[English] Twice a day. Not on an empty stomach.</d> Her lips close and she folds the top of the bag over twice, pressing the crease flat with two fingers.
+[Shot 2] At 00:04.000, the shot cuts to a close shot of an older customer with a thin, tired tenor (S2) leaning on the counter with both forearms. He takes the bag, turns it once to read it, and asks: <d>[English] And if I forget one?</d> His lips close and he tucks the bag into his coat pocket.
+[Shot 3] At 00:08.500, the camera trucks right at small amplitude and slow speed as he walks toward the sliding door, which parts for him and lets in a wash of colder blue light. Behind him the pharmacist slides a drawer shut with her hip and calls after him: <d>[English] And if the swelling does not go down by Thursday you should</d><|cutoff|>
+
+overall_soundscape:
+A paper bag folded and pressed flat, a drawer rolling shut and latching, keyboard keys in short bursts, a sliding door motor starting and stopping, and unhurried footsteps on hard flooring.
+
+non_diegetic_music:
+N/A

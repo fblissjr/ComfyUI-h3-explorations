@@ -181,29 +181,17 @@
       "shift_audio": 3.0
     }
   },
-  "20": {
-    "class_type": "MiniMaxH3SageAttention",
+  "23": {
+    "class_type": "SageChainAssert",
     "inputs": {
       "model": [
         "19",
         0
       ],
-      "mode": "auto",
-      "patch_token_refiner": false,
-      "head_chunks": 1
-    }
-  },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "20",
-        0
-      ],
-      "require_override": true,
-      "require_forward_patch": true,
-      "exercise": true,
-      "warn_only": false
+      "require_override": false,
+      "require_forward_patch": false,
+      "exercise": false,
+      "warn_only": true
     }
   },
   "26": {
