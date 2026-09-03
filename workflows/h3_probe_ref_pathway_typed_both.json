@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "ceb7dfb6-691a-5b16-a1ad-297068c2d024",
+  "id": "d53209f7-a415-52fc-9fd4-0fef68bc3739",
   "revision": 0,
   "last_node_id": 31,
   "last_link_id": 33,
@@ -496,7 +496,7 @@
         1024,
         768,
         345,
-        "release",
+        "encoder",
         "comfy"
       ]
     },
@@ -649,7 +649,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 1"
     },
@@ -697,7 +697,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 2"
     },
@@ -745,7 +745,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 3"
     },
@@ -1080,7 +1080,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_probe_refview_b_qwen2048",
+        "filename_prefix": "Video/h3_probe_ref_pathway_typed_both",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1282,7 +1282,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "Reference-view ablation, arm B. The VAE view is arm A's; the Qwen view alone is rescaled so its shorter side reaches the vendor short edge (`qwen_short_edge`, one Lanczos resample). Answers whether the encoder wants the upscale when the VAE does not pay for it. Under the v1 snapshot the encoder's own bounds clamp this view back; the v2 artifact admits it."
+        "Reference pathway ablation. Our conditioner with both VAEs wired: every still reaches Qwen3-VL and the DiT gets its reference-latent rows. The shipped behaviour, and the control for `typed_encoder`."
       ],
       "title": "What this graph is probing"
     }

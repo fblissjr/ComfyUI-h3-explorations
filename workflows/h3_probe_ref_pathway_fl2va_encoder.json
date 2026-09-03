@@ -8,10 +8,10 @@
       ]
     }
   },
-  "id": "ceb7dfb6-691a-5b16-a1ad-297068c2d024",
+  "id": "1c3d73e6-abf0-5f92-910b-cddceeec3689",
   "revision": 0,
   "last_node_id": 31,
-  "last_link_id": 33,
+  "last_link_id": 31,
   "nodes": [
     {
       "id": 1,
@@ -41,7 +41,7 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "default"
       ]
     },
@@ -65,7 +65,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            13
+            11
           ]
         }
       ],
@@ -97,8 +97,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            5,
-            29
+            27
           ]
         }
       ],
@@ -130,8 +129,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            6,
-            31
+            29
           ]
         }
       ],
@@ -325,7 +323,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            14
+            12
           ]
         }
       ],
@@ -362,21 +360,21 @@
           "name": "width",
           "type": "INT",
           "links": [
-            17
+            15
           ]
         },
         {
           "name": "height",
           "type": "INT",
           "links": [
-            18
+            16
           ]
         },
         {
           "name": "length",
           "type": "INT",
           "links": [
-            19
+            17
           ]
         },
         {
@@ -428,29 +426,29 @@
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 13
+          "link": 11
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 5,
+          "link": null,
           "shape": 7
         },
         {
           "name": "audio_vae",
           "type": "VAE",
-          "link": 6,
+          "link": null,
           "shape": 7
         },
         {
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
-          "link": 12
+          "link": 10
         },
         {
           "name": "width",
           "type": "INT",
-          "link": 17,
+          "link": 15,
           "widget": {
             "name": "width"
           }
@@ -458,7 +456,7 @@
         {
           "name": "height",
           "type": "INT",
-          "link": 18,
+          "link": 16,
           "widget": {
             "name": "height"
           }
@@ -466,7 +464,7 @@
         {
           "name": "length",
           "type": "INT",
-          "link": 19,
+          "link": 17,
           "widget": {
             "name": "length"
           }
@@ -477,14 +475,14 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            20
+            18
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            21
+            19
           ]
         }
       ],
@@ -496,7 +494,7 @@
         1024,
         768,
         345,
-        "release",
+        "encoder",
         "comfy"
       ]
     },
@@ -520,7 +518,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            7
+            5
           ]
         },
         {
@@ -557,7 +555,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            8
+            6
           ]
         },
         {
@@ -594,7 +592,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            10
+            8
           ]
         },
         {
@@ -629,7 +627,7 @@
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 7
+          "link": 5
         }
       ],
       "outputs": [
@@ -637,7 +635,7 @@
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
           "links": [
-            9
+            7
           ]
         }
       ],
@@ -649,7 +647,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 1"
     },
@@ -671,12 +669,12 @@
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 8
+          "link": 6
         },
         {
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
-          "link": 9,
+          "link": 7,
           "shape": 7
         }
       ],
@@ -685,7 +683,7 @@
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
           "links": [
-            11
+            9
           ]
         }
       ],
@@ -697,7 +695,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 2"
     },
@@ -719,12 +717,12 @@
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 10
+          "link": 8
         },
         {
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
-          "link": 11,
+          "link": 9,
           "shape": 7
         }
       ],
@@ -733,7 +731,7 @@
           "name": "references",
           "type": "MINIMAX_H3_REFERENCES",
           "links": [
-            12
+            10
           ]
         }
       ],
@@ -745,7 +743,7 @@
         2048,
         false,
         "separate",
-        2048
+        512
       ],
       "title": "Append Picture 3"
     },
@@ -769,7 +767,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            24
+            22
           ]
         }
       ],
@@ -801,7 +799,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            26
+            24
           ]
         }
       ],
@@ -830,7 +828,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 15
+          "link": 13
         }
       ],
       "outputs": [
@@ -838,7 +836,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            27
+            25
           ]
         }
       ],
@@ -869,12 +867,12 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 16
+          "link": 14
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 22
+          "link": 20
         }
       ],
       "outputs": [
@@ -882,7 +880,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            25
+            23
           ]
         }
       ],
@@ -908,27 +906,27 @@
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 24
+          "link": 22
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 25
+          "link": 23
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 26
+          "link": 24
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 27
+          "link": 25
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 23
+          "link": 21
         }
       ],
       "outputs": [
@@ -936,8 +934,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            28,
-            30
+            26,
+            28
           ]
         },
         {
@@ -968,12 +966,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 28
+          "link": 26
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 29
+          "link": 27
         }
       ],
       "outputs": [
@@ -981,7 +979,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            32
+            30
           ]
         }
       ],
@@ -1007,12 +1005,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 30
+          "link": 28
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 31
+          "link": 29
         }
       ],
       "outputs": [
@@ -1020,7 +1018,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            33
+            31
           ]
         }
       ],
@@ -1046,12 +1044,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 32
+          "link": 30
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 33,
+          "link": 31,
           "shape": 7
         },
         {
@@ -1080,7 +1078,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_probe_refview_b_qwen2048",
+        "filename_prefix": "Video/h3_probe_ref_pathway_fl2va_encoder",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1108,7 +1106,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 14
+          "link": 12
         }
       ],
       "outputs": [
@@ -1116,8 +1114,8 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            15,
-            16
+            13,
+            14
           ]
         }
       ],
@@ -1151,12 +1149,12 @@
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 20
+          "link": 18
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 21
+          "link": 19
         }
       ],
       "outputs": [
@@ -1164,14 +1162,14 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            22
+            20
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            23
+            21
           ]
         },
         {
@@ -1282,7 +1280,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "Reference-view ablation, arm B. The VAE view is arm A's; the Qwen view alone is rescaled so its shorter side reaches the vendor short edge (`qwen_short_edge`, one Lanczos resample). Answers whether the encoder wants the upscale when the VAE does not pay for it. Under the v1 snapshot the encoder's own bounds clamp this view back; the v2 artifact admits it."
+        "Reference pathway ablation on the fl2va checkpoint. Neither VAE wired, so the stills reach the DiT only through the encoder's vision tokens, which is the one form of picture this partition was trained to read. Three pictures and no keyframe is off its trained structure; read the result as a bound on what the encoder pathway can do, not as a recipe."
       ],
       "title": "What this graph is probing"
     }
@@ -1322,22 +1320,6 @@
     ],
     [
       5,
-      3,
-      0,
-      11,
-      1,
-      "VAE"
-    ],
-    [
-      6,
-      4,
-      0,
-      11,
-      2,
-      "VAE"
-    ],
-    [
-      7,
       12,
       0,
       15,
@@ -1345,7 +1327,7 @@
       "IMAGE"
     ],
     [
-      8,
+      6,
       13,
       0,
       16,
@@ -1353,7 +1335,7 @@
       "IMAGE"
     ],
     [
-      9,
+      7,
       15,
       0,
       16,
@@ -1361,7 +1343,7 @@
       "MINIMAX_H3_REFERENCES"
     ],
     [
-      10,
+      8,
       14,
       0,
       17,
@@ -1369,7 +1351,7 @@
       "IMAGE"
     ],
     [
-      11,
+      9,
       16,
       0,
       17,
@@ -1377,7 +1359,7 @@
       "MINIMAX_H3_REFERENCES"
     ],
     [
-      12,
+      10,
       17,
       0,
       11,
@@ -1385,7 +1367,7 @@
       "MINIMAX_H3_REFERENCES"
     ],
     [
-      13,
+      11,
       2,
       0,
       11,
@@ -1393,7 +1375,7 @@
       "CLIP"
     ],
     [
-      14,
+      12,
       9,
       0,
       26,
@@ -1401,7 +1383,7 @@
       "MODEL"
     ],
     [
-      15,
+      13,
       26,
       0,
       20,
@@ -1409,7 +1391,7 @@
       "MODEL"
     ],
     [
-      16,
+      14,
       26,
       0,
       21,
@@ -1417,7 +1399,7 @@
       "MODEL"
     ],
     [
-      17,
+      15,
       10,
       0,
       11,
@@ -1425,7 +1407,7 @@
       "INT"
     ],
     [
-      18,
+      16,
       10,
       1,
       11,
@@ -1433,7 +1415,7 @@
       "INT"
     ],
     [
-      19,
+      17,
       10,
       2,
       11,
@@ -1441,7 +1423,7 @@
       "INT"
     ],
     [
-      20,
+      18,
       11,
       0,
       27,
@@ -1449,7 +1431,7 @@
       "CONDITIONING"
     ],
     [
-      21,
+      19,
       11,
       1,
       27,
@@ -1457,7 +1439,7 @@
       "LATENT"
     ],
     [
-      22,
+      20,
       27,
       0,
       21,
@@ -1465,7 +1447,7 @@
       "CONDITIONING"
     ],
     [
-      23,
+      21,
       27,
       1,
       22,
@@ -1473,7 +1455,7 @@
       "LATENT"
     ],
     [
-      24,
+      22,
       18,
       0,
       22,
@@ -1481,7 +1463,7 @@
       "NOISE"
     ],
     [
-      25,
+      23,
       21,
       0,
       22,
@@ -1489,7 +1471,7 @@
       "GUIDER"
     ],
     [
-      26,
+      24,
       19,
       0,
       22,
@@ -1497,7 +1479,7 @@
       "SAMPLER"
     ],
     [
-      27,
+      25,
       20,
       0,
       22,
@@ -1505,7 +1487,7 @@
       "SIGMAS"
     ],
     [
-      28,
+      26,
       22,
       0,
       23,
@@ -1513,7 +1495,7 @@
       "LATENT"
     ],
     [
-      29,
+      27,
       3,
       0,
       23,
@@ -1521,7 +1503,7 @@
       "VAE"
     ],
     [
-      30,
+      28,
       22,
       0,
       24,
@@ -1529,7 +1511,7 @@
       "LATENT"
     ],
     [
-      31,
+      29,
       4,
       0,
       24,
@@ -1537,7 +1519,7 @@
       "VAE"
     ],
     [
-      32,
+      30,
       23,
       0,
       25,
@@ -1545,7 +1527,7 @@
       "IMAGE"
     ],
     [
-      33,
+      31,
       24,
       0,
       25,

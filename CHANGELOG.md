@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.33
+
+### Changed
+
+- **`MiniMaxH3ReferenceConditioning` takes both VAEs as optional**, mirroring
+  core's `MiniMaxH3ReferenceToVideo` after ComfyUI PR 16065 (commit
+  `1aec3a13`, merged 2026-09-03). A reference whose VAE is unwired reaches
+  the text encoder exactly as before -- same label, same Qwen view -- and
+  contributes no reference-latent rows to the DiT; with no rows at all the
+  `minimax_refs` key is absent rather than empty, which is the door core
+  uses. Core's gates are reproduced, not improved: a sounded video loses
+  its whole block without the video VAE and keeps its `<Audio>` label as a
+  silent `video` block without the audio VAE; a standalone audio reference
+  without the audio VAE is a bare label, since the encoder is never handed
+  audio. `bench/check_reference_runtime.py::encoder_only_references_skip_the_dit_rows`
+  holds the three cells, and went red on the previous node before the
+  change. `docs/h3_references.md` section "Encoder-only references" is the
+  authority. Every reference UI graph regenerated: the two VAE sockets now
+  carry the optional marker and nothing else moved.
+
+### Added
+
+- **The reference pathway ablation**: `h3_probe_ref_pathway_{typed_both,
+  typed_encoder, native_both, native_encoder, fl2va_encoder}` from the
+  generator's new `ref_latents` and `native_ref` knobs (`native_ref` emits
+  core's node with its zero-indexed autogrow sockets, stills only, API
+  form only via the new `api_only` spec flag). `bench/ref_pathway_arms.json`
+  is the manifest and names which pairs are controlled; the typed-versus-
+  native both-pathway pair is not, since the two nodes size stills
+  differently. Nothing has rendered: the server was mid-render for another
+  session and predates both the core commit and this node change, so the
+  graphs were validated against a cached `/object_info` with the two
+  inputs moved to optional, which is what a restarted server serves.
+- `bench/preflight_graph.py` prices an encoder-only conditioner as zero DiT
+  reference rows and says why, instead of pricing rows the graph will
+  never build.
+
 ## 0.99.32
 
 ### Added

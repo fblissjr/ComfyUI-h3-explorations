@@ -534,6 +534,16 @@ def _compile_reference_records(
 ):
     """Compile one ordered record list into Qwen items and DiT blocks.
 
+    `vae` and `audio_vae` may each be `None`, mirroring core since ComfyUI
+    PR 16065 (merged 2026-09-03, commit `1aec3a13`): a reference whose VAE
+    is absent is presented to Qwen exactly as before -- same item, same
+    label -- and contributes no DiT block. Core's gates are reproduced
+    rather than improved: a sounded video needs the video VAE before its
+    soundtrack is even considered, and a video whose soundtrack has no
+    audio VAE keeps its `<Audio>` label and becomes a silent `video` block.
+    `bench/check_reference_runtime.py::encoder_only_references_skip_the_dit_rows`
+    holds the two nodes to the same three cells.
+
     `contract` is what the loaded encoder declares
     (`encoder_contract_from_clip`), or `None` for a CLIP that declares
     nothing. `encoder` resolves against it here, once, for both stages, and
@@ -604,8 +614,11 @@ def _compile_reference_records(
                 (f"qwen_short_edge={record.qwen_short_edge}" if views["separate"]
                  else "same tensor as the VAE view"),
                 image_policy, (qwen_w // 32) * (qwen_h // 32))
-            latent = vae.encode(vae_view)
             ref_items.append({"type": "image", "data": qwen_view})
+            if vae is None:
+                # Encoder-only still: Qwen sees it, the DiT gets no rows.
+                continue
+            latent = vae.encode(vae_view)
             # Read the grid off the tensor the VAE returned, not off the pixel
             # size. `target_*` is a multiple of 32 only because both installed
             # processor configs declare patch_size 16 / merge_size 2; stage two
@@ -649,14 +662,15 @@ def _compile_reference_records(
                     round(source_h / CANVAS_MULTIPLE) * CANVAS_MULTIPLE,
                 )
             frames = _resize(frames, canvas_w, canvas_h, "disabled")
-            latent = vae.encode(frames)
 
-            audio_latent, ref_audio_t = None, 0
+            soundtrack = None
             if record.soundtrack is not None:
                 soundtrack = _prepare_audio(
                     record.soundtrack, duration, f"reference video {index + 1} soundtrack"
                 )
-                audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, soundtrack)
+                # The label is emitted whether or not an audio latent follows;
+                # core does the same, and the two nodes must present one
+                # prompt to the encoder.
                 ref_items.append({"type": "audio"})
 
             sample_indices = list(range(0, int(frames.shape[0]), FPS // 2))
@@ -670,6 +684,19 @@ def _compile_reference_records(
                 "data": qwen_frames,
                 "timestamps": [i / 2.0 for i in range(len(sample_indices))],
             })
+            if vae is None:
+                # Encoder-only video: the whole block goes, soundtrack
+                # included, which is core's gate (the audio latent is built
+                # after the video one and never without it).
+                logger.info(
+                    "[h3] reference video %d policy=%s: encoder only, no video "
+                    "VAE wired; %d raw frame(s) reach Qwen and no DiT rows",
+                    index + 1, video_policy, int(qwen_frames.shape[0]))
+                continue
+            latent = vae.encode(frames)
+            audio_latent, ref_audio_t = None, 0
+            if soundtrack is not None and audio_vae is not None:
+                audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, soundtrack)
             ref_blocks.append({
                 "kind": "video_audio" if ref_audio_t else "video",
                 "latent_t": latent.shape[2],
@@ -692,8 +719,14 @@ def _compile_reference_records(
             audio = _prepare_audio(
                 record.audio, duration, f"standalone reference audio {index + 1}"
             )
-            audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, audio)
             ref_items.append({"type": "audio"})
+            if audio_vae is None:
+                # Encoder-only audio is a bare label: Qwen is never handed
+                # the waveform, so nothing but "<Audio j>" reaches either
+                # model. Kept for parity with core, and worth knowing before
+                # wiring it as an experiment.
+                continue
+            audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, audio)
             ref_blocks.append({
                 "kind": "audio",
                 "ref_audio_t": ref_audio_t,
@@ -1005,8 +1038,27 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
             ),
             inputs=[
                 io.Clip.Input("clip"),
-                io.Vae.Input("vae"),
-                io.Vae.Input("audio_vae"),
+                # Both optional since 0.99.33, mirroring core's
+                # MiniMaxH3ReferenceToVideo after ComfyUI PR 16065. Absent,
+                # a reference of that kind conditions the text encoder only.
+                io.Vae.Input(
+                    "vae", optional=True,
+                    tooltip=(
+                        "Video VAE. Leave it unwired and reference stills and "
+                        "videos reach the text encoder only: same labels, "
+                        "same Qwen view, no reference latents for the DiT."
+                    ),
+                ),
+                io.Vae.Input(
+                    "audio_vae", optional=True,
+                    tooltip=(
+                        "Audio VAE. Leave it unwired and reference audio is "
+                        "only its <Audio j> label: the encoder never hears "
+                        "audio, so without this VAE an audio reference "
+                        "carries nothing. A sounded video keeps its label "
+                        "and becomes a silent video block."
+                    ),
+                ),
                 H3References.Input("references"),
                 io.String.Input("prompt", multiline=True, dynamic_prompts=True),
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32),
@@ -1058,9 +1110,9 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
 
     @classmethod
     def execute(
-        cls, clip, vae, audio_vae, references, prompt, width=1344,
+        cls, clip, references, prompt, width=1344,
         height=768, length=124, video_policy="encoder",
-        image_policy="comfy",
+        image_policy="comfy", vae=None, audio_vae=None,
     ):
         records = _reference_tuple(references)
         if not records:
@@ -1084,16 +1136,23 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         )
         tokens = clip.tokenize(prompt, minimax_ref_items=ref_items)
         conditioning = clip.encode_from_tokens_scheduled(tokens)
-        conditioning = node_helpers.conditioning_set_values(
-            conditioning, {"minimax_refs": ref_blocks}
-        )
+        if ref_blocks:
+            # Absent, not []: `model_base` builds the text-only layout for a
+            # missing key and a refs=[] layout for an empty one, and core
+            # sends the former, so the encoder-only arm of the two nodes
+            # must reach the DiT by the same door.
+            conditioning = node_helpers.conditioning_set_values(
+                conditioning, {"minimax_refs": ref_blocks}
+            )
 
         labels = assign_labels(_order_records(records))
         logger.info(
             "[h3] ordered reference conditioning: %dx%d, %d frames, %d "
-            "record(s), presentation=%s, video_policy=%s, image_policy=%s, "
-            "encoder contract=%s",
+            "record(s), presentation=%s, DiT reference block(s)=%d%s, "
+            "video_policy=%s, image_policy=%s, encoder contract=%s",
             width, height, frame_count, len(records), labels,
+            len(ref_blocks),
+            "" if ref_blocks else " (encoder only: no VAE wired)",
             video_policy, image_policy,
             contract["source"] if contract else "none (native)",
         )

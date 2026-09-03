@@ -86,6 +86,53 @@ frame loader, which is why the frame rate is your problem (below).
 
 ---
 
+## Encoder-only references: leave the VAE unwired
+
+Since ComfyUI PR 16065 (core commit `1aec3a13`, merged 2026-09-03) both VAE
+inputs on `MiniMaxH3ReferenceToVideo` are optional, and since this pack's
+0.99.33 the same is true of `MiniMaxH3ReferenceConditioning`. A reference
+whose VAE is absent still reaches the text encoder exactly as before: same
+label, same vision block, and the DiT still tags that span of the text
+sequence as video modality (`comfy/text_encoders/minimax.py::token_tags_from_embeds_info`,
+consumed in `comfy/ldm/minimax/model.py` where `text_token_tags` splits the
+text span into modulation runs). What it no longer gets is reference-latent
+rows: no block is built, `minimax_refs` is never set, and `model_base` lays
+the sequence out as it would for a text-only pass. Both nodes reach the DiT
+by that same door, and
+`bench/check_reference_runtime.py::encoder_only_references_skip_the_dit_rows`
+holds ours to core's three cells.
+
+What each reference kind becomes without its VAE:
+
+| kind | without the video VAE | without the audio VAE |
+|---|---|---|
+| still | Qwen view only, no `ref_img` rows | unchanged |
+| video | Qwen's 2 fps samples only, no rows; its soundtrack label stays and its audio latent is never built | label stays, silent `video` block |
+| standalone audio | unchanged | its `<Audio j>` label and nothing else |
+
+The last row is the one to know before wiring an experiment: the encoder is
+never handed audio, so an audio reference with no audio VAE conditions on a
+bare ordinal. Core does the same, and the gate order is core's: a sounded
+video needs the video VAE before its soundtrack is considered at all.
+
+**Why anyone would want this.** Reference rows are the expensive input
+(section "What references cost"), attended every step; the encoder pathway
+costs tokens in the text segment only. Whether the encoder pathway carries
+identity on its own, and how much of the shipped result the rows add, is
+unmeasured. `bench/ref_pathway_arms.json` is the five-arm ablation built for
+it, from `workflows/build_workflows.py`'s `h3_probe_ref_pathway_*` family:
+our conditioner and core's, each with and without the VAEs, plus the fl2va
+checkpoint under encoder-only stills. `ref_latents=False` on either builder
+is the knob, and `native_ref=True` emits core's node for the A/B. The manifest
+says which pairs are controlled and which are not.
+
+`bench/preflight_graph.py` reports an encoder-only conditioner as zero DiT
+reference rows and still prices the Qwen tokens. Not the release's path: the
+vendor pipelines always build the latents, so nothing there is a control for
+this.
+
+---
+
 ## What ComfyUI does to each one
 
 ### Image references
@@ -1251,6 +1298,10 @@ last four vary **what the prompt asks for**, holding the wiring roughly still.
 All load the `ref2va` checkpoint. One deliberate exception elsewhere:
 `h3_probe_ref2v_turbo` runs `ref2va` with an `fl2v` distill LoRA — an
 experiment, documented in its own note.
+
+The `h3_probe_ref_pathway_*` family (section "Encoder-only references") is
+the other exception: two of its arms wire core's `MiniMaxH3ReferenceToVideo`
+rather than the typed chain, and one loads `fl2va`.
 
 ---
 

@@ -433,12 +433,14 @@
         {
           "name": "vae",
           "type": "VAE",
-          "link": 5
+          "link": 5,
+          "shape": 7
         },
         {
           "name": "audio_vae",
           "type": "VAE",
-          "link": 6
+          "link": 6,
+          "shape": 7
         },
         {
           "name": "references",

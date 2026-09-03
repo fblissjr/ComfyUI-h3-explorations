@@ -512,12 +512,14 @@
         {
           "name": "vae",
           "type": "VAE",
-          "link": 6
+          "link": 6,
+          "shape": 7
         },
         {
           "name": "audio_vae",
           "type": "VAE",
-          "link": 7
+          "link": 7,
+          "shape": 7
         },
         {
           "name": "references",

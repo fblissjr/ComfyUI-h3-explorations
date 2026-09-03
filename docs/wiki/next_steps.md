@@ -23,6 +23,13 @@ canonical Base16 record (the shipped t2v graph, Sol on, `dense_blocks`
 empty, armed with `H3_SOL_PROBE` and `H3_SOL_OBSERVE`), read with
 `--record`. Both need the card and are queued behind the ladder.
 
+**Render the reference pathway ablation once the card is free.**
+`bench/ref_pathway_arms.json`: our reference conditioner and core's, each
+with and without the VAEs wired, plus fl2va under encoder-only stills.
+Open experiment 26 in [`../open_experiments.md`](../open_experiments.md)
+says what would count as an answer. Needs a server restarted onto the
+current core and this pack.
+
 ## Then, in the roadmap's order
 
 The forward plan in [`../roadmap.md`](../roadmap.md) (section "Current

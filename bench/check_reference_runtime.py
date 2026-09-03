@@ -442,6 +442,65 @@ def conditioning_node_assembles_the_real_payload_shape():
             raise AssertionError("empty references or prompt reached compilation")
 
 
+def encoder_only_references_skip_the_dit_rows():
+    """Without a VAE a reference reaches the text encoder and nothing else.
+
+    Mirrors core since ComfyUI PR 16065 (merged 2026-09-03, commit
+    `1aec3a13`): `vae` and `audio_vae` are optional, a reference whose VAE is
+    absent is presented to Qwen exactly as before -- same item, same label --
+    and contributes no DiT rows. Three cells, each read off the two lists the
+    compiler returns and the payload the node attaches:
+
+      neither VAE       every item present, no block, `minimax_refs` absent
+      video VAE only    still and video blocks; a sounded video becomes a
+                        silent `video` block and its `<Audio>` label stays
+                        (core's own quirk, kept so the two nodes agree)
+      audio VAE only    the standalone audio block alone; the sounded video
+                        loses its whole block, since core gates the audio
+                        latent behind the video VAE
+    """
+    frames = _frames()
+    records = (
+        R.RuntimeImageReference(_frames(1, 64, 64), "match"),
+        R.RuntimeVideoReference(frames, 30.0, _audio()),
+        R.RuntimeAudioReference(_audio()),
+    )
+    items_with_both, _ = R._compile_reference_records(
+        records, _VideoVae(), _AudioVae(), width=64, height=64, frame_count=22
+    )
+    kinds_with_both = [item["type"] for item in items_with_both]
+    assert kinds_with_both == ["image", "audio", "video", "audio"], kinds_with_both
+
+    for vae, audio_vae, expect in (
+        (None, None, []),
+        (_VideoVae(), None, ["image", "video"]),
+        (None, _AudioVae(), ["audio"]),
+    ):
+        items, blocks = R._compile_reference_records(
+            records, vae, audio_vae, width=64, height=64, frame_count=22
+        )
+        assert [item["type"] for item in items] == kinds_with_both, (
+            f"vae={vae is not None} audio_vae={audio_vae is not None}: the "
+            f"encoder presentation moved: {[item['type'] for item in items]}")
+        assert [block["kind"] for block in blocks] == expect, (
+            f"vae={vae is not None} audio_vae={audio_vae is not None}: "
+            f"{[block['kind'] for block in blocks]} != {expect}")
+        if vae is not None:
+            silent = blocks[1]
+            assert silent["ref_audio_t"] == 0 and silent["audio_latent"] is None
+
+    clip = _Clip()
+    output = R.MiniMaxH3ReferenceConditioning.execute(
+        clip=clip, references=records, prompt="<Picture 1> <Audio 1> <Video 1> <Audio 2>",
+        width=64, height=64, length=22,
+    )
+    conditioning, _latent = output.args
+    assert [item["type"] for item in clip.ref_items] == kinds_with_both
+    assert "minimax_refs" not in conditioning[0][1], (
+        "an empty reference payload must be absent, not [], so the DiT builds "
+        "the same layout core builds for a text-only pass")
+
+
 def append_sizing_reaches_the_encoded_geometry():
     """`short_edge` and `allow_upscale` on the append change what the VAE gets.
 
@@ -778,6 +837,26 @@ def preflight_prices_the_two_views():
     assert native is not None and native[3] == "native ComfyUI", native
 
 
+def preflight_reads_the_vae_gate_off_the_graph():
+    """An encoder-only conditioner is priced at zero DiT reference rows.
+
+    The gate is the presence of the `vae` key on the conditioner's inputs,
+    on either node, which is exactly what the executor hands the node as
+    None. Pricing rows a graph will never build is the failure this guards:
+    the first encoder-only arm was priced at the full row count on
+    2026-09-03 before this read existed.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "preflight_graph", _REPO / "bench" / "preflight_graph.py")
+    P = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(P)
+    assert P.reference_rows_reach_the_dit({"vae": ["3", 0], "references": ["2", 0]})
+    assert not P.reference_rows_reach_the_dit({"references": ["2", 0]})
+    assert not P.reference_rows_reach_the_dit({"ref_images.ref_image_0": ["9", 0]})
+    assert P.reference_rows_reach_the_dit({"vae": ["3", 0], "ref_images.ref_image_0": ["9", 0]})
+
+
 def preflight_resolves_encoder_from_the_loader_node():
     """The static reader binds `encoder` to the graph's loader, as the node does.
 
@@ -834,6 +913,8 @@ CHECKS = (
     preflight_prices_the_two_views,
     preflight_resolves_encoder_from_the_loader_node,
     conditioning_node_assembles_the_real_payload_shape,
+    encoder_only_references_skip_the_dit_rows,
+    preflight_reads_the_vae_gate_off_the_graph,
 )
 
 

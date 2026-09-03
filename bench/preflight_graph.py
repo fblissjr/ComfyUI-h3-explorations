@@ -1303,9 +1303,23 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     return out
 
 
+def reference_rows_reach_the_dit(inputs: dict) -> bool:
+    """Whether the conditioner will build reference-latent rows at all.
+
+    Both conditioners take `vae` as optional -- core's since ComfyUI PR
+    16065, ours since 0.99.33 -- and a graph that names no `vae` presents
+    every still and video to the text encoder only, building no block.
+    Read off the graph, the way the node reads it: an absent key, not a
+    null. `audio_vae` gates audio blocks alone, and this file prices no
+    audio reference rows, so it is not consulted here.
+    """
+    return "vae" in inputs
+
+
 def price(node: dict, graph: dict) -> list[str]:
     ins = node["inputs"]
     media_ins, image_policies, typed_references = _reference_media(ins, graph)
+    rows_reach_dit = reference_rows_reach_the_dit(ins)
     # Stage two is a property of the conditioner, not of any one reference.
     image_policy = ins.get("image_policy", "comfy") if typed_references else "comfy"
     if isinstance(image_policy, list):
@@ -1489,7 +1503,9 @@ def price(node: dict, graph: dict) -> list[str]:
                 lines.append(f"  {key}: could not apply image_policy="
                              f"{image_policy!r} ({exc}); priced at the role size")
         scale = tw / iw
-        r = latent_rows(tw, th)
+        # Priced at the VAE view even when no VAE is wired, so the line still
+        # says what the still WOULD cost; the count is what the DiT gets.
+        r = latent_rows(tw, th) if rows_reach_dit else 0
         ref_total += r
         bound_notes = (_vision_bound_warnings(key, tw, th)
                        if image_policy == "comfy" and not qwen_edge else [])
@@ -1501,6 +1517,9 @@ def price(node: dict, graph: dict) -> list[str]:
             note = ""
         if image_policy != "comfy":
             note += f"  (image_policy={image_policy})"
+        if not rows_reach_dit:
+            note += (f"  (encoder only: no video VAE wired, "
+                     f"{latent_rows(tw, th):,} rows NOT built)")
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
         # The encoder's own processor applies its bounds to whatever it is
@@ -1525,6 +1544,9 @@ def price(node: dict, graph: dict) -> list[str]:
         lines.extend(bound_notes)
     if ref_total:
         lines.append(f"  refs      {ref_total:>8,}  total DiT reference rows")
+    elif media_ins and not rows_reach_dit:
+        lines.append("  refs             0  total DiT reference rows "
+                     "(encoder only: no video VAE wired)")
     if qwen_total:
         lines.append(f"  qwen      {qwen_total:>8,}  total reference tokens in the "
                      f"text segment, before the prompt")

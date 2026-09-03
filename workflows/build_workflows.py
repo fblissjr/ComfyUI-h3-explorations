@@ -1218,6 +1218,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               vsa: tuple[float, bool] | None = None,
               vae_encoder: str | None = None,
               clip: str | None = None,
+              # Reference pathway knobs, 2026-09-03. `ref_latents=False`
+              # leaves both VAE sockets of the reference conditioner
+              # unwired, which since ComfyUI PR 16065 (core) and 0.99.33
+              # (ours) means every reference conditions the text encoder
+              # only and adds no rows to the DiT. `native_ref=True` emits
+              # core's MiniMaxH3ReferenceToVideo in place of the typed chain,
+              # for the A/B against our conditioner; stills only, API only.
+              ref_latents: bool = True,
+              native_ref: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -1388,17 +1397,44 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 f"r2v graph needs {n_refs} typed append nodes, but only "
                 f"{len(_REF_APPEND_NODES)} ids are reserved")
         terminal_ref = _REF_APPEND_NODES[n_refs - 1]
-        g["5"] = {"class_type": "MiniMaxH3ReferenceConditioning",
-                  "inputs": {"clip": ["2", 0], "vae": vae_enc,
-                             "audio_vae": ["4", 0],
-                             "references": [terminal_ref, 0],
-                             "prompt": prompt,
-                             "width": ["27", 0], "height": ["27", 1],
-                             # Wired to Resolution so duration and geometry
-                             # continue to move together in API sweeps.
-                             "length": ["27", 2],
-                             "video_policy": ref_video_policy,
-                             "image_policy": ref_image_policy}}
+        # Absent rather than null when `ref_latents` is off: an optional
+        # socket the graph does not name is what the executor passes as
+        # None, and a `null` literal is what it rejects.
+        cond_vaes = ({"vae": vae_enc, "audio_vae": ["4", 0]}
+                     if ref_latents else {})
+        if native_ref and (ref_video or ref_audio):
+            raise SystemExit(
+                "native_ref emits core's still sockets only; wire a video or "
+                "audio reference through the typed chain")
+        if native_ref:
+            # Core's node, sized by its own `match` rule (each still scaled
+            # down to the generation's pixel area, one tensor for both the
+            # VAE and Qwen). Not the typed path's sizing, and the arm notes
+            # say so: this is the A/B against our conditioner, not a
+            # same-footing twin of it.
+            g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
+                      "inputs": {"clip": ["2", 0], **cond_vaes,
+                                 "prompt": prompt,
+                                 "width": ["27", 0], "height": ["27", 1],
+                                 "length": ["27", 2],
+                                 "ref_image_size": "match",
+                                 # Autogrow sockets are dotted and count
+                                 # from zero; `bench/check_reference_order.py`
+                                 # drives core with the same spelling.
+                                 **{f"ref_images.ref_image_{i}": [load_id, 0]
+                                    for i, (load_id, _fit, _name)
+                                    in enumerate(slots)}}}
+        else:
+            g["5"] = {"class_type": "MiniMaxH3ReferenceConditioning",
+                      "inputs": {"clip": ["2", 0], **cond_vaes,
+                                 "references": [terminal_ref, 0],
+                                 "prompt": prompt,
+                                 "width": ["27", 0], "height": ["27", 1],
+                                 # Wired to Resolution so duration and geometry
+                                 # continue to move together in API sweeps.
+                                 "length": ["27", 2],
+                                 "video_policy": ref_video_policy,
+                                 "image_policy": ref_image_policy}}
         # No fit node. `MiniMaxH3AppendRefImage` carries `allow_upscale` and
         # `short_edge` itself and the conditioner performs ONE resize with the
         # canvas in scope, so the loader wires straight to the append. Before
@@ -1414,7 +1450,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g[load_id] = {"class_type": "LoadImage", "inputs": {"image": fname}}
         chain = None
         append_ids = iter(_REF_APPEND_NODES)
-        for load_id, _fit_id, _fname in slots:
+        # Under `native_ref` the loaders feed core's sockets directly and no
+        # typed chain exists, so the append loop runs over nothing.
+        for load_id, _fit_id, _fname in ([] if native_ref else slots):
             append_id = next(append_ids)
             append_inputs = {"image": [load_id, 0], "size_policy": "max"}
             if chain is not None:
@@ -1489,7 +1527,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g[append_id] = {"class_type": "MiniMaxH3AppendRefAudio",
                             "inputs": append_inputs}
             chain = [append_id, 0]
-        if chain != [terminal_ref, 0]:
+        if not native_ref and chain != [terminal_ref, 0]:
             raise AssertionError(
                 f"typed reference chain ended at {chain}, expected "
                 f"{[terminal_ref, 0]}")
@@ -4657,6 +4695,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              last_frame: bool = False,
              first_frame: bool = True,
              unet: str | None = None, lora: tuple[str, float] | None = None,
+             ref_latents: bool = True,   # see build_api; no native_ref here
              out_prefix: str | None = None, title: str | None = None,
              vsa: tuple[float, bool] | None = None,
              vae_encoder: str | None = None,
@@ -4984,8 +5023,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     img_a = img_b = None
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
+        # The two VAE sockets are optional on the node since 0.99.33 and
+        # are drawn either way; `ref_latents=False` leaves them unlinked,
+        # which is the encoder-only arm in the form a person opens.
         cond_inputs = [
-            _in("clip", "CLIP"), _in("vae", "VAE"), _in("audio_vae", "VAE"),
+            _in("clip", "CLIP"),
+            _in("vae", "VAE", optional=True),
+            _in("audio_vae", "VAE", optional=True),
             _in("references", "MINIMAX_H3_REFERENCES"),
         ]
         cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
@@ -5002,8 +5046,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        g.link(vae_enc_src, 0, cond, "vae", "VAE")
-        g.link(avae, 0, cond, "audio_vae", "VAE")
+        if ref_latents:
+            g.link(vae_enc_src, 0, cond, "vae", "VAE")
+            g.link(avae, 0, cond, "audio_vae", "VAE")
         # One typed append node per image, carrying its own sizing. `max`
         # sizes from `short_edge` rather than the target canvas area, which is
         # the policy the shipped graphs have always used.
@@ -6541,6 +6586,72 @@ def main():
             )
         ],
 
+        # Reference pathway ablation, 2026-09-03. ComfyUI PR 16065 (core
+        # commit 1aec3a13) made both VAE inputs on MiniMaxH3ReferenceToVideo
+        # optional: with no VAE a reference is presented to Qwen3-VL exactly
+        # as before (same label, same vision block, the same video-modality
+        # tag on its text span) and adds no reference-latent rows to the
+        # DiT, so `minimax_refs` is never set and the DiT lays the sequence
+        # out as it would for a text-only pass. Our conditioner mirrors that
+        # since 0.99.33. Five arms, one prompt, one seed, the capture stills:
+        #
+        #   typed_both      ours, ref2va, both pathways -- the shipped path
+        #   typed_encoder   ours, ref2va, encoder only (no VAE wired)
+        #   native_both     core's node, ref2va, both pathways
+        #   native_encoder  core's node, ref2va, encoder only
+        #   fl2va_encoder   ours, the fl2va checkpoint, encoder only. That
+        #                   partition meets <Picture> blocks as keyframes, so
+        #                   this asks whether it reads them as identity hints
+        #                   when no keyframe rows follow. Off its trained
+        #                   structure (three pictures, no keyframe); a bound,
+        #                   not a shipped call.
+        #
+        # typed against native is NOT a same-footing pair: core sizes each
+        # still by `ref_image_size=match` and feeds one tensor to both
+        # consumers; ours sizes by `size_policy=max` with a separate Qwen
+        # view. The controlled comparisons are within a family (both against
+        # encoder) and between the two encoder-only arms, where no VAE view
+        # exists to differ. `bench/ref_pathway_arms.json` is the manifest.
+        *[
+            (f"h3_probe_ref_pathway_{tag}.json", f"r2v-pathway-{tag}", "r2v",
+             _ref_prompt(images=("character", "garment", "environment")),
+             dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+                  ref_latents=latents, **more,
+                  out_prefix=f"Video/h3_probe_ref_pathway_{tag}",
+                  variant_note=note),
+             what)
+            for tag, latents, more, what, note in (
+                ("typed_both", True, {},
+                 "reference pathway arm: our conditioner, ref2va, encoder and DiT rows",
+                 "Reference pathway ablation. Our conditioner with both VAEs "
+                 "wired: every still reaches Qwen3-VL and the DiT gets its "
+                 "reference-latent rows. The shipped behaviour, and the "
+                 "control for `typed_encoder`."),
+                ("typed_encoder", False, {},
+                 "reference pathway arm: our conditioner, ref2va, encoder only",
+                 "Reference pathway ablation. Our conditioner with neither VAE "
+                 "wired: the same stills, labels and Qwen view, and no "
+                 "reference rows in the DiT. Judged blind against "
+                 "`typed_both` on matched seeds; what survives is what the "
+                 "encoder pathway carries on its own."),
+                ("native_both", True, dict(native_ref=True, api_only=True),
+                 "reference pathway arm: core's node, ref2va, encoder and DiT rows",
+                 None),
+                ("native_encoder", False, dict(native_ref=True, api_only=True),
+                 "reference pathway arm: core's node, ref2va, encoder only",
+                 None),
+                ("fl2va_encoder", False, dict(unet=MODELS["unet_fl2va"]),
+                 "reference pathway arm: our conditioner on fl2va, encoder only",
+                 "Reference pathway ablation on the fl2va checkpoint. Neither "
+                 "VAE wired, so the stills reach the DiT only through the "
+                 "encoder's vision tokens, which is the one form of picture "
+                 "this partition was trained to read. Three pictures and no "
+                 "keyframe is off its trained structure; read the result as "
+                 "a bound on what the encoder pathway can do, not as a "
+                 "recipe."),
+            )
+        ],
+
         ("h3_ref_video_edit.json", "r2v-edit", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),
          dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
@@ -7683,6 +7794,11 @@ def main():
         vsa_on = extra.get("vsa") is not None
         sol_on = False if (is_image or dense_mode or vsa_on) \
             else bool(extra.get("sol_on", True))
+        if extra.get("api_only", False):
+            # No UI twin: `native_ref` graphs exist to be driven over
+            # /prompt by run_graph_arms, and the UI builder does not draw
+            # core's autogrow sockets. cross_check skips a lone format.
+            continue
         rest = {k: v for k, v in extra.items()
                 if k not in ("sol_on", "dense_attn")}
         wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else True,
@@ -7711,7 +7827,8 @@ def main():
         sol_on = False if (is_image or dense_mode or vsa_on) \
             else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
-                     if k not in ("variant_note", "sol_on", "dense_attn")}
+                     if k not in ("variant_note", "sol_on", "dense_attn",
+                                  "api_only")}
         wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else True,
                        prompt=prompt,
                        sol=(sol_for_graph(bool(extra.get("pdd", False)),

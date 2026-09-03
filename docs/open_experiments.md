@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-08-20
+Last updated: 2026-09-03
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -1905,3 +1905,35 @@ current ones. What that costs in output is unmeasured. Where the peak
 actually sits is the next question, and it is not an attention question.
 Records: `internal/sol_observe/2026-09-01_chunked_ab/`; summaries
 `bench/results/2026-09-01_sol_route_pdd8_{direct_ab,chunked_ab,direct_vs_chunked}.json`.
+
+## 26. What the encoder pathway carries on its own: references with no VAE
+
+Added 2026-09-03. ComfyUI PR 16065 made the VAE inputs on the reference
+conditioner optional, and 0.99.33 mirrors it on ours: without a VAE a
+reference is presented to Qwen3-VL as before and adds no reference-latent
+rows to the DiT (`docs/h3_references.md`, section "Encoder-only
+references"). Reference rows are the expensive input, attended every step.
+Nothing here has measured how much of the shipped reference result they
+buy over the encoder pathway alone.
+
+**The observable.** `bench/ref_pathway_arms.json`: five arms from one base
+graph, the capture stills, matched seeds, judged blind through
+`docs/eval_comparison.md` section 3 as pairs. The primary pair is our
+conditioner with both pathways against itself with neither VAE wired; the
+same pair on core's node is the replication; the two encoder-only arms
+against each other are the A/B of our conditioner against core's on the one
+pathway both implement identically; the fl2va arm is a bound. Step time per
+arm is a second result, since the encoder-only arms carry the t2v sequence
+length; `bench/preflight_graph.py` prices that before anything renders.
+
+**What changes depending on the answer.** If identity survives without the
+rows, every reference graph has a cheaper arm and the reference-sizing
+knobs (`docs/h3_references.md`, "Sizing a reference image") stop being the
+only lever on cost. If it does not, the encoder pathway is a label and the
+rows are the reference, which settles a question the conditioning notes
+have left open in prose.
+
+**Blocker.** Card time only, queued behind the ladder in
+`docs/wiki/next_steps.md`. Needs a server started after core commit
+`1aec3a13` and after 0.99.33; an older one rejects the encoder-only arms at
+validation.

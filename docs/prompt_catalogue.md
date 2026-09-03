@@ -9,8 +9,8 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
 | [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 18 | 281 | 3 | 2 | `<d>` |
+| [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 16 | 173 | 1 | 0 | — |
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 11 | 135 | 1 | 0 | — |
-| [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 11 | 173 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 5 | 264 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 3 | 573 | 3 | 2 | `<d>` |
@@ -78,6 +78,56 @@ non_diegetic_music:
 N/A
 ```
 
+## ref2va_role_character_garment_environment
+
+Carried by **16** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_probe_capture_ref3_api`
+- `h3_probe_capture_ref3_fl2va_api`
+- `h3_probe_ref_pathway_fl2va_encoder_api`
+- `h3_probe_ref_pathway_native_both_api`
+- `h3_probe_ref_pathway_native_encoder_api`
+- `h3_probe_ref_pathway_typed_both_api`
+- `h3_probe_ref_pathway_typed_encoder_api`
+- `h3_probe_ref_turbo768p_fl2va_api`
+- `h3_probe_ref_turbo768p_hybrid_adaln_all_api`
+- `h3_probe_ref_turbo768p_hybrid_b30_api`
+- `h3_probe_ref_turbo768p_ref2va_api`
+- `h3_probe_ref_vae_encoder_fp16_api`
+- `h3_probe_ref_vae_encoder_fp32_api`
+- `h3_probe_refview_a_source_api`
+- `h3_probe_refview_b_qwen2048_api`
+- `h3_probe_refview_c_parity_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.
+<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.
+<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
 ## ref2va_role_character_environment
 
 Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
@@ -113,51 +163,6 @@ retention_analysis:
 detailed_description:
 The target video is in a cinematic live-action style.
 [Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
-
-overall_soundscape:
-Natural ambient atmosphere continues throughout the shot.
-
-non_diegetic_music:
-N/A
-```
-
-## ref2va_role_character_garment_environment
-
-Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_probe_capture_ref3_api`
-- `h3_probe_capture_ref3_fl2va_api`
-- `h3_probe_ref_turbo768p_fl2va_api`
-- `h3_probe_ref_turbo768p_hybrid_adaln_all_api`
-- `h3_probe_ref_turbo768p_hybrid_b30_api`
-- `h3_probe_ref_turbo768p_ref2va_api`
-- `h3_probe_ref_vae_encoder_fp16_api`
-- `h3_probe_ref_vae_encoder_fp32_api`
-- `h3_probe_refview_a_source_api`
-- `h3_probe_refview_b_qwen2048_api`
-- `h3_probe_refview_c_parity_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.
-<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.
-<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
 
 overall_soundscape:
 Natural ambient atmosphere continues throughout the shot.

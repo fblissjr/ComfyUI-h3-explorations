@@ -1,0 +1,29 @@
+{
+  "what": "Reference pathway ablation: which of the two reference pathways carries what. Since ComfyUI PR 16065 (core commit 1aec3a13, merged 2026-09-03) and this pack's 0.99.33, a reference conditioner with no VAE wired presents every reference to Qwen3-VL exactly as before (same label, same vision block, same modality tag on its text span) and adds no reference-latent rows to the DiT. Five arms from one base graph, the capture stills, one prompt: our conditioner with both pathways (typed_both) and encoder only (typed_encoder); core's MiniMaxH3ReferenceToVideo with both (native_both) and encoder only (native_encoder); our conditioner on the fl2va checkpoint, encoder only (fl2va_encoder).",
+  "generated_by": "workflows/build_workflows.py (the h3_probe_ref_pathway_* family); regenerate there, never edit the graphs",
+  "arms": {
+    "typed_both": "workflows/h3_probe_ref_pathway_typed_both_api.json",
+    "typed_encoder": "workflows/h3_probe_ref_pathway_typed_encoder_api.json",
+    "native_both": "workflows/h3_probe_ref_pathway_native_both_api.json",
+    "native_encoder": "workflows/h3_probe_ref_pathway_native_encoder_api.json",
+    "fl2va_encoder": "workflows/h3_probe_ref_pathway_fl2va_encoder_api.json"
+  },
+  "patches": [],
+  "pairs_that_are_controlled": {
+    "typed_both vs typed_encoder": "same node, same stills, same Qwen view, same seed; the only difference is whether reference-latent rows reach the DiT. The primary question.",
+    "native_both vs native_encoder": "the same ablation on core's node; if the two families disagree about the size of the effect, the sizing difference below is the first suspect",
+    "typed_encoder vs native_encoder": "no VAE view exists on either, so the two conditioners differ only in the Qwen view they present (ours: a separate view at qwen_short_edge; core: the match-sized still). The A/B of our conditioner against core's on the pathway both implement identically.",
+    "fl2va_encoder vs typed_encoder": "the same encoder-only stills on the partition that never saw a reference row; three pictures and no keyframe is off fl2va's trained structure, so read it as a bound"
+  },
+  "pairs_that_are_not_controlled": {
+    "typed_both vs native_both": "core sizes each still by ref_image_size=match and feeds one tensor to both consumers; ours sizes by size_policy=max with a separate Qwen view. Two differences at once; do not read it as a node comparison"
+  },
+  "how_to_patch_rows": {
+    "stills": "the three LoadImage nodes are ids 15, 16 and 34 in every arm; patch the same file into all five arms: --set typed_both:15.image=<file> and likewise for every other arm and for 16 and 34",
+    "prompt": "node 5 input `prompt` in every arm (MiniMaxH3ReferenceConditioning in the typed and fl2va arms, MiniMaxH3ReferenceToVideo in the native arms); the prompt must name exactly the Pictures the graph wires (check_ref_prompt_labels)",
+    "seeds": "--seed N --runs K gives every arm the same K seeds, which is what blind_batch.py pairs on"
+  },
+  "run": "python bench/run_graph_arms.py --manifest bench/ref_pathway_arms.json --seed <base> --runs <K> --warmup typed_both --out bench/results/<date>_ref_pathway_arms.jsonl; then bench/blind_batch.py on that JSONL with --pairs typed_both,typed_encoder --pairs native_both,native_encoder --pairs typed_encoder,native_encoder --pairs typed_encoder,fl2va_encoder",
+  "what_to_look_for": "identity of the performer, the jersey's print, and the loft's layout in the encoder-only arms against their both-pathway controls; the owner's free-text notes per pair, then bench/score_session.py. A wall time per arm is also a result: the encoder-only arms carry no reference rows, so their step time should sit at the t2v graph's, and bench/preflight_graph.py prices the rows statically before anything renders.",
+  "requires": "a ComfyUI server started after core commit 1aec3a13 and after this pack's 0.99.33; an older server rejects every encoder-only arm with a missing-required-input error on `vae`"
+}

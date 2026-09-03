@@ -401,12 +401,14 @@
         {
           "name": "vae",
           "type": "VAE",
-          "link": 4
+          "link": 4,
+          "shape": 7
         },
         {
           "name": "audio_vae",
           "type": "VAE",
-          "link": 5
+          "link": 5,
+          "shape": 7
         },
         {
           "name": "references",
