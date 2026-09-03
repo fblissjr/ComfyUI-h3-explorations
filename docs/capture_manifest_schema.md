@@ -292,6 +292,21 @@ New keys, all required from 1.5.0 and checked by
   that needs sink ranges must derive them from geometry, and the tau arm in
   `bench/measure_sol_exact_variants.py` says so.
 
+Three checker holes closed the same day, on Codex's second review: the
+recorded `captured_tensors[].sha256` is recomputed under `--verify-hashes`
+and the checker says on every run whether it was; `prompt_sha256` must be
+the hash of `full_prompt_text` and `bank_id` the entry that text identifies
+as; and the generator refuses a directory whose records carry more than one
+server stamp, or a mix of stamped and unstamped records, with each tensor
+carrying its `server_pid` so the checker can see it too. Two labels now say
+their source: `weight_quantization_source` and `vae_quantization_source`
+are `filename`, and `token_accounting.method` says text is the remainder,
+which proves the total and not the text/audio split -- `segments_recorded`
+says whether the records carry the table that would. The server stamp
+carries the parsed ComfyUI namespace (effective settings, not only argv)
+and the sageattention build identity, since Sage determines the dense
+trajectory.
+
 And one assertion that inherited a third case: `references` may be empty,
 but only when `token_accounting.reference_tokens` is zero. A text-to-video
 capture has no references and that is a state, not a defect.

@@ -7,7 +7,8 @@
 to exercise a named part of the guides' structure: a mode, a frame count, a
 camera motion, a speech shape, a marker, a reference task type. They are
 conformant drafts to start from and probe prompts for the audit list; nothing
-about them is attested. **None has been rendered**, and a mechanical pass says
+about them is attested. **An entry the generator ships (the `ships` column) has
+rendered as its graphs have, since 2026-09-03; the rest have not**, and a mechanical pass says
 nothing about whether register, density or pacing land the way the vendor's
 own five worked examples do. The manifest `prompt_bank/bank.json` names each
 prompt's mode, frame count and, for ref2va, the shipped donor graph whose

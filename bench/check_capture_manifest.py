@@ -7,12 +7,15 @@ and tensor checksum integrity per docs/capture_manifest_schema.md.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _paths  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workflows"))
+import prompts as _prompts  # noqa: E402
 
 
 REQUIRED_TOP_KEYS = {
@@ -268,6 +271,16 @@ def check_manifest(manifest_path: Path):
         for k in ("bank_id", "prompt_sha256"):
             assert k in data["prompt"], f"Missing prompt key {k!r} (required from schema 1.5.0)"
         assert data["prompt"]["prompt_sha256"], "prompt_sha256 must be set from schema 1.5.0"
+        # The hash must be OF the text beside it, and the bank id must be the
+        # entry that text is -- required-nonempty was a hole Codex found on
+        # 2026-09-03: a stale hash or a wrong id would have passed.
+        want = hashlib.sha256(data["prompt"]["full_prompt_text"].rstrip().encode("utf-8")).hexdigest()
+        assert data["prompt"]["prompt_sha256"] == want, (
+            "prompt_sha256 is not the sha256 of full_prompt_text (rstripped)")
+        assert data["prompt"]["bank_id"] == _prompts.identify(data["prompt"]["full_prompt_text"]), (
+            f"bank_id {data['prompt']['bank_id']!r} is not the bank entry full_prompt_text identifies as")
+        assert data["provenance"]["server"] is None or isinstance(data["provenance"]["server"], dict), (
+            "provenance.server must be null or the server stamp dict")
         for k in ("workflow_sha256", "graph_sha256"):
             assert k in data["workload"], f"Missing workload key {k!r} (required from schema 1.5.0)"
         assert data["workload"].get("task") in ("t2va", "i2va", "fl2va", "l2va", "ref2va"), (
@@ -287,18 +300,43 @@ def check_manifest(manifest_path: Path):
     # Captured Tensors Integrity
     tensors = data["captured_tensors"]
     assert len(tensors) > 0, "Manifest lists 0 captured tensors"
+    pids = {t.get("server_pid") for t in tensors}
+    assert len(pids) == 1, (
+        f"captured tensors came from {len(pids)} distinct server processes ({sorted(map(str, pids))}); "
+        f"one capture must be one process")
     cap_dir = manifest_path.parent
     for t in tensors:
         assert "filename" in t and "sha256" in t and "shape" in t and "dtype" in t
         pt_file = cap_dir / t["filename"]
         assert pt_file.is_file(), f"Tensor file listed in manifest missing on disk: {pt_file}"
         assert pt_file.stat().st_size == t["size_bytes"], f"File size mismatch for {pt_file}"
+        if VERIFY_HASHES:
+            got = _sha256_file(pt_file)
+            assert got == t["sha256"], f"sha256 mismatch for {pt_file.name}: manifest {t['sha256'][:12]}, file {got[:12]}"
         assert t["shape"][2] == tokens["total_sequence_length"], (
             f"Tensor shape sequence dimension {t['shape'][2]} does not match total_sequence_length {tokens['total_sequence_length']}"
         )
 
 
+VERIFY_HASHES = False
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(8 * 1024 * 1024):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main():
+    global VERIFY_HASHES
+    VERIFY_HASHES = "--verify-hashes" in sys.argv[1:]
+    # Say which it was, so a green is distinguishable: without the flag the
+    # recorded sha256 is never recomputed (Codex, 2026-09-03), and the fast
+    # path checks existence, size and sequence shape only.
+    print("  note  tensor sha256 " + ("recomputed for every file (--verify-hashes)" if VERIFY_HASHES
+                                      else "NOT recomputed; pass --verify-hashes to read every tensor file"))
     capture_base = _paths.capture_root()
     if capture_base is None or not capture_base.is_dir():
         print("  skip  no capture collection: set H3_CAPTURE_ROOT")

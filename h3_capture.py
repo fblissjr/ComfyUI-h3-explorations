@@ -347,6 +347,31 @@ def _server_stamp() -> dict:
         out["comfy_kitchen"] = _md.version("comfy_kitchen")
     except Exception:                                  # noqa: BLE001 -- absent is a value here
         pass
+    # EFFECTIVE settings, not only argv: the parsed ComfyUI namespace, every
+    # JSON-safe scalar of it, so `--fast fp16_accumulation` and the dtype
+    # forcings are read as the process resolved them.
+    try:
+        from comfy.cli_args import args as _args
+        out["comfy_args"] = {k: v for k, v in sorted(vars(_args).items())
+                             if isinstance(v, (bool, int, float, str, type(None)))}
+        fast = getattr(_args, "fast", None)
+        out["comfy_args"]["fast"] = sorted(str(x) for x in fast) if fast else fast
+    except Exception as exc:                           # noqa: BLE001
+        out["comfy_args"] = {"error": str(exc)}
+    # Sage decides the dense trajectory a capture holds, so its build identity
+    # goes in: version, the file it imports from, and that tree's git head
+    # when it is a checkout (this box runs an editable fork).
+    try:
+        import subprocess
+        import sageattention as _sa
+        import importlib.metadata as _md
+        path = os.path.dirname(os.path.abspath(_sa.__file__))
+        head = subprocess.run(["git", "-C", path, "rev-parse", "--short=12", "HEAD"],
+                              capture_output=True, text=True, timeout=5)
+        out["sageattention"] = {"version": _md.version("sageattention"), "path": path,
+                                "git_head": head.stdout.strip() if head.returncode == 0 else None}
+    except Exception as exc:                           # noqa: BLE001
+        out["sageattention"] = {"error": str(exc)}
     return out
 
 

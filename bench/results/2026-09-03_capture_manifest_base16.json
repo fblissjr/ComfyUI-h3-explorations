@@ -1,8 +1,8 @@
 {
   "schema_version": "1.5.0",
-  "timestamp": "2026-09-03T16:44:56.014135+00:00",
+  "timestamp": "2026-09-03T16:56:25.452304+00:00",
   "provenance": {
-    "git_commit": "c911d5542cfd1ba77e9d484a2afb83f887a7b57b",
+    "git_commit": "7a0b30393db438676def5ef3a838b8eb769adcd3",
     "gpu_device": "NVIDIA GeForce RTX 4090",
     "gpu_power_limit_watts": 450.0,
     "driver_version": "610.57.04",
@@ -38,7 +38,9 @@
         "clip": "bc2ced0fbea64757fa9acddccfc0b3f4819d1dcf1da6c124d690d368be283923",
         "video_vae": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522",
         "audio_vae": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
-      }
+      },
+      "weight_quantization_source": "filename",
+      "vae_quantization_source": "filename"
     },
     "sampling": {
       "sampler_name": "er_sde",
@@ -74,7 +76,15 @@
     "video_tokens": 102816,
     "text_tokens": 395,
     "reference_tokens": 0,
-    "audio_tokens": 1150
+    "audio_tokens": 1150,
+    "method": {
+      "total": "captured tensors' sequence length",
+      "video": "canvas x latent frames",
+      "audio": "core temporal_shape helper, as preflight",
+      "reference": "sum of reference latent rows",
+      "text": "remainder"
+    },
+    "segments_recorded": false
   },
   "captured_tensors": [
     {
@@ -85,6 +95,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -103,6 +114,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -121,6 +133,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -139,6 +152,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -157,6 +171,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -175,6 +190,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -193,6 +209,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -211,6 +228,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -229,6 +247,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -247,6 +266,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -265,6 +285,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -283,6 +304,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -301,6 +323,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -319,6 +342,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -337,6 +361,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -355,6 +380,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -373,6 +399,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -391,6 +418,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -409,6 +437,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -427,6 +456,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -445,6 +475,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -463,6 +494,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -481,6 +513,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -499,6 +532,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,
@@ -517,6 +551,7 @@
       "kernel": "sage",
       "render": 0,
       "segments": null,
+      "server_pid": null,
       "shape": [
         1,
         56,

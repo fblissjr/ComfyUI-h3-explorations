@@ -669,6 +669,7 @@ def main():
 
     # Scan captured tensors
     captured_tensors = []
+    stamps = []
     for pt in pt_files:
         pt_path = Path(pt)
         size_bytes = pt_path.stat().st_size
@@ -696,11 +697,21 @@ def main():
             "kernel": meta.get("kernel"),
             "render": meta.get("render"),
             "segments": meta.get("segments"),
+            "server_pid": (meta.get("server") or {}).get("pid"),
             "shape": shape,
             "dtype": dtype_str,
             "size_bytes": size_bytes,
             "sha256": f_hash,
         })
+        stamps.append(json.dumps(meta.get("server"), sort_keys=True))
+    # One capture is one process. Mixed stamps (two servers wrote into one
+    # directory) or a mix of stamped and unstamped records are refused rather
+    # than described by whichever file sorted first.
+    distinct = sorted(set(stamps))
+    if len(distinct) > 1:
+        sys.exit(f"refusing to write a manifest: {len(distinct)} distinct server stamps across the records "
+                 f"(mixed processes, or stamped and unstamped records together)")
+    server_stamp = json.loads(distinct[0]) if distinct else None
 
     # Query system environment
     torch_ver = torch.__version__
@@ -746,7 +757,7 @@ def main():
             # it (records from 2026-09-03 on); null for older captures, whose
             # launch flags -- `--fast fp16_accumulation` changes numerics --
             # are known only from the log of the day.
-            "server": next((_record_meta(Path(pt)).get("server") for pt in pt_files[:1]), None),
+            "server": server_stamp,
         },
         "workload": {
             # Repo-relative when it is inside the repo. When it is not -- a
@@ -763,7 +774,11 @@ def main():
             "workflow_sha256": sha256_file(wf_path) if wf_path.is_file() else None,
             "graph_sha256": graph_sha256(wf) if wf else None,
             "canvas": canvas,
-            "models": models,
+            "models": {**models,
+                       # both labels are read off the FILENAME; the sha256
+                       # identifies the artifact, the label does not verify it
+                       "weight_quantization_source": "filename",
+                       "vae_quantization_source": "filename"},
             "sampling": sampling,
             "attention": attention,
             # Named, not inferred. A reader can tell a field nobody derived
@@ -787,6 +802,16 @@ def main():
             "text_tokens": text_tokens,
             "reference_tokens": ref_tokens,
             "audio_tokens": audio_tokens,
+            # how each figure was obtained; text is the REMAINDER, which
+            # proves the total and not the text/audio split -- only a
+            # recorded segment table proves that, and `segments_recorded`
+            # says whether the records carry one
+            "method": {"total": "captured tensors' sequence length",
+                       "video": "canvas x latent frames",
+                       "audio": "core temporal_shape helper, as preflight",
+                       "reference": "sum of reference latent rows",
+                       "text": "remainder"},
+            "segments_recorded": any(t.get("segments") for t in captured_tensors),
         },
         "captured_tensors": captured_tensors,
     }

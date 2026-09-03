@@ -48,6 +48,12 @@ artifact.
   (text is the remainder; `segments_recorded` says whether the split is
   proven), and the capture writer's server stamp carries the parsed
   ComfyUI namespace and the sageattention build identity.
+- **`bench/check_capture_manifest_controls.py`**: the seven red controls for
+  the contract, on megabyte fixtures driving the real generator and
+  checker -- one stamp and all-null legacy pass; mixed stamps, a stamped
+  record beside a legacy one, a flipped tensor byte, edited prompt text
+  and a wrong bank id are refused. Green means every violation was
+  caught, not that nothing was tried.
 - **The Base16 capture has provenance now**:
   `bench/results/2026-09-03_capture_manifest_base16.json` (the manifest,
   names only) and `2026-09-03_capture_inventory_base16.json` (the

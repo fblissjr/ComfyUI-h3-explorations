@@ -288,16 +288,22 @@ do not exist; producing and grading that pair is the remaining bake work. See
 ## Addendum, later on 2026-09-03: the dense-trajectory control was run and graded
 
 The capture in section 5 rendered as specified (25 cells, retained outside
-the repo, not yet inventoried) and was replayed through both exact-branch
-variants with `bench/measure_sol_exact_variants.py --capture`. Records:
+the repo; inventoried and given a manifest later the same day,
+`bench/results/2026-09-03_capture_{inventory,manifest}_base16.json`) and was
+replayed through both exact-branch variants with
+`bench/measure_sol_exact_variants.py --capture`. Records:
 [`2026-09-03_sol_exact_base16_capture_d25f2e8.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_d25f2e8.json)
 (installed, block-max P) and
 [`2026-09-03_sol_exact_base16_capture_24908e1.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_24908e1.json)
 (upstream running-max P). Direction: with every block routed the block-max
 build is several times closer to fp32 on every cell, a larger gap than PR
-#150's own capture reports; at the shipped tau the gap is small because
-routing dominates. Block 49's all-routed error is far above every other
-block's on both builds, so it is quantisation rather than sparsity. The Sage
+#150's own capture reports; at tau 1.0 WITHOUT sink ranges (the
+`tau_1.0_no_sinks` arm, an unsunk diagnostic -- this sentence first said
+"the shipped tau", withdrawn below) the gap is small because routing
+dominates. ~~Block 49's all-routed error is far above every other block's on
+both builds, so it is quantisation rather than sparsity.~~ **Withdrawn the
+same day, in place** (Codex's review): true only on the block-max build and
+only under the whole-tensor metric, and the reasons are below. The Sage
 modes were graded on the same cells with `bench/grade_sage_on_capture.py`
 ([`2026-09-03_sage_on_base16_capture.json`](../../bench/results/2026-09-03_sage_on_base16_capture.json)),
 which is the Sol-versus-fallback comparison section 6 asks for, on five
