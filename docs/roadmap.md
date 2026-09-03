@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-25.
+Last updated: 2026-09-03.
 
 ## What this is, and who it is for
 
@@ -25,6 +25,76 @@ Two companion documents, and the split matters:
 `docs/evidence.md` is the ledger of things measured that **should not be
 relied on**. This file is the forward-looking one: what we are doing next and
 what would make it a real answer.
+
+## Current forward plan — 2026-09-03
+
+**The goal, in the owner's words:** personal experiments, shared with the
+community, to find the best quality and performance this box can render.
+Operationally: how much time Sol, Sage and PDD can take out of an H3 render
+before the result visibly degrades, per scene, measured from the TRUE
+baseline, with the owner's blind judgment as the top-level measure and the
+numeric proxies reported beside it so we learn which proxies predict it.
+The plan below replaces the 2026-08-24 one, whose encoder lane closed on
+2026-08-27.
+
+**What 2026-09-03 established** (records under `bench/results/` with that
+date prefix; `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md`
+is the design and correction record):
+
+- kijai's block-max exact branch, the one the installed comfy-kitchen
+  build carries, is the right numerical direction: on real Base16
+  activations it is far closer to exact than the running-max branch and
+  closer than the shipped Sage fallback, where random inputs had shown a
+  wash. Sol's exact-stage arithmetic is therefore not a reason to make a
+  block dense.
+- The baseline is now the render you would otherwise make:
+  `workflows/bench/h3_text_to_video_dense_stamped_api.json`, stock
+  attention, no LoRA, and it proves it is one. Every earlier "dense
+  baseline" number was Sage alone.
+- Provenance is trustworthy from prompt to clip: one home for prompt text
+  (`prompt_bank/`), the render's identity in every record, a capture
+  manifest that says what ran and is checked by controls that can go red.
+
+**What is NOT established, and must not be quoted as if it were:** whether
+routing dominates at the shipped call (its sink ranges were not in the
+capture); any dense-block set; whether a smaller kernel error is visible;
+anything beyond the one scene the retained capture holds.
+
+**The emerging architecture, as a hypothesis to test rather than a
+setting to ship:** the middle of the trajectory on Sol with tuned routing;
+the outer steps on Sage, possibly its fp16 mode; exceptional blocks at a
+lower tau or handed to Sage; PDD on a baked checkpoint with its own legal
+schedule. Per-block tau and a Sage fallback are rungs of one cost-quality
+ladder per block, not alternatives.
+
+**The sequence, each step earning the next:**
+
+1. **The online Sol-versus-Sage instrument**, from the `sol_block_probe.py`
+   scaffold: `trajectory=sol` returns Sol's output and computes Sage as the
+   counterfactual on identical q/k/v, all 50 blocks, summaries only, no
+   tensor dump, environment-gated with a zero-cost unarmed path. Validated
+   against the retained Base16 capture (its retention note says so) before
+   any new render. Its per-cell record is specified in the scaffold's
+   docstring.
+2. **Canonical Base16 FL2VA** at the trained canvas with production sink
+   ranges and the empty `dense_blocks`: the first measurement of the
+   shipped call. Then **legal PDD8 FL2VA** by the node's own sigmas, then
+   **Ref2VA**; three populations, never pooled.
+3. **A tau ladder per suspicious block**, plus the Sage fallback, on the
+   direct Sol-versus-Sage delta and route cost together; one measurement
+   ranks blocks, it does not choose their tau.
+4. **Sage fp16 on the outer steps** as a plain render arm.
+5. **Per-head routing** only if the shipped call shows a few heads carrying
+   the error; that is kernel work, not a graph knob.
+6. **The PDD bake**, independently, then granular PDD strength.
+7. **A compact multi-scene blind ladder with clean timing**, base and PDD
+   ladders kept apart, scenes from the bank chosen for their failure
+   surfaces (a figure at distance, on-screen text, fast motion, quiet
+   speech over music). This is where the numbers meet what the owner sees.
+
+**What would count as finding it:** a setting that survives step 7 on more
+than one scene and seed, with its cost measured in a clean process, and
+its record naming the prompt, seed, canvas, length and build.
 
 ## Current forward plan — 2026-08-24
 

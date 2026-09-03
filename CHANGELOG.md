@@ -6,6 +6,17 @@ artifact.
 
 ## 0.99.29
 
+### Added
+
+- **`docs/roadmap.md` has a 2026-09-03 forward plan**: the goal in the
+  owner's words, what the day established and what it did not, the
+  emerging architecture as a hypothesis, the seven-step sequence agreed
+  with Codex, and what would count as finding it. The 2026-08-24 plan it
+  replaces described an encoder lane that closed on 2026-08-27.
+  `sol_block_probe.py`'s docstring carries the online instrument's full
+  per-cell specification and its required controls, so the scaffold and
+  the spec cannot drift apart.
+
 ### Corrected
 
 - **Three overclaims in 0.99.27, on Codex's review, withdrawn in place

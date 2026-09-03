@@ -75,6 +75,58 @@ CLAUDE.md's one rule that matters. `node_id` is baked into every saved graph's
 `type` field and inputs are matched positionally. **Append only.** No shipped
 graph should ever wire this -- it is a diagnostic that roughly doubles render
 cost, since every call is computed twice.
+
+## Specification as of 2026-09-03 (Codex's, adopted by the owner)
+
+Two modes, explicit record fields `trajectory` and `returned_backend`:
+`trajectory=sol` computes Sol and Sage on identical q/k/v and RETURNS SOL
+(the production population; upstream Sol error in later inputs is
+intentional); `trajectory=sage` computes both and RETURNS SAGE (the
+fallback trajectory, which is what a dense block runs; never call it
+"dense exact"). The two renders' cells are never aggregated. The retained
+2026-09-03 Base16 capture is the validation fixture: the instrument's
+summaries must reproduce its cells within a stated tolerance before a new
+render is trusted.
+
+Per measured cell, record: identity (capture id, prompt id, render index,
+schedule occurrence and index, sigma, schedule length, block, actual
+route, compare status and reason); shape and layout (B/H/T/D and the
+authoritative `PackedLayout.segments`, published by a neutral helper that
+Sol or `h3_capture.py` can arm -- not derived from geometry);
+configuration (tau or top-k, tail, resolved sink and sink-query ranges,
+ordering, window, min_tokens, dense_blocks, requested Sage mode, the Sage
+kernel actually dispatched, both kernel build ids); cost (blk_cnt, kernel
+density, pair-weighted density, with their different denominators kept);
+Sol-versus-the-actual-shipped-Sage error on identical q/k/v (whole-call
+relative L2 and cosine; absolute-difference RMS and reference RMS; per-head
+numerator, denominator, relative L2 and cosine; per-segment aggregates;
+per-head and per-segment row-distribution summaries: count, mean, p50,
+p90, p99, max). A zero denominator yields null with numerator and
+denominator retained.
+
+Behaviour: compare only calls that routed through Sol, recording skip
+reasons elsewhere; confirm the counterfactual is the configured Sage auto
+kernel on this box, not generic dense attention; write no q/k/v; join to
+`sol_observe` by capture id, prompt, schedule occurrence and block; treat
+the render's timing as void; unarmed, add no allocation, kernel call, copy
+or synchronisation beyond the branch. Memory: do not clone production
+q/k/v blindly; if the Sage counterfactual is head-chunked, first prove on
+the fixture that it matches the 56-head call within a stated tolerance.
+
+Controls before trusting a record: armed and unarmed outputs bitwise equal
+to canonical Sol; unarmed produces no records and no extra Sage call;
+Sage dispatch telemetry observed, a stock-attention substitution fails;
+identical and deliberately perturbed fixtures validate every metric;
+metrics reproduce the retained capture's cells; completeness -- every
+expected active schedule occurrence x blocks 0-49 exactly once; segments
+contiguous over [0, T), wrong or shuffled boundaries fail; duplicate or
+missing blocks, mixed prompt ids, NaN/Inf and wrong schedule populations
+fail; PDD completeness derived from the PDD node's actual SIGMAS, never a
+nominal step count.
+
+The scaffold's original note -- return the DENSE result so a block's error
+cannot compound into later blocks -- is the `trajectory=sage` mode above,
+kept as a named mode rather than the only one.
 """
 
 from __future__ import annotations
