@@ -431,6 +431,7 @@ def render(rows: list[dict]) -> str:
         w("")
         w(f"**{r['mode']}, {r['frames']} frames, {r['duration']:.3f} s"
           + (f", donor `{r['donor']}`" if r.get("donor") else "") + ".** " + r["brief"]
+          + (f" **Tests:** {r['tests']}" if r.get("tests") else "")
           + (f" **Recorded findings:** {r['recorded_findings']}" if r.get("recorded_findings") else "")
           + (f" Ships in: " + ", ".join(f"`{g}`" for g in r["ships"]) + "." if r["ships"] else ""))
         w("")

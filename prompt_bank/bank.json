@@ -118,14 +118,16 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored."
+      "brief": "Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored.",
+      "tests": "fast motion: a fast tracking shot with strong shake and a fast push in; on-screen text; the surface where approximated attention is expected to hurt most."
     },
     {
       "id": "t2va_frontier_standoff",
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored."
+      "brief": "1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored.",
+      "tests": "figures at distance in shot 3 (sixty paces, extreme wide); on-screen sign legible only on shot 1's first beat; two speakers with a silent bystander; scored music. A distance test, not a face test."
     },
     {
       "id": "t2va_orbital_airlock",
@@ -391,7 +393,8 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; the pit orchestra is DIEGETIC (base 4.7: music the characters hear goes in the description) so non_diegetic_music is N/A; moved there 2026-09-03 on review."
+      "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; the pit orchestra is DIEGETIC (base 4.7: music the characters hear goes in the description) so non_diegetic_music is N/A; moved there 2026-09-03 on review.",
+      "tests": "sung vocals with the lyrics pair over a diegetic pit orchestra; the singer is framed FAR from camera (proscenium, then a grand wide from the stalls), so this is also a distant-person test, not a face test -- expect blur and drift on her face regardless of kernel."
     },
     {
       "id": "t2va_punk_basement_gig",
@@ -468,7 +471,8 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored. Speech lines shortened 2026-09-03 on review: both shots were over the guide's speech budget, on the arm whose job is judging speech."
+      "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored. Speech lines shortened 2026-09-03 on review: both shots were over the guide's speech budget, on the arm whose job is judging speech.",
+      "tests": "close-up two-person dialogue over a continuous rain-and-griddle bed with scored music: does each line belong to the right speaker, is it said correctly, does speech survive the bed; shot transitions. Low motion, so faces should look good here -- not comparable to a busy wide scene."
     },
     {
       "id": "t2va_pirate_deck_mutiny",
@@ -545,7 +549,8 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from"
+      "brief": "Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from",
+      "tests": "the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03."
     },
     {
       "id": "t2va_rehearsal_room",
@@ -652,7 +657,8 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "Live-action handheld 35mm; two-person stairwell dialogue, three shots with cuts, S1/S2 tags"
+      "brief": "Live-action handheld 35mm; two-person stairwell dialogue, three shots with cuts, S1/S2 tags",
+      "tests": "the shipped dialogue scene: close-up two-person dialogue in a hard room tone, no music; lines spoken on- and OFF-screen, so attribution and correctness of each line and the look of the cuts are the test. Quiet and close, so it renders well; not apples to apples against a busy scene."
     },
     {
       "id": "ref2va_stairwell_dialogue",

@@ -680,7 +680,7 @@ non_diegetic_music: A brooding orchestral string motif at a slow tempo, driven b
 
 ## t2va_covered_market
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from Ships in: `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_sol_on_api`, `h3_probe_split_base_first_api`, `h3_probe_split_base_last_api`, `h3_probe_square_canvas_api`, `h3_probe_turbo_768p_owner_api`, `h3_probe_turbo_768p_sla_api`, `h3_probe_turbo_768p_sla_dense_api`, `h3_probe_turbo_home_canvas_api`, `h3_probe_vsa_api`, `h3_probe_vsa_dense_api`, `h3_text_to_video_api`, `h3_text_to_video_pdd_4step_api`, `h3_text_to_video_pdd_api`, `h3_text_to_video_pdd_manual_sigmas_api`, `h3_text_to_video_turbo_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld; covered market aisle; the scene every shipped t2v graph carried until 2026-09-03 and the one every real-activation Sol record came from **Tests:** the busy wide scene every shipped t2v graph carried: many small figures, clutter, handheld motion; the scene most speedups were tuned on until 2026-09-03. Ships in: `h3_probe_canvas_portrait_api`, `h3_probe_canvas_ultrawide_api`, `h3_probe_head_chunks_api`, `h3_probe_sol_on_api`, `h3_probe_split_base_first_api`, `h3_probe_split_base_last_api`, `h3_probe_square_canvas_api`, `h3_probe_turbo_768p_owner_api`, `h3_probe_turbo_768p_sla_api`, `h3_probe_turbo_768p_sla_dense_api`, `h3_probe_turbo_home_canvas_api`, `h3_probe_vsa_api`, `h3_probe_vsa_dense_api`, `h3_text_to_video_api`, `h3_text_to_video_pdd_4step_api`, `h3_text_to_video_pdd_api`, `h3_text_to_video_pdd_manual_sigmas_api`, `h3_text_to_video_turbo_api`.
 
 Derived: camera: Truck Left, Static Shot; speakers: S1, S2; languages: English; cuts: the shot cuts to; 240 words in the main field; 1610 characters in all.
 
@@ -778,7 +778,7 @@ non_diegetic_music: N/A
 
 ## t2va_diner_breakup
 
-**t2va, 345 frames, 14.375 s.** 1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored. Speech lines shortened 2026-09-03 on review: both shots were over the guide's speech budget, on the arm whose job is judging speech.
+**t2va, 345 frames, 14.375 s.** 1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored. Speech lines shortened 2026-09-03 on review: both shots were over the guide's speech budget, on the arm whose job is judging speech. **Tests:** close-up two-person dialogue over a continuous rain-and-griddle bed with scored music: does each line belong to the right speaker, is it said correctly, does speech survive the bed; shot transitions. Low motion, so faces should look good here -- not comparable to a busy wide scene.
 
 Derived: camera: Push In, Pull Out, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "BLUE STAR DINER"; 311 words in the main field; 2387 characters in all.
 
@@ -835,7 +835,7 @@ non_diegetic_music: A breezy French New Wave jazz waltz at a slow tempo, led by 
 
 ## t2va_frontier_standoff
 
-**t2va, 345 frames, 14.375 s.** 1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored. Ships in: `h3_text_to_video_dense_stamped_api`, `h3_text_to_video_stamped_api`.
+**t2va, 345 frames, 14.375 s.** 1880s widescreen western; 3 shots; tense standoff dialogue between sheriff and outlaw; on-screen text; silent bystander; pedestal down, zoom in, tilt down, static shot; scored. **Tests:** figures at distance in shot 3 (sixty paces, extreme wide); on-screen sign legible only on shot 1's first beat; two speakers with a silent bystander; scored music. A distance test, not a face test. Ships in: `h3_text_to_video_dense_stamped_api`, `h3_text_to_video_stamped_api`.
 
 Derived: camera: Zoom In, Tilt Down, Pedestal Down, Static Shot; speakers: S1, S2; languages: English; cuts: the camera cuts to, the shot switches to; on-screen text: "BADGER SALOON"; 309 words in the main field; 2340 characters in all.
 
@@ -1063,7 +1063,7 @@ non_diegetic_music: A pulse-pounding 1980s television news theme at a fast tempo
 
 ## t2va_opera_grand_stage
 
-**t2va, 345 frames, 14.375 s.** 19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; the pit orchestra is DIEGETIC (base 4.7: music the characters hear goes in the description) so non_diegetic_music is N/A; moved there 2026-09-03 on review.
+**t2va, 345 frames, 14.375 s.** 19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; the pit orchestra is DIEGETIC (base 4.7: music the characters hear goes in the description) so non_diegetic_music is N/A; moved there 2026-09-03 on review. **Tests:** sung vocals with the lyrics pair over a diegetic pit orchestra; the singer is framed FAR from camera (proscenium, then a grand wide from the stalls), so this is also a distant-person test, not a face test -- expect blur and drift on her face regardless of kernel.
 
 Derived: camera: Zoom In, Pedestal Down, Static Shot; speakers: S1; languages: Italian; cuts: the camera cuts to, the shot transitions to; on-screen text: "TEATRO REALE"; 312 words in the main field; 2333 characters in all.
 
@@ -1360,7 +1360,7 @@ non_diegetic_music: A melancholic muted trumpet melody at a slow tempo, supporte
 
 ## t2va_stairwell_dialogue
 
-**t2va, 345 frames, 14.375 s.** Live-action handheld 35mm; two-person stairwell dialogue, three shots with cuts, S1/S2 tags Ships in: `h3_text_to_video_dialogue_api`.
+**t2va, 345 frames, 14.375 s.** Live-action handheld 35mm; two-person stairwell dialogue, three shots with cuts, S1/S2 tags **Tests:** the shipped dialogue scene: close-up two-person dialogue in a hard room tone, no music; lines spoken on- and OFF-screen, so attribution and correctness of each line and the look of the cuts are the test. Quiet and close, so it renders well; not apples to apples against a busy scene. Ships in: `h3_text_to_video_dialogue_api`.
 
 Derived: camera: Shake Slightly; speakers: S1, S2; languages: English; cuts: the camera cuts to; 197 words in the main field; 1456 characters in all.
 
@@ -1398,7 +1398,7 @@ non_diegetic_music: A thrilling orchestral adventure theme at a fast tempo, driv
 
 ## t2va_subway_chase
 
-**t2va, 345 frames, 14.375 s.** Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored.
+**t2va, 345 frames, 14.375 s.** Modern action thriller; 3 shots; foot pursuit with tactical comms dialogue; on-screen text; silent fleeing suspect; tracking shot, shake strongly, push in, static shot; scored. **Tests:** fast motion: a fast tracking shot with strong shake and a fast push in; on-screen text; the surface where approximated attention is expected to hurt most.
 
 Derived: camera: Push In, Tracking Shot, Static Shot, Shake Strongly; speakers: S1; languages: English; cuts: the camera cuts to, the shot cuts to; on-screen text: "DOWNTOWN PLATFORM"; 242 words in the main field; 2084 characters in all.
 
