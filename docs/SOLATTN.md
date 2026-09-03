@@ -1884,7 +1884,9 @@ the token floor.
   [`docs/roadmap.md`](roadmap.md) for a decision that had already been taken --
   the validated list was copied on 2026-08-26 and the config has carried `0-1`
   since. The PDD arms go further on the owner's reading rather than on a
-  measurement (`SOL_PDD_CUDA`, now `0-2,32`, four of fifty). What is still
+  measurement (`SOL_PDD_CUDA` carried `0-2,32`, four of fifty, from 2026-08-29
+until the owner demoted it to an explicit experiment on 2026-09-02; both
+configs ship empty). What is still
   open is choosing OUR OWN list, which is what needs the retired probe.
 
 ### Record the commit with every measurement

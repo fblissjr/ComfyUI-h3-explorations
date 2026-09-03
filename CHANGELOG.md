@@ -6,6 +6,32 @@ artifact.
 
 ## 0.99.25
 
+### Corrected
+
+- **The PDD bake contract from 2026-09-02 proved "not the base", not "this
+  exact bake", and let a short population define its own size; both are
+  fixed on Codex's 2026-09-03 audit.** The probe now stores `blocks.49.mlp.fc2`'s
+  int8 codes AND fp32 row scales from the ONE checkpoint a file is paired
+  with -- the base for a full sidecar, the exact bake (`--omit-backbone
+  --baked <ckpt>`, now required) for a stripped one -- and `MiniMaxH3PDDLoRA`
+  requires equality on both (`probe_match`, `check_backbone_identity`),
+  refusing a full file on any other checkpoint, a stripped file on the base
+  (named as such) or on any other bake, and a scale-only or codes-only
+  difference by name. The population is asserted against the release's
+  declared depth, `vendor_config.transformer_depth()` from the two
+  `transformer/config.json` files vendored today, as sets of `(block, kind)`
+  in both the converter (`assert_population`, `strip_backbone`) and the node
+  (`check_file_population`, `check_stripped_targets`). Converter version 3;
+  both shipped `_comfy` files regenerated with every prior tensor
+  bit-identical; the two staged stripped files and their `h3_config`
+  constants removed, since none can be cut before a bake exists.
+  `bench/check_pdd_sidecar_contract.py` carries every red control the audit
+  named. Also from the audit: `bench/analyze_pdd_unmerge_curve.py` stamps
+  the source records' measurement date rather than the run date, so a rerun
+  no longer diffs a tracked record, and labels its legacy RTN curve as the
+  hypothetical it is; a stale `docs/SOLATTN.md` sentence said `SOL_PDD_CUDA`
+  is "now `0-2,32`".
+
 ### Added
 
 - **The PDD bake contract, built: stripped sidecars, a backbone probe, and

@@ -143,16 +143,23 @@ directly; older ones are classified by key prefix
 (`h3_pdd.adaln_baked.` against `h3_pdd.adaln.`, which is not a prefix of the
 other and has been read as one before).
 
-**Converter version 2 (2026-09-02) adds the backbone pairing fields.**
-`h3_pdd_backbone` is `full` or `stripped`; `h3_pdd_backbone_strength_baked`
-is the strength a stripped file's bake used, which the node refuses to differ
-from; `h3_pdd_backbone_probe_key`, `_rows` and `_from` say where
-`h3_pdd.backbone_probe` was sliced from. `backbone_modules` now counts the
-modules the FILE carries (208 full, 8 stripped) and
-`backbone_modules_converted` the modules converted. Version-1 files carry none
-of these and load as before; the node logs that a baked checkpoint could not
-be told from the base for them. Both shipped `_comfy` files were regenerated
-at version 2 on 2026-09-02 with every prior tensor bit-identical.
+**Converter version 3 (2026-09-03) carries the backbone identity fields;
+version 2 (2026-09-02) was superseded the next day.** `h3_pdd_backbone` is
+`full` or `stripped`; `h3_pdd_backbone_strength_baked` is the strength a
+stripped file's bake used, which the node refuses to differ from;
+`h3_pdd_backbone_probe_of` says which checkpoint the probe was cut from
+(`base` for a full file, `baked` for a stripped one, and the node refuses the
+other pairing); `h3_pdd_backbone_probe_key`, `_rows`, `_from` and `_sha256`
+say what `h3_pdd.backbone_probe` and `h3_pdd.backbone_probe_scale` are slices
+of; `h3_pdd_baked_checkpoint` names a stripped file's bake. `backbone_modules`
+counts the modules the FILE carries (208 full, 8 stripped) and
+`backbone_modules_converted` the modules converted, both asserted against the
+release's declared depth rather than against the file. Version-1 files carry
+none of these and load as before, with the node logging that a baked
+checkpoint could not be told from the base for them. Version-2 files stored
+codes only and cut a stripped file's probe from the base; the node refuses
+those as incomplete. Both shipped `_comfy` files were regenerated at version 3
+with every prior tensor bit-identical.
 
 **Built 2026-08-29, and it was the first execution of that path.** Every file
 shipped before it was a `--pruned` conversion, so the converter's no-`--pruned`
@@ -2035,9 +2042,9 @@ runs the first arm:
   `--omit-backbone` drops every backbone tensor after the self-checks have run
   on them and asserts the shape of what it removed and what is left;
   `check_stripped_targets` in the node asserts after `load_lora` that no
-  backbone target resolved and the refiner's modules did. Both partitions'
-  stripped files are on disk as `h3_config.PDD_*_STRIPPED_LORA`, wired by no
-  graph until a baked checkpoint exists. **It loads on the current node
+  backbone target resolved and the release's refiner modules did. No stripped
+  file is on disk: one is cut against its exact bake (`--baked`), and no bake
+  exists yet. **It loads on the current node
   as-is; what it lacked was an assertion, not a relocated guard.** This
   bullet was corrected twice on 2026-09-02, in opposite directions, and only
   the second traced the code. The first said the node's "matched no module"
@@ -2070,31 +2077,50 @@ runs the first arm:
   that already has several, and it fails open if the marker is ever absent.
   **Rejected** for that last reason.
 
-**Pairing is by content, not by name.** Every file from converter version 2
-carries `h3_pdd.backbone_probe`, 64 rows of `blocks.49.mlp.fc2.weight` as
-stored in the int8 checkpoint the file loads on -- `fc2` of block 49 because
-it carries the largest single update in the file, so a bake moves it furthest.
-The node compares it with the loaded module before anything is patched
-(`backbone_probe_distance`, `check_backbone_pairing`): the same int8 file is
-exactly 0.0 away and a bake of it about 0.044, with the tolerance an order of
-magnitude from each. A full sidecar whose checkpoint is not its base is
-refused (the backbone would go on twice), a stripped sidecar whose checkpoint
-IS its base is refused (it would never go on), and a checkpoint whose probed
-module is not int8 in the probe's shape is undecidable -- refused for a
-stripped file, which has nothing to fall back on, and loaded with a warning
-for a full one. The same probe from the pruned and unpruned builds is
-asserted bit-identical at conversion, which is the "pruning touches only
-adaln" premise made checkable. [`../bench/check_pdd_sidecar_contract.py`](../bench/check_pdd_sidecar_contract.py)
-grades every refusal on synthetic inputs and the real artifacts.
+**Pairing is by IDENTITY, not by name and not by distance.** Every file from
+converter version 3 carries `h3_pdd.backbone_probe` and
+`h3_pdd.backbone_probe_scale`: 64 rows of `blocks.49.mlp.fc2.weight`'s int8
+codes AND its fp32 per-row scale, as stored in the ONE checkpoint the file is
+paired with -- the base for a full sidecar, the exact baked checkpoint
+(`--omit-backbone --baked <ckpt>`) for a stripped one. `fc2` of block 49
+because it carries the largest single update in the file. The node requires
+the loaded module to EQUAL both slices before anything is patched
+(`probe_match`, `check_backbone_identity` in [`../pdd_lora.py`](../pdd_lora.py)):
+a full sidecar on anything but its base is refused (the backbone would go on
+twice); a stripped sidecar on anything but its own bake is refused, and the
+message says whether that was the unbaked base (it also carries the base's
+slices) or some other checkpoint (another strength, another LoRA); a module
+that is not an int8 quantised weight in the probe's shape is undecidable --
+refused for a stripped file, loaded with a warning for a full one.
 
-**What does NOT exist yet is the baked checkpoint.** The stripped files have
-nothing to load on until the bake script in the 2026-08-31 handoff's step 2
-is written, and the node's stripped path has not run end to end -- the
-functions above are the whole of the decision and `execute` only routes their
-inputs, but that routing is unexercised. `unmerged_blocks` needs none of this,
-which is a real advantage of it that the fidelity table above does not show:
-it is a knob on the shipped artifacts, so it costs a render and no provenance
-surface.
+**Version 2, one day earlier, got two things wrong, and Codex's 2026-09-03
+audit found both.** It compared codes only, so a scale-only change -- which
+moves the arithmetic while leaving the codes alone -- escaped; and on a
+stripped file it accepted ANY distance above a tolerance, which proved "not
+the base" and admitted every wrong bake. It also derived its population from
+the input: the converter took the block count from the source's maximum index
+and the strip's expected shape from what the loops wrote, and the node
+counted the file's refiner modules and called that the expectation, so a
+coherent 49-block source or a seven-module refiner defined its own size. Both
+now assert against `vendor_config.transformer_depth()`, the release's own
+`transformer/config.json` vendored on 2026-09-03, times the four backbone
+kinds -- as SETS of `(block, kind)`, because a count cannot see one block
+missing and one stray block present at once. The same probe from the pruned
+and unpruned builds is asserted bit-identical on both slices at conversion,
+which is the "pruning touches only adaln" premise made checkable.
+[`../bench/check_pdd_sidecar_contract.py`](../bench/check_pdd_sidecar_contract.py)
+grades every refusal above, including each red control the audit named, on
+synthetic inputs and on the real artifacts.
+
+**What does NOT exist yet is the baked checkpoint, and so no stripped sidecar
+exists either.** A stripped file cannot be cut without its bake, and the two
+staged on 2026-09-02 under the earlier contract were deleted on 2026-09-03.
+The bake producer emits the pair; until then the node's stripped path has not
+run end to end -- the functions above are the whole of the decision and
+`execute` only routes their inputs, but that routing is unexercised.
+`unmerged_blocks` needs none of this, which is a real advantage of it that
+the fidelity table above does not show: it is a knob on the shipped
+artifacts, so it costs a render and no provenance surface.
 
 **It is not the memory trade this document first said it was, and the
 correction runs in the knob's favour.** The first version of this section

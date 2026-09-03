@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import ast
 import collections
-import datetime as _dt
 import json
 import statistics
 from pathlib import Path
@@ -67,6 +66,11 @@ def runtime_unmerged_kinds() -> tuple[str, ...]:
 def main() -> int:
     src = json.loads(SRC.read_text())
     stoch_src = json.loads(STOCH_SRC.read_text())
+    if src.get("measured") != stoch_src.get("measured"):
+        raise SystemExit(
+            f"the two source records were measured on different days "
+            f"({src.get('measured')} / {stoch_src.get('measured')}); say which "
+            f"this aggregation is dated to before joining them")
     mods = src["modules"]
     if not mods:
         raise SystemExit(f"{SRC.name} carries no modules")
@@ -205,7 +209,11 @@ def main() -> int:
         - c["n_blocks"] / len(blocks) for c in actual_curve)
 
     record = {
-        "measured": _dt.date.today().isoformat(),
+        # The date of the MEASUREMENTS this aggregates, read off the source
+        # records, never the date of the run: this file is deterministic, and
+        # stamping today's date made every rerun a spurious diff on a tracked
+        # record (Codex, 2026-09-03).
+        "measured": src["measured"],
         "produced_by": "bench/analyze_pdd_unmerge_curve.py",
         "what": ("aggregation of the all-blocks stored-weight record by block, "
                  "by kind, and as a recovery curve; no new measurement"),
@@ -319,6 +327,8 @@ def main() -> int:
           f"{actual_all / all_unmerged:.4f}x base")
     print(f"  deterministic four-kind reference: {all_merged:.6f} -> "
           f"{all_unmerged:.6f} ({all_merged / all_unmerged:.4f}x)")
+    print("  legacy RTN four-kind HYPOTHETICAL curve (all kinds un-mergeable, "
+          "deterministic rounding) -- NOT the shipped path above:")
     for c in curve:
         print(f"  N={c['n_blocks']:2d}  {c['mean_error']:.6f}  "
               f"recovers {c['fraction_of_gap_recovered'] * 100:5.1f}%  "

@@ -1107,27 +1107,109 @@ def split_unmerged(backbone, blocks, kinds=UNMERGED_KINDS):
 
 
 #: --- backbone bake pairing ----------------------------------------------
-#: A converted file carries either the whole backbone (`full`: every file
-#: converted before converter version 2, and the default) or none of it
-#: (`stripped`: for a checkpoint the backbone was baked into offline,
+#: A converted file carries either the whole backbone (`full`: the default,
+#: paired with the base it was converted against) or none of it (`stripped`:
+#: paired with the ONE baked checkpoint its backbone lives in,
 #: `docs/h3_pdd.md` "What a backbone bake pins"). The two mismatches are
 #: mirror images and BOTH render normally: a full sidecar on a baked
-#: checkpoint applies the backbone twice, a stripped one on the base applies
-#: it never. Neither is visible in the file's keys, and a filename is a
-#: convention rather than a check -- so the converter stores a slice of the
-#: base checkpoint's own int8 weight (`h3_pdd.backbone_probe`) and this node
-#: compares it with the loaded module. Same shape as the partition check on
-#: `h3_pdd.base_video_out`: paired by content, not by name.
+#: checkpoint applies the backbone twice, a stripped one on anything but its
+#: own bake applies the wrong backbone or none. Neither is visible in the
+#: file's keys, and a filename is a convention -- so the converter stores a
+#: slice of the paired checkpoint's own int8 weight, codes AND fp32 row scales
+#: (`h3_pdd.backbone_probe`, `h3_pdd.backbone_probe_scale`), and this node
+#: requires the loaded module to EQUAL it. Identity, not distance: the first
+#: version accepted any distance above a tolerance on a stripped file, which
+#: proved "not the base" and admitted every wrong bake (another strength,
+#: another LoRA), and it compared codes only, so a scale-only change -- which
+#: moves the arithmetic while leaving the codes alone -- escaped. Both were
+#: found by Codex's 2026-09-03 audit.
 SIDECAR_BACKBONE_KINDS = ("full", "stripped")
 
-#: Same int8 checkpoint gives exactly 0.0: int8 compared with int8, and the
-#: loader casts nothing (`comfy/ops.py` hands the I8 tensor to
-#: `QuantizedTensor` as stored). A bake of the probed module at strength 1.0
-#: moves it by the module's own update, ~0.044 relative for `blocks.49.mlp.fc2`
-#: (the largest in the file, which is why the converter probes it). The
-#: tolerance sits between those with an order of magnitude on each side;
-#: `bench/check_pdd_sidecar_contract.py` grades both sides.
-BACKBONE_PROBE_TOLERANCE = 1e-3
+#: The four backbone module kinds per block in ComfyUI's layout: the three
+#: `unmerged_blocks` can lift plus `mlp.fc2`, which it cannot reach but every
+#: file carries. Multiplied by the release-declared depth this is the FIXED
+#: population every count below is asserted against.
+BACKBONE_KINDS = UNMERGED_KINDS + ("mlp.fc2",)
+
+#: Which checkpoint a sidecar's probe must have been cut from, by kind.
+PROBE_OF_BY_KIND = {"full": "base", "stripped": "baked"}
+
+
+def _vendor_config():
+    try:
+        from . import vendor_config
+    except ImportError:
+        import vendor_config  # type: ignore[no-redef]
+    return vendor_config
+
+
+def expected_population() -> dict:
+    """The fixed H3 population, from the release's own transformer config.
+
+    `blocks`, `refiner_blocks`, `block_modules`, `refiner_modules`. Nothing in
+    this node may count a file and call that the expectation: the first
+    version did, so a 49-block file counted 196 modules and expected 196.
+    """
+    depth, refiner = _vendor_config().transformer_depth()
+    return {"blocks": depth, "refiner_blocks": refiner,
+            "block_modules": depth * len(BACKBONE_KINDS),
+            "refiner_modules": refiner * len(BACKBONE_KINDS)}
+
+
+def _modules_under(sd, prefix):
+    """{(index, kind)} carrying a LoRA pair under `diffusion_model.<prefix>.N.`."""
+    out = set()
+    head = f"diffusion_model.{prefix}."
+    tail = ".lora_A.weight"
+    for k in sd:
+        if k.startswith(head) and k.endswith(tail):
+            idx, _, kind = k[len(head):-len(tail)].partition(".")
+            if idx.isdigit():
+                out.add((int(idx), kind))
+    return out
+
+
+def refiner_modules_in(sd) -> int:
+    """Refiner LoRA modules the FILE carries, counted off its keys."""
+    return len(_modules_under(sd, "token_refiner.blocks"))
+
+
+def check_file_population(kind, sd, meta, lora_name):
+    """The file carries exactly the fixed population for its kind, as a SET.
+
+    Full: every (block, kind) over the release's depth and all four kinds;
+    stripped: none. Both: every refiner (block, kind). Compared as sets
+    because a count cannot see one block missing and one stray block present
+    at once. The metadata `backbone_modules` must agree with the file.
+    Returns (backbone modules, refiner modules) found.
+    """
+    pop = expected_population()
+    want_refiner = {(i, k) for i in range(pop["refiner_blocks"])
+                    for k in BACKBONE_KINDS}
+    want_blocks = ({(i, k) for i in range(pop["blocks"]) for k in BACKBONE_KINDS}
+                   if kind == "full" else set())
+    got_blocks = _modules_under(sd, "blocks")
+    got_refiner = _modules_under(sd, "token_refiner.blocks")
+    for label, got, want in (("backbone", got_blocks, want_blocks),
+                             ("refiner", got_refiner, want_refiner)):
+        if got != want:
+            missing = sorted(want - got)[:3]
+            extra = sorted(got - want)[:3]
+            raise RuntimeError(
+                f"{lora_name} ({kind} sidecar) carries {len(got)} {label} "
+                f"module(s) against the release's {len(want)} "
+                f"({pop['blocks']} blocks, {pop['refiner_blocks']} refiner "
+                f"blocks, {len(BACKBONE_KINDS)} kinds each). Missing e.g. "
+                f"{missing}; unexpected e.g. {extra}. A short or stray "
+                f"population renders normally with modules at their base "
+                f"weights, so this refuses.")
+    declared = meta.get("backbone_modules")
+    if declared not in (None, "") and int(declared) != len(got_blocks) + len(got_refiner):
+        raise RuntimeError(
+            f"{lora_name} declares backbone_modules={declared} and carries "
+            f"{len(got_blocks) + len(got_refiner)}. The metadata and the file "
+            f"disagree; reconvert.")
+    return len(got_blocks), len(got_refiner)
 
 
 def sidecar_backbone_kind(meta) -> str:
@@ -1175,9 +1257,17 @@ def check_stripped_contract(kind, meta, strength, unmerged_blocks, lora_name):
             f"unmerged_blocks empty with a bake.")
 
 
-def raw_int8(weight):
-    """The stored int8 data of a live quantised weight, or the tensor itself."""
-    return getattr(weight, "_qdata", weight)
+def quantised_parts(weight):
+    """(int8 codes, row scales) of a live quantised weight, or None.
+
+    `QuantizedTensor` keeps the stored codes in `_qdata` and the layout's
+    parameters, including the fp32 per-row scale, in `_params`. A plain
+    tensor has neither and is not comparable to an int8 probe.
+    """
+    q = getattr(weight, "_qdata", None)
+    if q is None:
+        return None
+    return q, getattr(getattr(weight, "_params", None), "scale", None)
 
 
 def live_module_weight(dm, key: str):
@@ -1188,59 +1278,79 @@ def live_module_weight(dm, key: str):
     return obj
 
 
-def backbone_probe_distance(live, probe):
-    """Relative L2 between the loaded weight's leading rows and the probe.
+def probe_match(live, codes, scale):
+    """Exact equality of the loaded weight's leading rows with the probe.
 
-    None when the two cannot be compared at all -- a different dtype (an fp8
-    build against an int8 probe) or shape -- which is its own state and not
-    a match: the caller decides whether that refuses or warns.
+    {"codes": bool, "scale": bool}, or None when the weight is not a
+    quantised tensor in the probe's shape (an fp8 build, a plain tensor) --
+    its own state, not a match; the caller decides whether that refuses.
+    Equality, not distance: the same int8 file compares equal bit for bit,
+    and anything else is a different checkpoint.
     """
-    live = raw_int8(live)
-    if live.dtype != probe.dtype or live.ndim != probe.ndim:
+    parts = quantised_parts(live)
+    if parts is None:
         return None
-    if tuple(live.shape[1:]) != tuple(probe.shape[1:]) or live.shape[0] < probe.shape[0]:
+    q, s = parts
+    rows = codes.shape[0]
+    if (q.dtype != codes.dtype or q.ndim != codes.ndim
+            or tuple(q.shape[1:]) != tuple(codes.shape[1:]) or q.shape[0] < rows):
         return None
-    a = live[: probe.shape[0]].detach().to(torch.float32).cpu()
-    b = probe.detach().to(torch.float32).cpu()
-    return float((a - b).norm() / b.norm())
+    if (s is None or s.ndim != scale.ndim
+            or tuple(s.shape[1:]) != tuple(scale.shape[1:]) or s.shape[0] < rows):
+        return None
+    return {
+        "codes": bool(torch.equal(q[:rows].detach().cpu(), codes.detach().cpu())),
+        "scale": bool(torch.equal(s[:rows].detach().to(torch.float32).cpu(),
+                                  scale.detach().to(torch.float32).cpu())),
+    }
 
 
-def check_backbone_pairing(kind, dist, lora_name,
-                           tolerance=BACKBONE_PROBE_TOLERANCE):
-    """Refuse the two silent mismatches; return a warning when undecidable.
+def check_backbone_identity(kind, match, lora_name, base_match=None):
+    """Refuse unless the loaded module IS the paired probe, codes and scales.
 
-    `dist` is `backbone_probe_distance`: 0.0 on the base the file was converted
-    against, the module's own update size on a bake of it, None when the
-    weight could not be compared.
+    `match` is `probe_match` against the probe the file was cut for (the base
+    for a full sidecar, the bake for a stripped one); `base_match` is the
+    same against the base probe a stripped file also carries, used only to
+    say WHICH wrong checkpoint was loaded. Returns a warning string when the
+    weight is undecidable on a full sidecar; raises on every mismatch.
     """
-    if dist is None:
+    if match is None:
         msg = (f"[h3-pdd] {lora_name}: the loaded checkpoint's probed module "
-               f"is not int8 in the probe's shape, so whether it is the base "
-               f"or a bake of it cannot be told from its weights.")
+               f"is not an int8 quantised weight in the probe's shape, so it "
+               f"cannot be compared with the checkpoint this file is paired "
+               f"with.")
         if kind == "stripped":
             raise RuntimeError(
-                msg + " A stripped sidecar has nothing to fall back on -- it "
-                "applies no backbone itself -- so this refuses rather than "
-                "rendering a model that may have no PDD backbone at all.")
+                msg + " A stripped sidecar applies no backbone itself and "
+                "accepts only its own bake, so this refuses rather than "
+                "rendering a model that may carry no PDD backbone at all.")
         return msg + " Loading the full sidecar unchecked."
-    same = dist <= tolerance
-    if kind == "full" and not same:
+    if match["codes"] and match["scale"]:
+        return None
+    differ = ("row scales" if match["codes"]
+              else "codes" if match["scale"] else "codes and row scales")
+    if kind == "full":
         raise RuntimeError(
             f"{lora_name} carries the whole backbone, but the loaded "
-            f"checkpoint's probed module is {dist:.4f} from the base this file "
-            f"was converted against (tolerance {tolerance:g}). On a checkpoint "
-            f"with this backbone already baked in, the merge would apply it a "
-            f"SECOND time and render normally. Load the stripped sidecar on a "
-            f"baked checkpoint -- or, if this is the base, a previous graph's "
-            f"patches may still be resident: restart ComfyUI.")
-    if kind == "stripped" and same:
+            f"checkpoint's probed module is not the base this file was "
+            f"converted against ({differ} differ). On a checkpoint with this "
+            f"backbone already baked in, the merge would apply it a SECOND "
+            f"time and render normally. Load the stripped sidecar cut for "
+            f"that bake -- or, if this is the base, a previous graph's patches "
+            f"may still be resident: restart ComfyUI.")
+    if base_match is not None and base_match["codes"] and base_match["scale"]:
         raise RuntimeError(
             f"{lora_name} is a stripped sidecar -- it carries no backbone -- "
-            f"and the loaded checkpoint IS the unbaked base it was converted "
-            f"against ({dist:.2e} from the probe). Nothing would apply the "
-            f"PDD backbone, and the render would look normal. Load the baked "
-            f"checkpoint, or the full sidecar on this one.")
-    return None
+            f"and the loaded checkpoint IS the unbaked base. Nothing would "
+            f"apply the PDD backbone, and the render would look normal. Load "
+            f"the baked checkpoint this sidecar was cut for, or the full "
+            f"sidecar on this one.")
+    raise RuntimeError(
+        f"{lora_name} is a stripped sidecar cut for ONE baked checkpoint, and "
+        f"the loaded one is not it ({differ} differ): a bake at another "
+        f"strength, of another LoRA, or an unrelated checkpoint. Only the "
+        f"paired bake is accepted, because every other renders normally with "
+        f"the wrong backbone.")
 
 
 def loaded_targets(keys):
@@ -1258,25 +1368,15 @@ def loaded_targets(keys):
     return out
 
 
-def refiner_modules_in(sd) -> int:
-    """Refiner LoRA modules the FILE carries, counted off its keys.
-
-    Off the keys and never off `backbone_modules` in the metadata, which
-    counts the converted modules including the refiner (208) and would be
-    wrong twice as a shape to assert against.
-    """
-    return len({k[: -len(".lora_A.weight")] for k in sd
-                if k.startswith("diffusion_model.token_refiner.")
-                and k.endswith(".lora_A.weight")})
-
-
 def check_stripped_targets(kind, loaded_keys, expected_refiner, lora_name):
     """After `load_lora`: a stripped sidecar matched the refiner and nothing
     under `blocks.N` but adaln.
 
-    The "matched no module" guard cannot see this -- the refiner and adaln
-    entries keep `loaded` non-empty on every base -- so this is the
-    assertion that guard was once thought to be.
+    `expected_refiner` is the release-declared count from
+    `expected_population`, never a count off the file. The "matched no module"
+    guard cannot see any of this -- the refiner and adaln entries keep
+    `loaded` non-empty on every base -- so this is the assertion that guard
+    was once thought to be.
     """
     if kind != "stripped":
         return
@@ -1288,13 +1388,13 @@ def check_stripped_targets(kind, loaded_keys, expected_refiner, lora_name):
             f"{t['backbone'][0]}. Against a baked checkpoint those modules "
             f"would be applied twice. The file and its metadata disagree; "
             f"reconvert.")
-    if expected_refiner == 0 or len(t["refiner"]) != expected_refiner:
+    if expected_refiner <= 0 or len(t["refiner"]) != expected_refiner:
         raise RuntimeError(
-            f"{lora_name} carries {expected_refiner} refiner module(s) and "
-            f"{len(t['refiner'])} resolved on the model. A stripped sidecar's "
-            f"only backbone-side content is the refiner, so a short match here "
-            f"is a layout change the merged path would have reported through "
-            f"the backbone.")
+            f"{lora_name}: {len(t['refiner'])} refiner module(s) resolved on "
+            f"the model against the release's {expected_refiner}. A stripped "
+            f"sidecar's only backbone-side content is the refiner, so a short "
+            f"match here is a layout change the merged path would have "
+            f"reported through the backbone.")
 
 
 def adaln_patch_key(index: int) -> str:
@@ -1814,6 +1914,10 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         backbone_kind = sidecar_backbone_kind(meta)
         check_stripped_contract(backbone_kind, meta, strength, unmerged_blocks,
                                 lora_name)
+        # The FIXED population, against the release's declared depth: a full
+        # file carries every backbone module, a stripped one none, both the
+        # whole refiner. Asserted before anything is compared or patched.
+        check_file_population(backbone_kind, sd, meta, lora_name)
 
         num_steps = int(meta["pdd_num_steps"])
         # The step count is DERIVED at run time from the sampler's own sigmas,
@@ -1962,34 +2066,49 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             logger.info("[h3-pdd] partition check ok: final_layer.video_out is "
                         "%.5f from %s", dist, meta.get("h3_pdd_base", "?"))
 
-        # Backbone pairing: is this checkpoint the base the file was converted
-        # against, or a bake of it? Decided on a stored slice of the base's
-        # own int8 weight, the way the partition check above is decided on
-        # `base_video_out`. Files from converter version 1 carry no probe and
-        # are loaded as before, with the gap named.
+        # Backbone identity: is this checkpoint the ONE this file is paired
+        # with -- the base for a full sidecar, the exact bake for a stripped
+        # one? Decided by equality with a stored slice of that checkpoint's
+        # int8 codes and fp32 row scales, the way the partition check above is
+        # decided on `base_video_out`. Files from converter version 1 carry no
+        # probe and load as before, with the gap named.
         probe = sd.get("h3_pdd.backbone_probe")
         if probe is not None:
+            probe_scale = sd.get("h3_pdd.backbone_probe_scale")
             probe_key = meta.get("h3_pdd_backbone_probe_key")
-            if not probe_key:
+            probe_of = meta.get("h3_pdd_backbone_probe_of")
+            if (not probe_key or probe_scale is None
+                    or probe_of != PROBE_OF_BY_KIND[backbone_kind]):
                 raise RuntimeError(
-                    f"{lora_name} carries h3_pdd.backbone_probe but names no "
-                    f"h3_pdd_backbone_probe_key, so nothing says which module "
-                    f"it was taken from. Reconvert.")
-            dist = backbone_probe_distance(live_module_weight(dm, probe_key),
-                                           probe)
-            note = check_backbone_pairing(backbone_kind, dist, lora_name)
+                    f"{lora_name}'s backbone probe is incomplete for a "
+                    f"{backbone_kind} sidecar: key={probe_key!r}, row scales "
+                    f"{'present' if probe_scale is not None else 'ABSENT'}, "
+                    f"cut from {probe_of!r} where "
+                    f"{PROBE_OF_BY_KIND[backbone_kind]!r} is required. "
+                    f"Converter version 2 stored codes only and cut a stripped "
+                    f"file's probe from the base; reconvert with the current "
+                    f"converter, a stripped file against its baked checkpoint.")
+            live = live_module_weight(dm, probe_key)
+            match = probe_match(live, probe, probe_scale)
+            base_match = None
+            if ("h3_pdd.backbone_probe_base" in sd
+                    and "h3_pdd.backbone_probe_base_scale" in sd):
+                base_match = probe_match(live, sd["h3_pdd.backbone_probe_base"],
+                                         sd["h3_pdd.backbone_probe_base_scale"])
+            note = check_backbone_identity(backbone_kind, match, lora_name,
+                                           base_match)
             if note:
                 logger.warning(note)
             else:
-                logger.info("[h3-pdd] backbone pairing ok: %s sidecar, %s is "
-                            "%.5f from the base probe", backbone_kind,
-                            probe_key, dist)
+                logger.info("[h3-pdd] backbone identity ok: %s sidecar, %s "
+                            "equals the %s probe on codes and row scales",
+                            backbone_kind, probe_key, probe_of)
         elif backbone_kind == "stripped":
             raise RuntimeError(
                 f"{lora_name} is a stripped sidecar with no "
-                f"h3_pdd.backbone_probe, so it cannot tell a baked checkpoint "
-                f"from the base and would render either without complaint. "
-                f"Reconvert with the current converter.")
+                f"h3_pdd.backbone_probe, so it cannot tell its own bake from "
+                f"any other checkpoint and would render on either without "
+                f"complaint. Reconvert against the baked checkpoint.")
         else:
             logger.info("[h3-pdd] %s carries no backbone probe (converter "
                         "version %s); a baked checkpoint could not be told "
@@ -2126,7 +2245,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # entries keep `loaded` non-empty on every base -- so the stripped
         # case asserts its own shape: refiner matched, no backbone did.
         check_stripped_targets(backbone_kind, loaded.keys(),
-                               refiner_modules_in(sd), lora_name)
+                               expected_population()["refiner_modules"],
+                               lora_name)
 
         m = model.clone()
         # `add_patches` returns only the keys it found in the model's state

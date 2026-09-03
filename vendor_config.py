@@ -11,6 +11,13 @@ release's own files rather than as constants somebody typed.
   preprocessor_config.json       image min/max pixels, patch geometry
   video_preprocessor_config.json video min/max pixels
   {fl2va,ref2va}_model_index.json  the `_minimax_h3` partition and task lists
+  {fl2va,ref2va}_transformer_config.json  the DiT's own `config.json`: depth,
+                                 refiner depth, widths. Vendored 2026-09-03 so
+                                 the PDD converter and node assert the FIXED
+                                 population (50 blocks, 2 refiner blocks)
+                                 rather than deriving it from whatever file
+                                 they were handed -- a short population had
+                                 been defining its own expected size
   sha256.json                    what each of the above hashed to when copied
 
 **Why vendored rather than read from the weights.** The weights are ~200 GB and
@@ -123,6 +130,30 @@ def video_patch_geometry() -> dict:
     return {k: cfg[k] for k in
             ("patch_size", "temporal_patch_size", "merge_size",
              "image_mean", "image_std") if k in cfg}
+
+
+def transformer_depth() -> tuple[int, int]:
+    """(num_layers, token_refiner_num_layers) the release declares for the DiT.
+
+    Read from both partitions' `transformer/config.json` and required to agree,
+    so a divergence upstream fails here rather than becoming one partition's
+    silent assumption. These are the counts every PDD population assertion is
+    made against; nothing may count a file and call that the expectation.
+    """
+    seen = set()
+    for variant in ("fl2va", "ref2va"):
+        cfg = _load(f"{variant}_transformer_config.json")
+        try:
+            seen.add((int(cfg["num_layers"]), int(cfg["token_refiner_num_layers"])))
+        except KeyError as exc:
+            raise ValueError(f"vendored {variant}_transformer_config.json lacks "
+                             f"{exc}") from None
+    if len(seen) != 1:
+        raise ValueError(f"the two partitions declare different depths: {seen}")
+    depth, refiner = seen.pop()
+    if depth < 1 or refiner < 1:
+        raise ValueError(f"nonsensical depth {depth}/{refiner}")
+    return depth, refiner
 
 
 def partition_tasks() -> dict[str, list[str]]:

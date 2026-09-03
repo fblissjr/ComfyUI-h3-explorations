@@ -1,5 +1,5 @@
 {
-  "measured": "2026-09-02",
+  "measured": "2026-08-31",
   "produced_by": "bench/analyze_pdd_unmerge_curve.py",
   "what": "aggregation of the all-blocks stored-weight record by block, by kind, and as a recovery curve; no new measurement",
   "sources": [

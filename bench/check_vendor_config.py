@@ -43,6 +43,8 @@ ORIGIN = {
     "video_preprocessor_config.json": "processor/video_preprocessor_config.json",
     "fl2va_model_index.json": "FL2VA/model_index.json",
     "ref2va_model_index.json": "Ref2VA/model_index.json",
+    "fl2va_transformer_config.json": "FL2VA/transformer/config.json",
+    "ref2va_transformer_config.json": "Ref2VA/transformer/config.json",
 }
 
 
@@ -85,8 +87,11 @@ def main() -> int:
         lo_v, hi_v = vc.video_pixel_bounds()
         video_geometry = vc.video_patch_geometry()
         parts = vc.partition_tasks()
+        depth, refiner = vc.transformer_depth()
         print(f"  ok    {len(toks)} special token(s), image {lo_i}..{hi_i}, "
               f"video {lo_v}..{hi_v}")
+        print(f"  ok    DiT depth {depth} blocks, token refiner {refiner}, "
+              f"both partitions agree")
         print(f"  ok    video patch geometry {video_geometry}")
         print(f"  ok    partitions {parts}")
     except Exception as exc:  # a vendored file that parses but says nothing
