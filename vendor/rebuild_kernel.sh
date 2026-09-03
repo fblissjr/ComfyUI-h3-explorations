@@ -99,6 +99,32 @@ WHL=(dist/comfy_kitchen-"$VER"-*.whl)
 [ -f "${WHL[0]}" ] || { echo "ERROR: no wheel built for $VER"; exit 1; }
 uv pip install --force-reinstall --no-deps "${WHL[0]}"
 
+# The build record: ONE file beside the venv saying which build is installed
+# and where its source is, written at the only moment both are known. start.sh
+# prints it on every launch and cross-checks it against the installed wheel,
+# so "which comfy-kitchen is running" has one answer and one path to it
+# (owner's ask, 2026-09-03). A stock reinstall replaces the wheel but not this
+# file, which is exactly the mismatch start.sh is there to shout about.
+RECORD="$VIRTUAL_ENV/comfy_kitchen_build.json"
+"$PY" - "$RECORD" "$VER" "$SRC" "${WHL[0]}" "$ARCH" <<'PYEOF'
+import json, subprocess, sys, time
+record, ver, src, whl, arch = sys.argv[1:6]
+def git(*a):
+    return subprocess.run(["git", "-C", src, *a], capture_output=True, text=True).stdout.strip()
+json.dump({
+    "version": ver,
+    "sha": git("rev-parse", "HEAD"),
+    "branch": git("rev-parse", "--abbrev-ref", "HEAD"),
+    "source": src,
+    "origin": git("remote", "get-url", "origin"),
+    "wheel": whl,
+    "cuda_arch": arch,
+    "built_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    "written_by": "vendor/rebuild_kernel.sh",
+}, open(record, "w"), indent=2)
+print(f"== build record: {record}")
+PYEOF
+
 cleanup; trap - EXIT
 echo "== checkout restored: $(git status --porcelain | wc -l) modified files (want 0)"
 

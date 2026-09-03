@@ -45,6 +45,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -227,6 +228,27 @@ def main() -> int:
     return 0
 
 
+_TENSOR_NAME = re.compile(r"^(qkv|final)_[A-Za-z0-9_.+-]+\.pt$")
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """tmp file, flushed and fsynced, then os.replace: a crash mid-write leaves
+    the previous state file intact and parseable (Codex, 2026-09-03)."""
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def _allowed_name(name: str) -> bool:
+    """A planned entry must be a bare basename of the tensor shape; nothing
+    read back from DELETING.json is trusted beyond that."""
+    return isinstance(name, str) and "/" not in name and "\\" not in name and name not in (".", "..") \
+        and bool(_TENSOR_NAME.match(name))
+
+
 def delete_capture(r: dict, reason: str | None) -> int:
     """The recoverable transition: DELETING.json first (planned files), each
     unlink attempted, the marker renamed to DELETED.json only when nothing
@@ -240,41 +262,60 @@ def delete_capture(r: dict, reason: str | None) -> int:
     if done.exists():
         print(f"\n  refusing: {done.name} already exists in {r['name']}"); return 1
     if pending.exists():
-        plan = json.loads(pending.read_text(encoding="utf-8"))
+        try:
+            plan = json.loads(pending.read_text(encoding="utf-8"))
+        except ValueError:
+            print(f"\n  refusing: {pending.name} in {r['name']} is not valid JSON; inspect it by hand"); return 1
+        bad = [n for n in plan.get("planned", []) if not _allowed_name(n)]
+        if not isinstance(plan.get("planned"), list) or bad or not isinstance(plan.get("sizes"), dict):
+            print(f"\n  refusing: {pending.name} in {r['name']} names entries outside the capture's tensor shape: {bad[:3]}"); return 1
         print(f"\n  resuming an incomplete delete of {r['name']} begun {plan.get('begun_at')}")
     else:
+        planned = _tensors(d)
         plan = {"begun_at": dt.datetime.now().isoformat(timespec="seconds"),
-                "planned": [p.name for p in _tensors(d)],
+                "planned": [p.name for p in planned],
+                # sizes at plan time, so bytes_freed is right even if a crash
+                # lands between an unlink and the state update
+                "sizes": {p.name: p.stat().st_size for p in planned},
                 "reason": reason or f"keep_until {r['keep_until']} passed",
                 "records_in_repo": [r["copy"], r["inventory"]], "bytes_freed": 0, "removed": []}
         fd = os.open(pending, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o644)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(json.dumps(plan, indent=2) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
     failed = []
     for name in plan["planned"]:
         p = d / name
         if name in plan["removed"] or not p.exists():
             if name not in plan["removed"]:
                 plan["removed"].append(name)
+                plan["bytes_freed"] += int(plan["sizes"].get(name, 0))
             continue
         if p.is_symlink() or not p.is_file():
             failed.append((name, "not a regular file")); continue
         try:
-            size = p.stat().st_size
             p.unlink()
-            plan["bytes_freed"] += size
+            plan["bytes_freed"] += int(plan["sizes"].get(name, 0))
             plan["removed"].append(name)
         except OSError as exc:
             failed.append((name, str(exc)))
-    pending.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+        _write_atomic(pending, json.dumps(plan, indent=2) + "\n")
+    # anything that appeared since the plan was made is not deleted and must
+    # not be hidden behind a DELETED marker either
+    unplanned = [p.name for p in _tensors(d) if p.name not in plan["planned"]]
+    if unplanned:
+        failed.append((", ".join(unplanned[:3]), "unplanned tensor(s) added since the plan; nothing done to them"))
+    _write_atomic(pending, json.dumps(plan, indent=2) + "\n")
     if failed:
         for name, why in failed:
             print(f"  could not remove {name}: {why}")
-        print(f"\n  INCOMPLETE: {len(failed)} of {len(plan['planned'])} planned tensor(s) remain in {r['name']}; "
-              f"{pending.name} records the state; rerun --delete to resume")
+        print(f"\n  INCOMPLETE: {r['name']} still holds planned or unplanned tensors; "
+              f"{pending.name} records the state; rerun --delete to resume (unplanned files need a new plan: "
+              f"remove {pending.name} by hand only after reading it)")
         return 1
     plan["deleted_at"] = dt.datetime.now().isoformat(timespec="seconds")
-    pending.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    _write_atomic(pending, json.dumps(plan, indent=2) + "\n")
     os.replace(pending, done)   # atomic: the capture is deleted only once every planned file is gone
     print(f"\n  deleted {len(plan['removed'])} tensor file(s) of {r['name']}, {plan['bytes_freed'] / 2**30:.1f} GiB freed; "
           f"manifest.json, retention.json and DELETED.json remain")
@@ -327,6 +368,30 @@ def self_test() -> int:
         r3 = survey(root)[0]
         assert r3["deleted"] and not r3["incomplete"]
         assert delete_capture(r3, None) == 1, "a deleted capture must refuse a second delete"
+        # a tampered plan naming something outside the tensor shape is refused
+        cap2 = root / "2026-01-01_tampered"; cap2.mkdir()
+        (cap2 / "qkv_L8_S8_b0_s1.pt").write_bytes(b"y" * 8)
+        (cap2 / "DELETING.json").write_text(json.dumps({"planned": ["../manifest.json"], "sizes": {}, "removed": [], "bytes_freed": 0}))
+        r4 = next(x for x in survey(root) if x["name"] == cap2.name)
+        assert r4["incomplete"] and delete_capture(r4, None) == 1 and (cap2 / "qkv_L8_S8_b0_s1.pt").exists(), "tampered plan must be refused"
+        # an unplanned tensor appearing after the plan keeps the capture INCOMPLETE rather than marked deleted
+        cap3 = root / "2026-01-01_late"; cap3.mkdir()
+        (cap3 / "qkv_L8_S8_b0_s1.pt").write_bytes(b"z" * 8)
+        m3 = {"workload": {"graph_sha256": "h" * 64}, "captured_tensors": [{"filename": "qkv_L8_S8_b0_s1.pt", "sha256": hashlib.sha256(b"z" * 8).hexdigest()}]}
+        (cap3 / "manifest.json").write_text(json.dumps(m3)); (res / "z_capture_manifest_y.json").write_text(json.dumps(m3))
+        (cap3 / "retention.json").write_text(json.dumps({"purpose": "t", "keep_until": "2026-01-02"}))
+        (res / "z_capture_inventory_y.json").write_text(json.dumps({"captures": [{"capture": cap3.name}]}))
+        r5 = next(x for x in survey(root) if x["name"] == cap3.name)
+        real_unlink2 = os.unlink
+        def late(path, *a, **k):
+            (cap3 / "qkv_L8_S8_b1_s1.pt").write_bytes(b"late")   # appears during the delete
+            return real_unlink2(path, *a, **k)
+        os.unlink = late
+        try:
+            rc = delete_capture(r5, None)
+        finally:
+            os.unlink = real_unlink2
+        assert rc == 1 and (cap3 / "DELETING.json").is_file() and not (cap3 / "DELETED.json").exists(), "an unplanned tensor must block the rename"
     print("  ok    self-test: a failed unlink leaves DELETING.json and exits 1; a resume completes and renames to DELETED.json; the survey reads both states")
     return 0
 

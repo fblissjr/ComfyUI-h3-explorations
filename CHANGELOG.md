@@ -66,7 +66,21 @@ artifact.
   done and could not be retried): `DELETING.json` with the planned files
   first, a nonzero exit and a resumable state on any failed unlink, an
   atomic rename to `DELETED.json` only when nothing planned remains;
-  `--self-test` forces one unlink to fail and then resumes.
+  `--self-test` forces one unlink to fail and then resumes. Then crash-safe
+  as well as retryable, on the same review: the state file is written
+  atomically (tmp, fsync, replace), a resumed plan is validated to bare
+  tensor basenames, planned sizes are recorded so bytes freed survive a
+  crash between unlink and update, and a rescan before the rename keeps a
+  capture INCOMPLETE if a tensor appeared after the plan; the self-test
+  covers a tampered plan and a late file.
+- **One path to which comfy-kitchen is running.** `vendor/rebuild_kernel.sh`
+  writes a build record beside the venv at install (version, commit,
+  branch, source checkout, wheel, arch, time), and `start.sh` prints it on
+  every launch and cross-checks it against the wheel the venv holds:
+  a stock wheel with no local tag, a record that disagrees with the venv,
+  or a source checkout that no longer has the commit each get a line.
+  The record for the build installed on 2026-09-01 was reconstructed by
+  hand once and says so; the next rebuild replaces it.
   The Base16 capture moved under the root with a week's retention tied to
   validating the online instrument against its cells. Two 2026-08-30
   captures already under the root carry no manifest and are reported red
