@@ -23,6 +23,24 @@ liveness check written that way reports the server up when nothing is
 listening. `ss -lptn 'sport = :8188'` answers the question actually being
 asked: who holds the port.
 
+**The recipe, by hand.** `bench/restart_comfy.sh` was written to automate this
+and is DISABLED since 2026-09-02 because it hung on every run; it exits 2 and
+points here. Before killing, read the port owner's environment: an `H3_*`
+key there means the server is ARMED for somebody's capture, and restarting
+it silently disarms them (CLAUDE.md, "the server process is the resource").
+
+    PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
+    tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'   # armed? ask first
+    kill $PID; sleep 5; ss -ltnp | grep ':8188' || echo "port free"
+    (cd <comfy> && nohup ./start.sh > /dev/null 2>&1 &)
+    curl -s localhost:8188/system_stats                # until it answers
+    ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
+
+The last line is the point: the new process's start time must be LATER than
+the file you changed, or you are measuring the old code with a fresh-looking
+server. The server writes its own log to `user/comfyui_<port>.log` whatever
+you do with stdout, so redirecting the launcher to `/dev/null` loses nothing.
+
 **If you started the server, stop it when you are done.** An idle ComfyUI still
 holds a CUDA context and VRAM, and from the outside a leftover server is
 indistinguishable from somebody's live run without inspecting the queue — so

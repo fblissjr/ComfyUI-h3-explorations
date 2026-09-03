@@ -34,7 +34,9 @@ environment-gated and hard to arm by accident, which is the same rule
 
 The server process is the resource, not the GPU. An armed server nobody can see
 is what cost three renders on 2026-08-30, one of them killed at 345 frames.
-`ARMING_KEYS` is one list to extend and the guard already exists.
+`ARMING_KEYS` is one list to extend -- **but the script is DISABLED since
+2026-09-02 (it hung on every run)**, so the list is documentation and the
+guard is the manual environ check in `docs/comfy_notes.md`'s restart recipe.
 
 ### 3. A disk-budget print before execution, not after
 

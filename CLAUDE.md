@@ -491,9 +491,15 @@ repeating work.
   that the queue is empty and the card free is the check that feels like
   diligence and answers the wrong question. It cost three renders on
   2026-08-30, one of them killed mid-flight at 345 frames.
-  - `bench/restart_comfy.sh` refuses when the port owner's environ carries an
-    arming key, `--force` overrides loudly, and `ARMING_KEYS` is one list to
-    extend. It red-proved itself on its first run against a real armed server.
+  - **`bench/restart_comfy.sh` is DISABLED since 2026-09-02, on the owner's
+    call: it hung on every run.** It exits 2 with a pointer and its body is
+    commented out; `ARMING_KEYS` in that body is still the list of what to
+    look for. Restart by hand, the way it was done before the script: find
+    the PORT OWNER (`ss -ltnp | grep :8188`, never `pgrep | head -1`), read
+    its `/proc/<pid>/environ` for `H3_*` keys and ask before killing an armed
+    one, kill it, wait for the port to free, launch `<comfy>/start.sh` in the
+    background, poll `/system_stats`, and confirm the new pid's start time is
+    later than the file you changed. `docs/comfy_notes.md` carries the recipe.
   - **"I am done with it" and "it is disarmed" are different states.** The
     guard exists because the first does not imply the second, and the session
     that said it had handed the server back had left it armed.

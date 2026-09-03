@@ -1687,7 +1687,9 @@ as a sweep.
   that is ~1.4 GB per pair, a third of what the existing qkv captures cost.
   Every capture inventoried in `2026-08-30_capture_inventory.json` was deleted
   the day it was written, so this needs a fresh render, and
-  `bench/restart_comfy.sh`'s arming rule applies to the server that runs it.
+  the arming rule (CLAUDE.md, "the server process is the resource") applies
+  to the server that runs it; `bench/restart_comfy.sh` is disabled, so check
+  the port owner's environ by hand.
 - Offline, four arms kept explicit, and **the activation-only arm is subtler
   than an earlier draft of this entry said**. It is not "exact weight with
   quantised activation": the runtime activation is ROTATED before it is

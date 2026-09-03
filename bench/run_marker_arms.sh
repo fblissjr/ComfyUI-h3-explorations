@@ -9,7 +9,7 @@
 #   RUNS=3 bench/run_marker_arms.sh     # seeds per arm (default 2, the owner's call)
 #   DRY_RUN=1 bench/run_marker_arms.sh  # check the server, print the commands, exit
 #
-# Needs a running, UNARMED ComfyUI on :8188 (bench/restart_comfy.sh starts one)
+# Needs a running, UNARMED ComfyUI on :8188 (start it by hand: docs/comfy_notes.md)
 # with an empty queue. The output share is resolved by bench/_paths.comfy_output()
 # or H3_COMFY_OUTPUT; its path is never written here.
 set -euo pipefail
@@ -28,7 +28,7 @@ run() { echo "+ $*"; [ "${DRY_RUN:-0}" = "1" ] || "$@"; }
 
 # 1. The server: answering, not armed for somebody else's capture, queue empty.
 if ! curl -sf --max-time 5 "http://127.0.0.1:$PORT/system_stats" >/dev/null; then
-    echo "ComfyUI is not answering on :$PORT -- start it with bench/restart_comfy.sh"
+    echo "ComfyUI is not answering on :$PORT -- start it by hand (docs/comfy_notes.md, restart recipe)"
     exit 3
 fi
 pid="$(ss -lptnH "sport = :$PORT" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1 || true)"
@@ -37,7 +37,7 @@ if [ -n "$pid" ] && [ -r "/proc/$pid/environ" ]; then
     if [ -n "$armed" ]; then
         echo "REFUSING: the server (pid $pid) is ARMED for capture; these renders would land in that record:"
         echo "$armed"
-        echo "Ask the session that armed it, or bench/restart_comfy.sh --force if the capture is yours."
+        echo "Ask the session that armed it, or restart it by hand if the capture is yours (docs/comfy_notes.md)."
         exit 5
     fi
 fi

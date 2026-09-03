@@ -25,8 +25,9 @@ a quality claim; it is the cost side of the trade.
     H3_SOL_OBSERVE="dir=/path[,raw=0]" <comfy>/start.sh
 
 Read once at import, like `h3_capture.py`: arming is a property of the SERVER
-PROCESS, which is why `bench/restart_comfy.sh` lists the key in `ARMING_KEYS`
-and refuses to restart an armed server. Unarmed, the node passes no `blk_cnt`
+PROCESS, which is why the (now disabled) `bench/restart_comfy.sh` listed the
+key in `ARMING_KEYS`; the manual restart recipe in `docs/comfy_notes.md`
+reads the port owner's environ for `H3_*` before killing it. Unarmed, the node passes no `blk_cnt`
 keyword at all, so an older installed wheel still renders and the default
 path allocates, copies and synchronizes nothing. Armed with a wheel that lacks
 the argument, `sol_attn_h3._require_kernel` fails the node at patch time

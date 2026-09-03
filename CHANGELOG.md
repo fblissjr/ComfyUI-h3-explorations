@@ -31,6 +31,16 @@ artifact.
 
 ### Changed
 
+- **`bench/restart_comfy.sh` is disabled, owner's call: it hung on every
+  run.** It now exits 2 with a pointer and carries its original body
+  commented out, so `ARMING_KEYS` stays readable. Every place that told
+  someone to run it (`CLAUDE.md`, `docs/comfy_notes.md`,
+  `bench/run_marker_arms.sh`, `sol_observe.py`, `docs/open_experiments.md`,
+  `docs/research/pdd/tier1_gate.md`) now points at the manual recipe in
+  `docs/comfy_notes.md`: kill the port owner after reading its environ for
+  `H3_*` arming keys, launch `start.sh`, poll, and confirm the new start time
+  postdates the file you changed.
+
 - **`dense_blocks="0-2,32"` is demoted from every shipped Sol workflow back
   to the experiment it was.** Both `SOL_RECOMMENDED_CUDA` and
   `SOL_PDD_CUDA` now inherit the node's empty default, and all 156 governed
