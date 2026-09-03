@@ -286,6 +286,10 @@ def check_manifest(manifest_path: Path):
         assert data["workload"].get("task") in ("t2va", "i2va", "fl2va", "l2va", "ref2va"), (
             f"workload.task must name the render type from schema 1.5.0, got {data['workload'].get('task')!r}")
         assert "server" in data["provenance"], "provenance.server key missing (null is legal for pre-1.5.0 captures)"
+        r = data["workload"].get("render")
+        assert isinstance(r, dict) and "outputs" in r and "source" in r, "workload.render must carry outputs and source"
+        for name in (r.get("outputs") or []):
+            assert "/" not in name and "\\" not in name, f"workload.render.outputs must be basenames, got {name!r}"
     ref_row_sum = 0
     for r in refs:
         for k in REQUIRED_REFERENCE_KEYS:

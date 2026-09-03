@@ -285,6 +285,13 @@ New keys, all required from 1.5.0 and checked by
   2026-09-03 and copied here; null for older captures. `--fast
   fp16_accumulation` changes the numerics a capture holds, and nothing
   offline can recover which mode the server ran in.
+- `workload.render`: the render the tensors came from -- its `prompt_id`
+  (stamped into every record by `h3_capture.py` from 2026-09-03; before
+  that, given by the operator and labelled so) and the BASENAMES of what it
+  wrote, `outputs`, with a `source` saying whether they came from the live
+  server's `/history` or from the operator. Basenames only: the clip lives
+  in the output folder `start.sh` names, and a path in a record is a leak
+  and a lie after a move. The checker refuses a path there.
 - `captured_tensors[].sigma`, `kernel`, `render` and `segments`: the
   record's own top-level scalars, read through a memory map rather than by
   paging in the tensors. `segments` is null when the capture ran with Sol

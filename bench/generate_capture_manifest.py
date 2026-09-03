@@ -582,6 +582,39 @@ def extract_from_workflow(wf: dict, input_base: Path):
     return canvas, models, sampling, attention, prompt_text, references, underived
 
 
+def _render_outputs(pt_files, prompt_id_arg, outputs_arg, host) -> dict:
+    """prompt id and output basenames, with their provenance. Order of
+    truth: the records' own prompt_id joined to the live server's /history;
+    else the operator's flags, labelled as such; else null with the reason."""
+    import urllib.request
+    pid = None
+    for pt in pt_files[:1]:
+        pid = _record_meta(Path(pt)).get("prompt_id")
+    pid_source = "record" if pid else None
+    if not pid and prompt_id_arg:
+        pid, pid_source = prompt_id_arg, "operator"
+    out = {"prompt_id": pid, "prompt_id_source": pid_source, "outputs": None, "source": None}
+    if pid:
+        try:
+            with urllib.request.urlopen(f"{host}/history/{pid}", timeout=3) as r:
+                hist = json.loads(r.read()).get(pid) or {}
+            names = sorted({os.path.basename(f.get("filename", "")) for node in (hist.get("outputs") or {}).values()
+                            for kind in node.values() if isinstance(kind, list) for f in kind
+                            if isinstance(f, dict) and f.get("filename")})
+            if names:
+                out.update(outputs=names, source="server /history")
+                return out
+            out["source"] = "server /history had no entry for this prompt id (restarted since?)"
+        except Exception as exc:                          # noqa: BLE001
+            out["source"] = f"server unreachable for /history: {type(exc).__name__}"
+    if outputs_arg:
+        out.update(outputs=[os.path.basename(x.strip()) for x in outputs_arg.split(",") if x.strip()],
+                   source="operator")
+    elif out["source"] is None:
+        out["source"] = "no prompt id in the records and none given"
+    return out
+
+
 def _record_meta(pt_path: Path) -> dict:
     """The scalars a capture record carries, read WITHOUT paging in the
     tensors: `mmap=True` maps the file and only the touched pages load.
@@ -592,7 +625,7 @@ def _record_meta(pt_path: Path) -> dict:
     except Exception as exc:                          # noqa: BLE001 -- a record we cannot read is reported, not guessed
         return {"error": f"{type(exc).__name__}: {exc}"}
     q = data.get("q")
-    out = {k: data.get(k) for k in ("block", "step", "sigma", "kernel", "render", "segments", "server")}
+    out = {k: data.get(k) for k in ("block", "step", "sigma", "kernel", "render", "segments", "server", "prompt_id")}
     if q is not None:
         out["shape"] = list(q.shape)
         out["dtype"] = str(q.dtype)
@@ -620,6 +653,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capture-dir", required=True, help="Path to capture directory")
     parser.add_argument("--workflow", default=None, help="Path to workflow JSON (default: uses workflow_api.json in dir)")
+    parser.add_argument("--outputs", default=None,
+                        help="comma-separated BASENAMES of the render's output files, when the records carry no "
+                             "prompt_id and the server's history is gone (recorded with source 'operator')")
+    parser.add_argument("--prompt-id", default=None, help="the render's prompt id when the records carry none")
+    parser.add_argument("--host", default="http://127.0.0.1:8188", help="ComfyUI, for the /history join")
     args = parser.parse_args()
 
     cap_dir = Path(os.path.expanduser(args.capture_dir)).resolve()
@@ -639,6 +677,8 @@ def main():
 
     canvas, models, sampling, attention, prompt_text, references, underived = extract_from_workflow(wf, input_base)
     rendered = _prompts.describe(wf)
+    render = _render_outputs(pt_files if False else sorted(glob.glob(str(cap_dir / "qkv_*.pt"))),
+                             args.prompt_id, args.outputs, args.host)
     # The render TYPE (t2va, i2va, fl2va, l2va, ref2va) by the conditioner's
     # sockets, the same rule the prompt graders use; None when no conditioner
     # is in the graph, which the checker refuses from 1.5.0.
@@ -771,6 +811,11 @@ def main():
             # has since been regenerated (the bench t2v graph changed scene
             # on 2026-09-03) still says which graph this was.
             "task": task,
+            # The render the tensors came from: its prompt id and the BASENAMES
+            # of what it wrote (the mp4 lives in the output folder start.sh
+            # names; a path here would be a leak and a lie after a move).
+            # `source` says how the names were learned.
+            "render": render,
             "workflow_sha256": sha256_file(wf_path) if wf_path.is_file() else None,
             "graph_sha256": graph_sha256(wf) if wf else None,
             "canvas": canvas,

@@ -36,10 +36,39 @@ it silently disarms them (CLAUDE.md, "the server process is the resource").
     curl -s localhost:8188/system_stats                # until it answers
     ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
 
+**Between the kill and the launch, confirm the launcher chain is gone too.**
+On 2026-09-03 a `kill` of the port owner was followed within seconds by a
+new listener whose parent chain led back to the PREVIOUS `start.sh` shell,
+and the fresh launch then lost the port and exited 1 -- so the running
+server was the old chain's, without the environment the new launch
+carried. It did not reproduce on a later kill and the mechanism was not
+found; the operative rule is to check `ps` for `start.sh` and `uv run
+--active` survivors after the port frees, kill those too, and read the new
+owner's environment rather than assuming it is the one you launched.
+
 The last line is the point: the new process's start time must be LATER than
 the file you changed, or you are measuring the old code with a fresh-looking
 server. The server writes its own log to `user/comfyui_<port>.log` whatever
 you do with stdout, so redirecting the launcher to `/dev/null` loses nothing.
+
+**Captures are transient, and the collection root is `start.sh`'s.** Since
+2026-09-03 `start.sh` exports `H3_CAPTURE_ROOT`, the directory every
+`h3_capture.py` capture goes under (pass `dir=$H3_CAPTURE_ROOT/<date>_<what>`
+when arming) and the one `bench/check_capture_manifest.py` and
+`bench/recycle_captures.py` walk. The path is not written anywhere in this
+repo on purpose; read it from `start.sh`, and export the same line in the
+shell that runs the bench tools, or they skip. The lifecycle, because the
+disk is not unlimited: take the capture; write `manifest.json` with
+`bench/generate_capture_manifest.py` (it needs the graph that rendered) and a
+`retention.json` beside it saying what the capture is for and a `keep_until`
+date; copy the manifest and an inventory record under `bench/results/`
+(`bench/record_capture_inventory.py`); grade; then
+`bench/recycle_captures.py --delete <name>` removes the tensors and leaves
+the manifest, the retention note and a `DELETED.json` marker. The recycler
+refuses any capture the repo cannot account for, so a directory that owes
+a manifest keeps its tensors until someone writes one or owns the deletion.
+A capture's value ends when the analysis it was taken for is recorded; a
+week is the outer bound anyone has set so far.
 
 **If you started the server, stop it when you are done.** An idle ComfyUI still
 holds a CUDA context and VRAM, and from the outside a leftover server is

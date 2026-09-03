@@ -297,6 +297,10 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
               "kernel": kernel, "block": int(block), "step": int(step),
               "sigma": sigma, "seq_len": int(seq), "render": int(render),
               "unmerged_blocks": unmerged,
+              # The render this belongs to. ComfyUI's executing context (see
+              # provenance.py) names it; it is the join to /history's output
+              # filenames and to the Sol route record's render row.
+              "prompt_id": _prompt_id(),
               # The process that wrote this: its launch flags (`--fast
               # fp16_accumulation` changes the numerics a capture holds) and
               # the versions under it. The manifest generator copies this
@@ -336,6 +340,15 @@ def wants_final():
     """Whether `final=1` was declared. Read by the patching node."""
     _sync_spec()
     return bool(enabled and _config.get("final"))
+
+
+def _prompt_id():
+    try:
+        from comfy_execution.utils import get_executing_context
+        ctx = get_executing_context()
+        return getattr(ctx, "prompt_id", None) if ctx else None
+    except Exception:                                  # noqa: BLE001 -- unknown is a value; the join is best effort
+        return None
 
 
 def _server_stamp() -> dict:

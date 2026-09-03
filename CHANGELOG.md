@@ -54,6 +54,22 @@ artifact.
   record beside a legacy one, a flipped tensor byte, edited prompt text
   and a wrong bank id are refused. Green means every violation was
   caught, not that nothing was tried.
+- **Captures are transient and have a lifecycle now** (owner's call: the
+  disk is not unlimited). `start.sh` exports `H3_CAPTURE_ROOT`, the
+  collection every capture and both capture tools use; each capture
+  carries `retention.json` (purpose, `keep_until`); and
+  `bench/recycle_captures.py` lists what each capture still owes and
+  deletes tensors only when the repo holds its manifest copy and inventory
+  record, leaving the manifest, the retention note and a `DELETED.json`.
+  The Base16 capture moved under the root with a week's retention tied to
+  validating the online instrument against its cells. Two 2026-08-30
+  captures already under the root carry no manifest and are reported red
+  by the collection check until their owner writes one or recycles them.
+- **The manifest names the clip.** `workload.render` carries the render's
+  prompt id (stamped into every record by `h3_capture.py` from now on) and
+  the output BASENAMES, joined from the live server's history when it can
+  be and from the operator when it cannot, labelled either way; the mp4
+  itself stays in the output folder `start.sh` names.
 - **The Base16 capture has provenance now**:
   `bench/results/2026-09-03_capture_manifest_base16.json` (the manifest,
   names only) and `2026-09-03_capture_inventory_base16.json` (the

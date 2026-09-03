@@ -1,8 +1,8 @@
 {
   "schema_version": "1.5.0",
-  "timestamp": "2026-09-03T16:56:25.452304+00:00",
+  "timestamp": "2026-09-03T17:09:54.079638+00:00",
   "provenance": {
-    "git_commit": "7a0b30393db438676def5ef3a838b8eb769adcd3",
+    "git_commit": "926ba3893eb58abde21311a11cc2d5cda19c4a35",
     "gpu_device": "NVIDIA GeForce RTX 4090",
     "gpu_power_limit_watts": 450.0,
     "driver_version": "610.57.04",
@@ -15,6 +15,15 @@
   "workload": {
     "workflow_file": "h3_text_to_video_stamped_api@4b9c85f.json",
     "task": "t2va",
+    "render": {
+      "prompt_id": "534ca6c4-2bbe-40b3-9d60-826f673f714f",
+      "prompt_id_source": "operator",
+      "outputs": [
+        "h3_t2v_00017.mp4",
+        "h3_t2v_00017-audio.mp4"
+      ],
+      "source": "operator"
+    },
     "workflow_sha256": "54b6189ec8266a54c366a1e2a3e3ca710c8bd14fee28f665f12008650ca0b710",
     "graph_sha256": "0e0713306ccd685a6570db29a539e2ba0e87630c6a2c356cdde370a7c4585ba5",
     "canvas": {
