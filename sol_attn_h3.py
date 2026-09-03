@@ -114,6 +114,7 @@ from comfy_api.latest import io
 
 from .block_spec import parse_blocks
 from . import sol_observe
+from . import sol_block_probe as _probe
 
 try:
     import comfy_kitchen as _ck
@@ -742,6 +743,15 @@ def make_override(tau=1.0, min_tokens=4096,
                     block_tau=block_tau, tokens=tokens, batch=q.shape[0],
                     heads=heads, sink=sink, sink_q=sink_q, tail=tail,
                     topk_ratio=topk_ratio, min_tokens=min_tokens)
+            # The Sol-versus-fallback probe (`sol_block_probe.py`), armed by
+            # H3_SOL_PROBE: a call that did not route through Sol is recorded
+            # as skipped, with its reason, so its record can be checked for
+            # completeness against the schedule. Unarmed this is one bool.
+            if name != "sol" and _probe.enabled():
+                _probe.skip(route=name, reason=reason, options=options, settings=settings,
+                            block=block, block_tau=block_tau, tokens=tokens,
+                            batch=q.shape[0], heads=heads, sink=sink, sink_q=sink_q,
+                            tail=tail, topk_ratio=topk_ratio, min_tokens=min_tokens)
 
         def dense():
             target = func if previous is None else partial(previous, func)
@@ -816,6 +826,17 @@ def make_override(tau=1.0, min_tokens=4096,
             route("ineligible", reason)
             return dense()
         route("sol")
+        if _probe.enabled():
+            # Runs the chained fallback (`dense`, the shipped sage override on
+            # the canonical graphs) on the SAME q/k/v, records Sol against it,
+            # and returns Sol's output under trajectory=sol or the fallback's
+            # under trajectory=sage. Placed after `route("sol")` so the route
+            # recorder's row and this one describe the same call.
+            return _probe.compare(out, dense, skip_output_reshape=skip_output_reshape,
+                                  options=options, settings=settings, block=block,
+                                  block_tau=block_tau, tokens=tokens, batch=q.shape[0],
+                                  heads=heads, sink=sink, sink_q=sink_q, tail=tail,
+                                  topk_ratio=topk_ratio, min_tokens=min_tokens, counts=counts)
         return out
 
     return override

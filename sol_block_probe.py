@@ -141,108 +141,462 @@ kept as a named mode rather than the only one.
 
 from __future__ import annotations
 
+import json
 import logging
+import math
+import os
+import threading
+import time
+from pathlib import Path
+
+import torch
 
 logger = logging.getLogger(__name__)
 
-# Set when the implementation lands. Until then every entry point raises, so a
-# graph that wires this node fails loudly rather than rendering a silent no-op.
-_IMPLEMENTED = False
+_LOG = "[h3-sol-probe]"
+SCHEMA = 1
+_IMPLEMENTED = True
 
-_NOT_IMPLEMENTED = (
-    "sol_block_probe is scaffolding and has no implementation yet. See "
-    "internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md, Track A2."
-)
-
-
-def make_probe_override(inner):
-    """Wrap an installed override so every call is computed both ways.
-
-    Port target: `kijai/ComfyUI-SolAttn_triton@842c4ea:__init__.py:323-342`.
-
-    Contract, and the parts that must not drift:
-      - call ``inner(func, q, k, v, heads, **common)`` for the sparse result
-      - call ``func(q, k, v, heads, **common)`` for the dense reference
-      - record the pair against the block index in ``transformer_options``
-      - return the result the configured trajectory names: Sol's under
-        ``trajectory=sol`` (the shipping measurement; compounding is the
-        production population), the fallback's under ``trajectory=sage``
-        (the control). Until 2026-09-03 this line mandated the dense result
-        only; that is now the second mode, not the contract.
-    """
-    raise NotImplementedError(_NOT_IMPLEMENTED)
-
-
-def _record(block, sparse, reference, segments=None):
-    """Accumulate one call's error.
-
-    TODO(scaffolding): decide the metric before writing this. The original logs
-    a relative error. `docs/SOLATTN.md` warns that a cosine and an rtol from
-    different harnesses cannot be compared and that they fail in opposite
-    directions, so whatever is chosen has to be stated in the output itself,
-    not left to the reader.
-
-    ``segments`` carries the PackedLayout spans so text / audio / reference /
-    video can be reported separately (addition 3 in the module docstring).
-    """
-    raise NotImplementedError(_NOT_IMPLEMENTED)
-
-
-def _record_density(block, routed_blocks, total_blocks):
-    """Accumulate routed density for one call (addition 1).
-
-    Source, settled 2026-09-01: `blk_cnt`, the fork's out-parameter on
-    `sol_attn` (and `sol_attn_chunked`), which `sol_observe.py` already reads
-    and grades with its own shape check. The host-side recomputation this
-    used to propose stays worth having as a cross-check, not as the source.
-    Keep the three densities' denominators apart (routed count, kernel
-    density, pair-weighted density), as the specification says.
-    """
-    raise NotImplementedError(_NOT_IMPLEMENTED)
-
-
-def summarize():
-    """Emit the worst-first per-block table at sampling end.
-
-    Must include, and must refuse to print without:
-      - blocks seen against blocks expected (the control -- see the docstring)
-      - the metric's name and how it was computed
-      - mean AND p10/p90 per block (addition 2)
-      - routed density per block (addition 1)
-      - per-segment breakdown (addition 3)
-      - tau, and the sigma window, since a profile taken at a gentler setting
-        is measured where the failure does not occur
-    """
-    raise NotImplementedError(_NOT_IMPLEMENTED)
-
-
-def install(model):
-    """Clone the model, wrap its override, register the summary callback.
-
-    Port target: `SolAttnBlockProbe.execute`,
-    `kijai/ComfyUI-SolAttn_triton@842c4ea:__init__.py:627-646`. `_install_block_index`
-    already exists at `vendor/sol_attn_minimax.py:80-100` and should be reused
-    rather than reimplemented.
-
-    Must raise if no override is installed. A probe with nothing to measure is
-    the empty-check failure mode, and it renders successfully.
-    """
-    raise NotImplementedError(_NOT_IMPLEMENTED)
-
-
-# TODO(scaffolding): the ComfyNode subclass goes here once the above works.
+# ---------------------------------------------------------------------------
+# Arming. Environment only, read once, cached: the unarmed path is one bool.
 #
-#   node_id      "MiniMaxH3SolBlockProbe"   <- permanent once a graph saves it
-#   category     "model/debug/minimax"       (matches MiniMaxH3ProvenanceStamp)
-#   inputs       io.Model.Input("model")     <- APPEND ONLY after this ships
-#   outputs      io.Model.Output()
+#   H3_SOL_PROBE="dir=/path[,trajectory=sol|sage][,capture=<label>]"
 #
-# Register in `nodes.py`'s `H3ExplorationsExtension.get_node_list()` by
-# APPENDING to the list, never inserting.
-#
-# DECIDED 2026-09-03: environment-gated, no node. The install hooks the
-# override the way `h3_capture.py` and `sol_observe.py` do, armed by an
-# `H3_SOL_PROBE=...` spec on the server process, with an unarmed path that
-# adds no allocation, kernel call, copy or synchronisation beyond the branch.
-# No schema, no graph change, nothing a saved workflow can switch on. The
-# node sketch above is kept as the rejected alternative, not as a plan.
+# trajectory=sol   compute Sol and the fallback on identical q/k/v, RETURN SOL
+#                  (the shipping measurement; upstream Sol error compounds
+#                  into later blocks on purpose -- that is the production
+#                  population)
+# trajectory=sage  compute both, RETURN THE FALLBACK (the control: no block's
+#                  input carries an earlier Sol approximation)
+# capture=<label>  a free label joining this record to a capture or a session
+# ---------------------------------------------------------------------------
+
+_armed: bool | None = None
+_spec: dict = {}
+_raw_spec: str = ""
+
+
+def _parse(spec: str) -> dict:
+    out = {"dir": None, "trajectory": "sol", "capture": None}
+    for part in spec.split(","):
+        key, _, val = part.partition("=")
+        key, val = key.strip(), val.strip()
+        if key == "dir":
+            out["dir"] = os.path.expanduser(val)
+        elif key == "trajectory" and val:
+            out["trajectory"] = val.lower()
+        elif key == "capture" and val:
+            out["capture"] = val
+    return out
+
+
+def arm(spec: str | None) -> bool:
+    """Set the arming state from a spec string; the server reads the
+    environment through this once, tests call it directly."""
+    global _armed, _spec, _raw_spec
+    _raw_spec = spec or ""
+    parsed = _parse(_raw_spec) if _raw_spec else _parse("")
+    if parsed["trajectory"] not in ("sol", "sage"):
+        print(f"{_LOG} H3_SOL_PROBE trajectory must be sol or sage, got {parsed['trajectory']!r}; probe disabled")
+        parsed["dir"] = None
+    _armed = bool(_raw_spec) and bool(parsed["dir"])
+    if _raw_spec and not parsed["dir"]:
+        print(f"{_LOG} H3_SOL_PROBE set but no dir=; probe disabled")
+    _spec = parsed
+    _writer_reset()
+    if _armed:
+        print(f"{_LOG} ARMED: dir={parsed['dir']} trajectory={parsed['trajectory']} "
+              f"capture={parsed['capture']}; every Sol call also runs the fallback and "
+              f"timings from this render are void")
+    return _armed
+
+
+def enabled() -> bool:
+    global _armed
+    if _armed is None:
+        arm(os.environ.get("H3_SOL_PROBE", ""))
+    return bool(_armed)
+
+
+def spec() -> dict:
+    enabled()
+    return dict(_spec, spec=_raw_spec)
+
+
+# ---------------------------------------------------------------------------
+# Writer: one lock, one append-only jsonl, header once, a render row per prompt
+# ---------------------------------------------------------------------------
+
+_lock = threading.Lock()
+_jsonl = None
+_path: str | None = None
+_seq = 0
+_header_written = False
+_renders_seen: dict = {}
+
+
+def _writer_reset() -> None:
+    global _jsonl, _path, _seq, _header_written
+    try:
+        if _jsonl is not None:
+            _jsonl.close()
+    except OSError:
+        pass
+    _jsonl = None
+    _path = None
+    _seq = 0
+    _header_written = False
+    _renders_seen.clear()
+
+
+def path() -> str | None:
+    return _path
+
+
+def _builds() -> dict:
+    """Both kernel builds under the comparison, read from the process."""
+    out = {"comfy_kitchen": None, "sageattention": None, "sageattention_path": None,
+           "sageattention_git_head": None, "pack_commit": None}
+    try:
+        import importlib.metadata as md
+        for name in ("comfy-kitchen", "comfy_kitchen"):
+            try:
+                out["comfy_kitchen"] = md.version(name); break
+            except md.PackageNotFoundError:
+                continue
+        try:
+            out["sageattention"] = md.version("sageattention")
+        except md.PackageNotFoundError:
+            pass
+    except Exception:                                  # noqa: BLE001
+        pass
+    try:
+        import subprocess
+        import sageattention as _sa
+        d = os.path.dirname(os.path.abspath(_sa.__file__))
+        out["sageattention_path"] = d
+        r = subprocess.run(["git", "-C", d, "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True, timeout=5)
+        out["sageattention_git_head"] = r.stdout.strip() if r.returncode == 0 else None
+    except Exception:                                  # noqa: BLE001
+        pass
+    try:
+        import subprocess
+        here = os.path.dirname(os.path.abspath(__file__))
+        r = subprocess.run(["git", "-C", here, "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True, timeout=5)
+        out["pack_commit"] = r.stdout.strip() if r.returncode == 0 else None
+    except Exception:                                  # noqa: BLE001
+        pass
+    return out
+
+
+def _header() -> dict:
+    return {"kind": "header", "schema": SCHEMA, "spec": _raw_spec, "trajectory": _spec.get("trajectory"),
+            "capture": _spec.get("capture"), "builds": _builds(), "when": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "metric": {
+                "rel_l2": "sqrt(sum |sol - ref|^2 / sum |ref|^2) over the named scope, float32 inputs, float64 sums",
+                "cos": "sum(sol . ref) / (|sol| |ref|) over the named scope",
+                "diff_rms": "sqrt(mean |sol - ref|^2)", "ref_rms": "sqrt(mean |ref|^2)",
+                "rows": "per-row (one head, one token) relative L2 = |sol_row - ref_row| / |ref_row|, summarised as count, mean, p50, p90, p99, max; rows with a zero reference norm are excluded and counted",
+                "null_rule": "a zero denominator yields null with numerator and denominator retained",
+                "reference": "the CHAINED fallback the Sol override would have run for this call (the shipped sage override on the canonical graphs), on the identical q/k/v; not exact attention"},
+            "note": "timings from an armed render are void: every Sol call also ran the fallback"}
+
+
+def _open() -> None:
+    global _jsonl, _path
+    if _jsonl is not None:
+        return
+    d = Path(_spec["dir"]); d.mkdir(parents=True, exist_ok=True)
+    _path = str(d / f"sol_probe_{time.strftime('%Y%m%d_%H%M%S')}.jsonl")
+    _jsonl = open(_path, "a", encoding="utf-8")
+
+
+def _write(row: dict) -> None:
+    global _seq, _header_written
+    with _lock:
+        _open()
+        assert _jsonl is not None
+        if not _header_written:
+            _jsonl.write(json.dumps(_header()) + "\n")
+            _header_written = True
+        _seq += 1
+        _jsonl.write(json.dumps(dict(row, seq=_seq, schema=SCHEMA)) + "\n")
+        _jsonl.flush()
+
+
+def _ensure_render(prompt_id) -> None:
+    """A render row the first time a prompt id is seen: the graph's hash, the
+    shipped file it matches, and what was rendered (bank id, prompt hash,
+    length, canvas, seed), through the route recorder's own helpers so the
+    two records describe a render the same way."""
+    if prompt_id is None or prompt_id in _renders_seen:
+        return
+    _renders_seen[prompt_id] = len(_renders_seen)
+    row = {"kind": "render", "prompt_id": prompt_id, "process_render_index": _renders_seen[prompt_id],
+           "trajectory": _spec.get("trajectory"), "graph_sha256": None, "workflow_file": None, "rendered": None}
+    try:
+        from . import sol_observe as _obs
+    except ImportError:
+        import sol_observe as _obs  # type: ignore
+    try:
+        graph, why = _obs._running_prompt(prompt_id)
+        row["match"] = why
+        if graph is not None:
+            sha = _obs.graph_sha256(graph)
+            row.update({"graph_sha256": sha, "workflow_file": _obs._shipped_graph_hashes().get(sha),
+                        "rendered": _obs._describe_prompt(graph)})
+    except Exception as exc:                          # noqa: BLE001 -- identity, not the render
+        row["match"] = f"could not read the running prompt: {exc}"
+    _write(row)
+
+
+# ---------------------------------------------------------------------------
+# Metrics. Everything streams per head so the temporaries are one head's
+# worth (about 50 MiB at 104k tokens), never a whole-call float32 copy.
+# ---------------------------------------------------------------------------
+
+def _bhnd(x: torch.Tensor, heads: int, skip_output_reshape: bool) -> torch.Tensor:
+    """(B, H, N, D) view of an override's output in either layout."""
+    if skip_output_reshape:
+        return x                                              # already BHND
+    b, n, hd = x.shape
+    return x.view(b, n, heads, hd // heads).transpose(1, 2)   # BHND view
+
+
+def _ratio(num: float, den: float) -> float | None:
+    return None if den == 0.0 else num / den
+
+
+def _summ(rows: torch.Tensor) -> dict:
+    """count, mean, p50, p90, p99, max of a 1-D tensor of per-row relative
+    errors; None-valued when empty."""
+    if rows.numel() == 0:
+        return {"count": 0, "mean": None, "p50": None, "p90": None, "p99": None, "max": None}
+    r = rows.double()
+    return {"count": int(r.numel()), "mean": float(r.mean()), "p50": float(r.quantile(0.5)),
+            "p90": float(r.quantile(0.9)), "p99": float(r.quantile(0.99)), "max": float(r.max())}
+
+
+def _segment_spans(segments, tokens: int) -> list[tuple[str, int, int]]:
+    """[(kind, start, end)] clipped to [0, tokens); empty when no table."""
+    out = []
+    for a, b, kind in (segments or []):
+        a, b = max(0, int(a)), min(int(tokens), int(b))
+        if b > a:
+            out.append((str(kind), a, b))
+    return out
+
+
+def metrics(sol: torch.Tensor, ref: torch.Tensor, *, heads: int, skip_output_reshape: bool,
+            segments=None) -> dict:
+    """Sol-versus-reference error on one call, whole-call, per head, per
+    segment, with per-head and per-segment row distributions. `sol` and `ref`
+    are the two override outputs in the same layout."""
+    a = _bhnd(sol, heads, skip_output_reshape)
+    r = _bhnd(ref, heads, skip_output_reshape)
+    if a.shape != r.shape:
+        raise ValueError(f"probe: sol {tuple(a.shape)} and reference {tuple(r.shape)} differ in shape")
+    B, H, N, D = a.shape
+    spans = _segment_spans(segments, N)
+    # accumulators (float64 python floats)
+    diff2 = ref2 = dot = sol2 = 0.0
+    per_head = []
+    seg_acc = {kind: {"diff2": 0.0, "ref2": 0.0, "dot": 0.0, "sol2": 0.0, "rows": []} for kind, _, _ in spans}
+    zero_rows = 0
+    for h in range(H):
+        x = a[:, h].float()                       # (B, N, D)
+        y = r[:, h].float()
+        d = x - y
+        hd2 = float((d * d).sum(dtype=torch.float64)); hr2 = float((y * y).sum(dtype=torch.float64))
+        hdot = float((x * y).sum(dtype=torch.float64)); hs2 = float((x * x).sum(dtype=torch.float64))
+        diff2 += hd2; ref2 += hr2; dot += hdot; sol2 += hs2
+        row_d = d.norm(dim=-1)                    # (B, N)
+        row_r = y.norm(dim=-1)
+        live = row_r > 0
+        zero_rows += int((~live).sum())
+        rel_rows = torch.where(live, row_d / row_r.clamp_min(1e-30), torch.zeros_like(row_d))
+        per_head.append({
+            "head": h, "numerator": hd2, "denominator": hr2,
+            "rel_l2": _ratio(math.sqrt(hd2), math.sqrt(hr2)) if hr2 > 0 else None,
+            "cos": _ratio(hdot, math.sqrt(hs2 * hr2)) if hs2 > 0 and hr2 > 0 else None,
+            "rows": _summ(rel_rows[live]),
+        })
+        for kind, s0, s1 in spans:
+            xs, ys, ds = x[:, s0:s1], y[:, s0:s1], d[:, s0:s1]
+            acc = seg_acc[kind]
+            acc["diff2"] += float((ds * ds).sum(dtype=torch.float64))
+            acc["ref2"] += float((ys * ys).sum(dtype=torch.float64))
+            acc["dot"] += float((xs * ys).sum(dtype=torch.float64))
+            acc["sol2"] += float((xs * xs).sum(dtype=torch.float64))
+            lv = live[:, s0:s1]
+            acc["rows"].append(rel_rows[:, s0:s1][lv].detach().cpu())
+        del x, y, d, row_d, row_r, rel_rows
+    per_segment = []
+    for kind, s0, s1 in spans:
+        acc = seg_acc[kind]
+        rows = torch.cat(acc["rows"]) if acc["rows"] else torch.zeros(0)
+        per_segment.append({
+            "kind": kind, "start": s0, "end": s1, "numerator": acc["diff2"], "denominator": acc["ref2"],
+            "rel_l2": _ratio(math.sqrt(acc["diff2"]), math.sqrt(acc["ref2"])) if acc["ref2"] > 0 else None,
+            "cos": (_ratio(acc["dot"], math.sqrt(acc["sol2"] * acc["ref2"]))
+                    if acc["sol2"] > 0 and acc["ref2"] > 0 else None),
+            "rows": _summ(rows),
+        })
+    n_elem = float(B * H * N * D)
+    return {
+        "shape": {"B": B, "H": H, "N": N, "D": D},
+        "whole": {"numerator": diff2, "denominator": ref2,
+                  "rel_l2": _ratio(math.sqrt(diff2), math.sqrt(ref2)) if ref2 > 0 else None,
+                  "cos": _ratio(dot, math.sqrt(sol2 * ref2)) if sol2 > 0 and ref2 > 0 else None,
+                  "diff_rms": math.sqrt(diff2 / n_elem), "ref_rms": math.sqrt(ref2 / n_elem),
+                  "zero_reference_rows": zero_rows},
+        "per_head": per_head,
+        "per_segment": per_segment,
+        "segments_recorded": bool(spans),
+        "finite": bool(math.isfinite(diff2) and math.isfinite(ref2) and math.isfinite(dot)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The two entries the Sol override calls
+# ---------------------------------------------------------------------------
+
+def _sage_counts():
+    try:
+        import sageattention as _sa
+        c = _sa.get_dispatch_counts()
+        return dict(c) if isinstance(c, dict) else c
+    except Exception:                                  # noqa: BLE001
+        return None
+
+
+def _sage_last():
+    try:
+        import sageattention as _sa
+        return _sa.get_last_dispatched_kernel()
+    except Exception:                                  # noqa: BLE001
+        return None
+
+
+def _count_total(c) -> int | None:
+    if c is None:
+        return None
+    if isinstance(c, dict):
+        return int(sum(int(v) for v in c.values() if isinstance(v, (int, float))))
+    try:
+        return int(c)
+    except (TypeError, ValueError):
+        return None
+
+
+def _identity_bits(options, settings, block, block_tau, tokens, batch, heads, sink, sink_q,
+                   tail, topk_ratio, min_tokens) -> dict:
+    try:
+        from . import sol_observe as _obs
+    except ImportError:
+        import sol_observe as _obs  # type: ignore
+    identity = _obs._identity()
+    sigmas = options.get("sigmas") if isinstance(options, dict) else None
+    sigma = None
+    if sigmas is not None:
+        try:
+            sigma = float(sigmas[0]) if getattr(sigmas, "ndim", 1) else float(sigmas)
+        except (TypeError, IndexError, ValueError):
+            sigma = None
+    ntb = (int(tokens) + 63) // 64
+    return {
+        **identity, "capture": _spec.get("capture"), "trajectory": _spec.get("trajectory"),
+        "config": _obs.config_digest(settings), "settings": settings,
+        "block": None if block is None else int(block),
+        "sigma": sigma,
+        "schedule": _obs.schedule_index(sigma, options.get("sample_sigmas") if isinstance(options, dict) else None),
+        "cond_or_uncond": _obs._cond_or_uncond(options),
+        "B": int(batch), "H": int(heads), "T": int(tokens), "NTB": ntb,
+        "selection": ({"mode": "topk", "topk_ratio": float(topk_ratio)} if topk_ratio
+                      else {"mode": "tau", "tau": None if block_tau is None else float(block_tau)}),
+        "tail": bool(tail), "sink_blocks": [int(sink[0]), int(sink[1])],
+        "sink_q": [int(sink_q[0]), int(sink_q[1])], "min_tokens": int(min_tokens),
+        "segments": _obs._segments(options),
+    }
+
+
+def skip(*, route: str, reason, options, settings, block, block_tau, tokens, batch, heads,
+         sink, sink_q, tail, topk_ratio, min_tokens) -> None:
+    """A call that did not route through Sol is recorded as skipped, with its
+    reason, so completeness can be checked against the schedule."""
+    if not enabled():
+        return
+    bits = _identity_bits(options, settings, block, block_tau, tokens, batch, heads,
+                          sink, sink_q, tail, topk_ratio, min_tokens)
+    _ensure_render(bits.get("prompt_id"))
+    _write({"kind": "skip", "t_wall": time.time(), **bits, "route": route, "reason": reason})
+
+
+def compare(out: torch.Tensor, dense_fn, *, skip_output_reshape: bool, options, settings, block,
+            block_tau, tokens, batch, heads, sink, sink_q, tail, topk_ratio, min_tokens,
+            counts=None) -> torch.Tensor:
+    """Called by the Sol override after a call it took. Runs the chained
+    fallback on the same q/k/v, records the comparison, and returns the
+    output the configured trajectory names. `counts` is the kernel's blk_cnt
+    tensor when the route recorder is armed too (cost lives in that record;
+    here only its per-head mean is copied for convenience)."""
+    if not enabled():
+        return out
+    bits = _identity_bits(options, settings, block, block_tau, tokens, batch, heads,
+                          sink, sink_q, tail, topk_ratio, min_tokens)
+    _ensure_render(bits.get("prompt_id"))
+    before = _sage_counts()
+    t0 = time.time()
+    status, why, ref = "compared", None, None
+    try:
+        ref = dense_fn()
+    except torch.cuda.OutOfMemoryError as exc:
+        status, why = "oom", f"fallback OOM: {exc}"[:200]
+        torch.cuda.empty_cache()
+    except Exception as exc:                          # noqa: BLE001 -- recorded, never swallowed silently
+        status, why = "fallback_error", f"{type(exc).__name__}: {exc}"[:200]
+    after = _sage_counts()
+    b0, a0 = _count_total(before), _count_total(after)
+    dispatched = (a0 - b0) if (a0 is not None and b0 is not None) else None
+    telemetry = {"sage_dispatch_delta": dispatched, "sage_last_kernel": _sage_last(),
+                 "sage_counts_after": after}
+    row = {"kind": "cell", "t_wall": time.time(), **bits, "route": "sol",
+           "compare_status": status, "compare_reason": why, "counterfactual": telemetry,
+           "fallback_seconds": time.time() - t0, "returned_backend": None, "metrics": None,
+           "blk_cnt_per_head_mean": None}
+    if counts is not None:
+        try:
+            row["blk_cnt_per_head_mean"] = [float(x) for x in counts.detach().to("cpu").double().mean(dim=(0, 2))]
+        except Exception:                              # noqa: BLE001
+            pass
+    if ref is not None:
+        try:
+            row["metrics"] = metrics(out, ref, heads=heads, skip_output_reshape=skip_output_reshape,
+                                     segments=bits.get("segments"))
+            if not row["metrics"]["finite"]:
+                row["compare_status"], row["compare_reason"] = "non_finite", "NaN or Inf in the sums"
+        except Exception as exc:                      # noqa: BLE001
+            row["compare_status"], row["compare_reason"] = "metric_error", f"{type(exc).__name__}: {exc}"[:200]
+    if dispatched == 0 and ref is not None:
+        # the reference did not go through sage: a stock-attention substitution,
+        # or a sage build without the counter -- either way not the shipped
+        # fallback, and the row says so rather than describing the wrong thing
+        row["compare_status"], row["compare_reason"] = "reference_not_sage", "sage dispatch counter did not move"
+    trajectory = _spec.get("trajectory", "sol")
+    if trajectory == "sage":
+        if ref is None:
+            _write({**row, "returned_backend": None})
+            raise RuntimeError(f"{_LOG} trajectory=sage but the fallback failed ({why}); cannot continue honestly")
+        row["returned_backend"] = "sage"
+        _write(row)
+        del out
+        return ref
+    row["returned_backend"] = "sol"
+    _write(row)
+    del ref
+    return out
+
+
+def summarize() -> dict | None:
+    """Where the record went; the offline reader does the per-block table."""
+    return {"path": _path, "rows": _seq, "renders": len(_renders_seen)} if _path else None
