@@ -61,6 +61,7 @@ Ordered by blast radius — how many graphs carry the scene.
 | `R2V_PROMPT` (ten-second) | ref2va | **rewrite** | describes 10 s on a 15.083 s graph |
 | r2v-swap family | ref2va | revise | defines a `<Picture N>` ref §2.2 says not to define |
 | the remaining `derived:` ref2va scenes | ref2va | revise | the budget gap is systematic |
+| the bank's `non_diegetic_music` lines, corpus-wide | t2va | revise | base 4.7 (`vendor_guides/base_en.md`, the sentence forbidding abstract mood words for the score) is GUIDE and checked by nothing; an Opus review on 2026-09-03 found mood words in at least a dozen bank entries. Constant across any ladder's rungs, so not a confound; a corpus pass, not a hold |
 
 ### Verdicts added 2026-09-01
 

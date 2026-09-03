@@ -391,7 +391,7 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; scored."
+      "brief": "19th century Italian grand opera; 3 shots; dramatic soprano aria with lyrics pair; on-screen text; silent courtier; pedestal down, zoom in, static shot; the pit orchestra is DIEGETIC (base 4.7: music the characters hear goes in the description) so non_diegetic_music is N/A; moved there 2026-09-03 on review."
     },
     {
       "id": "t2va_punk_basement_gig",
@@ -468,7 +468,7 @@
       "mode": "t2va",
       "frames": 345,
       "donor": null,
-      "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored."
+      "brief": "1950s diner romance drama; 3 shots; greaser and sweetheart breakup dialogue; on-screen menu; silent cook; push in, static shot, pull out; scored. Speech lines shortened 2026-09-03 on review: both shots were over the guide's speech budget, on the arm whose job is judging speech."
     },
     {
       "id": "t2va_pirate_deck_mutiny",
