@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is a standalone music reference whose tempo and instrumentation the target video's score follows.
+
+summary:
+[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: reference - only tempo and instrumentation are referenced, the signal is not copied.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+A slow instrumental score follows the tempo and instrumentation of <Audio 1>.

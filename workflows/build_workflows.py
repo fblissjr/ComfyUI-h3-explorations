@@ -111,6 +111,62 @@ from h3_config import (  # noqa: E402
 )
 
 
+def _composed_from_bank(composed: str) -> str:
+    """The bank's copy of a COMPOSED prompt, refusing one that is not in it.
+
+    `_ref_prompt` builds a ref2va prompt from the role tables rather than
+    from one literal, so before 2026-09-03 its output was the one class of
+    shipped prompt with no home outside the graphs: `prompt_catalogue.md`
+    named those scenes `derived:<graph>` because no constant held them and
+    nothing could name them. The composition is still what decides the text
+    -- the role tables are the reason a prompt declares exactly the labels
+    its arm wires -- so this does not replace it. It joins it to the bank:
+    compose, look the result up by its own text, and ship the bank's copy.
+
+    So the invariant `prompts.py` states holds for composed prompts too: a
+    prompt that is not in the bank cannot ship. A new reference combination
+    fails the build here, naming the file to write, rather than emitting a
+    graph carrying text no record can identify.
+    """
+    from prompts import identify  # local: keeps the module import list flat
+    pid = identify(composed)
+    if pid is None:
+        raise SystemExit(
+            "a composed prompt is not in the bank. Write it to "
+            "prompt_bank/<id>.txt, add its manifest entry (mode ref2va needs "
+            "a donor), run bench/build_prompt_bank.py, then rebuild:\n\n"
+            + composed)
+    return _bank_prompt(pid)
+
+
+def _retimed_from_bank(prompt_id: str, alignment, length: int) -> str:
+    """A keyframe prompt from the bank with its Part One line re-resolved.
+
+    The two keyframe defaults are the one place a shipped prompt is
+    genuinely parametric: `base_en.md:14-32` puts the effective duration in
+    the alignment sentence to two decimals, so the text a graph carries is a
+    function of its frame count. Typing the duration into the bank file and
+    stopping there would make the bank right for one length and silently
+    wrong for every other -- the defect `fl2v_prompt` was written as a
+    function to avoid.
+
+    So the bank holds the whole prompt at the frame count its manifest entry
+    declares, which is what `--check` grades and what a reader sees, and this
+    swaps the first paragraph for the same sentence resolved at `length`.
+    The equality assertion is the join: the template and the bank must agree
+    at the declared count, so editing either alone fails the build.
+    """
+    from prompts import entry as _bank_entry
+    text = _bank_prompt(prompt_id)
+    head, sep, rest = text.partition("\n\n")
+    declared = _bank_entry(prompt_id)["frames"]
+    want = alignment(duration_of(snap_length(declared)))
+    if head != want:
+        raise SystemExit(
+            f"prompt_bank/{prompt_id}.txt's Part One line is not the one this "
+            f"generator resolves at its declared {declared} frames.\n"
+            f"  bank:      {head}\n  generator: {want}")
+    return alignment(duration_of(snap_length(length))) + sep + rest
 
 
 # The Sol-Attn node every graph wires. Third node in this slot: kijai's Triton
@@ -674,29 +730,24 @@ def fl2v_prompt(length: int) -> str:
     single shot so the model can interpolate continuously from the first frame
     to the last", and that multiple shots are for when they are explicitly
     specified. So N is 1 here, and stays 1 unless the body grows a cut.
+
+    **The body lives in `prompt_bank/fl2va_interior_converge.txt` since
+    2026-09-03**, with the alignment line in it resolved at the frame count
+    the manifest declares; only the sentence below is still built here, and
+    `_retimed_from_bank` asserts the two agree at that count.
     """
-    seconds = duration_of(snap_length(length))
+    return _retimed_from_bank(FL2V_PROMPT_ID, _fl2v_alignment, length)
+
+
+FL2V_PROMPT_ID = "fl2va_interior_converge"
+
+
+def _fl2v_alignment(seconds: float) -> str:
     return (
         "How the reference pictures align with the target video \u2014 Picture 1 "
         "(from Shot 1) aligns with the 0.00-second mark of the target video; "
         f"Picture 2 (from Shot {FL2V_FINAL_SHOT}) aligns with the {seconds:.2f}-second "
-        "mark of the target video.\n"
-        "\n"
-        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, one "
-        "continuous shot that begins in the exact state of the opening frame and "
-        "ends in the exact state of the closing frame. The subject holds the "
-        "opening position, framing, lighting and colors, then moves steadily "
-        "through the space while the camera trucks right with small amplitude at "
-        "slow speed. Wardrobe, palette and the surrounding scene stay continuous "
-        "throughout, and the subject's pose, placement and the camera's position, "
-        "angle and framing converge on the closing composition, reaching it only "
-        "at the final frame.\n"
-        "\n"
-        "overall_soundscape: Quiet room tone with a low ambient hum continues "
-        "throughout, joined by soft physical sounds from the subject's movement "
-        "and a single settling sound as the motion comes to rest.\n"
-        "\n"
-        "non_diegetic_music: N/A")
+        "mark of the target video.")
 
 
 
@@ -724,27 +775,21 @@ def l2v_prompt(length: int) -> str:
     endpoints -- there is only one endpoint. The opening is unconstrained,
     which is the whole difference from fl2va, so the body must not imply a
     starting frame the model was never given.
+
+    **The body lives in `prompt_bank/l2va_interior_converge.txt` since
+    2026-09-03**, on the same terms as its fl2va twin above.
     """
-    seconds = duration_of(snap_length(length))
+    return _retimed_from_bank(L2V_PROMPT_ID, _l2v_alignment, length)
+
+
+L2V_PROMPT_ID = "l2va_interior_converge"
+
+
+def _l2v_alignment(seconds: float) -> str:
     return (
         "How the reference pictures align with the target video \u2014 "
         f"<Picture 1> (from [Shot {L2V_FINAL_SHOT}]) aligns with the "
-        f"{seconds:.2f}-second mark of the target video.\n"
-        "\n"
-        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, one "
-        "continuous shot in a quiet interior. A woman in a dark jacket crosses the "
-        "room unhurriedly, passing a window that throws a soft band of daylight "
-        "across the floor. The camera trucks right with small amplitude at slow "
-        "speed, holding her in frame as she moves. Her pace settles, her shoulders "
-        "come level, and her position, wardrobe, the lighting and the camera's "
-        "angle and framing converge on the closing composition, reaching it only at "
-        "the final frame.\n"
-        "\n"
-        "overall_soundscape: Quiet room tone with a low ambient hum throughout, "
-        "unhurried footsteps on a hard floor, and the faint settle of fabric as the "
-        "movement comes to rest.\n"
-        "\n"
-        "non_diegetic_music: N/A")
+        f"{seconds:.2f}-second mark of the target video.")
 
 #: The market scene as a ref2va task: the same three shots and the same two
 #: speakers, with the stallholder's appearance carried from a reference image.
@@ -1008,9 +1053,28 @@ def _ref_short_edge():
     day it disagrees.
     """
     # This script is designed to run without ComfyUI importable -- it
-    # validates over HTTP -- so put the root on the path just for this.
-    root = HERE.parent.parent.parent
-    if str(root) not in sys.path:
+    # validates over HTTP -- so put the root on the path just for this, and
+    # at position 0: the repo root is already there (`sys.path.insert` near
+    # the top), and `nodes_minimax_h3` does a bare `import nodes` that finds
+    # THIS PACK's `nodes.py` if the repo wins. That is the `import nodes`
+    # trap in `docs/comfy_notes.md`.
+    #
+    # **Found by marker, not by counting `..`.** It was `HERE.parent.parent
+    # .parent` until 2026-09-03, which is the ComfyUI root only when the pack
+    # sits directly in `custom_nodes/`; from a git worktree of this repo it
+    # resolves three levels short and the generator cannot run at all. The
+    # walk returns the same directory in the ordinary layout.
+    # **Not finding one is not an error here.** A caller can have made the
+    # module importable already -- `bench/check_generator_constants.py`
+    # imports core BEFORE this module for exactly the shadowing reason above,
+    # so by the time this runs it is a `sys.modules` hit and no path work is
+    # needed. Raising when the walk comes up empty made that green check go
+    # red, which is the "a correct fix moves where a constraint applies"
+    # rule in CLAUDE.md: let the import decide, and it raises on its own if
+    # ComfyUI really is unreachable.
+    root = next((p for p in HERE.parents
+                 if (p / "comfy_extras" / "nodes_minimax_h3.py").is_file()), None)
+    if root is not None and sys.path[0] != str(root):
         sys.path.insert(0, str(root))
     from comfy_extras.nodes_minimax_h3 import REF_IMAGE_SHORT_EDGE
 
@@ -2779,6 +2843,13 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
     Markers never cross sets: visual takes fully_preserved /
     partially_preserved / attribute_transfer / weak_reference (4.1), audio
     takes fully_copy / partially_copy / reference / weak_reference (4.2).
+
+    **The result is returned from the bank, not from here** -- see
+    `_composed_from_bank`. Every combination this function can reach that a
+    graph actually asks for is a `prompt_bank/` entry, so a composed prompt
+    is identifiable in a render record and gradeable by the same tool as
+    every other, and a new combination fails the build until it is written
+    down. What the composition decides is still what the text SAYS.
     """
     image_roles = _image_roles(images)
     defs, retention, shot = [], [], []
@@ -3035,7 +3106,7 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
     if not types:
         types.append("reference generation")
 
-    return "\n".join([
+    return _composed_from_bank("\n".join([
         "subject_definitions:", *defs, "",
         "summary:", f"[{' + '.join(types)}] " + summary + ".", "",
         "retention_analysis:", *retention, "",
@@ -3052,7 +3123,7 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
         REF_SCENE_AUDIO[scene][0] if scene else soundscape, "",
         "non_diegetic_music:",
         REF_SCENE_AUDIO[scene][1] if scene else music,
-    ])
+    ]))
 
 
 _NOTE_IMAGE_EDIT = """\

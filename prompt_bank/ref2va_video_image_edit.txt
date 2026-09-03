@@ -1,0 +1,26 @@
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.
+<Subject 2> is the garment shown in <Picture 1>, which replaces the one <Subject 1> wears in <Video 1>.
+<Subject 3> is the environment in <Picture 2>, which replaces the background of <Video 1> while the camera move is kept.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video for the target video edit.
+
+summary:
+[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment and the background change.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.
+<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting comes from <Picture 2>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A

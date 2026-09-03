@@ -660,6 +660,139 @@
       "frames": 345,
       "donor": "h3_image_ref_plus_text_to_video_dialogue_api",
       "brief": "The stairwell dialogue with both speakers carried from pictures"
+    },
+    {
+      "id": "ref2va_role_character_environment",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_image_ref_plus_text_to_video_api",
+      "brief": "The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_role_character_garment_environment",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_probe_capture_ref3_api",
+      "brief": "Three image roles in socket order -- character, garment, environment -- with the garment on `attribute_transfer` and each subject cited in the shot, which is the case the role machinery exists for.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_image_video_audio_music",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_image_video_audio_api",
+      "brief": "Every reference type at once: two picture subjects, a sounded reference video followed for camera movement only, and a standalone music clip. <Audio 1> is the video's own track and <Audio 2> the standalone one, which is the ordinal the tokenizer emits.",
+      "recorded_findings": "prompt_audit.md verdict `keep` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_video_character_swap",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_swap_api",
+      "brief": "Character replacement: <Video 1> is the plate and <Picture 1> the new identity, with the negative clauses that are this repo's hypothesis rather than the guide's rule.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene. The bank's shape rule reads no camera motion because the arm follows <Video 1>'s camera -- \"the scene maintains the exact environmental details, lighting, and composition of <Video 1>\" -- instead of naming one of base 4.3's twenty; naming one would contradict the plate. The guide checks on its graphs pass."
+    },
+    {
+      "id": "ref2va_video_sound_structure",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_audio_api",
+      "brief": "A sounded reference video and nothing else: the subject comes from <Video 1>, its track is kept under the new scene, and its camera path is followed at `weak_reference`.",
+      "recorded_findings": "prompt_audit.md verdict `keep` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_scene_kitchen",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref2v_scene_kitchen_api",
+      "brief": "The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them."
+    },
+    {
+      "id": "ref2va_scene_subway",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref2v_scene_subway_api",
+      "brief": "The subway stress scene: four shots, two speakers, the lyrics, caption and cutoff markers, and a busker carried from <Picture 1>.",
+      "recorded_findings": "prompt_audit.md verdict `keep` for this scene. Camera written as handheld fast reframing, tracking with the subject and a whip pan -- forms outside MOTION_PROSE, so the bank's shape rule reads no motion; the same finding `t2va_subway_platform` records. The guide checks on its graph pass."
+    },
+    {
+      "id": "ref2va_image_audio_voice",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_audio_voice_api",
+      "brief": "Voice-timbre reference: <Audio 1> carries <Subject 1>'s (S1) delivery at `reference`, with the spoken line in the shot rather than in the audio sections, per ref 6.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_image_audio_music",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_image_audio_api",
+      "brief": "A standalone music reference at `reference`, scoring two picture subjects; the only composed arm whose `non_diegetic_music` is a real cue rather than N/A.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_video_continuation",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_continue_api",
+      "brief": "Continuation: the target begins at <Video 1>'s final frame, on the same framing and lighting, with the source's ambience kept underneath.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. The bank's shape rule also reads no camera motion: the shot holds (\"as the camera holds\") rather than naming base 4.3's `Static Shot`."
+    },
+    {
+      "id": "ref2va_video_garment_edit",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_edit_api",
+      "brief": "Whole-frame edit with no image reference: the garment is described in words, and `retention_analysis` carries what survives because there is no mask socket.",
+      "recorded_findings": "prompt_audit.md verdict `keep` for this scene. The bank's shape rule reads no camera motion because the shot \"reproduces <Video 1> frame for frame in framing, camera movement, and timing\" instead of naming one of base 4.3's twenty. The guide checks on its graph pass."
+    },
+    {
+      "id": "ref2va_video_image_edit",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_image_edit_api",
+      "brief": "The edit worth starting from: <Video 1> is the source, <Picture 1> the replacement garment and <Picture 2> the replacement background, five labels in all.",
+      "recorded_findings": "prompt_audit.md verdict `keep` for this scene. The bank's shape rule reads no camera motion because the shot \"reproduces <Video 1> frame for frame in framing, camera movement, and timing\" instead of naming one of base 4.3's twenty. The guide checks on its graph pass."
+    },
+    {
+      "id": "ref2va_video_motion_transfer",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_motion_api",
+      "brief": "Ref 2.1's multi-asset subject: appearance from <Picture 1>, walking motion from <Video 1>, with `attribute_transfer` on the source giving the trait away rather than on the recipient.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_video_structure_only",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_only_api",
+      "brief": "The thinnest reference arm: one silent video, its subject carried and its camera path followed at `weak_reference`, no audio label at all.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "ref2va_image_video_structure",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_ref_video_to_video_api",
+      "brief": "Two picture subjects with a sounded reference video supplying camera movement only; the arm that separates `weak_reference` on a camera path from `partially_copy` on its track.",
+      "recorded_findings": "prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here."
+    },
+    {
+      "id": "fl2va_interior_converge",
+      "mode": "fl2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 345 frames -- `fl2v_prompt()` re-resolves it for any other length."
+    },
+    {
+      "id": "l2va_interior_converge",
+      "mode": "l2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The generator's l2va default, and the mode's only shipped prompt: an unconstrained opening converging on <Picture 1>. Part One is base_en's L2VA sentence, which brackets both label and shot where FL2VA brackets neither, resolved here at 345 frames."
     }
   ]
 }

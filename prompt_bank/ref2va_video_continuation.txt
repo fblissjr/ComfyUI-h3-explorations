@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video the target video continues from, beginning at its final frame.
+
+summary:
+[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A

@@ -43,25 +43,35 @@ reading.
 > renders different text, **clips from before 2026-08-28 are not matched-seed
 > comparable with clips after it.**
 
+> **Every `derived:<graph>` key in this file was renamed on 2026-09-03, and the
+> verdicts moved with them unchanged.** Those scenes were the ones composed at
+> build time — by `_ref_prompt()`, `fl2v_prompt()` and `l2v_prompt()` — so no
+> constant held their text and `prompt_catalogue.md` could only name them after
+> a graph that carried them. They are now `prompt_bank/` entries like every
+> other shipped prompt, and the catalogue names them by bank id, so
+> `derived:h3_ref_video_edit` reads `ref2va_video_garment_edit` here,
+> `derived:h3_first_last_frame_to_video` reads `fl2va_interior_converge`, and
+> so on for all seventeen. Nothing about any prompt's TEXT changed; if you
+> remember an old key, it is gone rather than orphaned.
+
 Ordered by blast radius — how many graphs carry the scene.
 
 | scene | mode | verdict | why |
 |---|---|---|---|
 | `LONG_T2V_PROMPT` (market) | t2v | **rewrite** | four official-guide defects, and it is the t2v default |
-| `derived:h3_image_ref_plus_text_to_video` | ref2va | **revise** | far under ref §5.2's word budget; one shot |
-| `derived:h3_probe_capture_ref3` | ref2va | revise | same budget gap |
-| `derived:h3_probe_cache_easy` | ref2va | keep | a cache probe; scene content is not what it measures |
-| `derived:h3_first_last_frame_to_video` | fl2va | keep | conforms |
-| `I2V_PROMPT` | i2va | keep | conforms. **Was listed as fl2va until 2026-09-01; that was wrong** -- it carries base-en's I2VA Part One template and ships in `h3_first_frame_to_video*`, and the fl2va scene is `derived:h3_first_last_frame_to_video` |
-| `derived:h3_probe_ref2v_split_turbo_pack` | ref2va | revise | budget |
+| `ref2va_role_character_environment` | ref2va | **revise** | far under ref §5.2's word budget; one shot |
+| `ref2va_role_character_garment_environment` | ref2va | revise | same budget gap |
+| `ref2va_image_video_audio_music` | ref2va | keep | a cache probe; scene content is not what it measures |
+| `fl2va_interior_converge` | fl2va | keep | conforms |
+| `I2V_PROMPT` | i2va | keep | conforms. **Was listed as fl2va until 2026-09-01; that was wrong** -- it carries base-en's I2VA Part One template and ships in `h3_first_frame_to_video*`, and the fl2va scene is `fl2va_interior_converge` |
+| `ref2va_video_character_swap` | ref2va | revise | budget |
 | `BENCH_T2V_PROMPT` (bank `t2va_frontier_standoff`) | t2v | keep | the t2v bench pair's scene since 2026-09-03, chosen off the market prompt for its failure surfaces (a figure at distance, a painted sign, dialogue, a silent bystander); grades clean in the bank and had never rendered before |
 | `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`, `f5b3651`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; soundscape closed |
-| `derived:h3_probe_release_video_policy` | ref2va | keep | a policy probe |
+| `ref2va_video_sound_structure` | ref2va | keep | a policy probe |
 | `DIALOGUE_T2V_PROMPT` (stairwell t2v) | t2v | ~~revise~~ **done `d5be353`, `f5b3651`** | out-of-table motion phrase replaced; soundscape closed |
 | `R2V_PROMPT` (ten-second) | ref2va | **rewrite** | describes 10 s on a 15.083 s graph |
 | r2v-swap family | ref2va | revise | defines a `<Picture N>` ref §2.2 says not to define |
-| the remaining `derived:` ref2va scenes | ref2va | revise | the budget gap is systematic |
-| the bank's `non_diegetic_music` lines, corpus-wide | t2va | revise | base 4.7 (`vendor_guides/base_en.md`, the sentence forbidding abstract mood words for the score) is GUIDE and checked by nothing; an Opus review on 2026-09-03 found mood words in at least a dozen bank entries. Constant across any ladder's rungs, so not a confound; a corpus pass, not a hold |
+| the composed ref2va scenes not named above | ref2va | revise | the budget gap is systematic. Each is now listed individually under **Verdicts added 2026-09-01**; this row is the finding, not a key |
 
 ### Verdicts added 2026-09-01
 
@@ -79,17 +89,18 @@ its scene headings against the verdicts here rather than trusting a count. **All
 | `T2V_SORTLINE_SHORT` / `T2V_SORTLINE_LONG` | t2va | **keep** | the second length pair, on an independent scene, for the same reason. Two scenes carrying one manipulation is what separates a result from an anecdote |
 | `T2V_RAIL_LONG` / `T2V_CHURN_LONG` | t2va | **keep** | a pre-registered predictability-versus-delta pair, both ~500 words and one shot, no dialogue. Delta predicts rail is worst; predictability predicts rail is clean. They cannot both be right, which is the point |
 | `MARKET_REF2V_PROMPT` | ref2va | **keep** | three shots, two speakers, and inside ref §5.2's word band — one of the few that is. Nothing to revise |
-| `derived:h3_ref2v_scene_kitchen` | ref2va | **keep** | four shots, inside the word band, and the first shipped prompt to carry the lyrics, caption and cutoff markers. `docs/scene_arm_renders.md` is its viewing guide |
-| `derived:h3_ref2v_scene_subway` | ref2va | **keep** | as kitchen. **Not an arm of the same experiment** — different scene, reference and speaker count, so nothing is learned by comparing the two to each other |
-| `derived:h3_last_frame_to_video` | l2va | **keep** | the L2VA prompt whose absence §13 of `prompting.md` reported until 2026-09-01. Part One resolves fully; conforms |
-| `derived:h3_ref_audio_voice` | ref2va | revise | budget only: `detailed_description` sits in the low forties against 350-500 |
-| `derived:h3_ref_image_audio` | ref2va | revise | budget only |
-| `derived:h3_ref_video_continue` | ref2va | revise | budget only |
-| `derived:h3_ref_video_motion` | ref2va | revise | budget only |
-| `derived:h3_ref_video_only` | ref2va | revise | budget only |
-| `derived:h3_ref_video_to_video` | ref2va | revise | budget only |
-| `derived:h3_ref_video_edit` | ref2va | **keep** | inside the word band |
-| `derived:h3_ref_video_image_edit` | ref2va | **keep** | inside the word band, and the densest label set that ships — five items, each correctly on its own line |
+| `ref2va_scene_kitchen` | ref2va | **keep** | four shots, inside the word band, and the first shipped prompt to carry the lyrics, caption and cutoff markers. `docs/scene_arm_renders.md` is its viewing guide |
+| `ref2va_scene_subway` | ref2va | **keep** | as kitchen. **Not an arm of the same experiment** — different scene, reference and speaker count, so nothing is learned by comparing the two to each other |
+| `l2va_interior_converge` | l2va | **keep** | the L2VA prompt whose absence §13 of `prompting.md` reported until 2026-09-01. Part One resolves fully; conforms |
+| `ref2va_image_audio_voice` | ref2va | revise | budget only: `detailed_description` sits in the low forties against 350-500 |
+| `ref2va_image_audio_music` | ref2va | revise | budget only |
+| `ref2va_video_continuation` | ref2va | revise | budget only |
+| `ref2va_video_motion_transfer` | ref2va | revise | budget only |
+| `ref2va_video_structure_only` | ref2va | revise | budget only |
+| `ref2va_image_video_structure` | ref2va | revise | budget only |
+| `ref2va_video_garment_edit` | ref2va | **keep** | inside the word band |
+| `ref2va_video_image_edit` | ref2va | **keep** | inside the word band, and the densest label set that ships — five items, each correctly on its own line |
+| the bank's `non_diegetic_music` lines, corpus-wide | t2va | revise | base 4.7 (`vendor_guides/base_en.md`, the sentence forbidding abstract mood words for the score) is GUIDE and checked by nothing; an Opus review on 2026-09-03 found mood words in at least a dozen bank entries. Constant across any ladder's rungs, so not a confound; a corpus pass, not a hold |
 
 **The budget `revise` rows are one defect, not six**, and they are the same
 finding the catch-all row above already carried. They are listed individually
@@ -321,7 +332,7 @@ its baseline moved twice on 2026-08-28. It has not been re-rendered against the
 2026-08-08 clips, which are in any case no longer the same prompt.
 
 **A related case that is NOT this and must not be swept in**: the voice-timbre
-reference in `derived:h3_ref_audio_voice`. Ref §6 places a reference
+reference in `ref2va_image_audio_voice`. Ref §6 places a reference
 relationship "in the section that matches the audible layer" and names two —
 ambience/SFX, and audience-only score. A speaking voice is neither, so the guide
 gives it no home there; the form the guide does give lives in

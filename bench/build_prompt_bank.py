@@ -314,7 +314,13 @@ def render(rows: list[dict]) -> str:
       "a prompt that names no cut time and no duration can take another length from "
       "the graph alone. **Adding one:** write the file, add a manifest "
       "entry, run the builder, commit all three. **Shipping one:** name it by id in "
-      "`workflows/build_workflows.py`; the text never goes anywhere else. **For a "
+      "`workflows/build_workflows.py`; the text never goes anywhere else. **A "
+      "COMPOSED prompt is shipped the other way round:** `_ref_prompt()` builds a "
+      "ref2va prompt from the role tables and the two keyframe defaults build their "
+      "Part One line from the frame count, so those arrive here as output rather "
+      "than as an id -- the generator looks the composed text up and refuses to "
+      "build until it is a file here, which is why a new reference combination "
+      "fails with the id it wants written. **For a "
       "bridge from another repo:** the manifest is the contract -- mode and frames "
       "per file, donor stem for ref2va.")
     w("")
@@ -467,12 +473,25 @@ def main() -> int:
     rows = grade_all(entries)
     # A shipped prompt whose findings are already adjudicated (the manifest's
     # `recorded_findings` names where) is reported, never gated: the bank
-    # became the only home of shipped text on 2026-09-03 and two shipped
+    # became the only home of shipped text on 2026-09-03, and some shipped
     # prompts do not meet the bank's own bar -- `prompt_audit.md` already
     # says so. Silently passing them would hide that; failing the bank on
     # them would train everyone to ignore red. The table shows the grade.
     recorded = {r["id"] for r in rows if r.get("recorded_findings")}
-    problems += [m for m in shape_problems(rows) if m.split(":")[0] not in recorded]
+    shape = shape_problems(rows)
+    problems += [m for m in shape if m.split(":")[0] not in recorded]
+    # A suppressed SHAPE problem has to be announced too. Until 2026-09-03 the
+    # `noted` line below fired only on a FAIL or a WARN, so an entry whose only
+    # finding was a shape problem was suppressed in complete silence -- and the
+    # composed ref2va arms added that day are exactly that case: four of them
+    # grade clean and name no camera motion, because they follow the reference
+    # video's camera. A suppression nothing prints is the same defect as a
+    # green run over an empty set.
+    muted = {}
+    for m in shape:
+        pid = m.split(":")[0]
+        if pid in recorded:
+            muted.setdefault(pid, []).append(m)
     red = [(r["id"], m) for r in rows for m in r["fails"] if r["id"] not in recorded]
     amber = [(r["id"], m) for r in rows for m in r["warns"] if r["id"] not in recorded]
     for pid, m in red:
@@ -482,9 +501,10 @@ def main() -> int:
     for p in problems:
         print(f"  FAIL  shape: {p}")
     for r in rows:
-        if r["id"] in recorded and (r["fails"] or r["warns"]):
+        n_shape = len(muted.get(r["id"], ()))
+        if r["id"] in recorded and (r["fails"] or r["warns"] or n_shape):
             print(f"  noted {r['id']}: {len(r['fails'])} FAIL, {len(r['warns'])} WARN, "
-                  f"recorded -- {r['recorded_findings']}")
+                  f"{n_shape} shape, recorded -- {r['recorded_findings']}")
     clean = sum(1 for r in rows if not r["fails"] and not r["warns"])
     print(f"  {clean} of {len(rows)} prompt(s) grade clean; {len(problems)} shape problem(s)")
     if not rows:
