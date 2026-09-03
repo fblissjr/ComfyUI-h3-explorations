@@ -57,19 +57,36 @@ no table). Every checkpoint this repo ships graphs for is pruned.
 
 Both carry the same backbone and the same bank, bit for bit.
 
-**"Baked" has two meanings here, and a sentence that does not say which is
-ambiguous.**
+**"Baked", in plain words.** A LoRA is a small correction kept in a separate
+file. Normally the node applies it when the graph runs: it adds the
+correction to the model's weights at load time, or applies it during the
+forward pass. **"Baking" means doing that addition once, ahead of time, and
+saving the result, so nothing has to be added when the graph runs.** Pre-mixed
+rather than mixed at the table. Two different things in PDD can be baked, and
+a sentence that says "baked" without saying which is ambiguous:
 
-1. **adaln bake**: the paragraph above. The adaln *update* solved into the
-   checkpoint's curve basis and stored in the sidecar. This exists today; every
-   `_comfy` file has it (`h3_pdd_adaln_form: baked`).
-2. **backbone bake**: folding the 200 backbone LoRA modules into the int8
-   checkpoint's weights *offline*, producing a **baked checkpoint** plus a
-   **stripped sidecar** (the same file with its `diffusion_model.blocks.*`
-   tensors removed). This is the lever `h3_pdd.md` argues for, because merging
-   at load requantises the weights with stochastic rounding and a bake does
-   not. **It does not exist yet**: no baked checkpoint and no stripped sidecar
-   is on disk, and the bake script is unwritten.
+1. **The adaln bake (exists today, in every `_comfy` file).** The pruned
+   checkpoint stores its timing curves in a compressed 8-column form, and the
+   PDD adaln correction arrives in the original 2688-column form. Baking the
+   adaln means converting that correction into the compressed form ahead of
+   time and storing the ready-to-add result in the sidecar
+   (`h3_pdd.adaln_baked.*`). That is why the `_comfy` file fits only the
+   pruned checkpoint whose curves it was solved against, and why it is cheaper
+   than `_adaln2688`, which has to do the conversion on every forward pass.
+   The metadata says `h3_pdd_adaln_form: baked`.
+2. **The backbone bake (does not exist yet).** The 200 large attention and
+   MLP corrections are today added into the int8 weights at load time. Adding
+   into an int8 weight forces a re-quantisation, and that adds noise about as
+   large as the quantisation error the checkpoint already carries
+   ([`h3_pdd.md`](h3_pdd.md) "What a backbone bake pins" has the numbers).
+   Baking the backbone means adding those corrections into the checkpoint
+   offline, once, and saving a **new checkpoint file**; the sidecar that goes
+   with it has the backbone removed and is called **stripped**. No baked
+   checkpoint and no stripped sidecar is on disk, and the script that would
+   make them is unwritten.
+
+So: "the baked file" today always means the adaln bake, the `_comfy` file.
+"A baked checkpoint" always means the backbone bake, which is future work.
 
 **Full and stripped.** A *full* sidecar carries the whole backbone (every
 file on disk today). A *stripped* one carries none of it and is paired with
@@ -89,6 +106,50 @@ everything but its own bake.
 the bank fused at run time, 528 or 578 tensors. They are here as an
 independent control for `bench/compare_pdd_conversions.py` and are never wired
 into a graph.
+
+## 1a. The sidecar tensors: what each is, who reads it, and how the set changed
+
+A converted file has two kinds of tensor. The **LoRA keys** under
+`diffusion_model.*` are in ComfyUI's own naming and ComfyUI's own loader
+applies them; the node hands them over and checks the count. The **sidecar
+tensors** are everything under `h3_pdd.*`: things ComfyUI has no loader for,
+which `MiniMaxH3PDDLoRA` reads itself. This is the part that changed between
+versions, while the weights never did. Shapes below are read off the fl2va
+files on disk; ref2va matches.
+
+| tensor | dtype, shape | in which files | since | what the node does with it | if it were missing |
+|---|---|---|---|---|---|
+| `h3_pdd.bank.{video,audio}.{weight,bias}` | BF16 `[32, 96, 5376]` / `[32, 96]`, `[32, 32, 5376]` / `[32, 32]` | every file | 2026-08-27 | the published 32 per-interval output heads, verbatim; fused at load into one head per block for whatever step count the sampler runs. This IS parallel decoding | no heads, so no PDD; the node refuses |
+| `h3_pdd.base_video_out` | F32 `[96, 5376]` | every file | 2026-08-26 | the base checkpoint's `final_layer.video_out.weight`, compared by distance with the loaded model's to refuse the wrong partition (fl2va and ref2va ship identical key sets, so nothing else would notice) | a ref2va file would load onto an fl2va base and render wrong |
+| `h3_pdd.adaln_baked.blocks.N.diff`, `.diff_b` | F16 `[96768, 8]`, F32 `[96768]`, 50 each | `_comfy` files | 2026-08-26 | the adaln correction pre-solved into the pruned checkpoint's 8-column basis, applied as ordinary `diff` weight patches | no modulation update; refused since 2026-08-31, rendered normally-looking before |
+| `h3_pdd.adaln_table` | F32 `[1025, 8]` | `_comfy` files | 2026-08-26 | the curve table the bake was solved against; compared with the loaded model's own table, and a mismatch is refused | a bake solved against ref2va's table would apply on fl2va with nothing noticing |
+| `h3_pdd.adaln.blocks.N.lora_A`, `.lora_B` | BF16 `[64, 2688]`, `[96768, 64]`, 50 each | `_adaln2688` files | 2026-08-26 | the adaln correction in the original 2688-dim time space: a weight patch on an unpruned base, 50 runtime forward patches on a pruned one | as above |
+| `h3_pdd.adaln.blocks.N.alpha` | F32 scalar, 50 | `_adaln2688` files | 2026-08-29 | the LoRA scale as a tensor, because ComfyUI reads alpha only from a tensor and never from metadata | scale silently 1.0, which happens to be PDD's value, so nothing would show until a file with another alpha arrived |
+| `h3_pdd.silu_temb_grid` | F32 `[1025, 2688]` | `_adaln2688` files | 2026-08-26 | `silu(time_embedder(t))` over the grid, from the base: the input the runtime injection needs on a pruned base. Partition-specific | the injection path has nothing to feed the correction |
+| `h3_pdd.backbone_probe` | I8 `[64, 14336]` | every file | 2026-09-02 (v2) | 64 rows of `blocks.49.mlp.fc2.weight` from the paired checkpoint; the node requires the loaded module to equal them | a full sidecar could not refuse a baked checkpoint; v1 files load with that gap named in the log |
+| `h3_pdd.backbone_probe_scale` | F32 `[64, 1]` | every file | 2026-09-03 (v3) | the matching rows of the fp32 `weight_scale`; required equal too, because a scale change moves the arithmetic without moving the codes | a v2 file: codes-only, refused on a stripped file, loaded on a full one |
+| `h3_pdd.backbone_probe_base`, `_base_scale` | as above | stripped files only (none exist) | 2026-09-03 (v3) | the base's slices, so a stripped file loaded on the base can say "this is the unbaked base" rather than "not your bake" | the refusal would be right but less specific |
+
+**How the set changed, version by version.** Confirmed against the archived
+2026-08-28 file, which carries exactly `bank`, `base_video_out`,
+`adaln_baked` and `adaln_table`: no alpha, no probe.
+
+- **2026-08-26, first files.** `h3_pdd.head.{video,audio}.*`: the heads
+  already FUSED for the file's own step count. `h3_pdd.adaln.*` pairs,
+  `silu_temb_grid`, `base_video_out`. With `--pruned`, `adaln_baked.*` and
+  `adaln_table` added and, from the same day, the 2688 pairs and the grid
+  dropped from that file, so one file carries one adaln form.
+- **2026-08-27.** `h3_pdd.head.*` RETIRED for `h3_pdd.bank.*`, the raw 32
+  heads. The fused form pinned a step count into the file; the bank lets the
+  node fuse for 8, 4, 2 or 16 evaluations from one file.
+- **2026-08-29.** `h3_pdd.adaln.blocks.N.alpha` added. On the `--pruned`
+  path the 50 alphas lingered after their pairs were dropped, 50 inert
+  tensors nothing read, until 2026-09-02.
+- **2026-09-02, version 2.** `h3_pdd.backbone_probe` (codes only, always
+  from the base). Stray alphas gone from `_comfy` files.
+- **2026-09-03, version 3.** `h3_pdd.backbone_probe_scale`; the probe cut
+  from the paired checkpoint rather than always the base; stripped files
+  gain the base pair. Every current file carries this set.
 
 ## 2. Which file to load, on which checkpoint, and what happens if you do not
 

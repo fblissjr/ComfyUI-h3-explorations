@@ -88,6 +88,13 @@ as a reference rather than leaving two answers in the tree.
 
 ## The two conversion forms, and which file is which
 
+> **Plain words first, in the master inventory.** [`pdd_artifacts.md`](pdd_artifacts.md)
+> is the page for which file is which: it explains "baked" without jargon
+> (the adaln bake that every `_comfy` file has, against the backbone bake
+> that does not exist yet), lists every sidecar tensor with who reads it and
+> when it appeared, and carries the dated changelog of the files themselves.
+> This section keeps the mechanism.
+
 One PDD source converts two ways, and the adaln encoding is the whole
 difference. Both carry the same backbone and the same 32-head bank.
 
