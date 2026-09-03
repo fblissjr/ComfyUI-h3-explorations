@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.31
+
+### Fixed
+
+- **PDD head fusion ran its float64 arithmetic on the model's device, which
+  Apple's MPS backend cannot do** -- a Mac user hit the failing line on
+  2026-09-03. `pdd_math.py` now fuses on the CPU in float64 and moves only
+  the float32 result to wherever the bank lives; the block slice is a few
+  MiB, and the result is bit-identical to the previous path on CPU and
+  CUDA (checked on every block of a 32-head stack). The device-split
+  failure the docstring records from `2af7f0b` is closed the same way,
+  since both operands are CPU by construction again. PDD checks green.
+- **The Hub bundle was a month behind the node.** `bench/build_sidecar_node.py`
+  regenerated `comfyui_minimax_h3_pdd/` in the staged Hub copy from this
+  tree; the Hub's copy predates the converter-v3 sidecars and the node's
+  backbone-identity contract, so a user pairing the Hub's node with a new
+  sidecar, or the reverse, gets a refusal that reads as breakage. The
+  upload is the owner's; the staged copy and its comparison are ready.
+
 ## 0.99.30
 
 ### Changed

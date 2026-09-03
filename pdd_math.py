@@ -177,9 +177,18 @@ def fuse_block(stack: torch.Tensor, shift: float, num_steps: int,
     about the paths a fix brings to life.
     """
     steps = pdd_time_grid(shift, num_steps).diff()
-    plan = fusion_plan(steps, start, stop)[start:stop].to(stack.device)
-    return torch.tensordot(plan, stack[start:stop].to(torch.float64),
-                           dims=([0], [0])).to(torch.float32)
+    plan = fusion_plan(steps, start, stop)[start:stop]
+    # The float64 arithmetic runs on the CPU and only the float32 result
+    # travels: Apple's MPS backend has no float64, and a Mac user hit exactly
+    # this line on 2026-09-03. The block slice is a few MiB (the whole bank is
+    # ~42 MiB), so the round trip costs nothing measurable, and the numerics
+    # are the float64 fusion the docstring below promises on every backend.
+    # The device-split failure the paragraph above records is closed the
+    # same way: both operands are CPU by construction again, and the result
+    # is moved to wherever the bank lives.
+    block = stack[start:stop].detach().to("cpu", torch.float64)
+    fused = torch.tensordot(plan.to(torch.float64), block, dims=([0], [0]))
+    return fused.to(torch.float32).to(stack.device)
 
 
 def fuse_heads(stack: torch.Tensor, shift: float, num_steps: int,
