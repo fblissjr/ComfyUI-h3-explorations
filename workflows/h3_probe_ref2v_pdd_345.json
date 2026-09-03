@@ -969,6 +969,7 @@
         false,
         false,
         false,
+        false,
         true
       ],
       "title": "Assert the attention chain composed"

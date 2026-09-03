@@ -262,8 +262,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "as above"),
     ("SageChainAssert", "require_override"):
         ("ARM", "as above"),
-    ("SageChainAssert", "warn_only"):
-        ("ARM", "as above"),
+    ("SageChainAssert", "require_absent"):
+        ("ARM", "True on every arm that patches attention not at all -- the "
+                "true baseline and the PDD reference arms -- so the node proves "
+                "the graph is the baseline it claims to be; False wherever sage "
+                "is wired. Set by the generator from `sage`, since 2026-09-03"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

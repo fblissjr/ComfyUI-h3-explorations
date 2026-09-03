@@ -1104,6 +1104,7 @@
         true,
         true,
         true,
+        false,
         false
       ],
       "title": "Assert the attention chain composed"
@@ -1272,6 +1273,7 @@
         true,
         true,
         true,
+        false,
         false
       ],
       "title": "Assert the stage-2 chain composed"

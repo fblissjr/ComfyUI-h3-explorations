@@ -88,6 +88,19 @@ class SageChainAssert(io.ComfyNode):
                     "warn_only", default=False,
                     tooltip="Log instead of raising. Defeats the point of the "
                             "node; use only while diagnosing."),
+                # Appended last on 2026-09-03 so saved graphs keep their
+                # widget indices (ComfyUI matches widget values by index).
+                io.Boolean.Input(
+                    "require_absent", default=False,
+                    tooltip="The inverse control, for a graph that must patch "
+                            "attention NOT AT ALL -- the true baseline and the "
+                            "PDD reference arms. Fails if any attention override "
+                            "or per-block attention forward patch is installed. "
+                            "With this on and the two require_* off, the node "
+                            "proves the graph is the baseline it claims to be; "
+                            "before it existed those graphs carried this node "
+                            "with nothing required and it logged 'override "
+                            "installed' over an empty chain."),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
@@ -316,7 +329,7 @@ class SageChainAssert(io.ComfyNode):
 
     @classmethod
     def execute(cls, model, require_override, require_forward_patch,
-                exercise, warn_only):
+                exercise, warn_only, require_absent=False):
         problems = []
 
         to = model.model_options.get("transformer_options", {})
@@ -342,6 +355,14 @@ class SageChainAssert(io.ComfyNode):
                 "require_forward_patch can be turned off -- but confirm from "
                 "the log that sage still runs before you do.")
 
+        if require_absent and (override is not None or attn_forwards):
+            problems.append(
+                f"attention is patched on a graph that requires it unpatched: "
+                f"override {'installed' if override is not None else 'absent'}, "
+                f"{len(attn_forwards)} attention forward patch(es). This graph "
+                f"is a stock-attention baseline or reference arm; a sage or "
+                f"Sol node upstream makes it something else.")
+
         if exercise and override is not None:
             ok, detail = cls._exercise(override, to)
             if ok is None:
@@ -362,10 +383,19 @@ class SageChainAssert(io.ComfyNode):
                 logger.warning(msg)
             else:
                 raise RuntimeError(msg)
-        else:
+        elif require_absent:
+            logger.info("[h3] chain assert ok: attention unpatched, as this graph requires")
+        elif require_override or require_forward_patch:
             logger.info(
                 "[h3] chain assert ok: override installed, "
                 "%d attention forward patch(es) present", len(attn_forwards))
+        else:
+            # Nothing was required, so nothing was proven; say so instead of
+            # the line above, which read as a verdict on the baseline arms.
+            logger.info(
+                "[h3] chain assert: nothing required; override %s, "
+                "%d attention forward patch(es) present",
+                "installed" if override is not None else "absent", len(attn_forwards))
 
         # The resolved Sol window, which nothing printed before 2026-08-26.
         #

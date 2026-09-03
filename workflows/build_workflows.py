@@ -1107,7 +1107,7 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
     g["43"] = {"class_type": "SageChainAssert",
                "inputs": {"model": src, "require_override": sage,
                           "require_forward_patch": sage, "exercise": sage,
-                          "warn_only": not sage}}
+                          "warn_only": False, "require_absent": not sage}}
     return ["43", 0]
 
 
@@ -1639,7 +1639,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     g["23"] = {"class_type": "SageChainAssert",
                "inputs": {"model": model_src, "require_override": sage,
                           "require_forward_patch": sage, "exercise": sage,
-                          "warn_only": not sage}}
+                          "warn_only": False, "require_absent": not sage}}
     model_src = ["23", 0]
 
     if cache is not None:
@@ -4545,7 +4545,7 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
         g.link(src, 0, node, "model", "MODEL")
         src = node
     node = g.add("SageChainAssert", (-480, 900), size=(360, 130),
-                 widgets=[sage, sage, sage, not sage],
+                 widgets=[sage, sage, sage, False, not sage],
                  inputs=[_in("model", "MODEL")], outputs=[_out("model", "MODEL")],
                  title="Assert the stage-2 chain composed")
     g.link(src, 0, node, "model", "MODEL")
@@ -5177,7 +5177,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # See the matching note in build_api: last in the chain, asserting the
     # composition rather than any single node's intent.
     assert_node = g.add("SageChainAssert", (-480, 0), size=(360, 130),
-                        widgets=[sage, sage, sage, not sage],
+                        widgets=[sage, sage, sage, False, not sage],
                         inputs=[_in("model", "MODEL")],
                         outputs=[_out("model", "MODEL")],
                         title="Assert the attention chain composed")
@@ -7666,9 +7666,11 @@ def main():
     # `_dense_stamped` is the TRUE BASELINE: no sage node, no Sol node, no
     # LoRA -- the DiT and encoder every graph loads under ComfyUI's stock
     # attention at the base step count, i.e. the render you would otherwise
-    # make on this box. `sage=False` leaves SageChainAssert in warn-only
-    # mode with nothing to require, the same shape as the PDD reference
-    # arms. The `_stamped` graph beside it is the repo's older "dense"
+    # make on this box. `sage=False` turns SageChainAssert into the inverse
+    # control (`require_absent`): the render RAISES if anything patches
+    # attention, the same shape as the PDD reference arms since 2026-09-03
+    # (before that: warn-only with nothing required, logging "override
+    # installed" over an empty chain). The `_stamped` graph beside it is the repo's older "dense"
     # convention, sage alone; every speedup number before 2026-09-03 was
     # relative to that, not to this. Outside check_attention_defaults'
     # scope like every bench graph.

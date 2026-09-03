@@ -50,6 +50,17 @@ artifact.
   (`h3_text_to_video_stamped_api`, kept beside it on the same scene, seed
   and length as the matched pair). Bench graphs are outside
   `check_attention_defaults`' scope, so no exemption entry.
+- **`SageChainAssert.require_absent`, the inverse control.** A graph that
+  patches attention not at all -- this baseline and the PDD reference arms
+  -- carried the assert node with nothing required and warn-only, and it
+  logged "override installed" over an empty chain (the prose session
+  caught it in review). Now `sage=False` sets `require_absent=True` and
+  `warn_only=False`: the render raises if any attention override or
+  per-block forward patch is installed, so the baseline proves it is one.
+  Appended last in the schema so saved graphs keep their widget indices;
+  every generated graph changed by that one input. The no-requirement log
+  line says nothing was required instead of claiming a verdict. Proved
+  red and green on the dense arm at short length before commit.
 
 ## 0.99.27
 

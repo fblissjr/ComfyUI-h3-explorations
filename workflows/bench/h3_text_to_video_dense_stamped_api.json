@@ -191,7 +191,8 @@
       "require_override": false,
       "require_forward_patch": false,
       "exercise": false,
-      "warn_only": true
+      "warn_only": false,
+      "require_absent": true
     }
   },
   "26": {
