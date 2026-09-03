@@ -256,6 +256,10 @@ def render(rows, unrouted) -> str:
     w("")
     w("| page | what it is for |")
     w("|---|---|")
+    w("| [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to "
+      "why.** The short form of `docs/roadmap.md`'s current forward plan; start "
+      "there when the question is what to work on, and when the two disagree the "
+      "roadmap is right |")
     w("| [`references.md`](references.md) | the sister checkouts under `coderef/`: "
       "what each one implements for H3, what has been compared against it, and at "
       "which revision. The map to reach for before proposing a borrow |")

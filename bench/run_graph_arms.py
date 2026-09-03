@@ -70,6 +70,11 @@ from make_attention_defaults_json import substrate  # noqa: E402
 
 
 def _parse_value(s: str):
+    # `@bank:<id>` is the bank entry's text, so a manifest names a prompt
+    # instead of carrying a second copy of it (the owner's single-source rule,
+    # 2026-09-03); a missing id fails here, before any render is queued.
+    if s.startswith("@bank:"):
+        return _prompts.text(s[len("@bank:"):])
     try:
         return json.loads(s)
     except json.JSONDecodeError:

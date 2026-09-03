@@ -1,0 +1,55 @@
+{
+  "what": "The speedup ladder, first pass (2026-09-03): three bank scenes chosen for their failure surfaces, each rendered from the TRUE baseline (stock attention, no LoRA) up through sage alone, sage+Sol as shipped, sage fp16+Sol, and shipped PDD8 (sage+Sol on the PDD sidecar). Matched seed, 1344x768, 345 frames. Judged blind by the owner with free-text notes; timing rows are a by-product on an unarmed server. Base and PDD rungs are separate ladders that share a scene, never pooled.",
+  "scenes": {
+    "standoff": "t2va_frontier_standoff -- two speakers, a figure at distance, a painted sign, a silent bystander",
+    "diner": "t2va_diner_breakup -- close-up two-person dialogue over scored music: the audio-judgeable one",
+    "opera": "t2va_opera_grand_stage -- a sung Italian aria with a lyrics pair: the singing one"
+  },
+  "rungs": {
+    "dense": "stock attention, no sage, no Sol, no LoRA (h3_text_to_video_dense_stamped_api)",
+    "sage": "sage auto alone (h3_text_to_video_stamped_api)",
+    "sol": "sage auto + Sol as shipped (h3_text_to_video_api)",
+    "solfp16": "the sol rung with the sage node in its fp16 (most accurate) mode: sage runs the outer steps, so this is the cheap-insurance arm",
+    "pdd8": "shipped PDD8 with sage auto + Sol (h3_text_to_video_pdd_api); its own ladder"
+  },
+  "prompts": "named by bank id through the runner's @bank: value; the text lives only in prompt_bank/",
+  "arms": {
+    "standoff_dense": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "standoff_sage": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "standoff_sol": "workflows/h3_text_to_video_api.json",
+    "standoff_solfp16": "workflows/h3_text_to_video_api.json",
+    "standoff_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+    "diner_dense": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "diner_sage": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "diner_sol": "workflows/h3_text_to_video_api.json",
+    "diner_solfp16": "workflows/h3_text_to_video_api.json",
+    "diner_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+    "opera_dense": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "opera_sage": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "opera_sol": "workflows/h3_text_to_video_api.json",
+    "opera_solfp16": "workflows/h3_text_to_video_api.json",
+    "opera_pdd8": "workflows/h3_text_to_video_pdd_api.json"
+  },
+  "patches": [
+    "standoff_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "standoff_sage:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "standoff_sol:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "standoff_solfp16:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "standoff_solfp16:MiniMaxH3SageAttention.mode=\"fp16 (most accurate)\"",
+    "standoff_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "diner_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "diner_sage:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "diner_sol:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "diner_solfp16:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "diner_solfp16:MiniMaxH3SageAttention.mode=\"fp16 (most accurate)\"",
+    "diner_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "opera_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "opera_sage:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "opera_sol:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "opera_solfp16:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "opera_solfp16:MiniMaxH3SageAttention.mode=\"fp16 (most accurate)\"",
+    "opera_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage"
+  ],
+  "run": "bench/run_graph_arms.py --manifest bench/ladder_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/<date>_ladder_arms.jsonl; then bench/blind_batch.py on the jsonl, score, bench/score_session.py",
+  "how_to_read": "Compare rungs within a scene, never scenes against each other. The dense rung shows what the model itself does with a distant face or a small figure (blur and drift there are the model's own limit, per the owner); the question each higher rung answers is whether the speedup made THAT worse, and where."
+}

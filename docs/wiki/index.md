@@ -13,6 +13,7 @@ owned somewhere else, and where it disagrees with an owner the owner is right.
 
 | page | what it is for |
 |---|---|
+| [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The short form of `docs/roadmap.md`'s current forward plan; start there when the question is what to work on, and when the two disagree the roadmap is right |
 | [`references.md`](references.md) | the sister checkouts under `coderef/`: what each one implements for H3, what has been compared against it, and at which revision. The map to reach for before proposing a borrow |
 | [`stages.md`](stages.md) | one row per stage of a render: our code, the document that owns it, the check that guards it, and the implementation to compare against |
 | [`prompting.md`](prompting.md) | **prompting: where every rule, example and verdict comes from.** The five sources that claim to govern a prompt ranked by authority, which document owns which question, at least five worked examples per mode, and how to grade a draft before rendering it |

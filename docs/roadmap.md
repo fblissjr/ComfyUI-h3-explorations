@@ -28,6 +28,9 @@ what would make it a real answer.
 
 ## Current forward plan — 2026-09-03
 
+The short form, for a session that only wants the next action, is
+[`wiki/next_steps.md`](wiki/next_steps.md); this section owns the reasoning.
+
 **The goal, in the owner's words:** personal experiments, shared with the
 community, to find the best quality and performance this box can render.
 Operationally: how much time Sol, Sage and PDD can take out of an H3 render

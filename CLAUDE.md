@@ -125,7 +125,7 @@ read-only reference node that is not loaded.
 | file | what it answers |
 |---|---|
 | [`VISION.md`](VISION.md) | the tenets behind every rule here. Read it first if you are new, and again before calling a rule ceremony |
-| [`docs/wiki/index.md`](docs/wiki/index.md) | the generated router: where to start, who owns each answer, which documents nothing links to. Regenerate with `bench/build_wiki_index.py`; never hand-edit |
+| [`docs/wiki/index.md`](docs/wiki/index.md) | the generated router: where to start, who owns each answer, which documents nothing links to. Regenerate with `bench/build_wiki_index.py`; never hand-edit. **`docs/wiki/next_steps.md` is the written page beside it: what to do next, pointers only; start there when the question is what to work on** |
 | [`docs/rules_history.md`](docs/rules_history.md) | this file as it stood before the 2026-09-03 cut, frozen: every dated instance behind every rule above |
 | [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next and what would count as finding it. The `h3-experiment` skill routes here first |
 | [`docs/evidence.md`](docs/evidence.md) | what is measured, what is retracted, what must not be relied on. Start here before stating a number |
