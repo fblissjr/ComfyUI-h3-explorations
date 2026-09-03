@@ -1,9 +1,17 @@
 # What this repo holds itself to
 
-This is a research hub for running and studying MiniMax H3 inside ComfyUI on
-one box. Its output is not the nodes or the workflows. Its output is claims
-about the model that a later reader can re-derive, and the tooling that makes
-re-deriving cheaper than trusting.
+This repo is the owner's own experiments with MiniMax H3 inside ComfyUI,
+shared with the community: finding what renders the best quality and
+performance this one box can reach. Its output is not the nodes or the
+workflows. Its output is claims about the model that a later reader can
+re-derive, and the tooling that makes re-deriving cheaper than trusting.
+
+**The baseline is the render you would otherwise make on this box.** The DiT
+and encoder artifacts every graph loads, ComfyUI's stock attention, the base
+step count, no LoRA. Every quality or speed claim here is relative to that,
+and says so. The vendor's own bf16 baseline does not fit this card and is
+named as unreachable rather than implied; what the local artifacts cost
+against it is measured offline, and `docs/evidence.md` owns those records.
 
 This file is the why. It should rarely change. `CLAUDE.md` is the operative
 form, one line per rule; `docs/rules_history.md` is the dated instances that
