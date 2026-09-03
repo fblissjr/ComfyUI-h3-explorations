@@ -134,9 +134,16 @@ for each, as it stood when it was written, is in `docs/rules_history.md`.
   encoder's input embedding table,
   `bench/results/2026-08-21_h3_token_embeddings.json`. A consequence of the
   row above, not a finding about markers: single-id-against-frozen-encoder and
-  BPE'd-so-never-seen both predict it, and the discriminator (`release_id`
-  against `mean_init_rows`) has not been run. A session read it as "the fixed
-  tokenizer is wrong" on 2026-08-27 and retracted.
+  BPE'd-so-never-seen both predict it. **Corrected 2026-09-03, hours after
+  this row was written**: it said the discriminator, `release_id` against
+  `mean_init_rows`, "has not been run", copied from the `CLAUDE.md` sentence
+  the 2026-08-31 postmortem had already flagged. The prediction-delta form DID
+  run (`bench/results/2026-08-27_marker_epsilon.json`) and was refuted by its
+  own control (`bench/results/2026-08-27_marker_epsilon_control.json`: the
+  markers sit at the low end of the control range); the do-not-rely row above
+  owns that. What has not run is the blind-render form. A session read the
+  untrained rows as "the fixed tokenizer is wrong" on 2026-08-27 and
+  retracted.
 - **The marker ids are fixed by loading the release's tokenizer directory**
   and appear in no JSON literal; the row at the top of this section owns it.
 - **The DiT was trained on MiniMax's own prompt structure, and it differs by
