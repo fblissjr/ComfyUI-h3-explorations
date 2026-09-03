@@ -132,7 +132,7 @@ REPO = Path(__file__).resolve().parents[1]
 COMFY = REPO.parents[1]
 LEDGER = REPO / "docs" / "checks.md"
 
-SKIP_DIRS = {".git", "internal", "__pycache__", "coderef", "vendor", "archive"}
+SKIP_DIRS = {".git", ".claude", "internal", "__pycache__", "coderef", "vendor", "archive"}  # .claude: harness worktrees live there
 
 # A changelog is a historical record; see the docstring.
 SKIP_FILES = {"CHANGELOG.md"}
