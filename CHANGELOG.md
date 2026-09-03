@@ -38,6 +38,16 @@ artifact.
   1.5.0, requires the new keys from it, and allows an empty `references`
   when the accounting agrees there were none -- a text-to-video capture is
   a state, not a defect. `docs/capture_manifest_schema.md` has the record.
+- **Three checker holes closed on Codex's second review, same day**: the
+  recorded tensor sha256 is recomputed under `--verify-hashes` (and the
+  checker prints on every run whether it was); `prompt_sha256` must hash
+  `full_prompt_text` and `bank_id` must be what that text identifies as;
+  the generator refuses mixed server stamps across a directory and each
+  tensor carries its `server_pid`. Labels say their source
+  (`*_quantization_source: filename`), token accounting says its method
+  (text is the remainder; `segments_recorded` says whether the split is
+  proven), and the capture writer's server stamp carries the parsed
+  ComfyUI namespace and the sageattention build identity.
 - **The Base16 capture has provenance now**:
   `bench/results/2026-09-03_capture_manifest_base16.json` (the manifest,
   names only) and `2026-09-03_capture_inventory_base16.json` (the
@@ -189,6 +199,16 @@ artifact.
 ## 0.99.26
 
 ### Added
+
+- **The three repo skills re-pointed after the prompt bank became the one
+  home of prompt text.** `h3-prompt` routed edits into the generator's
+  constants; it now routes to `prompt_bank/` and `docs/prompt_bank.md`.
+  `h3-experiment` names `SOL_EXEMPT_STEMS` instead of "the exceptions
+  `CLAUDE.md` lists" (the cut file lists none), points at the baseline
+  `VISION.md` defines, and drops the dead-pointer history note that
+  `bench/check_skill_routes.py` and this changelog already record.
+  `bench/list_prose_measurements.py` now governs `.claude/skills` and
+  `VISION.md` as prose.
 
 - **`CLAUDE.md` cut to its operative form**: one line per rule, the settled
   H3 facts as one-liners each naming their record, the routing tables at one

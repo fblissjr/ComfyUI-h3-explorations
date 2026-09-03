@@ -28,13 +28,16 @@ interchangeable. §10 has graded worked examples per mode; copy the nearest one'
 shape. Fix the frame count before writing: `S.SS` and every cut timestamp
 resolve against the snapped length, so a prompt is only correct at a duration.
 
-**Editing or improving a shipped one.** Find it in `docs/prompt_catalogue.md`
-(generated from the graphs -- run `bench/build_prompt_catalogue.py --check`
-first, it has gone stale) and read its verdict in `docs/prompt_audit.md`.
-**Then edit `workflows/build_workflows.py`, never a `workflows/*.json`**, and
-rebuild -- nothing is true of a graph until it is regenerated. If the prompt is
-carried by a matched pair or an experiment arm, the audit says so: changing one
-arm and not its twin destroys the experiment.
+**Editing or improving a shipped one.** The text lives in `prompt_bank/`
+and nowhere else: `docs/prompt_bank.md` says which graphs render each entry
+(its `ships` column) and how the generator loads one by id
+(`workflows/prompts.py`). Read its verdict in `docs/prompt_audit.md`. **Edit
+the bank file, never `workflows/build_workflows.py`'s constants and never a
+`workflows/*.json`**, then rebuild the bank doc and the graphs -- nothing is
+true of a graph until it is regenerated. This paragraph used to route edits
+into the generator; that was true until the bank became the one home. If the
+prompt is carried by a matched pair or an experiment arm, the audit says so:
+changing one arm and not its twin destroys the experiment.
 
 **Converting between modes.** The dangerous one. Read §2 for the target mode's
 structure and §14.3 for where our prompts have diverged. Two traps:

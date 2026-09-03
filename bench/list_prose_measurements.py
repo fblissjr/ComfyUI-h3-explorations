@@ -46,7 +46,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 # Prose that is governed: everything the wiki index routes to, plus the two
 # files a session reads first.
-GOVERNED_ROOTS = ["docs", "README.md", "CLAUDE.md"]
+GOVERNED_ROOTS = ["docs", "README.md", "CLAUDE.md", "VISION.md", ".claude/skills"]
 
 # Dated records. Numbers belong here because the file carries when and under
 # what conditions they were taken. Each line says why it is a record.

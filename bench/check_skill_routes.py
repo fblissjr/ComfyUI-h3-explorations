@@ -70,7 +70,9 @@ def main() -> int:
     for path in skills:
         name = Path(path).parent.name
         for m in PATH.finditer(Path(path).read_text(encoding="utf-8")):
-            target = m.group(1).rstrip("/,.")
+            # `path::Symbol` is a pointer whose path half must exist here;
+            # the symbol half is check_doc_links.py's `symbols_exist` case.
+            target = m.group(1).split("::", 1)[0].rstrip("/,.")
             if "*" in target or "<" in target:
                 continue          # a glob or a placeholder, not a route
             seen += 1
