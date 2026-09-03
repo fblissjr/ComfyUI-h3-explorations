@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.35
+
+### Added
+
+- **The first speedup ladder rendered: five t2va scenes by five rungs, matched
+  seed, at the trained canvas and full length.** `bench/ladder_arms.json`
+  rendered end to end into `bench/results/2026-09-03_ladder_arms.jsonl`;
+  `2026-09-03_ladder_outputs.json` maps every arm to its clip and carries the
+  per-rung timing medians. Descriptive, dated, one seed: the timings are the
+  first cold-cache wall times for the true dense baseline on this box, and
+  the fp16-sage rung came out slower than Sol as shipped on every scene. The
+  standoff dense row is a cache hit and its timing is void; it was retimed at
+  a nudged seed for the time alone.
+- **The ladder is blinded for scoring** as session `ladder_2026-09-03`:
+  every rung against its scene's dense baseline plus Sol against the fp16
+  rung, stacked by matched seed, with the sealed key under
+  `internal/blind_keys/`. `2026-09-03_ladder_arms_judged.jsonl` is the copy
+  the batch was built from, with the cache-hit flag cleared on the one row
+  whose clip is the arm's own earlier render, and says so on the row.
+- `bench/results/2026-09-03_ladder_subtitle_timing.json`: per-clip vocal
+  burst structure for all twenty-five clips, descriptive.
+
+### Fixed
+
+- **`bench/blind_batch.py` could not resolve a clip from a graph that saves
+  only the muxed `-audio.mp4`.** It skipped that history entry and fell
+  through to the mtime fallback, which refused. It now maps the audio entry
+  to the silent sibling the stacker takes.
+
+### Withdrawn before it was written
+
+- The pairwise audio-spectrum grader reported a strong separation on every
+  feature of every ladder pair. It needs at least three clips per arm to
+  estimate within-arm spread, and this ladder has one, so every pair reads
+  strong by construction. Those records were deleted and the outputs record
+  says why; rerun it only on a multi-seed ladder.
+
 ## 0.99.34
 
 ### Fixed

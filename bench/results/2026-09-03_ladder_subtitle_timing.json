@@ -1,0 +1,1446 @@
+{
+ "what": "bench/grade_subtitle_timing.py --json per ladder clip: vocal-burst structure and any burned-in subtitle spans",
+ "clips": {
+  "standoff_dense": [
+   {
+    "clip": "h3_t2v_standoff_dense_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 5,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      2.5,
+      2.79
+     ],
+     [
+      2.92,
+      3.25
+     ],
+     [
+      3.29,
+      3.5
+     ],
+     [
+      3.58,
+      3.75
+     ],
+     [
+      3.88,
+      4.04
+     ],
+     [
+      7.08,
+      7.29
+     ],
+     [
+      7.75,
+      8.0
+     ],
+     [
+      8.17,
+      8.33
+     ],
+     [
+      8.38,
+      8.54
+     ],
+     [
+      8.71,
+      8.96
+     ],
+     [
+      9.21,
+      9.38
+     ],
+     [
+      10.54,
+      11.0
+     ],
+     [
+      11.42,
+      11.67
+     ]
+    ],
+    "voiced_seconds": 3.33
+   }
+  ],
+  "standoff_sage": [
+   {
+    "clip": "h3_t2v_standoff_sage_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 33,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      2.38,
+      2.79
+     ],
+     [
+      2.88,
+      3.25
+     ],
+     [
+      3.29,
+      3.54
+     ],
+     [
+      3.62,
+      3.83
+     ],
+     [
+      3.96,
+      4.25
+     ],
+     [
+      7.08,
+      7.25
+     ],
+     [
+      7.75,
+      8.0
+     ],
+     [
+      8.17,
+      8.33
+     ],
+     [
+      8.38,
+      8.54
+     ],
+     [
+      8.71,
+      9.0
+     ],
+     [
+      9.21,
+      9.38
+     ],
+     [
+      10.54,
+      11.04
+     ],
+     [
+      11.38,
+      11.75
+     ],
+     [
+      12.08,
+      12.21
+     ]
+    ],
+    "voiced_seconds": 4.38
+   }
+  ],
+  "standoff_sol": [
+   {
+    "clip": "h3_t2v_standoff_sol_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 3,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      2.33,
+      2.46
+     ],
+     [
+      2.5,
+      2.79
+     ],
+     [
+      2.88,
+      3.54
+     ],
+     [
+      3.58,
+      3.83
+     ],
+     [
+      3.92,
+      4.25
+     ],
+     [
+      4.5,
+      4.67
+     ],
+     [
+      7.04,
+      7.25
+     ],
+     [
+      7.75,
+      8.0
+     ],
+     [
+      8.17,
+      8.33
+     ],
+     [
+      8.38,
+      8.54
+     ],
+     [
+      8.71,
+      8.96
+     ],
+     [
+      9.21,
+      9.38
+     ],
+     [
+      10.54,
+      11.0
+     ],
+     [
+      11.04,
+      11.25
+     ],
+     [
+      11.33,
+      11.75
+     ],
+     [
+      12.04,
+      12.46
+     ],
+     [
+      12.58,
+      12.96
+     ],
+     [
+      13.12,
+      13.25
+     ],
+     [
+      13.29,
+      13.75
+     ],
+     [
+      13.79,
+      13.96
+     ],
+     [
+      14.21,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 6.04
+   }
+  ],
+  "standoff_solfp16": [
+   {
+    "clip": "h3_t2v_standoff_solfp16_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 536,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      6.88,
+      8.67
+     ]
+    ],
+    "subtitle_on_seconds": 1.79,
+    "vocal_bursts": [
+     [
+      2.5,
+      2.79
+     ],
+     [
+      2.88,
+      3.25
+     ],
+     [
+      3.29,
+      3.54
+     ],
+     [
+      3.62,
+      3.83
+     ],
+     [
+      3.92,
+      4.21
+     ],
+     [
+      7.08,
+      7.25
+     ],
+     [
+      7.75,
+      8.0
+     ],
+     [
+      8.17,
+      8.33
+     ],
+     [
+      8.38,
+      8.54
+     ],
+     [
+      8.71,
+      8.96
+     ],
+     [
+      9.21,
+      9.38
+     ],
+     [
+      10.54,
+      11.0
+     ],
+     [
+      11.08,
+      11.21
+     ],
+     [
+      11.38,
+      11.75
+     ],
+     [
+      12.04,
+      12.33
+     ],
+     [
+      12.58,
+      12.75
+     ],
+     [
+      12.79,
+      12.92
+     ],
+     [
+      13.12,
+      13.25
+     ],
+     [
+      13.29,
+      13.54
+     ],
+     [
+      13.58,
+      13.75
+     ]
+    ],
+    "voiced_seconds": 5.12
+   }
+  ],
+  "standoff_pdd8": [
+   {
+    "clip": "text_to_video_pdd_standoff_pdd8_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 1644,
+    "white_threshold": 197,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      5.71,
+      9.79
+     ]
+    ],
+    "subtitle_on_seconds": 4.08,
+    "vocal_bursts": [
+     [
+      1.71,
+      2.12
+     ],
+     [
+      2.25,
+      2.67
+     ],
+     [
+      2.71,
+      2.96
+     ],
+     [
+      3.5,
+      3.62
+     ],
+     [
+      3.75,
+      3.96
+     ],
+     [
+      4.08,
+      4.33
+     ],
+     [
+      5.67,
+      5.79
+     ],
+     [
+      5.88,
+      6.21
+     ],
+     [
+      6.38,
+      6.5
+     ],
+     [
+      6.62,
+      6.88
+     ],
+     [
+      7.12,
+      7.29
+     ],
+     [
+      7.33,
+      7.58
+     ],
+     [
+      7.83,
+      8.04
+     ],
+     [
+      8.75,
+      9.08
+     ],
+     [
+      10.21,
+      10.38
+     ],
+     [
+      10.42,
+      10.54
+     ],
+     [
+      12.12,
+      13.17
+     ],
+     [
+      13.62,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 5.92
+   }
+  ],
+  "diner_dense": [
+   {
+    "clip": "h3_t2v_diner_dense_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 4,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.83,
+      1.46
+     ],
+     [
+      1.58,
+      1.96
+     ],
+     [
+      3.62,
+      3.79
+     ],
+     [
+      3.88,
+      4.5
+     ],
+     [
+      5.5,
+      5.88
+     ],
+     [
+      5.92,
+      6.5
+     ],
+     [
+      6.54,
+      6.71
+     ],
+     [
+      6.75,
+      7.0
+     ],
+     [
+      10.42,
+      10.58
+     ],
+     [
+      12.79,
+      13.04
+     ],
+     [
+      13.17,
+      13.29
+     ]
+    ],
+    "voiced_seconds": 4.04
+   }
+  ],
+  "diner_sage": [
+   {
+    "clip": "h3_t2v_diner_sage_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      1.42,
+      1.88
+     ],
+     [
+      2.0,
+      2.17
+     ],
+     [
+      2.21,
+      2.33
+     ],
+     [
+      3.92,
+      4.04
+     ],
+     [
+      4.12,
+      4.71
+     ],
+     [
+      5.5,
+      5.88
+     ],
+     [
+      5.92,
+      6.5
+     ],
+     [
+      6.54,
+      6.71
+     ],
+     [
+      6.75,
+      7.0
+     ],
+     [
+      7.38,
+      7.75
+     ],
+     [
+      10.42,
+      10.54
+     ],
+     [
+      11.21,
+      11.33
+     ],
+     [
+      12.79,
+      13.04
+     ]
+    ],
+    "voiced_seconds": 3.96
+   }
+  ],
+  "diner_sol": [
+   {
+    "clip": "h3_t2v_diner_sol_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      1.42,
+      1.92
+     ],
+     [
+      2.04,
+      2.21
+     ],
+     [
+      3.92,
+      4.04
+     ],
+     [
+      4.12,
+      4.71
+     ],
+     [
+      5.5,
+      5.88
+     ],
+     [
+      5.92,
+      6.5
+     ],
+     [
+      6.54,
+      6.71
+     ],
+     [
+      6.75,
+      7.0
+     ],
+     [
+      7.38,
+      7.75
+     ],
+     [
+      9.71,
+      9.96
+     ],
+     [
+      10.33,
+      10.5
+     ],
+     [
+      10.88,
+      11.42
+     ],
+     [
+      12.79,
+      13.04
+     ],
+     [
+      13.12,
+      13.46
+     ]
+    ],
+    "voiced_seconds": 5.0
+   }
+  ],
+  "diner_solfp16": [
+   {
+    "clip": "h3_t2v_diner_solfp16_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 28,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.83,
+      1.46
+     ],
+     [
+      1.58,
+      1.96
+     ],
+     [
+      3.62,
+      3.83
+     ],
+     [
+      3.88,
+      4.5
+     ],
+     [
+      5.5,
+      6.5
+     ],
+     [
+      6.54,
+      6.71
+     ],
+     [
+      6.75,
+      7.0
+     ],
+     [
+      7.38,
+      7.75
+     ],
+     [
+      9.67,
+      10.0
+     ],
+     [
+      10.33,
+      10.5
+     ],
+     [
+      10.88,
+      11.58
+     ],
+     [
+      12.79,
+      13.08
+     ],
+     [
+      13.12,
+      13.5
+     ]
+    ],
+    "voiced_seconds": 5.71
+   }
+  ],
+  "diner_pdd8": [
+   {
+    "clip": "text_to_video_pdd_diner_pdd8_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 10,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      1.5,
+      1.96
+     ],
+     [
+      2.08,
+      2.25
+     ],
+     [
+      2.29,
+      2.42
+     ],
+     [
+      3.79,
+      4.04
+     ],
+     [
+      4.08,
+      4.75
+     ],
+     [
+      6.42,
+      6.67
+     ],
+     [
+      6.75,
+      7.29
+     ],
+     [
+      7.33,
+      7.71
+     ],
+     [
+      8.04,
+      8.17
+     ],
+     [
+      10.25,
+      10.58
+     ],
+     [
+      11.33,
+      11.58
+     ],
+     [
+      11.88,
+      12.04
+     ],
+     [
+      12.33,
+      12.83
+     ],
+     [
+      12.92,
+      13.12
+     ],
+     [
+      13.33,
+      13.54
+     ],
+     [
+      14.08,
+      14.33
+     ]
+    ],
+    "voiced_seconds": 5.21
+   }
+  ],
+  "opera_dense": [
+   {
+    "clip": "h3_t2v_opera_dense_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 1333,
+    "white_threshold": 159,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      1.08,
+      5.71
+     ]
+    ],
+    "subtitle_on_seconds": 4.62,
+    "vocal_bursts": [
+     [
+      8.62,
+      8.79
+     ],
+     [
+      9.25,
+      10.21
+     ],
+     [
+      10.25,
+      10.58
+     ]
+    ],
+    "voiced_seconds": 1.75
+   }
+  ],
+  "opera_sage": [
+   {
+    "clip": "h3_t2v_opera_sage_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 1676,
+    "white_threshold": 201,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.0,
+      5.71
+     ]
+    ],
+    "subtitle_on_seconds": 5.71,
+    "vocal_bursts": [
+     [
+      9.25,
+      10.21
+     ],
+     [
+      10.25,
+      10.54
+     ]
+    ],
+    "voiced_seconds": 1.46
+   }
+  ],
+  "opera_sol": [
+   {
+    "clip": "h3_t2v_opera_sol_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 1061,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.0,
+      5.71
+     ],
+     [
+      10.33,
+      14.38
+     ]
+    ],
+    "subtitle_on_seconds": 9.75,
+    "vocal_bursts": [
+     [
+      3.38,
+      3.58
+     ],
+     [
+      9.17,
+      10.21
+     ],
+     [
+      10.25,
+      10.54
+     ]
+    ],
+    "voiced_seconds": 1.79
+   }
+  ],
+  "opera_solfp16": [
+   {
+    "clip": "h3_t2v_opera_solfp16_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 652,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      4.38,
+      5.71
+     ],
+     [
+      10.33,
+      14.38
+     ]
+    ],
+    "subtitle_on_seconds": 5.37,
+    "vocal_bursts": [
+     [
+      3.38,
+      3.58
+     ],
+     [
+      9.17,
+      10.21
+     ],
+     [
+      10.25,
+      10.54
+     ]
+    ],
+    "voiced_seconds": 1.83
+   }
+  ],
+  "opera_pdd8": [
+   {
+    "clip": "text_to_video_pdd_opera_pdd8_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 31955,
+    "white_threshold": 3834,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.0,
+      5.75
+     ]
+    ],
+    "subtitle_on_seconds": 5.75,
+    "vocal_bursts": [
+     [
+      2.5,
+      2.62
+     ],
+     [
+      7.42,
+      7.62
+     ],
+     [
+      8.96,
+      9.08
+     ],
+     [
+      10.38,
+      11.25
+     ],
+     [
+      11.29,
+      12.04
+     ]
+    ],
+    "voiced_seconds": 2.62
+   }
+  ],
+  "stairwell_dense": [
+   {
+    "clip": "h3_t2v_stairwell_dense_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.67,
+      0.96
+     ],
+     [
+      1.12,
+      1.5
+     ],
+     [
+      2.46,
+      2.79
+     ],
+     [
+      3.42,
+      3.83
+     ],
+     [
+      4.71,
+      5.0
+     ],
+     [
+      6.71,
+      7.25
+     ],
+     [
+      7.29,
+      7.42
+     ],
+     [
+      8.08,
+      8.46
+     ],
+     [
+      10.33,
+      10.71
+     ],
+     [
+      12.38,
+      12.67
+     ],
+     [
+      12.71,
+      12.88
+     ]
+    ],
+    "voiced_seconds": 3.79
+   }
+  ],
+  "stairwell_sage": [
+   {
+    "clip": "h3_t2v_stairwell_sage_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.71,
+      0.96
+     ],
+     [
+      1.12,
+      1.5
+     ],
+     [
+      2.46,
+      2.79
+     ],
+     [
+      3.38,
+      3.79
+     ],
+     [
+      4.71,
+      5.0
+     ],
+     [
+      6.71,
+      7.25
+     ],
+     [
+      8.12,
+      8.46
+     ],
+     [
+      10.33,
+      10.67
+     ],
+     [
+      12.42,
+      12.67
+     ],
+     [
+      12.71,
+      12.88
+     ]
+    ],
+    "voiced_seconds": 3.54
+   }
+  ],
+  "stairwell_sol": [
+   {
+    "clip": "h3_t2v_stairwell_sol_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.83,
+      1.08
+     ],
+     [
+      1.21,
+      1.54
+     ],
+     [
+      2.46,
+      2.83
+     ],
+     [
+      3.42,
+      3.83
+     ],
+     [
+      4.71,
+      5.0
+     ],
+     [
+      6.71,
+      6.92
+     ],
+     [
+      7.04,
+      7.21
+     ],
+     [
+      8.08,
+      8.46
+     ],
+     [
+      10.33,
+      10.67
+     ],
+     [
+      12.46,
+      12.67
+     ],
+     [
+      12.71,
+      12.88
+     ]
+    ],
+    "voiced_seconds": 3.33
+   }
+  ],
+  "stairwell_solfp16": [
+   {
+    "clip": "h3_t2v_stairwell_solfp16_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.71,
+      0.96
+     ],
+     [
+      1.17,
+      1.5
+     ],
+     [
+      2.46,
+      2.83
+     ],
+     [
+      3.46,
+      3.83
+     ],
+     [
+      4.71,
+      5.0
+     ],
+     [
+      6.71,
+      6.96
+     ],
+     [
+      7.08,
+      7.21
+     ],
+     [
+      8.12,
+      8.46
+     ],
+     [
+      10.33,
+      10.71
+     ],
+     [
+      12.5,
+      12.71
+     ],
+     [
+      12.75,
+      12.92
+     ]
+    ],
+    "voiced_seconds": 3.33
+   }
+  ],
+  "stairwell_pdd8": [
+   {
+    "clip": "text_to_video_pdd_stairwell_pdd8_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 0,
+    "white_threshold": 150,
+    "detector_found_text": false,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.92,
+      1.25
+     ],
+     [
+      2.42,
+      2.62
+     ],
+     [
+      3.5,
+      3.71
+     ],
+     [
+      4.58,
+      4.79
+     ],
+     [
+      7.33,
+      7.54
+     ],
+     [
+      7.67,
+      7.83
+     ],
+     [
+      8.71,
+      9.04
+     ],
+     [
+      10.5,
+      10.62
+     ],
+     [
+      12.25,
+      12.42
+     ]
+    ],
+    "voiced_seconds": 2.46
+   }
+  ],
+  "subway_dense": [
+   {
+    "clip": "h3_t2v_subway_dense_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 240,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [],
+    "subtitle_on_seconds": 0,
+    "vocal_bursts": [
+     [
+      0.0,
+      6.46
+     ],
+     [
+      7.54,
+      7.67
+     ],
+     [
+      7.92,
+      8.88
+     ],
+     [
+      8.96,
+      9.21
+     ],
+     [
+      9.46,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 12.83
+   }
+  ],
+  "subway_sage": [
+   {
+    "clip": "h3_t2v_subway_sage_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 362,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.0,
+      1.58
+     ],
+     [
+      10.29,
+      10.79
+     ],
+     [
+      10.83,
+      12.79
+     ]
+    ],
+    "subtitle_on_seconds": 4.04,
+    "vocal_bursts": [
+     [
+      0.0,
+      6.96
+     ],
+     [
+      7.54,
+      7.67
+     ],
+     [
+      8.04,
+      8.88
+     ],
+     [
+      8.96,
+      9.42
+     ],
+     [
+      9.46,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 13.42
+   }
+  ],
+  "subway_sol": [
+   {
+    "clip": "h3_t2v_subway_sol_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 1278,
+    "white_threshold": 153,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.0,
+      1.08
+     ],
+     [
+      10.0,
+      12.96
+     ]
+    ],
+    "subtitle_on_seconds": 4.04,
+    "vocal_bursts": [
+     [
+      0.0,
+      6.83
+     ],
+     [
+      7.54,
+      7.67
+     ],
+     [
+      7.96,
+      8.88
+     ],
+     [
+      8.96,
+      9.42
+     ],
+     [
+      9.46,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 13.46
+   }
+  ],
+  "subway_solfp16": [
+   {
+    "clip": "h3_t2v_subway_solfp16_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 360,
+    "white_threshold": 150,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      0.75,
+      1.62
+     ],
+     [
+      9.46,
+      13.08
+     ],
+     [
+      13.33,
+      13.5
+     ],
+     [
+      13.54,
+      14.38
+     ]
+    ],
+    "subtitle_on_seconds": 5.5,
+    "vocal_bursts": [
+     [
+      0.0,
+      6.83
+     ],
+     [
+      7.0,
+      7.17
+     ],
+     [
+      7.54,
+      7.67
+     ],
+     [
+      7.96,
+      8.88
+     ],
+     [
+      8.96,
+      9.42
+     ],
+     [
+      9.58,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 13.58
+   }
+  ],
+  "subway_pdd8": [
+   {
+    "clip": "text_to_video_pdd_subway_pdd8_00001-audio.mp4",
+    "frames": 345,
+    "white_peak": 13173,
+    "white_threshold": 1580,
+    "detector_found_text": true,
+    "subtitle_spans": [
+     [
+      9.38,
+      12.0
+     ]
+    ],
+    "subtitle_on_seconds": 2.62,
+    "vocal_bursts": [
+     [
+      0.0,
+      2.42
+     ],
+     [
+      2.46,
+      6.79
+     ],
+     [
+      7.29,
+      7.42
+     ],
+     [
+      7.79,
+      7.96
+     ],
+     [
+      8.04,
+      8.21
+     ],
+     [
+      8.46,
+      8.67
+     ],
+     [
+      8.79,
+      9.04
+     ],
+     [
+      9.71,
+      9.83
+     ],
+     [
+      9.88,
+      14.38
+     ]
+    ],
+    "voiced_seconds": 12.42
+   }
+  ]
+ }
+}

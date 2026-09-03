@@ -1,0 +1,603 @@
+{
+  "what": "the ladder's arms joined to their rendered clips by prompt id, read from the server's /history before the post-ladder restart; basenames only, the clips live in the output folder start.sh names",
+  "arms": [
+    {
+      "label": "standoff_dense",
+      "prompt_id": "b8f4836f-6102-453c-9945-f401aabe0ba6",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+      "graph_sha256": "8b8d25cc2f51180b",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 0.19170240699895658,
+      "sampler_s": null,
+      "decode_s": null,
+      "outputs": [
+        "h3_t2v_standoff_dense_00001-audio.mp4"
+      ],
+      "note": "timing void: cached output from the orphaned pre-review render"
+    },
+    {
+      "label": "standoff_sage",
+      "prompt_id": "354d9b4d-6b23-496c-99c5-f4f19f2620ca",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+      "graph_sha256": "34603bbeda416702",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 773.4904553730012,
+      "sampler_s": 735.516084154995,
+      "decode_s": 33.57603541799472,
+      "outputs": [
+        "h3_t2v_standoff_sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "standoff_sol",
+      "prompt_id": "6f3687c4-fa17-47ba-8d98-07ff8c02d9c5",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 524.6909038510057,
+      "sampler_s": 487.14063663400157,
+      "decode_s": 33.571314517001156,
+      "outputs": [
+        "h3_t2v_standoff_sol_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "standoff_solfp16",
+      "prompt_id": "a71476fc-83ea-48e5-9ac4-b231c58fc8e4",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 654.0917148439985,
+      "sampler_s": 616.7294706550019,
+      "decode_s": 33.56589781599905,
+      "outputs": [
+        "h3_t2v_standoff_solfp16_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "standoff_pdd8",
+      "prompt_id": "8f598e18-3256-427b-8823-5d8f257efd39",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 319.0858274409984,
+      "sampler_s": 281.3374493470037,
+      "decode_s": 33.568171754996,
+      "outputs": [
+        "text_to_video_pdd_standoff_pdd8_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_dense",
+      "prompt_id": "189d025e-7d43-4104-87c0-b9313b84705a",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+      "graph_sha256": "8b8d25cc2f51180b",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 1782.8019169170002,
+      "sampler_s": 1743.0892361810038,
+      "decode_s": 33.56873825500952,
+      "outputs": [
+        "h3_t2v_diner_dense_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_sage",
+      "prompt_id": "9436392d-bd11-435d-ac20-4d5342732da3",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+      "graph_sha256": "34603bbeda416702",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 772.813151032009,
+      "sampler_s": 735.3095595479972,
+      "decode_s": 33.63209142899723,
+      "outputs": [
+        "h3_t2v_diner_sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_sol",
+      "prompt_id": "50952686-d5d3-49a2-8bce-0ec437945c2c",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 523.8779851030122,
+      "sampler_s": 485.7780120230018,
+      "decode_s": 34.17313770001056,
+      "outputs": [
+        "h3_t2v_diner_sol_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_solfp16",
+      "prompt_id": "8d469eb3-6a4e-415c-b547-f8ca5e6b22b8",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 653.4025752110028,
+      "sampler_s": 615.2371228150005,
+      "decode_s": 34.22049819899257,
+      "outputs": [
+        "h3_t2v_diner_solfp16_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_pdd8",
+      "prompt_id": "3738c8c9-ac0e-4347-b957-9e9acdc8c44d",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 317.88830464299826,
+      "sampler_s": 280.38551310499315,
+      "decode_s": 33.66789563599741,
+      "outputs": [
+        "text_to_video_pdd_diner_pdd8_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_dense",
+      "prompt_id": "db700480-ffe9-4cd6-aff2-b8d981e86021",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+      "graph_sha256": "8b8d25cc2f51180b",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 1781.8923422160005,
+      "sampler_s": 1742.1373304190056,
+      "decode_s": 33.618163480001385,
+      "outputs": [
+        "h3_t2v_opera_dense_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_sage",
+      "prompt_id": "1646c754-1c75-41bd-bad5-a9dfc2893d54",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+      "graph_sha256": "34603bbeda416702",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 773.0452196099941,
+      "sampler_s": 735.6240493469959,
+      "decode_s": 33.63039470699732,
+      "outputs": [
+        "h3_t2v_opera_sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_sol",
+      "prompt_id": "a2e95686-f638-4ee6-9ec4-bed4d80b12fc",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 525.2207220880082,
+      "sampler_s": 487.7988276649994,
+      "decode_s": 33.65501466400747,
+      "outputs": [
+        "h3_t2v_opera_sol_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_solfp16",
+      "prompt_id": "3936dad1-29f4-49fb-9821-d8ee27e686cf",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 654.1038907929906,
+      "sampler_s": 617.0010718980047,
+      "decode_s": 33.61250505899079,
+      "outputs": [
+        "h3_t2v_opera_solfp16_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_pdd8",
+      "prompt_id": "5d9a6df4-3df1-4701-b344-7246dc9c5970",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 318.6079535759927,
+      "sampler_s": 281.0198787679983,
+      "decode_s": 33.693645045001176,
+      "outputs": [
+        "text_to_video_pdd_opera_pdd8_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_dense",
+      "prompt_id": "3d342797-b4d0-4cb4-b8d5-0d9d84609c3d",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+      "graph_sha256": "8b8d25cc2f51180b",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 1776.380763964,
+      "sampler_s": 1736.6809106900037,
+      "decode_s": 33.580821671988815,
+      "outputs": [
+        "h3_t2v_stairwell_dense_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_sage",
+      "prompt_id": "e5280470-6e07-470b-ad5c-7c3d72b21516",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+      "graph_sha256": "34603bbeda416702",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 771.993628199998,
+      "sampler_s": 734.3054878310068,
+      "decode_s": 33.643228518005344,
+      "outputs": [
+        "h3_t2v_stairwell_sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_sol",
+      "prompt_id": "03a8bd11-d632-41b4-9c4c-dac6b61198fb",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 519.6117404239922,
+      "sampler_s": 482.0285133169964,
+      "decode_s": 33.636075724993134,
+      "outputs": [
+        "h3_t2v_stairwell_sol_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_solfp16",
+      "prompt_id": "f56210f5-17bb-4560-b64d-3cae14449c5e",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 660.336422235996,
+      "sampler_s": 610.4192282729928,
+      "decode_s": 45.978538448005565,
+      "outputs": [
+        "h3_t2v_stairwell_solfp16_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_pdd8",
+      "prompt_id": "1776cc10-2dd4-4cdc-aed0-8be66fd9d54e",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 316.15497376899293,
+      "sampler_s": 278.86884095700225,
+      "decode_s": 33.63418474799255,
+      "outputs": [
+        "text_to_video_pdd_stairwell_pdd8_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_dense",
+      "prompt_id": "bf09ea62-00ff-4600-96ba-7340ae204df0",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+      "graph_sha256": "8b8d25cc2f51180b",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 1778.1457404449902,
+      "sampler_s": 1737.8011846790032,
+      "decode_s": 33.62033073899511,
+      "outputs": [
+        "h3_t2v_subway_dense_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_sage",
+      "prompt_id": "41166805-0b38-404c-b4b3-67e2026cf12e",
+      "seed": 730451892,
+      "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+      "graph_sha256": "34603bbeda416702",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 772.4129238950118,
+      "sampler_s": 734.614018526001,
+      "decode_s": 33.63163191000058,
+      "outputs": [
+        "h3_t2v_subway_sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_sol",
+      "prompt_id": "0e723452-dccb-4d32-8bc8-527e0e381bed",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 519.250391679001,
+      "sampler_s": 481.3627076959965,
+      "decode_s": 33.6455536220019,
+      "outputs": [
+        "h3_t2v_subway_sol_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_solfp16",
+      "prompt_id": "71d6c874-23dd-4e2a-908d-9150bd340311",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_api.json",
+      "graph_sha256": "15e439ab41250731",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 647.8051605830115,
+      "sampler_s": 610.0696318460105,
+      "decode_s": 33.63387524501013,
+      "outputs": [
+        "h3_t2v_subway_solfp16_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_pdd8",
+      "prompt_id": "ba579649-282c-4fe8-8809-ef4a446b2e0c",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "total_s": 316.36627285300347,
+      "sampler_s": 278.2437682590098,
+      "decode_s": 33.71470927800692,
+      "outputs": [
+        "text_to_video_pdd_subway_pdd8_00001-audio.mp4"
+      ],
+      "note": null
+    }
+  ],
+  "graders": {
+    "audio_spectrum": "NOT applicable: bench/grade_arm_audio_spectrum.py measures between-arm separation against within-arm spread across seeds and needs at least three clips per arm; this ladder has one clip per arm, so every pair read as 'strong' by construction. Its twenty pair records were deleted rather than kept as noise. Rerun it only on a multi-seed ladder.",
+    "subtitle_timing": "bench/results/2026-09-03_ladder_subtitle_timing.json: per-clip vocal-burst structure, descriptive"
+  },
+  "timing": {
+    "note": "wall total_s per arm from the JSONL, medians over the scenes that rendered cold-cache; standoff_dense excluded (cache hit, timing void; retimed separately at seed 730451893). All five scenes pack the same token count (1344x768, 345 frames) so the per-rung spread across scenes is small.",
+    "rungs": {
+      "sage": {
+        "n_scenes": 5,
+        "median_total_s": 772.8,
+        "spread_s": 1.5,
+        "speedup_vs_dense_median": 2.3
+      },
+      "sol": {
+        "n_scenes": 5,
+        "median_total_s": 523.9,
+        "spread_s": 6.0,
+        "speedup_vs_dense_median": 3.4
+      },
+      "solfp16": {
+        "n_scenes": 5,
+        "median_total_s": 654.1,
+        "spread_s": 12.5,
+        "speedup_vs_dense_median": 2.72
+      },
+      "pdd8": {
+        "n_scenes": 5,
+        "median_total_s": 317.9,
+        "spread_s": 2.9,
+        "speedup_vs_dense_median": 5.6
+      },
+      "dense": {
+        "n_scenes": 4,
+        "median_total_s": 1780.0,
+        "spread_s": 6.4,
+        "speedup_vs_dense_median": 1.0
+      }
+    },
+    "observed": "solfp16 (sage fp16 mode on the outer steps, Sol otherwise as shipped) is SLOWER than sol as shipped on every scene; the rung was included as a fidelity arm, and this is its price. pdd8 is the fastest rung and the only one that changes the sample count."
+  },
+  "blind_session": {
+    "session": "ladder_2026-09-03",
+    "shuffle_seed": 20260903,
+    "jsonl": "bench/results/2026-09-03_ladder_arms_judged.jsonl",
+    "pairs": "per scene: dense vs each of sage, sol, solfp16, pdd8; and sol vs solfp16 (25 pairs, 25 singles)",
+    "key": "internal/blind_keys/ladder_2026-09-03.json (sealed)",
+    "brief": "from bench/ladder_arms.json"
+  }
+}

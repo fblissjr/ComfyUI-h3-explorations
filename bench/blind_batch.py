@@ -38,7 +38,8 @@ to find the file, in order:
    clip predates the JSONL's first row (the counter continues from earlier
    renders and the order would be wrong) or if the mtime check fails.
 
-Only `<prefix>_NNNNN.mp4` is taken; the share also holds `-audio.mp4` and
+Only `<prefix>_NNNNN.mp4` is taken (a history entry naming `-audio.mp4` is mapped
+to that silent sibling); the share also holds `-audio.mp4` and
 `.png` siblings per render, and a wrong sibling would blind the wrong file.
 
 ## Refusals, each a row that must not be judged
@@ -123,8 +124,19 @@ def history_outputs(host: str, prompt_id: str):
         for key in ("gifs", "videos", "images"):
             for item in node_out.get(key, []):
                 fn = item.get("filename", "")
-                if fn.endswith(".mp4") and not fn.endswith("-audio.mp4"):
-                    out.append(Path(item.get("subfolder", "")) / fn)
+                if not fn.endswith(".mp4"):
+                    continue
+                # A combine node that muxes audio records ONLY `X-audio.mp4`
+                # in history while writing the silent `X.mp4` beside it; the
+                # silent one is what the stacker takes, so name that and let
+                # the caller's existence check decide. Before 2026-09-03 the
+                # audio entry was skipped outright, and a graph that saves the
+                # muxed file alone fell through to the mtime fallback.
+                if fn.endswith("-audio.mp4"):
+                    fn = fn[: -len("-audio.mp4")] + ".mp4"
+                path = Path(item.get("subfolder", "")) / fn
+                if path not in out:
+                    out.append(path)
     return out or None
 
 
