@@ -16,7 +16,9 @@ artifact.
   first cold-cache wall times for the true dense baseline on this box, and
   the fp16-sage rung came out slower than Sol as shipped on every scene. The
   standoff dense row is a cache hit and its timing is void; it was retimed at
-  a nudged seed for the time alone.
+  a nudged seed for the time alone
+  (`bench/results/2026-09-03_ladder_arms_retime.jsonl`), and the retime sits
+  inside the other four dense arms' spread.
 - **The ladder is blinded for scoring** as session `ladder_2026-09-03`:
   every rung against its scene's dense baseline plus Sol against the fp16
   rung, stacked by matched seed, with the sealed key under
