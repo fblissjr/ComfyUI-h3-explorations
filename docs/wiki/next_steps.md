@@ -15,9 +15,13 @@ sage fp16 plus Sol, and shipped PDD8, matched seed, trained canvas. Then
 owner's free-text notes per pair. This is the first perceptual anchor taken
 from the true baseline, and everything numeric gets judged against it.
 
-**Build the online Sol-versus-Sage instrument** from `sol_block_probe.py`,
-whose docstring is the specification, validated against the retained Base16
-capture before any new render. Off the card until validation.
+**Validate the online Sol-versus-Sage instrument.** `sol_block_probe.py` is
+built and its fixture controls are green (`bench/check_sol_probe.py
+--controls`). Two things remain before its numbers are trusted: the capture
+replay (`--replay-capture`, against the exact-branch record) and the first
+canonical Base16 record (the shipped t2v graph, Sol on, `dense_blocks`
+empty, armed with `H3_SOL_PROBE` and `H3_SOL_OBSERVE`), read with
+`--record`. Both need the card and are queued behind the ladder.
 
 ## Then, in the roadmap's order
 

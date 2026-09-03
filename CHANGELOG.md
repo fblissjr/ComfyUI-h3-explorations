@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.32
+
+### Added
+
+- **The Sol-versus-fallback probe is implemented** (`sol_block_probe.py`,
+  a stub since 2026-08-16). Armed by `H3_SOL_PROBE` on the server process,
+  it runs the chained fallback -- the shipped sage override on the
+  canonical graphs -- on the identical q/k/v of every call Sol takes,
+  records Sol against it (whole-call relative L2 and cosine, difference and
+  reference RMS, per-head numerators, denominators, relative L2 and cosine,
+  per-segment aggregates over the authoritative segment table, per-head and
+  per-segment row distributions as count, mean, p50, p90, p99, max; a zero
+  denominator is null with both sums kept), and returns Sol's output under
+  `trajectory=sol` or the fallback's under `trajectory=sage`. Calls Sol did
+  not take are recorded as skips with their reason. It writes no tensors,
+  streams per head so its temporaries are one head's worth, confirms the
+  counterfactual went through sage by the fork's dispatch counter and
+  reports `reference_not_sage` otherwise, and joins the route record by
+  prompt id, schedule index and block. Unarmed it is one cached boolean at
+  each of the two seams in `sol_attn_h3.py`. `bench/check_sol_probe.py`
+  carries the eighteen fixture controls (all green on 2026-09-03), the
+  record validator and per-block table, and the capture replay that proves
+  the metric against the exact-branch records; the replay and the first
+  canonical Base16 record are pending the card.
+
 ## 0.99.31
 
 ### Fixed

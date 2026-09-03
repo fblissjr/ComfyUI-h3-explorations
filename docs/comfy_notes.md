@@ -36,6 +36,14 @@ it silently disarms them (CLAUDE.md, "the server process is the resource").
     curl -s localhost:8188/system_stats                # until it answers
     ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
 
+**The three arming keys**, all read once by the server process from its
+environment: `H3_CAPTURE` (q/k/v tensors, gigabytes per cell),
+`H3_SOL_OBSERVE` (Sol route counts per call), `H3_SOL_PROBE` (Sol against
+the shipped fallback per call, summaries only). Each takes `dir=`; put it
+under `$H3_CAPTURE_ROOT`. A server carrying any of them renders slower and
+its timings are void, which is the reason to read the port owner's
+environment before you trust a number from it.
+
 **Between the kill and the launch, confirm the launcher chain is gone too.**
 On 2026-09-03 a `kill` of the port owner was followed within seconds by a
 new listener whose parent chain led back to the PREVIOUS `start.sh` shell,

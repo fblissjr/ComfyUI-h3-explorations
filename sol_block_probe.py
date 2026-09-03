@@ -1,10 +1,27 @@
-"""SCAFFOLDING -- NOT IMPLEMENTED. Per-block Sol-Attn error probe, CUDA path.
+"""The Sol-versus-fallback probe: per-block, per-head, per-segment error of
+Sol's output against the shipped fallback on identical q/k/v, recorded as
+summaries, no tensors, on a live render.
 
-**Nothing here runs yet.** Every function body is a stub that raises. This file
-exists so the plan's Track A2 has a shape to argue with before any of it is
-written, and so the node id and input order are decided once, deliberately,
-rather than during implementation. See
-`internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md`, Track A2.
+**Implemented 2026-09-03**, replacing the scaffold this file was from
+2026-08-16 (its history and the specification it was built to are below).
+Environment-gated like every capture instrument here:
+
+    H3_SOL_PROBE="dir=$H3_CAPTURE_ROOT/<name>[,trajectory=sol|sage][,capture=<label>]" <comfy>/start.sh
+
+`trajectory=sol` (default) returns Sol's output and computes the fallback as
+the counterfactual -- the shipping measurement; `trajectory=sage` returns the
+fallback's output -- the control. The record is `sol_probe_<stamp>.jsonl` in
+`dir`; `bench/check_sol_probe.py --record` reads it, validates every
+invariant and prints the per-block table, and `--controls` proves the
+behaviour on fixtures. Timings from an armed render are void: every Sol call
+also ran the fallback.
+
+## History: the 2026-08-16 scaffold this replaced
+
+The original plan (Track A2 of a since-retired plan) left every function a
+stub so the node id and input order would be decided deliberately. What
+follows is that scaffold's reasoning, kept because the specification at the
+end supersedes it point by point and the reader should see which points.
 
 ## Why this exists
 
