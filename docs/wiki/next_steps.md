@@ -7,13 +7,17 @@ page is stale.
 
 ## Now
 
-**Render the speedup ladder and look at it.** `bench/ladder_arms.json`: three
-bank scenes chosen for their failure surfaces, each from the true baseline
-(stock attention, no LoRA) up through sage alone, sage plus Sol as shipped,
-sage fp16 plus Sol, and shipped PDD8, matched seed, trained canvas. Then
-`bench/blind_batch.py`, the scoring app, `bench/score_session.py`, and the
-owner's free-text notes per pair. This is the first perceptual anchor taken
-from the true baseline, and everything numeric gets judged against it.
+**Score the speedup ladder.** Rendered 2026-09-03: five bank scenes chosen
+for their failure surfaces, each from the true baseline (stock attention, no
+LoRA) up through sage alone, sage plus Sol as shipped, sage fp16 plus Sol, and
+shipped PDD8, matched seed, trained canvas
+(`bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
+the timings). Blinded as session `ladder_2026-09-03`, every rung against its
+scene's dense baseline plus Sol against the fp16 rung. What remains is the
+owner's part: the scoring app in that batch folder, then
+`bench/score_session.py`, free-text notes per pair. This is the first
+perceptual anchor taken from the true baseline, and everything numeric gets
+judged against it. One seed per arm, so it anchors; it does not decide.
 
 **Validate the online Sol-versus-Sage instrument.** `sol_block_probe.py` is
 built and its fixture controls are green (`bench/check_sol_probe.py
@@ -21,7 +25,8 @@ built and its fixture controls are green (`bench/check_sol_probe.py
 replay (`--replay-capture`, against the exact-branch record) and the first
 canonical Base16 record (the shipped t2v graph, Sol on, `dense_blocks`
 empty, armed with `H3_SOL_PROBE` and `H3_SOL_OBSERVE`), read with
-`--record`. Both need the card and are queued behind the ladder.
+`--record`. Both are running behind the ladder in one chain; read the
+record before trusting any per-block number.
 
 **Render the reference pathway ablation once the card is free.**
 `bench/ref_pathway_arms.json`: our reference conditioner and core's, each

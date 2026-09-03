@@ -87,13 +87,18 @@ ladder per block, not alternatives.
 3. **A tau ladder per suspicious block**, plus the Sage fallback, on the
    direct Sol-versus-Sage delta and route cost together; one measurement
    ranks blocks, it does not choose their tau.
-4. **Sage fp16 on the outer steps** as a plain render arm.
+4. **Sage fp16 on the outer steps** as a plain render arm. Rendered in the
+   2026-09-03 ladder as `solfp16`: slower than Sol as shipped on every
+   scene; whether it looks different is the blind session's question.
 5. **Per-head routing** only if the shipped call shows a few heads carrying
    the error; that is kernel work, not a graph knob.
 6. **A compact multi-scene blind ladder with clean timing**, base and PDD
    ladders kept apart, scenes from the bank chosen for their failure
    surfaces (a figure at distance, on-screen text, fast motion, quiet
    speech over music). This is where the numbers meet what the owner sees.
+   First pass rendered and blinded 2026-09-03 (`bench/ladder_arms.json`,
+   session `ladder_2026-09-03`), with PDD8 as a rung of the same ladder
+   rather than a ladder of its own; awaiting the owner's scoring.
 
 **In parallel, not behind the above: the PDD bake.** It removes merge-time
 requantisation at no runtime cost and is the strongest practical PDD
