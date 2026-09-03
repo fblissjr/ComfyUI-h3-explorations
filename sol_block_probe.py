@@ -32,12 +32,22 @@ for the dense reference, records the pair, and **returns the dense result**.
 That last detail is load-bearing and is easy to lose: returning the sparse
 result would let each block's error compound into every later block's number.
 
+**Superseded 2026-09-03 as the only mode (see the specification section
+below):** returning the fallback is now `trajectory=sage`, the control; the
+shipping measurement is `trajectory=sol`, which RETURNS SOL so the cells are
+the production population, upstream compounding included on purpose. The
+record says which mode wrote it and the two are never pooled.
+
 **Not ported:** anything Triton. `make_probe_override` contains none -- it wraps
 whatever override is installed, so it works against the CUDA node in principle.
 
 ## Three additions, each from something measured since the original was written
 
-1. **Routed density per block.** Nothing in this repo measures it.
+1. **Routed density per block.** ~~Nothing in this repo measures it.~~
+   **Measured since 2026-09-01:** the fork's `blk_cnt` out-parameter reports
+   the routed count per (batch, head, query block) and `sol_observe.py`
+   records it per call; the instrument reads the same buffer. The rest of
+   this item describes the state before that.
    `sol_attn_stats()` (`vendor/sol_attn_minimax.py:102-104`) counts dispatches,
    not blocks. Density is what decides whether Sol's exact branch is a thin
    slice or most of the work, which is the open question behind the 16-bit PV
@@ -154,7 +164,11 @@ def make_probe_override(inner):
       - call ``inner(func, q, k, v, heads, **common)`` for the sparse result
       - call ``func(q, k, v, heads, **common)`` for the dense reference
       - record the pair against the block index in ``transformer_options``
-      - **return the dense result**, so error cannot compound across blocks
+      - return the result the configured trajectory names: Sol's under
+        ``trajectory=sol`` (the shipping measurement; compounding is the
+        production population), the fallback's under ``trajectory=sage``
+        (the control). Until 2026-09-03 this line mandated the dense result
+        only; that is now the second mode, not the contract.
     """
     raise NotImplementedError(_NOT_IMPLEMENTED)
 
@@ -177,16 +191,12 @@ def _record(block, sparse, reference, segments=None):
 def _record_density(block, routed_blocks, total_blocks):
     """Accumulate routed density for one call (addition 1).
 
-    TODO(scaffolding): the kernel knows this and does not currently report it.
-    Two candidate sources, and neither is verified:
-      - `blk_cnt`, which `sol_attn_route.cu` already writes per (b, h, query
-        block). Reaching it means the kernel exposing it, i.e. an upstream
-        change on the fork.
-      - recomputing the routing decision host-side from the same threshold,
-        which is a second implementation and therefore also a cross-check.
-
-    The second is more work and worth more: an independent implementation is
-    the thing this repo keeps finding it needed.
+    Source, settled 2026-09-01: `blk_cnt`, the fork's out-parameter on
+    `sol_attn` (and `sol_attn_chunked`), which `sol_observe.py` already reads
+    and grades with its own shape check. The host-side recomputation this
+    used to propose stays worth having as a cross-check, not as the source.
+    Keep the three densities' denominators apart (routed count, kernel
+    density, pair-weighted density), as the specification says.
     """
     raise NotImplementedError(_NOT_IMPLEMENTED)
 
@@ -230,9 +240,9 @@ def install(model):
 # Register in `nodes.py`'s `H3ExplorationsExtension.get_node_list()` by
 # APPENDING to the list, never inserting.
 #
-# Decide before shipping: node or bench script? A probe must run inside
-# sampling to see the calls, which forces a node. But a node is a permanent
-# schema commitment for a diagnostic nobody should wire. One option worth
-# weighing is an env-gated install like `h3_capture.py`'s `H3_CAPTURE`, which
-# needs no node, no schema and no graph change -- and which is already the
-# pattern this repo uses for exactly this problem.
+# DECIDED 2026-09-03: environment-gated, no node. The install hooks the
+# override the way `h3_capture.py` and `sol_observe.py` do, armed by an
+# `H3_SOL_PROBE=...` spec on the server process, with an unarmed path that
+# adds no allocation, kernel call, copy or synchronisation beyond the branch.
+# No schema, no graph change, nothing a saved workflow can switch on. The
+# node sketch above is kept as the rejected alternative, not as a plan.

@@ -76,23 +76,36 @@ ladder per block, not alternatives.
    against the retained Base16 capture (its retention note says so) before
    any new render. Its per-cell record is specified in the scaffold's
    docstring.
-2. **Canonical Base16 FL2VA** at the trained canvas with production sink
-   ranges and the empty `dense_blocks`: the first measurement of the
+2. **Canonical Base16 FL2VA**: the pruned INT8 ConvRot fl2va DiT every
+   graph loads, 1344x768, 345 frames, 16 steps, Sol on with production
+   sink ranges and the empty `dense_blocks`: the first measurement of the
    shipped call. Then **legal PDD8 FL2VA** by the node's own sigmas, then
-   **Ref2VA**; three populations, never pooled.
+   **Ref2VA** on the ref2va DiT; three populations, never pooled.
 3. **A tau ladder per suspicious block**, plus the Sage fallback, on the
    direct Sol-versus-Sage delta and route cost together; one measurement
    ranks blocks, it does not choose their tau.
 4. **Sage fp16 on the outer steps** as a plain render arm.
 5. **Per-head routing** only if the shipped call shows a few heads carrying
    the error; that is kernel work, not a graph knob.
-6. **The PDD bake**, independently, then granular PDD strength.
-7. **A compact multi-scene blind ladder with clean timing**, base and PDD
+6. **A compact multi-scene blind ladder with clean timing**, base and PDD
    ladders kept apart, scenes from the bank chosen for their failure
    surfaces (a figure at distance, on-screen text, fast motion, quiet
    speech over music). This is where the numbers meet what the owner sees.
 
-**What would count as finding it:** a setting that survives step 7 on more
+**In parallel, not behind the above: the PDD bake.** It removes merge-time
+requantisation at no runtime cost and is the strongest practical PDD
+improvement on the table; its contract is built and its two remaining
+prerequisites are recorded in `docs/h3_pdd.md`. It shares nothing with the
+attention lane and must not wait for it. Granular PDD strength comes after
+the bake, on PDD's own ladder.
+
+**The decision standard.** Trustworthy directional evidence promotes an
+EXPERIMENT. A shared workflow default requires set-level testing, clean
+timing in an uninstrumented process, and a small blind multi-scene
+comparison; `dense_blocks="0-2,32"` became a default without those and was
+withdrawn, and that is the precedent this sentence exists to break.
+
+**What would count as finding it:** a setting that survives step 6 on more
 than one scene and seed, with its cost measured in a clean process, and
 its record naming the prompt, seed, canvas, length and build.
 
