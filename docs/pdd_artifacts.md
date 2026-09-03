@@ -107,49 +107,206 @@ the bank fused at run time, 528 or 578 tensors. They are here as an
 independent control for `bench/compare_pdd_conversions.py` and are never wired
 into a graph.
 
-## 1a. The sidecar tensors: what each is, who reads it, and how the set changed
+## 1a. The sidecar tensors: what each is, why it exists, and how the set changed
 
 A converted file has two kinds of tensor. The **LoRA keys** under
 `diffusion_model.*` are in ComfyUI's own naming and ComfyUI's own loader
 applies them; the node hands them over and checks the count. The **sidecar
 tensors** are everything under `h3_pdd.*`: things ComfyUI has no loader for,
-which `MiniMaxH3PDDLoRA` reads itself. This is the part that changed between
-versions, while the weights never did. Shapes below are read off the fl2va
-files on disk; ref2va matches.
+which `MiniMaxH3PDDLoRA` reads itself. They are the part that changed between
+versions while the weights never did.
 
-| tensor | dtype, shape | in which files | since | what the node does with it | if it were missing |
-|---|---|---|---|---|---|
-| `h3_pdd.bank.{video,audio}.{weight,bias}` | BF16 `[32, 96, 5376]` / `[32, 96]`, `[32, 32, 5376]` / `[32, 32]` | every file | 2026-08-27 | the published 32 per-interval output heads, verbatim; fused at load into one head per block for whatever step count the sampler runs. This IS parallel decoding | no heads, so no PDD; the node refuses |
-| `h3_pdd.base_video_out` | F32 `[96, 5376]` | every file | 2026-08-26 | the base checkpoint's `final_layer.video_out.weight`, compared by distance with the loaded model's to refuse the wrong partition (fl2va and ref2va ship identical key sets, so nothing else would notice) | a ref2va file would load onto an fl2va base and render wrong |
-| `h3_pdd.adaln_baked.blocks.N.diff`, `.diff_b` | F16 `[96768, 8]`, F32 `[96768]`, 50 each | `_comfy` files | 2026-08-26 | the adaln correction pre-solved into the pruned checkpoint's 8-column basis, applied as ordinary `diff` weight patches | no modulation update; refused since 2026-08-31, rendered normally-looking before |
-| `h3_pdd.adaln_table` | F32 `[1025, 8]` | `_comfy` files | 2026-08-26 | the curve table the bake was solved against; compared with the loaded model's own table, and a mismatch is refused | a bake solved against ref2va's table would apply on fl2va with nothing noticing |
-| `h3_pdd.adaln.blocks.N.lora_A`, `.lora_B` | BF16 `[64, 2688]`, `[96768, 64]`, 50 each | `_adaln2688` files | 2026-08-26 | the adaln correction in the original 2688-dim time space: a weight patch on an unpruned base, 50 runtime forward patches on a pruned one | as above |
-| `h3_pdd.adaln.blocks.N.alpha` | F32 scalar, 50 | `_adaln2688` files | 2026-08-29 | the LoRA scale as a tensor, because ComfyUI reads alpha only from a tensor and never from metadata | scale silently 1.0, which happens to be PDD's value, so nothing would show until a file with another alpha arrived |
-| `h3_pdd.silu_temb_grid` | F32 `[1025, 2688]` | `_adaln2688` files | 2026-08-26 | `silu(time_embedder(t))` over the grid, from the base: the input the runtime injection needs on a pruned base. Partition-specific | the injection path has nothing to feed the correction |
-| `h3_pdd.backbone_probe` | I8 `[64, 14336]` | every file | 2026-09-02 (v2) | 64 rows of `blocks.49.mlp.fc2.weight` from the paired checkpoint; the node requires the loaded module to equal them | a full sidecar could not refuse a baked checkpoint; v1 files load with that gap named in the log |
-| `h3_pdd.backbone_probe_scale` | F32 `[64, 1]` | every file | 2026-09-03 (v3) | the matching rows of the fp32 `weight_scale`; required equal too, because a scale change moves the arithmetic without moving the codes | a v2 file: codes-only, refused on a stripped file, loaded on a full one |
-| `h3_pdd.backbone_probe_base`, `_base_scale` | as above | stripped files only (none exist) | 2026-09-03 (v3) | the base's slices, so a stripped file loaded on the base can say "this is the unbaked base" rather than "not your bake" | the refusal would be right but less specific |
+**Everything in the table below is read, not written.** Dtype, shape and
+count come from the files; "carried by" from which files hold the group;
+"introduced" from `git log -S` over the converter's history, so it is the
+commit that first emitted the key, not a date anyone remembered; "read by"
+from the AST of `pdd_lora.py`, the functions whose body names the key. The
+per-tensor hashes behind it are in the dated record the inventory section
+points at.
 
-**How the set changed, version by version.** Confirmed against the archived
-2026-08-28 file, which carries exactly `bank`, `base_video_out`,
-`adaln_baked` and `adaln_table`: no alpha, no probe.
+<!-- BEGIN GENERATED: sidecar-tensors (bench/pdd_artifact_inventory.py) -->
 
-- **2026-08-26, first files.** `h3_pdd.head.{video,audio}.*`: the heads
-  already FUSED for the file's own step count. `h3_pdd.adaln.*` pairs,
-  `silu_temb_grid`, `base_video_out`. With `--pruned`, `adaln_baked.*` and
-  `adaln_table` added and, from the same day, the 2688 pairs and the grid
-  dropped from that file, so one file carries one adaln form.
-- **2026-08-27.** `h3_pdd.head.*` RETIRED for `h3_pdd.bank.*`, the raw 32
-  heads. The fused form pinned a step count into the file; the bank lets the
-  node fuse for 8, 4, 2 or 16 evaluations from one file.
-- **2026-08-29.** `h3_pdd.adaln.blocks.N.alpha` added. On the `--pruned`
-  path the 50 alphas lingered after their pairs were dropped, 50 inert
-  tensors nothing read, until 2026-09-02.
-- **2026-09-02, version 2.** `h3_pdd.backbone_probe` (codes only, always
-  from the base). Stray alphas gone from `_comfy` files.
-- **2026-09-03, version 3.** `h3_pdd.backbone_probe_scale`; the probe cut
-  from the paired checkpoint rather than always the base; stripped files
-  gain the base pair. Every current file carries this set.
+| sidecar tensor group | dtype | shape | per file | carried by | introduced in the converter (git) | read in `pdd_lora.py` by |
+|---|---|---|---|---|---|---|
+| `h3_pdd.adaln.blocks.N.alpha` | float32 | `[]` | x50 | fl2va adaln2688, ref2va adaln2688 | `6fab6b0` 2026-08-29 | `execute` |
+| `h3_pdd.adaln.blocks.N.lora_A` | bfloat16 | `[64, 2688]` | x50 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
+| `h3_pdd.adaln.blocks.N.lora_B` | bfloat16 | `[96768, 64]` | x50 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_baked.blocks.N.diff` | float16 | `[96768, 8]` | x50 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_baked.blocks.N.diff_b` | float32 | `[96768]` | x50 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_table` | float32 | `[1025, 8]` | x1 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.backbone_probe` | int8 | `[64, 14336]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy | `2404409` 2026-09-02 | `execute` |
+| `h3_pdd.backbone_probe_scale` | float32 | `[64, 1]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy | `e38655d` 2026-09-03 | `execute` |
+| `h3_pdd.bank.audio.bias` | bfloat16 | `[32, 32]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.audio.weight` | bfloat16 | `[32, 32, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.video.bias` | bfloat16 | `[32, 96]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.video.weight` | bfloat16 | `[32, 96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.base_video_out` | float32 | `[96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `ddc2ac9` 2026-08-26 | `execute` |
+| `h3_pdd.silu_temb_grid` | float32 | `[1025, 2688]` | x1 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
+
+<!-- END GENERATED: sidecar-tensors -->
+
+### Why each family exists, and the gap it closed
+
+This part is a decision record, so it is written by hand -- but
+`bench/pdd_artifact_inventory.py --check` requires a heading here for every
+family the files carry and requires every commit named on this page to exist,
+so a tensor nobody explained, or a pointer to nowhere, goes red. Each entry:
+what it is for, what was wrong before it, and where the evidence lives.
+
+### `h3_pdd.bank.*`
+
+The published 32 per-interval output heads and biases, video and audio,
+verbatim. `MiniMaxH3PDDLoRA` fuses them at load into one head per block for
+whatever step count the sampler runs. Introduced in `548629e` (2026-08-26),
+REPLACING `h3_pdd.head.*` from the first converter that morning (`7f460f7`),
+which stored the heads already fused for the file's own step count. The gap:
+a fused head pins a step count into the artifact, so every other evaluation
+count needed another conversion; with the raw bank one file serves 8, 4, 2 or
+16 evaluations. The paper's own recommendation (its section 3.1) is to hold one
+fused head per block, which the node does, at load rather than per forward.
+Then `ca0c245` (2026-08-28) made the converter refuse a bank whose rows are
+deltas from row 0 rather than verbatim heads, because a re-upload of the
+source in that encoding would have passed straight through the copy
+(`bench/check_pdd_bank_encoding.py`, record
+`bench/results/2026-08-28_pdd_bank_encoding.json`). **The 08-27 date this
+page and the CHANGELOG gave for the retirement of `h3_pdd.head.*` is
+withdrawn: git puts it in `548629e` on 2026-08-26.**
+
+### `h3_pdd.base_video_out`
+
+The base checkpoint's `final_layer.video_out.weight`, verbatim, from `--base`.
+Introduced in `ddc2ac9` (2026-08-26). The gap: fl2va and ref2va ship IDENTICAL
+key sets, so a Ref2VA LoRA loads onto an fl2va checkpoint with zero unmatched
+keys and renders wrong (`h3_ref2v_distillation.md`). The node compares this
+tensor with the loaded model's by DISTANCE, not hash: the first version hashed
+it and fired on the first render against the correct checkpoint, because
+ComfyUI casts on load and a cast changes every bit while moving the value a
+fraction of a percent (converter docstring, `PARTITION_TOLERANCE` in
+`pdd_lora.py`, graded in `bench/check_pdd_head_selection.py`).
+
+### `h3_pdd.adaln_baked.*`
+
+The adaln update pre-solved into the pruned checkpoint's rank-8 curve basis,
+one `diff` (F16, the weight) and one `diff_b` (F32, the bias) per block,
+applied by `comfy.lora` as ordinary weight patches. Introduced in `e917a35`
+(2026-08-26) with `--pruned`. The gap: on a pruned checkpoint the 2688-dim time
+space the update lives in does not exist, so the only path had been a runtime
+injection of 50 forward patches. The bake is possible because the update's
+time curve lies in the checkpoint's basis to a relative residual measured at
+1.2e-5 to 1.1e-4 over all fifty blocks (`h3_pdd.md`); the first measurement
+omitted the centring and read 0.93, i.e. "cannot be baked", and the positive
+control -- projecting the BASE curve, which must fit -- is what caught it.
+`c839e22` the same day made a pruned file carry ONLY this form, dropping the
+2688 pairs and the grid that were 40% of the file and dead on a pruned base.
+
+### `h3_pdd.adaln_table`
+
+The `adaln_t_table` the bake was solved against. Introduced in `e917a35`
+(2026-08-26). The gap: a bake solved against the OTHER partition's table fits
+its basis just as well -- both are SVDs of similar smooth curves, so the fit
+is blind to which basis -- and is 0.0205 wrong at run time against 0.0001 for
+the right one (`h3_pdd.md`). So the node compares this table with the loaded
+model's own, by distance, and refuses a mismatch. `TABLE_TOLERANCE` shipped for
+an hour at 1e-3, below the 1.6e-3 a bf16 cast costs, which would have sent
+every correct bake down the slow path silently; `bench/check_pdd_head_selection.py`
+grades both sides of it.
+
+### `h3_pdd.adaln.blocks.N.lora_A / lora_B`
+
+The adaln update as the source's own 2688-dim LoRA pairs, in a NEUTRAL
+namespace rather than ComfyUI's. Introduced in `7f460f7` (2026-08-26). The gap
+it prevents: named `diffusion_model.*`, `comfy.lora.load_lora` would apply
+them to an unpruned model behind the node's back and silently drop them on a
+pruned one with a log line. Which surface they reach is a property of the
+loaded checkpoint (`use_adaln_curves`), so the node decides. Since `c839e22`
+only `_adaln2688` files carry them.
+
+### `h3_pdd.adaln.blocks.N.alpha`
+
+The LoRA scale as a tensor, one per adaln pair. Introduced in `6fab6b0`
+(2026-08-29). The gap: ComfyUI reads alpha from a `<module>.alpha` tensor and
+never from file metadata, falling back to 1.0; PDD's alpha/rank IS 1.0, so the
+fallback was right by coincidence, which is the kind of coincidence
+`bench/check_lora_alpha.py` exists to refuse. On the `--pruned` path the 50
+alphas outlived the pairs they belonged to until `2404409` (2026-09-02): inert
+tensors nothing read, present in every `_comfy` file converted between those
+dates (the archived 2026-08-28 files predate them and carry none).
+
+### `h3_pdd.silu_temb_grid`
+
+`silu(time_embedder(t))` over a 1025-point grid, derived from `--base`.
+Introduced in `7f460f7` (2026-08-26). Consumed only by the runtime injection,
+i.e. an `_adaln2688` file on a pruned base. The gap it closes is partition
+mixing: the fl2va and ref2va time curves differ by 7.8% relative, so a grid
+from the wrong partition feeds the injection a 7.8%-wrong input and nothing
+errors; deriving it from the same checkpoint that supplies
+`h3_pdd.base_video_out` makes that impossible rather than merely documented.
+
+### `h3_pdd.backbone_probe`
+
+64 rows of `blocks.49.mlp.fc2.weight`'s int8 codes from the checkpoint the file
+is paired with. Introduced in `2404409` (2026-09-02, converter version 2),
+codes only and always from the base. The gap: a baked checkpoint plus the
+unmodified full sidecar applies the backbone TWICE and renders normally, and a
+stripped sidecar on the base applies it never; neither shows in the keys
+(`h3_pdd.md`, "What a backbone bake pins"). Version 2's check on a stripped
+file accepted any distance above a tolerance, which proved "not the base" and
+admitted every wrong bake; Codex's 2026-09-03 audit (gitignored,
+`internal/codex/2026-09-03_post-5b67c0a-audit-and-bake-contract-handoff.md`:
+*"it proves only 'not the base,' not 'this exact bake'"*) is why `e38655d`
+made it an exact identity cut from the PAIRED checkpoint
+(`h3_pdd_backbone_probe_of`). `fc2` of block 49 because it carries the largest
+single update in the file (0.044 relative), so a bake moves it furthest.
+
+### `h3_pdd.backbone_probe_scale`
+
+The matching 64 rows of the fp32 per-row `weight_scale`. Introduced in
+`e38655d` (2026-09-03, converter version 3). The gap, from the same audit: an
+int8_convrot weight is codes AND a scale, and a change confined to the scale
+moves the arithmetic while leaving every code equal, so the codes-only probe
+of version 2 could not see it. The node requires both equal.
+
+### `h3_pdd.backbone_probe_base / _base_scale`
+
+The BASE's code and scale slices, carried by a stripped sidecar in addition to
+its bake's. Introduced in `e38655d` (2026-09-03). No stripped file exists yet,
+so no file on disk carries them. The gap is diagnostic: without them a
+stripped file loaded on the base can only say "not your bake"; with them it
+says "this is the unbaked base", which is the one wrong pairing a person is
+likely to make by accident.
+
+### What changed between versions, computed from the files
+
+Not narrated: for each partition, the archived version-1 file against the
+current `_comfy` file, and the two forms against each other, as tensor groups
+added, removed, changed (group hash differs) and byte-identical.
+
+<!-- BEGIN GENERATED: version-diff (bench/pdd_artifact_inventory.py) -->
+
+**fl2va: archived v1 -> current `_comfy`** (`pdd_archive/minimax_h3_fl2va_pdd_8step_comfy_v1_2026-08-28.safetensors` -> `minimax_h3_fl2va_pdd_8step_comfy.safetensors`): 32 tensor group(s) byte-identical, 0 changed, 2 added, 0 removed.
+- added: `h3_pdd.backbone_probe`, `h3_pdd.backbone_probe_scale`
+- metadata keys that differ: `backbone_modules_converted`, `h3_pdd_adaln_form`, `h3_pdd_backbone`, `h3_pdd_backbone_probe_from`, `h3_pdd_backbone_probe_key`, `h3_pdd_backbone_probe_of`, `h3_pdd_backbone_probe_rows`, `h3_pdd_backbone_probe_sha256`, `h3_pdd_backbone_strength_baked`, `h3_pdd_baked_checkpoint`, `h3_pdd_converted_on`, `h3_pdd_converter_commit`, `h3_pdd_converter_version`, `h3_pdd_loads_on`
+
+**fl2va: `_comfy` -> `_adaln2688` (the two forms)** (`minimax_h3_fl2va_pdd_8step_comfy.safetensors` -> `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors`): 31 tensor group(s) byte-identical, 0 changed, 4 added, 3 removed.
+- added: `h3_pdd.adaln.blocks.N.alpha`, `h3_pdd.adaln.blocks.N.lora_A`, `h3_pdd.adaln.blocks.N.lora_B`, `h3_pdd.silu_temb_grid`
+- removed: `h3_pdd.adaln_baked.blocks.N.diff`, `h3_pdd.adaln_baked.blocks.N.diff_b`, `h3_pdd.adaln_table`
+- metadata keys that differ: `adaln_baked_blocks`, `h3_pdd_adaln_form`, `h3_pdd_backbone_probe_from`, `h3_pdd_loads_on`, `h3_pdd_pruned_base`
+
+**ref2va: archived v1 -> current `_comfy`** (`pdd_archive/minimax_h3_ref2va_pdd_8step_comfy_v1_2026-08-28.safetensors` -> `minimax_h3_ref2va_pdd_8step_comfy.safetensors`): 32 tensor group(s) byte-identical, 0 changed, 2 added, 0 removed.
+- added: `h3_pdd.backbone_probe`, `h3_pdd.backbone_probe_scale`
+- metadata keys that differ: `backbone_modules_converted`, `h3_pdd_adaln_form`, `h3_pdd_backbone`, `h3_pdd_backbone_probe_from`, `h3_pdd_backbone_probe_key`, `h3_pdd_backbone_probe_of`, `h3_pdd_backbone_probe_rows`, `h3_pdd_backbone_probe_sha256`, `h3_pdd_backbone_strength_baked`, `h3_pdd_baked_checkpoint`, `h3_pdd_converted_on`, `h3_pdd_converter_commit`, `h3_pdd_converter_version`, `h3_pdd_loads_on`
+
+**ref2va: `_comfy` -> `_adaln2688` (the two forms)** (`minimax_h3_ref2va_pdd_8step_comfy.safetensors` -> `minimax_h3_ref2va_pdd_8step_adaln2688_comfy.safetensors`): 31 tensor group(s) byte-identical, 0 changed, 4 added, 3 removed.
+- added: `h3_pdd.adaln.blocks.N.alpha`, `h3_pdd.adaln.blocks.N.lora_A`, `h3_pdd.adaln.blocks.N.lora_B`, `h3_pdd.silu_temb_grid`
+- removed: `h3_pdd.adaln_baked.blocks.N.diff`, `h3_pdd.adaln_baked.blocks.N.diff_b`, `h3_pdd.adaln_table`
+- metadata keys that differ: `adaln_baked_blocks`, `h3_pdd_adaln_form`, `h3_pdd_backbone_probe_from`, `h3_pdd_loads_on`, `h3_pdd_pruned_base`
+
+<!-- END GENERATED: version-diff -->
+
+**Read across those:** the archived v1 and the current v3 `_comfy` files
+share every weight group byte for byte; the additions are the probe pair and
+metadata. The two forms differ only in the adaln family and the grid. That is
+the whole of what "versions" and "forms" have ever meant for these files.
 
 ## 2. Which file to load, on which checkpoint, and what happens if you do not
 
@@ -182,24 +339,26 @@ when the converter itself had uncommitted edits). `tensors` includes the
 sidecar payload, so it differs between forms and versions while the weights
 do not.
 
-<!-- BEGIN GENERATED: bench/pdd_artifact_inventory.py -->
+<!-- BEGIN GENERATED: inventory (bench/pdd_artifact_inventory.py) -->
 
-| file | status | converter | made on | commit | backbone | adaln form | probe cut from | loads on | tensors |
-|---|---|---|---|---|---|---|---|---|---|
-| `MiniMax-H3-FL2VA-Acc-8Step.safetensors` | reference (alibaba-pai source) | - | 2026-08-26 (mtime) | - | - | - | - | - | 728 |
-| `MiniMax-H3-FL2VA-Acc-8Step_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 528 |
-| `MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 578 |
-| `MiniMax-H3-Ref2VA-Acc-8Step.safetensors` | reference (alibaba-pai source) | - | 2026-08-26 (mtime) | - | - | - | - | - | 728 |
-| `MiniMax-H3-Ref2VA-Acc-8Step_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 528 |
-| `MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 578 |
-| `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 |
-| `minimax_h3_fl2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_FL2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 |
-| `minimax_h3_ref2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 |
-| `minimax_h3_ref2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_REF2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 |
-| `pdd_archive/minimax_h3_fl2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_fl2va_pruned_int8_convrot.safetensors) | 730 |
-| `pdd_archive/minimax_h3_ref2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_ref2va_pruned_int8_convrot.safetensors) | 730 |
+| file | status | converter | made on | commit | backbone | adaln form | probe cut from | loads on | tensors | content sha256 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `MiniMax-H3-FL2VA-Acc-8Step.safetensors` | reference (alibaba-pai source) | - | 2026-08-26 (mtime) | - | - | - | - | - | 728 | `b47561037e2d` |
+| `MiniMax-H3-FL2VA-Acc-8Step_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 528 | `21609620cd3e` |
+| `MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 578 | `9771bb9fed71` |
+| `MiniMax-H3-Ref2VA-Acc-8Step.safetensors` | reference (alibaba-pai source) | - | 2026-08-26 (mtime) | - | - | - | - | - | 728 | `b0a98e359bfa` |
+| `MiniMax-H3-Ref2VA-Acc-8Step_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 528 | `e3310c2ad595` |
+| `MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 578 | `6a9b7e95be49` |
+| `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 | `cd788e5e3ac7` |
+| `minimax_h3_fl2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_FL2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 | `115fcd82dbf2` |
+| `minimax_h3_ref2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 | `7c402b48fc2a` |
+| `minimax_h3_ref2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_REF2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 | `102a83d1f57c` |
+| `pdd_archive/minimax_h3_fl2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_fl2va_pruned_int8_convrot.safetensors) | 730 | `c4f99a8c04f8` |
+| `pdd_archive/minimax_h3_ref2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_ref2va_pruned_int8_convrot.safetensors) | 730 | `22ebf7c92e06` |
 
-<!-- END GENERATED -->
+Record: `bench/results/2026-09-03_pdd_artifact_fingerprints.json` (recorded 2026-09-03 at repo commit `2b9b2bb`; content hash recipe: sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout).
+
+<!-- END GENERATED: inventory -->
 
 ## 4. Converter changelog
 
@@ -216,10 +375,14 @@ during these changes, so a version-1 file's contents depend on its date.
   converter, the shared schedule math and the node. The adaln update baked into
   the pruned checkpoint's curve basis (`--pruned`) the same day, and one adaln
   form per file rather than both.
-- 2026-08-27 (`d28b7a6`, `142bfc9`): the precomputed fused heads
+- 2026-08-26, later (`548629e`): the precomputed fused heads
   (`h3_pdd.head.*`) RETIRED for the raw 32-head bank (`h3_pdd.bank.*`), fused
   at load for any step count, so one file serves 8, 4, 2 or 16 evaluations.
-  Also fixed: `--pruned` runs exited non-zero after writing a correct file.
+  **Withdrawn: this page and the CHANGELOG dated the retirement to 2026-08-27;
+  `git log -S "h3_pdd.head."` puts its last touch in `548629e` on 08-26.**
+- 2026-08-27 (`d28b7a6`, `142bfc9`): `--pruned` runs had exited non-zero
+  after writing a correct file (a report line read a key only the unpruned
+  path emits); fixed, and the node's `min_tokens` taken from the node.
 - 2026-08-28 (`ca0c245`): the bank asserted verbatim at conversion, refusing a
   delta-encoded re-upload of the source.
 - 2026-08-29 (`6fab6b0`): explicit `alpha` tensors for the adaln pairs, since
@@ -263,9 +426,12 @@ down.
 - **2026-08-26**: the two alibaba-pai sources fetched. First `_comfy`
   conversions of both partitions (records
   `bench/results/2026-08-26_pdd_conversion_{fl2va,ref2va}.json`).
-- **2026-08-27**: both `_comfy` files reconverted after the bank replaced the
-  fused heads (records `2026-08-27_pdd_conversion_*.json`). Kijai's four
-  conversions fetched as an independent control.
+- **2026-08-27**: both `_comfy` files reconverted (records
+  `2026-08-27_pdd_conversion_*.json`) on the day the `--pruned` exit-code
+  defect was fixed and both artifacts re-verified against the published stack.
+  Kijai's four conversions fetched as an independent control. (An earlier
+  version of this line said the reconversion followed the bank replacing the
+  fused heads; git dates that replacement to 08-26, see section 4.)
 - **2026-08-28**: byte-for-byte reproducibility measured
   (`2026-08-28_pdd_conversion_reproducibility.json`: every tensor identical,
   metadata key order not, so a file's sha256 is not a stable identity). Dated

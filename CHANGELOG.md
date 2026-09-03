@@ -46,7 +46,22 @@ artifact.
   (converter version, the new `h3_pdd_converted_on` and
   `h3_pdd_converter_commit` stamps, backbone kind, adaln form, probe origin,
   what it loads on) plus which `h3_config` constant names it; `--check` goes
-  red when the region and the folder disagree. Earned by the
+  red when the region and the folder disagree.
+  - **Same day, made inspectable rather than narrated.** `--record` writes a
+    dated fingerprint record (`bench/results/2026-09-03_pdd_artifact_fingerprints.json`:
+    per file, metadata, a content hash by the 2026-08-28 reproducibility
+    recipe, and per tensor group dtype, shape, count and sha256, every
+    `h3_pdd.*` sidecar tensor hashed individually). The page's sidecar table
+    is generated from it, with the `introduced` commit and date read from
+    `git log -S` over the converter and the reader functions from the node's
+    AST; the version-to-version diff (archived v1 against current, and the
+    two forms against each other) is computed as groups added, removed,
+    changed and byte-identical. `--check` also requires a provenance heading
+    for every sidecar family the files carry, every commit the page names to
+    exist, and the files on disk to match the record. **Withdrawn on the
+    way**: the page and this file dated the retirement of the pre-fused
+    `h3_pdd.head.*` tensors to 2026-08-27; git puts it in `548629e` on
+    2026-08-26. Earned by the
   owner asking which file goes with which base while `docs/h3_pdd.md`
   carried a hand-typed table whose sizes had gone stale that same day. The
   loras folder is organised to match: the two dated 2026-08-28 copies moved
