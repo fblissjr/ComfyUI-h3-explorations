@@ -285,9 +285,33 @@ FP32 scales, and the population is asserted against the release's 50-block,
 do not exist; producing and grading that pair is the remaining bake work. See
 [`../h3_pdd.md`](../h3_pdd.md), which owns the current contract.
 
+## Addendum, later on 2026-09-03: the dense-trajectory control was run and graded
+
+The capture in section 5 rendered as specified (25 cells, retained outside
+the repo, not yet inventoried) and was replayed through both exact-branch
+variants with `bench/measure_sol_exact_variants.py --capture`. Records:
+[`2026-09-03_sol_exact_base16_capture_d25f2e8.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_d25f2e8.json)
+(installed, block-max P) and
+[`2026-09-03_sol_exact_base16_capture_24908e1.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_24908e1.json)
+(upstream running-max P). Direction: with every block routed the block-max
+build is several times closer to fp32 on every cell, a larger gap than PR
+#150's own capture reports; at the shipped tau the gap is small because
+routing dominates. Block 49's all-routed error is far above every other
+block's on both builds, so it is quantisation rather than sparsity. The Sage
+modes were graded on the same cells with `bench/grade_sage_on_capture.py`
+([`2026-09-03_sage_on_base16_capture.json`](../../bench/results/2026-09-03_sage_on_base16_capture.json)),
+which is the Sol-versus-fallback comparison section 6 asks for, on five
+blocks and one scene. Direction there: per row, Sol with every block
+routed is as close to exact as the shipped `auto` fallback, and Sol at the
+shipped tau is several times further than the fallback, so what a dense
+block buys back is routing error, not exact-branch arithmetic. The first "not established" item below is therefore
+established; the rest stand. The scene is the covered-market prompt, so
+every magnitude here is one scene's.
+
 ## Not established
 
-- that PR #150's H3 number reproduces on this box;
+- ~~that PR #150's H3 number reproduces on this box~~ -- established by the
+  addendum above, on one scene;
 - that a smaller kernel error produces a perceptible render difference;
 - that Base16, Base20, PDD, FL2VA, and Ref2VA share a block ranking;
 - that any non-empty dense-block set improves quality enough to pay its cost;

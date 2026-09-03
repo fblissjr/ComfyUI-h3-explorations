@@ -4,6 +4,76 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.27
+
+### Added
+
+- **`bench/measure_sol_exact_variants.py --capture DIR`**: the exact-branch
+  comparison on REAL activations. Grades every `qkv_*.pt` a capture wrote
+  on the installed comfy-kitchen build against an fp32 dense reference the
+  script computes per head in query chunks (no S x S allocation), in three
+  arms: every block routed (kernel arithmetic alone), `topk_ratio` 0.10
+  (kijai's "10% keep", per-head cosine mean and worst) and the shipped
+  `tau=1.0`. Every arm also carries per-ROW relative L2 and cosine, the
+  statistic `bench/grade_sage_on_capture.py` reports, so Sol and the shipped
+  Sage fallback read on one footing. Metrics accumulate per head because the
+  first run OOMed on a whole-tensor fp32 copy with the server resident.
+- **A Base16 dense-trajectory capture and its two records**,
+  `bench/results/2026-09-03_sol_exact_base16_capture_{d25f2e8,24908e1}.json`:
+  the shipped text-to-video bench graph (pruned INT8 fl2va, 1344x768, 345
+  frames, 16 steps, Sage, no Sol) captured at blocks 0, 24, 32, 40, 49 and
+  steps 4, 8, 12, 14, 15, then replayed through both exact-branch variants.
+  The capture is retained outside the repo for now and is NOT inventoried;
+  `bench/results/2026-08-30_capture_inventory.json` is the pattern when it
+  goes. **It is one scene** (the covered-market prompt every shipped t2v
+  graph carries) and a dense-trajectory control, not the production
+  trajectory: `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md`
+  is the design record and says what that does and does not license.
+- **`sol-blk-cnt-0.2.32`** in the workspace comfy-kitchen clone: the three
+  direct-`sol_attn` `blk_cnt` commits rebased onto Comfy-Org v0.2.32, wheel
+  built to a scratch target (never installed), blk_cnt tests green. The
+  upstream PR candidate; also cherry-picks clean onto kijai's PR #150 head.
+  Not pushed.
+
+### Measured
+
+- **kijai's per-block P quantisation (Comfy-Org/comfy-kitchen#150, the same
+  exact-branch change our installed `d25f2e8` carries) is a large win on
+  real H3 activations and a wash on random ones**, which settles the
+  2026-09-01 disagreement in the inputs' favour. With every block routed the
+  running-max build (`24908e1`) sits several times further from fp32 than
+  the block-max build on all 25 cells, mean relative L2 0.0503 against
+  0.0134 (kijai's own capture: 0.0196 against 0.0140), and block 0 moves
+  from under half a percent to several percent. At the shipped `tau=1.0` the
+  gap is small (whole-tensor cosine 0.9893 against 0.9911) because routing
+  error dominates the exact branch's arithmetic. Block 49 carries about four
+  times any other block's error with EVERY block routed on both builds: that
+  is INT8 quantisation, not sparsity, and no `dense_blocks` list touches it.
+  Block 40 holds the worst single heads at 10% keep, which is sparsity.
+  Records above; the random-input records from 2026-09-01 stand as what
+  they are.
+- **Sol against the shipped fallback on the same cells**
+  (`bench/results/2026-09-03_sage_on_base16_capture.json`, the sage modes
+  via `bench/grade_sage_on_capture.py` at 512 sampled rows per cell): per
+  row, Sol with every block routed is as close to exact as the sage `auto`
+  (fp8) fallback and on par with sage's fp16 mode, while Sol at the shipped
+  `tau=1.0` is several times further than either. So the exact branch's
+  INT8 arithmetic is not what a `dense_blocks` entry would buy back;
+  routing is, and only where routing error exceeds sage's own. Five blocks,
+  one scene, dense trajectory: a ranking of these cells, not a default.
+
+### Fixed
+
+- **`vendor/rebuild_kernel.sh` broke on any checkout based on comfy-kitchen
+  v0.2.32**: its version tag was a diff hardcoded against `0.2.31`
+  (`vendor/patches/001-local-version-tag.patch`), found by the first build
+  of the rebased branch. The script now rewrites whatever version the
+  checkout declares with sed and reverts it on every exit path; the patch is
+  gone and `docs/SOLATTN.md`'s provenance row says so.
+- **`h3_capture.py` logged every write as `wrote v`**: the shape-check loop
+  rebound the filename variable. Files were always named correctly; only
+  the log lied. Found on this capture.
+
 ## 0.99.26
 
 ### Added

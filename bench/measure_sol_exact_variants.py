@@ -29,6 +29,32 @@ Arms, all on the same seeded inputs:
                         only between two runs of this script on the same box.
 
     python bench/measure_sol_exact_variants.py --out bench/results/<date>_sol_exact_<tag>.json
+
+Capture mode, added 2026-09-03 because the random-input arms above measured
+kijai's change as a wash (0.00909 against 0.00922) while his PR
+(Comfy-Org/comfy-kitchen#150) reports 1.96% -> 1.40% on an H3 capture. Random
+q/k/v have no attention sinks and no heavy-tailed rows, which is exactly the
+regime a block-max P scale is meant to help, so the two setups disagree on
+input, not on the kernel. `--capture DIR` grades every `qkv_*.pt` that
+`h3_capture.py` wrote (bf16 `[B, H, S, D]`, block and step as top-level keys)
+on the installed build, with an fp32 chunked dense reference computed here:
+
+  exact_all_routed   tau -1e9: relative L2 and cosine against fp32 dense
+  topk_0.10          topk_ratio 0.10, kijai's "10% keep": per-head cosine
+                     against fp32 dense, mean and worst over heads
+  tau_1.0            the shipped tau: the same per-head cosine
+
+Every arm also carries per-ROW relative L2 (mean, p99) and cosine (mean,
+min), the statistic `bench/grade_sage_on_capture.py` reports for the sage
+modes, so Sol and the shipped Sage fallback can be compared on identical
+cells against the same exact reference -- which is the comparison a
+`dense_blocks` decision needs, since a "dense" block runs Sage, not exact.
+
+Same seeded inputs are replaced by the SAME FILES, so two records from two
+builds are like-for-like exactly as the random arms are. Run once per wheel
+(`PYTHONPATH=<target-install>` selects one without touching the venv).
+
+    python bench/measure_sol_exact_variants.py --capture /path/to/captures --out ...
 """
 
 from __future__ import annotations
@@ -40,11 +66,19 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    import torch
+except Exception:  # noqa: BLE001  -- main() reports the SKIP
+    torch = None
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("--out")
     ap.add_argument("--timing-shape", default="1,16384,8", help="B,T,H for the isolated timing")
+    ap.add_argument("--capture", help="directory of h3_capture.py qkv_*.pt files; grades those instead of random inputs")
+    ap.add_argument("--topk", type=float, default=0.10, help="topk_ratio for the keep arm in capture mode")
+    ap.add_argument("--chunk", type=int, default=2048, help="query rows per fp32 dense chunk in capture mode")
     args = ap.parse_args()
     try:
         import importlib.metadata as md
@@ -79,6 +113,9 @@ def main() -> int:
 
     def rel(a, b):
         return float((a.float() - b.float()).norm() / b.float().norm())
+
+    if args.capture:
+        return grade_capture(args, ck, rec, cos, rel)
 
     # kijai's metric, his shape and seed convention
     q, k, v = qkv(1, 4096, 8, 0)
@@ -122,6 +159,129 @@ def main() -> int:
     if args.out:
         Path(args.out).write_text(json.dumps(rec, indent=1) + "\n")
         print(f"\nrecord written to {args.out}")
+    return 0
+
+
+def dense_fp32_chunked(q, k, v, chunk):
+    """Exact softmax attention in fp32, one head at a time, `chunk` query rows
+    per pass, so a 100k-token capture never allocates an S x S score matrix.
+    q/k/v are BTHD; the result is BTHD fp32."""
+    import torch
+    b, t, h, d = q.shape
+    scale = d ** -0.5
+    out = torch.empty(b, t, h, d, dtype=torch.float32, device=q.device)
+    for bi in range(b):
+        for hi in range(h):
+            kk = k[bi, :, hi].float()
+            vv = v[bi, :, hi].float()
+            for s0 in range(0, t, chunk):
+                qq = q[bi, s0:s0 + chunk, hi].float()
+                p = torch.softmax(qq @ kk.T * scale, dim=-1)
+                out[bi, s0:s0 + chunk, hi] = p @ vv
+    return out
+
+
+def per_head_cos(a, b):
+    """Cosine per head over (B, T, D); a and b are BTHD. One head at a time:
+    a whole-tensor fp32 copy of a 104k x 56 x 128 capture is 3 GiB, and the
+    first run of this mode OOMed on exactly that with the server resident."""
+    out = []
+    for hi in range(a.shape[2]):
+        x = a[:, :, hi].float().flatten()
+        y = b[:, :, hi].float().flatten()
+        out.append(float(x @ y / (x.norm() * y.norm())))
+    return out
+
+
+def row_stats(a, b):
+    """Per-ROW relative L2 and cosine (a row is one (b, t, h) vector of D), the
+    statistic `bench/grade_sage_on_capture.py` reports for sage, so Sol and the
+    shipped fallback can be read on one footing. Mean and a tail per arm;
+    accumulated per head for the same memory reason as above."""
+    rels, coss = [], []
+    for hi in range(a.shape[2]):
+        x = a[:, :, hi].float()
+        y = b[:, :, hi].float()
+        rels.append(((x - y).norm(dim=-1) / y.norm(dim=-1).clamp_min(1e-12)).flatten())
+        coss.append(torch.nn.functional.cosine_similarity(x, y, dim=-1).flatten())
+    rel = torch.cat(rels); cs = torch.cat(coss)
+    return {"rel_l2_row_mean": float(rel.mean()), "rel_l2_row_p99": float(rel.quantile(0.99)),
+            "cos_row_mean": float(cs.mean()), "cos_row_min": float(cs.min())}
+
+
+def rel_cos_lean(a, b):
+    """Whole-tensor relative L2 and cosine, accumulated per head (same reason)."""
+    import math
+    diff2 = ref2 = dot = a2 = 0.0
+    for hi in range(a.shape[2]):
+        x = a[:, :, hi].float().flatten()
+        y = b[:, :, hi].float().flatten()
+        diff2 += float(((x - y) ** 2).sum()); ref2 += float((y ** 2).sum())
+        dot += float(x @ y); a2 += float((x ** 2).sum())
+    return math.sqrt(diff2 / ref2), dot / math.sqrt(a2 * ref2)
+
+
+def grade_capture(args, ck, rec, cos, rel):
+    import glob
+    import os
+    import torch
+    files = sorted(glob.glob(os.path.join(os.path.expanduser(args.capture), "qkv_*.pt")))
+    if not files:
+        print(f"no qkv_*.pt under {args.capture}")
+        return 1
+    rec["capture"] = {"dir": os.path.basename(os.path.normpath(args.capture)), "files": len(files),
+                      "topk_ratio": args.topk, "reference": "fp32 chunked softmax attention, per head"}
+    rec["arms"]["per_file"] = []
+    print(f"grading {len(files)} capture files, reference fp32 dense, chunk {args.chunk}\n")
+    for f in files:
+        d = torch.load(f, map_location="cuda", mmap=False)
+        # h3_capture writes [B, H, S, D]; the kernel takes [B, S, H, D]
+        q, k, v = (d[n].permute(0, 2, 1, 3).contiguous().to(torch.bfloat16) for n in ("q", "k", "v"))
+        b, t, h, _ = q.shape
+        ref = dense_fp32_chunked(q, k, v, args.chunk)
+        row = {"file": os.path.basename(f), "block": d.get("block"), "step": d.get("step"),
+               "sigma": d.get("sigma"), "seq_len": t, "heads": h, "kernel_captured_under": d.get("kernel")}
+        out = ck.sol_attn(q, k, v, tau=-1e9)
+        r, c = rel_cos_lean(out, ref)
+        row["exact_all_routed"] = {"rel_l2": r, "cos": c, **row_stats(out, ref)}
+        del out
+        out = ck.sol_attn(q, k, v, topk_ratio=args.topk)
+        ph = per_head_cos(out, ref)
+        rs = row_stats(out, ref)
+        del out
+        row[f"topk_{args.topk:.2f}"] = {"cos_mean": sum(ph) / len(ph), "cos_worst": min(ph), "per_head": ph, **rs}
+        out = ck.sol_attn(q, k, v, tau=1.0)
+        ph = per_head_cos(out, ref)
+        rs = row_stats(out, ref)
+        del out
+        row["tau_1.0"] = {"cos_mean": sum(ph) / len(ph), "cos_worst": min(ph), "per_head": ph, **rs}
+        rec["arms"]["per_file"].append(row)
+        print(f"  b{row['block']:>2} s{row['step']:>2} S={t}: all-routed rel L2 {row['exact_all_routed']['rel_l2']:.5f}  "
+              f"topk {args.topk:.2f} cos {row[f'topk_{args.topk:.2f}']['cos_mean']:.4f}/{row[f'topk_{args.topk:.2f}']['cos_worst']:.4f}  "
+              f"tau 1.0 cos {row['tau_1.0']['cos_mean']:.4f}/{row['tau_1.0']['cos_worst']:.4f}")
+        del d, q, k, v, ref
+        torch.cuda.empty_cache()
+    rows = rec["arms"]["per_file"]
+    n = len(rows)
+    rec["arms"]["aggregate"] = {
+        "files": n,
+        "all_routed_rel_l2_mean": sum(r["exact_all_routed"]["rel_l2"] for r in rows) / n,
+        f"topk_{args.topk:.2f}_cos_mean": sum(r[f"topk_{args.topk:.2f}"]["cos_mean"] for r in rows) / n,
+        f"topk_{args.topk:.2f}_cos_worst": min(r[f"topk_{args.topk:.2f}"]["cos_worst"] for r in rows),
+        "tau_1.0_cos_mean": sum(r["tau_1.0"]["cos_mean"] for r in rows) / n,
+        "tau_1.0_cos_worst": min(r["tau_1.0"]["cos_worst"] for r in rows),
+        "all_routed_rel_l2_row_mean": sum(r["exact_all_routed"]["rel_l2_row_mean"] for r in rows) / n,
+        f"topk_{args.topk:.2f}_rel_l2_row_mean": sum(r[f"topk_{args.topk:.2f}"]["rel_l2_row_mean"] for r in rows) / n,
+        "tau_1.0_rel_l2_row_mean": sum(r["tau_1.0"]["rel_l2_row_mean"] for r in rows) / n,
+        "note": "means over files weight every (block, step) equally; worst is the single worst head anywhere",
+    }
+    a = rec["arms"]["aggregate"]
+    print(f"\naggregate over {n} files: all-routed rel L2 {a['all_routed_rel_l2_mean']:.5f}; "
+          f"topk {args.topk:.2f} cos {a[f'topk_{args.topk:.2f}_cos_mean']:.4f}/{a[f'topk_{args.topk:.2f}_cos_worst']:.4f}; "
+          f"tau 1.0 cos {a['tau_1.0_cos_mean']:.4f}/{a['tau_1.0_cos_worst']:.4f}")
+    if args.out:
+        Path(args.out).write_text(json.dumps(rec, indent=1) + "\n")
+        print(f"record written to {args.out}")
     return 0
 
 

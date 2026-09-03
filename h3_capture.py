@@ -305,10 +305,13 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
     # of the wrong length is not detectable later, because nothing downstream
     # knows what length it should have been. Cheap, and it fails at write time
     # where the cause is still on screen.
-    for name, t in (("q", qh), ("k", kh), ("v", vh)):
+    # `field`, not `name`: this loop used to rebind the filename, so every
+    # write logged as "wrote v" (found 2026-09-03 on the first Base16 capture;
+    # the file itself was always named correctly, only the log lied).
+    for field, t in (("q", qh), ("k", kh), ("v", vh)):
         if t.shape != qh.shape or t.ndim != 4 or t.shape[2] != seq:
             raise RuntimeError(
-                f"h3_capture: {name} is {tuple(t.shape)}, expected "
+                f"h3_capture: {field} is {tuple(t.shape)}, expected "
                 f"{tuple(qh.shape)} with {seq} rows. Refusing to write a "
                 f"capture whose shape nothing downstream could check.")
     if segments is not None and segments[-1][1] != seq:

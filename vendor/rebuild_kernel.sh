@@ -11,13 +11,23 @@
 #       error: cannot pull with rebase: You have unstaged changes.
 #
 #   A guard that stops the owner updating a dependency is worse than the drift
-#   it was guarding against. The change lives in vendor/patches/ instead, and
-#   is applied only for the duration of a build.
+#   it was guarding against. The edit is made by this script for the duration
+#   of a build and reverted on every exit path.
 #
-# Why the patch exists at all: the source declares version "0.2.31", identical
-# to the PyPI wheel ComfyUI pins, so a fork build and the stock wheel are
-# indistinguishable to `pip list` -- and a stock wheel silently has no
-# sol_attn, which makes every Sol call fall back to dense with no error.
+# Why the edit exists at all: the source declares a plain version ("0.2.31",
+# "0.2.32", ...), identical to the PyPI wheel ComfyUI pins, so a fork build
+# and the stock wheel are indistinguishable to `pip list` -- and a stock wheel
+# silently has no sol_attn, which makes every Sol call fall back to dense with
+# no error. PEP 440 still matches `X.Y.Z+sol.<sha>` against `==X.Y.Z`, so a
+# plain requirements install stays satisfied and will not clobber it.
+#
+#   2026-09-03: this used to be `git apply vendor/patches/001-local-version-tag.patch`,
+#   a diff hardcoded against `version = "0.2.31"`. Upstream released 0.2.32 on
+#   2026-09-02 and the patch stopped applying on any checkout based on it; the
+#   first build of our blk_cnt branch rebased onto v0.2.32 found that. The
+#   version line is now rewritten by sed, whatever it says, so the script no
+#   longer carries a copy of upstream's version number that has to be kept
+#   in step with upstream.
 #
 # Usage:  vendor/rebuild_kernel.sh [CUDA_ARCH]     (default 89, this box's 4090)
 
@@ -35,7 +45,6 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # existing checkouts under coderef/ belong to somebody else and this script's
 # whole design is to leave them as it found them.
 SRC="${SRC:-$REPO/coderef/comfy-kitchen-sol}"
-PATCH="$REPO/vendor/patches/001-local-version-tag.patch"
 ARCH="${1:-89}"
 # Derived from this checkout, not typed: the repo sits at
 # <comfy>/custom_nodes/<pack>, so the venv is two levels up. Override with
@@ -55,18 +64,20 @@ fi
 
 echo "== source: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)"
 
-# Revert the patch no matter how we leave, including on a failed build. Without
+# Revert the edit no matter how we leave, including on a failed build. Without
 # this a compile error strands the tree dirty and blocks the next pull, which
 # is the exact failure this script exists to prevent.
 cleanup() { git -C "$SRC" checkout -- pyproject.toml 2>/dev/null || true; }
 trap cleanup EXIT
 
-git apply "$PATCH"
-# The patch carries LOCALSHA rather than a commit, so it does not go stale on
-# every update; the tag is derived from the checkout being built.
-sed -i "s/LOCALSHA/$(git rev-parse --short=7 HEAD)/" pyproject.toml
-if grep -q LOCALSHA pyproject.toml; then
-    echo "ERROR: version placeholder not substituted"; exit 1
+# Append the local segment to whatever version the checkout declares; the
+# tag is the built commit's short sha, derived rather than typed, so it
+# cannot go stale on an update.
+SHA="$(git rev-parse --short=7 HEAD)"
+sed -i "s/^version = \"\([0-9][^\"+]*\)\"/version = \"\1+sol.$SHA\"/" pyproject.toml
+if ! grep -q "^version = \".*+sol.$SHA\"" pyproject.toml; then
+    echo "ERROR: could not tag the version line in pyproject.toml:"
+    grep -n '^version' pyproject.toml; exit 1
 fi
 VER="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
 echo "== version: $VER"

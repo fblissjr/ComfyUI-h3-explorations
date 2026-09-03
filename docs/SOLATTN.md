@@ -237,7 +237,7 @@ The provenance it produces, and where each piece lives:
 | what | where |
 |---|---|
 | source | since 2026-09-01: the Comfy-Org clone `coderef/comfy-kitchen` (a symlink to the workspace checkout, which is the git authority), branch `sol-blk-cnt`, built with `SRC=coderef/comfy-kitchen vendor/rebuild_kernel.sh 89`. Before that, `coderef/comfy-kitchen-sol` (kijai's branch clone), which the script still defaults to |
-| the local edit | `vendor/patches/001-local-version-tag.patch`, applied for the build only; the local segment is the built commit's short sha |
+| the local edit | a sed on `pyproject.toml`'s version line inside `vendor/rebuild_kernel.sh`, made for the build only and reverted on every exit path; the local segment is the built commit's short sha. Until 2026-09-03 this was `vendor/patches/001-local-version-tag.patch`, a diff hardcoded against `0.2.31` that stopped applying the day upstream released 0.2.32 |
 | wheel | `<source>/dist/`, one per build, never cleaned |
 | installed | the ComfyUI venv's `site-packages`, as a **built wheel and not an editable install** -- the running kernel does not read from the clone, so changing branches there does nothing until the next rebuild |
 | which build is live | `comfy_kitchen.__version__` / `uv pip list`, and `bench/check_sol_kernel.py` prints it |
