@@ -1,7 +1,7 @@
 ---
 name: h3-prompt
 description: Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker tags be" -- to the file that owns each answer, and to the command that verifies the result. Points at them; restates nothing that could drift.
-reviewed: b3ff4a4
+reviewed: 2f19c5c
 ---
 
 # Working on an H3 prompt

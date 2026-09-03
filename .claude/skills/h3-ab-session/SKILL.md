@@ -1,7 +1,7 @@
 ---
 name: h3-ab-session
 description: Route any rendered comparison in this repo -- "compare these", "A/B", "which LoRA / checkpoint / sampler / knob is better", "blind session", "score the clips", "judge the pair" -- to the one documented process (render with matched seeds, blind, score before unblinding, record the aggregate). Points at the authority; restates nothing that could drift.
-reviewed: b3ff4a4
+reviewed: 2f19c5c
 ---
 
 # A rendered comparison in this repo
