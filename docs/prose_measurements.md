@@ -55,6 +55,10 @@ under what conditions they were taken:
 - `bench/results/` -- the primary home. A record carries the script that
   wrote it, the commit, the hardware (`bench/hwinfo.py`), the inputs, and the
   cache state where a render is involved (`CLAUDE.md`'s caching rule).
+  Since `57b3200` a render record also carries `rendered`: the prompt-bank
+  id, the prompt's hash, length, canvas and seed. That is the block a pointer
+  from prose relies on, so a record without it is the copy-with-a-different-
+  extension case below.
 - `CHANGELOG.md`, session logs, postmortems -- past tense, per version or per
   date.
 - Files the inventory skips as records: `RECORD_PATTERNS` in
