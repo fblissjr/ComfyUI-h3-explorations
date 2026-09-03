@@ -8,6 +8,21 @@ artifact.
 
 ### Added
 
+- **`CLAUDE.md` cut to its operative form**: one line per rule, the settled
+  H3 facts as one-liners each naming their record, the routing tables at one
+  line per row, and the operative rules that have no other home. The file it
+  replaced is frozen verbatim as `docs/rules_history.md`, which owns the dated
+  instances behind every rule. `VISION.md` is the tenets, condensed to nine.
+  Three claims the old file made were found stale in the cut and are not
+  carried: its Sol-Attn exemption list (the constant names stems it did not),
+  `internal/PROMPTING.md` as "being retired" (it is deleted), and a pinned
+  ComfyUI checkout hash.
+- **`docs/evidence.md`** gained the settled-H3 subsection under "These hold",
+  and two withdrawals: the vendored-node row (the node is a read-only
+  reference since 2026-08-30) and "`LONG_LENGTH` is now 362" (the window is
+  `h3_rules.MAX_LENGTH`, still 362; the shipped default `LONG_LENGTH` is 345
+  by the owner's preference, and the two answer different questions).
+
 - **Prose carries pointers, records carry numbers.** `docs/prose_measurements.md`
   states the rule (a measurement in prose is an uninvalidated copy; the
   sentence keeps the direction and points at the script, record or constant

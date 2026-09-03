@@ -55,6 +55,7 @@ RECORD_PATTERNS = [
     r"^docs/prompt_bank\.md$",                # generated; frame counts are grid points
     r"^docs/prompt_catalogue\.md$",           # generated from the graphs
     r"/arxiv_\d",                            # a transcribed paper; its numbers are the paper's
+    r"^docs/rules_history\.md$",             # CLAUDE.md frozen at the 2026-09-03 cut
 ]
 
 UNIT = (

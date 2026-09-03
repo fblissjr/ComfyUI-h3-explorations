@@ -1,6 +1,6 @@
 # What holds, and what does not
 
-Last updated: 2026-08-20.
+Last updated: 2026-09-03.
 
 `docs/checks.md` indexes what is *checked*. `docs/open_experiments.md` indexes
 what is *not measured*. This file is the third case and the one that kept
@@ -91,6 +91,21 @@ the default.
 is the model's window; `reference_would_emit()` is the separate portability
 question.
 
+**Corrected 2026-09-03: two constants, not one.** The paragraph above said
+`LONG_LENGTH` "is now 362". The window and the default are separate
+constants and answer different questions. `h3_rules.MAX_LENGTH` is the
+trained ceiling and answers "what is legal"; it is 362, the sglang cookbook
+renders 362 (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`),
+and everything above about 362 being the model's window rather than illegal
+stands. `workflows/h3_config.py::LONG_LENGTH` is what shipped graphs render
+and answers "what do we render"; it is 345 by the owner's preference (it
+works better at that length, stated 2026-09-03), which the constant's own
+comment records as a reason to prefer 345 and not a defect in 362. Neither
+number is a fact about the checkpoint beyond what the paragraph above
+already says. "All 34 API graphs carry `LONG_LENGTH`" below is a count from
+2026-08-14; `graph_paths` walks a different population now, and the count is
+whatever it returns.
+
 **What 362 rests on, stated because this table exists for exactly this.** One
 upstream statement recorded 2026-08-14 (`6e85e48`) with no artifact attached,
 plus LightX2V shipping a 362-frame config. MiniMax's README gives a rounded
@@ -104,6 +119,51 @@ on thin evidence, not a measurement — do not quote it as one.
 
 Kept short on purpose — every row is something a second reader confirmed or an
 instrument that has been shown red.
+
+### Settled about H3, moved here from `CLAUDE.md` on 2026-09-03
+
+`CLAUDE.md` keeps one line per fact; this is the ledger row. The full argument
+for each, as it stood when it was written, is in `docs/rules_history.md`.
+
+- **The released text encoder is byte-identical to stock
+  Qwen3-VL-32B-Instruct**, every shard, by hub LFS SHA-256.
+  `bench/results/2026-08-25_released_encoder_is_stock.json`. MiniMax shipped
+  no encoder post-training, so every row of its embedding table is stock.
+- **The seven H3 marker rows sit with the untrained padding tail** in the
+  encoder's input embedding table,
+  `bench/results/2026-08-21_h3_token_embeddings.json`. A consequence of the
+  row above, not a finding about markers: single-id-against-frozen-encoder and
+  BPE'd-so-never-seen both predict it, and the discriminator (`release_id`
+  against `mean_init_rows`) has not been run. A session read it as "the fixed
+  tokenizer is wrong" on 2026-08-27 and retracted.
+- **The marker ids are fixed by loading the release's tokenizer directory**
+  and appear in no JSON literal; the row at the top of this section owns it.
+- **The DiT was trained on MiniMax's own prompt structure, and it differs by
+  mode.** `vendor_guides/`; `docs/prompting.md` is the working manual.
+- **1344x768 is a trained canvas, and a cheap canvas has inverted a finding.**
+  `docs/h3_resolutions.md`.
+- **PDD quality is governed by the sigma schedule's coarseness and where it
+  lands, not by the evaluation count.** Two arms with the same count and the
+  same block widths in a different order differ materially; under shift 12
+  the tail is what matters, and the uniform four-evaluation partition is the
+  only legal four-block partition, so its coarse tail is forced. Both streams
+  degrade together (raw video rel L2 hides it behind the DC term). Every
+  coarseness statistic ranks the arms identically, so no partition experiment
+  can attribute the effect to audio; vary the transform at fixed partition.
+  `docs/research/pdd/audio_under_pdd.md`.
+- **The encoder this install loads is `h3_config.MODELS["clip"]`.** The v2
+  AWQ lane was closed on 2026-08-27 rather than adopted. A different question
+  from the first row: that one is about the released weights, this one about
+  which local artifact is wired.
+- **Reference sizing: `docs/h3_references.md` is the authority.** `size_policy=max`
+  with the vendor short edge matches the vendor; `short_edge` targets the
+  shorter side and only shrinks unless `allow_upscale`; both live on
+  `MiniMaxH3AppendRefImage` and are read only under `max`.
+  `MiniMaxH3ReferenceFit` is deprecated since 2026-08-28 and no shipped graph
+  wires it. `qwen_view` on the append node keeps the encoder off the video
+  view (a flat `qwen_short_edge` whose 0 meant shared until 2026-08-31). The
+  shipped encoder short edge is a prior resting on one render at one seed; the
+  refview ablation graphs are built and unrendered.
 
 - **The marker ids are the release's own, fixed by construction rather than by
   literal.** No file in the release assigns `<d>`..`<|caption_end|>` an id --
@@ -221,9 +281,12 @@ instrument that has been shown red.
   is DBM's `larryvrh_v4_step600_ema`, identical on every sampled tensor; DBM's
   `turbo_4step_ema_ckpt850` shares its modules and metadata and differs on
   every tensor, so it is another checkpoint of that recipe, not a re-save.
-- **The node is vendored, symlinked and hash-pinned**, so the file ComfyUI
-  loads cannot drift from the tracked one, and an unrecorded hash fails rather
-  than warns.
+- **Withdrawn 2026-09-03: "the node is vendored, symlinked and hash-pinned, so
+  the file ComfyUI loads cannot drift from the tracked one."** That described
+  the vendored `SolAttnMiniMax`. Since 2026-08-30 `vendor/sol_attn_minimax.py`
+  is a read-only reference that is not loaded, and the node the graphs wire is
+  `MiniMaxH3SolAttn` in `sol_attn_h3.py`; `bench/check_sol_node_equivalence.py`
+  is the guard that relates the two.
 
 ---
 
