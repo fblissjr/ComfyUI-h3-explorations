@@ -4,6 +4,26 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.26
+
+### Added
+
+- **Prose carries pointers, records carry numbers.** `docs/prose_measurements.md`
+  states the rule (a measurement in prose is an uninvalidated copy; the
+  sentence keeps the direction and points at the script, record or constant
+  that owns the value), the three kinds of number and what each gets, the
+  record set that is exempt, and a tiered plan for prose written before it --
+  with the explicit case where no origin can be found and the fix is to mark
+  the number unsupported rather than invent a pointer or re-measure.
+  `CLAUDE.md`'s Guiding Principles carry the short form.
+- **`bench/list_prose_measurements.py`** inventories unit-bearing numbers
+  (multipliers, percentages, sizes, times, rates, measured counts) in governed
+  prose, skipping code spans, identifiers and the dated-record set named in
+  its `RECORD_PATTERNS`. A report that exits 0, not a gate; `--file` lists the
+  hits in one doc and `--json` writes a dated record.
+  `bench/results/2026-09-03_prose_measurements_baseline.json` is the backlog
+  at adoption.
+
 ## 0.99.25
 
 ### Added

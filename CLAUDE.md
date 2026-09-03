@@ -175,6 +175,31 @@ repeating work.
   - A number that survives the test is one of two things. **Normative** — a limit you are setting, an exit code, a threshold — which cannot drift, because the world moves toward it. Or **descriptive**, in which case it needs an observation point: a date, a commit, an attribution, or past tense. Descriptive counts belong only in dated records.
   - **Generating a decorative number is not a lesser fix than deleting it.** It makes the claim permanently true and permanently useless, and still charges every reader a reconciliation against what they can see. Delete first; generate only what passed the test.
   - Auditing prose already written rather than prose being written: `claim-audit`.
+- **A measurement's home is a record; prose carries the pointer, never the
+  value.** A speedup, a size, a time, a relative error written into a sentence
+  is a copy of a fact the machine can re-derive, and nothing here invalidates
+  copies. "A 1.2x improvement on xyz" says nothing about what xyz was, what it
+  was measured against, on which commit, canvas, or cache state -- the record
+  does, so the sentence points at the record and states only the direction.
+  [`docs/prose_measurements.md`](docs/prose_measurements.md) is the rule in
+  full and the migration plan for prose written before it. Adopted 2026-09-03.
+  - **Three kinds.** Derivable now (a file size, a default, a schedule
+    statistic): give the command or the constant by `path::symbol`, which
+    `bench/check_doc_links.py` already verifies. Measured once (a speedup, an
+    error, a wall time): direction in words plus a pointer to the dated record
+    under `bench/results/` that carries the conditions. Normative (a limit you
+    set): allowed, cited by the one constant that holds it. Identifiers -- a
+    canvas, a date, a version, a block index -- are names, not measurements.
+  - **Records are the exception, and quotations of withdrawn claims are not
+    claims.** `bench/results/`, `CHANGELOG.md`, dated logs and postmortems
+    carry numbers because they are the home. The do-not-rely tables quote what
+    they retract, and stay.
+  - **A number with no findable origin gets no invented pointer.** Delete it if
+    decorative; otherwise mark it unsupported in place with the date and add it
+    to `docs/evidence.md`'s do-not-rely list. Re-measuring is not the fix.
+  - `bench/list_prose_measurements.py` is the worklist: unit-bearing numbers in
+    governed prose, code spans and the record set skipped. A report, not a
+    gate, until the residual is quotations only.
 - **A default is not a decision, and shipping is not evidence.** A value that is
   the node default, sits in every graph, and is named in three docs has acquired
   standing through repetition, not measurement. Before citing one, ask what it
@@ -236,6 +261,7 @@ repeating work.
 | [`docs/checks.md`](docs/checks.md) | the index of every check, the standard it is held to, and the standing uncontrolled-requirement audit. **Start here** if you are about to change behaviour or add a check. |
 | [`docs/comfyui_vendor_gaps.md`](docs/comfyui_vendor_gaps.md) | every known divergence between this install and the release, with practical impact, priority, and which are enforced by nothing. **Start here** if the question is "what is still wrong against the vendor". A dated snapshot that defers to the docs below, not a fourth authority -- where it disagrees with an owner, the owner is right |
 | [`docs/config_drift.md`](docs/config_drift.md) | **why `h3_config.py` drifts and what would stop it.** Four failure classes from a 2026-08-28 audit, the six flatly-wrong claims it found (corrected), and what will NOT fix it -- review discipline is refuted outright, by a contradiction `git blame` shows one commit wrote both halves of. **Read it before adding prose to a config file, or before proposing a docs-match-code checker.** Its general claim: prose stating a fact the code already knows is a cache with no invalidation, so derive the fact or write the sentence to explain a decision instead of reporting a state |
+| [`docs/prose_measurements.md`](docs/prose_measurements.md) | **why a number in prose is a copy, and where it goes instead.** The three kinds (derivable, measured, normative), the pointer shapes that replace each, the record set that is exempt, and the tiered plan for pre-existing prose -- including the tier where no origin can be found and the fix is to mark, not to re-measure. `bench/list_prose_measurements.py` is its worklist. **Read it before writing a speedup, a size or a time into any doc** |
 | [`docs/sustainability.md`](docs/sustainability.md) | the direction argument: the instrumentation is healthy, the closure rate is not, and the fix is to generalise an aging rule this repo already has in one lane rather than add instruments. Carries its own **do not do** list and a record of the four claims an adversarial review broke — including a proposed check class that was already installed three times, which is the 2026-08-17 failure mode repeating. Read it before proposing process; argue with it or delete it |
 | [`docs/prompting.md`](docs/prompting.md) | **how to write an H3 prompt, for every mode, and the SINGLE SOURCE OF TRUTH.** A working manual, not a summary: the closed vocabularies in full, the exact Part One templates per mode, section layouts, all seven markers, what the encoder actually receives, and graded worked examples per mode. **You do not need `internal/` to use it** -- `internal/PROMPTING.md` is superseded and being retired into it, and §14.5 says what has moved. **§14 reconciles all five sources that claim to govern a prompt and ranks them**; the vendor's own prompt-writing skill is one of them and states no rule of its own. Grade a draft with `bench/grade_prompt_text.py`, which runs preflight's grader on loose text. Every rule carries its layer -- GUIDE (the vendor's, and off-distribution if broken), OWNER, HOUSE, OPEN -- and every GUIDE rule says whether the guide **states** it or only **shows** it in an example. That second distinction is the one that matters: two rules have been invented here by reading examples as rules, and both were retracted. §11 maps every rule to what checks it |
 | [`docs/prompt_catalogue.md`](docs/prompt_catalogue.md) + [`docs/prompt_audit.md`](docs/prompt_audit.md) | **every prompt this repo renders, and whether it follows the guides.** The catalogue is GENERATED by `bench/build_prompt_catalogue.py` from the graphs themselves and judges nothing; the audit is hand-written, keyed to its scene names, and carries a keep/revise/rewrite/discard verdict each. **The authorities are ranked, not merged**, and `docs/prompting.md` §14 owns the ranking -- the official guides bind (off-distribution if broken), the vendor's API payloads are practice rather than rule, and `internal/PROMPTING.md` is superseded. The STATED RULE / NOT A RULE adjudication in the generator still governs which guide sentences are rules at all. **The catalogue is generated and nothing regenerates it** -- run `bench/build_prompt_catalogue.py --check` before trusting it, because it has gone stale before. Start here before writing or debugging a scene |
