@@ -22,9 +22,23 @@ this reports drift.
 
 ## The dependency surface, which is the reason a bundle is possible at all
 
-`pdd_lora.py` imports exactly one module from this pack, `pdd_math`, and that
-one needs only `torch` and `math`. The import is already written to work both
-relative and absolute, so neither file is modified on the way out.
+`pdd_lora.py` imports a handful of modules from this pack and nothing else of
+it; each of those needs only the standard library and `torch`, and one of them
+(`vendor_config`) reads the release's config files from the folder beside it.
+Every in-pack import is written both relative and absolute, so no file is
+modified on the way out. The surface is DERIVED from the files, not typed:
+`required_sources` walks the relative imports from `pdd_lora.py`, and the
+bundle refuses to build or pass `--check` while `SOURCES` disagrees with it.
+
+Until 2026-09-03 this paragraph said the surface was exactly one module,
+`pdd_math`, and `SOURCES` named two files. `pdd_lora.py` had imported
+`pdd_observe` and `block_spec` at module level since 2026-08-30 (`e11afd7`),
+and `vendor_config` inside `expected_population` since 2026-09-02. Nothing
+compared the tuple with the file, so the bundle regenerated at `72b8d42` on
+2026-09-03 was uploaded with its README stamp current and three modules
+absent, and failed at load on a stranger's machine with
+`No module named 'pdd_observe'`. That is the prose-cache failure the docstring
+above warns about, in this file's own constant.
 
     python bench/build_sidecar_node.py --out <the staged Hub repo>/comfyui_minimax_h3_pdd
     python bench/build_sidecar_node.py --out <same> --check
@@ -47,6 +61,7 @@ README above does NOT reach the page people land on. Both, or neither.
 from __future__ import annotations
 
 import argparse
+import ast
 import filecmp
 import shutil
 import subprocess
@@ -56,9 +71,24 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
-#: Copied verbatim. `pdd_lora` falls back to an absolute `pdd_math` import when
-#: it is not inside a package, so a flat folder works unchanged.
-SOURCES = ("pdd_lora.py", "pdd_math.py")
+#: Copied verbatim: the node module and, transitively, every module of this
+#: pack it imports. Each in-pack import is written relative-then-absolute, so a
+#: flat folder works unchanged. This tuple is what a reader sees; the authority
+#: is `required_sources`, which reads the imports off the files, and `build`
+#: refuses while the two disagree in either direction.
+SOURCES = ("pdd_lora.py", "pdd_math.py", "pdd_observe.py", "block_spec.py",
+           "vendor_config.py")
+
+#: Directories copied whole, file by file. `vendor_config.py` reads the
+#: release's declared config from `vendor_config/` beside it
+#: (`vendor_config.DIR`), and `pdd_lora.expected_population` reads the
+#: transformer depth from there when a sidecar is loaded -- so a bundle
+#: without the folder imports cleanly and then refuses every file, which is
+#: the quiet half of the same defect.
+DATA_DIRS = ("vendor_config",)
+
+#: The module the closure is walked from.
+ENTRY = "pdd_lora.py"
 
 #: The node code is this repo's, under its own terms -- NOT the MiniMax license
 #: that covers the weights it loads. Two licenses in one Hub repo, so they get
@@ -95,10 +125,11 @@ async def comfy_entrypoint() -> MiniMaxH3PDDExtension:
 #: people are holding**; it is dated news, not documentation, and a stale
 #: "update your nodes" line teaches readers to ignore the next real one. Set to
 #: "" for no notice.
-NOTICE = ("**Updated 2026-08-29, about three hours after the first upload.** "
-          "If you downloaded this folder before then, replace it — the first "
-          "copy left the PDD head bank resident on the GPU and made ComfyUI "
-          "report a memory leak on every model load after a PDD render.")
+NOTICE = ("**Updated 2026-09-03.** If your copy fails to load with "
+          "`No module named 'pdd_observe'`, replace this folder: the copy "
+          "uploaded earlier on 2026-09-03 was missing three of the node's own "
+          "modules. The 2026-08-29 copy had a GPU memory leak after a PDD "
+          "render; replace that one too.")
 
 README = '''# MiniMaxH3PDDLoRA — standalone node
 
@@ -118,12 +149,70 @@ MiniMax H3 under the MiniMax H3 Community License Agreement, in the repo root's
 '''
 
 
+def in_pack_imports(name: str) -> set[str]:
+    """Modules of this pack that `ROOT/name` imports, read off its AST.
+
+    Counts the RELATIVE spellings only -- `from . import x` and
+    `from .x import y` -- at any depth in the file, not just the top:
+    `_vendor_config` imports inside a function, and a missing module there is
+    a refusal at load time rather than an ImportError at startup, which is the
+    quieter of the two. The absolute fallbacks (`import x`) are deliberately
+    not read: this pack has a top-level `nodes.py`, so an absolute spelling
+    cannot tell ComfyUI's module from ours, while a relative one can only mean
+    ours. Every in-pack import in the entry module is written both ways, so
+    the relative half is the whole surface.
+    """
+    tree = ast.parse((ROOT / name).read_text(), filename=name)
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 1:
+            if node.module:
+                found.add(node.module.split(".")[0])
+            else:
+                found.update(alias.name for alias in node.names)
+    return found
+
+
+def required_sources() -> set[str]:
+    """The closure of in-pack imports from `ENTRY`, as file names."""
+    todo, seen = [ENTRY], set()
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        todo.extend(f"{mod}.py" for mod in in_pack_imports(name))
+    return seen
+
+
+def surface_drift() -> list[str]:
+    """Where `SOURCES` and the files disagree. Empty means they agree."""
+    need = required_sources()
+    have = set(SOURCES)
+    out = [f"{n}: imported by the bundle but not in SOURCES" for n in sorted(need - have)]
+    out += [f"{n}: in SOURCES but nothing in the bundle imports it" for n in sorted(have - need)]
+    for name in sorted(need):
+        if not (ROOT / name).exists():
+            out.append(f"{name}: imported by the bundle and absent from {ROOT.name}")
+    return out
+
+
+def data_files() -> list[str]:
+    """Relative paths of every file under `DATA_DIRS`, sorted."""
+    out = []
+    for d in DATA_DIRS:
+        for p in sorted((ROOT / d).iterdir()):
+            if p.is_file():
+                out.append(f"{d}/{p.name}")
+    return out
+
+
 def commit() -> str:
     try:
         out = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, check=True)
         dirty = subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain"] +
-                               [str(ROOT / s) for s in SOURCES],
+                               [str(ROOT / s) for s in SOURCES + DATA_DIRS],
                                capture_output=True, text=True).stdout.strip()
         return out.stdout.strip() + (" (working tree dirty)" if dirty else "")
     except Exception:
@@ -131,9 +220,17 @@ def commit() -> str:
 
 
 def build(out: Path, check: bool) -> int:
+    drift = surface_drift()
+    if drift:
+        for d in drift:
+            print(f"  SURFACE  {d}")
+        print(f"\n{len(drift)} disagreement(s) between SOURCES and the imports in the "
+              f"files. Fix SOURCES; a bundle built from it would fail at load.")
+        return 1
     rev = commit()
     want = {}
-    for name in SOURCES:
+    verbatim = list(SOURCES) + data_files()
+    for name in verbatim:
         want[name] = (ROOT / name).read_bytes()
     want["__init__.py"] = INIT.format(commit=rev).encode()
     want["README.md"] = README.format(
@@ -145,7 +242,7 @@ def build(out: Path, check: bool) -> int:
             p = out / name
             if not p.exists():
                 drift.append(f"{name}: missing from the bundle")
-            elif name in SOURCES and p.read_bytes() != blob:
+            elif name in verbatim and p.read_bytes() != blob:
                 drift.append(f"{name}: differs from {ROOT.name}/{name}")
         if not (out / LICENSE).exists():
             drift.append(f"{LICENSE}: missing from the bundle")
@@ -160,6 +257,7 @@ def build(out: Path, check: bool) -> int:
 
     out.mkdir(parents=True, exist_ok=True)
     for name, blob in want.items():
+        (out / name).parent.mkdir(parents=True, exist_ok=True)
         (out / name).write_bytes(blob)
         print(f"  wrote {name}")
     # copied rather than written, so the file stays exactly the one the repo

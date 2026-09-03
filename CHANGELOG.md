@@ -4,6 +4,27 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.34
+
+### Fixed
+
+- **The Hub bundle of the PDD node failed to load with
+  `No module named 'pdd_observe'`.** `bench/build_sidecar_node.py` copied
+  the two files its `SOURCES` tuple named, while `pdd_lora.py` had imported
+  `pdd_observe` and `block_spec` at module level since `e11afd7` and
+  `vendor_config` inside `expected_population` since the bake contract;
+  nothing compared the tuple with the file, so the bundle regenerated at
+  `72b8d42` and uploaded on 2026-09-03 carried a current stamp and three
+  missing modules. The tuple is now checked against the closure of relative
+  imports walked from `pdd_lora.py` (`required_sources`), in both build and
+  `--check`, and refuses in either direction; the `vendor_config/` folder
+  ships beside `vendor_config.py` since the population read needs it at load
+  time. Red on the old tuple and on a stale extra entry before the staged
+  bundle was rebuilt; the rebuilt bundle loads through ComfyUI's own
+  `spec_from_file_location` path and reads the release population. The
+  bundle README's notice and the staged Hub README's install step say to
+  replace the broken copy. Upload is the owner's.
+
 ## 0.99.33
 
 ### Changed
