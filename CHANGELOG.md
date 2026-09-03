@@ -8,11 +8,18 @@ artifact.
 
 ### Added
 
-- **`docs/pdd_artifacts.md`, generated: which PDD file loads on which
-  checkpoint.** `bench/pdd_artifact_inventory.py` reads every PDD file's own
-  metadata (converter version, backbone kind, adaln form, probe origin, what
-  it loads on) plus which `h3_config` constant names it, and writes the
-  page; `--check` goes red when folder and page disagree. Earned by the
+- **`docs/pdd_artifacts.md` is the master inventory of PDD weights.** Hand-
+  written glossary (including the two meanings of "baked": the adaln update
+  solved into the curve basis, which every `_comfy` file has, and the
+  backbone folded into a checkpoint, which does not exist yet), the
+  which-file-on-which-checkpoint decision table with what the node does on
+  each wrong pairing, a converter changelog by version and commit, and a
+  dated artifact changelog. `bench/pdd_artifact_inventory.py` fills the
+  generated region between two markers from each file's own metadata
+  (converter version, the new `h3_pdd_converted_on` and
+  `h3_pdd_converter_commit` stamps, backbone kind, adaln form, probe origin,
+  what it loads on) plus which `h3_config` constant names it; `--check` goes
+  red when the region and the folder disagree. Earned by the
   owner asking which file goes with which base while `docs/h3_pdd.md`
   carried a hand-typed table whose sizes had gone stale that same day. The
   loras folder is organised to match: the two dated 2026-08-28 copies moved
