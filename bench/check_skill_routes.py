@@ -35,6 +35,22 @@ say what a withdrawn claim used to be. So a path may be declared below with a
 reason, the same idiom `check_doc_links.py` uses. **A declaration is a claim
 that the path SHOULD be absent**, so it is checked in both directions: a
 declared path that comes back is a stale declaration and fails too.
+
+## The review point, added 2026-09-03 after the second relocation escape
+A skill can name a path that still exists and still route wrong: the day the
+prompt bank became the one home of prompt text, `h3-prompt` kept telling an
+agent to edit the generator's constants. No path check sees that. What is
+decidable is whether the files a skill names have CHANGED since someone last
+read the skill against them. Each SKILL.md carries `reviewed: <commit>` in
+its frontmatter; for every route, the last commit touching it must be an
+ancestor of that point, or must have touched the SKILL.md itself in the same
+commit (the author had both open). Otherwise a REVIEW line names the file
+and the commit. Report by default, `--strict` to fail: the prompt authority
+changes often and most of its changes do not touch a router, so a gate would
+be red on a correct state. A missing `reviewed` field fails outright, because
+a correct state always has one. The cost is real and intended: a commit that
+touches a routed file without the skill needs a follow-up that bumps
+`reviewed`, and writing that bump is the moment the skill gets re-read.
 """
 
 from __future__ import annotations
@@ -73,16 +89,20 @@ def review_point(text: str) -> str | None:
     return m.group(1) if m else None
 
 
-def moved_since(target: str, reviewed: str) -> str | None:
-    """The short hash of the last commit touching `target` if it is not an
-    ancestor of `reviewed`, else None. Uncommitted edits are invisible here on
-    purpose: a review point is a commit, so only commits can pass it."""
+def moved_since(target: str, reviewed: str, skill_rel: str) -> str | None:
+    """The short hash of the last commit touching `target` if it is neither an
+    ancestor of `reviewed` nor a commit that also touched the skill file, else
+    None. Uncommitted edits are invisible here on purpose: a review point is a
+    commit, so only commits can pass it."""
     last = _git("log", "-1", "--format=%h", "--", target)
     if not last:
         return None
     ok = subprocess.run(["git", "merge-base", "--is-ancestor", last, reviewed],
                         cwd=REPO, capture_output=True).returncode == 0
-    return None if ok else last
+    if ok:
+        return None
+    touched = _git("show", "--name-only", "--format=", last).splitlines()
+    return None if skill_rel in touched else last
 
 
 def main() -> int:
@@ -118,7 +138,7 @@ def main() -> int:
             missing.append((name, target))
         if reviewed:
             for t in sorted(set(routes)):
-                if (c := moved_since(t, reviewed)):
+                if (c := moved_since(t, reviewed, Path(path).relative_to(REPO).as_posix())):
                     moved.append((name, reviewed, t, c))
 
     stale = [p for p in DECLARED_ABSENT if (REPO / p).exists()]

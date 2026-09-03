@@ -206,6 +206,19 @@ artifact.
 
 ### Added
 
+- **The three repo skills are pure routers now, with a review point.** Every
+  sentence that restated a mechanism (what a probe row contains, the prompt
+  rule layers, the base-versus-reference trap, how the blind key is handled)
+  is replaced by a pointer to the file that owns it; two of those
+  restatements had already drifted from `docs/prompting.md`, which names four
+  layers, not the five the skill listed. Each `SKILL.md` carries
+  `reviewed: <commit>`, and `bench/check_skill_routes.py` reports every named
+  file that changed after that commit without the skill changing with it
+  (`--strict` fails), so a home moving under a skill is visible without
+  anyone remembering to look. Shown red before landing. The declared-absent
+  entry for the withdrawn 2026-09-01 routing is gone with the note that named
+  it.
+
 - **The three repo skills re-pointed after the prompt bank became the one
   home of prompt text.** `h3-prompt` routed edits into the generator's
   constants; it now routes to `prompt_bank/` and `docs/prompt_bank.md`.
