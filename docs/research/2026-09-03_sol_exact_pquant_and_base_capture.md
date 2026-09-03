@@ -318,8 +318,14 @@ the block-max build is closer to exact than the shipped sage `auto`
 fallback under both the whole-tensor and the per-row metric and sits near
 sage's fp16 mode, the old running-max build is further from exact than
 the fallback, and the unsunk tau arm is far further than either. So on
-this one scene and five blocks, the exact branch's arithmetic is not what
-a dense block would buy back; routing is. Two further
+this one scene and five blocks, the exact stage's arithmetic is not a
+reason to make a block dense. Whether a block's ROUTING error exceeds what
+Sage would produce on the same input is not answered by subtracting the
+two errors against exact (error directions can cancel); it needs the
+direct Sol-versus-Sage delta on identical inputs, which is the online
+instrument's job, and "routing dominates at the shipped tau" is likewise
+established only for the unsunk diagnostic and the 10%-keep arm, not for
+the shipped call with its sink ranges. Two further
 corrections from the same review: the `tau_1.0` arm passes no sink ranges
 (the capture has no segment table; Sol's rope hook publishes it and Sol was
 absent), so it is renamed `tau_1.0_no_sinks`, an unsunk diagnostic rather
