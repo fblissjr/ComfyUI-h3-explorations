@@ -7,11 +7,16 @@ check: it exits 0 whatever it finds, because a gate over prose that still
 carries hundreds of legitimate-looking numbers would be red while the state is
 correct, and CLAUDE.md says what that trains a reader to do.
 
-What it catches, deliberately narrowly: numbers wearing a UNIT -- a multiplier
-(`2.4x`), a percentage (`63.2%`), a size (`25.28 GiB`), a time (`691 s`), a
-rate (`12 it/s`), a count with a noun this repo measures (`6300 rows`,
-`100k tokens`). Those are the class whose home is a record rather than a
-sentence. It does NOT try to find bare counts ("sixteen rows claim
+What it catches, deliberately narrowly, in three classes: numbers wearing a
+UNIT -- a multiplier (`2.4x`), a percentage (`63.2%`), a size (`25.28 GiB`), a
+time (`691 s`), a rate (`12 it/s`), a count with a noun this repo measures
+(`6300 rows`, `100k tokens`); SCIENTIFIC notation (`1.2e-5`), which is always
+a magnitude; and a bare DECIMAL on a line that also carries a measurement word
+(`residual`, `relative`, `cosine`, `error`, ...), added after the PDD lane
+found residuals and relative errors written that way. `PATTERN_VERSION` says
+which of these a record was taken under; a count from one version is not
+comparable to a count from another. Those are the class whose home is a record
+rather than a sentence. It does NOT try to find bare counts ("sixteen rows claim
 calibration") -- `claim-audit` measured a regex at above 85% false positives on
 that class, and a reader extracts those. Identifiers are excluded by
 construction: a canvas (`1344x768`), a date, a version (`0.2.31`), a block
@@ -58,6 +63,9 @@ RECORD_PATTERNS = [
     r"^docs/rules_history\.md$",             # CLAUDE.md frozen at the 2026-09-03 cut
 ]
 
+# Bump when a pattern below changes; written into every --json record.
+PATTERN_VERSION = 2
+
 UNIT = (
     r"(?:x|%|s|ms|min|minutes?|seconds?|h|hours?|"
     r"[KMGT]i?B|bytes?|"
@@ -70,6 +78,12 @@ UNIT = (
 MEASURE = re.compile(
     rf"(?<![\w.])(\d+(?:[.,]\d+)?[kKM]?)\s?{UNIT}(?![\w/])"
 )
+SCI = re.compile(r"(?<![\w.])\d+(?:\.\d+)?e[+-]?\d+(?![\w])")
+# A bare decimal is a measurement only when the line says what it measures.
+MEASURE_WORDS = re.compile(
+    r"\b(residual|relative|rel\s?L2|cosine|error|delta|spread|ratio|accuracy|"
+    r"psnr|update|floor|drift)\b", re.I)
+DECIMAL = re.compile(r"(?<![\w.])\d+\.\d+(?!\d|\.\d|%|x|\w)")
 # Things that look like the above but name rather than measure.
 IDENTIFIER = re.compile(
     r"\d{4}-\d{2}-\d{2}"          # dates
@@ -110,10 +124,17 @@ def scan_file(path: Path) -> list[dict]:
         line = INLINE_CODE.sub(" ", raw)
         line = LINK_TARGET.sub("]()", line)
         line = IDENTIFIER.sub(" ", line)
-        for m in MEASURE.finditer(line):
+        found = [(m.group(0), "unit") for m in MEASURE.finditer(line)]
+        found += [(m.group(0), "sci") for m in SCI.finditer(line)]
+        if MEASURE_WORDS.search(line):
+            taken = {f[0] for f in found}
+            found += [(m.group(0), "decimal") for m in DECIMAL.finditer(line)
+                      if not any(m.group(0) in s for s in taken)]
+        for text, kind in found:
             hits.append({
                 "line": lineno,
-                "match": m.group(0),
+                "match": text,
+                "kind": kind,
                 "table": raw.lstrip().startswith("|"),
                 "text": raw.strip()[:160],
             })
@@ -143,7 +164,7 @@ def main() -> int:
     if args.file:
         rel = Path(args.file).as_posix()
         for h in inventory.get(rel, []):
-            flag = " [table]" if h["table"] else ""
+            flag = (" [table]" if h["table"] else "") + (f" [{h['kind']}]" if h["kind"] != "unit" else "")
             print(f"{rel}:{h['line']}: {h['match']}{flag}\n    {h['text']}")
         if rel not in inventory:
             print(f"{rel}: no measurements found"
@@ -165,6 +186,7 @@ def main() -> int:
     if args.json:
         Path(args.json).write_text(json.dumps({
             "script": "bench/list_prose_measurements.py",
+            "pattern_version": PATTERN_VERSION,
             "governed_roots": GOVERNED_ROOTS,
             "record_patterns": RECORD_PATTERNS,
             "total": sum(totals.values()),

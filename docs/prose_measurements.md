@@ -2,9 +2,11 @@
 
 The rule, why it exists here, how to write under it, and the plan for the
 prose that predates it. `bench/list_prose_measurements.py` is the instrument;
-`bench/results/2026-09-03_prose_measurements_baseline.json` is where the
-backlog stood when this was adopted. Neither number is restated below, on
-purpose.
+`bench/results/2026-09-03_prose_measurements_baseline_v2.json` is where the
+backlog stood when this was adopted. The `_baseline.json` beside it was taken
+the same day under an earlier pattern set that missed scientific notation and
+bare decimals; every record carries `pattern_version`, and counts across
+versions are not comparable. No count is restated below, on purpose.
 
 ## The rule
 
@@ -202,6 +204,18 @@ is correct, which `CLAUDE.md` says trains a reader to ignore red.
 - A generated records page under `docs/wiki/`, built from the doc-to-record
   links the migration creates (see The wiki above).
 - `--check` on the inventory, with the quoted-withdrawal allowlist.
+
+### Handoffs
+
+Numbers a session found while in one file and left for whoever is next in
+the file that carries them, per the deep-dives rule above.
+
+- `docs/h3_pdd.md` and the docstring of `bench/convert_pdd_lora.py` both
+  carry the partition time-curve difference that
+  `docs/pdd_artifacts.md` marked unsupported on 2026-09-03 (the row is in
+  `docs/evidence.md`'s do-not-rely table). Point both at that row.
+- `docs/h3_pdd.md` carries the bake-residual range that the
+  `bench/results/2026-08-26_pdd_conversion_*.json` records own.
 
 ### Do not
 
