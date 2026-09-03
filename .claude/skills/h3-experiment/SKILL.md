@@ -1,7 +1,7 @@
 ---
 name: h3-experiment
 description: Route the design of a new render experiment or probe in this repo -- "test whether", "set up an arm", "new probe graph", "write a prompt for", "sweep", "try this LoRA / sampler / canvas / steps", "what should the prompt say" -- to the authorities for what counts as an answer, how an arm becomes a graph, how a prompt is written, and what to run before the card is touched. Points at them; restates nothing that could drift.
-reviewed: 2f19c5c
+reviewed: 7191aff
 ---
 
 # Designing an experiment in this repo
