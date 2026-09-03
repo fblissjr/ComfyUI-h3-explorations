@@ -17,6 +17,15 @@ now `text("<id>")`. The constant NAMES stay, because five bench scripts and
 the catalogue import them; only the literal moved. A prompt that is not in
 the bank cannot be shipped, which is the invariant this module exists for.
 
+**That invariant covers COMPOSED prompts since later the same day.** The
+ref2va arms are built from role tables by `build_workflows._ref_prompt` and
+the two keyframe defaults resolve a duration into their Part One line, so
+they arrive as output rather than as an id and had stayed outside the bank
+-- the catalogue could only name them `derived:<graph>`. The generator now
+looks its composed text up through `identify` and ships the bank's copy,
+refusing to build otherwise, so `describe` resolves an id for every prompt
+the repo renders rather than for most of them.
+
 `describe(graph)` is the record side: given an API graph it returns the
 bank id (or None for a foreign prompt), the text's sha256, the length,
 canvas and seed, so `bench/run_graph_arms.py` rows and the Sol route

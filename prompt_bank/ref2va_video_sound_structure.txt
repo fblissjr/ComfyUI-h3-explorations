@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+
+summary:
+[reference generation + audio reuse] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A

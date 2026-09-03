@@ -4,6 +4,79 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.30
+
+### Changed
+
+- **The composed prompts are bank entries too, so `derived:` scenes are
+  gone from the catalogue.** 0.99.28 moved every prompt LITERAL into
+  `prompt_bank/` and said prompt text had one home; seventeen prompts were
+  not literals and stayed outside it. `_ref_prompt()` builds a ref2va
+  prompt from the role tables so it declares exactly the labels its arm
+  wires, and `fl2v_prompt()`/`l2v_prompt()` resolve a duration into their
+  Part One line -- so no constant held their text,
+  `bench/build_prompt_catalogue.py` could only name them
+  `derived:<graph>` after a graph that carried them, and a render record
+  could not identify what it rendered. All seventeen are now
+  `prompt_bank/<id>.txt` with manifest entries, taken VERBATIM from the
+  graphs: no prompt's text changed, and every graph regenerated
+  byte-identical, which is the proof of that. The catalogue names a scene
+  by its bank id when no constant holds the text, so it lists no `derived:`
+  scene; the prefix survives for text matching neither, which now means a
+  hand-edited graph or a parametric prompt at a length its entry does not
+  declare.
+- **The composition stays; it now ends at the bank.** `_composed_from_bank`
+  looks the composed text up by `prompts.identify` and ships the bank's
+  copy, refusing the build otherwise -- so a new reference combination
+  fails naming the file to write rather than emitting a graph carrying text
+  nothing can identify. The role tables still decide what the text SAYS.
+- **The two keyframe defaults stay parametric, and that is the one
+  exception.** Their alignment sentence carries the effective duration to
+  two decimals (`base_en.md:14-32`), so the text is a function of the frame
+  count; typing it into the bank would be right for one length and silently
+  wrong for every other. `_retimed_from_bank` takes the whole prompt from
+  the bank at the frame count its entry declares, swaps in the same
+  sentence resolved at the graph's length, and asserts the two agree at the
+  declared count -- so editing either half alone fails the build.
+  `fl2v_prompt(192)` returns the same body under an 8.00-second Part One
+  line; all three refusals were fired deliberately before this was trusted.
+- **`docs/prompt_audit.md`'s seventeen `derived:` keys are renamed to bank
+  ids, verdicts unchanged**, with a note at the head of the table saying
+  what each used to be, because a reader who remembers `derived:h3_ref_video_edit`
+  needs to know it reads `ref2va_video_garment_edit` rather than that its
+  verdict was dropped. The catch-all "the remaining `derived:` ref2va
+  scenes" row is now the finding rather than a key; every scene resolves to
+  a row of its own. `check_prompt_docs_sync.py` still binds each catalogue
+  scene to a verdict.
+- **Fourteen of the seventeen carry `recorded_findings`.** Ten carry the ref
+  §5.2 word-budget WARN the audit already verdicts as systematic; five name
+  no camera motion in `MOTION_PROSE`'s forms because they follow the
+  reference video's camera or write it as handheld reframing, which is the
+  bank's own reading convention rather than a guide rule (one carries both).
+  None was edited to make it grade: a prompt change is a content change and
+  belongs in the audit. Zero FAIL across all seventeen.
+
+### Fixed
+
+- **`bench/build_prompt_bank.py` suppressed a shape problem in silence.**
+  An entry with `recorded_findings` whose only finding was a shape problem
+  printed nothing at all -- no FAIL, no WARN, no `noted` line -- because
+  that line fired only on a grader finding. The composed edit arms are
+  exactly that case, so the defect arrived with them -- but it had already
+  escaped: `t2va_subway_platform`'s entry names a suppressed shape problem
+  in its own `recorded_findings` and the run said nothing about it. The
+  `noted` line now counts suppressed shape problems too.
+- **`workflows/build_workflows.py` could not run from a git worktree.**
+  `_ref_short_edge` reached ComfyUI as `HERE.parent.parent.parent`, which
+  is the checkout only when the pack sits directly in `custom_nodes/`; from
+  a worktree it lands three levels short and the generator dies on
+  `ModuleNotFoundError: comfy_extras` before writing a graph. It now finds
+  the root by walking up for `comfy_extras/nodes_minimax_h3.py`, which
+  returns the same directory in the ordinary layout, and falls through to
+  the import when the walk finds nothing -- a caller that has already
+  imported core, as `bench/check_generator_constants.py` does, needs no
+  path work and must not be refused.
+
 ## 0.99.29
 
 ### Added

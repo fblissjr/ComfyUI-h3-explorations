@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.
+<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.
+<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A

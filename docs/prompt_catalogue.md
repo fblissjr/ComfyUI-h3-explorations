@@ -9,16 +9,16 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
 | [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 18 | 281 | 3 | 2 | `<d>` |
-| [`derived:h3_image_ref_plus_text_to_video`](#derivedh3-image-ref-plus-text-to-video) | — (composed) | 11 | 135 | 1 | 0 | — |
-| [`derived:h3_probe_capture_ref3`](#derivedh3-probe-capture-ref3) | — (composed) | 11 | 173 | 1 | 0 | — |
-| [`derived:h3_probe_cache_easy`](#derivedh3-probe-cache-easy) | — (composed) | 5 | 264 | 1 | 0 | — |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 11 | 135 | 1 | 0 | — |
+| [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 11 | 173 | 1 | 0 | — |
+| [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 5 | 264 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 3 | 573 | 3 | 2 | `<d>` |
-| [`derived:h3_first_last_frame_to_video`](#derivedh3-first-last-frame-to-video) | — (composed) | 3 | 159 | 1 | 0 | — |
-| [`derived:h3_probe_ref2v_split_turbo_pack`](#derivedh3-probe-ref2v-split-turbo-pack) | — (composed) | 3 | 303 | 1 | 0 | — |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
+| [`ref2va_video_character_swap`](#ref2va-video-character-swap) | `ref2va_video_character_swap` | 3 | 303 | 1 | 0 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 379 | 3 | 2 | `<d>` |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 2 | 625 | 3 | 2 | `<d>` |
-| [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | — (composed) | 2 | 183 | 1 | 0 | — |
+| [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | `t2va_stairwell_dialogue` | 1 | 228 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | `ref2va_image_ref_default` | 1 | 281 | 1 | 0 | — |
 | [`T2V_AISLE_LONG`](#t2v-aisle-long) | `t2va_hardware_aisle_long` | 1 | 513 | 3 | 2 | `<d>` |
@@ -27,17 +27,17 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`T2V_RAIL_LONG`](#t2v-rail-long) | `t2va_rail_dolly_long` | 1 | 518 | 1 | 0 | — |
 | [`T2V_SORTLINE_LONG`](#t2v-sortline-long) | `t2va_sortline_long` | 1 | 518 | 3 | 2 | `<d>` |
 | [`T2V_SORTLINE_SHORT`](#t2v-sortline-short) | `t2va_sortline_short` | 1 | 322 | 3 | 2 | `<d>` |
-| [`derived:h3_last_frame_to_video`](#derivedh3-last-frame-to-video) | — (composed) | 1 | 137 | 1 | 0 | — |
-| [`derived:h3_ref2v_scene_kitchen`](#derivedh3-ref2v-scene-kitchen) | — (composed) | 1 | 520 | 4 | 1 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
-| [`derived:h3_ref2v_scene_subway`](#derivedh3-ref2v-scene-subway) | — (composed) | 1 | 488 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
-| [`derived:h3_ref_audio_voice`](#derivedh3-ref-audio-voice) | — (composed) | 1 | 213 | 1 | 1 | `<d>` |
-| [`derived:h3_ref_image_audio`](#derivedh3-ref-image-audio) | — (composed) | 1 | 184 | 1 | 0 | — |
-| [`derived:h3_ref_video_continue`](#derivedh3-ref-video-continue) | — (composed) | 1 | 181 | 1 | 0 | — |
-| [`derived:h3_ref_video_edit`](#derivedh3-ref-video-edit) | — (composed) | 1 | 240 | 1 | 0 | — |
-| [`derived:h3_ref_video_image_edit`](#derivedh3-ref-video-image-edit) | — (composed) | 1 | 284 | 1 | 0 | — |
-| [`derived:h3_ref_video_motion`](#derivedh3-ref-video-motion) | — (composed) | 1 | 181 | 1 | 0 | — |
-| [`derived:h3_ref_video_only`](#derivedh3-ref-video-only) | — (composed) | 1 | 146 | 1 | 0 | — |
-| [`derived:h3_ref_video_to_video`](#derivedh3-ref-video-to-video) | — (composed) | 1 | 215 | 1 | 0 | — |
+| [`l2va_interior_converge`](#l2va-interior-converge) | `l2va_interior_converge` | 1 | 137 | 1 | 0 | — |
+| [`ref2va_image_audio_music`](#ref2va-image-audio-music) | `ref2va_image_audio_music` | 1 | 184 | 1 | 0 | — |
+| [`ref2va_image_audio_voice`](#ref2va-image-audio-voice) | `ref2va_image_audio_voice` | 1 | 213 | 1 | 1 | `<d>` |
+| [`ref2va_image_video_structure`](#ref2va-image-video-structure) | `ref2va_image_video_structure` | 1 | 215 | 1 | 0 | — |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | `ref2va_scene_kitchen` | 1 | 520 | 4 | 1 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
+| [`ref2va_scene_subway`](#ref2va-scene-subway) | `ref2va_scene_subway` | 1 | 488 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
+| [`ref2va_video_continuation`](#ref2va-video-continuation) | `ref2va_video_continuation` | 1 | 181 | 1 | 0 | — |
+| [`ref2va_video_garment_edit`](#ref2va-video-garment-edit) | `ref2va_video_garment_edit` | 1 | 240 | 1 | 0 | — |
+| [`ref2va_video_image_edit`](#ref2va-video-image-edit) | `ref2va_video_image_edit` | 1 | 284 | 1 | 0 | — |
+| [`ref2va_video_motion_transfer`](#ref2va-video-motion-transfer) | `ref2va_video_motion_transfer` | 1 | 181 | 1 | 0 | — |
+| [`ref2va_video_structure_only`](#ref2va-video-structure-only) | `ref2va_video_structure_only` | 1 | 146 | 1 | 0 | — |
 
 ---
 
@@ -78,7 +78,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_image_ref_plus_text_to_video
+## ref2va_role_character_environment
 
 Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -121,7 +121,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_probe_capture_ref3
+## ref2va_role_character_garment_environment
 
 Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -166,7 +166,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_probe_cache_easy
+## ref2va_image_video_audio_music
 
 Carried by **5** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -266,7 +266,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_first_last_frame_to_video
+## fl2va_interior_converge
 
 Carried by **3** graph(s). Sections: none.
 
@@ -288,7 +288,7 @@ overall_soundscape: Quiet room tone with a low ambient hum continues throughout,
 non_diegetic_music: N/A
 ```
 
-## derived:h3_probe_ref2v_split_turbo_pack
+## ref2va_video_character_swap
 
 Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -384,7 +384,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_probe_release_video_policy
+## ref2va_video_sound_structure
 
 Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -575,7 +575,7 @@ overall_soundscape: A wide rubber belt running continuously under a high metal r
 non_diegetic_music: N/A
 ```
 
-## derived:h3_last_frame_to_video
+## l2va_interior_converge
 
 Carried by **1** graph(s). Sections: none.
 
@@ -595,110 +595,7 @@ overall_soundscape: Quiet room tone with a low ambient hum throughout, unhurried
 non_diegetic_music: N/A
 ```
 
-## derived:h3_ref2v_scene_kitchen
-
-Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_ref2v_scene_kitchen_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> in a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.
-[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
-[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
-[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
-
-overall_soundscape:
-A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
-
-non_diegetic_music:
-N/A
-```
-
-## derived:h3_ref2v_scene_subway
-
-Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_ref2v_scene_subway_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-
-summary:
-[reference generation] The target video places <Subject 1> in a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] Handheld with fast reframing under cool platform fluorescents. A wide shot establishes a crowded underground platform, tiled columns receding, a train braking into frame from the right, still moving fast. A tiled platform sign above her head reads "NORTHBOUND - PLATFORM 2" in white capitals on a dark blue ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> <Subject 1> stands over an open guitar case, preserving the face, hair, wardrobe and build established in the reference, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the headlights wash across her face and commuters surge past in both directions, one man breaking into a run.
-[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
-[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, a dropped umbrella skidding across the tiles. <Subject 1> keeps playing through it, her identity unchanged from the reference, and sings over the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close. The camera holds wide long enough to keep the tiled columns, the platform edge markings and the overhead signage of the reference setting continuously visible behind her while the crowd moves across the frame in both directions, coats and bags passing close to the lens without occluding her face.
-[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, calling back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
-
-overall_soundscape:
-Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
-
-non_diegetic_music:
-N/A
-```
-
-## derived:h3_ref_audio_voice
-
-Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_ref_audio_voice_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
-<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
-
-summary:
-[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, with the voice of <Audio 1>.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
-<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed. <Subject 1> (S1) turns toward the camera and says, in the clear timbre referenced from <Audio 1>, <d>[English] I thought you would have gone by now.</d>
-
-overall_soundscape:
-Natural ambient atmosphere continues throughout the shot. The vocal timbre of <Audio 1> is referenced for the speaking voice, and its signal is not copied.
-
-non_diegetic_music:
-N/A
-```
-
-## derived:h3_ref_image_audio
+## ref2va_image_audio_music
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -733,7 +630,147 @@ non_diegetic_music:
 A slow instrumental score follows the tempo and instrumentation of <Audio 1>.
 ```
 
-## derived:h3_ref_video_continue
+## ref2va_image_audio_voice
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref_audio_voice_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
+
+summary:
+[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, with the voice of <Audio 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed. <Subject 1> (S1) turns toward the camera and says, in the clear timbre referenced from <Audio 1>, <d>[English] I thought you would have gone by now.</d>
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot. The vocal timbre of <Audio 1> is referenced for the speaking voice, and its signal is not copied.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_image_video_structure
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref_video_to_video_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+
+summary:
+[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_scene_kitchen
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_scene_kitchen_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.
+[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
+[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
+[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_scene_subway
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_scene_subway_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld with fast reframing under cool platform fluorescents. A wide shot establishes a crowded underground platform, tiled columns receding, a train braking into frame from the right, still moving fast. A tiled platform sign above her head reads "NORTHBOUND - PLATFORM 2" in white capitals on a dark blue ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> <Subject 1> stands over an open guitar case, preserving the face, hair, wardrobe and build established in the reference, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the headlights wash across her face and commuters surge past in both directions, one man breaking into a run.
+[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
+[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, a dropped umbrella skidding across the tiles. <Subject 1> keeps playing through it, her identity unchanged from the reference, and sings over the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close. The camera holds wide long enough to keep the tiled columns, the platform edge markings and the overhead signage of the reference setting continuously visible behind her while the crowd moves across the frame in both directions, coats and bags passing close to the lens without occluding her face.
+[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, calling back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
+
+overall_soundscape:
+Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_continuation
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -768,7 +805,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_ref_video_edit
+## ref2va_video_garment_edit
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -805,7 +842,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_ref_video_image_edit
+## ref2va_video_image_edit
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -844,7 +881,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_ref_video_motion
+## ref2va_video_motion_transfer
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -879,7 +916,7 @@ non_diegetic_music:
 N/A
 ```
 
-## derived:h3_ref_video_only
+## ref2va_video_structure_only
 
 Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
@@ -907,43 +944,6 @@ The target video is in a cinematic live-action style.
 
 overall_soundscape:
 Natural ambient atmosphere continues throughout the shot.
-
-non_diegetic_music:
-N/A
-```
-
-## derived:h3_ref_video_to_video
-
-Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_ref_video_to_video_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
-<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
-<Video 1> is the source video whose camera movement the target video follows.
-
-summary:
-[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
-<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
-<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
-
-overall_soundscape:
-The ambience of <Audio 1> continues under the shot.
 
 non_diegetic_music:
 N/A

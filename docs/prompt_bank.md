@@ -6,7 +6,7 @@
 
 **Two house choices every prompt makes, stated so they are arguable.** `<scenetrans>` is never written: base 4.4 states it for a line crossing a cut, but it matches no token the release declares, so the continuity is carried by the guide's own phrases in prose. `<|cutoff|>` is written piped and tight against `</d>`, the form the release declares. Both are OPEN in `prompting.md` section 12, neither has been rendered, and the sister engine makes the opposite call on both; `prompt_audit.md` item 4 is the render that would inform either.
 
-**Re-grading one:** the command under each prompt, from the repo root with the ComfyUI venv's python. A prompt is conformant AT A DURATION: `S.SS` and every `At MM:SS.mmm` resolve against the snapped frame count, so grading at another `--length` is expected to fail. The `adapt` column is the mechanical exception: a prompt that names no cut time and no duration can take another length from the graph alone. **Adding one:** write the file, add a manifest entry, run the builder, commit all three. **Shipping one:** name it by id in `workflows/build_workflows.py`; the text never goes anywhere else. **For a bridge from another repo:** the manifest is the contract -- mode and frames per file, donor stem for ref2va.
+**Re-grading one:** the command under each prompt, from the repo root with the ComfyUI venv's python. A prompt is conformant AT A DURATION: `S.SS` and every `At MM:SS.mmm` resolve against the snapped frame count, so grading at another `--length` is expected to fail. The `adapt` column is the mechanical exception: a prompt that names no cut time and no duration can take another length from the graph alone. **Adding one:** write the file, add a manifest entry, run the builder, commit all three. **Shipping one:** name it by id in `workflows/build_workflows.py`; the text never goes anywhere else. **A COMPOSED prompt is shipped the other way round:** `_ref_prompt()` builds a ref2va prompt from the role tables and the two keyframe defaults build their Part One line from the frame count, so those arrive here as output rather than as an id -- the generator looks the composed text up and refuses to build until it is a file here, which is why a new reference combination fails with the id it wants written. **For a bridge from another repo:** the manifest is the contract -- mode and frames per file, donor stem for ref2va.
 
 ## Every prompt
 
@@ -85,12 +85,14 @@
 | [`fl2va_potter_wheel`](#fl2va-potter-wheel) | fl2va | 175 | 7.292 | pinned | 0 | — | 183 | 1 | 1 | English | Zoom In | scored | clean |
 | [`fl2va_balloon`](#fl2va-balloon) | fl2va | 209 | 8.708 | yes | 0 | — | 155 | 1 | 0 | — | Pull Out | N/A | clean |
 | [`fl2va_carousel`](#fl2va-carousel) | fl2va | 311 | 12.958 | pinned | 0 | — | 188 | 2 | 1 | English | Truck Right, Tilt Up | scored | clean |
+| [`fl2va_interior_converge`](#fl2va-interior-converge) | fl2va | 345 | 14.375 | yes | 3 | — | 87 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`fl2va_drawbridge`](#fl2va-drawbridge) | fl2va | 362 | 15.083 | pinned | 0 | — | 188 | 1 | 0 | — | Pedestal Down | scored | clean |
 | [`l2va_telescope`](#l2va-telescope) | l2va | 90 | 3.750 | yes | 0 | — | 127 | 1 | 0 | — | Static Shot | N/A | clean |
 | [`l2va_chess_clock`](#l2va-chess-clock) | l2va | 141 | 5.875 | yes | 0 | — | 222 | 1 | 2 | English, Russian | Tilt Down | N/A | clean |
 | [`l2va_kite_festival`](#l2va-kite-festival) | l2va | 226 | 9.417 | pinned | 0 | — | 256 | 3 | 1 | English | Zoom Out, Static Shot | scored | clean |
 | [`l2va_rescue_hut`](#l2va-rescue-hut) | l2va | 243 | 10.125 | yes | 0 | — | 175 | 1 | 1 | English | Push In | scored | clean |
 | [`l2va_bus_depot`](#l2va-bus-depot) | l2va | 277 | 11.542 | pinned | 0 | — | 233 | 2 | 2 | English | Push In, Pan Left | scored | clean |
+| [`l2va_interior_converge`](#l2va-interior-converge) | l2va | 345 | 14.375 | yes | 1 | — | 82 | 1 | 0 | — | Truck Right | N/A | clean |
 | [`l2va_laundromat`](#l2va-laundromat) | l2va | 345 | 14.375 | pinned | 0 | — | 284 | 2 | 2 | English | Push In, Truck Left | scored | clean |
 | [`ref2va_continue_with_audio`](#ref2va-continue-with-audio) | ref2va | 158 | 6.583 | yes | 0 | `h3_ref_video_continue_api` | 352 | 1 | 1 | Portuguese | Push In | N/A | clean |
 | [`ref2va_storyboard_bakery`](#ref2va-storyboard-bakery) | ref2va | 192 | 8.000 | pinned | 0 | `h3_probe_capture_ref3_api` | 411 | 2 | 1 | English | Push In, Static Shot | scored | clean |
@@ -102,12 +104,27 @@
 | [`ref2va_observatory`](#ref2va-observatory) | ref2va | 328 | 13.667 | pinned | 0 | `h3_ref_image_audio_api` | 414 | 3 | 2 | English | Push In, Tilt Up, Arc Shot | scored | clean |
 | [`ref2va_soundtrack_fully_copy`](#ref2va-soundtrack-fully-copy) | ref2va | 328 | 13.667 | pinned | 0 | `h3_ref_video_audio_api` | 471 | 3 | 0 | English | Zoom Out, Push In, Truck Right | scored | clean |
 | [`ref2va_five_label`](#ref2va-five-label) | ref2va | 345 | 14.375 | pinned | 0 | `h3_ref_image_video_audio_api` | 424 | 3 | 2 | English | Push In, Tracking Shot, Static Shot | scored | clean |
+| [`ref2va_image_audio_music`](#ref2va-image-audio-music) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_image_audio_api` | 42 | 1 | 0 | — | Truck Right | scored | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_image_audio_voice`](#ref2va-image-audio-voice) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_audio_voice_api` | 68 | 1 | 1 | English | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_image_ref_default`](#ref2va-image-ref-default) | ref2va | 345 | 14.375 | pinned | 1 | `h3_image_ref_plus_text_to_video_api` | 198 | 1 | 0 | — | Truck Right, Static Shot | absent | 1 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | ref2va | 345 | 14.375 | yes | 5 | `h3_ref_image_video_audio_api` | 49 | 1 | 0 | — | Truck Right | scored | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_image_video_structure`](#ref2va-image-video-structure) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_to_video_api` | 49 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_market_stallholder`](#ref2va-market-stallholder) | ref2va | 345 | 14.375 | pinned | 3 | `h3_ref2v_market_api` | 387 | 3 | 2 | English | Truck Left, Static Shot | N/A | clean |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | ref2va | 345 | 14.375 | yes | 11 | `h3_image_ref_plus_text_to_video_api` | 42 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | ref2va | 345 | 14.375 | yes | 11 | `h3_probe_capture_ref3_api` | 45 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_scene_kitchen`](#ref2va-scene-kitchen) | ref2va | 345 | 14.375 | pinned | 1 | `h3_ref2v_scene_kitchen_api` | 425 | 4 | 1 | English | Push In, Pedestal Up | N/A | clean |
+| [`ref2va_scene_subway`](#ref2va-scene-subway) | ref2va | 345 | 14.375 | pinned | 1 | `h3_ref2v_scene_subway_api` | 392 | 4 | 2 | English |  | N/A | clean |
 | [`ref2va_stairwell_dialogue`](#ref2va-stairwell-dialogue) | ref2va | 345 | 14.375 | pinned | 2 | `h3_image_ref_plus_text_to_video_dialogue_api` | 416 | 3 | 2 | English | Shake Slightly | N/A | clean |
+| [`ref2va_video_character_swap`](#ref2va-video-character-swap) | ref2va | 345 | 14.375 | yes | 3 | `h3_ref_video_swap_api` | 64 | 1 | 0 | — |  | N/A | clean |
+| [`ref2va_video_continuation`](#ref2va-video-continuation) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_continue_api` | 47 | 1 | 0 | — |  | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_video_garment_edit`](#ref2va-video-garment-edit) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_edit_api` | 53 | 1 | 0 | — |  | N/A | clean |
+| [`ref2va_video_image_edit`](#ref2va-video-image-edit) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_image_edit_api` | 53 | 1 | 0 | — |  | N/A | clean |
+| [`ref2va_video_motion_transfer`](#ref2va-video-motion-transfer) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_motion_api` | 44 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | ref2va | 345 | 14.375 | yes | 2 | `h3_ref_video_audio_api` | 47 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
+| [`ref2va_video_structure_only`](#ref2va-video-structure-only) | ref2va | 345 | 14.375 | yes | 1 | `h3_ref_video_only_api` | 47 | 1 | 0 | — | Truck Right | N/A | 0 FAIL, 1 WARN (recorded; see the entry) |
 | [`ref2va_video_swap`](#ref2va-video-swap) | ref2va | 362 | 15.083 | pinned | 0 | `h3_ref_video_swap_api` | 353 | 2 | 1 | English | Static Shot | N/A | clean |
 
-Counted over the prompts above: 94 prompts, 36 with `non_diegetic_music: N/A`. The vendor's eight filled-in music lines across both guides carry two `N/A`; the shipped corpus, per `prompt_catalogue.md`, leans far harder to `N/A` than that, and this bank was written against that lean rather than to it.
+Counted over the prompts above: 111 prompts, 51 with `non_diegetic_music: N/A`. The vendor's eight filled-in music lines across both guides carry two `N/A`; the shipped corpus, per `prompt_catalogue.md`, leans far harder to `N/A` than that, and this bank was written against that lean rather than to it.
 
 ## Coverage, derived
 
@@ -117,9 +134,9 @@ Counted over the prompts above: 94 prompts, 36 with `non_diegetic_music: N/A`. T
 |---|---|
 | t2va | 61 |
 | i2va | 7 |
-| fl2va | 6 |
-| l2va | 6 |
-| ref2va | 14 |
+| fl2va | 7 |
+| l2va | 7 |
+| ref2va | 29 |
 
 ### Frame counts, every legal value on the 17k+5 grid
 
@@ -142,7 +159,7 @@ Duration is frames / 24. The Part One line of a keyframe prompt carries it to tw
 | `294` | `t2va_desert_crew`, `ref2va_ballroom`, `ref2va_jacket_transfer` |
 | `311` | `i2va_night_market`, `fl2va_carousel` |
 | `328` | `t2va_cable_car`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy` |
-| `345` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_lighthouse_keyframe`, `l2va_laundromat`, `ref2va_five_label`, `ref2va_image_ref_default`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue` |
+| `345` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_lighthouse_keyframe`, `fl2va_interior_converge`, `l2va_interior_converge`, `l2va_laundromat`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_market_stallholder`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
 | `362` | `t2va_silent_film`, `fl2va_drawbridge`, `ref2va_video_swap` |
 
 Not exercised: nothing -- every value above appears at least once.
@@ -155,15 +172,15 @@ Recognised from the prose forms this bank writes (`pushes in`, `holds a static s
 |---|---|
 | `Zoom In` | `t2va_night_porter`, `t2va_cooking_show_meltdown`, `t2va_disco_roller_rink`, `t2va_frontier_standoff`, `t2va_hiphop_rooftop_cypher`, `t2va_kungfu_tea_house`, `t2va_opera_grand_stage`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `fl2va_potter_wheel` |
 | `Zoom Out` | `t2va_noodle_bar`, `t2va_castle_rampart`, `i2va_glassblower`, `l2va_kite_festival`, `ref2va_soundtrack_fully_copy` |
-| `Push In` | `t2va_clay_apiary`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `i2va_kettle`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
+| `Push In` | `t2va_clay_apiary`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `i2va_kettle`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_scene_kitchen` |
 | `Pull Out` | `t2va_rooftop_pov`, `t2va_cartoon_vaudeville`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_french_new_wave_cafe`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_police_interrogation`, `t2va_sortline_long`, `t2va_sortline_short`, `fl2va_balloon`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade` |
 | `Pan Left` | `t2va_french_new_wave_cafe`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_silent_film`, `l2va_bus_depot` |
 | `Pan Right` | `t2va_cartoon_vaudeville`, `t2va_kpop_dance_studio`, `t2va_nature_doc_arctic`, `fl2va_paper_train` |
 | `Truck Left` | `t2va_covered_market`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_marching_band`, `t2va_orbital_airlock`, `t2va_police_interrogation`, `i2va_vet_night`, `l2va_laundromat`, `ref2va_ballroom`, `ref2va_market_stallholder` |
-| `Truck Right` | `t2va_cable_car`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_newsroom_breaking`, `t2va_rail_dolly_long`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_trench_ww1_messenger`, `t2va_ww2_sub_sonar`, `fl2va_carousel`, `ref2va_radio_handover`, `ref2va_soundtrack_fully_copy`, `ref2va_image_ref_default` |
+| `Truck Right` | `t2va_cable_car`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_newsroom_breaking`, `t2va_rail_dolly_long`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_trench_ww1_messenger`, `t2va_ww2_sub_sonar`, `fl2va_carousel`, `fl2va_interior_converge`, `l2va_interior_converge`, `ref2va_radio_handover`, `ref2va_soundtrack_fully_copy`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
 | `Tilt Up` | `t2va_swimming_lesson`, `t2va_appalachian_folk_cabin`, `t2va_pirate_deck_mutiny`, `t2va_punk_basement_gig`, `t2va_speakeasy_heist`, `fl2va_carousel`, `ref2va_observatory` |
 | `Tilt Down` | `t2va_box_office`, `t2va_arena_rock_video`, `t2va_delta_blues_porch`, `t2va_frontier_standoff`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `l2va_chess_clock` |
-| `Pedestal Up` | `t2va_castle_rampart`, `i2va_cargo_bay` |
+| `Pedestal Up` | `t2va_castle_rampart`, `i2va_cargo_bay`, `ref2va_scene_kitchen` |
 | `Pedestal Down` | `t2va_fireworks_barge`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_opera_grand_stage`, `t2va_samurai_bamboo_duel`, `t2va_slapstick_moving_piano`, `fl2va_drawbridge` |
 | `Arc Shot` | `t2va_cyberpunk_music_video`, `i2va_tattoo`, `ref2va_ballroom`, `ref2va_observatory` |
 | `Tracking Shot` | `t2va_radio_drama`, `t2va_arena_rock_video`, `t2va_cyberpunk_music_video`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_nature_doc_arctic`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_five_label` |
@@ -182,9 +199,9 @@ Medium amplitude and normal speed are written by omitting the phrase.
 
 | value | prompts |
 |---|---|
-| `with small amplitude` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
-| `with large amplitude` | `t2va_rooftop_pov`, `t2va_fireworks_barge`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_restaurant_kitchen`, `t2va_subway_chase`, `fl2va_drawbridge`, `l2va_kite_festival`, `ref2va_quarry_continuation` |
-| `at slow speed` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_ref_default` |
+| `with small amplitude` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `fl2va_interior_converge`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_interior_converge`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
+| `with large amplitude` | `t2va_rooftop_pov`, `t2va_fireworks_barge`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_restaurant_kitchen`, `t2va_subway_chase`, `fl2va_drawbridge`, `l2va_kite_festival`, `ref2va_quarry_continuation`, `ref2va_scene_kitchen` |
+| `at slow speed` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_kettle`, `i2va_tattoo`, `i2va_cargo_bay`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_paper_train`, `fl2va_potter_wheel`, `fl2va_balloon`, `fl2va_carousel`, `fl2va_interior_converge`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_interior_converge`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
 | `at fast speed` | `t2va_rooftop_pov`, `t2va_arena_rock_video`, `t2va_cooking_show_meltdown`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_disco_roller_rink`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_pirate_deck_mutiny`, `t2va_punk_basement_gig`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger` |
 
 Not exercised: nothing -- every value above appears at least once.
@@ -194,9 +211,9 @@ Not exercised: nothing -- every value above appears at least once.
 | value | prompts |
 |---|---|
 | `the camera cuts to` | `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_castle_rampart`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_samurai_bamboo_duel`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `fl2va_carousel`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_stairwell_dialogue` |
-| `the shot cuts to` | `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_lighthouse`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_vet_night`, `i2va_glassblower`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_video_swap` |
+| `the shot cuts to` | `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_lighthouse`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_vet_night`, `i2va_glassblower`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_video_swap` |
 | `the shot transitions to` | `t2va_rooftop_pov`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cooking_show_meltdown`, `t2va_french_new_wave_cafe`, `t2va_hiphop_rooftop_cypher`, `t2va_opera_grand_stage`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `l2va_kite_festival` |
-| `the shot changes to` | `t2va_cooking_show_meltdown`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_restaurant_kitchen`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_subway_platform`, `t2va_silent_film`, `i2va_night_market` |
+| `the shot changes to` | `t2va_cooking_show_meltdown`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_restaurant_kitchen`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_subway_platform`, `t2va_silent_film`, `i2va_night_market`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
 | `the shot switches to` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_frontier_standoff`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_punk_basement_gig`, `t2va_silent_film` |
 
 Not exercised: nothing -- every value above appears at least once.
@@ -219,8 +236,8 @@ The guide says "common styles include", so the list is open; prompts using a sty
 
 | value | prompts |
 |---|---|
-| `Cinematic` | `t2va_noodle_bar`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kpop_dance_studio`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_vet_night`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `ref2va_ballroom`, `ref2va_image_ref_default`, `ref2va_market_stallholder` |
-| `live-action` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_potter_wheel`, `fl2va_carousel`, `fl2va_drawbridge`, `l2va_telescope`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_ref_default`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
+| `Cinematic` | `t2va_noodle_bar`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kpop_dance_studio`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_vet_night`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_carousel`, `fl2va_interior_converge`, `fl2va_drawbridge`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_interior_converge`, `ref2va_ballroom`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_market_stallholder`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
+| `live-action` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_crowd_churn_long`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_lighthouse`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rail_dolly_long`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_kettle`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_potter_wheel`, `fl2va_carousel`, `fl2va_interior_converge`, `fl2va_drawbridge`, `l2va_telescope`, `l2va_chess_clock`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_interior_converge`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_market_stallholder`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only`, `ref2va_video_swap` |
 | `2D-animated` | `t2va_fireworks_barge`, `t2va_cable_car`, `t2va_cartoon_vaudeville` |
 | `3D CG` | `i2va_cargo_bay` |
 | `claymation` | `t2va_clay_apiary` |
@@ -236,7 +253,7 @@ Neither guide lists supported languages; the tag mechanism is GUIDE-stated and t
 | value | prompts |
 |---|---|
 | `Chinese` | `t2va_noodle_bar`, `t2va_kungfu_tea_house`, `i2va_night_market` |
-| `English` | `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_frontier_standoff`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
+| `English` | `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_frontier_standoff`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_voice`, `ref2va_market_stallholder`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
 | `French` | `t2va_swimming_lesson`, `t2va_french_new_wave_cafe` |
 | `Italian` | `t2va_opera_grand_stage`, `i2va_glassblower` |
 | `Japanese` | `t2va_samurai_bamboo_duel`, `ref2va_jacket_transfer` |
@@ -255,11 +272,11 @@ An open set: the rows are what the bank uses, so nothing here can be "not exerci
 | value | prompts |
 |---|---|
 | `keyframe completion` | **none** |
-| `reference generation` | `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_ref_default`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue` |
-| `video editing` | `ref2va_bouldering_regrade`, `ref2va_video_swap` |
-| `video continuation` | `ref2va_continue_with_audio`, `ref2va_quarry_continuation` |
-| `audio reuse` | `ref2va_bouldering_regrade`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_video_swap` |
-| `audio reference` | `ref2va_continue_with_audio`, `ref2va_observatory`, `ref2va_five_label` |
+| `reference generation` | `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_market_stallholder`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_character_swap`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
+| `video editing` | `ref2va_bouldering_regrade`, `ref2va_video_character_swap`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_swap` |
+| `video continuation` | `ref2va_continue_with_audio`, `ref2va_quarry_continuation`, `ref2va_video_continuation` |
+| `audio reuse` | `ref2va_bouldering_regrade`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_sound_structure`, `ref2va_video_swap` |
+| `audio reference` | `ref2va_continue_with_audio`, `ref2va_observatory`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_video_audio_music` |
 
 Not exercised: `keyframe completion`.
 
@@ -269,13 +286,13 @@ Not exercised: `keyframe completion`.
 
 | value | prompts |
 |---|---|
-| `fully_preserved` | `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_ref_default`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
-| `partially_preserved` | `ref2va_bouldering_regrade`, `ref2va_video_swap` |
-| `attribute_transfer` | `ref2va_jacket_transfer` |
-| `weak_reference` | `ref2va_storyboard_bakery`, `ref2va_ballroom`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label` |
-| `fully_copy` | `ref2va_soundtrack_fully_copy`, `ref2va_video_swap` |
-| `partially_copy` | `ref2va_bouldering_regrade`, `ref2va_five_label` |
-| `reference` | `ref2va_continue_with_audio`, `ref2va_observatory`, `ref2va_five_label` |
+| `fully_preserved` | `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_quarry_continuation`, `ref2va_radio_handover`, `ref2va_bouldering_regrade`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_market_stallholder`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only`, `ref2va_video_swap` |
+| `partially_preserved` | `ref2va_bouldering_regrade`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_swap` |
+| `attribute_transfer` | `ref2va_jacket_transfer`, `ref2va_role_character_garment_environment`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer` |
+| `weak_reference` | `ref2va_storyboard_bakery`, `ref2va_ballroom`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
+| `fully_copy` | `ref2va_soundtrack_fully_copy`, `ref2va_video_character_swap`, `ref2va_video_swap` |
+| `partially_copy` | `ref2va_bouldering_regrade`, `ref2va_five_label`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_sound_structure` |
+| `reference` | `ref2va_continue_with_audio`, `ref2va_observatory`, `ref2va_five_label`, `ref2va_image_audio_music`, `ref2va_image_audio_voice`, `ref2va_image_video_audio_music` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -285,12 +302,12 @@ Not exercised: nothing -- every value above appears at least once.
 
 | value | prompts |
 |---|---|
-| `<d>` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
-| `<|lyrics_start|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_subway_platform` |
-| `<|lyrics_end|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_subway_platform` |
-| `<|caption_start|>` | `t2va_radio_drama`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform` |
-| `<|caption_end|>` | `t2va_radio_drama`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform` |
-| `<|cutoff|>` | `t2va_cable_car`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform` |
+| `<d>` | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_box_office`, `t2va_clay_apiary`, `t2va_radio_drama`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_marching_band`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `i2va_night_market`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_chess_clock`, `l2va_kite_festival`, `l2va_rescue_hut`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_jacket_transfer`, `ref2va_observatory`, `ref2va_soundtrack_fully_copy`, `ref2va_five_label`, `ref2va_image_audio_voice`, `ref2va_market_stallholder`, `ref2va_scene_kitchen`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue`, `ref2va_video_swap` |
+| `<|lyrics_start|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_subway_platform`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
+| `<|lyrics_end|>` | `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_subway_platform`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
+| `<|caption_start|>` | `t2va_radio_drama`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
+| `<|caption_end|>` | `t2va_radio_drama`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
+| `<|cutoff|>` | `t2va_cable_car`, `t2va_clinic_corridor`, `t2va_restaurant_kitchen`, `t2va_subway_platform`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
 
 Not exercised: nothing -- every value above appears at least once.
 
@@ -298,16 +315,16 @@ Not exercised: nothing -- every value above appears at least once.
 
 | shape | prompts |
 |---|---|
-| no speaker | `t2va_post_office`, `t2va_crowd_churn_long`, `t2va_lighthouse`, `t2va_rail_dolly_long`, `t2va_silent_film`, `i2va_kettle`, `i2va_cargo_bay`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_paper_train`, `fl2va_balloon`, `fl2va_drawbridge`, `l2va_telescope`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_soundtrack_fully_copy`, `ref2va_image_ref_default` |
-| one speaker | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cooking_show_meltdown`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_nature_doc_arctic`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_subway_chase`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_kite_festival`, `l2va_rescue_hut`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_jacket_transfer`, `ref2va_video_swap` |
-| two speakers | `t2va_box_office`, `t2va_clay_apiary`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_diner_breakup`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_night_market`, `l2va_chess_clock`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_stairwell_dialogue` |
+| no speaker | `t2va_post_office`, `t2va_crowd_churn_long`, `t2va_lighthouse`, `t2va_rail_dolly_long`, `t2va_silent_film`, `i2va_kettle`, `i2va_cargo_bay`, `i2va_lighthouse_keyframe`, `fl2va_origami_crane`, `fl2va_paper_train`, `fl2va_balloon`, `fl2va_interior_converge`, `fl2va_drawbridge`, `l2va_telescope`, `l2va_interior_converge`, `ref2va_quarry_continuation`, `ref2va_bouldering_regrade`, `ref2va_soundtrack_fully_copy`, `ref2va_image_audio_music`, `ref2va_image_ref_default`, `ref2va_image_video_audio_music`, `ref2va_image_video_structure`, `ref2va_role_character_environment`, `ref2va_role_character_garment_environment`, `ref2va_video_character_swap`, `ref2va_video_continuation`, `ref2va_video_garment_edit`, `ref2va_video_image_edit`, `ref2va_video_motion_transfer`, `ref2va_video_sound_structure`, `ref2va_video_structure_only` |
+| one speaker | `t2va_noodle_bar`, `t2va_swimming_lesson`, `t2va_night_porter`, `t2va_rooftop_pov`, `t2va_cable_car`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_cooking_show_meltdown`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_disco_roller_rink`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_marching_band`, `t2va_nature_doc_arctic`, `t2va_opera_grand_stage`, `t2va_punk_basement_gig`, `t2va_subway_chase`, `i2va_tattoo`, `i2va_vet_night`, `i2va_glassblower`, `fl2va_potter_wheel`, `fl2va_carousel`, `l2va_kite_festival`, `l2va_rescue_hut`, `ref2va_continue_with_audio`, `ref2va_storyboard_bakery`, `ref2va_jacket_transfer`, `ref2va_image_audio_voice`, `ref2va_scene_kitchen`, `ref2va_video_swap` |
+| two speakers | `t2va_box_office`, `t2va_clay_apiary`, `t2va_fireworks_barge`, `t2va_desert_crew`, `t2va_castle_rampart`, `t2va_clinic_corridor`, `t2va_courtroom_verdict`, `t2va_covered_market`, `t2va_diner_breakup`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hardware_aisle_long`, `t2va_hardware_aisle_short`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_newsroom_breaking`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_rehearsal_room`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_sortline_long`, `t2va_sortline_short`, `t2va_speakeasy_heist`, `t2va_stairwell_dialogue`, `t2va_steampunk_airship_bridge`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `i2va_night_market`, `l2va_chess_clock`, `l2va_bus_depot`, `l2va_laundromat`, `ref2va_radio_handover`, `ref2va_ballroom`, `ref2va_observatory`, `ref2va_five_label`, `ref2va_market_stallholder`, `ref2va_scene_subway`, `ref2va_stairwell_dialogue` |
 | three or more speakers | `t2va_radio_drama`, `t2va_subway_platform` |
 | a compound id in unison | `t2va_clay_apiary` |
 | the exact voiceover phrase | `t2va_clay_apiary`, `t2va_nature_doc_arctic`, `l2va_laundromat` |
 | an off-screen speaker who is not a voiceover | `t2va_rooftop_pov` |
 | a `[unclear]` span in reused source words | `ref2va_soundtrack_fully_copy`, `ref2va_video_swap` |
 | a lyric cited via `<Audio N>` with no speaker id | `ref2va_soundtrack_fully_copy` |
-| on-screen text in double quotes | `t2va_noodle_bar`, `t2va_post_office`, `t2va_box_office`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_cargo_bay`, `i2va_night_market`, `l2va_bus_depot` |
+| on-screen text in double quotes | `t2va_noodle_bar`, `t2va_post_office`, `t2va_box_office`, `t2va_radio_drama`, `t2va_appalachian_folk_cabin`, `t2va_arena_rock_video`, `t2va_cartoon_vaudeville`, `t2va_castle_rampart`, `t2va_cooking_show_meltdown`, `t2va_courtroom_verdict`, `t2va_cyber_hacker_den`, `t2va_cyberpunk_music_video`, `t2va_delta_blues_porch`, `t2va_diner_breakup`, `t2va_disco_roller_rink`, `t2va_french_new_wave_cafe`, `t2va_frontier_standoff`, `t2va_gladiator_arena_tunnel`, `t2va_hiphop_rooftop_cypher`, `t2va_kpop_dance_studio`, `t2va_kungfu_tea_house`, `t2va_medical_er_triage`, `t2va_nature_doc_arctic`, `t2va_newsroom_breaking`, `t2va_opera_grand_stage`, `t2va_orbital_airlock`, `t2va_pirate_deck_mutiny`, `t2va_police_interrogation`, `t2va_punk_basement_gig`, `t2va_restaurant_kitchen`, `t2va_samurai_bamboo_duel`, `t2va_screwball_restaurant`, `t2va_sitcom_kitchen`, `t2va_slapstick_moving_piano`, `t2va_speakeasy_heist`, `t2va_steampunk_airship_bridge`, `t2va_subway_chase`, `t2va_subway_platform`, `t2va_trench_ww1_messenger`, `t2va_victorian_seance`, `t2va_ww2_sub_sonar`, `t2va_silent_film`, `i2va_cargo_bay`, `i2va_night_market`, `l2va_bus_depot`, `ref2va_scene_kitchen`, `ref2va_scene_subway` |
 | `overall_soundscape: N/A` (complete silence requested) | `t2va_silent_film` |
 
 ---
@@ -1751,6 +1768,27 @@ overall_soundscape: A carousel motor turns steadily under a wide hall reverb, ru
 non_diegetic_music: Muted electric-piano chords at a slow tempo over a soft brushed pulse, thinning to a single held note at the end.
 ```
 
+## fl2va_interior_converge
+
+**fl2va, 345 frames, 14.375 s.** The generator's fl2va default: one continuous shot that starts in the opening frame's exact state and converges on the closing one. Part One is base_en's unbracketed FL2VA sentence, resolved here at 345 frames -- `fl2v_prompt()` re-resolves it for any other length. Ships in: `h3_first_last_frame_to_video_api`, `h3_first_last_frame_to_video_pdd_4step_api`, `h3_first_last_frame_to_video_pdd_api`.
+
+Derived: camera: Truck Right; 87 words in the main field; 1026 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode fl2va --length 345 prompt_bank/fl2va_interior_converge.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
+
+non_diegetic_music: N/A
+```
+
 ## fl2va_drawbridge
 
 **fl2va, 362 frames, 15.083 s.** The longest count; pedestal down with large amplitude; no dialogue; a ship's horn in the soundscape; scored.
@@ -1875,6 +1913,27 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wid
 overall_soundscape: Two diesel engines idle beyond the glass under a low fluorescent hum. A clipboard slaps onto a counter, a pen scratches across paper, and a key fob jingles once inside a closing fist.
 
 non_diegetic_music: A slow upright-bass line under a brushed snare pulse, joined late by a muted trumpet note that holds and fades before the final frame.
+```
+
+## l2va_interior_converge
+
+**l2va, 345 frames, 14.375 s.** The generator's l2va default, and the mode's only shipped prompt: an unconstrained opening converging on <Picture 1>. Part One is base_en's L2VA sentence, which brackets both label and shot where FL2VA brackets neither, resolved here at 345 frames. Ships in: `h3_last_frame_to_video_api`.
+
+Derived: camera: Truck Right; labels: <Picture 1>; 82 words in the main field; 860 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode l2va --length 345 prompt_bank/l2va_interior_converge.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a quiet interior. A woman in a dark jacket crosses the room unhurriedly, passing a window that throws a soft band of daylight across the floor. The camera trucks right with small amplitude at slow speed, holding her in frame as she moves. Her pace settles, her shoulders come level, and her position, wardrobe, the lighting and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum throughout, unhurried footsteps on a hard floor, and the faint settle of fabric as the movement comes to rest.
+
+non_diegetic_music: N/A
 ```
 
 ## l2va_laundromat
@@ -2258,6 +2317,78 @@ overall_soundscape: The copied ambience layer from <Audio 1> continues throughou
 non_diegetic_music: A muted upright piano at a slow tempo, playing widely spaced chords, joined halfway by a soft brushed snare pulse that holds steady and fades under the final steps.
 ```
 
+## ref2va_image_audio_music
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_image_audio_api`.** A standalone music reference at `reference`, scoring two picture subjects; the only composed arm whose `non_diegetic_music` is a real cue rather than N/A. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_ref_image_audio_api`.
+
+Derived: camera: Truck Right; task: [reference generation + audio reference]; labels: <Audio 1>, <Picture 1>, <Picture 2>; 42 words in the main field; 1233 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_image_audio_api prompt_bank/ref2va_image_audio_music.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is a standalone music reference whose tempo and instrumentation the target video's score follows.
+
+summary:
+[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: reference - only tempo and instrumentation are referenced, the signal is not copied.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+A slow instrumental score follows the tempo and instrumentation of <Audio 1>.
+```
+
+## ref2va_image_audio_voice
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_audio_voice_api`.** Voice-timbre reference: <Audio 1> carries <Subject 1>'s (S1) delivery at `reference`, with the spoken line in the shot rather than in the audio sections, per ref 6. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_ref_audio_voice_api`.
+
+Derived: camera: Truck Right; speakers: S1; languages: English; task: [reference generation + audio reference]; labels: <Audio 1>, <Picture 1>, <Picture 2>; 68 words in the main field; 1363 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_audio_voice_api prompt_bank/ref2va_image_audio_voice.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
+
+summary:
+[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, with the voice of <Audio 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed. <Subject 1> (S1) turns toward the camera and says, in the clear timbre referenced from <Audio 1>, <d>[English] I thought you would have gone by now.</d>
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot. The vocal timbre of <Audio 1> is referenced for the speaking voice, and its signal is not copied.
+
+non_diegetic_music:
+N/A
+```
+
 ## ref2va_image_ref_default
 
 **ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** Two picture subjects carried into the target; the generator's default r2v prompt, shipped only by the stamped bench graph **Recorded findings:** prompt_audit.md verdict `rewrite` for R2V_PROMPT: a ten-second description on a 15.083 s graph, two sections absent, under the guide's length; shipped as-is by the r2v bench graph Ships in: `h3_image_ref_plus_text_to_video_stamped_api`.
@@ -2284,6 +2415,84 @@ retention_analysis:
 detailed_description:
 The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the fifteen-second sequence.
 [Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.
+```
+
+## ref2va_image_video_audio_music
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_image_video_audio_api`.** Every reference type at once: two picture subjects, a sounded reference video followed for camera movement only, and a standalone music clip. <Audio 1> is the video's own track and <Audio 2> the standalone one, which is the ordinal the tokenizer emits. **Recorded findings:** prompt_audit.md verdict `keep` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_probe_cache_easy_api`, `h3_probe_euler_api`, `h3_probe_euler_cache_api`, `h3_probe_sol_on_all_refs_api`, `h3_ref_image_video_audio_api`.
+
+Derived: camera: Truck Right; task: [reference generation + audio reuse + audio reference]; labels: <Audio 1>, <Audio 2>, <Picture 1>, <Picture 2>, <Video 1>; 49 words in the main field; 1667 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_image_video_audio_api prompt_bank/ref2va_image_video_audio_music.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+<Audio 2> is a standalone music reference whose tempo and instrumentation the target video's score follows.
+
+summary:
+[reference generation + audio reuse + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 2>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+<Audio 2>: reference - only tempo and instrumentation are referenced, the signal is not copied.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+A slow instrumental score follows the tempo and instrumentation of <Audio 2>.
+```
+
+## ref2va_image_video_structure
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_to_video_api`.** Two picture subjects with a sounded reference video supplying camera movement only; the arm that separates `weak_reference` on a camera path from `partially_copy` on its track. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_ref_video_to_video_api`.
+
+Derived: camera: Truck Right; task: [reference generation + audio reuse]; labels: <Audio 1>, <Picture 1>, <Picture 2>, <Video 1>; 49 words in the main field; 1347 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_to_video_api prompt_bank/ref2va_image_video_structure.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+
+summary:
+[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
 ```
 
 ## ref2va_market_stallholder
@@ -2315,6 +2524,146 @@ The target video is live-action and cinematic, handheld, with shallow depth of f
 
 overall_soundscape:
 Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_role_character_environment
+
+**ref2va, 345 frames, 14.375 s, donor `h3_image_ref_plus_text_to_video_api`.** The generator's two-socket ref2va default, composed by `_ref_prompt` from the role tables: a character carried from <Picture 1> into the environment of <Picture 2>, one continuous shot, truck right. The most widely shipped ref2va prompt in the repo. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_image_ref_plus_text_to_video_api`, `h3_image_ref_plus_text_to_video_pdd_4step_api`, `h3_image_ref_plus_text_to_video_pdd_api`, `h3_image_ref_plus_text_to_video_turbo_4step_api`, `h3_probe_ref2v_pdd_345_api`, `h3_probe_ref2v_pdd_8s_api`, `h3_probe_ref2v_pdd_api`, `h3_probe_ref2v_pdd_headfree_api`, `h3_probe_ref2v_turbo_api`, `h3_probe_reference_upscale_api`, `h3_probe_sol_on_refs_api`.
+
+Derived: camera: Truck Right; task: [reference generation]; labels: <Picture 1>, <Picture 2>; 42 words in the main field; 913 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_image_ref_plus_text_to_video_api prompt_bank/ref2va_role_character_environment.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_role_character_garment_environment
+
+**ref2va, 345 frames, 14.375 s, donor `h3_probe_capture_ref3_api`.** Three image roles in socket order -- character, garment, environment -- with the garment on `attribute_transfer` and each subject cited in the shot, which is the case the role machinery exists for. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_probe_capture_ref3_api`, `h3_probe_capture_ref3_fl2va_api`, `h3_probe_ref_turbo768p_fl2va_api`, `h3_probe_ref_turbo768p_hybrid_adaln_all_api`, `h3_probe_ref_turbo768p_hybrid_b30_api`, `h3_probe_ref_turbo768p_ref2va_api`, `h3_probe_ref_vae_encoder_fp16_api`, `h3_probe_ref_vae_encoder_fp32_api`, `h3_probe_refview_a_source_api`, `h3_probe_refview_b_qwen2048_api`, `h3_probe_refview_c_parity_api`.
+
+Derived: camera: Truck Right; task: [reference generation]; labels: <Picture 1>, <Picture 2>, <Picture 3>; 45 words in the main field; 1138 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_probe_capture_ref3_api prompt_bank/ref2va_role_character_garment_environment.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.
+<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.
+<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_scene_kitchen
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_kitchen_api`.** The kitchen stress scene: four shots, the lyrics, caption and cutoff markers together, and a character reference carried through all of them. Ships in: `h3_ref2v_scene_kitchen_api`.
+
+Derived: camera: Push In, Pedestal Up; speakers: S2; languages: English; cuts: the shot cuts to, the shot changes to; on-screen text: "TABLE 12 - 2 COVERS - FIRE"; task: [reference generation]; labels: <Picture 1>; 425 words in the main field; 3115 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref2v_scene_kitchen_api prompt_bank/ref2va_scene_kitchen.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.
+[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
+[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
+[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_scene_subway
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref2v_scene_subway_api`.** The subway stress scene: four shots, two speakers, the lyrics, caption and cutoff markers, and a busker carried from <Picture 1>. **Recorded findings:** prompt_audit.md verdict `keep` for this scene. Camera written as handheld fast reframing, tracking with the subject and a whip pan -- forms outside MOTION_PROSE, so the bank's shape rule reads no motion; the same finding `t2va_subway_platform` records. The guide checks on its graph pass. Ships in: `h3_ref2v_scene_subway_api`.
+
+Derived: camera: ; speakers: S2, S3; languages: English; cuts: the shot cuts to, the shot changes to; on-screen text: "NORTHBOUND - PLATFORM 2"; task: [reference generation]; labels: <Picture 1>; 392 words in the main field; 3095 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref2v_scene_subway_api prompt_bank/ref2va_scene_subway.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld with fast reframing under cool platform fluorescents. A wide shot establishes a crowded underground platform, tiled columns receding, a train braking into frame from the right, still moving fast. A tiled platform sign above her head reads "NORTHBOUND - PLATFORM 2" in white capitals on a dark blue ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> <Subject 1> stands over an open guitar case, preserving the face, hair, wardrobe and build established in the reference, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the headlights wash across her face and commuters surge past in both directions, one man breaking into a run.
+[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
+[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, a dropped umbrella skidding across the tiles. <Subject 1> keeps playing through it, her identity unchanged from the reference, and sings over the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close. The camera holds wide long enough to keep the tiled columns, the platform edge markings and the overhead signage of the reference setting continuously visible behind her while the crowd moves across the frame in both directions, coats and bags passing close to the lens without occluding her face.
+[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, calling back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
+
+overall_soundscape:
+Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
 
 non_diegetic_music:
 N/A
@@ -2354,6 +2703,263 @@ Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow d
 
 overall_soundscape:
 Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_character_swap
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_swap_api`.** Character replacement: <Video 1> is the plate and <Picture 1> the new identity, with the negative clauses that are this repo's hypothesis rather than the guide's rule. **Recorded findings:** prompt_audit.md verdict `revise` for this scene. The bank's shape rule reads no camera motion because the arm follows <Video 1>'s camera -- "the scene maintains the exact environmental details, lighting, and composition of <Video 1>" -- instead of naming one of base 4.3's twenty; naming one would contradict the plate. The guide checks on its graphs pass. Ships in: `h3_probe_ref2v_split_turbo_pack_api`, `h3_probe_ref2v_turbo_pack_api`, `h3_ref_video_swap_api`.
+
+Derived: camera: ; task: [video editing + reference generation + audio reuse]; labels: <Audio 1>, <Picture 1>, <Video 1>; 64 words in the main field; 2055 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_swap_api prompt_bank/ref2va_video_character_swap.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.
+<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.
+
+summary:
+[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.
+<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.
+<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_continuation
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_continue_api`.** Continuation: the target begins at <Video 1>'s final frame, on the same framing and lighting, with the source's ambience kept underneath. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. The bank's shape rule also reads no camera motion: the shot holds ("as the camera holds") rather than naming base 4.3's `Static Shot`. Ships in: `h3_ref_video_continue_api`.
+
+Derived: camera: ; task: [video continuation + audio reuse]; labels: <Audio 1>, <Video 1>; 47 words in the main field; 1150 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_continue_api prompt_bank/ref2va_video_continuation.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video the target video continues from, beginning at its final frame.
+
+summary:
+[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_garment_edit
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_edit_api`.** Whole-frame edit with no image reference: the garment is described in words, and `retention_analysis` carries what survives because there is no mask socket. **Recorded findings:** prompt_audit.md verdict `keep` for this scene. The bank's shape rule reads no camera motion because the shot "reproduces <Video 1> frame for frame in framing, camera movement, and timing" instead of naming one of base 4.3's twenty. The guide checks on its graph pass. Ships in: `h3_ref_video_edit_api`.
+
+Derived: camera: ; task: [video editing + audio reuse]; labels: <Audio 1>, <Video 1>; 53 words in the main field; 1505 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_edit_api prompt_bank/ref2va_video_garment_edit.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.
+<Subject 2> is a bright red waxed-cotton jacket that replaces the garment <Subject 1> wears in <Video 1>.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video for the target video edit.
+
+summary:
+[video editing + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment changes.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the red jacket replaces the original garment on <Subject 1>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2>, whose waxed cotton catches the light differently as they turn.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_image_edit
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_image_edit_api`.** The edit worth starting from: <Video 1> is the source, <Picture 1> the replacement garment and <Picture 2> the replacement background, five labels in all. **Recorded findings:** prompt_audit.md verdict `keep` for this scene. The bank's shape rule reads no camera motion because the shot "reproduces <Video 1> frame for frame in framing, camera movement, and timing" instead of naming one of base 4.3's twenty. The guide checks on its graph pass. Ships in: `h3_ref_video_image_edit_api`.
+
+Derived: camera: ; task: [video editing + reference generation + audio reuse]; labels: <Audio 1>, <Picture 1>, <Picture 2>, <Video 1>; 53 words in the main field; 1769 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_image_edit_api prompt_bank/ref2va_video_image_edit.txt
+  0 FAIL, 0 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.
+<Subject 2> is the garment shown in <Picture 1>, which replaces the one <Subject 1> wears in <Video 1>.
+<Subject 3> is the environment in <Picture 2>, which replaces the background of <Video 1> while the camera move is kept.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video for the target video edit.
+
+summary:
+[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment and the background change.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.
+<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting comes from <Picture 2>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_motion_transfer
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_motion_api`.** Ref 2.1's multi-asset subject: appearance from <Picture 1>, walking motion from <Video 1>, with `attribute_transfer` on the source giving the trait away rather than on the recipient. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_ref_video_motion_api`.
+
+Derived: camera: Truck Right; task: [reference generation]; labels: <Picture 1>, <Picture 2>, <Video 1>; 44 words in the main field; 1183 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_motion_api prompt_bank/ref2va_video_motion_transfer.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
+<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
+<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left, walking with the gait and timing taken from <Video 1>. The camera trucks right with small amplitude at slow speed.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_sound_structure
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_audio_api`.** A sounded reference video and nothing else: the subject comes from <Video 1>, its track is kept under the new scene, and its camera path is followed at `weak_reference`. **Recorded findings:** prompt_audit.md verdict `keep` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_probe_release_video_policy_api`, `h3_ref_video_audio_api`.
+
+Derived: camera: Truck Right; task: [reference generation + audio reuse]; labels: <Audio 1>, <Video 1>; 47 words in the main field; 1133 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_audio_api prompt_bank/ref2va_video_sound_structure.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+
+summary:
+[reference generation + audio reuse] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
+<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_structure_only
+
+**ref2va, 345 frames, 14.375 s, donor `h3_ref_video_only_api`.** The thinnest reference arm: one silent video, its subject carried and its camera path followed at `weak_reference`, no audio label at all. **Recorded findings:** prompt_audit.md verdict `revise` for this scene: detailed_description is far under ref 5.2's 350-500 word budget, which the audit records as systematic across the composed ref2va arms. Shipped as composed -- narrowing the gap is a content change and belongs in the audit, not here. Ships in: `h3_ref_video_only_api`.
+
+Derived: camera: Truck Right; task: [reference generation]; labels: <Video 1>; 47 words in the main field; 952 characters in all.
+
+```
+python bench/grade_prompt_text.py --mode ref2va --length 345 --like h3_ref_video_only_api prompt_bank/ref2va_video_structure_only.txt
+  0 FAIL, 1 WARN
+```
+
+```text
+subject_definitions:
+<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.
+<Video 1> is the source video whose camera movement the target video follows.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.
+<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.
+
+overall_soundscape:
+Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music:
 N/A

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a quiet interior. A woman in a dark jacket crosses the room unhurriedly, passing a window that throws a soft band of daylight across the floor. The camera trucks right with small amplitude at slow speed, holding her in frame as she moves. Her pace settles, her shoulders come level, and her position, wardrobe, the lighting and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum throughout, unhurried footsteps on a hard floor, and the faint settle of fabric as the movement comes to rest.
+
+non_diegetic_music: N/A

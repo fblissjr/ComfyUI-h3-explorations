@@ -26,10 +26,13 @@ matching it back to a module-level constant in `workflows/build_workflows.py`
 via `ast`.
 
 **Most ref2va prompts have no constant to match**, because `_ref_prompt()`
-composes them at build time from parts. Those are named `derived:<graph>` from
-the family that carries them, and the prefix is there so nobody greps for a
-constant that was never written. The first version of this file called them
-`(unnamed)`, which read as a defect rather than as how that path works.
+composes them at build time from parts, and the two keyframe defaults are
+built by `fl2v_prompt`/`l2v_prompt`. Until 2026-09-03 those were named
+`derived:<graph>` after the family carrying them, because nothing else could
+name them. They are now `prompt_bank/` entries like every other shipped
+prompt, so they are named by their BANK ID; `derived:` survives only for text
+that matches neither a constant nor a bank entry, which is a hand-edited graph
+or a parametric prompt rendered at a length its entry does not declare.
 
 ## Deliberately not asserted
 
@@ -223,11 +226,14 @@ def main() -> int:
 
     scenes = []
     for text, graphs in found.items():
-        # Constant name where one holds the text. Most ref2va prompts are
-        # COMPOSED by `_ref_prompt()` at build time, so no constant ever holds
-        # them and matching cannot name them -- derive from the graph family
-        # instead, marked so nobody mistakes it for a constant that exists.
-        name = names.get(text)
+        # Constant name where one holds the text; failing that the BANK ID,
+        # which since 2026-09-03 covers the composed prompts -- `_ref_prompt()`
+        # and the two keyframe defaults build their text at build time, so no
+        # constant holds it, but the result is a `prompt_bank/` entry and the
+        # entry's id names it. `derived:<graph>` is left for text in neither,
+        # which now means a hand-edited graph or a parametric prompt rendered
+        # at a length its bank entry does not declare.
+        name = names.get(text) or _prompts.identify(text)
         if name is None:
             stems = sorted(g[:-4] if g.endswith("_api") else g for g in graphs)
             name = f"derived:{stems[0]}"
@@ -251,8 +257,10 @@ def main() -> int:
     print(f"ok    {len(scenes)} distinct prompt(s) across "
           f"{len({g for s in scenes for g in s[2]})} graph(s)")
     if unnamed:
-        print(f"      {unnamed} prompt(s) are composed at build time and named "
-              "from their graph family, not from a constant")
+        print(f"      {unnamed} prompt(s) match neither a generator constant "
+              "nor a prompt_bank/ entry, so they are named from their graph "
+              "family -- a hand-edited graph, or a parametric prompt at a "
+              "length its bank entry does not declare")
     return 0
 
 
