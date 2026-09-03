@@ -25,6 +25,16 @@ Deletion removes `qkv_*.pt` and `final_*.pt` only. `manifest.json`,
 the directory keeps saying what it was. Nothing here is automatic: the
 owner runs `--delete`, one capture at a time.
 
+The delete is a recoverable transition (Codex, 2026-09-03: the first
+version wrote the marker before the unlinks, so a crash or one failed
+unlink left a capture that read as deleted and could not be retried).
+`DELETING.json` is written first with the planned files; each unlink is
+attempted; on any failure the file stays, the exit is nonzero, and the
+survey shows the capture as an INCOMPLETE delete that `--delete` resumes;
+only when no planned tensor remains is it renamed atomically to
+`DELETED.json`. `--self-test` proves that path on a temp root by making
+one unlink fail, then resuming.
+
 `retention.json`, written by whoever takes the capture:
     {"purpose": ..., "keep_until": "YYYY-MM-DD", "delete_when": ...,
      "records_in_repo": [...], "set_by": ...}
@@ -111,7 +121,9 @@ def survey(root: Path) -> list[dict]:
         tensors = _tensors(d)
         marker = d / "DELETED.json"
         deleted = marker.is_file() and not marker.is_symlink()
-        if not tensors and not deleted:
+        pending = d / "DELETING.json"
+        incomplete = pending.is_file() and not pending.is_symlink()
+        if not tensors and not deleted and not incomplete:
             continue
         manifest = None
         if (d / "manifest.json").is_file():
@@ -147,7 +159,7 @@ def survey(root: Path) -> list[dict]:
         if inventory is None:
             owes.append("an inventory record under bench/results/ naming it")
         rows.append({"name": d.name, "dir": d, "bytes": _size(d), "tensors": len(tensors),
-                     "deleted": deleted, "manifest": manifest is not None,
+                     "deleted": deleted, "incomplete": incomplete, "manifest": manifest is not None,
                      "retention": retention, "keep_until": keep_until, "expired": expired,
                      "copy": copy, "inventory": inventory, "owes": owes,
                      "recyclable": not owes})
@@ -159,7 +171,10 @@ def main() -> int:
     ap.add_argument("--budget-gb", type=float, help="print which recyclable captures to delete, oldest first, to fit")
     ap.add_argument("--delete", metavar="NAME", help="delete NAME's tensors if it owes nothing")
     ap.add_argument("--reason", help="required with --delete before keep_until has passed")
+    ap.add_argument("--self-test", action="store_true", help="prove the delete transition on a temp root; touches nothing else")
     args = ap.parse_args()
+    if args.self_test:
+        return self_test()
 
     root = _paths.capture_root()
     if root is None or not root.is_dir():
@@ -174,6 +189,7 @@ def main() -> int:
     print(f"  {len(rows)} capture(s), {total / 2**30:.1f} GiB of tensors\n")
     for r in rows:
         state = ("DELETED" if r["deleted"] else
+                 "INCOMPLETE delete, tensors remain; rerun --delete to resume" if r["incomplete"] else
                  "recyclable" + (" (keep_until passed)" if r["expired"] else
                                  f" (keep until {r['keep_until']})" if r["keep_until"] else " (no keep_until)")
                  if r["recyclable"] else "owes " + "; ".join(r["owes"]))
@@ -202,34 +218,116 @@ def main() -> int:
             print(f"\n  no capture named {args.delete!r}"); return 1
         if r["deleted"]:
             print(f"\n  {args.delete} is already deleted"); return 0
-        if not r["recyclable"]:
-            print(f"\n  refusing: {args.delete} owes " + "; ".join(r["owes"])); return 1
-        if not r["expired"] and not args.reason:
-            print(f"\n  refusing: keep_until {r['keep_until']} has not passed; pass --reason to delete early"); return 1
-        marker = r["dir"] / "DELETED.json"
-        if marker.is_symlink() or marker.exists():
-            print(f"\n  refusing: {marker.name} already exists or is a symlink in {args.delete}"); return 1
-        # The marker is created first, exclusively and without following a
-        # link (audit finding 2), so a crash mid-delete still leaves a record
-        # saying a delete began; it is completed with the byte count after.
-        fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o644)
-        os.close(fd)
-        freed, removed = 0, 0
-        for p in _tensors(r["dir"]):
-            try:
-                freed += p.stat().st_size
-                p.unlink()
-                removed += 1
-            except OSError as exc:
-                print(f"  could not remove {p.name}: {exc}")
-        marker.write_text(json.dumps({
-            "deleted_at": dt.datetime.now().isoformat(timespec="seconds"),
-            "bytes_freed": freed, "tensors_removed": removed, "tensors_listed": r["tensors"],
-            "reason": args.reason or f"keep_until {r['keep_until']} passed",
-            "records_in_repo": [r["copy"], r["inventory"]],
-        }, indent=2) + "\n", encoding="utf-8")
-        print(f"\n  deleted {removed} of {r['tensors']} tensor file(s) of {args.delete}, {freed / 2**30:.1f} GiB freed; "
-              f"manifest.json, retention.json and DELETED.json remain")
+        if not r["incomplete"]:
+            if not r["recyclable"]:
+                print(f"\n  refusing: {args.delete} owes " + "; ".join(r["owes"])); return 1
+            if not r["expired"] and not args.reason:
+                print(f"\n  refusing: keep_until {r['keep_until']} has not passed; pass --reason to delete early"); return 1
+        return delete_capture(r, args.reason)
+    return 0
+
+
+def delete_capture(r: dict, reason: str | None) -> int:
+    """The recoverable transition: DELETING.json first (planned files), each
+    unlink attempted, the marker renamed to DELETED.json only when nothing
+    planned remains. A failure leaves DELETING.json, prints what remains and
+    exits nonzero; running --delete again resumes."""
+    d = r["dir"]
+    pending, done = d / "DELETING.json", d / "DELETED.json"
+    for m in (pending, done):
+        if m.is_symlink():
+            print(f"\n  refusing: {m.name} is a symlink in {r['name']}"); return 1
+    if done.exists():
+        print(f"\n  refusing: {done.name} already exists in {r['name']}"); return 1
+    if pending.exists():
+        plan = json.loads(pending.read_text(encoding="utf-8"))
+        print(f"\n  resuming an incomplete delete of {r['name']} begun {plan.get('begun_at')}")
+    else:
+        plan = {"begun_at": dt.datetime.now().isoformat(timespec="seconds"),
+                "planned": [p.name for p in _tensors(d)],
+                "reason": reason or f"keep_until {r['keep_until']} passed",
+                "records_in_repo": [r["copy"], r["inventory"]], "bytes_freed": 0, "removed": []}
+        fd = os.open(pending, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o644)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(plan, indent=2) + "\n")
+    failed = []
+    for name in plan["planned"]:
+        p = d / name
+        if name in plan["removed"] or not p.exists():
+            if name not in plan["removed"]:
+                plan["removed"].append(name)
+            continue
+        if p.is_symlink() or not p.is_file():
+            failed.append((name, "not a regular file")); continue
+        try:
+            size = p.stat().st_size
+            p.unlink()
+            plan["bytes_freed"] += size
+            plan["removed"].append(name)
+        except OSError as exc:
+            failed.append((name, str(exc)))
+    pending.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    if failed:
+        for name, why in failed:
+            print(f"  could not remove {name}: {why}")
+        print(f"\n  INCOMPLETE: {len(failed)} of {len(plan['planned'])} planned tensor(s) remain in {r['name']}; "
+              f"{pending.name} records the state; rerun --delete to resume")
+        return 1
+    plan["deleted_at"] = dt.datetime.now().isoformat(timespec="seconds")
+    pending.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    os.replace(pending, done)   # atomic: the capture is deleted only once every planned file is gone
+    print(f"\n  deleted {len(plan['removed'])} tensor file(s) of {r['name']}, {plan['bytes_freed'] / 2**30:.1f} GiB freed; "
+          f"manifest.json, retention.json and DELETED.json remain")
+    return 0
+
+
+def self_test() -> int:
+    """Prove the transition on a temp root: a delete with one unlink forced
+    to fail leaves DELETING.json and tensors and exits nonzero; a resume
+    completes and renames the marker; the survey reads each state right."""
+    import hashlib
+    import tempfile
+    global RESULTS
+    with tempfile.TemporaryDirectory(prefix="h3_recycle_selftest_") as tmp:
+        root = Path(tmp) / "root"; res = Path(tmp) / "results"
+        root.mkdir(); res.mkdir()
+        RESULTS = res
+        cap = root / "2026-01-01_selftest"; cap.mkdir()
+        names = [f"qkv_L8_S8_b{i}_s1.pt" for i in range(3)]
+        shas = []
+        for n in names:
+            (cap / n).write_bytes(os.urandom(64)); shas.append(hashlib.sha256((cap / n).read_bytes()).hexdigest())
+        manifest = {"workload": {"graph_sha256": "g" * 64},
+                    "captured_tensors": [{"filename": n, "sha256": h} for n, h in zip(names, shas)]}
+        (cap / "manifest.json").write_text(json.dumps(manifest)); (res / "x_capture_manifest_y.json").write_text(json.dumps(manifest))
+        (cap / "retention.json").write_text(json.dumps({"purpose": "self-test", "keep_until": "2026-01-02"}))
+        (res / "x_capture_inventory_y.json").write_text(json.dumps({"captures": [{"capture": cap.name}]}))
+        rows = survey(root); r = rows[0]
+        assert r["recyclable"] and r["expired"], r["owes"]
+        # force one PLANNED unlink to fail, the way a permission or I/O error
+        # would mid-delete: the file is planned as a regular file and the
+        # unlink itself raises
+        real_unlink = os.unlink
+        def flaky(path, *a, **k):
+            if os.fspath(path).endswith(names[1]):
+                raise OSError("simulated unlink failure")
+            return real_unlink(path, *a, **k)
+        os.unlink = flaky
+        try:
+            rc = delete_capture(r, None)
+        finally:
+            os.unlink = real_unlink
+        assert rc == 1 and (cap / "DELETING.json").is_file() and not (cap / "DELETED.json").exists(), "failure must leave DELETING.json"
+        assert (cap / names[1]).exists() and not (cap / names[0]).exists() and not (cap / names[2]).exists(), "the others were removed, the victim remains"
+        r2 = survey(root)[0]
+        assert r2["incomplete"] and not r2["deleted"], "survey must read the incomplete state"
+        rc = delete_capture(r2, None)
+        assert rc == 0 and (cap / "DELETED.json").is_file() and not (cap / "DELETING.json").exists(), "resume must complete and rename"
+        assert not any((cap / n).exists() for n in names) and (cap / "manifest.json").is_file()
+        r3 = survey(root)[0]
+        assert r3["deleted"] and not r3["incomplete"]
+        assert delete_capture(r3, None) == 1, "a deleted capture must refuse a second delete"
+    print("  ok    self-test: a failed unlink leaves DELETING.json and exits 1; a resume completes and renames to DELETED.json; the survey reads both states")
     return 0
 
 

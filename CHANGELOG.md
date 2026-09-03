@@ -61,6 +61,12 @@ artifact.
   `bench/recycle_captures.py` lists what each capture still owes and
   deletes tensors only when the repo holds its manifest copy and inventory
   record, leaving the manifest, the retention note and a `DELETED.json`.
+  The delete is a recoverable transition, on Codex's review of the first
+  version (which wrote the marker before the unlinks, so a crash read as
+  done and could not be retried): `DELETING.json` with the planned files
+  first, a nonzero exit and a resumable state on any failed unlink, an
+  atomic rename to `DELETED.json` only when nothing planned remains;
+  `--self-test` forces one unlink to fail and then resumes.
   The Base16 capture moved under the root with a week's retention tied to
   validating the online instrument against its cells. Two 2026-08-30
   captures already under the root carry no manifest and are reported red
