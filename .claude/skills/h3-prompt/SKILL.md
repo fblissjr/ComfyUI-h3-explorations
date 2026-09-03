@@ -1,6 +1,7 @@
 ---
 name: h3-prompt
 description: Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker tags be" -- to the file that owns each answer, and to the command that verifies the result. Points at them; restates nothing that could drift.
+reviewed: b3ff4a4
 ---
 
 # Working on an H3 prompt
@@ -10,59 +11,45 @@ disagrees with the file it names, the file is right and this skill is stale.**
 
 ## The one authority
 
-`docs/prompting.md` is the single source of truth for every mode. It is
-self-contained -- you do not need `internal/` to write a prompt. Every rule in
-it carries a layer: **GUIDE-STATED** binds (breaking it is off-distribution),
-**GUIDE-SHOWN** is worth following and must not be enforced, **OWNER** and
-**HOUSE** are ours and may be wrong, **OPEN** is unsettled. Collapsing those is
-how two rules were invented here and retracted, so carry the layer whenever you
-quote a rule.
-
-`docs/wiki/prompting.md` is the router if you want the map first.
+`docs/prompting.md` is the single source of truth for every mode, and it is
+self-contained. Its section "Four layers, and every rule says which one it
+is" defines how binding each rule is; carry the layer whenever you quote a
+rule. `docs/wiki/prompting.md` is the router if you want the map first.
 
 ## By what you are doing
 
-**Writing a new one.** Pick the mode first (§2) -- it decides the field
-structure and the exact Part One line, and the three keyframe templates are not
-interchangeable. §10 has graded worked examples per mode; copy the nearest one's
-shape. Fix the frame count before writing: `S.SS` and every cut timestamp
-resolve against the snapped length, so a prompt is only correct at a duration.
+**Writing a new one.** Section 2 of `docs/prompting.md` decides the field
+structure per mode; section 10 has graded worked examples to copy the shape
+of. Fix the frame count before writing: a prompt is only correct at a
+duration, for the reason section 2 gives.
 
 **Editing or improving a shipped one.** The text lives in `prompt_bank/`
-and nowhere else: `docs/prompt_bank.md` says which graphs render each entry
-(its `ships` column) and how the generator loads one by id
-(`workflows/prompts.py`). Read its verdict in `docs/prompt_audit.md`. **Edit
-the bank file, never `workflows/build_workflows.py`'s constants and never a
-`workflows/*.json`**, then rebuild the bank doc and the graphs -- nothing is
-true of a graph until it is regenerated. This paragraph used to route edits
-into the generator; that was true until the bank became the one home. If the
-prompt is carried by a matched pair or an experiment arm, the audit says so:
-changing one arm and not its twin destroys the experiment.
+and nowhere else; `docs/prompt_bank.md` says which graphs render each
+entry and how the generator loads one by id. Read its verdict in
+`docs/prompt_audit.md`, which also says whether the prompt is carried by a
+matched pair. Edit the bank file, never a `workflows/*.json`, then rebuild
+the bank doc and the graphs.
 
-**Converting between modes.** The dangerous one. Read §2 for the target mode's
-structure and §14.3 for where our prompts have diverged. Two traps:
-- **Base and reference formats take OPPOSITE corrections.** A fix that is right
-  for t2va can be wrong for ref2va and the reverse; never pattern-match across
-  that boundary. §12 lists where the guides are silent or disagree.
-- **The Part One line changes with the mode and so do the brackets.** Getting
-  it wrong is silent -- the render succeeds and the alignment is simply wrong.
+**Converting between modes.** Section 2 for the target mode's structure,
+section 12 for where the guides are silent or disagree, section 14.3 for
+where our shipped prompts diverged and what happened to each. Do not
+pattern-match a fix across the base and reference formats; section 12 owns
+the boundary.
 
-**Deciding whether a prompt is good.** `bench/grade_prompt_text.py --mode <mode>
---length <frames> file.txt` grades loose text against the guide's mechanical
-rules; `bench/preflight_graph.py <graph.json>` does the same for a prompt
-already in a graph, and prices the packed sequence. Both report and never
-refuse. `bench/diff_prompt_corpus.py` reports where our prompts diverge from
-vendor practice on things no guide states.
+**Deciding whether a prompt is good.** `bench/grade_prompt_text.py` grades
+loose text; `bench/preflight_graph.py` grades a prompt already in a graph
+and prices the sequence; `bench/diff_prompt_corpus.py` reports where our
+prompts diverge from vendor practice. Each docstring is its contract.
 
 **Handing the rules to someone outside this repo.**
-`docs/portable/h3_prompt_standard.html`, published and self-contained.
+`docs/portable/h3_prompt_standard.html`.
 
 ## Before you believe your own edit
 
-- Rebuild the graphs and re-run `bench/check_prompt_docs_sync.py`, which grades
-  the manual's own quotations and re-runs every §10 example through the grader.
-- A rendered clip **cannot** A/B a prompt change: two arms draw different
-  samples and diverge at frame 0. `docs/eval_comparison.md` owns what a
-  perceptual claim actually needs, and it is a distribution, not a pair.
-- Prose in this repo has been wrong and wrong-about-wrong. Cite the observable
-  -- the guide, the graph, the generator -- not a sentence that describes it.
+- Rebuild and run `bench/check_prompt_docs_sync.py`.
+- A rendered clip cannot A/B a prompt change: `docs/eval_comparison.md`
+  owns what a perceptual claim needs.
+- Cite the observable, never a sentence that describes it (`CLAUDE.md`).
+
+`bench/check_skill_routes.py` reports when a file named here has changed
+since `reviewed` above; re-read this skill against it and bump the commit.
