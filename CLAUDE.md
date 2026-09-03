@@ -2,6 +2,8 @@
 
 MiniMax H3 research hub for ComfyUI: attention kernels, keyframe and
 provenance nodes, benchmarks, and workflows. `README.md` is what ships and why.
+`VISION.md` is what this repo holds itself to; it rarely changes, and this
+file is the operative form of it.
 This file is only what would cost you a session to rediscover — the operative
 rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
@@ -255,6 +257,7 @@ repeating work.
 
 | file | what it answers |
 |---|---|
+| [`VISION.md`](VISION.md) | **the tenets, and the why behind every rule in this file.** Truth, measurement, controls, structure: one bold line each, no instances, no dates, no numbers. Rarely changes. **Read it first** if you are new here, and read it again before arguing that a rule below is ceremony |
 | [`docs/wiki/index.md`](docs/wiki/index.md) | **the entry point, and the only generated one.** A router: where to start, who owns each answer, and which documents nothing links to. Written pages sit beside it and the generator never touches them — `references.md` (what each `coderef/` checkout implements for H3 and what has been compared against it), `stages.md` (per render stage: our code, its owner, its guard, the implementation to compare against), and `prompting.md` (where every prompting rule, example and verdict comes from, and which of the five sources actually binds). Regenerate with `bench/build_wiki_index.py`; never hand-edit `index.md` |
 | [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next, and what would count as finding it. **Start here** if the question is what to work on. Designing a new probe or prompt: the `h3-experiment` skill in `.claude/skills/` routes to the files that own each step (this one first), and restates none of them. |
 | [`docs/evidence.md`](docs/evidence.md) | what is measured, what is retracted, and what must not be relied on. **Start here** if you are about to state a number. |

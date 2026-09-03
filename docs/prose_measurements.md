@@ -15,8 +15,8 @@ result, and a pointer to the thing that owns the value: a script, a results
 file, a constant, a command. The reader runs the pointer; the sentence never
 goes stale because it never held the value.
 
-"A 1.2x improvement on xyz" fails on every axis at once. Nobody can tell what
-xyz was when it was measured, where 1.2x came from, what it was measured
+`a 1.2x improvement on xyz` fails on every axis at once. Nobody can tell what
+xyz was when it was measured, where the multiplier came from, what it was measured
 against, on what hardware, at what canvas, in what cache state, or under which
 commit. A pointer to the record answers all of those, because a record that
 does not answer them is not a record yet (see the tiers below).
@@ -87,6 +87,33 @@ Shapes that replace the number:
 The check to run before committing prose that describes work is `claim-audit`.
 It reads the added lines as untrusted claims and re-derives each by executing a
 command; a measurement with no command behind it is what it reports.
+
+## The wiki
+
+`docs/wiki/index.md` is derived by `bench/build_wiki_index.py` from
+`CLAUDE.md`'s routing tables and a walk of the link graph. Its generator's
+docstring makes the same argument this file makes: a wiki that retyped the
+blurbs would be a second copy with no invalidation. So the wiki is already the
+shape the rule wants -- a router that owns no values -- and it needs no
+migration of its own.
+
+What follows from that:
+
+- **The index inherits whatever `CLAUDE.md` carries.** It is skipped as a
+  generated file, correctly, but its blurbs come from a governed one. A
+  measurement in a `CLAUDE.md` row appears in the index verbatim; fixing the
+  row fixes both, which is why `CLAUDE.md` is step one below.
+- **The written pages beside it** (`references.md`, `stages.md`,
+  `prompting.md`) are governed like any other doc and sit in the inventory.
+  A frame count that names a grid point is an identifier and will show as a
+  hit; leave it.
+- **Records have no route yet.** The migration will create many links from
+  docs into `bench/results/*.json`. `bench/check_doc_links.py` verifies they
+  resolve, but the index walks markdown only, so a record is reachable through
+  whichever doc cites it and nothing lists them. When enough links exist to
+  make it worth a page, the fix is the same move as the index: a page
+  generated from the links themselves, listing which record each doc cites,
+  never written by hand. Do not build it before the links exist.
 
 ## The plan for existing prose
 
@@ -169,6 +196,12 @@ restates them. When the governed set's residual is tier 4 only, a `--check`
 mode with an allowlist of quoted lines becomes a gate that can be green on a
 correct tree, and only then. Before that point a gate is red while the state
 is correct, which `CLAUDE.md` says trains a reader to ignore red.
+
+### After closure
+
+- A generated records page under `docs/wiki/`, built from the doc-to-record
+  links the migration creates (see The wiki above).
+- `--check` on the inventory, with the quoted-withdrawal allowlist.
 
 ### Do not
 

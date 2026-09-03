@@ -23,6 +23,13 @@ artifact.
   hits in one doc and `--json` writes a dated record.
   `bench/results/2026-09-03_prose_measurements_baseline.json` is the backlog
   at adoption.
+- **`VISION.md`**: the tenets this repo holds itself to, one bold line each
+  under truth, measurement, controls and structure, with no instances, dates
+  or numbers. `CLAUDE.md` is its operative form and routes to it, so the wiki
+  index derives the row. `docs/prose_measurements.md` gained a section on
+  what the rule means for the wiki: nothing to migrate, the index inherits
+  `CLAUDE.md`'s blurbs, and a generated records page is deferred until the
+  migration has produced the links it would be built from.
 
 ## 0.99.25
 
