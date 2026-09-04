@@ -150,7 +150,7 @@ says FlexAttention's routing overhead can outweigh the saving on short
 sequences. It is the vendor's engineers choosing cube geometry for this
 model, which [`../morton.md`](../morton.md) has no measurement against.
 
-**VSA-H3** (`.../backends/video_sparse_attn_h3.py`, merged 2026-09-02): the
+**VSA-H3** (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/video_sparse_attn_h3.py`, merged 2026-09-02): the
 trained sparse policy for the FastH3 weights, an in-tree Triton kernel gated
 to SM90 and above, so it does not run on this card at all. Its knobs are
 what to read: `vsa_mode` exempt/compete (whether non-video keys are always

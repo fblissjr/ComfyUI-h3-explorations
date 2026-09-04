@@ -330,7 +330,7 @@ pointers to use rather than anything retyped here:
 
 - sglang, `coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams`
   (five sigma grid points, four DiT forwards, `t2va` only, other step counts
-  and tasks refused) and `.../configs/pipeline_configs/minimax_h3.py::FastH3PipelineConfig`;
+  and tasks refused) and `coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::FastH3PipelineConfig`;
   the cookbook section "FastH3: 4-step distilled preview" in
   `coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx` says the
   points sit on the standard shift-12/shift-3 grid.
