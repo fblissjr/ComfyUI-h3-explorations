@@ -33,12 +33,13 @@ sigmas, then Ref2VA, each its own population. Arm with `H3_SOL_PROBE` and
 `H3_SOL_OBSERVE` on a restart you own; timings from an armed server are
 void.
 
-**Render the reference pathway ablation once the card is free.**
-`bench/ref_pathway_arms.json`: our reference conditioner and core's, each
-with and without the VAEs wired, plus fl2va under encoder-only stills.
-Open experiment 26 in [`../open_experiments.md`](../open_experiments.md)
-says what would count as an answer. Needs a server restarted onto the
-current core and this pack.
+**Pair the reference pathway clips blind.** All five arms of
+`bench/ref_pathway_arms.json` rendered once on 2026-09-03
+(`bench/results/2026-09-03_ref_pathway_arms.jsonl`): our reference
+conditioner and core's, each with and without the VAEs wired, plus fl2va
+under encoder-only stills. The manifest names the pairs; open experiment
+26 in [`../open_experiments.md`](../open_experiments.md) says what would
+count as an answer. Timing is in the record; the perceptual verdict is not.
 
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root is the local output directory, not the share; pass

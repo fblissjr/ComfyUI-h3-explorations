@@ -167,6 +167,16 @@ artifact.
   session and predates both the core commit and this node change, so the
   graphs were validated against a cached `/object_info` with the two
   inputs moved to optional, which is what a restarted server serves.
+  Later the same evening, on a server restarted onto this commit: all five
+  arms rendered once at the manifest's seed, one warmup each for the two
+  typed arms, and every clip decodes with its full frame and audio count.
+  `bench/results/2026-09-03_ref_pathway_arms.jsonl` is the record; its two
+  `typed_both` rows ran on a different server process than the rest, since
+  the first run was killed by hand mid-batch (the owner took a silent first
+  step for a hang) and resumed after a restart with its own warmup. The
+  encoder-only rows sit below the both-pathway rows on sampler time in
+  every family, as the missing reference rows predict. Nothing has been
+  judged: the blind pairing in the manifest is the owner's.
 - `bench/preflight_graph.py` prices an encoder-only conditioner as zero DiT
   reference rows and says why, instead of pricing rows the graph will
   never build.

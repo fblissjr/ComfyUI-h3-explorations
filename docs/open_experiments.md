@@ -1933,7 +1933,12 @@ only lever on cost. If it does not, the encoder pathway is a label and the
 rows are the reference, which settles a question the conditioning notes
 have left open in prose.
 
-**Blocker.** Card time only, queued behind the ladder in
-`docs/wiki/next_steps.md`. Needs a server started after core commit
-`1aec3a13` and after 0.99.33; an older one rejects the encoder-only arms at
-validation.
+**Rendered 2026-09-03, one seed, unjudged.** All five arms in
+`bench/results/2026-09-03_ref_pathway_arms.jsonl`, clips on the output
+share under `Video/h3_probe_ref_pathway_*`. The timing half of the answer
+is in the record; the perceptual half waits on the blind pairing.
+
+**Blocker.** The owner's eyes: `bench/blind_batch.py` on the record with
+the manifest's pairs, then the scoring app and `bench/score_session.py`.
+More seeds are a command line away once the first pairing says whether
+the effect is large or subtle.
