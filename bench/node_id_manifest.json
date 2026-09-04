@@ -305,7 +305,8 @@
       "require_override",
       "require_forward_patch",
       "exercise",
-      "warn_only"
+      "warn_only",
+      "require_absent"
     ],
     "node_id": "SageChainAssert",
     "outputs": [
