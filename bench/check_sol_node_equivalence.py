@@ -73,10 +73,28 @@ Claims, i.e. what breaks if a case is deleted:
                            swapped. If that still matches, the equality above
                            is not seeing layout at all.
 
-Needs CUDA and a comfy_kitchen carrying the merged `sol_attn`. Exit 0 all
-passed, 1 a case failed, 2 nothing was graded.
+  the sink pair per mode   CPU, pure, run BEFORE the CUDA gate. `_sink_blocks` on a
+    (no kernel)            fixture layout for every `sink_conditioning` mode:
+                           off is zeros; exact_kv has no dense-query range;
+                           exact_kv_and_rows starts the range at the target
+                           audio and leaves reference rows sparse;
+                           exact_kv_and_all_rows covers every conditioning
+                           row; the no-audio-span fallback of exact_kv_and_rows
+                           IS the all-rows range; on a t2v-shaped layout the
+                           two ranges differ by the text rows alone and on a
+                           ref2v-shaped one by the reference rows; a missing
+                           video span or a short sequence is zeros in every
+                           mode; an unknown mode is refused; and the node's
+                           combo lists exactly the modes the function accepts,
+                           with the shipped default among them.
+
+Needs CUDA and a comfy_kitchen carrying the merged `sol_attn` for the kernel
+cases; the sink cases run anywhere the node imports. Exit 0 all passed, 1 a
+case failed, 2 the kernel cases were not graded (no CUDA, no kernel, OOM),
+even when the sink cases ran and passed.
 
     python bench/check_sol_node_equivalence.py
+    CUDA_VISIBLE_DEVICES= python bench/check_sol_node_equivalence.py   # sink cases only, touches no card
 """
 
 from __future__ import annotations
@@ -106,19 +124,109 @@ def cosine(a, b):
     return float(a @ b / (a.norm() * b.norm()))
 
 
+def sink_cases(node, check):
+    """`_sink_blocks` per mode on fixture layouts. Pure, so no tensor and no
+    kernel: the sink pair is derived from the published spans alone."""
+    B = node.BLOCK_SIZE
+    modes = node.SINK_CONDITIONING_MODES
+    # [text][audio][video]: t2v-shaped, text immediately before the target audio
+    t2v = dict(sol_h3_video_span=(640, 4096), sol_h3_audio_span=(320, 640))
+    # [text][ref][audio][video]: ref2v-shaped, reference rows between them
+    ref = dict(sol_h3_video_span=(4160, 8192), sol_h3_audio_span=(3840, 4160))
+    T2V, REF = 4096, 8192
+    kv = (0, 10)                       # ceil(640 / 64) and ceil(4160 / 64) == 65
+    kv_ref = (0, 65)
+
+    def pair(opts, tokens, mode):
+        return node._sink_blocks(opts, tokens, mode)
+
+    check("off: zeros", pair(t2v, T2V, "off") == ((0, 0), (0, 0)))
+    check("exact_kv: exact keys over conditioning, no dense queries",
+          pair(t2v, T2V, "exact_kv") == (kv, (0, 0)) and pair(ref, REF, "exact_kv") == (kv_ref, (0, 0)))
+    check("exact_kv_and_rows: dense queries from the target audio to the end of conditioning",
+          pair(t2v, T2V, "exact_kv_and_rows") == (kv, (320 // B, 10))
+          and pair(ref, REF, "exact_kv_and_rows") == (kv_ref, (3840 // B, 65)))
+    check("exact_kv_and_all_rows: dense queries over every conditioning row",
+          pair(t2v, T2V, "exact_kv_and_all_rows") == (kv, kv)
+          and pair(ref, REF, "exact_kv_and_all_rows") == (kv_ref, kv_ref))
+    no_audio_t2v = {k: v for k, v in t2v.items() if k != "sol_h3_audio_span"}
+    check("exact_kv_and_rows without an audio span falls back to the all-rows range",
+          pair(no_audio_t2v, T2V, "exact_kv_and_rows") == pair(t2v, T2V, "exact_kv_and_all_rows") == (kv, kv))
+    rows_t2v = pair(t2v, T2V, "exact_kv_and_rows")[1]
+    all_t2v = pair(t2v, T2V, "exact_kv_and_all_rows")[1]
+    rows_ref = pair(ref, REF, "exact_kv_and_rows")[1]
+    all_ref = pair(ref, REF, "exact_kv_and_all_rows")[1]
+    text_blocks = 320 // B
+    ref_blocks = (3840 - 320) // B
+    check("the two dense ranges differ by the text rows on t2v and by the reference rows on ref2v",
+          rows_t2v[0] - all_t2v[0] == text_blocks
+          and rows_ref[0] - all_ref[0] == text_blocks + ref_blocks
+          and rows_t2v[1] == all_t2v[1] and rows_ref[1] == all_ref[1],
+          f"t2v {rows_t2v[0] - all_t2v[0]} blocks, ref2v {rows_ref[0] - all_ref[0]} blocks")
+    check("no video span, or a sequence shorter than it, is zeros in every mode",
+          all(pair({}, T2V, m) == ((0, 0), (0, 0)) for m in modes)
+          and all(pair(t2v, 640 - 1, m) == ((0, 0), (0, 0)) for m in modes))
+    try:
+        pair(t2v, T2V, "exact_kv_rows"); refused = False
+    except ValueError:
+        refused = True
+    check("an unknown mode is refused, not run as exact_kv", refused)
+    try:
+        schema = node.MiniMaxH3SolAttn.define_schema()
+        combo = next(i for i in schema.inputs if i.id == "sink_conditioning")
+        options, default = list(combo.options), combo.default
+    except Exception as exc:                                  # noqa: BLE001
+        print(f"  SKIP the combo's options   define_schema not readable here: {exc}")
+    else:
+        check("the combo lists exactly the modes the function accepts, default among them",
+              options == list(modes) and default in modes and default == "exact_kv_and_rows",
+              f"{options}, default {default}")
+
+
+def load_node():
+    """The Sol node module. With a card, through the pack's entrypoint, as the
+    server loads it. Without one, the single module under a bare package:
+    the entrypoint imports ComfyUI's model management, which insists on a
+    device at import, and the sink cases need no device."""
+    if torch.cuda.is_available():
+        load("h3x", REPO / "__init__.py", package_dir=REPO)
+    else:
+        import types
+        import comfy.cli_args as cli_args
+        cli_args.args.cpu = True
+        pkg = types.ModuleType("h3x")
+        pkg.__path__ = [str(REPO)]
+        sys.modules["h3x"] = pkg
+    return load("h3x.sol_attn_h3", REPO / "sol_attn_h3.py")
+
+
 def main():
-    if not torch.cuda.is_available():
-        print("no CUDA; the kernel cannot run. Nothing checked.")
-        return 2
     sys.path.insert(0, str(COMFY))
     sys.path.insert(0, str(REPO / "bench"))
 
-    load("h3x", REPO / "__init__.py", package_dir=REPO)
-    node = load("h3x.sol_attn_h3", REPO / "sol_attn_h3.py")
+    node = load_node()
+
+    failures = []
+
+    def check(name, ok, detail=""):
+        print(f"  {'ok  ' if ok else 'FAIL'} {name}" + (f"   {detail}" if detail else ""))
+        if not ok:
+            failures.append(name)
+
+    print("the sink pair per mode, on CPU:")
+    sink_cases(node, check)
+    print()
+
+    if not torch.cuda.is_available():
+        print("no CUDA; the kernel cannot run. The kernel cases were not graded.")
+        if failures:
+            print(f"FAILED: {len(failures)} case(s): {', '.join(failures)}")
+            return 1
+        return 2
     import comfy_kitchen as ck                              # noqa: E402
     if not hasattr(ck, "sol_attn"):
-        print("this comfy_kitchen has no sol_attn; nothing to grade.")
-        return 2
+        print("this comfy_kitchen has no sol_attn; the kernel cases were not graded.")
+        return 1 if failures else 2
 
     torch.manual_seed(0)
     # A realistic length, which the kernel oracle allows and an O(T^2) eager
@@ -129,13 +237,6 @@ def main():
                for _ in range(3))
     common = dict(skip_reshape=True, skip_output_reshape=True, scale=None,
                   min_tokens=12288, verbose=False)
-
-    failures = []
-
-    def check(name, ok, detail=""):
-        print(f"  {'ok  ' if ok else 'FAIL'} {name}" + (f"   {detail}" if detail else ""))
-        if not ok:
-            failures.append(name)
 
     def dispatch(**kw):
         return node._run(q, k, v, h, **{**common, "tau": 1.0, **kw})
