@@ -7,19 +7,30 @@ page is stale.
 
 ## Now
 
-**Score the speedup ladder.** Rendered 2026-09-03: five bank scenes chosen
-for their failure surfaces, each from the true baseline (stock attention, no
-LoRA) up through sage alone, sage plus Sol as shipped, sage fp16 plus Sol, and
-shipped PDD8, matched seed, trained canvas
-(`bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
-the timings). Blinded as session `ladder_2026-09-03`, every rung against its
-scene's dense baseline plus Sol against the fp16 rung. The singles were
-silent until 2026-09-04 (changelog 0.99.37); they carry audio now, and
-anything scored before then was scored deaf. What remains is the
-owner's part: the scoring app in that batch folder, then
-`bench/score_session.py`, free-text notes per pair. This is the first
-perceptual anchor taken from the true baseline, and everything numeric gets
-judged against it. One seed per arm, so it anchors; it does not decide.
+**Read the ladder verdict, then widen the seed count where it separated.**
+The owner scored every stacked pair of session `ladder_2026-09-03` on
+2026-09-04 (five bank scenes by five rungs, matched seed, trained canvas;
+`bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
+the timings). `bench/results/2026-09-04_ladder_2026-09-03_verdict.json`
+holds the tally per contest, the owner's note on each pair, and which arm
+sat in each slot, joined with the sealed key after the key's rows and labels
+were checked against the render record. Two reading rules the record cannot
+enforce: within a scene every contest shares one clip per rung, so the
+verdicts in a scene are one sample of each arm judged more than once, not
+independent votes; and no single was scored, so nothing audible was judged
+and the manifest's audio questions (the diner's speech against its sound
+bed, the opera's sung line) stand open. The direction the record gives: the
+PDD8 rung lost to the dense baseline on every scene, on a named defect each
+time, and the owner named it as PDD unprompted on two pairs; on the four
+scenes without fast motion, sage alone and Sol as shipped were called the
+same as dense or could not be told from it; on the subway chase every rung
+lost to dense, narrowly for sage and Sol in the owner's words; the fp16-sage
+rung went both ways. One seed anchors; it does not decide. Next: the same
+scenes at more seeds (the 2026-09-03 session postmortem's forward item 4),
+and PDD8 on its own ladder after the bake. The blind page for this session
+on the share was edited by hand after it was built (its pair questions
+export under `clip_rubric`); `bench/score_session.py` reads that key and
+records which it read. Regenerate a page rather than editing it.
 
 **The online Sol-versus-Sage instrument is validated; read it, then widen
 it.** `sol_block_probe.py` passed its fixture controls, reproduced the
@@ -35,16 +46,19 @@ sigmas, then Ref2VA, each its own population. Arm with `H3_SOL_PROBE` and
 `H3_SOL_OBSERVE` on a restart you own; timings from an armed server are
 void.
 
-**Pair the reference pathway clips blind.** All five arms of
+**Export the reference pathway scores, then join them.** All five arms of
 `bench/ref_pathway_arms.json` rendered once on 2026-09-03
 (`bench/results/2026-09-03_ref_pathway_arms.jsonl`): our reference
 conditioner and core's, each with and without the VAEs wired, plus fl2va
 under encoder-only stills. Blinded 2026-09-04 as session
-`ref_pathway_2026-09-03` with the manifest's four controlled contests; open
-experiment 26 in [`../open_experiments.md`](../open_experiments.md) says
-what would count as an answer. Timing is in the record; the perceptual
-verdict is the owner's: the scoring app in that batch folder, then
-`bench/score_session.py`.
+`ref_pathway_2026-09-03` with the manifest's four controlled contests. The
+owner scored the page that day, but no `scores_ref_pathway_2026-09-03.json`
+reached its batch folder on the share, so nothing has been joined and the
+key stays sealed. The page keeps its answers in the browser that scored it:
+reopen it there, press Export scores, put the file beside the batch's
+MANIFEST, then `bench/score_session.py` with the key. Open experiment 26 in
+[`../open_experiments.md`](../open_experiments.md) says what would count as
+an answer; timing is already in the record.
 
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root is the local output directory, not the share; pass

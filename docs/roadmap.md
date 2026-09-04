@@ -93,7 +93,9 @@ ladder per block, not alternatives.
    ranks blocks, it does not choose their tau.
 4. **Sage fp16 on the outer steps** as a plain render arm. Rendered in the
    2026-09-03 ladder as `solfp16`: slower than Sol as shipped on every
-   scene; whether it looks different is the blind session's question.
+   scene; whether it looks different was the blind session's question, and
+   at one seed it read both ways
+   (`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`).
 5. **Per-head routing** only if the shipped call shows a few heads carrying
    the error; that is kernel work, not a graph knob.
 6. **A compact multi-scene blind ladder with clean timing**, base and PDD
@@ -102,7 +104,11 @@ ladder per block, not alternatives.
    speech over music). This is where the numbers meet what the owner sees.
    First pass rendered and blinded 2026-09-03 (`bench/ladder_arms.json`,
    session `ladder_2026-09-03`), with PDD8 as a rung of the same ladder
-   rather than a ladder of its own; awaiting the owner's scoring.
+   rather than a ladder of its own. Scored by the owner on 2026-09-04,
+   pairs only, one seed
+   (`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`); the
+   direction and the two reading rules are in `wiki/next_steps.md`. A
+   second seed and the singles' audio half are owed before this step is met.
 
 **In parallel, not behind the above: the PDD bake.** It removes merge-time
 requantisation at no runtime cost and is the strongest practical PDD

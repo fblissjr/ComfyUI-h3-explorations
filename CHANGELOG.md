@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.38
+
+### Added
+
+- **The speedup ladder's verdict record**,
+  `bench/results/2026-09-04_ladder_2026-09-03_verdict.json`: the owner's
+  blind scoring of every stacked pair in session `ladder_2026-09-03`,
+  joined with the sealed key by `bench/score_session.py` with the batch
+  MANIFEST cross-checked, and the key's rows and labels verified against
+  the render record before the join. Pairs only: no single was scored, so
+  the record is marked partial and nothing audible was judged. The two
+  reading rules travel with it in `docs/wiki/next_steps.md` and a bounded
+  row in `docs/evidence.md`: one seed per arm, and every contest within a
+  scene shares one clip per rung.
+
+### Changed
+
+- **`bench/score_session.py` reads the pair questions from `clip_rubric`
+  when `pair_rubric` is absent** and writes which key it read into the
+  record (`pair_rubric_read_from`). The ladder's `score.html` on the share
+  was edited by hand after it was built, renaming that key in its data,
+  its item loop and its export; `bench/blind_score_app.py` never emitted
+  the name and still does not. Regenerate a page rather than editing it.
+
+### Not done
+
+- **The reference pathway session has no export.** The owner reports
+  scoring `ref_pathway_2026-09-03`; no scores file reached its batch
+  folder, so the key stays sealed and open experiment 26 waits on the
+  export.
+
 ## 0.99.37
 
 ### Fixed

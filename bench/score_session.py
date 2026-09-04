@@ -159,6 +159,15 @@ def main() -> int:
 
     rubric = scores.get("rubric") or []
     pair_rubric = scores.get("pair_rubric") or []
+    pair_rubric_key = "pair_rubric"
+    if not pair_rubric and scores.get("clip_rubric"):
+        # The ladder_2026-09-03 page on the share was hand-renamed on
+        # 2026-09-04 (`pair_rubric` -> `clip_rubric` in the page's data, item
+        # loop and export; bench/blind_score_app.py never emitted that name),
+        # so its export carries the pair questions under this key. The
+        # questions are the same objects; the record names which key it read.
+        pair_rubric = scores["clip_rubric"]
+        pair_rubric_key = "clip_rubric"
     if clip_key and not rubric:
         sys.exit("refuse: the scores file carries no rubric, so its clip answers cannot be read")
     if pair_key and not pair_rubric:
@@ -305,6 +314,7 @@ def main() -> int:
         "not_covered": missing,
         "rubric": rubric,
         "pair_rubric": pair_rubric,
+        "pair_rubric_read_from": pair_rubric_key,
         "pairs": {"n_total": len(pair_key),
                   "n_scored": sum(1 for r in by_pair if r["scored"]),
                   "contests": contests,

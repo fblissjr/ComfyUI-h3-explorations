@@ -1941,6 +1941,9 @@ is in the record; the perceptual half waits on the blind pairing.
 **Blinded 2026-09-04** as session `ref_pathway_2026-09-03`, the manifest's
 four controlled contests stacked, singles with audio, key sealed.
 
-**Blocker.** The owner's eyes: the scoring app in that batch folder, then
-`bench/score_session.py`. More seeds are a command line away once the
-first pairing says whether the effect is large or subtle.
+**Blocker.** The export. The owner scored the page on 2026-09-04, but no
+`scores_ref_pathway_2026-09-03.json` reached the batch folder, so
+`bench/score_session.py` has nothing to join and the key stays sealed. The
+page keeps its answers in the browser that scored it; exporting again from
+there is the whole step. More seeds are a command line away once the first
+pairing says whether the effect is large or subtle.

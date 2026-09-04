@@ -1,0 +1,1789 @@
+{
+ "measured": "2026-09-04",
+ "session": "ladder_2026-09-03",
+ "produced_by": "bench/score_session.py joining scores_ladder_2026-09-03.json with internal/blind_keys/ladder_2026-09-03.json",
+ "scored_at": "2026-09-04T21:35:04Z",
+ "jsonl": "bench/results/2026-09-03_ladder_arms_judged.jsonl",
+ "shuffle_seed": 20260903,
+ "partial": true,
+ "not_covered": [
+  "clip_01.mp4: not scored",
+  "clip_02.mp4: not scored",
+  "clip_03.mp4: not scored",
+  "clip_04.mp4: not scored",
+  "clip_05.mp4: not scored",
+  "clip_06.mp4: not scored",
+  "clip_07.mp4: not scored",
+  "clip_08.mp4: not scored",
+  "clip_09.mp4: not scored",
+  "clip_10.mp4: not scored",
+  "clip_11.mp4: not scored",
+  "clip_12.mp4: not scored",
+  "clip_13.mp4: not scored",
+  "clip_14.mp4: not scored",
+  "clip_15.mp4: not scored",
+  "clip_16.mp4: not scored",
+  "clip_17.mp4: not scored",
+  "clip_18.mp4: not scored",
+  "clip_19.mp4: not scored",
+  "clip_20.mp4: not scored",
+  "clip_21.mp4: not scored",
+  "clip_22.mp4: not scored",
+  "clip_23.mp4: not scored",
+  "clip_24.mp4: not scored",
+  "clip_25.mp4: not scored"
+ ],
+ "rubric": [
+  {
+   "id": "note",
+   "label": "What you notice",
+   "type": "text",
+   "primary": true,
+   "help": "Free text. Anything worth recording about this clip on its own; the comparison itself belongs on the pairs tab."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply. Nothing is required."
+  },
+  {
+   "id": "flag",
+   "label": "Reject outright",
+   "type": "flag",
+   "help": "Garbage, NaN-like noise, audio missing or desynced, hard cut artifacts. Leave off if none."
+  }
+ ],
+ "pair_rubric": [
+  {
+   "id": "differs",
+   "label": "What differs, and which way",
+   "type": "text",
+   "primary": true,
+   "help": "The field that matters. Plain sentences: what you notice between the two halves, and which way it goes."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "sides": true,
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply, per half. Nothing here is required."
+  },
+  {
+   "id": "verdict",
+   "label": "Verdict",
+   "type": "choice",
+   "options": [
+    "Clip 1 better",
+    "Clip 2 better",
+    "same",
+    "can't tell"
+   ],
+   "help": "Coarse on purpose. 'same' and \"can't tell\" are real answers and the tally counts them apart."
+  }
+ ],
+ "pair_rubric_read_from": "clip_rubric",
+ "pairs": {
+  "n_total": 25,
+  "n_scored": 25,
+  "contests": {
+   "standoff_dense vs standoff_sage": {
+    "arms": [
+     "standoff_dense",
+     "standoff_sage"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "standoff_dense": 0,
+     "standoff_sage": 0,
+     "can't tell": 1
+    },
+    "tags_by_arm": {
+     "standoff_dense": {
+      "good": 1,
+      "off": 1
+     },
+     "standoff_sage": {
+      "off": 1,
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_01.mp4",
+      "question": "differs",
+      "text": "almost the same but some oddities in both like a lamp in clip 1 outside on the right and no wagon in the background in clip 2",
+      "clip_1_arm": "standoff_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "standoff_sage",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "standoff_dense vs standoff_sol": {
+    "arms": [
+     "standoff_dense",
+     "standoff_sol"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "standoff_dense": 0,
+     "standoff_sol": 0,
+     "can't tell": 1
+    },
+    "tags_by_arm": {
+     "standoff_sol": {
+      "good": 1
+     },
+     "standoff_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_02.mp4",
+      "question": "differs",
+      "text": "signs look different. lamp in clip 2 outside. no wagon at end on clip 1",
+      "clip_1_arm": "standoff_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "standoff_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "standoff_dense vs standoff_solfp16": {
+    "arms": [
+     "standoff_dense",
+     "standoff_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "standoff_dense": 1,
+     "standoff_solfp16": 0
+    },
+    "tags_by_arm": {
+     "standoff_solfp16": {
+      "off": 1
+     },
+     "standoff_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_03.mp4",
+      "question": "differs",
+      "text": "door looks weird on clip 1, guy looks weird too",
+      "clip_1_arm": "standoff_solfp16",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "standoff_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "standoff_dense vs standoff_pdd8": {
+    "arms": [
+     "standoff_dense",
+     "standoff_pdd8"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "standoff_dense": 1,
+     "standoff_pdd8": 0
+    },
+    "tags_by_arm": {
+     "standoff_pdd8": {
+      "off": 1,
+      "can't tell": 1
+     },
+     "standoff_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_04.mp4",
+      "question": "differs",
+      "text": "totally different scenes - framing is better in clip 1. light in background on clip 1.",
+      "clip_1_arm": "standoff_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "standoff_pdd8",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "standoff_sol vs standoff_solfp16": {
+    "arms": [
+     "standoff_sol",
+     "standoff_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "standoff_sol": 1,
+     "standoff_solfp16": 0
+    },
+    "tags_by_arm": {
+     "standoff_solfp16": {
+      "off": 1
+     },
+     "standoff_sol": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_05.mp4",
+      "question": "differs",
+      "text": "clip 2 has a weird looking guy and door",
+      "clip_1_arm": "standoff_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "standoff_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "diner_dense vs diner_sage": {
+    "arms": [
+     "diner_dense",
+     "diner_sage"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "diner_dense": 0,
+     "diner_sage": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "diner_sage": {
+      "good": 1
+     },
+     "diner_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_06.mp4",
+      "question": "differs",
+      "text": "blue star diner logo spelled correctly in neon in clip 1 background. menu in clip 2 on background. both are good just different",
+      "clip_1_arm": "diner_sage",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "diner_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "diner_dense vs diner_sol": {
+    "arms": [
+     "diner_dense",
+     "diner_sol"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "diner_dense": 0,
+     "diner_sol": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "diner_sol": {
+      "good": 1
+     },
+     "diner_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_07.mp4",
+      "question": "differs",
+      "text": "logo of blue star diner in clip 1. menu in clip 2. both good just different",
+      "clip_1_arm": "diner_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "diner_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "diner_dense vs diner_solfp16": {
+    "arms": [
+     "diner_dense",
+     "diner_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "diner_dense": 0,
+     "diner_solfp16": 1
+    },
+    "tags_by_arm": {
+     "diner_dense": {
+      "good": 1
+     },
+     "diner_solfp16": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_08.mp4",
+      "question": "differs",
+      "text": "neon logo in background on clip 2 is reversed from the outside and looks good. great reflections from cars outside too. clip 1 is good but 2 is way better",
+      "clip_1_arm": "diner_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "diner_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "diner_dense vs diner_pdd8": {
+    "arms": [
+     "diner_dense",
+     "diner_pdd8"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "diner_dense": 1,
+     "diner_pdd8": 0
+    },
+    "tags_by_arm": {
+     "diner_pdd8": {
+      "off": 1
+     },
+     "diner_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_09.mp4",
+      "question": "differs",
+      "text": "menu looks weird in clip 1 - text artifacts and just repeating menu on the wall - looks like a super compressed pdd or not great parameters with sol attn",
+      "clip_1_arm": "diner_pdd8",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "diner_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "diner_sol vs diner_solfp16": {
+    "arms": [
+     "diner_sol",
+     "diner_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "diner_sol": 0,
+     "diner_solfp16": 1
+    },
+    "tags_by_arm": {
+     "diner_solfp16": {
+      "good": 1
+     },
+     "diner_sol": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_10.mp4",
+      "question": "differs",
+      "text": "both good clips just different, but clip 2 seems slightly better",
+      "clip_1_arm": "diner_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "diner_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "opera_dense vs opera_sage": {
+    "arms": [
+     "opera_dense",
+     "opera_sage"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "opera_dense": 0,
+     "opera_sage": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "opera_dense": {
+      "good": 1
+     },
+     "opera_sage": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_11.mp4",
+      "question": "differs",
+      "text": "seem the same in quality but just slightly different",
+      "clip_1_arm": "opera_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "opera_sage",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "opera_dense vs opera_sol": {
+    "arms": [
+     "opera_dense",
+     "opera_sol"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "opera_dense": 0,
+     "opera_sol": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "opera_dense": {
+      "good": 1
+     },
+     "opera_sol": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_12.mp4",
+      "question": "differs",
+      "text": "seem the same in quality but just slightly different",
+      "clip_1_arm": "opera_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "opera_sol",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "opera_dense vs opera_solfp16": {
+    "arms": [
+     "opera_dense",
+     "opera_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "opera_dense": 0,
+     "opera_solfp16": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "opera_dense": {
+      "good": 1
+     },
+     "opera_solfp16": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_13.mp4",
+      "question": "differs",
+      "text": "seem the same in quality but just slightly different",
+      "clip_1_arm": "opera_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "opera_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "opera_dense vs opera_pdd8": {
+    "arms": [
+     "opera_dense",
+     "opera_pdd8"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "opera_dense": 1,
+     "opera_pdd8": 0
+    },
+    "tags_by_arm": {
+     "opera_pdd8": {
+      "off": 1
+     },
+     "opera_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_14.mp4",
+      "question": "differs",
+      "text": "camerawork and framing seems off in clip 2 - it zooms in on her shakily",
+      "clip_1_arm": "opera_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "opera_pdd8",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "opera_sol vs opera_solfp16": {
+    "arms": [
+     "opera_sol",
+     "opera_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "opera_sol": 0,
+     "opera_solfp16": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "opera_sol": {
+      "good": 1
+     },
+     "opera_solfp16": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_15.mp4",
+      "question": "differs",
+      "text": "seem the same in quality but just slightly different",
+      "clip_1_arm": "opera_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "opera_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "stairwell_dense vs stairwell_sage": {
+    "arms": [
+     "stairwell_dense",
+     "stairwell_sage"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "stairwell_dense": 0,
+     "stairwell_sage": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "stairwell_dense": {
+      "good": 1
+     },
+     "stairwell_sage": {
+      "good": 1
+     }
+    },
+    "notes": []
+   },
+   "stairwell_dense vs stairwell_sol": {
+    "arms": [
+     "stairwell_dense",
+     "stairwell_sol"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "stairwell_dense": 0,
+     "stairwell_sol": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "stairwell_dense": {
+      "good": 1
+     },
+     "stairwell_sol": {
+      "good": 1
+     }
+    },
+    "notes": []
+   },
+   "stairwell_dense vs stairwell_solfp16": {
+    "arms": [
+     "stairwell_dense",
+     "stairwell_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "stairwell_dense": 0,
+     "stairwell_solfp16": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "stairwell_solfp16": {
+      "good": 1
+     },
+     "stairwell_dense": {
+      "good": 1
+     }
+    },
+    "notes": []
+   },
+   "stairwell_dense vs stairwell_pdd8": {
+    "arms": [
+     "stairwell_dense",
+     "stairwell_pdd8"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "stairwell_dense": 1,
+     "stairwell_pdd8": 0
+    },
+    "tags_by_arm": {
+     "stairwell_dense": {
+      "good": 1
+     },
+     "stairwell_pdd8": {
+      "good": 1,
+      "off": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_19.mp4",
+      "question": "differs",
+      "text": "much brighter in clip 2. less natural skin texture. my guess is clip 2 is a pdd with sol params. clip 2 isnt bad but compared to 1, 1 is way better",
+      "clip_1_arm": "stairwell_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "stairwell_pdd8",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "stairwell_sol vs stairwell_solfp16": {
+    "arms": [
+     "stairwell_sol",
+     "stairwell_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "stairwell_sol": 0,
+     "stairwell_solfp16": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "stairwell_solfp16": {
+      "good": 1
+     },
+     "stairwell_sol": {
+      "good": 1
+     }
+    },
+    "notes": []
+   },
+   "subway_dense vs subway_sage": {
+    "arms": [
+     "subway_dense",
+     "subway_sage"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "subway_dense": 1,
+     "subway_sage": 0
+    },
+    "tags_by_arm": {
+     "subway_dense": {
+      "good": 1
+     },
+     "subway_sage": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_21.mp4",
+      "question": "differs",
+      "text": "turnstiles spinning like crazy in clip 2, but otherwise both pretty good given all the motion. clip 1 barely wins",
+      "clip_1_arm": "subway_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "subway_sage",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "subway_dense vs subway_sol": {
+    "arms": [
+     "subway_dense",
+     "subway_sol"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "subway_dense": 1,
+     "subway_sol": 0
+    },
+    "tags_by_arm": {
+     "subway_sol": {
+      "good": 1
+     },
+     "subway_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_22.mp4",
+      "question": "differs",
+      "text": "turnstiles spinning a bit on clip 1 at start, text is better in clip 2, both good tho",
+      "clip_1_arm": "subway_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "subway_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "subway_dense vs subway_solfp16": {
+    "arms": [
+     "subway_dense",
+     "subway_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "subway_dense": 1,
+     "subway_solfp16": 0
+    },
+    "tags_by_arm": {
+     "subway_dense": {
+      "good": 1
+     },
+     "subway_solfp16": {
+      "good": 1,
+      "off": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_23.mp4",
+      "question": "differs",
+      "text": "guy runs around turnstiles in clip 1 and background is just odd a bit in clip 1, but still good. just clip 2 better",
+      "clip_1_arm": "subway_solfp16",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "subway_dense",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "subway_dense vs subway_pdd8": {
+    "arms": [
+     "subway_dense",
+     "subway_pdd8"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "subway_dense": 1,
+     "subway_pdd8": 0
+    },
+    "tags_by_arm": {
+     "subway_pdd8": {
+      "off": 1,
+      "not good": 1
+     },
+     "subway_dense": {
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_24.mp4",
+      "question": "differs",
+      "text": "clip 2 is super artifacty and text all messed up and melting in places - just not good",
+      "clip_1_arm": "subway_dense",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "subway_pdd8",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "subway_sol vs subway_solfp16": {
+    "arms": [
+     "subway_sol",
+     "subway_solfp16"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "subway_sol": 1,
+     "subway_solfp16": 0
+    },
+    "tags_by_arm": {
+     "subway_sol": {
+      "good": 1
+     },
+     "subway_solfp16": {
+      "off": 1,
+      "good": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_25.mp4",
+      "question": "differs",
+      "text": "clip 2 is off in the background but still good",
+      "clip_1_arm": "subway_sol",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "subway_solfp16",
+      "clip_2_seed": 730451892
+     }
+    ]
+   }
+  },
+  "by_pair": [
+   {
+    "pair": "pair_01.mp4",
+    "contest": "standoff_dense vs standoff_sage",
+    "scored": true,
+    "clip_1": {
+     "label": "standoff_dense",
+     "row": 0,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "standoff_sage",
+     "row": 1,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "almost the same but some oddities in both like a lamp in clip 1 outside on the right and no wagon in the background in clip 2"
+    },
+    "tags": {
+     "standoff_dense": [
+      "good",
+      "off"
+     ],
+     "standoff_sage": [
+      "off",
+      "good"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_02.mp4",
+    "contest": "standoff_dense vs standoff_sol",
+    "scored": true,
+    "clip_1": {
+     "label": "standoff_sol",
+     "row": 2,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "standoff_dense",
+     "row": 0,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "signs look different. lamp in clip 2 outside. no wagon at end on clip 1"
+    },
+    "tags": {
+     "standoff_sol": [
+      "good"
+     ],
+     "standoff_dense": [
+      "good"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_03.mp4",
+    "contest": "standoff_dense vs standoff_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "standoff_solfp16",
+     "row": 3,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "standoff_dense",
+     "row": 0,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "door looks weird on clip 1, guy looks weird too"
+    },
+    "tags": {
+     "standoff_solfp16": [
+      "off"
+     ],
+     "standoff_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "standoff_dense"
+   },
+   {
+    "pair": "pair_04.mp4",
+    "contest": "standoff_dense vs standoff_pdd8",
+    "scored": true,
+    "clip_1": {
+     "label": "standoff_dense",
+     "row": 0,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "standoff_pdd8",
+     "row": 4,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "totally different scenes - framing is better in clip 1. light in background on clip 1."
+    },
+    "tags": {
+     "standoff_pdd8": [
+      "off",
+      "can't tell"
+     ],
+     "standoff_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "standoff_dense"
+   },
+   {
+    "pair": "pair_05.mp4",
+    "contest": "standoff_sol vs standoff_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "standoff_sol",
+     "row": 2,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "standoff_solfp16",
+     "row": 3,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "clip 2 has a weird looking guy and door"
+    },
+    "tags": {
+     "standoff_solfp16": [
+      "off"
+     ],
+     "standoff_sol": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "standoff_sol"
+   },
+   {
+    "pair": "pair_06.mp4",
+    "contest": "diner_dense vs diner_sage",
+    "scored": true,
+    "clip_1": {
+     "label": "diner_sage",
+     "row": 6,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "diner_dense",
+     "row": 5,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "blue star diner logo spelled correctly in neon in clip 1 background. menu in clip 2 on background. both are good just different"
+    },
+    "tags": {
+     "diner_sage": [
+      "good"
+     ],
+     "diner_dense": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_07.mp4",
+    "contest": "diner_dense vs diner_sol",
+    "scored": true,
+    "clip_1": {
+     "label": "diner_sol",
+     "row": 7,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "diner_dense",
+     "row": 5,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "logo of blue star diner in clip 1. menu in clip 2. both good just different"
+    },
+    "tags": {
+     "diner_sol": [
+      "good"
+     ],
+     "diner_dense": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_08.mp4",
+    "contest": "diner_dense vs diner_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "diner_dense",
+     "row": 5,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "diner_solfp16",
+     "row": 8,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "neon logo in background on clip 2 is reversed from the outside and looks good. great reflections from cars outside too. clip 1 is good but 2 is way better"
+    },
+    "tags": {
+     "diner_dense": [
+      "good"
+     ],
+     "diner_solfp16": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "diner_solfp16"
+   },
+   {
+    "pair": "pair_09.mp4",
+    "contest": "diner_dense vs diner_pdd8",
+    "scored": true,
+    "clip_1": {
+     "label": "diner_pdd8",
+     "row": 9,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "diner_dense",
+     "row": 5,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "menu looks weird in clip 1 - text artifacts and just repeating menu on the wall - looks like a super compressed pdd or not great parameters with sol attn"
+    },
+    "tags": {
+     "diner_pdd8": [
+      "off"
+     ],
+     "diner_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "diner_dense"
+   },
+   {
+    "pair": "pair_10.mp4",
+    "contest": "diner_sol vs diner_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "diner_sol",
+     "row": 7,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "diner_solfp16",
+     "row": 8,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "both good clips just different, but clip 2 seems slightly better"
+    },
+    "tags": {
+     "diner_solfp16": [
+      "good"
+     ],
+     "diner_sol": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "diner_solfp16"
+   },
+   {
+    "pair": "pair_11.mp4",
+    "contest": "opera_dense vs opera_sage",
+    "scored": true,
+    "clip_1": {
+     "label": "opera_dense",
+     "row": 10,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "opera_sage",
+     "row": 11,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "seem the same in quality but just slightly different"
+    },
+    "tags": {
+     "opera_dense": [
+      "good"
+     ],
+     "opera_sage": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_12.mp4",
+    "contest": "opera_dense vs opera_sol",
+    "scored": true,
+    "clip_1": {
+     "label": "opera_dense",
+     "row": 10,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "opera_sol",
+     "row": 12,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "seem the same in quality but just slightly different"
+    },
+    "tags": {
+     "opera_dense": [
+      "good"
+     ],
+     "opera_sol": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_13.mp4",
+    "contest": "opera_dense vs opera_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "opera_dense",
+     "row": 10,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "opera_solfp16",
+     "row": 13,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "seem the same in quality but just slightly different"
+    },
+    "tags": {
+     "opera_dense": [
+      "good"
+     ],
+     "opera_solfp16": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_14.mp4",
+    "contest": "opera_dense vs opera_pdd8",
+    "scored": true,
+    "clip_1": {
+     "label": "opera_dense",
+     "row": 10,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "opera_pdd8",
+     "row": 14,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "camerawork and framing seems off in clip 2 - it zooms in on her shakily"
+    },
+    "tags": {
+     "opera_pdd8": [
+      "off"
+     ],
+     "opera_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "opera_dense"
+   },
+   {
+    "pair": "pair_15.mp4",
+    "contest": "opera_sol vs opera_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "opera_sol",
+     "row": 12,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "opera_solfp16",
+     "row": 13,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "seem the same in quality but just slightly different"
+    },
+    "tags": {
+     "opera_sol": [
+      "good"
+     ],
+     "opera_solfp16": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_16.mp4",
+    "contest": "stairwell_dense vs stairwell_sage",
+    "scored": true,
+    "clip_1": {
+     "label": "stairwell_dense",
+     "row": 15,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "stairwell_sage",
+     "row": 16,
+     "seed": 730451892
+    },
+    "tags": {
+     "stairwell_dense": [
+      "good"
+     ],
+     "stairwell_sage": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_17.mp4",
+    "contest": "stairwell_dense vs stairwell_sol",
+    "scored": true,
+    "clip_1": {
+     "label": "stairwell_dense",
+     "row": 15,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "stairwell_sol",
+     "row": 17,
+     "seed": 730451892
+    },
+    "tags": {
+     "stairwell_dense": [
+      "good"
+     ],
+     "stairwell_sol": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_18.mp4",
+    "contest": "stairwell_dense vs stairwell_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "stairwell_solfp16",
+     "row": 18,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "stairwell_dense",
+     "row": 15,
+     "seed": 730451892
+    },
+    "tags": {
+     "stairwell_solfp16": [
+      "good"
+     ],
+     "stairwell_dense": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_19.mp4",
+    "contest": "stairwell_dense vs stairwell_pdd8",
+    "scored": true,
+    "clip_1": {
+     "label": "stairwell_dense",
+     "row": 15,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "stairwell_pdd8",
+     "row": 19,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "much brighter in clip 2. less natural skin texture. my guess is clip 2 is a pdd with sol params. clip 2 isnt bad but compared to 1, 1 is way better"
+    },
+    "tags": {
+     "stairwell_dense": [
+      "good"
+     ],
+     "stairwell_pdd8": [
+      "good",
+      "off"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "stairwell_dense"
+   },
+   {
+    "pair": "pair_20.mp4",
+    "contest": "stairwell_sol vs stairwell_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "stairwell_solfp16",
+     "row": 18,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "stairwell_sol",
+     "row": 17,
+     "seed": 730451892
+    },
+    "tags": {
+     "stairwell_solfp16": [
+      "good"
+     ],
+     "stairwell_sol": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_21.mp4",
+    "contest": "subway_dense vs subway_sage",
+    "scored": true,
+    "clip_1": {
+     "label": "subway_dense",
+     "row": 20,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "subway_sage",
+     "row": 21,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "turnstiles spinning like crazy in clip 2, but otherwise both pretty good given all the motion. clip 1 barely wins"
+    },
+    "tags": {
+     "subway_dense": [
+      "good"
+     ],
+     "subway_sage": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "subway_dense"
+   },
+   {
+    "pair": "pair_22.mp4",
+    "contest": "subway_dense vs subway_sol",
+    "scored": true,
+    "clip_1": {
+     "label": "subway_sol",
+     "row": 22,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "subway_dense",
+     "row": 20,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "turnstiles spinning a bit on clip 1 at start, text is better in clip 2, both good tho"
+    },
+    "tags": {
+     "subway_sol": [
+      "good"
+     ],
+     "subway_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "subway_dense"
+   },
+   {
+    "pair": "pair_23.mp4",
+    "contest": "subway_dense vs subway_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "subway_solfp16",
+     "row": 23,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "subway_dense",
+     "row": 20,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "guy runs around turnstiles in clip 1 and background is just odd a bit in clip 1, but still good. just clip 2 better"
+    },
+    "tags": {
+     "subway_dense": [
+      "good"
+     ],
+     "subway_solfp16": [
+      "good",
+      "off"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "subway_dense"
+   },
+   {
+    "pair": "pair_24.mp4",
+    "contest": "subway_dense vs subway_pdd8",
+    "scored": true,
+    "clip_1": {
+     "label": "subway_dense",
+     "row": 20,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "subway_pdd8",
+     "row": 24,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "clip 2 is super artifacty and text all messed up and melting in places - just not good"
+    },
+    "tags": {
+     "subway_pdd8": [
+      "off",
+      "not good"
+     ],
+     "subway_dense": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "subway_dense"
+   },
+   {
+    "pair": "pair_25.mp4",
+    "contest": "subway_sol vs subway_solfp16",
+    "scored": true,
+    "clip_1": {
+     "label": "subway_sol",
+     "row": 22,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "subway_solfp16",
+     "row": 23,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "clip 2 is off in the background but still good"
+    },
+    "tags": {
+     "subway_sol": [
+      "good"
+     ],
+     "subway_solfp16": [
+      "off",
+      "good"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "subway_sol"
+   }
+  ]
+ },
+ "clips": {
+  "n_total": 25,
+  "n_scored": 0,
+  "arms": {},
+  "by_clip": [
+   {
+    "clip": "clip_01.mp4",
+    "row": 19,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_pdd_api.json",
+    "arm": "stairwell_pdd8",
+    "scored": false
+   },
+   {
+    "clip": "clip_02.mp4",
+    "row": 22,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "subway_sol",
+    "scored": false
+   },
+   {
+    "clip": "clip_03.mp4",
+    "row": 17,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "stairwell_sol",
+    "scored": false
+   },
+   {
+    "clip": "clip_04.mp4",
+    "row": 5,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "arm": "diner_dense",
+    "scored": false
+   },
+   {
+    "clip": "clip_05.mp4",
+    "row": 12,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "opera_sol",
+    "scored": false
+   },
+   {
+    "clip": "clip_06.mp4",
+    "row": 16,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "arm": "stairwell_sage",
+    "scored": false
+   },
+   {
+    "clip": "clip_07.mp4",
+    "row": 0,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "arm": "standoff_dense",
+    "scored": false
+   },
+   {
+    "clip": "clip_08.mp4",
+    "row": 6,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "arm": "diner_sage",
+    "scored": false
+   },
+   {
+    "clip": "clip_09.mp4",
+    "row": 9,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_pdd_api.json",
+    "arm": "diner_pdd8",
+    "scored": false
+   },
+   {
+    "clip": "clip_10.mp4",
+    "row": 3,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "standoff_solfp16",
+    "scored": false
+   },
+   {
+    "clip": "clip_11.mp4",
+    "row": 1,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "arm": "standoff_sage",
+    "scored": false
+   },
+   {
+    "clip": "clip_12.mp4",
+    "row": 13,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "opera_solfp16",
+    "scored": false
+   },
+   {
+    "clip": "clip_13.mp4",
+    "row": 18,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "stairwell_solfp16",
+    "scored": false
+   },
+   {
+    "clip": "clip_14.mp4",
+    "row": 23,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "subway_solfp16",
+    "scored": false
+   },
+   {
+    "clip": "clip_15.mp4",
+    "row": 2,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "standoff_sol",
+    "scored": false
+   },
+   {
+    "clip": "clip_16.mp4",
+    "row": 10,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "arm": "opera_dense",
+    "scored": false
+   },
+   {
+    "clip": "clip_17.mp4",
+    "row": 24,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_pdd_api.json",
+    "arm": "subway_pdd8",
+    "scored": false
+   },
+   {
+    "clip": "clip_18.mp4",
+    "row": 21,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "arm": "subway_sage",
+    "scored": false
+   },
+   {
+    "clip": "clip_19.mp4",
+    "row": 11,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+    "arm": "opera_sage",
+    "scored": false
+   },
+   {
+    "clip": "clip_20.mp4",
+    "row": 15,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "arm": "stairwell_dense",
+    "scored": false
+   },
+   {
+    "clip": "clip_21.mp4",
+    "row": 7,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "diner_sol",
+    "scored": false
+   },
+   {
+    "clip": "clip_22.mp4",
+    "row": 20,
+    "seed": 730451892,
+    "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+    "arm": "subway_dense",
+    "scored": false
+   },
+   {
+    "clip": "clip_23.mp4",
+    "row": 4,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_pdd_api.json",
+    "arm": "standoff_pdd8",
+    "scored": false
+   },
+   {
+    "clip": "clip_24.mp4",
+    "row": 8,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_api.json",
+    "arm": "diner_solfp16",
+    "scored": false
+   },
+   {
+    "clip": "clip_25.mp4",
+    "row": 14,
+    "seed": 730451892,
+    "graph": "workflows/h3_text_to_video_pdd_api.json",
+    "arm": "opera_pdd8",
+    "scored": false
+   }
+  ]
+ }
+}
