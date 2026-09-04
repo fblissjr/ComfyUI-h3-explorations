@@ -36,6 +36,14 @@ artifact.
   `bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json` records
   that the two encoder-only arms the owner called the same are different
   renders.
+- **`bench/build_outputs_record.py`**: the arm-to-clip join from the
+  rendering server's `/history`, in the shape of
+  `bench/results/2026-09-03_ladder_outputs.json` (which was built by hand),
+  so `bench/measure_clip_loudness.py` and a blind batch have it before the
+  server that rendered the rows goes down. Refuses a row the server does
+  not know or one without exactly one muxed clip. Its refusal path ran
+  first; the join path runs on the PDD ladder's server tonight before it
+  counts.
 - **`bench/compare_sol_probe_records.py`** (written by a peer session at
   this session's request): two `check_sol_probe.py --json` records side by
   side, per block, per segment and per step, with the Spearman of the block
