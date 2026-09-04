@@ -390,7 +390,7 @@ owns both spellings; regenerate.
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
 | `min_tokens` | 12288 | Shorter sequences fall through to whatever override is already installed — on every graph here that is **sage**, not dense torch, so this gate chooses Sol against a kernel about 2.7x ahead of torch flash rather than against a naive one. `SOL_RECOMMENDED_CUDA` **adopted 12288 on 2026-08-27**, having pinned 4096 since the CUDA migration; `SOL_CUDA_DEFAULTS` already recorded that upstream puts the crossover near 12k and that 4096 "engages Sol-Attn in the regime where it costs time", and the sage baseline only moves that crossover up. **Neither value has been measured here, and the change alters nothing this repo renders** — DiT calls are 31k-128k tokens, token-refiner calls ~311 rows, so both select identically. It closes one reachable gap: at ~22 frames, S ~ 7,194, 4096 ran Sol at a length nothing has shown it wins. **Corrected 2026-08-27:** this row previously argued both values were no-ops from S = 7,194 being "already above 4096" — 7,194 is below 12288, so they disagreed there, and the no-op claim needs the length qualifier. |
-| `sink_conditioning` | `exact_kv_and_rows` | Keeps the target audio's queries exact. **NOT the dominant knob at reference load** — that was v1 arithmetic; under the v2 node the swing is ~0.5 points, not 23. See the reference section. |
+| `sink_conditioning` | `exact_kv_and_rows` | Keeps the target audio's queries exact. **NOT the dominant knob at reference load** — that was v1 arithmetic; under the v2 node the swing is ~0.5 points, not 23. See the reference section. **`exact_kv_and_all_rows` added 2026-09-04**, not the default and no graph ships it: every conditioning query row dense, references included. The kernel takes one dense-query range, so "text and audio dense, references sparse" is not expressible when reference rows sit between them; this is the range that covers both. On t2v the extra cost over the default is the text rows alone; on ref2v with a video reference it is the reference's rows, priced by the recomputed sink-share table. The modes are `sol_attn_h3.py::SINK_CONDITIONING_MODES`; `_sink_blocks` refuses any other string. Chosen by a patch at render time; the first probe run with it on is how it earns or loses its place (`docs/roadmap.md`, forward plan 2026-09-04, step 3). |
 | `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Neutral for dense attention **in exact arithmetic** -- not bit-identical, measured. **Under Sol it is not a free toggle: block membership feeds `kcvar`, so turning it on moves the routing threshold and the routed density at a fixed `tau`.** Direction not derivable, unmeasured. `Canonical: docs/morton.md` |
 | `morton_curve` | `2d_frame` | Node default. Z-order within each frame, leaving frame order alone. **`SOL_RECOMMENDED_CUDA` pins `3d` since 2026-08-16**, on a centroid-fidelity measurement; changes nothing while `morton=False`. `Canonical: docs/morton.md` |
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
@@ -1574,6 +1574,17 @@ and target audio segments. So the sink holds:
 `exact_kv_and_rows` treats both identically. Target audio is a single contiguous
 segment immediately before video, so `sink_q = [audio_start // BLOCK,
 video_start // BLOCK]` runs only the audio queries dense.
+
+**Since 2026-09-04 there is a fourth mode, `exact_kv_and_all_rows`, that runs
+every conditioning query row dense: `sink_q = sink_blocks`, which is also the
+range `exact_kv_and_rows` falls back to when no audio span was published.**
+It exists because the standoff probe record
+(`bench/results/2026-09-03_sol_probe_base16_standoff.json`) has the text
+segment disagreeing most in every block and audio least, and audio is least
+precisely because its query rows already run dense. The kernel's `sink_q` is
+one range, so text cannot be made dense without the rows between text and
+audio, which on ref2v are the references. Per mode, the derived pair is
+graded on CPU by `bench/check_sol_node_equivalence.py`.
 
 **This was written as a proposal, and it SHIPPED. Corrected 2026-08-16, having
 been stale since 2026-08-14.** The paragraph used to end "the node hardcodes

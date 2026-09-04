@@ -125,6 +125,10 @@ except Exception as exc:  # pragma: no cover - optional dependency
 
 HEAD_DIM = 128
 BLOCK_SIZE = 64
+# The `sink_conditioning` modes, in the order the node's combo lists them.
+# `_sink_blocks` refuses anything else, so a patched setting that misspells
+# one fails at the first attention call instead of silently running exact_kv.
+SINK_CONDITIONING_MODES = ("exact_kv", "exact_kv_and_rows", "exact_kv_and_all_rows", "off")
 
 _stats = {"sparse": 0, "dense_fallback": 0, "outside_range": 0,
           "dense_block": 0, "errors": 0}
@@ -661,9 +665,34 @@ def _sink_blocks(transformer_options, tokens, mode):
     """(exact-KV blocks, dense-query blocks) for MiniMax-H3's conditioning rows.
 
     H3 packs [text][cond][ref][audio][video] into one sequence; sparsifying the
-    conditioning rows costs sync and prompt adherence. exact_kv measures ~3%,
-    exact_kv_and_rows ~17%, so exact-KV is the default and rows are opt-in.
+    conditioning rows costs sync and prompt adherence. The exact-KV side covers
+    every conditioning row in every mode but `off`. The dense-query side is
+    ONE contiguous block range, because that is what the kernel's `sink_q`
+    takes, so the modes differ only in where that range starts:
+
+      exact_kv               no dense query rows
+      exact_kv_and_rows      the TARGET AUDIO rows to the end of conditioning,
+                             which on the packed layout is audio alone;
+                             references before it stay sparse. The shipped
+                             default (`h3_config.SOL_CUDA_DEFAULTS`)
+      exact_kv_and_all_rows  every conditioning query row, references included.
+                             "Text and audio dense, references sparse" is not
+                             expressible in one range when references sit
+                             between them, and this is the range that covers
+                             both. On t2v there are no reference rows and the
+                             two ranges differ by the text rows alone; on a
+                             ref2v graph with a video reference the difference
+                             is the reference's rows, which can be most of the
+                             conditioning. Priced in docs/SOLATTN.md, the
+                             recomputed sink-share table
+
+    `exact_kv_and_rows` falls back to the all-rows range when the layout did
+    not publish an audio span, which is a guard against an upstream layout
+    change, not dead code (docs/SOLATTN.md, the sink section). Pure: no
+    tensor, no kernel, graded on CPU by bench/check_sol_node_equivalence.py.
     """
+    if mode not in SINK_CONDITIONING_MODES:
+        raise ValueError(f"sink_conditioning {mode!r} is not one of {SINK_CONDITIONING_MODES}")
     if mode == "off":
         return (0, 0), (0, 0)
     span = (transformer_options or {}).get("sol_h3_video_span")
@@ -673,11 +702,13 @@ def _sink_blocks(transformer_options, tokens, mode):
     if tokens < video_stop or video_start <= 0:
         return (0, 0), (0, 0)
     blocks = (0, (video_start + BLOCK_SIZE - 1) // BLOCK_SIZE)
-    if mode != "exact_kv_and_rows":
+    if mode == "exact_kv":
         return blocks, (0, 0)
-    # Dense-query protection exists for the TARGET AUDIO rows; reference rows
-    # only need the exact-KV side. Fall back to the whole conditioning range
-    # when the layout did not publish an audio span.
+    if mode == "exact_kv_and_all_rows":
+        return blocks, blocks
+    # exact_kv_and_rows: dense-query protection exists for the TARGET AUDIO
+    # rows; reference rows only need the exact-KV side. Fall back to the whole
+    # conditioning range when the layout did not publish an audio span.
     audio = (transformer_options or {}).get("sol_h3_audio_span")
     if audio is None:
         return blocks, blocks
@@ -1140,7 +1171,7 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                      "if you deliberately want the refiner blocks "
                                      "routed too."),
                 io.Combo.Input("sink_conditioning",
-                               options=["exact_kv", "exact_kv_and_rows", "off"],
+                               options=list(SINK_CONDITIONING_MODES),
                                default="exact_kv_and_rows",
                                tooltip="exact_kv: every query sees the packed "
                                        "text/audio/reference rows exactly (~3% cost). "
@@ -1148,7 +1179,18 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                        "AUDIO query rows dense, which is what keeps "
                                        "generated audio intact; reference rows stay "
                                        "sparse, so the cost no longer scales with "
-                                       "reference size."),
+                                       "reference size.\n\n"
+                                       "exact_kv_and_all_rows: every conditioning query "
+                                       "row dense, references included. The kernel takes "
+                                       "one dense-query range, so this is the only way to "
+                                       "run the TEXT rows dense as well as the audio rows. "
+                                       "On t2v there are no reference rows and the extra "
+                                       "cost over exact_kv_and_rows is the text rows alone, "
+                                       "a few hundred in a sequence of tens of thousands; "
+                                       "on ref2v with a video reference the extra cost is "
+                                       "the reference's rows, which can be tens of "
+                                       "thousands. Not the default; chosen by a patch at "
+                                       "render time."),
                 io.Boolean.Input("pooled_tail", default=True,
                                  tooltip="The kernel's `tail`. ON, every unselected "
                                          "block still contributes one pooled term, so "
