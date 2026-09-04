@@ -38,9 +38,17 @@ to find the file, in order:
    clip predates the JSONL's first row (the counter continues from earlier
    renders and the order would be wrong) or if the mtime check fails.
 
-Only `<prefix>_NNNNN.mp4` is taken (a history entry naming `-audio.mp4` is mapped
-to that silent sibling); the share also holds `-audio.mp4` and
-`.png` siblings per render, and a wrong sibling would blind the wrong file.
+A row is located by its silent `<prefix>_NNNNN.mp4` (a history entry naming
+`-audio.mp4` is mapped to that name); the share also holds a `.png` sibling
+per render, and a wrong sibling would blind the wrong file. What is copied
+depends on what the clip is for: a **single** is copied from the muxed
+`-audio.mp4` sibling when the combine node wrote one (`single_source`), a
+**stack** is built from the silent file. The first ladder batch
+(`ladder_2026-09-03`) copied the silent file for its singles too, and the
+judge could not hear the rungs apart; `bench/blind_batch_add_audio.py`
+repaired that batch in place. Since then a single with no audio stream
+refuses the batch before anything is written, unless `--silent-ok` says the
+graph saves none.
 
 ## Refusals, each a row that must not be judged
 
@@ -92,6 +100,7 @@ import json
 import os
 import random
 import shutil
+import subprocess
 import sys
 import time
 import urllib.request
@@ -127,9 +136,10 @@ def history_outputs(host: str, prompt_id: str):
                 if not fn.endswith(".mp4"):
                     continue
                 # A combine node that muxes audio records ONLY `X-audio.mp4`
-                # in history while writing the silent `X.mp4` beside it; the
-                # silent one is what the stacker takes, so name that and let
-                # the caller's existence check decide. Before 2026-09-03 the
+                # in history while writing the silent `X.mp4` beside it. The
+                # silent name is the row's handle (the stacker takes it, the
+                # mtime fallback globs it); `single_source` finds the muxed
+                # sibling again when a single is copied. Before 2026-09-03 the
                 # audio entry was skipped outright, and a graph that saves the
                 # muxed file alone fell through to the mtime fallback.
                 if fn.endswith("-audio.mp4"):
@@ -138,6 +148,26 @@ def history_outputs(host: str, prompt_id: str):
                 if path not in out:
                     out.append(path)
     return out or None
+
+
+def has_audio_stream(path: Path) -> bool:
+    """True when ffprobe reports an audio stream in the file."""
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type",
+                          "-of", "csv=p=0", str(path)], capture_output=True, text=True).stdout
+    return "audio" in out.split()
+
+
+def single_source(silent: Path) -> Path:
+    """The file a single is copied from.
+
+    Singles exist for the audio half of the brief (the stacker maps video
+    only), so a single takes the muxed `X-audio.mp4` the combine node wrote
+    beside the silent `X.mp4`, and falls back to the silent file for a graph
+    that saved no audio. Until 2026-09-04 the silent file was copied in every
+    case and the ladder's judge heard nothing.
+    """
+    muxed = silent.with_name(silent.stem + "-audio.mp4")
+    return muxed if muxed.is_file() else silent
 
 
 def prefix_of(graph_path: Path, label: str) -> str | None:
@@ -160,6 +190,9 @@ def main() -> int:
     ap.add_argument("--pairs", action="append", default=None, metavar="A,B",
                     help="also emit blinded stacked pairs of these two arm labels, matched by "
                          "run index; repeat for a session with more than two arms")
+    ap.add_argument("--silent-ok", action="store_true",
+                    help="build the batch even though a single would carry no audio stream; "
+                         "without it that is a refusal, because the singles are where a judge hears")
     ap.add_argument("--brief-file", default=None,
                     help="text file holding the brief every clip was asked to render; "
                          "shown at the top of the scoring page")
@@ -251,6 +284,15 @@ def main() -> int:
     missing = [i for i, _ in rows_idx if i not in located or not located[i].is_file()]
     if missing:
         sys.exit(f"refuse: clips not found for rows {missing}")
+    # Every single must carry audio before anything is written. The singles
+    # are the only clips a judge hears (stacks map video only); the first
+    # ladder batch (2026-09-03) copied the silent file for each and was
+    # scored deaf. A graph that saves no audio at all says so with --silent-ok.
+    deaf = [i for i, p in located.items() if not has_audio_stream(single_source(p))]
+    if deaf and not args.silent_ok:
+        sys.exit(f"refuse: the single for rows {sorted(deaf)} would carry no audio stream; "
+                 "no -audio.mp4 sibling beside the located clip. Pass --silent-ok for a "
+                 "graph that saves no audio")
 
     batch = root / "Video" / "blind" / args.session
     if batch.exists():
@@ -262,11 +304,12 @@ def main() -> int:
     manifest, key = [], {}
     for n, i in enumerate(order, 1):
         name = f"clip_{n:02d}.mp4"
-        shutil.copy2(located[i], batch / name)
+        src = single_source(located[i])
+        shutil.copy2(src, batch / name)
         manifest.append({"clip": name, "row": i})
         r = rows[i]
         key[name] = {"row": i, "label": r["label"], "seed": r["seed"],
-                     "source": str(located[i].relative_to(root)), "graph": r["graph"]}
+                     "source": str(src.relative_to(root)), "graph": r["graph"]}
     pairs_manifest = []
     n = 0
     for a, b in contests:

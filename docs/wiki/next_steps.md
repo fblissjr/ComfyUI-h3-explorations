@@ -13,7 +13,9 @@ LoRA) up through sage alone, sage plus Sol as shipped, sage fp16 plus Sol, and
 shipped PDD8, matched seed, trained canvas
 (`bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
 the timings). Blinded as session `ladder_2026-09-03`, every rung against its
-scene's dense baseline plus Sol against the fp16 rung. What remains is the
+scene's dense baseline plus Sol against the fp16 rung. The singles were
+silent until 2026-09-04 (changelog 0.99.37); they carry audio now, and
+anything scored before then was scored deaf. What remains is the
 owner's part: the scoring app in that batch folder, then
 `bench/score_session.py`, free-text notes per pair. This is the first
 perceptual anchor taken from the true baseline, and everything numeric gets
@@ -37,9 +39,12 @@ void.
 `bench/ref_pathway_arms.json` rendered once on 2026-09-03
 (`bench/results/2026-09-03_ref_pathway_arms.jsonl`): our reference
 conditioner and core's, each with and without the VAEs wired, plus fl2va
-under encoder-only stills. The manifest names the pairs; open experiment
-26 in [`../open_experiments.md`](../open_experiments.md) says what would
-count as an answer. Timing is in the record; the perceptual verdict is not.
+under encoder-only stills. Blinded 2026-09-04 as session
+`ref_pathway_2026-09-03` with the manifest's four controlled contests; open
+experiment 26 in [`../open_experiments.md`](../open_experiments.md) says
+what would count as an answer. Timing is in the record; the perceptual
+verdict is the owner's: the scoring app in that batch folder, then
+`bench/score_session.py`.
 
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root is the local output directory, not the share; pass

@@ -1938,7 +1938,9 @@ have left open in prose.
 share under `Video/h3_probe_ref_pathway_*`. The timing half of the answer
 is in the record; the perceptual half waits on the blind pairing.
 
-**Blocker.** The owner's eyes: `bench/blind_batch.py` on the record with
-the manifest's pairs, then the scoring app and `bench/score_session.py`.
-More seeds are a command line away once the first pairing says whether
-the effect is large or subtle.
+**Blinded 2026-09-04** as session `ref_pathway_2026-09-03`, the manifest's
+four controlled contests stacked, singles with audio, key sealed.
+
+**Blocker.** The owner's eyes: the scoring app in that batch folder, then
+`bench/score_session.py`. More seeds are a command line away once the
+first pairing says whether the effect is large or subtle.

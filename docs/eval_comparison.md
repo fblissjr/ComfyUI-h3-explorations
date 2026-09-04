@@ -219,8 +219,11 @@ any comparison that is meant to be quoted:
    session add `--pairs A,B`: the i-th clip of each arm, matched by run index,
    stacked by this tool's layout rule as `pair_NN.mp4` with "Clip 1" / "Clip 2"
    in a per-pair random order, which the key also records. Stacks carry no
-   audio; the singles do. Rows flagged `suspect_cache_hit` or `error`, or
-   whose clip cannot be found, refuse the whole batch.
+   audio; the singles do, copied from the muxed `-audio.mp4` the combine
+   node wrote, and a single that would be silent refuses the batch unless
+   `--silent-ok` says the graph saves no audio. Rows flagged
+   `suspect_cache_hit` or `error`, or whose clip cannot be found, refuse the
+   whole batch.
 3. **Score before unblinding**, into a sheet written in advance (rubric first,
    then rows), one pass in the shuffled order. Only then open the key and
    write the per-arm aggregates to `bench/results/<date>_<session>_verdict.json`.

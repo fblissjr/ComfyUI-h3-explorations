@@ -598,6 +598,7 @@
     "jsonl": "bench/results/2026-09-03_ladder_arms_judged.jsonl",
     "pairs": "per scene: dense vs each of sage, sol, solfp16, pdd8; and sol vs solfp16 (25 pairs, 25 singles)",
     "key": "internal/blind_keys/ladder_2026-09-03.json (sealed)",
-    "brief": "from bench/ladder_arms.json"
+    "brief": "from bench/ladder_arms.json",
+    "singles_audio": "silent as built on 2026-09-03 (blind_batch copied the silent sibling); replaced with the muxed -audio.mp4 sources on 2026-09-04 by bench/blind_batch_add_audio.py, sources matched by byte identity, every single probed for an audio stream after"
   }
 }

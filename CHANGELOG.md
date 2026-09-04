@@ -4,6 +4,41 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.37
+
+### Fixed
+
+- **`bench/blind_batch.py` copied the silent file for every single, so the
+  ladder's judge could not hear the rungs apart.** The 0.99.35 fix mapped a
+  muxed `-audio.mp4` history entry to its silent sibling as the row's handle
+  and then copied that handle; the singles are the only place a blind session
+  carries audio (stacks map video only) and every one of them was deaf. A
+  single now copies the muxed sibling when the combine node wrote one
+  (`blind_batch.py::single_source`); the stack is still built from the silent
+  file. `docs/eval_comparison.md` said the singles carry audio throughout;
+  the code lost to the prose, which is the wrong way round. A batch whose
+  single would carry no audio stream now refuses before anything is written
+  (`has_audio_stream` on every located source), with `--silent-ok` for a
+  graph that saves none; proven red on a scratch output root holding only
+  the silent clips, green on the same root with the flag.
+- **`ladder_2026-09-03` repaired in place** by the new
+  `bench/blind_batch_add_audio.py`: each single's source is found by byte
+  identity against the share (no key opened, exactly one match required, a
+  refusal before any copy otherwise), replaced with its muxed sibling, and
+  probed for an audio stream after. Its deliberate-violation test (a
+  truncated clip with no source) refused as designed. The sealed key's
+  `source` field for that session still names the silent file; the muxed one
+  is that name plus `-audio`.
+
+### Added
+
+- **The reference pathway ablation is blinded** as session
+  `ref_pathway_2026-09-03` from `bench/results/2026-09-03_ref_pathway_arms.jsonl`
+  with the four controlled contests `bench/ref_pathway_arms.json` names, the
+  brief derived from that manifest, and the key sealed under
+  `internal/blind_keys/`. Resolved through the mtime fallback on a stopped
+  server. Scoring is the owner's.
+
 ## 0.99.36
 
 ### Added
