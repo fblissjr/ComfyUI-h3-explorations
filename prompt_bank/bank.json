@@ -661,6 +661,86 @@
       "tests": "the shipped dialogue scene: close-up two-person dialogue in a hard room tone, no music; lines spoken on- and OFF-screen, so attribution and correctness of each line and the look of the cuts are the test. Quiet and close, so it renders well; not apples to apples against a busy scene."
     },
     {
+      "id": "t2va_freight_elevator",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; two-person operative dialogue inside an industrial freight elevator, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Close-up two-person dialogue in an industrial freight elevator, hard room tone, no music; lines spoken on- and off-screen."
+    },
+    {
+      "id": "t2va_hospital_fire_escape",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; surgical resident and senior surgeon confrontation on exterior fire escape, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Exterior dialogue in damp ambient soundscape with drifting steam, lines spoken on- and off-screen."
+    },
+    {
+      "id": "t2va_parking_garage_pillar",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; undercover detective and informant clandestine exchange behind parking garage pillar, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Subterranean cavernous concrete acoustic tone, truck left camera motion, lines spoken on- and off-screen."
+    },
+    {
+      "id": "t2va_safehouse_kitchen",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; three-person covert operative dialogue in safehouse kitchen, three shots with cuts, S1/S2/S3 tags; N/A.",
+      "tests": "Three-speaker dialogue exchange, pan left camera motion, rapid pacing across cuts."
+    },
+    {
+      "id": "t2va_subway_maintenance_alcove",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; senior track inspector and junior lineman subway tunnel dialogue, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Subway tunnel bedrock acoustics, emergency flare visual effects, push in camera motion."
+    },
+    {
+      "id": "t2va_rooftop_boiler_room",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; investigator and building superintendent rooftop boiler room confrontation, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Rain on corrugated tin roof soundscape, truck right and static shot, off-screen dialogue response."
+    },
+    {
+      "id": "t2va_ferry_fog_deck",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; corporate auditor and executive dialogue at night commuter ferry stern rail, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Foggy harbor marine diesel soundscape, push in and shake slightly, lines spoken on- and off-screen."
+    },
+    {
+      "id": "t2va_diner_back_alley",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; estranged brothers confrontation in rainswept diner back alley, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Commercial exhaust fan and wet alley soundscape, push in and shake slightly, off-screen dialogue response."
+    },
+    {
+      "id": "t2va_motel_breezeway",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; fugitive woman and hired driver motel walkway exchange, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Highway ambient and bug zapper soundscape, truck left and shake slightly, off-screen dialogue response."
+    },
+    {
+      "id": "t2va_precinct_archive_vault",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action handheld 35mm; internal affairs investigator and archivist basement records vault interrogation, three shots with cuts, S1/S2 tags; N/A.",
+      "tests": "Cavernous records basement acoustic room tone, push in and static shot, off-screen dialogue responses."
+    },
+    {
       "id": "ref2va_stairwell_dialogue",
       "mode": "ref2va",
       "frames": 345,
