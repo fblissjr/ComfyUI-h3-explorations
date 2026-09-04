@@ -1,6 +1,7 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-08-29
+last updated: 2026-09-04 (one subsection added under "What they do that we
+do not"; everything else is the 2026-08-29 read)
 
 What the vendor-side serving implementation does that this install does not,
 what both do where ours may be the weaker version, and what looks like a gap
@@ -130,6 +131,34 @@ a render. That is a blind session on pruned against unpruned under
 [`eval_comparison.md`](../eval_comparison.md) section 3, and it has not been run
 or scheduled.
 
+
+### Two more sparse-attention backends, read 2026-09-04
+
+Neither needs the FastH3 weights to run on base H3, and neither is a serving
+feature; both are attention policies, which is the axis this repo works on.
+
+**Cube sparse attention** (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/cube_sparse_attn/`,
+merged 2026-09-02 with two MiniMax engineers as co-authors). FlexAttention
+over `(T, H, W)` cubes of latent tokens, so a block is a spatial-temporal
+neighbourhood rather than a run of Morton-ordered rows; a per-step
+`topk_ratio_list` with one entry per denoise update, where a ratio of one
+means that step runs dense; text, audio, standalone reference images and the
+token refiner stay dense; reference videos and the target compete in one
+global top-k pool. No pooled correction term, so it is the SLA shape of the
+idea rather than the Sol shape. Their own cookbook calls it approximate and
+says FlexAttention's routing overhead can outweigh the saving on short
+sequences. It is the vendor's engineers choosing cube geometry for this
+model, which [`../morton.md`](../morton.md) has no measurement against.
+
+**VSA-H3** (`.../backends/video_sparse_attn_h3.py`, merged 2026-09-02): the
+trained sparse policy for the FastH3 weights, an in-tree Triton kernel gated
+to SM90 and above, so it does not run on this card at all. Its knobs are
+what to read: `vsa_mode` exempt/compete (whether non-video keys are always
+kept or compete in the top-k), `vsa_dense_first_n_steps`, `vsa_dense_layers`.
+Ours: sink ranges derived from the segment table play the role of `exempt`,
+`dense_blocks` is `vsa_dense_layers`, and the `sigma_start`/`sigma_end`
+window on `MiniMaxH3SolAttn` is the per-step knob in sigma rather than in
+step index. [`../SOLATTN.md`](../SOLATTN.md) owns those.
 
 ### Breakable CUDA graphs over a packed sequence
 

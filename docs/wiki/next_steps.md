@@ -77,6 +77,20 @@ MANIFEST, then `bench/score_session.py` with the key. Open experiment 26 in
 [`../open_experiments.md`](../open_experiments.md) says what would count as
 an answer; timing is already in the record.
 
+**Two checks the 2026-09-04 upstream survey earned, owner-approved, sequenced
+behind whatever the scoring lane has on the card.** First, grade kijai's
+`token_aug` (Comfy-Org/comfy-kitchen PR 156) offline on the retained Base16
+capture with `bench/measure_sol_exact_variants.py --capture`, the footing PR
+150 was graded on, from a wheel built into a scratch target rather than the
+venv; his claimed defect is a brightness pulse, which is a thing a blind pair
+can see, and our `blk_cnt` commits conflict on his branch, so the offline
+grade comes before any rebase. Second, re-time one ladder rung on the
+post-2026-09-04 core: that pull turned on the Comfy Compiler's malloc graph
+around the H3 forward (`comfy/model_prefetch.py::malloc_graph_enabled`, on
+whenever aimdo is), so every timing after it is a different regime from the
+09-03 record and one rung says how different. `docs/sol_upstream.md` holds
+the survey's kitchen state; `docs/research/sglang_comparison.md` the rest.
+
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root is the local output directory, not the share; pass
 `--output-root` until `bench/_paths.py::comfy_output` reads the launcher's

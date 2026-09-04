@@ -1,6 +1,6 @@
 # Running VSA on H3: what the node does and what still blocks it
 
-last updated: 2026-08-30
+last updated: 2026-09-04 (the 4-step provenance note and blocker 5 only)
 
 **This file owns `MiniMaxH3VSAAttention` -- what it does, what it refuses, and
 what is verified about it.** It does not own the checkpoint
@@ -32,6 +32,10 @@ checkpoint's filename says `4step`, so it is a distillation that cuts
 evaluations, which is what a PDD arm does by other means. Note that nothing in
 the artifact supports the 4-step claim -- it carries no metadata at all -- so
 that is a reading of a filename, not a property anyone here has verified.
+**Since 2026-09-04 the reading has a source**: FastVideo's own card calls it
+a four-step DMD2 distillation, and two serving engines pin the schedule as
+code; [`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md) section 6
+holds the pointers. Still unverified here, but no longer a guess.
 
 ## Why it is a separate node, which is not the same as "why it must be"
 
@@ -267,7 +271,11 @@ the only question those two renders can answer.
 5. **A sampler recipe.** The checkpoint's "4step" is a filename, not a
    property; the artifact carries no schedule. Whether 4 steps and this repo's
    default sampler are what it was distilled for is unknown, and a bad recipe
-   would look exactly like a bad regime.
+   would look exactly like a bad regime. **Narrowed 2026-09-04**: the recipe
+   is now specified outside the artifact (five sigma grid points, t2va only;
+   pointers in [`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md)
+   section 6). What remains open is whether this repo's sampler lands on
+   those points, which is a check, not a search.
 6. **Anything perceptual**, which needs `docs/eval_comparison.md` section 3 --
    many seeds per arm, judged blind, recorded as a distribution.
 

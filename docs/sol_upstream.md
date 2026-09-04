@@ -1,7 +1,9 @@
 # What upstream says: the paper, Sol-Engine, and the other packs
 
-Last updated: 2026-08-19. Renamed from `sol_engine_reference.md` the same day,
-when the paper was added and the scope widened past one vendor's framework.
+Last updated: 2026-09-04, when the section "Comfy-Org/comfy-kitchen, as of
+2026-09-04" was added; the rest of the page is as it stood on 2026-08-19.
+Renamed from `sol_engine_reference.md` on 2026-08-19, when the paper was
+added and the scope widened past one vendor's framework.
 
 **This page states what other people do and claim. It asserts none of our
 numbers.** When a comparison against what we run is needed, it lives in the
@@ -344,6 +346,51 @@ exists and was not read past its README.
 **Neither pack reorders tokens.** With the paper and Sol-Engine, that makes four
 searched sources with no token reordering outside kijai's packs, and still zero
 measurements of Morton's effect on output anywhere.
+
+---
+
+## Comfy-Org/comfy-kitchen, as of 2026-09-04
+
+Checked by fetch and `gh` on 2026-09-04; nothing was pulled into a working
+checkout. This section is a dated snapshot and the branches are the authority.
+
+**In `main`.** PR 117 (int8 Sol-Attn, 2026-08-29), PR 143 (the HIP port,
+2026-08-31), and PR 150 (kijai, merged 2026-09-03 as `4950f16`): full-range
+P quantisation in the exact branch, fp16 q/k/v/out through an `elem` code,
+and a public `sol_attn_chunked`. The installed wheel here predates that
+merge but was built from kijai's `sol_attn_continued`, which carried the
+same exact-branch algorithm, so the merge moved nothing numerically on this
+box; `bench/check_sol_kernel.py` reports the installed local segment and
+`comfy_kitchen_build.json` beside the venv names the branch it came from.
+
+**Open.** [PR 156](https://github.com/Comfy-Org/comfy-kitchen/pull/156)
+(kijai, opened 2026-09-04, head `sol_token_aug_main`): a `token_aug` knob,
+zero or a multiple of 64 up to 256, validated in `comfy_kitchen/constraints.py`
+on that branch. Each query block additionally attends up to that many
+top-scoring individual tokens outside its routed blocks, and the remaining
+tail is made exact for the block centroid; a new `sol_attn_token.cu` does the
+selection, the eager reference ignores the knob, HIP warns and runs without
+it. The PR body carries his numbers on an H3 capture and names the defect
+it targets as a DC bias that shows as brightness pulsing on a five-latent-frame
+period. **Our `sol-blk-cnt` commits do not cherry-pick onto that branch**:
+tried 2026-09-04 in a scratch worktree, conflicts in `comfy_kitchen/__init__.py`,
+both backend `__init__.py` files and `backends/eager/sol_attn.py`. A build
+carrying both `token_aug` and `blk_cnt` is a rebase, not a cherry-pick. The
+grading footing for it is the one `bench/measure_sol_exact_variants.py
+--capture` used for PR 150 (the 2026-09-03 record in `docs/research/`).
+[PR 146](https://github.com/Comfy-Org/comfy-kitchen/pull/146) (Sage INT8
+consumer for the Sol exact branch, `tail=False` only) is open and idle since
+2026-09-01; every shipped graph here is `tail=True`.
+[PR 124](https://github.com/Comfy-Org/comfy-kitchen/pull/124) is not Sol at
+all but is the other open change that touches every int8 H3 render: it
+rounds the fused SwiGLU product to the storage dtype before ConvRot
+quantisation, and `docs/research/quant_levers.md` owns why that path is
+reached on the shipped model.
+
+**kijai's fork.** `sol_exact_pquant` (merged as 150, plus a
+`sol_attn_is_available` export that 156 also carries), `sol_token_aug_main`
+(156), and `minimax_vae` (kernels for ComfyUI's `comfy/ldm/minimax/vae.py`
+that nothing in core calls yet, unchanged since 2026-09-03).
 
 ---
 

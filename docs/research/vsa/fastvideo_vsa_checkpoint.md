@@ -1,6 +1,7 @@
 # The FastVideo VSA-distilled H3 checkpoint
 
-last updated: 2026-08-30
+last updated: 2026-09-04 (section 6 only; every measurement below is from
+2026-08-30 and the artifact has not changed)
 
 `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors`,
 published at `huggingface.co/Kijai/MiniMax-H3-experimental` and reachable here
@@ -312,8 +313,38 @@ So the claim rests on the filename alone, and the filename is the least reliable
 carrier in this repo's experience. Two readings are available and this document
 picks neither: that VSA's sparsity is what makes four steps viable, or that
 "1300step" is the distillation length and "4step" the target the distillation
-aimed at. **Do not write a 4-step recipe for this checkpoint from anything here.**
-The cheapest thing that would settle it is asking, not measuring.
+aimed at. **Do not write a 4-step recipe for this checkpoint from anything in
+the artifact.** The cheapest thing that would settle it is asking, not measuring.
+
+**Added 2026-09-04: the source is now public, and it answers the question the
+artifact could not.** FastVideo published the "FastH3 Preview v1" collection
+on 2026-08-27 (`huggingface.co/FastVideo`, repos
+`FastVideo-FastH3-4-step-Preview-v1-{VSA-DataFree, Dense-DataFree, LoRA,
+VSA-Synthetic-Step1300, VSA-Synthetic-Step1900}`), one day before kijai's
+int8 conversion above was uploaded. The VSA-DataFree card describes the
+weights as a step-1300, data-free DMD2 four-step distillation trained with
+VSA-H3 at 0.9 sparsity on 64-token tiles, t2va only: the second reading
+above, and a distillation of the sampler rather than of the attention. Two
+serving engines have since pinned the recipe as code, and those are the
+pointers to use rather than anything retyped here:
+
+- sglang, `coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams`
+  (five sigma grid points, four DiT forwards, `t2va` only, other step counts
+  and tasks refused) and `.../configs/pipeline_configs/minimax_h3.py::FastH3PipelineConfig`;
+  the cookbook section "FastH3: 4-step distilled preview" in
+  `coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx` says the
+  points sit on the standard shift-12/shift-3 grid.
+- vllm-omni, `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3.py::FASTH3_BASE_SCHEDULE`
+  (the five positions as a constant, with the per-modality shifts applied on
+  top) and the module docstring, which documents the adapter format the
+  `-LoRA` repo uses: rank-64 factors at scale exactly one plus full-rank
+  `.diff`/`.diff_b` deltas and `.set_weight` gate tensors, which is why no
+  LoRA loader can apply it and both engines fuse it at load.
+
+What that does not change: the artifact here still carries none of it, the
+"4step" in its name is still a filename, and nothing here has verified that
+this repo's sampler reproduces those five points. Whether the schedule is
+worth a rung is a decision for the roadmap, not this file.
 
 ## 7. What was not checked
 

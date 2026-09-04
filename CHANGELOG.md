@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.39
+
+### Changed
+
+- **Upstream survey, 2026-09-04, recorded where each answer lives.**
+  `docs/sol_upstream.md` gains a dated section on Comfy-Org/comfy-kitchen:
+  PR 150 merged, PR 156 (`token_aug`) open with its contract and the fact
+  that our `blk_cnt` commits conflict on it, PR 146 and PR 124 still open,
+  kijai's `minimax_vae` still uncalled. `docs/research/vsa/fastvideo_vsa_checkpoint.md`
+  section 6 and `docs/research/vsa/vsa_node.md` blocker 5 now point at the
+  FastVideo FastH3 Preview v1 release and at the two engine constants that
+  pin its four-step schedule, in place of "the artifact carries no schedule"
+  standing alone; the artifact still carries none.
+  `docs/research/sglang_comparison.md` gains the cube sparse attention and
+  VSA-H3 backends with the knob-for-knob mapping onto `MiniMaxH3SolAttn`.
+  `docs/wiki/next_steps.md` carries the two checks the owner approved from
+  the survey. No code changed, no default changed, nothing was measured.
+
 ## 0.99.38
 
 ### Added
