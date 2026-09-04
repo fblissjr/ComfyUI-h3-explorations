@@ -25,6 +25,17 @@ artifact.
   the ladder's dense rows to append as the quality reference, and the
   cross-regime caveat those rows carry after the 2026-09-04 ComfyUI pull.
   Nothing has rendered.
+- **The reference pathway verdict record**,
+  `bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`: the
+  owner's blind scoring of the four controlled pairs of session
+  `ref_pathway_2026-09-03`, joined with the sealed key after the key was
+  checked against the manifest and the render rows; pairs only, so partial.
+  Open experiment 26 carries the reading: can't tell on both controlled
+  ablations, no identity item named, static background people named on
+  every encoder-only arm. Beside it,
+  `bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json` records
+  that the two encoder-only arms the owner called the same are different
+  renders.
 - **`bench/compare_clip_pixels.py`**: are two rendered clips the same
   render, by decoded frames and decoded samples, never bytes. Reuses
   `bench/verify_vsa_render.py`'s mechanism (embedded graph for seed and

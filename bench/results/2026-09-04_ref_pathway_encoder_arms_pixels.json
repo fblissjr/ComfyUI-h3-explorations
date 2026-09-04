@@ -1,0 +1,89 @@
+{
+ "measured": "2026-09-04",
+ "produced_by": "bench/compare_clip_pixels.py; ffmpeg decode to rgb24 and s16le, sha256 and numpy over the decoded arrays",
+ "note": "the two encoder-only arms of ref_pathway_2026-09-03 at the judged seed; the owner called the stack exactly the same, so is it one render",
+ "clip_a": "h3_probe_ref_pathway_typed_encoder_typed_encoder_00002-audio.mp4",
+ "clip_b": "h3_probe_ref_pathway_native_encoder_native_encoder_00001-audio.mp4",
+ "provenance": {
+  "a": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "LoadImage",
+    "MiniMaxH3AppendRefImage",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3ReferenceConditioning",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SageAttention",
+    "MiniMaxH3SigmaShift",
+    "MiniMaxH3SolAttn",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "b": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "LoadImage",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3ReferenceToVideo",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SageAttention",
+    "MiniMaxH3SigmaShift",
+    "MiniMaxH3SolAttn",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "same_seed": true,
+  "same_class_types": false
+ },
+ "video": {
+  "frames": 345,
+  "size": "1024x768",
+  "sha256_a": "d75e687253cbee1aac48854ab7540a0761acdc38c600e00421644967c4f2d41f",
+  "sha256_b": "e6343c03c122b2a07715b53fecbc42ac40d18dec4e92fffc6cadf3efbfbbc929",
+  "identical": false,
+  "frames_differing": 345,
+  "first_differing_frame": 0,
+  "mean_abs_diff_over_all_frames": 24.139236662737222,
+  "max_abs_diff": 252,
+  "per_frame_mean_abs_diff_quantiles": {
+   "0.0": 16.273164961073135,
+   "0.5": 24.556458367241753,
+   "1.0": 32.99751239352756
+  },
+  "units": "8-bit RGB levels, 0-255"
+ },
+ "audio": {
+  "samples_a": 919552,
+  "samples_b": 919552,
+  "sha256_a": "2797e79c0b8d41776365c8cedba83eec1a5e3f1e6db93dbc18621edae565eda8",
+  "sha256_b": "cbc8a73660fabedf435ccc83f583db0dab2ba9d8d88c9b77610024614f258c3a",
+  "identical": false,
+  "max_abs_sample_diff": 6258,
+  "units": "16-bit PCM levels"
+ },
+ "reading": "identical on both streams means the same render; a differing video with the same seed and the same class types means the substrate changed numerics between the two renders, and the per-frame statistics say by how much in 8-bit levels"
+}

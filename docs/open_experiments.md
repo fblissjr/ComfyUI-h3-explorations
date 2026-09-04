@@ -1941,9 +1941,30 @@ is in the record; the perceptual half waits on the blind pairing.
 **Blinded 2026-09-04** as session `ref_pathway_2026-09-03`, the manifest's
 four controlled contests stacked, singles with audio, key sealed.
 
-**Blocker.** The export. The owner scored the page on 2026-09-04, but no
-`scores_ref_pathway_2026-09-03.json` reached the batch folder, so
-`bench/score_session.py` has nothing to join and the key stays sealed. The
-page keeps its answers in the browser that scored it; exporting again from
-there is the whole step. More seeds are a command line away once the first
-pairing says whether the effect is large or subtle.
+**Scored 2026-09-04, one seed, pairs only.**
+`bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, joined after
+the key was checked against the manifest and the render rows. On the primary
+pair (ours, both pathways against encoder only) and its replication on
+core's node the owner could not tell which was which; the two encoder-only
+arms were called the same, with the same defect in both (eyes "almost
+flowing" on the woman); fl2va under encoder-only stills lost to ours on a
+named defect. The owner named none of the manifest's `what_to_look_for`
+items (performer identity, the jersey's print, the loft's layout) as
+differing on any pair. The one thing the owner did name, on every
+encoder-only arm and on neither both-pathway arm: two people on the couch in
+the background who never move. At one seed that is a signature to look for,
+not a mechanism. Two pixel facts beside the verdict
+(`bench/compare_clip_pixels.py`): the two encoder-only arms are different
+renders despite reading as the same
+(`bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json`), so the
+Qwen view difference between the conditioners reaches the pixels and not
+the owner's eye; and the primary pair differs more than that pair does. The
+timing half is in the render record: the encoder-only arms' sampler time
+sits below their both-pathway twins', as the reference rows predict.
+
+**Where this leaves the item.** Leaning to the cheaper-arm branch, not
+closed: identity survived one seed without the rows, and the cost of the
+rows is measured. What would close it is the static-people signature either
+recurring or not on a second seed, and the singles heard (no single was
+scored). The manifest's `run` line is the multi-seed command; the owner has
+not asked for it.

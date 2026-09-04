@@ -75,19 +75,17 @@ shown pixel-identical to its 2026-09-03 clip. The probe graphs were built
 with `--no-validate` on a stopped server; validate against the live
 `/object_info` before the first render. Score the singles this time.
 
-**Export the reference pathway scores, then join them.** All five arms of
-`bench/ref_pathway_arms.json` rendered once on 2026-09-03
-(`bench/results/2026-09-03_ref_pathway_arms.jsonl`): our reference
-conditioner and core's, each with and without the VAEs wired, plus fl2va
-under encoder-only stills. Blinded 2026-09-04 as session
-`ref_pathway_2026-09-03` with the manifest's four controlled contests. The
-owner scored the page that day, but no `scores_ref_pathway_2026-09-03.json`
-reached its batch folder on the share, so nothing has been joined and the
-key stays sealed. The page keeps its answers in the browser that scored it:
-reopen it there, press Export scores, put the file beside the batch's
-MANIFEST, then `bench/score_session.py` with the key. Open experiment 26 in
-[`../open_experiments.md`](../open_experiments.md) says what would count as
-an answer; timing is already in the record.
+**The reference pathway verdict is in; read it before touching a reference
+graph's cost.** Scored and joined 2026-09-04
+(`bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, one seed,
+pairs only): the owner could not tell both pathways from encoder only on
+either conditioner, named none of the identity items as differing, and
+named one signature on every encoder-only arm, static people in the
+background. Open experiment 26 in
+[`../open_experiments.md`](../open_experiments.md) carries the reading and
+what would close it; it leans to the cheaper arm and is not closed. No
+action is queued on it; a second seed is the manifest's `run` line if the
+owner wants one.
 
 **Two checks the 2026-09-04 upstream survey earned, owner-approved, sequenced
 behind whatever the scoring lane has on the card.** First, grade kijai's

@@ -1,0 +1,342 @@
+{
+ "measured": "2026-09-04",
+ "session": "ref_pathway_2026-09-03",
+ "produced_by": "bench/score_session.py joining scores_ref_pathway_2026-09-03.json with internal/blind_keys/ref_pathway_2026-09-03.json",
+ "scored_at": "2026-09-04T21:21:28Z",
+ "jsonl": "bench/results/2026-09-03_ref_pathway_arms.jsonl",
+ "shuffle_seed": 20260904,
+ "partial": true,
+ "not_covered": [
+  "clip_01.mp4: not scored",
+  "clip_02.mp4: not scored",
+  "clip_03.mp4: not scored",
+  "clip_04.mp4: not scored",
+  "clip_05.mp4: not scored"
+ ],
+ "rubric": [
+  {
+   "id": "note",
+   "label": "What you notice",
+   "type": "text",
+   "primary": true,
+   "help": "Free text. Anything worth recording about this clip on its own; the comparison itself belongs on the pairs tab."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply. Nothing is required."
+  },
+  {
+   "id": "flag",
+   "label": "Reject outright",
+   "type": "flag",
+   "help": "Garbage, NaN-like noise, audio missing or desynced, hard cut artifacts. Leave off if none."
+  }
+ ],
+ "pair_rubric": [
+  {
+   "id": "differs",
+   "label": "What differs, and which way",
+   "type": "text",
+   "primary": true,
+   "help": "The field that matters. Plain sentences: what you notice between the two halves, and which way it goes."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "sides": true,
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply, per half. Nothing here is required."
+  },
+  {
+   "id": "verdict",
+   "label": "Verdict",
+   "type": "choice",
+   "options": [
+    "Clip 1 better",
+    "Clip 2 better",
+    "same",
+    "can't tell"
+   ],
+   "help": "Coarse on purpose. 'same' and \"can't tell\" are real answers and the tally counts them apart."
+  }
+ ],
+ "pair_rubric_read_from": "pair_rubric",
+ "pairs": {
+  "n_total": 4,
+  "n_scored": 4,
+  "contests": {
+   "typed_both vs typed_encoder": {
+    "arms": [
+     "typed_both",
+     "typed_encoder"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "typed_both": 0,
+     "typed_encoder": 0,
+     "can't tell": 1
+    },
+    "tags_by_arm": {},
+    "notes": [
+     {
+      "pair": "pair_01.mp4",
+      "question": "differs",
+      "text": "theres a light in clip 1, and the two people in the background on the couch (static, not moving) on clip 1",
+      "clip_1_arm": "typed_encoder",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "typed_both",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "native_both vs native_encoder": {
+    "arms": [
+     "native_both",
+     "native_encoder"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "native_both": 0,
+     "native_encoder": 0,
+     "can't tell": 1
+    },
+    "tags_by_arm": {},
+    "notes": [
+     {
+      "pair": "pair_02.mp4",
+      "question": "differs",
+      "text": "two people in the background on the couch (static, not moving) on clip 2, no people in clip 1",
+      "clip_1_arm": "native_both",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "native_encoder",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "native_encoder vs typed_encoder": {
+    "arms": [
+     "native_encoder",
+     "typed_encoder"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "native_encoder": 0,
+     "typed_encoder": 0,
+     "same": 1
+    },
+    "tags_by_arm": {
+     "native_encoder": {
+      "off": 1
+     },
+     "typed_encoder": {
+      "off": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_03.mp4",
+      "question": "differs",
+      "text": "clips look exactly the same to me. eyes are almost flowing on the woman in both clips. both people in the background are static",
+      "clip_1_arm": "typed_encoder",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "native_encoder",
+      "clip_2_seed": 730451892
+     }
+    ]
+   },
+   "fl2va_encoder vs typed_encoder": {
+    "arms": [
+     "fl2va_encoder",
+     "typed_encoder"
+    ],
+    "n_pairs": 1,
+    "n_scored": 1,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "fl2va_encoder": 0,
+     "typed_encoder": 1
+    },
+    "tags_by_arm": {
+     "fl2va_encoder": {
+      "off": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_04.mp4",
+      "question": "differs",
+      "text": "static legs hanging out on clip 2, looks weird. no people in clip 2. people in clip 1, static like the other versions",
+      "clip_1_arm": "typed_encoder",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "fl2va_encoder",
+      "clip_2_seed": 730451892
+     }
+    ]
+   }
+  },
+  "by_pair": [
+   {
+    "pair": "pair_01.mp4",
+    "contest": "typed_both vs typed_encoder",
+    "scored": true,
+    "clip_1": {
+     "label": "typed_encoder",
+     "row": 3,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "typed_both",
+     "row": 1,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "theres a light in clip 1, and the two people in the background on the couch (static, not moving) on clip 1"
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_02.mp4",
+    "contest": "native_both vs native_encoder",
+    "scored": true,
+    "clip_1": {
+     "label": "native_both",
+     "row": 4,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "native_encoder",
+     "row": 5,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "two people in the background on the couch (static, not moving) on clip 2, no people in clip 1"
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_03.mp4",
+    "contest": "native_encoder vs typed_encoder",
+    "scored": true,
+    "clip_1": {
+     "label": "typed_encoder",
+     "row": 3,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "native_encoder",
+     "row": 5,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "clips look exactly the same to me. eyes are almost flowing on the woman in both clips. both people in the background are static"
+    },
+    "tags": {
+     "native_encoder": [
+      "off"
+     ],
+     "typed_encoder": [
+      "off"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_04.mp4",
+    "contest": "fl2va_encoder vs typed_encoder",
+    "scored": true,
+    "clip_1": {
+     "label": "typed_encoder",
+     "row": 3,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "fl2va_encoder",
+     "row": 6,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "static legs hanging out on clip 2, looks weird. no people in clip 2. people in clip 1, static like the other versions"
+    },
+    "tags": {
+     "fl2va_encoder": [
+      "off"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "typed_encoder"
+   }
+  ]
+ },
+ "clips": {
+  "n_total": 5,
+  "n_scored": 0,
+  "arms": {},
+  "by_clip": [
+   {
+    "clip": "clip_01.mp4",
+    "row": 6,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_ref_pathway_fl2va_encoder_api.json",
+    "arm": "fl2va_encoder",
+    "scored": false
+   },
+   {
+    "clip": "clip_02.mp4",
+    "row": 4,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_ref_pathway_native_both_api.json",
+    "arm": "native_both",
+    "scored": false
+   },
+   {
+    "clip": "clip_03.mp4",
+    "row": 5,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_ref_pathway_native_encoder_api.json",
+    "arm": "native_encoder",
+    "scored": false
+   },
+   {
+    "clip": "clip_04.mp4",
+    "row": 3,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_ref_pathway_typed_encoder_api.json",
+    "arm": "typed_encoder",
+    "scored": false
+   },
+   {
+    "clip": "clip_05.mp4",
+    "row": 1,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_ref_pathway_typed_both_api.json",
+    "arm": "typed_both",
+    "scored": false
+   }
+  ]
+ }
+}
