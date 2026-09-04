@@ -111,9 +111,10 @@ whenever aimdo is), so every timing after it is a different regime from the
 the survey's kitchen state; `docs/research/sglang_comparison.md` the rest.
 
 **Small fixes the ladder exposed, before the next one.** The blind tool's
-default output root is the local output directory, not the share; pass
-`--output-root` until `bench/_paths.py::comfy_output` reads the launcher's
-directory. The fp16-sage rung is slower than Sol as shipped on every scene,
+default output root landed 2026-09-04: `bench/_paths.py::comfy_output` reads
+the launcher's `--output-directory` from the live server's command line and
+refuses with no server and no `H3_COMFY_OUTPUT`, rather than answering with
+the local directory. The fp16-sage rung is slower than Sol as shipped on every scene,
 and a per-step timing would say where. Each is a checkable item in the
 session postmortem under `internal/postmortems/` dated 2026-09-03. The
 audio-spectrum grader's refusal below three clips per arm landed 2026-09-04

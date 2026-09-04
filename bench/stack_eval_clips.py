@@ -238,9 +238,7 @@ def main():
         p1 = Path(c1).stem
         p2 = Path(c2).stem
         out_name = f"comparison_{p1}_vs_{p2}.mp4"
-        out_dir = _paths.comfy_output()
-        if out_dir is None:
-            raise SystemExit(_paths.describe("ComfyUI output", "H3_COMFY_OUTPUT"))
+        out_dir = _paths.comfy_output()  # refuses itself when nothing names the directory
         out_path = out_dir / "Video" / out_name
     else:
         out_path = Path(args.output)

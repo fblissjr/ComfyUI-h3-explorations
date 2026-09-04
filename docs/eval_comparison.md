@@ -223,7 +223,10 @@ any comparison that is meant to be quoted:
    node wrote, and a single that would be silent refuses the batch unless
    `--silent-ok` says the graph saves no audio. Rows flagged
    `suspect_cache_hit` or `error`, or whose clip cannot be found, refuse the
-   whole batch.
+   whole batch. The output root is `--output-root`, else `H3_COMFY_OUTPUT`,
+   else the `--output-directory` the live server was launched with, read
+   from its command line by `bench/_paths.py::comfy_output`; with none of
+   the three it refuses rather than resolving against the local directory.
 3. **Score before unblinding**, into a sheet written in advance (rubric first,
    then rows), one pass in the shuffled order. Only then open the key and
    write the per-arm aggregates to `bench/results/<date>_<session>_verdict.json`.

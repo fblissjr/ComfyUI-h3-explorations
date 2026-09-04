@@ -47,11 +47,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("--batch", required=True, help="the blind batch directory holding MANIFEST.json")
     ap.add_argument("--output-root", default=None,
-                    help="ComfyUI output directory; default H3_COMFY_OUTPUT or folder_paths")
+                    help="ComfyUI output directory; default H3_COMFY_OUTPUT, else the live server's --output-directory")
     args = ap.parse_args()
     root = Path(args.output_root) if args.output_root else comfy_output()
-    if root is None or not root.is_dir():
-        sys.exit("refuse: no output root; set H3_COMFY_OUTPUT or pass --output-root")
+    if not root.is_dir():
+        sys.exit(f"refuse: output root is not a directory: {root}; set H3_COMFY_OUTPUT or pass --output-root")
     batch = Path(args.batch)
     manifest = json.loads((batch / "MANIFEST.json").read_text())
     jsonl = REPO / manifest["jsonl"]

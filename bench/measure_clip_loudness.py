@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
-import os
 import re
 import subprocess
 import sys
@@ -41,6 +40,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
+sys.path.insert(0, str(HERE))
+from _paths import comfy_output  # noqa: E402
 
 _LUFS = re.compile(r"^\s*I:\s+(-?[\d.]+) LUFS", re.M)
 _LRA = re.compile(r"^\s*LRA:\s+(-?[\d.]+) LU", re.M)
@@ -80,17 +81,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("--outputs", required=True,
                     help="an outputs record: {'arms': [{'label', 'outputs': [basename, ...]}]}")
-    ap.add_argument("--output-root", default=os.environ.get("H3_COMFY_OUTPUT"),
+    ap.add_argument("--output-root", default=None,
                     help="the output directory the launcher names; clips are looked up under "
-                         "<root>/Video/<basename> then <root>/<basename>. Default $H3_COMFY_OUTPUT")
+                         "<root>/Video/<basename> then <root>/<basename>. Default H3_COMFY_OUTPUT, "
+                         "else the live server's --output-directory (bench/_paths.comfy_output)")
     ap.add_argument("--baseline-rung", default="dense",
                     help="the rung every other rung in a scene is compared against")
     ap.add_argument("--out", required=True)
     ap.add_argument("--note", default=None, help="one sentence on why this record exists")
     args = ap.parse_args()
-    if not args.output_root:
-        sys.exit("refuse: no --output-root and H3_COMFY_OUTPUT is unset")
-    root = Path(args.output_root)
+    root = Path(args.output_root) if args.output_root else comfy_output()
     if not root.is_dir():
         sys.exit(f"refuse: output root is not a directory: {root}")
 

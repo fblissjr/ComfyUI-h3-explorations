@@ -665,9 +665,7 @@ def main():
         print(f"Error: {cap_dir} is not a directory", file=sys.stderr)
         return 1
 
-    input_base = _paths.comfy_input()
-    if input_base is None:
-        sys.exit(_paths.describe("ComfyUI input", "H3_COMFY_INPUT"))
+    input_base = _paths.comfy_input()  # refuses itself when nothing names the directory
     wf_in_dir = cap_dir / "workflow_api.json"
     wf_path = Path(args.workflow).resolve() if args.workflow else (wf_in_dir if wf_in_dir.is_file() else Path("workflows/h3_probe_capture_ref3_api.json").resolve())
 

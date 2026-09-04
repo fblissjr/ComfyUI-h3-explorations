@@ -81,10 +81,12 @@ still carries row indices only. **The same two arms twice is refused, in
 either order** -- `A,B` and `B,A` are the same contest, and stacking it twice
 would double-count it in the tally while telling the judge nothing new.
 
-The output root comes from `H3_COMFY_OUTPUT` (or `bench/_paths.comfy_output()`
-when run where `folder_paths` resolves); the share's path is typed in the
-shell, never here, and the manifest stores paths relative to the batch
-directory.
+The output root is `--output-root`, else `bench/_paths.comfy_output()`:
+`H3_COMFY_OUTPUT`, else the `--output-directory` the live server on
+`_paths.COMFY_PORT` was launched with, read from its command line; with
+neither it refuses rather than answering with the local directory. The
+share's path is typed in the shell or read from the launcher, never here,
+and the manifest stores paths relative to the batch directory.
 
     H3_COMFY_OUTPUT=<share> python bench/blind_batch.py \\
         --jsonl bench/results/2026-08-20_session1_lora_file.jsonl \\
@@ -186,7 +188,7 @@ def main() -> int:
     ap.add_argument("--shuffle-seed", type=int, required=True)
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--output-root", default=None,
-                    help="ComfyUI output directory; default H3_COMFY_OUTPUT or folder_paths")
+                    help="ComfyUI output directory; default H3_COMFY_OUTPUT, else the live server's --output-directory")
     ap.add_argument("--pairs", action="append", default=None, metavar="A,B",
                     help="also emit blinded stacked pairs of these two arm labels, matched by "
                          "run index; repeat for a session with more than two arms")
@@ -211,8 +213,8 @@ def main() -> int:
         contests.append(labels)
 
     root = Path(args.output_root) if args.output_root else comfy_output()
-    if root is None or not root.is_dir():
-        sys.exit("refuse: no output root; set H3_COMFY_OUTPUT or pass --output-root")
+    if not root.is_dir():
+        sys.exit(f"refuse: output root is not a directory: {root}; set H3_COMFY_OUTPUT or pass --output-root")
 
     rows = [json.loads(l) for l in Path(args.jsonl).read_text().splitlines() if l.strip()]
     rows_idx = [(i, r) for i, r in enumerate(rows) if not r.get("warmup")]
