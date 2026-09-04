@@ -1,7 +1,7 @@
 {
  "produced_by": "bench/measure_sol_exact_variants.py",
  "comfy_kitchen": "0.2.32+sol.1128df6",
- "comfy_kitchen_path": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/cb358224-6d64-45e5-80aa-4322d3de01f4/scratchpad/ck_token_aug/comfy_kitchen",
+ "comfy_kitchen_import": "outside the venv (PYTHONPATH or similar)",
  "kernel_source": "kijai/comfy-kitchen sol_token_aug_main @ 1128df65f7695f84b947f3b79c59e88b125681b4 (Comfy-Org/comfy-kitchen PR 156 head, 2026-09-04), same scratch wheel as the capture record of this date; timing shape is the Base16 capture's rows and heads",
  "device": "NVIDIA GeForce RTX 4090",
  "torch": "2.13.0+cu132",

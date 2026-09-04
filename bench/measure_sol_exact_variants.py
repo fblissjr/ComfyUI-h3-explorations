@@ -131,7 +131,10 @@ def main() -> int:
     version = md.version("comfy_kitchen")
     has_cnt = "blk_cnt" in inspect.signature(ck.sol_attn).parameters
     rec = {"produced_by": "bench/measure_sol_exact_variants.py", "comfy_kitchen": version,
-           "comfy_kitchen_path": str(Path(ck.__file__).parent),
+           # a word, never a path: whether the import came from the venv or from
+           # somewhere ahead of it on sys.path (a scratch wheel via PYTHONPATH)
+           "comfy_kitchen_import": ("venv" if str(Path(ck.__file__).resolve()).startswith(str(Path(sys.prefix).resolve()))
+                                    else "outside the venv (PYTHONPATH or similar)"),
            "kernel_source": args.kernel_source,
            "device": torch.cuda.get_device_name(0), "torch": torch.__version__,
            "when": time.strftime("%Y-%m-%dT%H:%M:%S"), "arms": {}}
