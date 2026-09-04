@@ -854,6 +854,12 @@ widths against the envelope instead of demanding the count divide 32.
 `check_pdd_sigmas` skips them and says which check covers them instead.
 
 Matched seed, `C2`-style with Sol removed from both sides, is the arm.
+For t2va the same shape exists since 2026-09-04 as `bench/pdd_ladder_arms.json`:
+PDD8 under stock attention, under sage alone, under sage plus Sol at a
+narrower window, and as shipped, on the speedup ladder's five scenes at its
+seed, because the 2026-09-03 ladder's PDD8 rung carried sage and Sol and its
+loss to the true baseline attributed to nothing narrower than the shipped
+graph.
 
 ### Audio is the first thing a low step count costs, and there is a known fix
 

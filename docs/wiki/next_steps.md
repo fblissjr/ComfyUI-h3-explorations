@@ -37,14 +37,10 @@ conversation, recorded with its provenance in the verdict record's
 clips; `bench/results/2026-09-04_ladder_audio_loudness.json`
 (`bench/measure_clip_loudness.py`, EBU R128 per clip) is the level beside
 that sentence, descriptive at one clip per arm, and its sign summary says
-on how many scenes each rung sits below dense. Next, in order: PDD8's own
-baseline pair on the same scenes and seed, PDD8 under stock attention and
-PDD8 under sage alone, which the generator already knows how to build
-(`workflows/build_workflows.py`, the `dense_attn` extra: `True` wires
-neither kernel, `"sage"` wires sage with Sol absent), so the existing pdd8
-clips become the third arm of a three-rung PDD ladder; then the same scenes
-at more seeds (the 2026-09-03 session postmortem's forward item 4). The
-blind page for this session
+on how many scenes each rung sits below dense. The owner does not want
+more seeds; the question is what runs faster at quality the owner cannot
+tell from dense, and the ladder's answer so far is sage alone and Sol as
+shipped on four scenes of five. The blind page for this session
 on the share was edited by hand after it was built (its pair questions
 export under `clip_rubric`); `bench/score_session.py` reads that key and
 records which it read. Regenerate a page rather than editing it.
@@ -62,6 +58,22 @@ second scene on the same footing, then legal PDD8 through the node's own
 sigmas, then Ref2VA, each its own population. Arm with `H3_SOL_PROBE` and
 `H3_SOL_OBSERVE` on a restart you own; timings from an armed server are
 void.
+
+**Render the PDD ladder, then blind it against the ladder's dense clips.**
+Built 2026-09-04 at the owner's ask (PDD8 without Sol, and PDD8 with Sol at
+more conservative settings): `bench/pdd_ladder_arms.json`, four PDD8 rungs on
+the five ladder scenes at the ladder's seed. PDD8 under sage alone and PDD8
+under stock attention are new probe graphs (`h3_probe_t2v_pdd8_sage`,
+`h3_probe_t2v_pdd8_dense`, generated, never edited); the shipped PDD8 graph
+renders twice, once as shipped and once with Sol's window narrowed to two of
+the eight steps, which is reasoned from `docs/SOLATTN.md`'s sigma-window
+arithmetic rather than measured. The manifest names the controlled pairs,
+the reading rules, the reference rows to append from the ladder's JSONL, and
+the one caveat: the ladder's dense clips predate the 2026-09-04 ComfyUI pull,
+so pairs against them are cross-regime until a re-rendered dense rung is
+shown pixel-identical to its 2026-09-03 clip. The probe graphs were built
+with `--no-validate` on a stopped server; validate against the live
+`/object_info` before the first render. Score the singles this time.
 
 **Export the reference pathway scores, then join them.** All five arms of
 `bench/ref_pathway_arms.json` rendered once on 2026-09-03

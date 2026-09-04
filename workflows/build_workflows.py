@@ -7105,6 +7105,53 @@ def main():
                   "are fused at load for whichever is asked.")),
          "text -> video + audio at 8 steps via PDD, sage on"),
 
+        # **The PDD ladder's own rungs, added 2026-09-04.** The 2026-09-03
+        # speedup ladder rendered PDD8 only as the shipped graph (sage plus
+        # Sol at the PDD window) and it lost to the true baseline on every
+        # scene; the owner pointed out that no arm rendered PDD8 without Sol
+        # or without sage, so the loss attributes to nothing narrower than
+        # the shipped graph. These two are the missing rungs. Their prompts
+        # are patched per scene from the bank by bench/pdd_ladder_arms.json.
+        ("h3_probe_t2v_pdd8_sage.json", "t2v-pdd8-sage", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_probe_t2v_pdd8_sage",
+              variant_note=_probe_note(
+                  "PDD8 under sage alone: the rung the 2026-09-03 ladder "
+                  "did not have",
+                  "h3_text_to_video_pdd.json",
+                  "Sol is ABSENT; sage auto runs every one of the eight "
+                  "steps. The shipped twin runs sage plus Sol at the "
+                  "PDD-specific window, sparse on four of the eight.",
+                  "the defects the owner named blind on the shipped rung: "
+                  "brightness, compressed skin texture, melted on-screen "
+                  "text, shaky framing. Gone here, and Sol on the coarse "
+                  "schedule is the suspect; still here, and the schedule or "
+                  "the merge is.",
+                  "bench/pdd_ladder_arms.json renders this beside the dense "
+                  "twin, the shipped rung and a narrower Sol window, on the "
+                  "ladder's scenes at the ladder's seed.")),
+         "text -> video + audio at 8 steps via PDD, sage alone, Sol absent"),
+
+        ("h3_probe_t2v_pdd8_dense.json", "t2v-pdd8-dense", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_probe_t2v_pdd8_dense",
+              variant_note=_probe_note(
+                  "PDD8 under stock attention: the PDD ladder's own baseline",
+                  "h3_probe_t2v_pdd8_sage.json",
+                  "neither sage nor Sol is wired: ComfyUI's stock attention "
+                  "on every step, the vendor's reference configuration for "
+                  "this schedule. Slow, because dense attention at this "
+                  "sequence length costs more per step than sage plus Sol "
+                  "(docs/h3_pdd.md).",
+                  "whether the sage-alone twin differs from it at all. A "
+                  "control, not a candidate.",
+                  "render it only when the sage-alone rung leaves a "
+                  "question open; bench/pdd_ladder_arms.json lists it last "
+                  "for that reason.")),
+         "text -> video + audio at 8 steps via PDD, stock attention, the PDD ladder's baseline"),
+
         # **The description-length pair.** Same PDD 4-step settings as the other
         # t2v PDD arms, so length is the only thing that differs from each
         # other AND the configuration is the one artifacts show up in. See the

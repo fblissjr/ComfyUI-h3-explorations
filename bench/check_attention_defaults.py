@@ -138,6 +138,13 @@ SOL_EXEMPT_STEMS = {
         "the same capture on the fl2va checkpoint with no LoRA, the control "
         "for whether block 49's input structure is a property of the released "
         "weights rather than of ref2va; Sol off for the same reason as its twin",
+    "h3_probe_t2v_pdd8_sage":
+        "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json): "
+        "PDD8 with sage on every step and Sol absent, so that the shipped "
+        "PDD8 graph's loss to the true baseline in the 2026-09-03 ladder can "
+        "be attributed. Its twin with Sol is h3_text_to_video_pdd; its twin "
+        "with neither kernel is h3_probe_t2v_pdd8_dense, exempt by mechanism "
+        "below rather than by this list",
     "h3_probe_turbo_768p_sla_dense":
         "comparative arm: the Turbo-SLA LoRA under sage alone, the repo's "
         "dense-baseline convention, one of three attention regimes the SLA "
