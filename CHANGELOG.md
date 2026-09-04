@@ -72,6 +72,21 @@ artifact.
   on both streams; the ladder's stairwell dense against its sage rung at
   the same seed differs on every frame.
 
+- **A fourth `sink_conditioning` mode on `MiniMaxH3SolAttn`,
+  `exact_kv_and_all_rows`** (written by a peer session at this session's
+  request on a branch, merged before any server started tonight): every
+  conditioning query row runs dense, references included, because the
+  kernel takes one dense-query range and text rows sit before the
+  references. On t2v the extra cost over the shipped mode is the text rows
+  alone; on ref2v with a video reference it is the reference's rows. The
+  roadmap's step 3, the segment policy: the standoff probe record has the
+  text rows disagreeing most in every block. Shipped default unchanged
+  (`h3_config.SOL_CUDA_DEFAULTS`); `_sink_blocks` now refuses a mode it
+  does not know; the sink pair per mode is graded on CPU in
+  `bench/check_sol_node_equivalence.py` ahead of its kernel cases, red
+  proved by mutation. Chosen by a patch at render time; the subway probe
+  tonight measures it beside the shipped mode.
+
 ### Changed
 
 - **Two owner decisions recorded in `docs/roadmap.md` as the 2026-09-04
