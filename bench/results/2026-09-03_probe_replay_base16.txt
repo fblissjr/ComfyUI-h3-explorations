@@ -1,0 +1,32 @@
+# Probe replay control, 2026-09-03 18:53
+# command: bench/check_sol_probe.py --replay-capture <H3_CAPTURE_ROOT>/2026-09-03_base16_t2v_1344x768 --against bench/results/2026-09-03_sol_exact_base16_capture_d25f2e8.json
+# what it proves: the online probe's per-cell metric (sol_block_probe.metrics) reproduces the offline grader's exact_all_routed numbers on every retained Base16 cell, so the probe and the offline records are one footing.
+# kernel: the installed comfy-kitchen wheel at the time; read bench/check_sol_kernel.py for the local segment (0.2.31+sol.d25f2e8 when this ran)
+
+  ok    qkv_L104361_S104361_b0_s12.pt: rel_l2 0.002901 vs record 0.002901; cos 0.999996 vs 0.999996
+  ok    qkv_L104361_S104361_b0_s14.pt: rel_l2 0.002713 vs record 0.002713; cos 0.999996 vs 0.999996
+  ok    qkv_L104361_S104361_b0_s15.pt: rel_l2 0.002671 vs record 0.002671; cos 0.999996 vs 0.999996
+  ok    qkv_L104361_S104361_b0_s4.pt: rel_l2 0.004224 vs record 0.004224; cos 0.999991 vs 0.999991
+  ok    qkv_L104361_S104361_b0_s8.pt: rel_l2 0.003491 vs record 0.003491; cos 0.999994 vs 0.999994
+  ok    qkv_L104361_S104361_b24_s12.pt: rel_l2 0.007814 vs record 0.007814; cos 0.999971 vs 0.999971
+  ok    qkv_L104361_S104361_b24_s14.pt: rel_l2 0.008016 vs record 0.008016; cos 0.999969 vs 0.999969
+  ok    qkv_L104361_S104361_b24_s15.pt: rel_l2 0.008030 vs record 0.008030; cos 0.999969 vs 0.999969
+  ok    qkv_L104361_S104361_b24_s4.pt: rel_l2 0.007042 vs record 0.007042; cos 0.999977 vs 0.999977
+  ok    qkv_L104361_S104361_b24_s8.pt: rel_l2 0.007403 vs record 0.007403; cos 0.999974 vs 0.999974
+  ok    qkv_L104361_S104361_b32_s12.pt: rel_l2 0.006793 vs record 0.006793; cos 0.999978 vs 0.999978
+  ok    qkv_L104361_S104361_b32_s14.pt: rel_l2 0.007085 vs record 0.007085; cos 0.999976 vs 0.999976
+  ok    qkv_L104361_S104361_b32_s15.pt: rel_l2 0.007306 vs record 0.007306; cos 0.999975 vs 0.999975
+  ok    qkv_L104361_S104361_b32_s4.pt: rel_l2 0.006480 vs record 0.006480; cos 0.999981 vs 0.999981
+  ok    qkv_L104361_S104361_b32_s8.pt: rel_l2 0.006524 vs record 0.006524; cos 0.999980 vs 0.999980
+  ok    qkv_L104361_S104361_b40_s12.pt: rel_l2 0.009951 vs record 0.009951; cos 0.999952 vs 0.999952
+  ok    qkv_L104361_S104361_b40_s14.pt: rel_l2 0.010830 vs record 0.010830; cos 0.999943 vs 0.999943
+  ok    qkv_L104361_S104361_b40_s15.pt: rel_l2 0.011515 vs record 0.011515; cos 0.999936 vs 0.999936
+  ok    qkv_L104361_S104361_b40_s4.pt: rel_l2 0.008442 vs record 0.008442; cos 0.999967 vs 0.999967
+  ok    qkv_L104361_S104361_b40_s8.pt: rel_l2 0.008988 vs record 0.008988; cos 0.999961 vs 0.999961
+  ok    qkv_L104361_S104361_b49_s12.pt: rel_l2 0.038503 vs record 0.038503; cos 0.999259 vs 0.999259
+  ok    qkv_L104361_S104361_b49_s14.pt: rel_l2 0.040118 vs record 0.040118; cos 0.999195 vs 0.999195
+  ok    qkv_L104361_S104361_b49_s15.pt: rel_l2 0.040640 vs record 0.040640; cos 0.999174 vs 0.999174
+  ok    qkv_L104361_S104361_b49_s4.pt: rel_l2 0.038477 vs record 0.038477; cos 0.999260 vs 0.999260
+  ok    qkv_L104361_S104361_b49_s8.pt: rel_l2 0.039214 vs record 0.039214; cos 0.999231 vs 0.999231
+
+the metric reproduces the record on every cell

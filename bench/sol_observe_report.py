@@ -57,6 +57,20 @@ def _fmt(x, width=7):
     return f"{x:{width}.4f}" if isinstance(x, (int, float)) and x is not None else f"{'-':>{width}}"
 
 
+
+def _redact_home(obj):
+    """A tracked summary carries no path outside the repo: the home directory
+    becomes `<HOME>` in every string, recursively."""
+    home = str(Path.home())
+    if isinstance(obj, str):
+        return obj.replace(home, "<HOME>")
+    if isinstance(obj, list):
+        return [_redact_home(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _redact_home(v) for k, v in obj.items()}
+    return obj
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("path", help="record directory or a sol_observe_*.jsonl")
@@ -165,7 +179,7 @@ def main() -> int:
 
     def _finish():
         if args.json:
-            Path(args.json).write_text(json.dumps(summary, indent=1) + "\n")
+            Path(args.json).write_text(json.dumps(_redact_home(summary), indent=1) + "\n")
             print(f"\nsummary written to {args.json}")
         return 0
 

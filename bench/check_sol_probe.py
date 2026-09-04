@@ -114,17 +114,31 @@ def validate(rows: list[dict], n_blocks: int | None = None) -> list[str]:
     return bad
 
 
-def table(rows: list[dict]) -> str:
+def _redact_home(obj):
+    """A tracked summary carries no path outside the repo: the home directory
+    becomes `<HOME>` in every string, recursively."""
+    home = str(Path.home())
+    if isinstance(obj, str):
+        return obj.replace(home, "<HOME>")
+    if isinstance(obj, list):
+        return [_redact_home(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _redact_home(v) for k, v in obj.items()}
+    return obj
+
+
+def block_summary(rows: list[dict]) -> list[dict]:
+    """Per-block summary of the compared cells, ranked by mean whole-call
+    rel_l2, descending. The data behind `table`; `--json` writes it."""
+    import statistics
     cells = [r for r in rows if r.get("kind") == "cell" and r.get("compare_status") == "compared"]
     by_block = defaultdict(list)
     for r in cells:
         by_block[r["block"]].append(r)
-    out = ["  block  cells   rel_l2 mean     p50     p90     p99     max   worst-head cos   segments (rel_l2 mean)"]
-    import statistics
     def pct(xs, p):
         xs = sorted(xs); i = min(len(xs) - 1, max(0, int(round(p * (len(xs) - 1)))))
         return xs[i]
-    ranked = []
+    out = []
     for b, cs in by_block.items():
         vals = [c["metrics"]["whole"]["rel_l2"] for c in cs if c["metrics"]["whole"]["rel_l2"] is not None]
         if not vals:
@@ -135,10 +149,27 @@ def table(rows: list[dict]) -> str:
             for sgm in c["metrics"]["per_segment"]:
                 if sgm["rel_l2"] is not None:
                     segs[sgm["kind"]].append(sgm["rel_l2"])
-        ranked.append((statistics.mean(vals), b, len(cs), vals, worst_head, segs))
-    for mean, b, n, vals, wh, segs in sorted(ranked, reverse=True):
-        seg_txt = " ".join(f"{k}={statistics.mean(v):.4f}" for k, v in sorted(segs.items()))
-        out.append(f"  {b:5d}  {n:5d}   {mean:.5f}  {pct(vals, .5):.5f} {pct(vals, .9):.5f} {pct(vals, .99):.5f} {max(vals):.5f}   "
+        out.append({
+            "block": b, "cells": len(cs),
+            "rel_l2": {"mean": statistics.mean(vals), "p50": pct(vals, .5), "p90": pct(vals, .9),
+                       "p99": pct(vals, .99), "max": max(vals)},
+            "worst_head_cos": worst_head,
+            "segments_rel_l2_mean": {k: statistics.mean(v) for k, v in sorted(segs.items())},
+            "per_step": sorted(({"schedule_index": c.get("schedule", {}).get("schedule_index"),
+                                 "sigma": c.get("sigma"), "rel_l2": c["metrics"]["whole"]["rel_l2"],
+                                 "cos": c["metrics"]["whole"]["cos"]} for c in cs),
+                               key=lambda d: (d["schedule_index"] is None, d["schedule_index"])),
+        })
+    out.sort(key=lambda d: d["rel_l2"]["mean"], reverse=True)
+    return out
+
+
+def table(rows: list[dict]) -> str:
+    out = ["  block  cells   rel_l2 mean     p50     p90     p99     max   worst-head cos   segments (rel_l2 mean)"]
+    for d in block_summary(rows):
+        r = d["rel_l2"]; wh = d["worst_head_cos"]
+        seg_txt = " ".join(f"{k}={v:.4f}" for k, v in d["segments_rel_l2_mean"].items())
+        out.append(f"  {d['block']:5d}  {d['cells']:5d}   {r['mean']:.5f}  {r['p50']:.5f} {r['p90']:.5f} {r['p99']:.5f} {r['max']:.5f}   "
                    f"{'' if wh is None else f'{wh:.4f}':>8}   {seg_txt}")
     return "\n".join(out)
 
@@ -318,6 +349,8 @@ def main() -> int:
     ap.add_argument("--controls", action="store_true")
     ap.add_argument("--record", type=Path)
     ap.add_argument("--n-blocks", type=int, default=None, help="expected block count for completeness (default: max seen + 1)")
+    ap.add_argument("--json", type=Path, default=None,
+                    help="with --record: also write a tracked summary (header, render rows, violations, the per-block table as data)")
     ap.add_argument("--replay-capture", type=Path)
     ap.add_argument("--against", type=Path, help="the measure_sol_exact_variants record to reproduce")
     ap.add_argument("--chunk", type=int, default=2048)
@@ -335,6 +368,24 @@ def main() -> int:
             print(f"  FAIL  {b}")
         print("  ok    every invariant holds" if not bad else f"\n{len(bad)} violation(s)")
         rc |= 1 if bad else 0
+        if args.json:
+            summary = {
+                "produced_by": "bench/check_sol_probe.py --record --json",
+                "record": str(args.record.relative_to(REPO)) if args.record.is_relative_to(REPO) else args.record.name,
+                "header": header,
+                "renders": [r for r in rows if r.get("kind") == "render"],
+                "cells": sum(r.get("kind") == "cell" for r in rows),
+                "skips": sum(r.get("kind") == "skip" for r in rows),
+                "n_blocks_expected": args.n_blocks,
+                "violations": bad,
+                "how_to_read": ("rel_l2 is Sol's output against the chained fallback (the shipped sage override) on identical "
+                                "q/k/v, per block and step, on the trajectory named by header.trajectory. Both are approximations "
+                                "of exact attention, so a large value says the two disagree, not which is wrong. Blocks are "
+                                "ranked by mean over the compared cells; one scene, one seed."),
+                "blocks": block_summary(rows),
+            }
+            args.json.write_text(json.dumps(_redact_home(summary), indent=1) + "\n")
+            print(f"summary written to {args.json}")
     if args.replay_capture:
         if not args.against:
             print("--replay-capture needs --against RECORD"); return 2

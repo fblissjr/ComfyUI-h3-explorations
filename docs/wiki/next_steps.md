@@ -19,14 +19,19 @@ owner's part: the scoring app in that batch folder, then
 perceptual anchor taken from the true baseline, and everything numeric gets
 judged against it. One seed per arm, so it anchors; it does not decide.
 
-**Validate the online Sol-versus-Sage instrument.** `sol_block_probe.py` is
-built and its fixture controls are green (`bench/check_sol_probe.py
---controls`). Two things remain before its numbers are trusted: the capture
-replay (`--replay-capture`, against the exact-branch record) and the first
-canonical Base16 record (the shipped t2v graph, Sol on, `dense_blocks`
-empty, armed with `H3_SOL_PROBE` and `H3_SOL_OBSERVE`), read with
-`--record`. Both are running behind the ladder in one chain; read the
-record before trusting any per-block number.
+**The online Sol-versus-Sage instrument is validated; read it, then widen
+it.** `sol_block_probe.py` passed its fixture controls, reproduced the
+offline record on every retained Base16 cell
+(`bench/results/2026-09-03_probe_replay_base16.txt`), and its first canonical
+record holds every invariant
+(`bench/results/2026-09-03_sol_probe_base16_standoff.json`, summary as data;
+the closing section of
+[`../research/2026-09-03_sol_exact_pquant_and_base_capture.md`](../research/2026-09-03_sol_exact_pquant_and_base_capture.md)
+says what it ranks and what it cannot say). Next in the roadmap's order: a
+second scene on the same footing, then legal PDD8 through the node's own
+sigmas, then Ref2VA, each its own population. Arm with `H3_SOL_PROBE` and
+`H3_SOL_OBSERVE` on a restart you own; timings from an armed server are
+void.
 
 **Render the reference pathway ablation once the card is free.**
 `bench/ref_pathway_arms.json`: our reference conditioner and core's, each

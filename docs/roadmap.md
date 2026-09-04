@@ -82,8 +82,12 @@ ladder per block, not alternatives.
 2. **Canonical Base16 FL2VA**: the pruned INT8 ConvRot fl2va DiT every
    graph loads, 1344x768, 345 frames, 16 steps, Sol on with production
    sink ranges and the empty `dense_blocks`: the first measurement of the
-   shipped call. Then **legal PDD8 FL2VA** by the node's own sigmas, then
-   **Ref2VA** on the ref2va DiT; three populations, never pooled.
+   shipped call. Done for one scene and seed on 2026-09-03
+   (`bench/results/2026-09-03_sol_probe_base16_standoff.json`, read through
+   the research record's closing section); a second scene is owed before
+   its ranking informs anything. Then **legal PDD8 FL2VA** by the node's
+   own sigmas, then **Ref2VA** on the ref2va DiT; three populations, never
+   pooled.
 3. **A tau ladder per suspicious block**, plus the Sage fallback, on the
    direct Sol-versus-Sage delta and route cost together; one measurement
    ranks blocks, it does not choose their tau.

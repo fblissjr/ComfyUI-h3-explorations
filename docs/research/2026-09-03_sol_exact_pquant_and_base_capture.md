@@ -348,3 +348,43 @@ every magnitude here is one scene's.
 - that any non-empty dense-block set improves quality enough to pay its cost;
 - that the new VAE operations improve this pipeline; or
 - any performance number from an instrumented capture render.
+
+
+## First online record of the shipped call, 2026-09-03 evening
+
+The probe's two controls passed before the record was read.
+`bench/results/2026-09-03_probe_replay_base16.txt`: the online metric
+reproduces the offline `exact_all_routed` numbers on every retained Base16
+cell, so this record and the offline ones are one footing.
+`bench/check_sol_probe.py --record ... --n-blocks 50`: every invariant holds
+(550 cells, no skips, every step-by-block cell compared once, segments tile
+every call).
+
+The record is the shipped t2v graph on the standoff bank scene, Sol on with
+production sink ranges and `dense_blocks` empty, one seed, `trajectory=sol`:
+Sol's output against the chained fallback (the shipped sage override) on
+identical q/k/v, per block and step, for the eleven in-window steps.
+Summary as data, ranked by mean whole-call rel_l2:
+`bench/results/2026-09-03_sol_probe_base16_standoff.json`; the route the
+same render took: `bench/results/2026-09-03_sol_route_base16_standoff_probe.json`;
+the raw records under `internal/sol_observe/2026-09-03_probe_base16_standoff{,_observe}`.
+
+What the ranking says, in words, with the numbers left in the record:
+
+- A contiguous band of blocks in the high thirties to low forties carries
+  the largest Sol-versus-fallback disagreement, several times the quietest
+  blocks; its worst heads are also the lowest-cosine heads in the record.
+- The text segment disagrees most in every block, audio least, video
+  between; block 49 is where audio disagrees most and is otherwise
+  unremarkable on this footing. That is a different ranking from the
+  offline all-routed-versus-fp32 record, where block 49 stood out; the two
+  measure different things (Sol against Sage on Sol's own trajectory, versus
+  Sol against exact on the dense trajectory) and the difference is expected,
+  not a contradiction.
+- This is a disagreement between two approximations. It ranks blocks for a
+  tau ladder (roadmap step 3); it does not say which side is closer to exact
+  and does not choose a dense set.
+
+One scene, one seed, telemetry on: the render's wall time is instrumented
+and not quotable (the row in
+`bench/results/2026-09-03_probe_base16_standoff.jsonl` says so by its label).

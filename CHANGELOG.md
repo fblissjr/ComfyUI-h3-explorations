@@ -4,6 +4,32 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.36
+
+### Added
+
+- **The first online Sol-versus-fallback record of the shipped call.** The
+  probe replayed the retained Base16 capture and reproduced the offline
+  exact-branch numbers on every cell
+  (`bench/results/2026-09-03_probe_replay_base16.txt`), then rendered the
+  shipped t2v graph on the standoff scene armed, and the record holds every
+  invariant over fifty blocks. Summary as data:
+  `bench/results/2026-09-03_sol_probe_base16_standoff.json`; the route the
+  same render took: `bench/results/2026-09-03_sol_route_base16_standoff_probe.json`;
+  what the ranking says and cannot say is the closing section of
+  `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md`. One
+  scene, one seed; the roadmap's step 2 says a second scene is owed.
+- `bench/check_sol_probe.py --record --json PATH` writes the per-block table
+  as data beside the text table, with the header, render rows and
+  violations; `block_summary` is the one source of both.
+
+### Changed
+
+- The two summary writers (`check_sol_probe.py --json`,
+  `sol_observe_report.py --json`) redact the home directory from every
+  string, so an arming spec naming a directory outside the repo does not
+  put that path into a tracked record.
+
 ## 0.99.35
 
 ### Added
