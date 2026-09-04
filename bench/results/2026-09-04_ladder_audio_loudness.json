@@ -1,0 +1,406 @@
+{
+ "measured": "2026-09-04",
+ "produced_by": "bench/measure_clip_loudness.py over 2026-09-03_ladder_outputs.json; ffmpeg ebur128=peak=true on the first audio stream of each muxed clip",
+ "note": "written after the owner reported, on 2026-09-04 after scoring the ladder pairs, that the audio was good across the board and a bit quieter on the PDD clips; this is the level beside that sentence",
+ "reading": "descriptive. One clip per arm, so a per-scene delta is a paired draw from two different samples, not a measurement of the rung; the sign summary counts how many scenes agree, which is the most this record can say. A seed sweep per arm is what would turn a delta into a level difference.",
+ "baseline_rung": "dense",
+ "units": {
+  "integrated_lufs": "EBU R128 integrated loudness, LUFS (higher is louder)",
+  "loudness_range_lu": "EBU R128 loudness range, LU",
+  "true_peak_dbfs": "true peak, dBFS",
+  "delta_lufs": "rung integrated loudness minus the scene's baseline rung"
+ },
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "per_arm": [
+  {
+   "label": "standoff_dense",
+   "scene": "standoff",
+   "rung": "dense",
+   "clip": "h3_t2v_standoff_dense_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -19.6,
+   "loudness_range_lu": 8.5,
+   "true_peak_dbfs": -3.5
+  },
+  {
+   "label": "standoff_sage",
+   "scene": "standoff",
+   "rung": "sage",
+   "clip": "h3_t2v_standoff_sage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -19.8,
+   "loudness_range_lu": 7.8,
+   "true_peak_dbfs": -4.3
+  },
+  {
+   "label": "standoff_sol",
+   "scene": "standoff",
+   "rung": "sol",
+   "clip": "h3_t2v_standoff_sol_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -18.7,
+   "loudness_range_lu": 7.5,
+   "true_peak_dbfs": -3.3
+  },
+  {
+   "label": "standoff_solfp16",
+   "scene": "standoff",
+   "rung": "solfp16",
+   "clip": "h3_t2v_standoff_solfp16_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -18.1,
+   "loudness_range_lu": 8.1,
+   "true_peak_dbfs": -3.4
+  },
+  {
+   "label": "standoff_pdd8",
+   "scene": "standoff",
+   "rung": "pdd8",
+   "clip": "text_to_video_pdd_standoff_pdd8_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_pdd_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -27.2,
+   "loudness_range_lu": 4.5,
+   "true_peak_dbfs": -13.3
+  },
+  {
+   "label": "diner_dense",
+   "scene": "diner",
+   "rung": "dense",
+   "clip": "h3_t2v_diner_dense_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -28.3,
+   "loudness_range_lu": 10.2,
+   "true_peak_dbfs": -11.8
+  },
+  {
+   "label": "diner_sage",
+   "scene": "diner",
+   "rung": "sage",
+   "clip": "h3_t2v_diner_sage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -28.7,
+   "loudness_range_lu": 9.8,
+   "true_peak_dbfs": -12.7
+  },
+  {
+   "label": "diner_sol",
+   "scene": "diner",
+   "rung": "sol",
+   "clip": "h3_t2v_diner_sol_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -28.4,
+   "loudness_range_lu": 7.7,
+   "true_peak_dbfs": -11.9
+  },
+  {
+   "label": "diner_solfp16",
+   "scene": "diner",
+   "rung": "solfp16",
+   "clip": "h3_t2v_diner_solfp16_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -26.8,
+   "loudness_range_lu": 8.4,
+   "true_peak_dbfs": -11.0
+  },
+  {
+   "label": "diner_pdd8",
+   "scene": "diner",
+   "rung": "pdd8",
+   "clip": "text_to_video_pdd_diner_pdd8_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_pdd_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -29.2,
+   "loudness_range_lu": 7.8,
+   "true_peak_dbfs": -10.8
+  },
+  {
+   "label": "opera_dense",
+   "scene": "opera",
+   "rung": "dense",
+   "clip": "h3_t2v_opera_dense_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -33.2,
+   "loudness_range_lu": 11.2,
+   "true_peak_dbfs": -21.6
+  },
+  {
+   "label": "opera_sage",
+   "scene": "opera",
+   "rung": "sage",
+   "clip": "h3_t2v_opera_sage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -33.4,
+   "loudness_range_lu": 11.0,
+   "true_peak_dbfs": -19.1
+  },
+  {
+   "label": "opera_sol",
+   "scene": "opera",
+   "rung": "sol",
+   "clip": "h3_t2v_opera_sol_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -32.5,
+   "loudness_range_lu": 11.0,
+   "true_peak_dbfs": -19.0
+  },
+  {
+   "label": "opera_solfp16",
+   "scene": "opera",
+   "rung": "solfp16",
+   "clip": "h3_t2v_opera_solfp16_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -32.4,
+   "loudness_range_lu": 11.2,
+   "true_peak_dbfs": -18.9
+  },
+  {
+   "label": "opera_pdd8",
+   "scene": "opera",
+   "rung": "pdd8",
+   "clip": "text_to_video_pdd_opera_pdd8_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_pdd_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -30.7,
+   "loudness_range_lu": 11.6,
+   "true_peak_dbfs": -16.7
+  },
+  {
+   "label": "stairwell_dense",
+   "scene": "stairwell",
+   "rung": "dense",
+   "clip": "h3_t2v_stairwell_dense_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -13.8,
+   "loudness_range_lu": 5.0,
+   "true_peak_dbfs": -0.4
+  },
+  {
+   "label": "stairwell_sage",
+   "scene": "stairwell",
+   "rung": "sage",
+   "clip": "h3_t2v_stairwell_sage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -14.4,
+   "loudness_range_lu": 5.2,
+   "true_peak_dbfs": -0.3
+  },
+  {
+   "label": "stairwell_sol",
+   "scene": "stairwell",
+   "rung": "sol",
+   "clip": "h3_t2v_stairwell_sol_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -19.4,
+   "loudness_range_lu": 5.2,
+   "true_peak_dbfs": -3.6
+  },
+  {
+   "label": "stairwell_solfp16",
+   "scene": "stairwell",
+   "rung": "solfp16",
+   "clip": "h3_t2v_stairwell_solfp16_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -20.1,
+   "loudness_range_lu": 4.9,
+   "true_peak_dbfs": -3.7
+  },
+  {
+   "label": "stairwell_pdd8",
+   "scene": "stairwell",
+   "rung": "pdd8",
+   "clip": "text_to_video_pdd_stairwell_pdd8_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_pdd_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -26.2,
+   "loudness_range_lu": 5.7,
+   "true_peak_dbfs": -10.5
+  },
+  {
+   "label": "subway_dense",
+   "scene": "subway",
+   "rung": "dense",
+   "clip": "h3_t2v_subway_dense_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_dense_stamped_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -15.2,
+   "loudness_range_lu": 7.4,
+   "true_peak_dbfs": -1.2
+  },
+  {
+   "label": "subway_sage",
+   "scene": "subway",
+   "rung": "sage",
+   "clip": "h3_t2v_subway_sage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/bench/h3_text_to_video_stamped_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -14.1,
+   "loudness_range_lu": 5.2,
+   "true_peak_dbfs": -0.8
+  },
+  {
+   "label": "subway_sol",
+   "scene": "subway",
+   "rung": "sol",
+   "clip": "h3_t2v_subway_sol_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -13.0,
+   "loudness_range_lu": 4.0,
+   "true_peak_dbfs": -0.0
+  },
+  {
+   "label": "subway_solfp16",
+   "scene": "subway",
+   "rung": "solfp16",
+   "clip": "h3_t2v_subway_solfp16_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -13.3,
+   "loudness_range_lu": 3.8,
+   "true_peak_dbfs": 0.6
+  },
+  {
+   "label": "subway_pdd8",
+   "scene": "subway",
+   "rung": "pdd8",
+   "clip": "text_to_video_pdd_subway_pdd8_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_text_to_video_pdd_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -14.0,
+   "loudness_range_lu": 6.0,
+   "true_peak_dbfs": -0.6
+  }
+ ],
+ "delta_vs_baseline_by_scene": {
+  "standoff": {
+   "sage": -0.2,
+   "sol": 0.9,
+   "solfp16": 1.5,
+   "pdd8": -7.6
+  },
+  "diner": {
+   "sage": -0.4,
+   "sol": -0.1,
+   "solfp16": 1.5,
+   "pdd8": -0.9
+  },
+  "opera": {
+   "sage": -0.2,
+   "sol": 0.7,
+   "solfp16": 0.8,
+   "pdd8": 2.5
+  },
+  "stairwell": {
+   "sage": -0.6,
+   "sol": -5.6,
+   "solfp16": -6.3,
+   "pdd8": -12.4
+  },
+  "subway": {
+   "sage": 1.1,
+   "sol": 2.2,
+   "solfp16": 1.9,
+   "pdd8": 1.2
+  }
+ },
+ "sign_summary_by_rung": {
+  "pdd8": {
+   "n_scenes": 5,
+   "quieter_than_baseline": 3,
+   "louder_than_baseline": 2,
+   "equal": 0,
+   "delta_lufs_by_scene": {
+    "standoff": -7.6,
+    "diner": -0.9,
+    "opera": 2.5,
+    "stairwell": -12.4,
+    "subway": 1.2
+   },
+   "median_delta_lufs": -0.9
+  },
+  "sage": {
+   "n_scenes": 5,
+   "quieter_than_baseline": 4,
+   "louder_than_baseline": 1,
+   "equal": 0,
+   "delta_lufs_by_scene": {
+    "standoff": -0.2,
+    "diner": -0.4,
+    "opera": -0.2,
+    "stairwell": -0.6,
+    "subway": 1.1
+   },
+   "median_delta_lufs": -0.2
+  },
+  "sol": {
+   "n_scenes": 5,
+   "quieter_than_baseline": 2,
+   "louder_than_baseline": 3,
+   "equal": 0,
+   "delta_lufs_by_scene": {
+    "standoff": 0.9,
+    "diner": -0.1,
+    "opera": 0.7,
+    "stairwell": -5.6,
+    "subway": 2.2
+   },
+   "median_delta_lufs": 0.7
+  },
+  "solfp16": {
+   "n_scenes": 5,
+   "quieter_than_baseline": 1,
+   "louder_than_baseline": 4,
+   "equal": 0,
+   "delta_lufs_by_scene": {
+    "standoff": 1.5,
+    "diner": 1.5,
+    "opera": 0.8,
+    "stairwell": -6.3,
+    "subway": 1.9
+   },
+   "median_delta_lufs": 1.5
+  }
+ }
+}

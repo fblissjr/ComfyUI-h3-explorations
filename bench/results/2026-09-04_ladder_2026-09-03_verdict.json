@@ -1785,5 +1785,12 @@
     "scored": false
    }
   ]
+ },
+ "owner_report_after_join": {
+  "when": "2026-09-04, in conversation, after the pairs above were resolved through the key and read back to the owner",
+  "provenance": "the owner's words relayed by the session that ran the join, not an answer entered on score.html; the singles remain unscored in the export and this field is the only audio judgement on the ladder",
+  "audio": "the audio was fine on most and mostly good across the board; a bit quieter on the PDD ones, and that is the only difference the owner named. 'The PDD ones' is the owner's identification of clips by their look, not a reading of the key",
+  "confound_raised_by_owner": "every rung above dense carries sage, and the sol, solfp16 and pdd8 rungs all carry Sol; pdd8 also carries the PDD-specific Sol end_percent (h3_config.sol_for_graph). No arm renders PDD8 without Sol or without sage, so a pdd8 loss against dense does not attribute to the step distillation, the kernels, or their interaction",
+  "level_measurement": "bench/results/2026-09-04_ladder_audio_loudness.json (EBU R128 per clip, bench/measure_clip_loudness.py)"
  }
 }

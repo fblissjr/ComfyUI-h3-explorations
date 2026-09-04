@@ -25,9 +25,26 @@ time, and the owner named it as PDD unprompted on two pairs; on the four
 scenes without fast motion, sage alone and Sol as shipped were called the
 same as dense or could not be told from it; on the subway chase every rung
 lost to dense, narrowly for sage and Sol in the owner's words; the fp16-sage
-rung went both ways. One seed anchors; it does not decide. Next: the same
-scenes at more seeds (the 2026-09-03 session postmortem's forward item 4),
-and PDD8 on its own ladder after the bake. The blind page for this session
+rung went both ways. One seed anchors; it does not decide. **The PDD8 rung
+is confounded, as the owner pointed out on reading the result:** every rung
+above dense carries sage, the sol, solfp16 and pdd8 rungs all carry Sol, and
+pdd8 also carries the PDD-specific Sol `end_percent`
+(`h3_config.sol_for_graph`). No arm renders PDD8 without Sol or without
+sage, so a pdd8 loss does not attribute to the step distillation, the
+kernels, or their interaction. The audio half is the owner's report in
+conversation, recorded with its provenance in the verdict record's
+`owner_report_after_join`: good across the board, a bit quieter on the PDD
+clips; `bench/results/2026-09-04_ladder_audio_loudness.json`
+(`bench/measure_clip_loudness.py`, EBU R128 per clip) is the level beside
+that sentence, descriptive at one clip per arm, and its sign summary says
+on how many scenes each rung sits below dense. Next, in order: PDD8's own
+baseline pair on the same scenes and seed, PDD8 under stock attention and
+PDD8 under sage alone, which the generator already knows how to build
+(`workflows/build_workflows.py`, the `dense_attn` extra: `True` wires
+neither kernel, `"sage"` wires sage with Sol absent), so the existing pdd8
+clips become the third arm of a three-rung PDD ladder; then the same scenes
+at more seeds (the 2026-09-03 session postmortem's forward item 4). The
+blind page for this session
 on the share was edited by hand after it was built (its pair questions
 export under `clip_rubric`); `bench/score_session.py` reads that key and
 records which it read. Regenerate a page rather than editing it.

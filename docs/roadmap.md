@@ -107,8 +107,12 @@ ladder per block, not alternatives.
    rather than a ladder of its own. Scored by the owner on 2026-09-04,
    pairs only, one seed
    (`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`); the
-   direction and the two reading rules are in `wiki/next_steps.md`. A
-   second seed and the singles' audio half are owed before this step is met.
+   direction and the two reading rules are in `wiki/next_steps.md`. The
+   PDD8 rung turned out confounded (it carries sage and Sol like the rungs
+   below it, plus the PDD-specific Sol `end_percent`), so PDD8 does need a
+   ladder of its own after all: stock attention, sage alone, and the shipped
+   graph, same scenes and seed. That pair of arms, a second seed, and the
+   singles' audio half are owed before this step is met.
 
 **In parallel, not behind the above: the PDD bake.** It removes merge-time
 requantisation at no runtime cost and is the strongest practical PDD

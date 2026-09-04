@@ -14,10 +14,24 @@ artifact.
   joined with the sealed key by `bench/score_session.py` with the batch
   MANIFEST cross-checked, and the key's rows and labels verified against
   the render record before the join. Pairs only: no single was scored, so
-  the record is marked partial and nothing audible was judged. The two
-  reading rules travel with it in `docs/wiki/next_steps.md` and a bounded
-  row in `docs/evidence.md`: one seed per arm, and every contest within a
-  scene shares one clip per rung.
+  the record is marked partial and nothing audible was judged through the
+  page. The two reading rules travel with it in `docs/wiki/next_steps.md`
+  and a bounded row in `docs/evidence.md`: one seed per arm, and every
+  contest within a scene shares one clip per rung. On reading the result
+  the owner named a third, now in the record's `owner_report_after_join`
+  with its provenance: the PDD8 rung carries sage and Sol like the rungs
+  below it (plus the PDD-specific Sol `end_percent`), and no arm renders
+  PDD8 without either, so its losses attribute to nothing narrower than the
+  shipped graph. The owner's audio report is in the same field: good across
+  the board, a bit quieter on the PDD clips.
+- **`bench/measure_clip_loudness.py`** and its first record,
+  `bench/results/2026-09-04_ladder_audio_loudness.json`: EBU R128
+  integrated loudness, loudness range and true peak per ladder clip through
+  ffmpeg's `ebur128`, each rung against its scene's dense rung, with a sign
+  summary per rung across scenes. Descriptive at one clip per arm and says
+  so; written so the owner's "quieter on the PDD ones" has a level beside
+  it. Refuses a clip without an audio stream or one the record names that
+  the output root does not hold; basenames only reach the record.
 
 ### Changed
 
