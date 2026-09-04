@@ -87,6 +87,18 @@ artifact.
   proved by mutation. Chosen by a patch at render time; the subway probe
   tonight measures it beside the shipped mode.
 
+### Fixed
+
+- **`bench/check_node_ids.py` is green again**: `bench/node_id_manifest.json`
+  records the optional `require_absent` input appended to `SageChainAssert`
+  on 2026-09-03 (commit `29b8967`), the one change `--write` made (peer
+  session, commit `4ea4434`). It had been red at HEAD since that append.
+- **`bench/check_sol_node_equivalence.py` exits 2 on a busy card** instead
+  of a raw traceback: the kernel cases run under a wrapper that catches the
+  allocator's error, names the cases not graded, and returns the exit its
+  docstring promised; `--oom-control` proves it with the card masked, red
+  proved by mutation (peer session, commit `ff3eee5`).
+
 ### Changed
 
 - **Two owner decisions recorded in `docs/roadmap.md` as the 2026-09-04
