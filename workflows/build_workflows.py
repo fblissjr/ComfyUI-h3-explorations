@@ -7147,9 +7147,10 @@ def main():
                   "(docs/h3_pdd.md).",
                   "whether the sage-alone twin differs from it at all. A "
                   "control, not a candidate.",
-                  "render it only when the sage-alone rung leaves a "
-                  "question open; bench/pdd_ladder_arms.json lists it last "
-                  "for that reason.")),
+                  "not a rung of bench/pdd_ladder_arms.json: under the "
+                  "owner's 2026-09-04 decision that sage is always on, the "
+                  "sage-alone graph is the PDD floor and this one is rendered "
+                  "only when the question is what the model itself does.")),
          "text -> video + audio at 8 steps via PDD, stock attention, the PDD ladder's baseline"),
 
         # **The description-length pair.** Same PDD 4-step settings as the other

@@ -7,7 +7,15 @@ page is stale.
 
 ## Now
 
-**Read the ladder verdict, then widen the seed count where it separated.**
+**The routing policy is the lane, and sage is the floor.** Two owner
+decisions on 2026-09-04, recorded with what they change and the sequence
+they set in [`../roadmap.md`](../roadmap.md) (forward plan 2026-09-04): the
+next render on the card is the online probe on the subway scene, the one
+scene where Sol lost blind, set beside the standoff record; then the PDD
+ladder below; then the three policy axes the node already exposes, segment,
+block and step, each measured on the probe before one blind pair.
+
+**Read the ladder verdict.**
 The owner scored every stacked pair of session `ladder_2026-09-03` on
 2026-09-04 (five bank scenes by five rungs, matched seed, trained canvas;
 `bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
@@ -53,24 +61,25 @@ record holds every invariant
 (`bench/results/2026-09-03_sol_probe_base16_standoff.json`, summary as data;
 the closing section of
 [`../research/2026-09-03_sol_exact_pquant_and_base_capture.md`](../research/2026-09-03_sol_exact_pquant_and_base_capture.md)
-says what it ranks and what it cannot say). Next in the roadmap's order: a
-second scene on the same footing, then legal PDD8 through the node's own
-sigmas, then Ref2VA, each its own population. Arm with `H3_SOL_PROBE` and
-`H3_SOL_OBSERVE` on a restart you own; timings from an armed server are
-void.
+says what it ranks and what it cannot say). Next, first on the card under
+the 2026-09-04 plan: the subway scene on the same footing, then legal PDD8
+through the node's own sigmas, then Ref2VA, each its own population. Arm
+with `H3_SOL_PROBE` on a restart you own; timings from an armed server are
+void, and the 2026-09-03 probe render's row shows the render itself takes
+about three times an unarmed Sol render.
 
-**Render the PDD ladder, then blind it against the ladder's dense clips.**
+**Render the PDD ladder, then blind it against the ladder's sage clips.**
 Built 2026-09-04 at the owner's ask (PDD8 without Sol, and PDD8 with Sol at
-more conservative settings): `bench/pdd_ladder_arms.json`, four PDD8 rungs on
-the five ladder scenes at the ladder's seed. PDD8 under sage alone and PDD8
-under stock attention are new probe graphs (`h3_probe_t2v_pdd8_sage`,
-`h3_probe_t2v_pdd8_dense`, generated, never edited); the shipped PDD8 graph
+more conservative settings) and cut to three rungs under the sage-always
+decision: `bench/pdd_ladder_arms.json`, on the five ladder scenes at the
+ladder's seed. PDD8 under sage alone is a new probe graph
+(`h3_probe_t2v_pdd8_sage`, generated, never edited); the shipped PDD8 graph
 renders twice, once as shipped and once with Sol's window narrowed to two of
 the eight steps, which is reasoned from `docs/SOLATTN.md`'s sigma-window
 arithmetic rather than measured. The manifest names the controlled pairs,
-the reading rules, the reference rows to append from the ladder's JSONL, and
-the one caveat: the ladder's dense clips predate the 2026-09-04 ComfyUI pull,
-so pairs against them are cross-regime until a re-rendered dense rung is
+the reading rules, the sage rows to append from the ladder's JSONL, and the
+one caveat: the ladder's clips predate the 2026-09-04 ComfyUI pull, so pairs
+against them are cross-regime until a rung re-rendered after the pull is
 shown pixel-identical to its 2026-09-03 clip. The probe graphs were built
 with `--no-validate` on a stopped server; validate against the live
 `/object_info` before the first render. Score the singles this time.

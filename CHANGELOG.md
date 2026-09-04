@@ -48,6 +48,13 @@ artifact.
 
 ### Changed
 
+- **Two owner decisions recorded in `docs/roadmap.md` as the 2026-09-04
+  forward plan: sage is always on, and the routing policy is the core
+  priority.** What they change and the sequence they set live there;
+  `docs/wiki/next_steps.md` points at it. `bench/pdd_ladder_arms.json` is
+  cut to three rungs under sage and pairs against the ladder's sage clips;
+  the stock-attention PDD8 graph stays as the vendor's reference
+  configuration and its generator note says it is not a rung.
 - **`bench/grade_arm_audio_spectrum.py` refuses below three clips per
   arm** instead of warning above a table of verdicts, which is how twenty
   void ladder records came to exist on 2026-09-03 (0.99.35). Shown red on a

@@ -26,6 +26,76 @@ Two companion documents, and the split matters:
 relied on**. This file is the forward-looking one: what we are doing next and
 what would make it a real answer.
 
+## Current forward plan — 2026-09-04
+
+Supersedes the 2026-09-03 plan below in sequence only; that plan's decision
+standard and its "what would count as finding it" stand unchanged and are
+not restated here.
+
+**Two owner decisions on 2026-09-04, after reading the ladder verdict**
+(`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`):
+
+- **Sage is always on.** The ladder could not tell sage alone from the true
+  baseline on four scenes of five at one seed and read it narrowly behind
+  on the fast-motion scene, at a fraction of the dense cost (the ladder
+  record carries both). So the floor every comparison is judged against is
+  the sage render, not the dense one. The dense stamped arm stays as the
+  statement of what the model itself does, rendered when that question is
+  asked, never as a rung of every ladder. What would reverse this: a blind
+  multi-scene session where sage loses to dense on a scene class the owner
+  cares about.
+- **The routing policy is the core priority.** Where Sol runs, which steps,
+  which blocks, which rows, is what decides quality against cost; the
+  kernel's arithmetic is the smaller term through the trunk
+  (`docs/SOLATTN.md`, the decomposition section), and a global tau is the
+  blunt hammer the owner has already found degrades quality as it rises.
+  The instrument is the online probe (`sol_block_probe.py`), which measures
+  Sol against the sage fallback on identical inputs, and under the first
+  decision that fallback is exactly the floor.
+
+**What the two decisions change:**
+
+- The PDD ladder (`bench/pdd_ladder_arms.json`) drops its stock-attention
+  control and pairs against the ladder's sage clips: three rungs, all under
+  sage. The stock-attention PDD8 graph stays as the vendor's reference
+  configuration and is not a rung.
+- The fp16-sage rung is dropped from further ladders: slower than Sol as
+  shipped on every scene and no quality signal at one seed.
+- The offline Sol-versus-exact records stay as kernel-fidelity work and as
+  the footing for grading upstream kernel changes (token_aug is the open
+  one); they are not the policy instrument.
+- More seeds are not the next step; the owner has ruled them out for now.
+  One seed anchors; a probe record plus one blind pair per candidate is how
+  a policy change earns its place, and the decision standard below is what
+  it must pass to ship.
+
+**The sequence, each step earning the next:**
+
+1. **Probe the subway scene** on the shipped call, the one scene where Sol
+   lost blind, and set it beside the standoff record
+   (`bench/results/2026-09-03_sol_probe_base16_standoff.json`). If the
+   disagreement is larger there, the proxy predicts the eye and its ranking
+   of blocks, rows and steps is what the next three steps act on; if not,
+   the proxy is missing something and token_aug's DC bias is the first
+   suspect.
+2. **The PDD ladder as rebuilt**: PDD8 under sage alone against the ladder's
+   sage clip, and Sol on the PDD schedule at the shipped and a narrower
+   window. The same policy question on the coarse schedule.
+3. **Segment policy**: the text query rows dense, a `sink_conditioning`
+   option (a node change, so a restart before it counts), measured on the
+   probe first, then one blind pair. The standoff record has the text rows
+   disagreeing most in every block and they are a few hundred rows in a
+   hundred thousand.
+4. **Block policy**: a per-block tau profile (`tau_profile`) or a dense set
+   on the band the probe ranks hottest, same footing.
+5. **Step policy**: the window's start, since the per-step trend rises
+   toward the end of the window, not the start.
+6. Then the other populations, legal PDD8 through the node's own sigmas and
+   Ref2VA, each its own ranking, never pooled.
+7. **token_aug**, graded offline first in the upstream-survey lane; if it
+   holds on our capture it moves the frontier under every policy above and
+   goes in through the vendoring rule.
+
 ## Current forward plan — 2026-09-03
 
 The short form, for a session that only wants the next action, is
