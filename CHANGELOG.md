@@ -51,6 +51,17 @@ artifact.
   probe against the standoff record) is a command. Controls in its
   docstring: self against self, shuffled, mirrored, permuted, a dropped
   block, an absolute path; re-run green here before use.
+- **The cross-regime check is closed**:
+  `bench/results/2026-09-04_stairwell_dense_retime_pixels.json`. The
+  stairwell dense rung re-rendered by the upstream-survey session on the
+  post-pull ComfyUI (compiler malloc graph on; its row is
+  `bench/results/2026-09-04_stairwell_dense_retime.jsonl`) is identical to
+  its 2026-09-03 clip on every decoded frame and every audio sample. The
+  regime changed nothing in the output, so the 2026-09-03 ladder clips
+  stay valid blind references for anything rendered after the pull, and
+  the PDD ladder's pairs against them carry no caveat. The five ladder
+  prompts were also re-hashed against the judged rows before tonight's
+  renders (same text, under the rstrip convention `workflows/prompts.py::describe` uses).
 - **`bench/compare_clip_pixels.py`**: are two rendered clips the same
   render, by decoded frames and decoded samples, never bytes. Reuses
   `bench/verify_vsa_render.py`'s mechanism (embedded graph for seed and

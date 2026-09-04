@@ -1,0 +1,72 @@
+{
+ "measured": "2026-09-04",
+ "produced_by": "bench/compare_clip_pixels.py; ffmpeg decode to rgb24 and s16le, sha256 and numpy over the decoded arrays",
+ "note": "stairwell_dense re-rendered 2026-09-04 on ComfyUI acb2a019 with the compiler malloc graph on (record bench/results/2026-09-04_stairwell_dense_retime.jsonl) against its 2026-09-03 clip; the cross-regime check for every pairing of a post-pull render against the 2026-09-03 ladder clips",
+ "clip_a": "h3_t2v_stairwell_dense_retime2_00001-audio.mp4",
+ "clip_b": "h3_t2v_stairwell_dense_00001-audio.mp4",
+ "provenance": {
+  "a": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3ProvenanceStamp",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SigmaShift",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "b": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3ProvenanceStamp",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SigmaShift",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "same_seed": true,
+  "same_class_types": true
+ },
+ "video": {
+  "frames": 345,
+  "size": "1344x768",
+  "sha256_a": "f29c397465d6b559248763cbe6d454442d92c2b9dacaa0e4d9b135449c17a57a",
+  "sha256_b": "f29c397465d6b559248763cbe6d454442d92c2b9dacaa0e4d9b135449c17a57a",
+  "identical": true
+ },
+ "audio": {
+  "samples_a": 919552,
+  "samples_b": 919552,
+  "sha256_a": "4530ee09bf91d99bd04dd404e0283fb8ecb86eb861b91708c24ec1ab1c3723c3",
+  "sha256_b": "4530ee09bf91d99bd04dd404e0283fb8ecb86eb861b91708c24ec1ab1c3723c3",
+  "identical": true
+ },
+ "reading": "identical on both streams means the same render; a differing video with the same seed and the same class types means the substrate changed numerics between the two renders, and the per-frame statistics say by how much in 8-bit levels"
+}
