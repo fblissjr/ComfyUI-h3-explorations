@@ -170,8 +170,20 @@ def main() -> int:
               f"the smaller arm's spread is the weaker estimate and the "
               f"comparison inherits that.")
     if min(len(da), len(db)) < 3:
-        print("\n  fewer than three clips in an arm: the within-arm spread "
-              "cannot be estimated, so nothing below is readable as a result")
+        # A refusal, not a warning, since 2026-09-04. On 2026-09-03 this was a
+        # warning above the table, and the twenty ladder pairs it then printed
+        # read as twenty strong separations at one clip per arm: every
+        # separation is at least twice a zero spread. The records were deleted
+        # and the outputs record says why. A grader whose precondition fails
+        # must refuse, because a warning above a table of verdicts is read as
+        # a table of verdicts.
+        print("\n  refuse: fewer than three clips in an arm "
+              f"({la}: {len(da)}, {lb}: {len(db)}). The within-arm spread "
+              "across seeds is this comparison's control and cannot be "
+              "estimated from fewer; nothing this script could print would "
+              "be readable as a result. Render more seeds per arm, or use "
+              "bench/measure_clip_loudness.py for a descriptive per-clip level.")
+        return 2
     keys = [k for k in da[0] if k != "seconds"]
 
     print(f"\n{'descriptor':<18}{la + ' mean':>14}{'sd':>9}"

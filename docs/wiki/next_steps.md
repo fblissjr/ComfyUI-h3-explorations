@@ -106,11 +106,11 @@ the survey's kitchen state; `docs/research/sglang_comparison.md` the rest.
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root is the local output directory, not the share; pass
 `--output-root` until `bench/_paths.py::comfy_output` reads the launcher's
-directory. The audio-spectrum grader warns instead of refusing below three
-clips per arm, so its verdicts on a one-seed ladder are void; make it refuse.
-The fp16-sage rung is slower than Sol as shipped on every scene, and a
-per-step timing would say where. Each is a checkable item in the session
-postmortem under `internal/postmortems/` dated 2026-09-03.
+directory. The fp16-sage rung is slower than Sol as shipped on every scene,
+and a per-step timing would say where. Each is a checkable item in the
+session postmortem under `internal/postmortems/` dated 2026-09-03. The
+audio-spectrum grader's refusal below three clips per arm landed 2026-09-04
+(changelog 0.99.40).
 
 ## Then, in the roadmap's order
 

@@ -25,6 +25,24 @@ artifact.
   the ladder's dense rows to append as the quality reference, and the
   cross-regime caveat those rows carry after the 2026-09-04 ComfyUI pull.
   Nothing has rendered.
+- **`bench/compare_clip_pixels.py`**: are two rendered clips the same
+  render, by decoded frames and decoded samples, never bytes. Reuses
+  `bench/verify_vsa_render.py`'s mechanism (embedded graph for seed and
+  node set, container ignored) and adds per-frame statistics when the
+  frames differ. Written for the cross-regime question above: a dense rung
+  re-rendered after the 2026-09-04 ComfyUI pull against its 2026-09-03
+  clip. Controls run before first use: a clip against itself is identical
+  on both streams; the ladder's stairwell dense against its sage rung at
+  the same seed differs on every frame.
+
+### Changed
+
+- **`bench/grade_arm_audio_spectrum.py` refuses below three clips per
+  arm** instead of warning above a table of verdicts, which is how twenty
+  void ladder records came to exist on 2026-09-03 (0.99.35). Shown red on a
+  ladder pair (one clip per arm, exit 2 naming both arms' counts) and green
+  on two four-clip arms. The 2026-09-03 session postmortem's forward item 2
+  closes.
 
 ## 0.99.39
 
