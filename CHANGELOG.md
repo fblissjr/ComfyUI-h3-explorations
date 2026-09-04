@@ -70,6 +70,17 @@ artifact.
   cut to three rungs under sage and pairs against the ladder's sage clips;
   the stock-attention PDD8 graph stays as the vendor's reference
   configuration and its generator note says it is not a rung.
+- **`bench/_paths.py::comfy_output` and `comfy_input` resolve the media
+  directories from the launcher's flag on the live server's command line,
+  or refuse** (written by a peer session at this session's request, commit
+  `d5b9dfe`): the env var first, then the port owner's `--output-directory`
+  read from its command line, then a refusal naming the env var, the port
+  and the local directory the old code silently fell back to. The blind
+  tool, its audio repair, the loudness tool, the stacker and the capture
+  manifest generator all go through it; the resolved path is a runtime
+  input and is never written into a record. Controls in the module's
+  docstring, including a read-only parse of a live server; re-run green
+  here. The ladder's first small fix closes.
 - **`bench/grade_arm_audio_spectrum.py` refuses below three clips per
   arm** instead of warning above a table of verdicts, which is how twenty
   void ladder records came to exist on 2026-09-03 (0.99.35). Shown red on a
