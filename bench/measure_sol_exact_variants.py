@@ -69,6 +69,17 @@ builds are like-for-like exactly as the random arms are. Run once per wheel
 (`PYTHONPATH=<target-install>` selects one without touching the venv).
 
     python bench/measure_sol_exact_variants.py --capture /path/to/captures --out ...
+
+`--token-aug N` (repeatable), added 2026-09-04 for Comfy-Org/comfy-kitchen
+PR 156: on a build whose `sol_attn` takes `token_aug`, every Sol arm above is
+repeated with that budget (`<arm>_token_aug_<N>`), against the SAME fp32 dense
+reference on the SAME cells, plus an isolated timing at the timing shape. The
+eager reference ignores the knob, so the random-input aug arm is scored
+against dense rather than eager. On a build without it the request is
+recorded as absent and the plain arms still run, so one record per wheel
+stays the rule. `--limit K` grades only the first K capture files: the
+first run of a new arm is its first test, and a whole capture is not the
+place to find out the arm raises.
 """
 
 from __future__ import annotations
@@ -96,6 +107,15 @@ def main() -> int:
     ap.add_argument("--chunk", type=int, default=2048, help="query rows per fp32 dense chunk in capture mode")
     ap.add_argument("--no-sage", dest="sage", action="store_false",
                     help="capture mode: skip the sage arms (the shipped fallback on the same cells)")
+    ap.add_argument("--token-aug", type=int, action="append", default=[], metavar="N",
+                    help="also grade every Sol arm with token_aug=N (0 or a multiple of 64 up to 256 on "
+                         "PR 156 builds); repeatable; recorded as absent on a build without the knob")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="capture mode: grade only the first K files (a first run, not a record)")
+    ap.add_argument("--kernel-source", default=None, metavar="TEXT",
+                    help="where the graded build came from (remote, branch, sha, PR, how it was "
+                         "installed), recorded verbatim beside the version; the venv's build record "
+                         "does not cover a scratch wheel selected through PYTHONPATH")
     args = ap.parse_args()
     try:
         import importlib.metadata as md
@@ -111,9 +131,20 @@ def main() -> int:
     version = md.version("comfy_kitchen")
     has_cnt = "blk_cnt" in inspect.signature(ck.sol_attn).parameters
     rec = {"produced_by": "bench/measure_sol_exact_variants.py", "comfy_kitchen": version,
+           "comfy_kitchen_path": str(Path(ck.__file__).parent),
+           "kernel_source": args.kernel_source,
            "device": torch.cuda.get_device_name(0), "torch": torch.__version__,
            "when": time.strftime("%Y-%m-%dT%H:%M:%S"), "arms": {}}
-    print(f"installed {version} on {rec['device']}; blk_cnt {'present' if has_cnt else 'ABSENT'}\n")
+    has_tok = "token_aug" in inspect.signature(ck.sol_attn).parameters
+    rec["token_aug_supported"] = has_tok
+    rec["token_aug_requested"] = list(args.token_aug)
+    tok = list(args.token_aug) if has_tok else []
+    if args.token_aug and not has_tok:
+        rec["arms"]["token_aug"] = {"why": "this build's sol_attn has no token_aug (Comfy-Org/comfy-kitchen PR 156); "
+                                           "those arms were requested and skipped"}
+    print(f"installed {version} on {rec['device']}; blk_cnt {'present' if has_cnt else 'ABSENT'}; "
+          f"token_aug {'present' if has_tok else 'ABSENT'}"
+          + (f", grading {tok}" if tok else (" (requested, SKIPPED)" if args.token_aug else "")) + "\n")
 
     def qkv(b, t, h, seed):
         g = torch.Generator(device="cuda").manual_seed(seed)
@@ -147,6 +178,18 @@ def main() -> int:
         rec["arms"][f"tau_{tau}_vs_eager"] = {"shape": [1, 4096, 8], "cos": cos(got, want), "rel_l2": rel(got, want)}
         print(f"  tau {tau} vs eager reference: cos {cos(got, want):.6f}, rel L2 {rel(got, want):.5f}")
 
+    for n_aug in tok:
+        base = ck.sol_attn(q, k, v, tau=1.0)
+        got = ck.sol_attn(q, k, v, tau=1.0, token_aug=n_aug)
+        rec["arms"][f"tau_1.0_token_aug_{n_aug}_vs_dense"] = {
+            "shape": [1, 4096, 8], "token_aug": n_aug, "cos": cos(got, ref), "rel_l2": rel(got, ref),
+            "plain_cos": cos(base, ref), "plain_rel_l2": rel(base, ref),
+            "note": "against fp32 dense, not eager: the eager reference ignores token_aug; random inputs, "
+                    "so a wash here says nothing (see the capture mode)"}
+        print(f"  tau 1.0 token_aug {n_aug} vs dense: rel L2 {rel(got, ref):.5f} (plain {rel(base, ref):.5f}), "
+              f"cos {cos(got, ref):.6f} (plain {cos(base, ref):.6f})")
+        del base, got
+
     if has_cnt:
         t, h, n = 320, 2, 5
         q2, k2, v2 = qkv(1, t, h, 7)
@@ -172,6 +215,20 @@ def main() -> int:
     rec["arms"]["kernel_ms"] = {"shape": [b, t, h], "tau": 1.0, "median_ms": times[len(times) // 2],
                                 "min_ms": times[0], "note": "isolated warm kernel call, not a render time"}
     print(f"  isolated kernel call, B={b} T={t} H={h}, tau 1.0: median {times[len(times) // 2]:.2f} ms (min {times[0]:.2f})")
+    for n_aug in tok:
+        for _ in range(3):
+            ck.sol_attn(q3, k3, v3, tau=1.0, token_aug=n_aug)
+        torch.cuda.synchronize()
+        times = []
+        for _ in range(10):
+            s = torch.cuda.Event(enable_timing=True); e = torch.cuda.Event(enable_timing=True)
+            s.record(); ck.sol_attn(q3, k3, v3, tau=1.0, token_aug=n_aug); e.record(); torch.cuda.synchronize()
+            times.append(s.elapsed_time(e))
+        times.sort()
+        rec["arms"][f"kernel_ms_token_aug_{n_aug}"] = {
+            "shape": [b, t, h], "tau": 1.0, "token_aug": n_aug, "median_ms": times[len(times) // 2],
+            "min_ms": times[0], "note": "isolated warm kernel call, not a render time; compare with kernel_ms in this record only"}
+        print(f"  isolated kernel call, token_aug {n_aug}: median {times[len(times) // 2]:.2f} ms (min {times[0]:.2f})")
 
     if args.out:
         Path(args.out).write_text(json.dumps(rec, indent=1) + "\n")
@@ -250,7 +307,11 @@ def grade_capture(args, ck, rec, cos, rel):
     if not files:
         print(f"no qkv_*.pt under {args.capture}")
         return 1
+    if args.limit:
+        files = files[:args.limit]
+    tok = list(args.token_aug) if rec.get("token_aug_supported") else []
     rec["capture"] = {"dir": os.path.basename(os.path.normpath(args.capture)), "files": len(files),
+                      "limited_to_first": args.limit, "token_aug": tok,
                       "topk_ratio": args.topk, "reference": "fp32 chunked softmax attention, per head"}
     rec["arms"]["per_file"] = []
     print(f"grading {len(files)} capture files, reference fp32 dense, chunk {args.chunk}\n")
@@ -279,6 +340,16 @@ def grade_capture(args, ck, rec, cos, rel):
         row["tau_1.0_no_sinks"] = {"rel_l2": r, "cos": c, "cos_mean": sum(ph) / len(ph),
                                    "cos_worst": min(ph), "per_head": ph, **rs,
                                    "note": "no sink ranges: an unsunk diagnostic, not the shipped call and not a bound on its error (errors can cancel)"}
+        for n_aug in tok:
+            for name, kw in ((f"topk_{args.topk:.2f}", {"topk_ratio": args.topk}), ("tau_1.0_no_sinks", {"tau": 1.0})):
+                out = ck.sol_attn(q, k, v, token_aug=n_aug, **kw)
+                ph = per_head_cos(out, ref)
+                rs = row_stats(out, ref)
+                r, c = rel_cos_lean(out, ref)
+                del out
+                row[f"{name}_token_aug_{n_aug}"] = {"token_aug": n_aug, "rel_l2": r, "cos": c,
+                                                    "cos_mean": sum(ph) / len(ph), "cos_worst": min(ph),
+                                                    "per_head": ph, **rs}
         if args.sage:
             for mode in _attn.MODES:
                 try:
@@ -305,6 +376,11 @@ def grade_capture(args, ck, rec, cos, rel):
               f"topk {args.topk:.2f} cos {row[f'topk_{args.topk:.2f}']['cos_mean']:.4f}/{row[f'topk_{args.topk:.2f}']['cos_worst']:.4f}  "
               f"tau 1.0 (no sinks) cos {row['tau_1.0_no_sinks']['cos_mean']:.4f}/{row['tau_1.0_no_sinks']['cos_worst']:.4f}"
               + ("  sage auto row rel L2 %.4f" % row["sage_auto"]["rel_l2_row_mean"] if "sage_auto" in row and "rel_l2_row_mean" in row["sage_auto"] else ""))
+        for n_aug in tok:
+            a1 = row[f"topk_{args.topk:.2f}_token_aug_{n_aug}"]; a2 = row[f"tau_1.0_no_sinks_token_aug_{n_aug}"]
+            print(f"             token_aug {n_aug}: topk cos {a1['cos_mean']:.4f}/{a1['cos_worst']:.4f} "
+                  f"row rel L2 {a1['rel_l2_row_mean']:.4f}  tau 1.0 cos {a2['cos_mean']:.4f}/{a2['cos_worst']:.4f} "
+                  f"row rel L2 {a2['rel_l2_row_mean']:.4f}")
         del d, q, k, v, ref
         torch.cuda.empty_cache()
     rows = rec["arms"]["per_file"]
@@ -323,6 +399,10 @@ def grade_capture(args, ck, rec, cos, rel):
            for m in rows[0] if m.startswith("sage_") and all("rel_l2" in r.get(m, {}) for r in rows)},
         **{f"{m}_rel_l2_row_mean": sum(r[m]["rel_l2_row_mean"] for r in rows) / n
            for m in rows[0] if m.startswith("sage_") and all("rel_l2_row_mean" in r.get(m, {}) for r in rows)},
+        **{f"{m}_cos_mean": sum(r[m]["cos_mean"] for r in rows) / n for m in rows[0] if "_token_aug_" in m},
+        **{f"{m}_cos_worst": min(r[m]["cos_worst"] for r in rows) for m in rows[0] if "_token_aug_" in m},
+        **{f"{m}_rel_l2_mean": sum(r[m]["rel_l2"] for r in rows) / n for m in rows[0] if "_token_aug_" in m},
+        **{f"{m}_rel_l2_row_mean": sum(r[m]["rel_l2_row_mean"] for r in rows) / n for m in rows[0] if "_token_aug_" in m},
         "note": "means over files weight every (block, step) equally; worst is the single worst head anywhere",
     }
     a = rec["arms"]["aggregate"]

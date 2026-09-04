@@ -1,0 +1,134 @@
+{
+ "produced_by": "bench/measure_sol_exact_variants.py",
+ "comfy_kitchen": "0.2.32+sol.1128df6",
+ "comfy_kitchen_path": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/cb358224-6d64-45e5-80aa-4322d3de01f4/scratchpad/ck_token_aug/comfy_kitchen",
+ "kernel_source": "kijai/comfy-kitchen sol_token_aug_main @ 1128df65f7695f84b947f3b79c59e88b125681b4 (Comfy-Org/comfy-kitchen PR 156 head, 2026-09-04), same scratch wheel as the capture record of this date; timing shape is the Base16 capture's rows and heads",
+ "device": "NVIDIA GeForce RTX 4090",
+ "torch": "2.13.0+cu132",
+ "when": "2026-09-04T17:54:20",
+ "arms": {
+  "exact_all_routed": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "rel_l2_vs_dense": 0.009092585183680058,
+   "cos_vs_dense": 0.9999587535858154
+  },
+  "tau_1.0_vs_eager": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "cos": 0.9999343752861023,
+   "rel_l2": 0.011454583145678043
+  },
+  "tau_1.3_vs_eager": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "cos": 0.9999488592147827,
+   "rel_l2": 0.010113243944942951
+  },
+  "tau_1.0_token_aug_64_vs_dense": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "token_aug": 64,
+   "cos": 0.9769377112388611,
+   "rel_l2": 0.21352508664131165,
+   "plain_cos": 0.976811945438385,
+   "plain_rel_l2": 0.21409912407398224,
+   "note": "against fp32 dense, not eager: the eager reference ignores token_aug; random inputs, so a wash here says nothing (see the capture mode)"
+  },
+  "tau_1.0_token_aug_128_vs_dense": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "token_aug": 128,
+   "cos": 0.9769377112388611,
+   "rel_l2": 0.21352508664131165,
+   "plain_cos": 0.976811945438385,
+   "plain_rel_l2": 0.21409912407398224,
+   "note": "against fp32 dense, not eager: the eager reference ignores token_aug; random inputs, so a wash here says nothing (see the capture mode)"
+  },
+  "tau_1.0_token_aug_256_vs_dense": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "token_aug": 256,
+   "cos": 0.9769377112388611,
+   "rel_l2": 0.21352508664131165,
+   "plain_cos": 0.976811945438385,
+   "plain_rel_l2": 0.21409912407398224,
+   "note": "against fp32 dense, not eager: the eager reference ignores token_aug; random inputs, so a wash here says nothing (see the capture mode)"
+  },
+  "blk_cnt_forced_pairs": {
+   "ok": null,
+   "why": "this build has no blk_cnt"
+  },
+  "kernel_ms": {
+   "shape": [
+    1,
+    104361,
+    56
+   ],
+   "tau": 1.0,
+   "median_ms": 153.9225616455078,
+   "min_ms": 146.41357421875,
+   "note": "isolated warm kernel call, not a render time"
+  },
+  "kernel_ms_token_aug_64": {
+   "shape": [
+    1,
+    104361,
+    56
+   ],
+   "tau": 1.0,
+   "token_aug": 64,
+   "median_ms": 181.01968383789062,
+   "min_ms": 173.4062042236328,
+   "note": "isolated warm kernel call, not a render time; compare with kernel_ms in this record only"
+  },
+  "kernel_ms_token_aug_128": {
+   "shape": [
+    1,
+    104361,
+    56
+   ],
+   "tau": 1.0,
+   "token_aug": 128,
+   "median_ms": 181.14662170410156,
+   "min_ms": 174.8264923095703,
+   "note": "isolated warm kernel call, not a render time; compare with kernel_ms in this record only"
+  },
+  "kernel_ms_token_aug_256": {
+   "shape": [
+    1,
+    104361,
+    56
+   ],
+   "tau": 1.0,
+   "token_aug": 256,
+   "median_ms": 180.52674865722656,
+   "min_ms": 179.3269805908203,
+   "note": "isolated warm kernel call, not a render time; compare with kernel_ms in this record only"
+  }
+ },
+ "token_aug_supported": true,
+ "token_aug_requested": [
+  64,
+  128,
+  256
+ ]
+}

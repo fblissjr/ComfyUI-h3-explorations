@@ -4,6 +4,44 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.41
+
+### Added
+
+- **Token routing graded on our capture.** Comfy-Org/comfy-kitchen PR 156
+  (kijai's `token_aug`) built from its head `1128df6` into a scratch wheel,
+  the venv untouched, and graded on the twenty-five Base16 cells with
+  `bench/measure_sol_exact_variants.py` on the 2026-09-03 footing:
+  `bench/results/2026-09-04_sol_exact_base16_capture_1128df6_token_aug.json`,
+  plus the isolated call at the capture's shape in
+  `bench/results/2026-09-04_sol_exact_random_1128df6_token_aug_timing.json`.
+  The plain arms reproduce the 2026-09-03 installed-wheel record to every
+  digit (the control); the knob lowers the error on four blocks and raises
+  it on block 49 at every step, and its budget barely matters.
+  `docs/research/2026-09-04_sol_token_aug_grade.md` owns the reading; the
+  roadmap's step 7 now points at it and the candidate moves into the block
+  policy step. The grader gained `--token-aug N` (repeatable), `--limit K`
+  (first run on a new arm) and `--kernel-source TEXT` (recorded verbatim
+  beside the version, since the venv's build record cannot describe a
+  scratch wheel). Kernel provenance follows the vendoring pattern: the sha
+  is fetched into the workspace clone as `kijai/sol_token_aug_main` and the
+  wheel sits in that clone's `dist/`. Nothing is installed.
+- **One dense rung re-timed on the post-2026-09-04 core**
+  (`bench/results/2026-09-04_stairwell_dense_retime.jsonl`): the ladder's
+  stairwell dense arm, same graph, prompt and seed, on a fresh unarmed
+  server after the pull that turned on the Comfy Compiler's malloc graph.
+  The sampler time sits inside the 2026-09-03 dense rows and the clip is
+  pixel-identical to the 2026-09-03 one, video and audio, by the scoring
+  lane's comparison (`bench/results/2026-09-04_stairwell_dense_retime_pixels.json`),
+  so the regime moved neither output nor time on this rung and the
+  2026-09-03 ladder clips stay valid blind references. The server log's
+  "Comfy model compiler graph breaks: 2" line is the regime's own marker.
+
+### Changed
+
+- `docs/wiki/next_steps.md` replaces the two upstream-survey checks with
+  their results; `docs/roadmap.md` step 7 carries the pointer.
+
 ## 0.99.40
 
 ### Added

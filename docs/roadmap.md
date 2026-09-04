@@ -94,7 +94,12 @@ not restated here.
    Ref2VA, each its own ranking, never pooled.
 7. **token_aug**, graded offline first in the upstream-survey lane; if it
    holds on our capture it moves the frontier under every policy above and
-   goes in through the vendoring rule.
+   goes in through the vendoring rule. **Graded 2026-09-04**
+   ([`research/2026-09-04_sol_token_aug_grade.md`](research/2026-09-04_sol_token_aug_grade.md)):
+   it holds on four of the five captured blocks and degrades block 49 at
+   every step, with a budget knob that barely moves anything, so it does
+   not move the frontier under every policy; it is one more per-block
+   candidate for step 4, to be ranked by the probe on the shipped call.
 
 ## Current forward plan — 2026-09-03
 

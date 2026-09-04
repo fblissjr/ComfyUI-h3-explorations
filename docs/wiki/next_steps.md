@@ -101,19 +101,19 @@ what would close it; it leans to the cheaper arm and is not closed. No
 action is queued on it; a second seed is the manifest's `run` line if the
 owner wants one.
 
-**Two checks the 2026-09-04 upstream survey earned, owner-approved, sequenced
-behind whatever the scoring lane has on the card.** First, grade kijai's
-`token_aug` (Comfy-Org/comfy-kitchen PR 156) offline on the retained Base16
-capture with `bench/measure_sol_exact_variants.py --capture`, the footing PR
-150 was graded on, from a wheel built into a scratch target rather than the
-venv; his claimed defect is a brightness pulse, which is a thing a blind pair
-can see, and our `blk_cnt` commits conflict on his branch, so the offline
-grade comes before any rebase. Second, re-time one ladder rung on the
-post-2026-09-04 core: that pull turned on the Comfy Compiler's malloc graph
-around the H3 forward (`comfy/model_prefetch.py::malloc_graph_enabled`, on
-whenever aimdo is), so every timing after it is a different regime from the
-09-03 record and one rung says how different. `docs/sol_upstream.md` holds
-the survey's kitchen state; `docs/research/sglang_comparison.md` the rest.
+**Both upstream-survey checks landed 2026-09-04.** Token routing
+(Comfy-Org/comfy-kitchen PR 156) graded on the Base16 cells:
+[`../research/2026-09-04_sol_token_aug_grade.md`](../research/2026-09-04_sol_token_aug_grade.md)
+owns it; better on four blocks, worse on block 49 at every step, budget
+nearly inert, so it is a per-block candidate for the block-policy step and
+not the frontier move roadmap step 7 asked about; nothing installed. The
+post-pull core regime (the Comfy Compiler's malloc graph, on whenever aimdo
+is) was checked on one dense rung
+(`bench/results/2026-09-04_stairwell_dense_retime.jsonl`): sampler time
+inside the 2026-09-03 rows and the clip pixel-identical to the 2026-09-03
+one by the scoring lane's comparison, so the 09-03 clips remain valid blind
+references. `docs/sol_upstream.md` holds the kitchen state;
+`docs/research/sglang_comparison.md` the rest of the survey.
 
 **Small fixes the ladder exposed, before the next one.** The blind tool's
 default output root landed 2026-09-04: `bench/_paths.py::comfy_output` reads
