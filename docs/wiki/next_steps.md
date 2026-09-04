@@ -15,7 +15,12 @@ scene where Sol lost blind, set beside the standoff record; then the PDD
 ladder below; then the three policy axes the node already exposes, segment,
 block and step, each measured on the probe before one blind pair.
 
-**Read the ladder verdict.**
+**Read the ladder verdict, as a frontier.**
+`bench/results/2026-09-04_ladder_2026-09-03_frontier.json`
+(`bench/frontier_table.py`) puts each arm's speed against the sage floor
+beside the owner's own words from every pair it sat in; that is the form
+every ladder is read in from now on, speed beside what was noticed, never
+pass or fail.
 The owner scored every stacked pair of session `ladder_2026-09-03` on
 2026-09-04 (five bank scenes by five rungs, matched seed, trained canvas;
 `bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds

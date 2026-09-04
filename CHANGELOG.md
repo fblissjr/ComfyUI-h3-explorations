@@ -36,6 +36,13 @@ artifact.
   `bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json` records
   that the two encoder-only arms the owner called the same are different
   renders.
+- **`bench/frontier_table.py`** (peer session, commit `0d880e1`, at this
+  session's request after the owner's words "it's a whole bunch of grey in
+  the middle"): per scene and arm, sampler time and speed against the sage
+  floor and the dense reference beside every verdict and every verbatim
+  note the arm received, nothing passing or failing. First record:
+  `bench/results/2026-09-04_ladder_2026-09-03_frontier.json`, the speedup
+  ladder read that way. Controls in its docstring, run green here.
 - **`bench/build_outputs_record.py`**: the arm-to-clip join from the
   rendering server's `/history`, in the shape of
   `bench/results/2026-09-03_ladder_outputs.json` (which was built by hand),
