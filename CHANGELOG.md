@@ -36,6 +36,13 @@ artifact.
   `bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json` records
   that the two encoder-only arms the owner called the same are different
   renders.
+- **`bench/compare_sol_probe_records.py`** (written by a peer session at
+  this session's request): two `check_sol_probe.py --json` records side by
+  side, per block, per segment and per step, with the Spearman of the block
+  ranking and a builds-identical flag, so the plan's first step (the subway
+  probe against the standoff record) is a command. Controls in its
+  docstring: self against self, shuffled, mirrored, permuted, a dropped
+  block, an absolute path; re-run green here before use.
 - **`bench/compare_clip_pixels.py`**: are two rendered clips the same
   render, by decoded frames and decoded samples, never bytes. Reuses
   `bench/verify_vsa_render.py`'s mechanism (embedded graph for seed and
