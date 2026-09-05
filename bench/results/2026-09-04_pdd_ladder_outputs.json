@@ -1,0 +1,296 @@
+{
+  "what": "The PDD ladder (bench/pdd_ladder_arms.json, cut to three rungs on 2026-09-04 and to two rendered rungs after the retime check made the 2026-09-03 shipped-PDD8 clips valid): PDD8 under sage alone and PDD8 with Sol narrowed to two of eight steps, five scenes, the ladder's seed. Two judged arms and one warmup rendered 2026-09-04 before a power loss; the rest 2026-09-05 on a fresh unarmed server after a reboot; timings across that boundary are two cache states and the record says which is which by ts.",
+  "measured": "2026-09-05",
+  "produced_by": "bench/build_outputs_record.py over the 2026-09-05 rows joined to their server's /history, plus the three 2026-09-04 rows joined by prefix, counter and mtime because that server's history was lost with the power loss; basenames only",
+  "source_jsonl": "bench/results/2026-09-04_pdd_ladder_arms.jsonl",
+  "arms": [
+    {
+      "label": "standoff_pdd8sage",
+      "prompt_id": "6a23fa43-23b0-47b5-aa4a-40ca0d5667e8",
+      "seed": 730451891,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451891
+      },
+      "warmup": true,
+      "total_s": 425.240352711,
+      "sampler_s": 370.31549099000404,
+      "decode_s": 35.9119396009919,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_standoff_pdd8sage_00001-audio.mp4"
+      ],
+      "note": "rendered 2026-09-04 before the power loss at about 20:50; the server's history died with it, so the clip is matched by prefix and counter, mtime 2026-09-04T20:33:10 against row ts 2026-09-04T20:33:09"
+    },
+    {
+      "label": "standoff_pdd8sage",
+      "prompt_id": "8a86dee7-d37e-4cd1-ba45-271e5ca95065",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 406.53027271501196,
+      "sampler_s": 368.95616913799313,
+      "decode_s": 33.5941750100028,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_standoff_pdd8sage_00002-audio.mp4"
+      ],
+      "note": "rendered 2026-09-04 before the power loss at about 20:50; the server's history died with it, so the clip is matched by prefix and counter, mtime 2026-09-04T20:39:56 against row ts 2026-09-04T20:39:55"
+    },
+    {
+      "label": "diner_pdd8sage",
+      "prompt_id": "bfca3199-db85-494a-95c6-a6c5affc5c0e",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 410.00482173400815,
+      "sampler_s": 369.94770448398776,
+      "decode_s": 33.72546491200046,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_diner_pdd8sage_00001-audio.mp4"
+      ],
+      "note": "rendered 2026-09-04 before the power loss at about 20:50; the server's history died with it, so the clip is matched by prefix and counter, mtime 2026-09-04T20:46:46 against row ts 2026-09-04T20:46:46"
+    },
+    {
+      "label": "subway_pdd8sol2",
+      "prompt_id": "74bf660f-967d-4efd-a79e-1ed9ddae992a",
+      "seed": 730451891,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451891
+      },
+      "warmup": true,
+      "total_s": 379.823181707,
+      "sampler_s": 323.0553952260002,
+      "decode_s": 36.2832804489999,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_subway_pdd8sol2_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_pdd8sage",
+      "prompt_id": "71a63792-6f68-469f-b61f-cf6afaab9270",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 409.29995315299993,
+      "sampler_s": 369.2107419629999,
+      "decode_s": 33.56584360700003,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_opera_pdd8sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_pdd8sage",
+      "prompt_id": "8b98b231-7d81-47d0-8beb-f161ae3e7d1f",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 408.9516570999999,
+      "sampler_s": 368.75588598499985,
+      "decode_s": 33.580856756999765,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_stairwell_pdd8sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_pdd8sage",
+      "prompt_id": "6f324f16-46ae-4cb8-be4a-43d67bc55467",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_pdd8_sage_api.json",
+      "graph_sha256": "af68e1effec8bd2b",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 409.3851011050001,
+      "sampler_s": 368.914592307,
+      "decode_s": 33.625648737999654,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_pdd8_sage_subway_pdd8sage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "standoff_pdd8sol2",
+      "prompt_id": "6e0756a3-9e78-4621-8acd-2a5f780a6237",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 364.6491697849997,
+      "sampler_s": 324.61348552000027,
+      "decode_s": 33.57663927499971,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_standoff_pdd8sol2_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_pdd8sol2",
+      "prompt_id": "43853674-c8cf-4bfb-b634-60e23ce91a61",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 364.43413391199965,
+      "sampler_s": 324.253718938,
+      "decode_s": 33.59244154299995,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_diner_pdd8sol2_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_pdd8sol2",
+      "prompt_id": "80a4377f-0e7d-455d-983e-3898cfda8051",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 364.50468899,
+      "sampler_s": 324.363217265,
+      "decode_s": 33.62265203400011,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_opera_pdd8sol2_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_pdd8sol2",
+      "prompt_id": "1e0c8ab1-aa09-452f-b5b7-7c34400f02be",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 363.2063109339997,
+      "sampler_s": 323.1255434489999,
+      "decode_s": 33.6094371170002,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_stairwell_pdd8sol2_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_pdd8sol2",
+      "prompt_id": "4b206eaa-cad3-4313-aafa-1d8cba9bedef",
+      "seed": 730451892,
+      "graph": "workflows/h3_text_to_video_pdd_api.json",
+      "graph_sha256": "9cafa7c51f08aac1",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 363.20865598399996,
+      "sampler_s": 322.70923287299956,
+      "decode_s": 33.59409968900036,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "text_to_video_pdd_subway_pdd8sol2_00002-audio.mp4"
+      ],
+      "note": null
+    }
+  ]
+}
