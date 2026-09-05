@@ -6,6 +6,13 @@ artifact.
 
 ## 0.99.44
 
+### Changed
+
+- **The roadmap's bake paragraph no longer names prerequisites that were
+  already met.** It said two remained and pointed at `docs/h3_pdd.md`, which
+  names none; both were closed in `e38655d` on 2026-09-03 and the contract
+  check is green. It now points at the bake plan.
+
 ### Added
 
 - **A plan for token routing**, `docs/research/2026-09-05_token_aug_plan.md`,

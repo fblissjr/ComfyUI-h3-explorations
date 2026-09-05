@@ -245,9 +245,13 @@ now section 7 of [`research/merge_requantisation.md`](research/merge_requantisat
 on this checkpoint every runtime path, ours and the sister turbo node's,
 leaves `mlp.fc2` requantising per cast, and the bake is the one fix that
 covers every LoRA at once (`docs/h3_pdd.md`, "What that node does
-differently", for what else generalises). It its contract is built and its two remaining
-prerequisites are recorded in `docs/h3_pdd.md`. It shares nothing with the
-attention lane and must not wait for it. Granular PDD strength comes after
+differently", for what else generalises). Its contract is built and green
+(`bench/check_pdd_sidecar_contract.py`; the two gaps Codex's 2026-09-03 audit
+named were closed the same day in `e38655d`), so nothing precedes the bake
+script itself. Until 2026-09-05 this sentence said two prerequisites remained
+and pointed at `docs/h3_pdd.md`, which names none; the claim outlived its fix
+by two days. The plan is `research/pdd/2026-09-05_bake_plan.md`. It shares
+nothing with the attention lane and must not wait for it. Granular PDD strength comes after
 the bake, on PDD's own ladder.
 
 **The decision standard.** Trustworthy directional evidence promotes an
