@@ -192,7 +192,8 @@
       "require_forward_patch": false,
       "exercise": false,
       "warn_only": false,
-      "require_absent": true
+      "require_absent": true,
+      "require_no_forward_patch": false
     }
   },
   "26": {

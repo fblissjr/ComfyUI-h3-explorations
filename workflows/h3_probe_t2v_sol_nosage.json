@@ -837,9 +837,10 @@
       "widgets_values": [
         true,
         false,
+        true,
         false,
         false,
-        false
+        true
       ],
       "title": "Assert the attention chain composed"
     },

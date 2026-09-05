@@ -101,13 +101,30 @@ class SageChainAssert(io.ComfyNode):
                             "before it existed those graphs carried this node "
                             "with nothing required and it logged 'override "
                             "installed' over an empty chain."),
+                # Appended last on 2026-09-04, same rule as above.
+                io.Boolean.Input(
+                    "require_no_forward_patch", default=False,
+                    tooltip="For a graph that runs Sol over ComfyUI's STOCK "
+                            "attention with no sage node: fails if any per-block "
+                            "attention forward patch (sage's) is installed. With "
+                            "require_override on and this on, the node proves the "
+                            "override is the only patch, and `exercise` then "
+                            "proves a probe below Sol's gate reaches no sage "
+                            "kernel and raises nothing, i.e. Sol's fallback is "
+                            "stock attention. Without this flag that state could "
+                            "only be permitted (require_forward_patch off), never "
+                            "proven."),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
 
     @staticmethod
-    def _exercise(override, to):
+    def _exercise(override, to, sage_expected=True):
         """Fire one attention call through the composed path; report what ran.
+
+        `sage_expected=False` inverts the call-time claim for a Sol-over-stock
+        graph: a probe below the gate must reach NO sage kernel and raise
+        nothing, and so must one above it when a gate is published.
 
         Returns (ok, detail). Structural checks above prove registration;
         this proves routing, and now also identity -- it reports which sage
@@ -297,6 +314,22 @@ class SageChainAssert(io.ComfyNode):
         if "error" in small:
             return False, f"composed attention raised on a probe call: {small['error']!r}"
         small_name = small.get("name")
+        if not sage_expected:
+            if small_name is not None:
+                return False, (f"a {small_n}-token probe reached sage on {small_name!r} "
+                               "on a graph that requires no sage forward patch; a "
+                               "sage node is upstream after all")
+            if sparse_expected:
+                large = fire(min_tokens + 512)
+                if "error" in large:
+                    return False, f"composed attention raised on a probe call above the gate: {large['error']!r}"
+                if large.get("name") is not None:
+                    return False, f"a probe above the gate reached sage on {large['name']!r}"
+                return True, (f"no sage: probes at {small_n} and {min_tokens + 512} tokens ran "
+                              "through the composed override, raised nothing and reached no "
+                              "sage kernel, so Sol's fallback is stock attention")
+            return True, (f"no sage: a {small_n}-token probe ran through the override, raised "
+                          "nothing and reached no sage kernel; no sparse gate was published")
         if small_name is None:
             return False, (f"a {small_n}-token probe, below the sparse gate at "
                            f"{min_tokens} so it should fall through, did not "
@@ -329,8 +362,12 @@ class SageChainAssert(io.ComfyNode):
 
     @classmethod
     def execute(cls, model, require_override, require_forward_patch,
-                exercise, warn_only, require_absent=False):
+                exercise, warn_only, require_absent=False,
+                require_no_forward_patch=False):
         problems = []
+        if require_forward_patch and require_no_forward_patch:
+            problems.append("require_forward_patch and require_no_forward_patch are both on; "
+                            "a graph cannot both need and forbid sage's forward patches")
 
         to = model.model_options.get("transformer_options", {})
         override = to.get("optimized_attention_override")
@@ -355,6 +392,12 @@ class SageChainAssert(io.ComfyNode):
                 "require_forward_patch can be turned off -- but confirm from "
                 "the log that sage still runs before you do.")
 
+        if require_no_forward_patch and attn_forwards:
+            problems.append(
+                f"{len(attn_forwards)} attention forward patch(es) are installed on a "
+                f"graph that requires none: a sage node is upstream of Sol on a graph "
+                f"meant to run Sol over stock attention.")
+
         if require_absent and (override is not None or attn_forwards):
             problems.append(
                 f"attention is patched on a graph that requires it unpatched: "
@@ -364,7 +407,7 @@ class SageChainAssert(io.ComfyNode):
                 f"Sol node upstream makes it something else.")
 
         if exercise and override is not None:
-            ok, detail = cls._exercise(override, to)
+            ok, detail = cls._exercise(override, to, sage_expected=not require_no_forward_patch)
             if ok is None:
                 logger.warning("[h3] chain assert: %s", detail)
             elif ok:
@@ -385,6 +428,9 @@ class SageChainAssert(io.ComfyNode):
                 raise RuntimeError(msg)
         elif require_absent:
             logger.info("[h3] chain assert ok: attention unpatched, as this graph requires")
+        elif require_no_forward_patch:
+            logger.info("[h3] chain assert ok: override installed and no attention forward "
+                        "patch, as a Sol-over-stock graph requires")
         elif require_override or require_forward_patch:
             logger.info(
                 "[h3] chain assert ok: override installed, "
