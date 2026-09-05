@@ -75,7 +75,7 @@ Items from the `evalman` render lane:
   experiment 6 in `../open_experiments.md`, the base-model question the
   owner raised.
 
-Items from the PDD bake lane (session `larry`):
+Items from the PDD backbone bake lane (the alibaba-pai PDD LoRA folded into the fl2va int8 checkpoint; the peer session that built it happens to share a name with the larryvrh turbo LoRA, which is a different artifact and not part of this bake):
 
 - The bake script's open review candidates: a control-before-bake gate,
   the contract check's retyped filenames now that `h3_config` names the
