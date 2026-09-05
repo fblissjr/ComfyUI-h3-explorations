@@ -103,13 +103,29 @@ SAGE_WIDGET_ORDER = tuple(h3_config.SAGE_NODE)
 OUTPUT_TYPES = {"VHS_VideoCombine", "SaveImage", "PreviewImage", "SaveAudio",
                 "SaveAnimatedWEBP", "SaveWEBM", "SaveVideo", "PreviewAny"}
 
-#: {graph stem: (node field, reason)}. A per-graph deviation that is the point
-#: of the graph. A reason naming a file rather than a mechanism is not a reason.
+#: {graph stem: (node fields, reason)}. A per-graph deviation that is the point
+#: of the graph. `node fields` is a tuple of widget names on the sage or Sol
+#: node (the names do not collide); each named field is skipped when that
+#: graph is graded against h3_config, and asserted to actually deviate, so a
+#: declaration cannot outlive the graph it describes. A reason naming a file
+#: rather than a mechanism is not a reason.
 DEVIATIONS = {
-    "h3_probe_head_chunks": ("head_chunks",
+    "h3_probe_head_chunks": (("head_chunks",),
                              "this graph exists to run the 1-vs-N head-chunking "
                              "A/B that h3_config asks for; the deviating value "
                              "IS its subject"),
+    "h3_candidate_t2v_sol_only": (("start_percent",),
+                                  "candidate graph (2026-09-05): Sol from the first "
+                                  "step, no sage; the widened window IS the arm, "
+                                  "blinded as sol_nosage_2026-09-04"),
+    "h3_candidate_t2v_sol_allrows": (("sink_conditioning",),
+                                     "candidate graph (2026-09-05): every conditioning "
+                                     "query row dense; the sink mode IS the arm, "
+                                     "measured on the 2026-09-04 subway probe pair"),
+    "h3_candidate_t2v_pdd8_sol_narrow": (("start_percent", "end_percent"),
+                                         "candidate graph (2026-09-05): Sol on two of "
+                                         "the eight PDD steps; the window IS the arm, "
+                                         "blinded as pdd_ladder_2026-09-04"),
 }
 
 #: Graphs that legitimately ship without live Sol, by MECHANISM. The
@@ -312,6 +328,7 @@ def main() -> int:
     img_dirs = single_frame_dirs()
     problems, checked = [], {"sol": 0, "sage": 0, "graphs": 0, "single_frame": 0}
     exempt_seen = {k: False for k in SOL_EXEMPT_STEMS}
+    dev_seen = {k: False for k in DEVIATIONS}
 
     for p in paths:
         g = load(p)
@@ -389,10 +406,16 @@ def main() -> int:
         graph_pdd = loads_pdd(g)
         expected = h3_config.sol_for_graph(graph_pdd, graph_steps)
         source = "SOL_PDD_CUDA" if graph_pdd else "SOL_RECOMMENDED_CUDA"
+        dev_fields, _dev_why = DEVIATIONS.get(stem, ((), None))
+        deviated = set()
         for nid, vals, state in sol:
             if state != "live":
                 continue
             for k, want in expected.items():
+                if k in dev_fields:
+                    if k in vals and vals[k] != want:
+                        deviated.add(k)
+                    continue
                 if k in vals and vals[k] != want:
                     problems.append(
                         f"{p.relative_to(_REPO)}: node {nid} {SOL}.{k} is "
@@ -401,23 +424,40 @@ def main() -> int:
                            and not graph_pdd else ""))
 
         # --- sage_values ---------------------------------------------------
-        dev_field, _dev_why = DEVIATIONS.get(stem, (None, None))
         for nid, vals, state in sage:
             if state != "live":
                 continue
             for k, want in h3_config.SAGE_NODE.items():
-                if k == dev_field:
+                if k in dev_fields:
+                    if k in vals and vals[k] != want:
+                        deviated.add(k)
                     continue
                 if k in vals and vals[k] != want:
                     problems.append(
                         f"{p.relative_to(_REPO)}: node {nid} {SAGE}.{k} is "
                         f"{vals[k]!r}, h3_config.SAGE_NODE says {want!r}")
 
+        # A declared deviation must deviate, or the declaration has outlived
+        # the graph it described and would hide a real drift on that field.
+        if stem in DEVIATIONS:
+            dev_seen[stem] = True
+            stale = sorted(set(dev_fields) - deviated)
+            if stale:
+                problems.append(
+                    f"{p.relative_to(_REPO)}: DEVIATIONS declares {stale} for this "
+                    f"graph but the widget carries the recipe's own value; remove "
+                    f"the field from the declaration or restore the arm")
+
     # A declared exemption for a graph that does not exist is also rot.
     for stem, seen in exempt_seen.items():
         if not seen:
             problems.append(
                 f"SOL_EXEMPT_STEMS names {stem!r}, which matches no graph under "
+                f"graph_paths(). Remove the entry.")
+    for stem, seen in dev_seen.items():
+        if not seen:
+            problems.append(
+                f"DEVIATIONS names {stem!r}, which matches no graph under "
                 f"graph_paths(). Remove the entry.")
 
     print(f"  {checked['graphs']} graphs, {checked['sol']} {SOL} and "

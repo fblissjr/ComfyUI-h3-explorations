@@ -4,6 +4,30 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.43
+
+### Added
+
+- **Candidate graphs for the owner's own prompts**, three generated
+  workflows carrying the lane's current best guesses beside the shipped
+  leader: `h3_candidate_t2v_sol_only` (just Sol from the first step to the
+  last-but-one, no sage node), `h3_candidate_t2v_sol_allrows` (the shipped
+  chain with every conditioning query row dense) and
+  `h3_candidate_t2v_pdd8_sol_narrow` (PDD8 with Sol on two of the eight
+  steps). PDD8 under sage alone already exists as `h3_probe_t2v_pdd8_sage`.
+  The generator gains a `sol_overrides` extra laid over
+  `h3_config.sol_for_graph`, refusing an override that restates the recipe
+  or names a field it lacks; `bench/check_attention_defaults.py::DEVIATIONS`
+  now takes a tuple of fields per graph, honours them on the Sol node as
+  well as the sage node, asserts each declared deviation is real (shown red
+  by declaring a field that does not deviate) and that each declared stem
+  exists; `bench/check_widget_deviations.py` gains ARM rows for
+  `start_percent` and `sink_conditioning`. Built and validated against a
+  live server (180 graphs), every graph check green, prompt catalogue and
+  bank regenerated. The table of what each is, its reasoned speed and what
+  would settle it is `docs/wiki/next_steps.md`, "Candidates on trial".
+  None is a verdict; the blind sessions are.
+
 ## 0.99.42
 
 ### Added

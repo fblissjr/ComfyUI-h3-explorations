@@ -648,6 +648,29 @@ _REF_APPEND_NODES = tuple(str(i) for i in range(50, 58))
 _DENSE_ATTN_MODES = ("none", "sage", "sol")
 
 
+def _sol_with_overrides(extra: dict) -> dict:
+    """The Sol config a GRAPHS entry carries: `h3_config.sol_for_graph` for
+    its PDD state and step count, with the entry's `sol_overrides` laid over
+    it. Overrides exist for the candidate graphs (2026-09-05): a window, a
+    sink mode or a tau that the shipped recipe does not carry, baked into the
+    widget so the owner can open the graph and render their own prompt on
+    it. Every overridden field is a declared deviation in
+    `bench/check_attention_defaults.py::DEVIATIONS`, which also asserts the
+    deviation is real; an override that matches the recipe is refused here
+    so a stale one cannot ride along as a no-op."""
+    base = sol_for_graph(bool(extra.get("pdd", False)),
+                         extra.get("steps", SAMPLING["steps"]))
+    over = extra.get("sol_overrides") or {}
+    unknown = sorted(set(over) - set(base))
+    if unknown:
+        raise SystemExit(f"sol_overrides names fields the recipe lacks: {unknown}")
+    same = sorted(k for k, v in over.items() if base[k] == v)
+    if same:
+        raise SystemExit(f"sol_overrides restates the recipe's own value for {same}; "
+                         "drop it or change it")
+    return dict(base, **over)
+
+
 def _attention_plan(extra: dict) -> tuple[bool, bool, str | None, bool]:
     """(sage, sol_on, dense_mode, vsa_on) from one GRAPHS entry's extras.
 
@@ -7713,6 +7736,76 @@ def main():
                   "question; the 2026-09-03 ladder never had this rung.")),
          "text -> video + audio, Sol as shipped, no sage: stock attention outside Sol"),
 
+        # **Candidates on trial, 2026-09-05.** The owner asked for canonical
+        # graphs carrying the settings the lane currently thinks are its
+        # leaders, to render their own prompts on. The evidence stands as
+        # docs/roadmap.md (forward plan 2026-09-04) records it: the shipped
+        # h3_text_to_video (sage + Sol) is the leader with a verdict behind
+        # it; each candidate below is a configuration blinded but not yet
+        # judged, and its note says what it costs and what would settle it.
+        # PDD8 under sage alone is the fourth candidate and already exists as
+        # h3_probe_t2v_pdd8_sage. Every overridden Sol field is declared in
+        # bench/check_attention_defaults.py::DEVIATIONS.
+        ("h3_candidate_t2v_sol_only.json", "t2v-candidate-sol-only", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="sol", sol_overrides={"start_percent": 0.0},
+              out_prefix="Video/h3_candidate_t2v_sol_only",
+              variant_note=_probe_note(
+                  "CANDIDATE: just Sol, on every step but the last, no sage",
+                  "h3_probe_t2v_sol_nosage.json",
+                  "start_percent 0.0: Sol routes from the first step; the "
+                  "shipped 0.2 keeps the first four dense. The last step "
+                  "stays stock (end_percent as shipped). No sage node.",
+                  "the fastest base-model arm on the table; whether the "
+                  "warm-up steps needed to be dense at all. Blinded as "
+                  "sol_nosage_2026-09-04 against the sage floor and Sol as "
+                  "shipped; the owner's verdict is what promotes or drops it.",
+                  "Reasoned cost from the ladder record: one stock step and "
+                  "fifteen Sol steps, roughly four times faster than a dense "
+                  "render and well ahead of sage alone.")),
+         "CANDIDATE text -> video + audio: Sol only, every step but the last"),
+
+        ("h3_candidate_t2v_sol_allrows.json", "t2v-candidate-sol-allrows", "t2v", LONG_T2V_PROMPT,
+         dict(sol_overrides={"sink_conditioning": "exact_kv_and_all_rows"},
+              out_prefix="Video/h3_candidate_t2v_sol_allrows",
+              variant_note=_probe_note(
+                  "CANDIDATE: the shipped chain with every conditioning "
+                  "query row dense",
+                  "h3_text_to_video.json",
+                  "sink_conditioning exact_kv_and_all_rows: the text rows "
+                  "run dense as well as the audio rows. On t2v that is a "
+                  "few hundred rows in a hundred thousand; on a reference "
+                  "graph with a video reference it would be the reference's "
+                  "rows, so this candidate is t2v only.",
+                  "the text segment's Sol-versus-sage disagreement, largest "
+                  "in every block of the probe records, collapses to the "
+                  "audio floor; the pixels move as far as dense-versus-sage "
+                  "does at one seed; whether that is visible is the open "
+                  "question, one pair away.",
+                  "Same speed as the shipped chain to within the rows it "
+                  "adds. Records: the 2026-09-04 subway probe pair in "
+                  "bench/results/.")),
+         "CANDIDATE text -> video + audio: sage + Sol, text rows dense too"),
+
+        ("h3_candidate_t2v_pdd8_sol_narrow.json", "t2v-candidate-pdd8-sol-narrow", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              sol_overrides={"start_percent": 0.3, "end_percent": 0.6},
+              out_prefix="Video/h3_candidate_t2v_pdd8_sol_narrow",
+              variant_note=_probe_note(
+                  "CANDIDATE: PDD8 with Sol on two of the eight steps",
+                  "h3_text_to_video_pdd.json",
+                  "start_percent 0.3 and end_percent 0.6: at shift 12 on the "
+                  "eight-step schedule Sol routes the two middle steps only; "
+                  "the shipped PDD window routes four. Sage on the rest, the "
+                  "PDD LoRA and heads as shipped.",
+                  "whether the defects the owner named on the shipped PDD8 "
+                  "rung (brightness, compressed texture, melted text) come "
+                  "from Sol on the coarse schedule; blinded as "
+                  "pdd_ladder_2026-09-04 beside PDD8 under sage alone.",
+                  "Reasoned cost: six sage steps and two Sol steps, between "
+                  "PDD8 under sage alone and the shipped PDD8 graph.")),
+         "CANDIDATE text -> video + audio at 8 steps via PDD, Sol on two steps"),
+
         # Sol-Attn ON at full reference load: images + a reference video + its
         # soundtrack + standalone audio. This is the heaviest sink the model
         # accepts, and it is the workload the owner actually renders -- the
@@ -7956,11 +8049,10 @@ def main():
             # core's autogrow sockets. cross_check skips a lone format.
             continue
         rest = {k: v for k, v in extra.items()
-                if k not in ("sol_on", "dense_attn")}
+                if k not in ("sol_on", "dense_attn", "sol_overrides")}
         wf = build_ui(task, sage=sage_on,
                       preview=True,
-                      sol=(sol_for_graph(bool(extra.get("pdd", False)),
-                                         extra.get("steps", SAMPLING["steps"]))
+                      sol=(_sol_with_overrides(extra)
                            if not (is_image or dense_mode in ("none", "sage") or vsa_on)
                            else None),
                       sol_enabled=sol_on, prompt=prompt,
@@ -7980,12 +8072,10 @@ def main():
         sage_on, sol_on, _dense_mode, _vsa_on = _attention_plan(extra)
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on", "dense_attn",
-                                  "api_only")}
+                                  "api_only", "sol_overrides")}
         wf = build_api(task, sage=sage_on,
                        prompt=prompt,
-                       sol=(sol_for_graph(bool(extra.get("pdd", False)),
-                                          extra.get("steps", SAMPLING["steps"]))
-                            if sol_on else None),
+                       sol=(_sol_with_overrides(extra) if sol_on else None),
                        **{**api_extra, "length": graph_length(api_extra)})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         written.append((label, "api", p, wf))

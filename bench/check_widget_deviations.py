@@ -198,6 +198,17 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("MiniMaxH3SolAttn", "end_percent"):
         ("RESOLVED", "h3_config.sol_for_graph(pdd, steps); graded by "
                      "bench/check_attention_defaults.py"),
+    ("MiniMaxH3SolAttn", "start_percent"):
+        ("ARM", "0.0 on the just-Sol candidate (Sol from the first step) and "
+                "0.3 on the narrow-window PDD8 candidate, both 2026-09-05; the "
+                "recipe's 0.2 elsewhere. Declared per graph in "
+                "bench/check_attention_defaults.py::DEVIATIONS, which grades "
+                "the deviation as real"),
+    ("MiniMaxH3SolAttn", "sink_conditioning"):
+        ("ARM", "exact_kv_and_all_rows on the all-rows candidate (2026-09-05), "
+                "every conditioning query row dense; the recipe's "
+                "exact_kv_and_rows elsewhere. Declared per graph in "
+                "bench/check_attention_defaults.py::DEVIATIONS"),
     ("ManualSigmas", "sigmas"):
         ("RESOLVED", "h3_config.PDD_MANUAL_SIGMAS, the six-block tail-weighted "
                      "partition; its 6dp rounding is load-bearing and "
