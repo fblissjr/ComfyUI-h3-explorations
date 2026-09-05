@@ -250,7 +250,10 @@ differently", for what else generalises). Its contract is built and green
 named were closed the same day in `e38655d`), so nothing precedes the bake
 script itself. Until 2026-09-05 this sentence said two prerequisites remained
 and pointed at `docs/h3_pdd.md`, which names none; the claim outlived its fix
-by two days. The plan is `research/pdd/2026-09-05_bake_plan.md`. It shares
+by two days. The plan is
+[`research/pdd/2026-09-05_bake_plan.md`](research/pdd/2026-09-05_bake_plan.md):
+inputs, the pieces it lifts, the script step by step, the repo wiring, the
+first pair, and a risk table with a control per row. It shares
 nothing with the attention lane and must not wait for it. Granular PDD strength comes after
 the bake, on PDD's own ladder.
 

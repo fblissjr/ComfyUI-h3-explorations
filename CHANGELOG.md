@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.45
+
+### Added
+
+- **A plan for the backbone bake**,
+  `docs/research/pdd/2026-09-05_bake_plan.md`, linked from the roadmap's
+  bake paragraph, `docs/h3_pdd.md`, the PDD research index and the wiki's
+  to-do list. What the baked pair is, the preconditions met on 2026-09-05
+  (`bench/check_pdd_sidecar_contract.py` green on the current tree, so the
+  two Codex gaps no longer precede the script), the tools the script lifts
+  from `bench/` rather than rewrites, the script step by step with a
+  one-block dry run first, the repo wiring a new checkpoint drags in, the
+  merged-versus-baked first pair under sage alone, publishing, and a risk
+  table with a control per row (a strength-zero bake as the base control,
+  the delta computed through the node's own function, population asserted
+  by kind). Owner-approved; sent to the render lane for review; nothing in
+  it has started. The sister turbo LoRA is named as a second, conditional
+  bake, not this one.
+
 ## 0.99.44
 
 ### Changed

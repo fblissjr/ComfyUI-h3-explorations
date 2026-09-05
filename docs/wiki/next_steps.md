@@ -60,7 +60,11 @@ Items from the `evalman` render lane:
 - The PDD bake's hypothesis, written 2026-09-05 in the roadmap's bake
   paragraph: the defects named blind on the shipped PDD8 rung are the kind
   a requantised merge produces; the baked checkpoint on the same scenes at
-  the same seed is the test.
+  the same seed is the test. The plan, owner-approved 2026-09-05 and under
+  the render lane's review, is
+  [`../research/pdd/2026-09-05_bake_plan.md`](../research/pdd/2026-09-05_bake_plan.md);
+  closes with the baked pair on disk, the contract check green on it, and
+  the merged-versus-baked pair blinded.
 - Unscheduled: sage at more steps against dense at sixteen, open
   experiment 6 in `../open_experiments.md`, the base-model question the
   owner raised.

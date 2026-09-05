@@ -2,6 +2,14 @@
 
 ## Handoffs — newest first, and read the newest before anything else here
 
+- [`2026-09-05_bake_plan.md`](2026-09-05_bake_plan.md) — **the backbone
+  bake, planned and owner-approved, not started.** What the pair of files is,
+  the preconditions met that day (the sidecar contract green, the release on
+  local disk, the quantiser importable), the tools it lifts rather than
+  rewrites, the script step by step with its one-block dry run, the repo
+  wiring, the merged-versus-baked first pair, and a risk table naming a
+  control per row. Supersedes the 2026-08-31 handoff's step 2 on the bake
+  and nothing else in it.
 - [`2026-08-31_handoff.md`](2026-08-31_handoff.md) — **current.** What merging
   a PDD LoRA onto an int8 module costs, measured over all 200 modules: the
   backbone requantises and the output heads do not, the update lands but the

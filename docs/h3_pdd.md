@@ -1502,6 +1502,12 @@ Their user guidance is a prior for a rung, not a measurement here: four to
 eight steps, strength one, over eight over-sharpens, six or more removes the
 fast-motion smear their fourth checkpoint shows at four.
 
+**The bake itself has a plan, 2026-09-05:**
+[`research/pdd/2026-09-05_bake_plan.md`](research/pdd/2026-09-05_bake_plan.md).
+It lifts the arithmetic, the mapping and the writer from tools already in
+`bench/`, names the script's steps and the first pair, and carries a risk
+table with a control per row. Nothing in it has started.
+
 ---
 
 ## Measured, 2026-08-26
