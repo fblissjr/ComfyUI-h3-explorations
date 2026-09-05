@@ -32,7 +32,15 @@ it silently disarms them (CLAUDE.md, "the server process is the resource").
     PID=$(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
     tr '\0' '\n' < /proc/$PID/environ | grep '^H3_'   # armed? ask first
     kill $PID; sleep 5; ss -ltnp | grep ':8188' || echo "port free"
-    (cd <comfy> && nohup ./start.sh > /dev/null 2>&1 &)
+    (cd <comfy> && setsid nohup ./start.sh > <a log you can read> 2>&1 < /dev/null &)
+
+`setsid` puts the server in its own session, and the same prefix belongs on
+every long runner (`bench/run_graph_arms.py`) launched from an agent's
+shell: a process that inherits the agent's session dies with the agent's
+process group when that client exits, and a render lost that way looks
+like a hang from the outside. The 2026-09-04 evening run lost nothing to
+this (the box lost power), but every launch since is detached, and the log
+goes to a file so the owner can read it.
     curl -s localhost:8188/system_stats                # until it answers
     ps -o lstart= -p $(ss -ltnp | grep ':8188' | grep -oP 'pid=\K[0-9]+' | head -1)
 

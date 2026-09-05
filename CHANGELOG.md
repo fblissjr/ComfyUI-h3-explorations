@@ -28,6 +28,23 @@ artifact.
   saw belongs to the sage floor, which lost the same pair against dense,
   not to Sol. One seed per scene.
 
+### Added (the morning after)
+
+- **Two pixel controls that change what the probe records can be used
+  for.** `bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`:
+  the armed subway probe render is identical on both streams to the
+  unarmed 2026-09-03 ladder clip of the same graph, seed and prompt, so
+  arming the probe does not perturb a render and a probe render's clip is
+  a valid blind sample of its configuration.
+  `bench/results/2026-09-04_probe_allrows_vs_shipped_pixels.json`: the
+  all-rows sink mode moves the subway render about as far as
+  dense-versus-sage does at the same seed, so its blind pair (already
+  rendered, no card time) is meaningful. The roadmap's 2026-09-04 section
+  gains a "not established" list on the strength of both, the PDD bake
+  paragraph a hypothesis to test, open experiment 6 the base-model
+  step-count arm the owner raised, and `docs/comfy_notes.md` the detached
+  launch every server and runner has used since the 2026-09-04 power loss.
+
 ### Changed (the morning after)
 
 - **Branch `sol-nosage` merged** (`7b9c0ce`, peer session's work at this

@@ -95,8 +95,14 @@ not restated here.
    changelog 0.99.40 and 0.99.42;
    `bench/results/2026-09-04_sol_probe_subway_allrows_vs_shipped.json`):
    the text segment collapses to the audio floor, video and audio move by
-   nothing the record resolves, ranking unchanged. The blind pair is owed;
-   until it exists this is free on the proxy and unproven to the eye.
+   nothing the record resolves, ranking unchanged. At the pixel level the
+   mode moves the subway render about as far as dense-versus-sage does
+   (`bench/results/2026-09-04_probe_allrows_vs_shipped_pixels.json`), so
+   the blind pair is meaningful, and it costs no card time: the armed
+   render's clip is a valid sample
+   (`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). Owed,
+   as a one-pair session against the 2026-09-03 subway Sol clip; until it
+   is judged this is free on the proxy and unproven to the eye.
 4. **Block policy**: a per-block tau profile (`tau_profile`) or a dense set
    on the band the probe ranks hottest, same footing.
 5. **Step policy**: the window's start, since the per-step trend rises
@@ -115,6 +121,22 @@ not restated here.
    every step, with a budget knob that barely moves anything, so it does
    not move the frontier under every policy; it is one more per-block
    candidate for step 4, to be ranked by the probe on the shipped call.
+
+**Not established after 2026-09-04, and must not be quoted as if it were:**
+any scene on which Sol itself is visibly worse than the sage floor (the one
+scene where Sol lost blind, the subway chase, lost the same way under sage
+alone, so the proxy-to-perception link is untested in the direction that
+matters); whether the all-rows sink mode is visible (its pixel footprint at
+one seed is the size of dense-versus-sage, and the blind pair is rendered
+but unjudged, step 3 above); PDD8 under sage alone against the floor and
+just-Sol against the floor (both blinded, both the owner's to score); and
+the size of the tau lever, which the owner reports as a quality loss without
+a measured curve. Two things established on the way: arming the probe does
+not perturb a render (`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`,
+the armed subway render identical to the unarmed ladder clip on both
+streams), so a probe render's clip is a valid blind sample of its
+configuration; and the post-pull execution regime changed timing only
+(`bench/results/2026-09-04_stairwell_dense_retime_pixels.json`).
 
 ## Current forward plan — 2026-09-03
 
@@ -208,7 +230,12 @@ ladder per block, not alternatives.
 
 **In parallel, not behind the above: the PDD bake.** It removes merge-time
 requantisation at no runtime cost and is the strongest practical PDD
-improvement on the table; its contract is built and its two remaining
+improvement on the table. A hypothesis for it to test, written 2026-09-05:
+the defects the owner named blind on the shipped PDD8 rung (brightness,
+compressed skin texture, melted on-screen text) are the kind a requantised
+merge produces; the baked checkpoint rendering the same scenes at the same
+seed is the test, and the PDD8-under-sage arm of the 2026-09-04 ladder says
+first how much of that look is Sol's. It its contract is built and its two remaining
 prerequisites are recorded in `docs/h3_pdd.md`. It shares nothing with the
 attention lane and must not wait for it. Granular PDD strength comes after
 the bake, on PDD's own ladder.

@@ -194,6 +194,14 @@ what the prompt asked for.
 **Blocker: owner judgment**, same as #1. The failure mode is prompt
 adherence, which no metric here detects.
 
+**Added 2026-09-05, from the owner's "dense as in full 16+ step renders".**
+Nothing here has judged the base model above sixteen steps. If more steps
+help, the arm that matters under the sage-always decision is not dense at
+twenty but sage at twenty-odd steps against dense at sixteen: by the ladder
+record's per-step costs it still renders well under the dense time, and it
+would be a base-model question, separate from the Sol policy lane. One seed,
+one scene, judged blind against the dense sixteen-step clip. Not scheduled.
+
 ---
 
 ## 7. Head-chunk process peak, settled

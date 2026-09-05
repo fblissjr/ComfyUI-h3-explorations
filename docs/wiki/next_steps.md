@@ -5,6 +5,37 @@ reasoning lives; it restates none of it.** Kept short on purpose: when it
 disagrees with [`../roadmap.md`](../roadmap.md), the roadmap is right and this
 page is stale.
 
+## To-do (the owner's action list, 2026-09-05)
+
+**Pointers only, one line each, consolidated across the sessions working this
+tree.** Each names the record that closes it. The reasoning lives where the
+pointer goes; this list is stale the moment the roadmap disagrees with it.
+Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
+own below the rule.
+
+- Score the blinded PDD ladder, `pdd_ladder_2026-09-04` (20 pairs, 20
+  singles). The pairs now play each half's audio on selection (Hear: Clip 1
+  / Clip 2) and export which halves were heard; hear both before a verdict.
+  Closes with `bench/score_session.py` writing its verdict record.
+- Frontier table on that verdict beside
+  `bench/results/2026-09-04_pdd_ladder_outputs.json` (`bench/frontier_table.py`):
+  speed against the sage floor beside what was noticed, per scene. Closes
+  with the frontier record committed under `bench/results/`.
+- The chain assert's call-time proof on the no-sage graph: the exercise
+  skips for headroom on this card with the DiT staged, so the Sol-over-stock
+  state is proved at registration only. Size the exercise to the probes the
+  state actually fires (`assert_chain.py::_exercise`); a branch, after the
+  card is down. Closes when a just-Sol render's log carries the "no sage:
+  probes ... reached no sage kernel" line. Item 7 of the 2026-09-04
+  postmortem under `internal/postmortems/`.
+- The fp16-sage rung's lost time (`bench/results/2026-09-03_ladder_outputs.json`
+  shows it slower than Sol as shipped on every scene): a per-step timing
+  places the extra time. Open since the 2026-09-03 postmortem.
+- Read the just-Sol renders (six arms, `bench/sol_nosage_arms.json`) beside
+  the shipped-Sol clips of the same scenes, blind, once rendered.
+
+---
+
 ## Now
 
 **The routing policy is the lane, and sage is the floor.** Two owner
@@ -14,6 +45,18 @@ next render on the card is the online probe on the subway scene, the one
 scene where Sol lost blind, set beside the standoff record; then the PDD
 ladder below; then the three policy axes the node already exposes, segment,
 block and step, each measured on the probe before one blind pair.
+
+**Two sessions wait on the owner's eyes, and one pair costs no card time.**
+`pdd_ladder_2026-09-04` (PDD8 under sage alone and with Sol on two of eight
+steps, against the ladder's sage and shipped-PDD8 clips) and, once its
+renders land, the just-Sol session (`bench/sol_nosage_arms.json`, against the
+ladder's sage and Sol clips). A third, one pair on the subway scene, needs no
+render: the all-rows sink mode's armed clip against the 2026-09-03 Sol clip,
+since arming the probe does not perturb a render
+(`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). After the
+just-Sol renders, an ARMED render of the just-Sol graph is the probe's next
+footing: with no sage, its counterfactual is stock attention, so the record
+measures Sol against near-exact attention directly rather than against sage.
 
 **Read the ladder verdict, as a frontier.**
 `bench/results/2026-09-04_ladder_2026-09-03_frontier.json`

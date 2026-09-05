@@ -1,0 +1,86 @@
+{
+ "measured": "2026-09-05",
+ "produced_by": "bench/compare_clip_pixels.py; ffmpeg decode to rgb24 and s16le, sha256 and numpy over the decoded arrays",
+ "note": "exact_kv_and_all_rows against the shipped sink mode on the subway scene at the ladder's seed, both armed probe renders of 2026-09-04: how far the segment policy moves the pixels",
+ "clip_a": "h3_t2v_probe_subway_sol_allrows_00001-audio.mp4",
+ "clip_b": "h3_t2v_probe_subway_sol_00001-audio.mp4",
+ "provenance": {
+  "a": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SageAttention",
+    "MiniMaxH3SigmaShift",
+    "MiniMaxH3SolAttn",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "b": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "BasicScheduler",
+    "KSamplerSelect",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SageAttention",
+    "MiniMaxH3SigmaShift",
+    "MiniMaxH3SolAttn",
+    "RandomNoise",
+    "SageChainAssert",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "same_seed": true,
+  "same_class_types": true
+ },
+ "video": {
+  "frames": 345,
+  "size": "1344x768",
+  "sha256_a": "b6ac2ab8991942c4c134d8ade91d429e8d36a28b99372201f79109f6f24ff8ba",
+  "sha256_b": "12f0a4b0dcffaaf76a240d804c2cadec18caa76bdca11ed098e6b02514ad36ca",
+  "identical": false,
+  "frames_differing": 345,
+  "first_differing_frame": 0,
+  "mean_abs_diff_over_all_frames": 12.126853189467653,
+  "max_abs_diff": 255,
+  "per_frame_mean_abs_diff_quantiles": {
+   "0.0": 5.995623876178075,
+   "0.5": 12.149716977719907,
+   "1.0": 23.033466318927744
+  },
+  "units": "8-bit RGB levels, 0-255"
+ },
+ "audio": {
+  "samples_a": 919552,
+  "samples_b": 919552,
+  "sha256_a": "648a9f76e21682f89533a93023d4e04f21f7c82e201d4b7f94c0d45f0fcc8d67",
+  "sha256_b": "79fee42c148d449f95fb7a3d5b523ba912202d2c5545ce74f5176505dab7145b",
+  "identical": false,
+  "max_abs_sample_diff": 25092,
+  "units": "16-bit PCM levels"
+ },
+ "reading": "identical on both streams means the same render; a differing video with the same seed and the same class types means the substrate changed numerics between the two renders, and the per-frame statistics say by how much in 8-bit levels"
+}
