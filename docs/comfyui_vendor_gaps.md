@@ -1,6 +1,6 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-08-29
+last updated: 2026-09-04 (row 17 added; everything else is the 2026-08-29 snapshot)
 
 **Corrected 2026-08-29: this file described the compressed-tensors W4 AWQ
 artifact as the shipped encoder, and it is not.** All 159 encoder-loader nodes
@@ -130,6 +130,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
 | 15 | Reference-audio encode crashes under VRAM pressure instead of tiling | behavioural | open, core-side (`extra_1d_channel` unset) | **nothing**; trimming the soundtrack shrinks the encode but does not fix it |
 | 16 | Generic VAE crop narrows the reference waveform's SAMPLE axis | behavioural | open, core-side (`crop_input` unset); [Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972) proposes the one-line fix, open as of 2026-08-30 | **nothing**; the shipped trim lands on a non-aligned length, so every soundtracked graph here is exposed |
+| 17 | The gated residual rounds once in core and twice in the reference | numerical | open, core-side: `comfy/ldm/minimax/model.py::_mod_gate` folds `x + gate * out` into one in-place `addcmul_` on the bf16 stream, one rounding; the diffusers reference of record computes `gate * out` and the add as two bf16 ops (`coderef/diffusers/src/diffusers/models/transformers/transformer_minimax_h3.py`, the block forward), and sglang's fused kernel rounds the product to bf16 explicitly before adding (`coderef/sglang/python/sglang/kernels/ops/diffusion/modulate/indexed_modulation_triton.py::_indexed_gate_bf16_kernel`) to match it. Twice per block, fifty blocks, every step. The scale-shift path matches: core's `mul_`/`add_` chain rounds at the same three points as sglang's kernel. Found 2026-09-04 reading both; **unmeasured** | **nothing**; our attention mirror replaces `Attention.forward` only and never touches the residual. What would size it: one block forward on a captured hidden state under both formulas, relative L2 of the stream after fifty blocks, at one step; per element the difference is at most one bf16 ulp of the gated update |
 
 ### Processor-policy impact by conditioning role
 
@@ -1090,6 +1091,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
 | 15, audio encode OOM fallback | open, core-side (`comfy/sd.py`) | **nothing**; reproduced 2026-08-29 |
 | 16, waveform sample-axis crop | open, core-side (`comfy/sd.py`); PR 15972 proposes the fix | **nothing**; measured 2026-08-30, and the shipped default trim is a non-aligned length |
+| 17, gated-residual rounding | open, core-side (`comfy/ldm/minimax/model.py`) | **nothing**; read 2026-09-04, unmeasured |
 
 For the stock native path, the image floor remains the most reachable still
 boundary and the clip-wide video policy remains a bounded source/length

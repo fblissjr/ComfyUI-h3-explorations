@@ -100,7 +100,11 @@ not restated here.
 4. **Block policy**: a per-block tau profile (`tau_profile`) or a dense set
    on the band the probe ranks hottest, same footing.
 5. **Step policy**: the window's start, since the per-step trend rises
-   toward the end of the window, not the start.
+   toward the end of the window, not the start. **A prior arrived
+   2026-09-04**: sglang's cube sparse backend, co-authored by MiniMax
+   engineers, publishes a per-update keep schedule for the fifty-step grid
+   (dense for two updates, then a fast decay to a floor). Open experiment 27
+   holds the record, the mapping onto our sigma grid, and the arm.
 6. Then the other populations, legal PDD8 through the node's own sigmas and
    Ref2VA, each its own ranking, never pooled.
 7. **token_aug**, graded offline first in the upstream-survey lane; if it

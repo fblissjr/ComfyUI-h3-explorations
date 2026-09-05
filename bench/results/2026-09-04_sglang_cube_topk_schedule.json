@@ -1,0 +1,99 @@
+{
+  "what": "The per-update keep-ratio schedule sglang's cube sparse attention recommends for MiniMax-H3, recorded verbatim as a step-policy prior. Not measured here; the vendor's engineers' own recommendation, copied so it has one home in this repo and every mapping onto our sigma grid can point at it.",
+  "recorded": "2026-09-04",
+  "source": {
+    "repo": "sgl-project/sglang",
+    "pr": 34893,
+    "pr_title": "[Diffusion] Add MiniMax H3 cube sparse attention",
+    "merged": "2026-09-02",
+    "commit": "4b329482e8",
+    "coauthors_note": "two MiniMax engineers are co-authors on the commit; the schedule below is from the PR body's 'Recommended attention-backend-config' section",
+    "backend": "coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/cube_sparse_attn/",
+    "sigma_grid": "coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/time_request.py::minimax_h3_time_shift_sigmas"
+  },
+  "semantics": {
+    "entry": "one keep ratio per denoise update; num_inference_steps grid points give num_inference_steps - 1 updates",
+    "ratio_1_0": "the update runs the native dense attention path",
+    "ratio_below_1": "top-k over pooled (T,H,W) cube scores keeps that fraction of candidate cubes per query cube; text, audio, standalone reference images and the token refiner stay dense; reference videos and the target share one candidate pool",
+    "cube": "local_cube_size (4, 4, 4) latent tokens, 64 per cube",
+    "grid": "endpoint-inclusive: sigma = shift * t / (1 + (shift - 1) * t) over t = linspace(1, 0, num_inference_steps), video shift 12"
+  },
+  "schedules": {
+    "recommended_50_steps": {
+      "num_inference_steps": 50,
+      "updates": 49,
+      "local_cube_size": [
+        4,
+        4,
+        4
+      ],
+      "topk_ratio_list": [
+        1.0,
+        1.0,
+        0.55,
+        0.45,
+        0.35,
+        0.35,
+        0.3,
+        0.25,
+        0.25,
+        0.2,
+        0.2,
+        0.2,
+        0.15,
+        0.15,
+        0.15,
+        0.1,
+        0.1,
+        0.1,
+        0.1,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ]
+    },
+    "cookbook_8_step_example": {
+      "num_inference_steps": 8,
+      "updates": 7,
+      "topk_ratio_list": [
+        1.0,
+        1.0,
+        0.8,
+        0.7,
+        0.6,
+        0.5,
+        0.5
+      ],
+      "source": "coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx, tab 'Cube sparse attention'"
+    }
+  },
+  "shape_in_words": "dense for the first two updates, then a keep ratio that falls through the first third of the trajectory to a small floor held for the rest; the opposite shape from a fixed threshold behind a leading dense band",
+  "mapped_onto_our_grid_by": "bench/map_cube_schedule.py"
+}

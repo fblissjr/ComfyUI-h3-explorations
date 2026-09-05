@@ -70,6 +70,23 @@ artifact.
   scratch wheel). Kernel provenance follows the vendoring pattern: the sha
   is fetched into the workspace clone as `kijai/sol_token_aug_main` and the
   wheel sits in that clone's `dist/`. Nothing is installed.
+- **The vendor's step schedule as a prior for the window's start.**
+  `bench/results/2026-09-04_sglang_cube_topk_schedule.json` records the
+  per-update keep-ratio list sglang's cube sparse attention backend (merged
+  2026-09-02, MiniMax engineers co-authoring) recommends for the fifty-step
+  grid, with provenance; `bench/map_cube_schedule.py` maps it by sigma onto
+  the `simple` grid our graphs sample at shift 12 (built by ComfyUI's own
+  scheduler, as `bench/check_pdd_sigmas.py` builds it) and writes
+  `bench/results/2026-09-04_cube_schedule_on_h3_grid.json`: the vendor's
+  leading dense count on our grid against the shipped window's, and the
+  `start_percent` interval that reproduces it. Open experiment 27 names the
+  arm; roadmap step 5 points at it. `start_percent` has never been measured
+  at any value, and this is the first prior for it from anyone with the
+  training data. Nothing rendered.
+- **Vendor gap 17**, `docs/comfyui_vendor_gaps.md`: core's gated residual
+  rounds once (`addcmul_`) where the diffusers reference and sglang's fused
+  kernel round twice; the scale-shift path matches. Read, unmeasured, and
+  the measurement is named beside it.
 - **One dense rung re-timed on the post-2026-09-04 core**
   (`bench/results/2026-09-04_stairwell_dense_retime.jsonl`): the ladder's
   stairwell dense arm, same graph, prompt and seed, on a fresh unarmed

@@ -1968,3 +1968,55 @@ rows is measured. What would close it is the static-people signature either
 recurring or not on a second seed, and the singles heard (no single was
 scored). The manifest's `run` line is the multi-seed command; the owner has
 not asked for it.
+
+## 27. The window's start, with the vendor's own step schedule as the prior
+
+Added 2026-09-04. `start_percent` on `MiniMaxH3SolAttn` has never been
+measured at any value (`workflows/h3_config.py`, the note above the CUDA
+dict), and roadmap step 5 asks where the window should start. sglang's cube
+sparse attention backend, merged 2026-09-02 with two MiniMax engineers as
+co-authors, ships a per-update keep-ratio schedule for the base fifty-step
+grid: dense for the first two updates, then a keep that falls fast through
+the first third of the trajectory to a small floor. It is recorded verbatim
+in `bench/results/2026-09-04_sglang_cube_topk_schedule.json`, and
+`bench/map_cube_schedule.py` maps it onto the sigma grid our graphs sample
+(ComfyUI's `simple` at shift 12, built by the same two lines
+`bench/check_pdd_sigmas.py` uses) by sigma, not by step index. The mapping
+record for our shipped step counts is
+`bench/results/2026-09-04_cube_schedule_on_h3_grid.json`; it says how many
+leading updates the vendor would keep dense on our grid against the shipped
+window's leading count, and the `start_percent` interval that reproduces the
+vendor's count. **Mapped 2026-09-04**: on the sixteen-step grid the
+vendor's dense band covers the first update only, where the shipped window
+keeps four leading and one trailing update dense, and on the vendor's grid
+the updates we run dense would carry keep ratios that fall from about half
+to a fifth before the shipped window even opens; the values and the
+`start_percent` interval are in the record. The probe's `blk_cnt` gives our
+effective keep per step under the shipped tau, so the vendor's floor can be
+read against a measured number rather than a guess.
+
+**What the prior says, in shape.** Two things our binary window cannot say
+at once: go sparse earlier than we do, and keep more early than late. The
+first is expressible today through `start_percent`; the second needs a
+per-step keep profile, which the node lacks (`tau_profile` is per block),
+and would be node code, so a restart before it counts.
+
+**The arm.** The shipped Sol graph with `start_percent` set from the
+mapping record's interval, against the shipped 0.2, both at the shipped tau
+and `end_percent`, matched seed, one bank scene; `bench/run_graph_arms.py
+--set 'label:MiniMaxH3SolAttn.start_percent=<value>'` is the whole
+difference. Probe first (`sol_block_probe.py` on an armed restart), then one
+blind pair through `docs/eval_comparison.md` section 3; the roadmap's
+decision standard applies. Speed is the cheap half: each leading dense step
+removed is one sixteenth of the sampler at 16 steps
+(`workflows/h3_config.py`, the pricing note).
+
+**What would count.** The probe's per-step disagreement on the newly sparse
+leading steps, and the blind pair not preferring the shipped window. What
+would kill it: the first step's routing error propagating into composition,
+which the h3_config note names as the open risk.
+
+**Not the same as cube sparse attention.** The vendor's blocks are (4, 4, 4)
+cubes and ours are 64-row runs in raster order on the shipped configuration
+(`morton=False` in every SOL dict), and their selection has no pooled
+correction; only the schedule transfers, as a prior.

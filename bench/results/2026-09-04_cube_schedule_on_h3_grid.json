@@ -1,0 +1,418 @@
+{
+ "produced_by": "bench/map_cube_schedule.py",
+ "when": "2026-09-05T09:34:04",
+ "source_record": "bench/results/2026-09-04_sglang_cube_topk_schedule.json",
+ "schedule": "recommended_50_steps",
+ "shift": 12.0,
+ "comfy_commit": "250b2e95",
+ "vendor_grid_points": 50,
+ "vendor_leading_dense_updates": 2,
+ "vendor_last_dense_sigma": 0.9964664578437805,
+ "per_steps": {
+  "16": {
+   "sigmas": [
+    1.0,
+    0.9945220351219177,
+    0.9882352948188782,
+    0.9811928868293762,
+    0.9729729890823364,
+    0.963585376739502,
+    0.9523809552192688,
+    0.9392465353012085,
+    0.9230769276618958,
+    0.9034032821655273,
+    0.8780487775802612,
+    0.8453747630119324,
+    0.800000011920929,
+    0.7353324890136719,
+    0.6315789222717285,
+    0.4465445876121521,
+    0.0
+   ],
+   "updates": [
+    {
+     "update": 0,
+     "sigma": 1.0,
+     "vendor_update": 0,
+     "vendor_keep_ratio": 1.0,
+     "vendor_dense": true,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 1,
+     "sigma": 0.9945220351219177,
+     "vendor_update": 3,
+     "vendor_keep_ratio": 0.45,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 2,
+     "sigma": 0.9882352948188782,
+     "vendor_update": 6,
+     "vendor_keep_ratio": 0.3,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 3,
+     "sigma": 0.9811928868293762,
+     "vendor_update": 9,
+     "vendor_keep_ratio": 0.2,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 4,
+     "sigma": 0.9729729890823364,
+     "vendor_update": 12,
+     "vendor_keep_ratio": 0.15,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 5,
+     "sigma": 0.963585376739502,
+     "vendor_update": 15,
+     "vendor_keep_ratio": 0.1,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 6,
+     "sigma": 0.9523809552192688,
+     "vendor_update": 18,
+     "vendor_keep_ratio": 0.1,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 7,
+     "sigma": 0.9392465353012085,
+     "vendor_update": 21,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 8,
+     "sigma": 0.9230769276618958,
+     "vendor_update": 24,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 9,
+     "sigma": 0.9034032821655273,
+     "vendor_update": 27,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 10,
+     "sigma": 0.8780487775802612,
+     "vendor_update": 30,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 11,
+     "sigma": 0.8453747630119324,
+     "vendor_update": 33,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 12,
+     "sigma": 0.800000011920929,
+     "vendor_update": 36,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 13,
+     "sigma": 0.7353324890136719,
+     "vendor_update": 39,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 14,
+     "sigma": 0.6315789222717285,
+     "vendor_update": 42,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 15,
+     "sigma": 0.4465445876121521,
+     "vendor_update": 45,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": false
+    }
+   ],
+   "vendor_leading_dense_on_our_grid": 1,
+   "shipped_leading_dense": 4,
+   "shipped_trailing_dense": 1,
+   "shipped_sigma_window": [
+    0.5714285714285714,
+    0.979591836734694
+   ],
+   "start_percent_for_vendor_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9945220351219177,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.06199962885447863
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_one_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9945220351219177,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.06199962885447863
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_two_leading_dense": {
+    "leading_dense_updates": 2,
+    "sigma_start_in": [
+     0.9882352948188782,
+     0.9945220351219177
+    ],
+    "start_percent_in": [
+     0.06199962885447863,
+     0.12499999340313173
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "vendor_keep_ratio_mean_over_sparse_updates": 0.11666666666666667
+  },
+  "8": {
+   "sigmas": [
+    1.0,
+    0.9882352948188782,
+    0.9729729890823364,
+    0.9523809552192688,
+    0.9230769276618958,
+    0.8780487775802612,
+    0.800000011920929,
+    0.6315789222717285,
+    0.0
+   ],
+   "updates": [
+    {
+     "update": 0,
+     "sigma": 1.0,
+     "vendor_update": 0,
+     "vendor_keep_ratio": 1.0,
+     "vendor_dense": true,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 1,
+     "sigma": 0.9882352948188782,
+     "vendor_update": 6,
+     "vendor_keep_ratio": 0.3,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 2,
+     "sigma": 0.9729729890823364,
+     "vendor_update": 12,
+     "vendor_keep_ratio": 0.15,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 3,
+     "sigma": 0.9523809552192688,
+     "vendor_update": 18,
+     "vendor_keep_ratio": 0.1,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 4,
+     "sigma": 0.9230769276618958,
+     "vendor_update": 24,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 5,
+     "sigma": 0.8780487775802612,
+     "vendor_update": 30,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 6,
+     "sigma": 0.800000011920929,
+     "vendor_update": 36,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 7,
+     "sigma": 0.6315789222717285,
+     "vendor_update": 42,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    }
+   ],
+   "vendor_leading_dense_on_our_grid": 1,
+   "shipped_leading_dense": 2,
+   "shipped_trailing_dense": 0,
+   "shipped_sigma_window": [
+    0.5714285714285714,
+    0.979591836734694
+   ],
+   "start_percent_for_vendor_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9882352948188782,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.12499999340313173
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_one_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9882352948188782,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.12499999340313173
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_two_leading_dense": {
+    "leading_dense_updates": 2,
+    "sigma_start_in": [
+     0.9729729890823364,
+     0.9882352948188782
+    ],
+    "start_percent_in": [
+     0.12499999340313173,
+     0.24999988513686677
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "vendor_keep_ratio_mean_over_sparse_updates": 0.10714285714285714
+  },
+  "4": {
+   "sigmas": [
+    1.0,
+    0.9729729890823364,
+    0.9230769276618958,
+    0.800000011920929,
+    0.0
+   ],
+   "updates": [
+    {
+     "update": 0,
+     "sigma": 1.0,
+     "vendor_update": 0,
+     "vendor_keep_ratio": 1.0,
+     "vendor_dense": true,
+     "shipped_window_runs_sol": false
+    },
+    {
+     "update": 1,
+     "sigma": 0.9729729890823364,
+     "vendor_update": 12,
+     "vendor_keep_ratio": 0.15,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 2,
+     "sigma": 0.9230769276618958,
+     "vendor_update": 24,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    },
+    {
+     "update": 3,
+     "sigma": 0.800000011920929,
+     "vendor_update": 36,
+     "vendor_keep_ratio": 0.05,
+     "vendor_dense": false,
+     "shipped_window_runs_sol": true
+    }
+   ],
+   "vendor_leading_dense_on_our_grid": 1,
+   "shipped_leading_dense": 1,
+   "shipped_trailing_dense": 0,
+   "shipped_sigma_window": [
+    0.5714285714285714,
+    0.979591836734694
+   ],
+   "start_percent_for_vendor_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9729729890823364,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.24999988513686677
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_one_leading_dense": {
+    "leading_dense_updates": 1,
+    "sigma_start_in": [
+     0.9729729890823364,
+     1.0
+    ],
+    "start_percent_in": [
+     0.0,
+     0.24999988513686677
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "start_percent_for_two_leading_dense": {
+    "leading_dense_updates": 2,
+    "sigma_start_in": [
+     0.9230769276618958,
+     0.9729729890823364
+    ],
+    "start_percent_in": [
+     0.24999988513686677,
+     0.4999999838570749
+    ],
+    "note": "closed interval on the right, open on the left; any value inside reproduces k"
+   },
+   "vendor_keep_ratio_mean_over_sparse_updates": 0.08333333333333333
+  }
+ }
+}
