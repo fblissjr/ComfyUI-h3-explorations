@@ -33,8 +33,6 @@ own below the rule.
   2026-09-04 plan dropped the rung (annotated in the 2026-09-03 postmortem
   under `internal/postmortems/` on 2026-09-05); reopens only if the rung
   returns.
-- Read the just-Sol renders (six arms, `bench/sol_nosage_arms.json`) beside
-  the shipped-Sol clips of the same scenes, blind, once rendered.
 
 ---
 

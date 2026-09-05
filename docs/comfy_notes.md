@@ -113,7 +113,10 @@ so when the power limit is not stock.
 2. If a node schema changed, **restart ComfyUI** (see the port note above).
 3. Read the changed default back out of `/object_info` before regenerating. A
    stale server bakes in the exact mismatch the validation exists to catch.
-4. `uv run python workflows/build_workflows.py`
+4. `<comfy-venv-python> workflows/build_workflows.py` (the ComfyUI venv's
+   python, never `uv run`: the repo-local venv lacks `packaging`; while a
+   render holds the card, prefix `CUDA_VISIBLE_DEVICES=`, see `docs/checks.md`
+   "Running them")
 5. `uv run python bench/check_workflow_schema.py`, then the smoke. With no
    paths it walks `graph_paths(include_bench=True)`, so no directory is typed
    here; pass paths only to narrow it. It exits 2, not 0, when no server
