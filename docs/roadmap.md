@@ -235,7 +235,12 @@ the defects the owner named blind on the shipped PDD8 rung (brightness,
 compressed skin texture, melted on-screen text) are the kind a requantised
 merge produces; the baked checkpoint rendering the same scenes at the same
 seed is the test, and the PDD8-under-sage arm of the 2026-09-04 ladder says
-first how much of that look is Sol's. It its contract is built and its two remaining
+first how much of that look is Sol's. The strongest argument for the bake is
+now section 7 of [`research/merge_requantisation.md`](research/merge_requantisation.md):
+on this checkpoint every runtime path, ours and the sister turbo node's,
+leaves `mlp.fc2` requantising per cast, and the bake is the one fix that
+covers every LoRA at once (`docs/h3_pdd.md`, "What that node does
+differently", for what else generalises). It its contract is built and its two remaining
 prerequisites are recorded in `docs/h3_pdd.md`. It shares nothing with the
 attention lane and must not wait for it. Granular PDD strength comes after
 the bake, on PDD's own ladder.
