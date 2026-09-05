@@ -75,6 +75,22 @@ Items from the `evalman` render lane:
   experiment 6 in `../open_experiments.md`, the base-model question the
   owner raised.
 
+Items from the `larry` bake lane:
+
+- The bake script's open review candidates: a control-before-bake gate,
+  the contract check's retyped filenames now that `h3_config` names the
+  bake and the stripped sidecar, the dirty-tree marker in the bake's
+  metadata, and the duplicated helpers. The list with a state per row is
+  in the session's internal notes (2026-09-05, bake code review) and
+  forward item 4 of the postmortem under `internal/postmortems/`. Closes
+  when each row is fixed or dismissed with a reason in `CHANGELOG.md`.
+- The stripped sidecar into the HF sidecar staging tree beside the four
+  full ones; the checkpoint's publication is the owner's separate call.
+  Closes when the bundle notice names it.
+- The ref2va bake: `bench/bake_pdd_checkpoint.py` pointed at the other
+  partition, after the fl2va pair is judged. Closes with the pair on disk
+  and the three verifications green.
+
 ## Candidates on trial (2026-09-05): what to render your own prompts on
 
 The owner asked for canonical graphs carrying the lane's current best

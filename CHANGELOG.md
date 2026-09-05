@@ -4,7 +4,7 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
-## 0.99.48
+## 0.99.49
 
 ### Added
 
@@ -34,6 +34,35 @@ artifact.
   `via_optimized_attention` (2026-08-30); its wrapper now forwards what it
   does not assert on. The second still needs the card and was not rerun
   while the bake pair rendered.
+
+## 0.99.48
+
+### Fixed
+
+- **Eight findings from the bake files' code review, applied the same
+  evening; the review itself died on a usage limit before verifying them,
+  so each was checked by hand.** `bench/bake_pdd_checkpoint.py`: the rename
+  gate now refuses on the reopened file's error against its target
+  (`ERR_VS_TARGET_MAX`, reasoned, recorded as `err_gate`), where before a
+  wrong group size or row order would have renamed clean; `--base`,
+  `--reference` and `--lora` must belong to one partition and one pruned
+  base (the sidecar's own metadata against `--base`, the partition token
+  against the release path, the source name against the partition), and
+  the wrong-release refusal was exercised; the identity control records a
+  per-row scale deviation and the criterion uses it where present, so a
+  small-scale row off by a large fraction cannot hide under the global
+  maximum; the memory budget is a named constant with its provenance;
+  the criterion comment points at the records instead of carrying numbers.
+  `bench/convert_pdd_lora.py`: `--baked-strength` must agree with the
+  bake's stamped `h3_bake_strength`, or the cut is refused, closing the
+  path where a sidecar declared a strength the node then trusted.
+  `bench/check_pdd_sidecar_contract.py`: the real-pair section exits 2
+  when skipped instead of reading green, and the docstring no longer says
+  no baked checkpoint exists. `bench/exercise_pdd_stripped_path.py`: the
+  double-apply case must carry the double-apply sentence, not any
+  refusal. The unverified remainder, cleanup and perf plus a
+  control-before-bake gate and the retyped filenames, is recorded with a
+  state per row in the session's internal notes and the postmortem.
 
 ## 0.99.47
 

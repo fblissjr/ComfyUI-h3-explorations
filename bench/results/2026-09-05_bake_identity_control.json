@@ -2677,8 +2677,9 @@
     "codes_differing_frac_max": 1.816522507440476e-07,
     "codes_max_abs_diff": 1,
     "scale_rel_max": 1.1315824366420202e-07,
+    "scale_rel_row_max": 1.1315824366420202e-07,
     "err_gap_max": 5.420330850824939e-11,
     "reading": "round-to-nearest, same regime as the shipped file; the differing codes are rounding ties"
   },
-  "regraded_by_commit": "457dbfb"
+  "regraded_by_commit": "a21d38e"
 }

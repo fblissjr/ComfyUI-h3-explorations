@@ -66,8 +66,11 @@ def main() -> int:
     bake = comfy.sd.load_diffusion_model(a.bake)
     r2 = case("stripped on its bake", bake, a.stripped, "LOADED")
     r3 = case("full on the bake", bake, a.full, "REFUSED (double apply)")
+    # Each refusal is matched on the sentence that names ITS decision, not on
+    # "REFUSED" alone: a population or probe-completeness refusal would
+    # otherwise pass as the double-apply one (interrupted review, 2026-09-05).
     ok = (r1.startswith("REFUSED") and "unbaked base" in r1 and r2 == "LOADED"
-          and r3.startswith("REFUSED"))
+          and r3.startswith("REFUSED") and "SECOND time" in r3)
     print("every case as expected" if ok else "MISMATCH", flush=True)
     return 0 if ok else 1
 

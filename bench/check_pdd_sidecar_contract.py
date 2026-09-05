@@ -34,7 +34,10 @@ red on its very first run against a real defect in `strip_backbone`'s shape
 arithmetic, which is why its counts are now parameters from the release.
 
 What it does NOT cover: the node's `execute` end to end. That needs a loaded
-H3 and a baked checkpoint, and the second does not exist yet. The functions
+H3 and a baked checkpoint. Until 2026-09-05 this said the second did not
+exist; it does now, and `bench/exercise_pdd_stripped_path.py` runs `execute`
+on a loaded model against the real pair (record
+`bench/results/2026-09-05_bake_node_stripped_path.txt`). The functions
 graded here are the whole of the decision; `execute` only routes their
 inputs, and `docs/checks.md` records that as the gap.
 
@@ -118,6 +121,9 @@ class _Quantised:
 class _Node:
     def __init__(self, **attrs):
         self.__dict__.update(attrs)
+
+
+SKIPPED: list[str] = []
 
 
 def main() -> int:
@@ -454,13 +460,17 @@ def main() -> int:
               and b_meta.get("h3_bake_rounding") == "round_to_nearest",
               f"{n_i8} int8 modules")
     else:
+        # A skipped control must not read as a pass (docs/checks.md, the
+        # uncontrolled-requirement audit): exit 2, the convention
+        # check_distill_settings.py and check_model_files.py already use.
         print("  SKIP  real baked-pair cases: bake or stripped sidecar not on disk")
+        SKIPPED.append("real baked-pair cases")
 
     if FAILURES:
         print(f"RED: {len(FAILURES)} failed -- {', '.join(FAILURES)}")
         return 1
     print("  ok    every case passed")
-    return 0
+    return 2 if SKIPPED else 0
 
 
 if __name__ == "__main__":

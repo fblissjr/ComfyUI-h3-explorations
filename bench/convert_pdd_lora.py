@@ -793,6 +793,18 @@ def main(argv=None) -> int:
     if args.omit_backbone:
         probe_src = args.baked
         probe_codes, probe_scale = backbone_probe(args.baked)
+        # The bake stamps the strength it was built at; the flag must agree,
+        # or a stripped sidecar records a strength the node then trusts
+        # (interrupted review, 2026-09-05). A bake without the stamp (none
+        # exists) keeps the flag as the only source.
+        with safe_open(args.baked, framework="pt") as _f:
+            _stamped = (_f.metadata() or {}).get("h3_bake_strength")
+        if _stamped is not None and float(_stamped) != baked_strength:
+            raise SystemExit(
+                f"{args.baked.name} was baked at strength {_stamped} "
+                f"(its h3_bake_strength metadata); --baked-strength is "
+                f"{baked_strength:g}. Refusing to cut a sidecar that would "
+                f"declare the wrong strength.")
         if torch.equal(probe_codes, base_codes) and torch.equal(probe_scale, base_scale):
             raise SystemExit(
                 f"{args.baked.name} equals {base_src.name} on "

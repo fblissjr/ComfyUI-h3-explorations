@@ -78,6 +78,20 @@ from comfy_kitchen.backends.eager.quantization import (  # noqa: E402
 
 KINDS = P.BACKBONE_KINDS
 CHUNK = 64 << 20
+#: Host-memory floor to start under, GB. REASONED: about twice the peak RSS
+#: the first runs recorded (`bench/results/2026-09-05_bake_*.json`,
+#: `peak_rss_gb`), so a run that has to share the host with a staged DiT is
+#: refused before it starts rather than killed mid-write.
+RSS_BUDGET_GB = 12.0
+#: The rename gate's error bound on the reopened file, relative Frobenius
+#: against `W_release + d` per module. REASONED: the shipped checkpoint's own
+#: per-module error and every baked module's sit near one hundredth
+#: (`2026-09-05_bake_fl2va_full.json`, `reopened.sampled`); a wrong group
+#: size, a wrong row order or a scale written in the wrong dtype land an
+#: order of magnitude above this, and a regime tie does not move it. Until
+#: 2026-09-05 evening the gate was population and per-kind count only, which
+#: the interrupted code review named: a plausibly wrong bake renamed clean.
+ERR_VS_TARGET_MAX = 0.05
 
 
 # ----------------------------------------------------------------- helpers
@@ -183,10 +197,12 @@ def sample_modules(mods: list[str], every: int) -> list[str]:
 
 
 #: The identity control's pass criterion. Provenance: MEASURED, TIES. On
-#: 2026-09-05 the strict bit-identity failed on every module of block 0 by
-#: 1 to 12 codes out of tens of millions, each off by exactly one step, with
-#: scales differing at float32-ulp level and the error against the release
-#: equal to the shipped file's to nine digits: round-to-nearest on another
+#: 2026-09-05 the strict bit-identity failed on every module of block 0 by a
+#: handful of codes out of tens of millions, each off by exactly one step,
+#: with scales differing at float32-ulp level and the error against the
+#: release equal to the shipped file's within float epsilon
+#: (`bench/results/2026-09-05_bake_identity_control_block0.json`, then all
+#: 200 in `..._bake_identity_control.json`): round-to-nearest on another
 #: device or accumulation order, with a few elements landing on rounding
 #: ties. The alternatives were run and ruled out the same day (stochastic
 #: rounding and every bf16 path differ on millions of codes). So "same
@@ -211,7 +227,7 @@ def ties_verdict(rows: list[dict]) -> dict:
     failing = [r["module"] for r in rows if not (
         r["codes_max_abs_diff"] <= c["codes_max_abs_diff_le"]
         and r["codes_differing_frac"] < c["codes_differing_frac_lt"]
-        and r["scale_rel_max"] < c["scale_rel_max_lt"]
+        and r.get("scale_rel_row_max", r["scale_rel_max"]) < c["scale_rel_max_lt"]
         and abs(r["err_control"] - r["err_shipped"]) < c["err_control_vs_shipped_abs_lt"])]
     return {"criterion": c, "same_regime": not failing, "failing_modules": failing,
             "bit_identical_modules": sum(r["codes_equal"] and r["scales_equal"] for r in rows),
@@ -219,6 +235,7 @@ def ties_verdict(rows: list[dict]) -> dict:
             "codes_differing_frac_max": max(r["codes_differing_frac"] for r in rows),
             "codes_max_abs_diff": max(r["codes_max_abs_diff"] for r in rows),
             "scale_rel_max": max(r["scale_rel_max"] for r in rows),
+            "scale_rel_row_max": max((r.get("scale_rel_row_max", r["scale_rel_max"]) for r in rows)),
             "err_gap_max": max(abs(r["err_control"] - r["err_shipped"]) for r in rows),
             "reading": ("round-to-nearest, same regime as the shipped file; the "
                         "differing codes are rounding ties" if not failing else
@@ -251,6 +268,9 @@ def run_control(args, hdr, base, ref, mods, gs_of, hd) -> dict:
             "codes_differing_frac": n_diff / diff.size,
             "codes_max_abs_diff": int(np.abs(diff).max()) if n_diff else 0,
             "scale_rel_max": float(np.abs(s_new - s_old).max() / max(np.abs(s_old).max(), 1e-30)),
+            # per row, so a small-scale row off by a large fraction of itself
+            # cannot hide under the global maximum (interrupted review)
+            "scale_rel_row_max": float((np.abs(s_new - s_old) / np.maximum(np.abs(s_old), 1e-30)).max()),
             # the error each lands at against the release, for the reader who
             # wants the magnitude beside the identity verdict
             "err_shipped": rel(w_ref, dequantise(q_old, s_old, gs)),
@@ -408,7 +428,7 @@ def main() -> int:
     ap.add_argument("--blocks", default="all", help="control only: block subset, e.g. 0,49")
     ap.add_argument("--verify-every", type=int, default=1,
                     help="full bake: dequantise-and-compare every Nth module on reopen (1 = all)")
-    ap.add_argument("--rss-budget-gb", type=float, default=12.0,
+    ap.add_argument("--rss-budget-gb", type=float, default=RSS_BUDGET_GB,
                     help="refuse to start when MemAvailable is below this")
     ap.add_argument("--hash-shards", action="store_true",
                     help="full bake: sha256 every release shard into the metadata (slow, read-only)")
@@ -448,6 +468,30 @@ def main() -> int:
     ref = Reference(args.reference)
     hd = head_dim(hdr)
     depth, refiner, mods = expected_population()
+    # The three inputs must belong together, and nothing else refuses a
+    # mismatch: the sidecar names the pruned base it was solved against and
+    # its partition, and the release folder names its partition in its path.
+    # A ref2va sidecar on the fl2va base would otherwise bake and verify
+    # against the same wrong target (interrupted review, 2026-09-05).
+    with safe_open(str(args.lora), "pt") as f:
+        lora_meta = f.metadata() or {}
+    want_base = lora_meta.get("h3_pdd_pruned_base") or lora_meta.get("h3_pdd_base")
+    if want_base and want_base != Path(args.base).name:
+        raise SystemExit(f"{args.lora.name} was converted against {want_base}; "
+                         f"--base is {Path(args.base).name}. Refusing.")
+    part = ("fl2va" if "fl2va" in Path(args.base).name
+            else "ref2va" if "ref2va" in Path(args.base).name else None)
+    if part is None:
+        raise SystemExit(f"cannot read a partition off {Path(args.base).name}")
+    ref_parts = {x.lower() for x in args.reference.resolve().parts}
+    if part not in ref_parts:
+        raise SystemExit(f"--reference {args.reference} does not name the "
+                         f"{part} partition that --base is; refusing to bake "
+                         f"one partition's weights with the other's release.")
+    src = lora_meta.get("h3_pdd_source", "")
+    if src and part.upper() not in src.upper():
+        raise SystemExit(f"{args.lora.name} was converted from {src}, not a "
+                         f"{part} source; refusing.")
     missing = [m for m in mods if m + ".weight" not in hdr or hdr[m + ".weight"]["dtype"] != "I8"]
     if missing:
         raise SystemExit(f"{Path(args.base).name} lacks int8 weights for {len(missing)} "
@@ -514,8 +558,7 @@ def main() -> int:
         "h3_bake_strength": repr(args.strength),
         "h3_bake_rounding": record["rounding"],
         "h3_bake_groupsizes": ",".join(str(g) for g in record["groupsizes"]),
-        "h3_bake_partition": "fl2va" if "fl2va" in record["base"] else
-                             ("ref2va" if "ref2va" in record["base"] else "unknown"),
+        "h3_bake_partition": part,
         "h3_bake_modules": str(len(mods)),
     }
     if args.hash_shards:
@@ -551,12 +594,18 @@ def main() -> int:
                    "written_by_kind": w["written_by_kind"], "bake_errs": w["errs"],
                    "reopened": v, "metadata": meta,
                    "wall_s": w["wall_s"], "peak_rss_gb": peak_rss_gb()})
-    ok = v["population_ok"] and w["written_by_kind"] == {k: depth for k in KINDS}
+    err_ok = (v["err_vs_target_max"] is not None
+              and v["err_vs_target_max"] < ERR_VS_TARGET_MAX)
+    ok = (v["population_ok"] and w["written_by_kind"] == {k: depth for k in KINDS}
+          and err_ok)
+    record["err_gate"] = {"bound": ERR_VS_TARGET_MAX, "max": v["err_vs_target_max"],
+                          "ok": err_ok}
     if ok:
         w["tmp"].rename(w["out"])
         record["out_sha256"] = sha256_file(w["out"])
     else:
-        record["refused"] = "population or per-kind count wrong; .partial left in place"
+        record["refused"] = ("population, per-kind count or error gate failed; "
+                             ".partial left in place")
     args.result.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\n{'WROTE' if ok else 'REFUSED'} {w['out']}: population {v['population_by_kind']}, "
           f"max err vs target {v['err_vs_target_max']}, wall {w['wall_s']:.1f}s, "
