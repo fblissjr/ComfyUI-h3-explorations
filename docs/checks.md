@@ -210,6 +210,25 @@ and the server refuses -- is invisible to everything else here. Free the GPU
 (`POST /free` with `unload_models`) before the CUDA checks or they OOM and the
 failure looks like a regression.
 
+**While a render is on the card, mask it.** Every check and the generator
+run with `CUDA_VISIBLE_DEVICES=` (empty) while another process is rendering.
+This box always has a card, so "run only the CPU cases" is not a choice the
+scripts can make for you: the Sol checks gate on `torch.cuda.is_available()`
+and walk into their kernel cases the moment a card is visible, and the
+generator's import of `comfy.model_management` opens a CUDA context to size
+VRAM before a single graph is built. Both reached a busy card on 2026-09-04,
+once each, and the equivalence check's docstring carries the masked
+invocation as the example:
+
+```bash
+CUDA_VISIBLE_DEVICES= python bench/check_sol_node_equivalence.py   # sink cases only
+CUDA_VISIBLE_DEVICES= <comfy venv python> workflows/build_workflows.py
+```
+
+A check that needs the card says so in its exit code (2, nothing graded) when
+masked; that is the expected reading, not a failure. The generator takes
+ComfyUI's CPU path when no device is visible.
+
 ## The index
 
 | check | defends | needs | claims block | shown red |
