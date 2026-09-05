@@ -1455,6 +1455,53 @@ One independent cross-check did land: our derived fl2va `silu(t_emb)` grid
 agrees with the grid `ComfyUI-MiniMax-H3-Turbo` ships to 0.0017 relative,
 which is bf16 storage noise. Two implementations, one number.
 
+### What that node does differently, read again 2026-09-05, and what generalises
+
+Read at its 2026-08-14 tip when a peer proposed its LoRA as a ladder rung.
+Five differences, each with what it teaches about handling a distillation
+LoRA on this checkpoint, PDD or otherwise:
+
+- **It applies the backbone at the call through ComfyUI's own bypass
+  injection** (`BypassInjectionManager` with a `WeightAdapter`), merging only
+  under a named `low_vram` mode, and it makes bypass affordable at H3's
+  sequence length with an adapter whose forward accumulates the low-rank
+  update in place instead of holding three full activations. Ours lifts three
+  module kinds out of the merge with hand-rolled `.forward` object patches
+  (`unmerged_blocks`). The framework-native path covers every Linear the hook
+  can reach and is maintained upstream; that is the design to adopt for any
+  LoRA that is not baked, PDD included.
+- **fc2 is the residual for both designs.** Their hook on `mlp.fc2` never
+  fires on the fused int8 path, exactly our finding, and their fallback for it
+  (the merge path) requantises per cast on this checkpoint, whatever their
+  docstring says (`docs/research/merge_requantisation.md`, section 7). So
+  on `int8_convrot` every runtime design leaves one module class on the
+  requantising path; the bake fixes it once for every LoRA, and that is the
+  strongest argument for the bake lane this repo has.
+- **AdaLN on the pruned checkpoint: they converged on our lookup.** Their
+  first injector recomputed the model's unique-timestep rows and needed two
+  fixes when audio references added rows; their current one looks each row
+  up in the model's own `adaln_t_table`, which is what ours has done from the
+  start with a row-count check. They still ship one fl2va grid for every
+  base, which is wrong on ref2va; ours derives the grid per checkpoint.
+  Derive, never bundle.
+- **Schedule-free against schedule-pinned.** The turbo LoRA is a plain file:
+  simple scheduler, four to eight steps, strength one, no heads, no
+  partition, and its custom sampler is a no-op on a core with
+  `ModelSamplingAV`. PDD is schedule-pinned: exact evaluations, per-interval
+  heads, a fixed partition, a shift check. A general distillation-LoRA node
+  is the injection layer plus the AdaLN reinjection, with the schedule pin
+  and the heads as PDD's optional extras; everything PDD-specific in
+  `pdd_lora.py` sits above that layer.
+- **A call-time liveness canary.** Their debug wrapper reads the forward
+  owner of one projection on the first calls and says whether the LoRA is
+  live, the same idea as `SageChainAssert` for the attention chain. A LoRA
+  that silently did not apply is the failure this repo has met on fc2; the
+  canary is cheap and belongs on any injection path.
+
+Their user guidance is a prior for a rung, not a measurement here: four to
+eight steps, strength one, over eight over-sharpens, six or more removes the
+fast-motion smear their fourth checkpoint shows at four.
+
 ---
 
 ## Measured, 2026-08-26

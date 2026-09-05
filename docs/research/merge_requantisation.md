@@ -277,6 +277,49 @@ therefore per-LoRA and larger where the delta is smaller.
 
 ---
 
+## 7. The live server's path, read 2026-09-05
+
+Sections 1 to 3 measure the stored weight after `patch_weight_to_device`. The
+live server does not take that path for most modules, and the difference
+matters for what the numbers above mean at render time. Read from ComfyUI
+at the commit the launcher runs, not measured:
+
+- Under dynamic VRAM loading (the server log's "prepared for dynamic VRAM
+  loading ... N patches attached"), `comfy/model_patcher.py::ModelPatcher.load`
+  attaches a `LowVramPatch` weight function to every patched weight and calls
+  `patch_weight_to_device` only when `force_patch_weights` is set or the
+  patch changes the weight's shape. So the LoRA is realised at cast time, per
+  call, and the stored int8 weight is never rewritten.
+- At cast time on a quantized weight, `comfy/ops.py::resolve_cast_module_with_vbar`
+  dequantises, applies the patch functions in the compute dtype, and then,
+  because the quantized linear op asks for `want_requant=True`
+  (`comfy/ops.py`, the `CastBiasWeightContext` call in the quantized op's
+  forward), calls `requantize_from_float(scale="recalculate",
+  stochastic_rounding=seed)`: the delta goes in exactly, then the sum is
+  rounded back into a recalculated int8 grid so the fused int8 kernel can
+  run. The rounding is seeded from the module key, so it is deterministic per
+  module and per render.
+- The fp32-preserving path that `comfy/ops.py::cast_bias_weight` takes for a
+  weight with functions (dequantise, apply, return the bf16 weight, no
+  requantisation) is what a non-quantized op runs. On `int8_convrot` it does
+  not apply.
+
+Consequences. The mechanism measured in section 2 (a merged delta moves the
+quantisation grid and the stored-weight error rises with strength) is the
+same mechanism the live server exercises, transiently and per cast, so the
+record's direction transfers; its magnitudes were taken on the stored merge
+and are not the live per-cast values, which this document does not measure.
+A sister node's claim that the cast-time path "preserves the delta in fp32
+without requantising" (`ComfyUI-MiniMax-H3-Turbo`, its `_int8_fused_fc2`
+docstring) holds on bf16 and fp8 bases and not on this checkpoint. And the
+one module class no runtime path rescues on int8 is `mlp.fc2`: our
+`unmerged_blocks` cannot reach it (`pdd_lora.py`, `BACKBONE_KINDS`), and a
+bypass forward hook on it never fires because the fused int8 path calls the
+kernel on the weight directly (the same finding, made independently by that
+node). The bake fixes fc2 for every LoRA at once; the only runtime
+alternative is an fc2 forward that runs dequantised in bf16 at a per-call
+cost, which nothing here has built or priced.
+
 ## 6. How the numbers here were corrected, twice each way
 
 Kept because the corrections are the provenance, and because each was found the

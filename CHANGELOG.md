@@ -6,6 +6,19 @@ artifact.
 
 ## 0.99.43
 
+### Changed
+
+- **The merge record says what the live server does**
+  (`docs/research/merge_requantisation.md`, section 7, read from ComfyUI
+  not measured): under dynamic VRAM loading the LoRA is realised at cast
+  time through a `LowVramPatch`, not by rewriting the stored weight, and on
+  an int8 weight the quantized op requantises the patched result per cast
+  with seeded stochastic rounding, so the mechanism sections 1 to 3 measure
+  transfers while their magnitudes do not. `mlp.fc2` is the one module no
+  runtime path rescues on this checkpoint; the bake fixes it for every LoRA.
+  `docs/h3_pdd.md` gains a dated reading of the sister turbo node's design
+  and what generalises from it to any distillation LoRA here.
+
 ### Added
 
 - **Candidate graphs for the owner's own prompts**, three generated
