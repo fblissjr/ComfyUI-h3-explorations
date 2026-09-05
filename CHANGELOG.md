@@ -30,6 +30,16 @@ artifact.
 
 ### Added (the morning after)
 
+- **Blind pairs hear each half** (peer session at the owner's ask, commit
+  `3637f6d`): the scoring page plays the selected half's audio from its own
+  single in sync with the silent stack and exports which halves were
+  heard; `bench/score_session.py` carries `heard` per pair. Every pair
+  verdict before this, in every session, was judged silent, which
+  `docs/evidence.md` now says on the ladder verdict's row. The PDD ladder's
+  page on the share was regenerated in place, session name unchanged, so
+  answers already given survive; its verdict will be the first with the
+  field.
+
 - **Two pixel controls that change what the probe records can be used
   for.** `bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`:
   the armed subway probe render is identical on both streams to the
