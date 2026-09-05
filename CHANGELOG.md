@@ -28,6 +28,27 @@ artifact.
   saw belongs to the sage floor, which lost the same pair against dense,
   not to Sol. One seed per scene.
 
+### Changed (the morning after)
+
+- **Branch `sol-nosage` merged** (`7b9c0ce`, peer session's work at this
+  session's request): `SageChainAssert` gains `require_no_forward_patch`,
+  appended last, and its exercise takes the state as an argument, so the
+  Sol-over-stock graph is proved at call time rather than merely
+  permitted (a probe below the gate reaches no sage kernel; one above it
+  with Sol composed reaches none either). The manifest row was appended by
+  `--write`; every UI graph carries the sixth widget value; merged with no
+  server running, then the tree validated against the restarted server
+  (empty scratch diff, schema and widget checks green).
+- **The PDD ladder is rendered and blinded** as session
+  `pdd_ladder_2026-09-04`: PDD8 under sage alone and PDD8 with Sol on two
+  of eight steps, five scenes at the ladder's seed, against the ladder's
+  sage clips as the floor and its shipped-PDD8 clips as the shipped rung
+  (the re-render of that rung was cut once the retime check proved the
+  post-pull output identical). Two judged arms rendered before the
+  2026-09-04 power loss and eight after the 2026-09-05 reboot, so the
+  record spans two cache states and says which is which; records under
+  `bench/results/2026-09-04_pdd_ladder_*`. Scoring is the owner's.
+
 ### Fixed (the morning after)
 
 - **`bench/check_literal_widgets.py` is green for the first time since
