@@ -4,6 +4,30 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.42
+
+### Added
+
+- **The subway probe records, the plan's step 1.** Two armed renders of
+  the shipped t2v graph on the subway scene at the ladder's seed, each in
+  its own server: the shipped sink mode
+  (`bench/results/2026-09-04_sol_probe_base16_subway.json`, route
+  `..._sol_route_base16_subway_probe.json`) and `exact_kv_and_all_rows`
+  (`..._sol_probe_base16_subway_allrows.json`, route
+  `..._sol_route_base16_subway_allrows_probe.json`); render rows in the
+  two `2026-09-04_probe_base16_subway*.jsonl` files, raw records under
+  `internal/sol_observe/`. Every invariant holds on both. Read through
+  `bench/compare_sol_probe_records.py`:
+  `bench/results/2026-09-04_sol_probe_subway_vs_standoff.json` (same block
+  ranking as standoff, less disagreement in every in-window step and in
+  the video segment, the last block the one exception, mostly its audio
+  rows) and `bench/results/2026-09-04_sol_probe_subway_allrows_vs_shipped.json`
+  (the text segment's disagreement collapses to the audio floor, video
+  and audio segments and the ranking unchanged; the prediction written
+  before the run). Read with the ladder verdict, the subway slip the owner
+  saw belongs to the sage floor, which lost the same pair against dense,
+  not to Sol. One seed per scene.
+
 ## 0.99.41
 
 ### Added

@@ -77,7 +77,13 @@ not restated here.
    disagreement is larger there, the proxy predicts the eye and its ranking
    of blocks, rows and steps is what the next three steps act on; if not,
    the proxy is missing something and token_aug's DC bias is the first
-   suspect.
+   suspect. **Done 2026-09-04**
+   (`bench/results/2026-09-04_sol_probe_subway_vs_standoff.json`): same
+   ranking, less disagreement on subway than on standoff. Neither branch
+   above applies: the ladder's dense-versus-sage pair lost on the same
+   subway defect, so the slip is the sage floor's, and Sol added less there
+   than on the scene the owner could not tell apart. The proxy and the eye
+   agree once the floor is read correctly; one seed per scene.
 2. **The PDD ladder as rebuilt**: PDD8 under sage alone against the ladder's
    sage clip, and Sol on the PDD schedule at the shipped and a narrower
    window. The same policy question on the coarse schedule.
@@ -85,7 +91,12 @@ not restated here.
    option (a node change, so a restart before it counts), measured on the
    probe first, then one blind pair. The standoff record has the text rows
    disagreeing most in every block and they are a few hundred rows in a
-   hundred thousand.
+   hundred thousand. **Built and probed 2026-09-04** (`exact_kv_and_all_rows`,
+   changelog 0.99.40 and 0.99.42;
+   `bench/results/2026-09-04_sol_probe_subway_allrows_vs_shipped.json`):
+   the text segment collapses to the audio floor, video and audio move by
+   nothing the record resolves, ranking unchanged. The blind pair is owed;
+   until it exists this is free on the proxy and unproven to the eye.
 4. **Block policy**: a per-block tau profile (`tau_profile`) or a dense set
    on the band the probe ranks hottest, same footing.
 5. **Step policy**: the window's start, since the per-step trend rises
