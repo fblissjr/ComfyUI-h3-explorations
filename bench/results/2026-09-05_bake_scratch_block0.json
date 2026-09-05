@@ -26,7 +26,7 @@
   "is_not": "a runtime or perceptual measurement. Stored weights only; int8_convrot is W8A8 and the activation rounding is untouched.",
   "mode": "scratch_block",
   "block": 0,
-  "out": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/5f2d96ff-cfa6-4c68-af12-6186c134fdb4/scratchpad/scratch_block0.safetensors",
+  "out": "scratch_block0.safetensors (session scratch, not kept)",
   "written_by_kind": {
     "attn.qkv_proj": 1,
     "attn.out_proj": 1,
