@@ -19,6 +19,13 @@ own below the rule.
   `pdd_bake_2026-09-05`), tell the owner, then `bench/score_session.py` on
   the export. The pair differs in one thing, the merge against the bake;
   `bench/pdd_bake_arms.json` says how to read it.
+- Scoring page rubric (`bench/rubrics/default.json`): the pair tab's per-half
+  quick tags reuse the singles' option list, so "same" and "can't tell"
+  appear as tags on one half of a pair, where they mean nothing (the owner
+  asked what they meant, 2026-09-05). Give the pair tab its own tag list
+  (good / not good / off per half) before the next session is built; the
+  three built pages are unaffected and the join ignores those two tags on
+  a half.
 - Score the blinded PDD ladder, `pdd_ladder_2026-09-04` (20 pairs, 20
   singles). The pairs now play each half's audio on selection (Hear: Clip 1
   / Clip 2) and export which halves were heard; hear both before a verdict.
