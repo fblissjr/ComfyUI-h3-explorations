@@ -68,6 +68,13 @@ artifact.
 
 ### Added
 
+- **`docs/eval_comparison.md` says what the judge records and what to
+  ignore**: the two halves of a pair are two samples, so composition
+  differences are divergence and quality is what is compared; the fields
+  in order (Hear, the text, the verdict, tags last); *same* against
+  *can't tell*; the per-half tag defect; the singles' role; the per-lane
+  watch list. Written with the owner across three sessions' questions.
+
 - **The first baked checkpoint and its stripped sidecar, verified three
   ways.** `minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors`
   (owner's `h3_bakes` folder, symlinked into `models/diffusion_models`;
