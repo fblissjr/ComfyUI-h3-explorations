@@ -266,7 +266,8 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "True on every arm that patches attention not at all -- the "
                 "true baseline and the PDD reference arms -- so the node proves "
                 "the graph is the baseline it claims to be; False wherever sage "
-                "is wired. Set by the generator from `sage`, since 2026-09-03"),
+                "or Sol is wired. Set by the generator's `_assert_inputs` from "
+                "the chain, since 2026-09-03 (Sol-alone state added 2026-09-04)"),
 }
 
 #: **There is deliberately no exception table here.** One was written on

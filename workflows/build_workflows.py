@@ -642,6 +642,59 @@ _REF_IMAGE_NODES = (("15", "24"), ("16", "25"), ("34", "35"),
 _REF_APPEND_NODES = tuple(str(i) for i in range(50, 58))
 
 
+#: The named attention modes an entry's `dense_attn` may carry. A mode gets a
+#: name, never a number (bench/check_literal_widgets.py's rule, applied to the
+#: generator's own extras).
+_DENSE_ATTN_MODES = ("none", "sage", "sol")
+
+
+def _attention_plan(extra: dict) -> tuple[bool, bool, str | None, bool]:
+    """(sage, sol_on, dense_mode, vsa_on) from one GRAPHS entry's extras.
+
+    Default: sage AND Sol, the repo's shipped chain. The owner's standing
+    direction (2026-08-17): Sol-Attn is on by default on every video
+    workflow; `sol_on=False` bypasses it for a named test.
+
+    `dense_attn` names an arm that departs from that chain, and it is a
+    named mode rather than a flag because there are three of them:
+
+      True or "none"  neither sage nor Sol: whatever kernel ComfyUI resolves
+                      on its own. For probes whose subject is a numerical
+                      mechanism elsewhere in the model, since both sage and
+                      Sol change attention numerics; and the PDD reference
+                      arms, which replicate the vendor's Diffusers path.
+      "sage"          sage with Sol ABSENT. Absent rather than bypassed, for
+                      PDD: Sol skips attention adaptively per step, which is
+                      incoherent against a fixed fused block schedule, and a
+                      bypassed node in the graph is an invitation to switch
+                      it on.
+      "sol"           Sol with sage ABSENT (2026-09-04, the owner's "maybe
+                      it's better to try without sage at all"): Sol as
+                      shipped over ComfyUI's stock attention, so the steps
+                      outside Sol's window and Sol's own fallback run stock.
+                      On an armed server the probe's counterfactual becomes
+                      stock attention rather than sage.
+
+    A VSA arm suppresses Sol because the two are mutually exclusive at the
+    block forward; the builder refuses the pair rather than ordering them.
+    An image (single-frame) arm carries neither.
+    """
+    is_image = bool(extra.get("single_frame", False))
+    dense = extra.get("dense_attn", False)
+    dense_mode = ("none" if dense is True else dense) or None
+    if dense_mode is not None and dense_mode not in _DENSE_ATTN_MODES:
+        raise SystemExit(f"dense_attn={dense!r} is not one of {_DENSE_ATTN_MODES}")
+    vsa_on = extra.get("vsa") is not None
+    if dense_mode == "sol":
+        if is_image or vsa_on:
+            raise SystemExit("dense_attn='sol' names a Sol-over-stock video arm; "
+                             "it cannot be an image arm or carry VSA")
+        return False, bool(extra.get("sol_on", True)), dense_mode, vsa_on
+    sage = (dense_mode == "sage") if dense_mode else True
+    sol_on = False if (is_image or dense_mode or vsa_on) else bool(extra.get("sol_on", True))
+    return sage, sol_on, dense_mode, vsa_on
+
+
 def _graph_dir(out, extra: dict):
     """Which directory under `workflows/` a graph is written to.
 
@@ -1076,6 +1129,16 @@ def _ref_short_edge():
                  if (p / "comfy_extras" / "nodes_minimax_h3.py").is_file()), None)
     if root is not None and sys.path[0] != str(root):
         sys.path.insert(0, str(root))
+    # The import pulls `comfy.model_management`, which opens a CUDA context on
+    # import to size VRAM. This function needs one constant and no device, and
+    # on 2026-09-04 that context creation failed against a card another
+    # session was rendering on. With no CUDA visible (`CUDA_VISIBLE_DEVICES=`),
+    # tell ComfyUI's argument object it is on CPU before the import so the
+    # module takes its CPU path; with a card visible nothing changes.
+    import torch
+    if not torch.cuda.is_available():
+        import comfy.cli_args
+        comfy.cli_args.args.cpu = True
     from comfy_extras.nodes_minimax_h3 import REF_IMAGE_SHORT_EDGE
 
     return REF_IMAGE_SHORT_EDGE
@@ -1139,6 +1202,47 @@ def _check_geometry(length, canvas):
         )
 
 
+def _assert_inputs(sage: bool, sol_present: bool) -> dict:
+    """`SageChainAssert`'s flags from what the chain in front of it holds.
+
+    Three states, and the node's flags spell each:
+
+      sage wired            require the override, the per-block forward
+                            patches and the call-time probe; Sol or not.
+      neither sage nor Sol  `require_absent`: the render refuses if anything
+                            patched attention. The true baseline and the PDD
+                            reference arms (2026-09-03).
+      Sol alone, no sage    require the override (Sol installs one) and
+                            nothing else. The five outer steps and Sol's own
+                            fallback run ComfyUI's stock attention. The
+                            exercise stays OFF: it asks whether sage took a
+                            probe below Sol's gate, and here nothing should.
+                            This PERMITS the state; it does not prove sage
+                            absent, which the node cannot express without a
+                            flag it does not have (2026-09-04, the
+                            `sol-nosage` branch carries that flag).
+
+    `warn_only` is False in every state: a gate that always raises on the
+    control arm would make the comparison impossible to run rather than safe,
+    and `require_absent` is what makes the control arm's gate meaningful.
+    """
+    if sage:
+        return {"require_override": True, "require_forward_patch": True, "exercise": True,
+                "warn_only": False, "require_absent": False}
+    if sol_present:
+        return {"require_override": True, "require_forward_patch": False, "exercise": False,
+                "warn_only": False, "require_absent": False}
+    return {"require_override": False, "require_forward_patch": False, "exercise": False,
+            "warn_only": False, "require_absent": True}
+
+
+def _assert_widgets(sage: bool, sol_present: bool) -> list:
+    """The same flags in the UI node's widget order."""
+    a = _assert_inputs(sage, sol_present)
+    return [a["require_override"], a["require_forward_patch"], a["exercise"],
+            a["warn_only"], a["require_absent"]]
+
+
 def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
     """A second model path off the same UNETLoader, WITHOUT the LoRA.
 
@@ -1169,9 +1273,7 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
                    "inputs": {"model": src, **sol_api_inputs(sol)}}
         src = ["42", 0]
     g["43"] = {"class_type": "SageChainAssert",
-               "inputs": {"model": src, "require_override": sage,
-                          "require_forward_patch": sage, "exercise": sage,
-                          "warn_only": False, "require_absent": not sage}}
+               "inputs": {"model": src, **_assert_inputs(sage, sol is not None)}}
     return ["43", 0]
 
 
@@ -1739,9 +1841,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # control arm, and a gate that always raises on the control makes the
     # comparison impossible to run rather than making it safe.
     g["23"] = {"class_type": "SageChainAssert",
-               "inputs": {"model": model_src, "require_override": sage,
-                          "require_forward_patch": sage, "exercise": sage,
-                          "warn_only": False, "require_absent": not sage}}
+               "inputs": {"model": model_src, **_assert_inputs(sage, sol is not None)}}
     model_src = ["23", 0]
 
     if cache is not None:
@@ -4654,7 +4754,7 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
         g.link(src, 0, node, "model", "MODEL")
         src = node
     node = g.add("SageChainAssert", (-480, 900), size=(360, 130),
-                 widgets=[sage, sage, sage, False, not sage],
+                 widgets=_assert_widgets(sage, sol is not None and sol_enabled),
                  inputs=[_in("model", "MODEL")], outputs=[_out("model", "MODEL")],
                  title="Assert the stage-2 chain composed")
     g.link(src, 0, node, "model", "MODEL")
@@ -5293,7 +5393,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # See the matching note in build_api: last in the chain, asserting the
     # composition rather than any single node's intent.
     assert_node = g.add("SageChainAssert", (-480, 0), size=(360, 130),
-                        widgets=[sage, sage, sage, False, not sage],
+                        widgets=_assert_widgets(sage, sol is not None and sol_enabled),
                         inputs=[_in("model", "MODEL")],
                         outputs=[_out("model", "MODEL")],
                         title="Assert the attention chain composed")
@@ -7587,6 +7687,34 @@ def main():
                   "never been judged here.")),
          "Sol-Attn on, against the sage-only twin"),
 
+        # Sol WITHOUT sage. The owner, 2026-09-04: "maybe it's better to try
+        # without sage at all". Every other Sol graph chains Sol over sage, so
+        # the steps outside Sol's window and every call Sol declines run sage;
+        # here they run ComfyUI's stock attention. Two uses: a blind arm, and,
+        # on an armed server, a probe record whose counterfactual is stock
+        # attention rather than sage (bench/check_sol_probe.py), which is the
+        # first direct Sol-against-near-exact measurement the repo would hold.
+        # SageChainAssert here requires Sol's override and nothing else; see
+        # `_assert_inputs` for what that permits and what it cannot prove.
+        ("h3_probe_t2v_sol_nosage.json", "t2v-sol-nosage", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="sol", out_prefix="Video/h3_probe_t2v_sol_nosage",
+              variant_note=_probe_note(
+                  "Sol as shipped over stock attention, with NO sage node",
+                  "h3_text_to_video.json",
+                  "the five outer steps and the fallback run stock attention. "
+                  "The twin chains Sol over sage, so there the steps outside "
+                  "Sol's window and every call Sol declines run sage; here "
+                  "they run ComfyUI's own attention, and the Sol window, tau "
+                  "and sink are identical.",
+                  "whether removing sage from under Sol moves the clip at "
+                  "all, and which way; and wall clock, since stock attention "
+                  "is slower per dense step than sage. On an armed server the "
+                  "probe record measures Sol against stock attention directly.",
+                  "Slower than the twin by the dense steps' share. Whether the "
+                  "output is better, worse or the same is exactly the open "
+                  "question; the 2026-09-03 ladder never had this rung.")),
+         "text -> video + audio, Sol as shipped, no sage: stock attention outside Sol"),
+
         # Sol-Attn ON at full reference load: images + a reference video + its
         # soundtrack + standalone audio. This is the heaviest sink the model
         # accepts, and it is the workload the owner actually renders -- the
@@ -7823,25 +7951,7 @@ def main():
     # but the canonical shipped default across all video workflows is ON.
     for fname, label, task, prompt, extra, note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
-        # An arm that patches the DiT's self-attention not at all: no sage,
-        # no Sol, whatever
-        # kernel ComfyUI resolves on its own. Distinct from the repo's usual
-        # "dense" (sage alone). It exists for probes
-        # whose subject is a numerical mechanism somewhere else in the model:
-        # both sage and Sol change attention numerics, so leaving them in puts
-        # two approximations in the path of an experiment about a third.
-        # "none" wires neither sage nor Sol; "sage" wires sage with Sol ABSENT.
-        # Absent rather than bypassed, for PDD: Sol skips attention adaptively
-        # per step, which is incoherent against a fixed fused block schedule,
-        # and a bypassed node in the graph is an invitation to switch it on.
-        dense = extra.get("dense_attn", False)
-        dense_mode = ("none" if dense is True else dense) or None
-        # A VSA arm suppresses Sol because the two are mutually exclusive at
-        # the block forward; the builder refuses the pair rather than ordering
-        # them.
-        vsa_on = extra.get("vsa") is not None
-        sol_on = False if (is_image or dense_mode or vsa_on) \
-            else bool(extra.get("sol_on", True))
+        sage_on, sol_on, dense_mode, vsa_on = _attention_plan(extra)
         if extra.get("api_only", False):
             # No UI twin: `native_ref` graphs exist to be driven over
             # /prompt by run_graph_arms, and the UI builder does not draw
@@ -7849,15 +7959,16 @@ def main():
             continue
         rest = {k: v for k, v in extra.items()
                 if k not in ("sol_on", "dense_attn")}
-        wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else True,
+        wf = build_ui(task, sage=sage_on,
                       preview=True,
                       sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                          extra.get("steps", SAMPLING["steps"]))
-                           if not (is_image or dense_mode or vsa_on)
+                           if not (is_image or dense_mode in ("none", "sage") or vsa_on)
                            else None),
                       sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-" + ("vsa" if vsa_on else
                                               "dense" if dense_mode == "none" else
+                                              "sol-stock" if dense_mode == "sol" else
                                               "sage" + ("-sol" if sol_on else "")),
                       **{**rest, "length": graph_length(rest)})
         p = _graph_dir(out, extra) / fname
@@ -7868,16 +7979,11 @@ def main():
     # without a browser. Same builder inputs, so they cannot describe a
     # different configuration than the set above.
     for fname, label, task, prompt, extra, _note in GRAPHS:
-        is_image = bool(extra.get("single_frame", False))
-        dense = extra.get("dense_attn", False)
-        dense_mode = ("none" if dense is True else dense) or None
-        vsa_on = extra.get("vsa") is not None
-        sol_on = False if (is_image or dense_mode or vsa_on) \
-            else bool(extra.get("sol_on", True))
+        sage_on, sol_on, _dense_mode, _vsa_on = _attention_plan(extra)
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on", "dense_attn",
                                   "api_only")}
-        wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else True,
+        wf = build_api(task, sage=sage_on,
                        prompt=prompt,
                        sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                           extra.get("steps", SAMPLING["steps"]))
