@@ -298,6 +298,68 @@ JSONL, whose rows carry the arm label in a field.
   a textarea, because a page opened as a local file cannot always start a
   download.
 
+### What the judge records, and what to ignore (written with the owner, 2026-09-05)
+
+The owner asked, across three sessions, what actually matters on the page.
+This is the answer, and the brief of every future session should point here
+rather than restate it.
+
+**The two halves of a pair are two samples, not one clip rendered two
+ways.** The trajectory diverges at frame zero under any change to the
+sampler's inputs (`CLAUDE.md`, "A rendered clip cannot A/B a numerical
+change"), so two arms at one seed differ in composition, blocking, faces and
+line delivery before either arm's quality is in play. Those differences are
+the divergence, not the arm. **Ignore them.** What the judge compares is the
+quality of each half as a sample of the same prompt: texture and skin, text
+legibility, motion coherence, flicker, brightness, audio clarity and level,
+sync, and whether a half dropped something the prompt asked for. The
+question to answer is "which of these two would I rather have received for
+this prompt, and why". One pair per scene is one sample; the read is across
+the session's scenes, and a rung that loses on four scenes for the same
+defect is a finding where a rung that loses one pair on composition is
+noise. The text field is how the join tells the two apart.
+
+**Pairs, in order of importance.**
+
+1. **Hear.** Under each stack a row reads "Hear: Clip 1 / Clip 2 / neither"
+   and starts on neither; the stack itself is silent. Click a half and its
+   own single's audio plays in sync. Hear both before a verdict. Which
+   halves were heard is exported and the join carries it per pair.
+2. **What differs, and which way.** The field the verdict record is built
+   from. One or two plain sentences naming the defect and the half it is
+   on: "Clip 2's sign text melts by the end, Clip 1 holds it; skin on 2
+   looks waxy; otherwise the same." Not a description of the scene, which
+   both halves share by construction.
+3. **Verdict**, one of four. *Same* means the judge looked and would not
+   care which half they got; a pixel difference is assumed and is not what
+   the word means. *Can't tell* means no judgement could be formed: the
+   halves differ but neither is better, or the pair gave nothing to hold on
+   to. The tally counts them apart because they say opposite things: a run
+   of *same* says the arm is free, a run of *can't tell* says the test was
+   uninformative and points at the scene or the arm design.
+4. **Per-half quick tags** are optional shorthand. *good*, *not good* and
+   *off* mean something on a half. *same* and *can't tell* on a half mean
+   nothing: the pair tab reuses the singles' option list, which is a rubric
+   defect recorded in `docs/wiki/next_steps.md`; the join ignores those two
+   tags on a half, and a judge should put them in the verdict only.
+
+**Singles.** Anything wrong with one clip on its own, and **always the
+audio**, because the stacks cannot carry it: quieter, muffled, desynced,
+missing. Also whatever would be noticed without a comparison: melted text, a
+collapsing face, a hard cut, a frozen figure, flicker. *Reject outright* is
+for garbage only.
+
+**What to watch for, per lane.** A session's brief names its own list; the
+standing ones are the defects the owner named blind on the shipped PDD8 rung
+on 2026-09-03 (brightness, compressed skin texture, melted on-screen text,
+shaky framing) for any PDD session, and for any Sol session the things a
+routing policy can break: motion smearing, background figures going static,
+texture in the dark, on-screen text.
+
+**Then export**, save into the session's folder as `scores_<session>.json`
+(paste the textarea into a file if the download is refused), and say it is
+there; `bench/score_session.py` does the rest.
+
 **`--pairs` repeats.** A session with more than two arms is judged as one
 reference arm against each of the others at matched seeds, one `--pairs` per
 contest. `pair_NN` numbering runs continuously across contests so the judge
