@@ -19,6 +19,16 @@ old citation named the latter. What changed in substance since the first read
 is listed at the head of section 13; the largest item is section 11, which did
 not exist then.
 
+**Third read, 2026-09-04, against `coderef/sglang` at commit `320bdd1ee2`
+(2026-09-05).** A diff read, not a re-anchor: every H3-touching commit between
+`5ab97c4f44` and that tip was read as a diff, with its PR body and the
+cookbook, and section 14 records what landed by stage. **Line citations in
+sections 1 to 12 were not re-anchored on this pass**; the DiT model file
+moved by several hundred lines when its AdaLN cache was relocated into its own
+module, so section 7's line numbers into `runtime/models/dits/minimax_h3.py`
+point at text that has moved. Section 14 cites files and symbols, which do
+not rot the same way.
+
 Citations are repo-relative paths with the line range the reader verified.
 Every claim is SOURCE (read at the cited lines) unless marked
 INFERENCE. Numbers are what the code says at that commit; the code moves,
@@ -971,3 +981,209 @@ the calling code. The upstream sparsity, cutoff and estimator measurements
 quoted in section 11 are **reported, not verified here** — they are rendered-clip
 cosines against a dense render, which is the comparison class this repo requires
 a distribution for, and the module docstring is the only record of them.
+
+## 14. Third read, 2026-09-04: what landed between `5ab97c4f44` and `320bdd1ee2`
+
+Fifteen commits touch the H3 path in those five days, and another ten touch
+the diffusion runtime it runs on. Nothing here was run. Where a number is
+given it is the PR author's, on the PR author's hardware, and is quoted only
+so a reader knows one exists; none of it is comparable to a measurement here.
+
+| change | where it lands |
+|---|---|
+| FastH3 as a pipeline of its own, refusing everything it was not distilled for | 14.1 |
+| a third request quality tier, `extra-high`, which is a no-op for H3 | 14.1 |
+| explicit per-component attention backends must be consumed or the server refuses; explicit choices are admitted by capability, not by a model allowlist | 14.1 |
+| warmup renders at the served clip shape | 14.1 |
+| block-FP8 checkpoints load correctly: the per-head qkv reorder now moves scale rows in blocks | 14.2 |
+| third-party component bundles: partial snapshots, LoRA over runtime-quantized bases, hybrid FL2VA/Ref2VA files, native VAE overrides | 14.2 |
+| the AdaLN cache moved to its own module and gained a pinned-host tier and per-plan LRU; adaln LoRA deltas and layout mismatches fail closed | 14.3 |
+| a `to_gate_compress` branch per block when the checkpoint carries one | 14.3 |
+| per-step forward context carries attention metadata into the DiT | 14.4 |
+| three attention policies new to H3: cube sparse, VSA-H3, SpargeAttention; SubBlock gains SM120 | 14.5 |
+| video VAE decoder: unfused bias on SM12.x only | 14.6 |
+| profiler spans, quieter hot path, nightly performance dashboard, BCG warmup diagnostics, key masks on the replicated-prefix Ulysses path | 14.7 |
+
+### 14.1 Request and admission (extends section 1)
+
+**FastH3 is a separate pipeline, not a mode.**
+`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::FastH3PipelineConfig` and
+`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::FastH3SamplingParams` subclass the H3 ones,
+set `has_gate_compress` on the arch config, and refuse: `--model-variant`,
+`quality="high"`, any task but `t2va`, any step count but five grid points,
+and under VSA-H3 also `--ring-degree` above one, `torch.compile` and the
+breakable CUDA graph. The FastVideo repository's flat Diffusers layout is
+materialised into the base-H3 layout through a model overlay
+(`runtime/utils/model_overlay.py`), and the `-LoRA` sibling is rejected by
+`--lora-path` because it carries full-rank `.diff` and `.set_weight` tensors.
+Registered under `registry.py` by repository id.
+
+**Quality is now three cumulative tiers**
+(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::QUALITY_LEVELS`): `lossless`,
+`extra-high` (request-gated kernel fusions only), `high` (plus model-owned
+approximate paths such as H3's audited Cache-DiT). H3 has no request-gated
+fusion site, so `extra-high` runs the `lossless` denoise path; the unit test
+`test_extra_high_quality_does_not_enable_h3_cache_dit` pins that. Any explicit
+`quality` takes H3 off the process-wide Cache-DiT defaults.
+
+**Attention backend selection became a contract.** Two commits: explicit
+per-component requests are tracked per exact component and must be consumed
+at construction or through a declared deferred first use, else the server
+refuses rather than falling back silently
+(`runtime/models/dits/minimax_h3.py` now calls
+`claim_deferred_component_attn_backend` for the DiT's lazy resolution); and
+a model's `_supported_attention_backends` set is an automatic-selection hint
+only, so an explicit global, component or per-request backend is admitted
+after platform and layer capability checks even when the model never listed
+it. Section 11's precedence (forced, then per-component, then global) stands.
+
+**Warmup at the served shape.** `MiniMaxH3SamplingParams._synthetic_warmup_target`
+derives the warmup clip's duration from `--warmup-num-frames` and its aspect
+ratio from `--warmup-resolutions`; before this the synthetic warmup always
+rendered the default five-second 768p clip and the first served forward at
+another length paid allocator growth.
+
+**Admission also rejects** a step count that would overflow the online AdaLN
+GPU plan slab (14.3), naming the environment variable that resizes it.
+
+### 14.2 Loading (extends section 10)
+
+**Block-FP8 checkpoints.** H3 stores qkv grouped per head; sglang permutes
+the rows to `[q_all, k_all, v_all]` on load and permutes row-indexed scales
+the same way (section 12 already records this). A block-FP8 scale is
+row-indexed in blocks, so `_qkv_scale_block_rows` now scales both the
+permutation and the row-count gate down by the block height for a
+`BlockQuantScaleParameter`, and a block that straddles two heads' rows raises
+instead of silently mis-scaling. The PR's motivation is the failure class this
+repo's section on the refuted qkv hypothesis describes: the model loaded
+without error and rendered blank frames.
+
+**Third-party bundles** (`loader/component_loaders/vae_loader.py`,
+`loader/minimax_h3_weights.py`, `layers/lora/linear.py`): a partially cached
+Hub snapshot is completed file by file; a LoRA stays dynamic when a runtime
+quantization method owns the base weight, fp8 storage included; explicitly
+selected hybrid FL2VA/Ref2VA filenames are accepted; native VAE weight
+overrides load with folded weight norm and checkpoint-carried latent
+statistics. Companion commits preserve exact component identity through
+loading, add exact per-component precision overrides, detect quantized
+transformer replacements, and filter duplicate precision variants across
+custom loaders.
+
+### 14.3 The DiT forward (extends section 7)
+
+**The AdaLN cache is its own module now**,
+`runtime/models/dits/minimax_h3_adaln_cache.py`, a pure relocation of the
+class section 7 describes, with two new tiers under `--minimax-h3-adaln-online`:
+the GPU slab evicts per plan by LRU with in-flight protection instead of
+resetting whole, and a pinned-host tier
+(`--minimax-h3-adaln-host-cache-gb`) holds plan sets by schedule so a
+schedule seen before is served without re-reading the checkpoint's
+`adaln_proj` weights. Plan slots are resolved on the host in
+`prepare_adaln_plans` and passed to the forward as a device scalar, which
+removes a per-step device lookup and its capture-breaking host sync. Four
+traps now fail closed: adaln LoRA deltas in either cache mode
+(`_reject_adaln_lora`, `validate_lora_layers`), Diffusers-layout checkpoints
+as a rebuild source, and weight updates the cache cannot follow
+(`validate_weight_update_source`, `refresh_weight_derived_caches`). The
+default numerics path is stated to stay bit-exact with resident weights; the
+env-gated fp32 rebuild changes bits by construction.
+
+**A compression gate per block.** When `arch.has_gate_compress` is set (the
+FastH3 checkpoints), each main block owns a `to_gate_compress`
+`ColumnParallelLinear`, bf16 and unquantized, whose output is threaded
+through the Ulysses all-to-all beside q, k and v and handed to the attention
+backend. Base H3 has no such weights, so the gate loads as zeros and the
+VSA-H3 backend runs pure sparse. The two token-refiner blocks are constructed
+with `cube_sparse_capable=False`, so the cube backend refuses to attach there.
+The fused `qk_norm` path is now gated to NVIDIA devices.
+
+### 14.4 The denoise loop (extends section 8)
+
+`denoise_loop.py` sets a forward context per step
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/managers/forward_context.py::set_forward_context`, `current_timestep` plus
+`attn_metadata`) when a sparse backend supplied metadata, and passes the AdaLN
+plan slot as a device tensor. `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::_build_cube_attn_metadata`
+builds the cube metadata once per request from the packed sequence's new
+`stream_layout` (target shape; per-condition image shapes with a role of
+`joint_cube` for FL2VA keyframes on the target timeline, `dense_prefix` for
+standalone reference images, `independent_cube` for reference videos; event
+order; audio stream lengths), while
+`_maybe_prepare_vsa_h3_step_metadata` builds VSA-H3 metadata per step and
+refuses the ref2va layout outright. Both hang off
+`packed_sequence.py`, which is where the cube geometry of a request is decided.
+
+### 14.5 Attention policies (new; section 11 covers SubBlock)
+
+Four now exist for H3 beyond the dense backends, sage, and Sol.
+
+**Cube sparse attention**
+(`layers/attention/backends/cube_sparse_attn/{mask,backend}.py`; merged
+2026-09-02 with two MiniMax engineers as co-authors). FlexAttention over
+`(T, H, W)` cubes of latent tokens; the mask module is kernel-agnostic and
+separates three index spaces it documents at the top of `CubeLayout`
+(semantic label, physical block, token), because a semantic cube can own more
+than one physical block when a keyframe shares a target coordinate. Per
+denoise update a `topk_ratio_list` entry, one per update, where a ratio of
+one runs the native dense path. Text, audio, standalone reference images and
+the token refiner stay dense; reference videos and the target share one
+global top-k pool. The PR's recommended schedule for the base fifty-step
+grid is dense for the first two updates and then decays through the run to a
+small floor, which is a step policy stated by the vendor's own engineers and
+is the first such schedule published for H3. Ring parallelism refused;
+FlexAttention's routing overhead can exceed the saving on short sequences,
+by their own warning.
+
+**VSA-H3** (`layers/attention/backends/video_sparse_attn_h3.py` with
+`vsa_h3_kernels.py`; adapted from FastVideo). Segment-pure prefix tiles plus
+`(4, 4, 4)` video tiles over the packed `[text | keyframes | audio | video]`
+sequence; an in-tree Triton tile-64 kernel gated to SM90, SM100 and SM103.
+Non-video queries are always dense; non-video keys are either always kept
+(`vsa_mode=exempt`) or compete in the top-k under a FLOP-matched budget
+(`compete`). `vsa_dense_first_n_steps` and `vsa_dense_layers` are the step
+and layer escapes. Only the DiT runs sparse.
+
+**SpargeAttention** (`layers/attention/backends/sparge_attn.py`). Wraps the
+upstream `spas_sage2_attn_meansim_topk_cuda` with one knob, `topk` in (0, 1];
+SM80 through SM90, fp16 or bf16, head dim 64 or 128, no GQA; anything not
+square self-attention over at least one 128-row block falls back to dense
+SDPA. The PR states it is approximate even at `topk=1` because the kernel
+includes SageAttention2's quantization, and its own LTX measurement found no
+single-GPU speed or memory win over FlashAttention. Registered for generic
+DiTs; whether H3's packed-varlen path reaches it is not established by this
+read.
+
+**SubBlock on SM120** (`layers/attention/backends/subblock_sparse/`):
+FlashInfer's SM120 blk64 operator joins the SM90 CuTe and SM100 paths, the
+resolver accepts exactly 9.0, 10.0 and 12.0, and the README now says to put
+`torch_sdpa` on the text encoder on SM12.x. The PR's numbers are on eight
+RTX PRO 5000 cards.
+
+### 14.6 Decode (extends section 9)
+
+`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_video_vae/base_module.py::_unfused_bias_linear`
+runs the decoder's `w2` as a plain matmul plus a separate bias add on SM12.x
+only, because cuBLAS on a GB10 picks a slow kernel for the fused epilogue at
+that shape. Every other architecture takes the unchanged fused path.
+
+### 14.7 The runtime around the model (extends section 10)
+
+`maybe_record_function` profiler spans now wrap request phases in the
+scheduler, GPU worker and pipeline executor; the hot-path logs in the H3 and
+generic denoising stages were quieted; the breakable-CUDA-graph runner gained
+frame-count diagnostics for video warmup; the nightly performance dashboard
+was made robust; and `USPAttention` learned to apply a 2D key mask on the
+replicated-prefix Ulysses path, which is what let breakable CUDA graphs and
+sequence parallelism coexist for Qwen-Image and is multi-GPU-only.
+
+### 14.8 What was and was not read
+
+Read as diffs with their PR bodies: every commit in the table above. Read
+whole: the cookbook page as it stands, the attention-backends and quality-tier
+docs, the SubBlock README, `sparge_attn.py`, the cube mask module's
+dataclass docstrings and the backend's head, the VSA-H3 backend's head, the
+AdaLN cache module's head, the FastH3 config and sampling classes, the
+admission test additions. Not read: the Triton VSA kernel, FlexAttention's
+internals, the FlashInfer SM120 operator, the body of the cube mask module
+past its docstrings, the cookbook's Ascend and AMD sections, and the
+consumer-card sections, which the diff shows unchanged since 2026-08-30 and
+which [`sglang_comparison.md`](sglang_comparison.md) already prices.

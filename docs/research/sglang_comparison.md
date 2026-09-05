@@ -1,7 +1,8 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-09-04 (one subsection added under "What they do that we
-do not"; everything else is the 2026-08-29 read)
+last updated: 2026-09-04 (one subsection under "What they do that we do
+not" and the closing section "Third read" added that day; everything else
+is the 2026-08-29 read)
 
 What the vendor-side serving implementation does that this install does not,
 what both do where ours may be the weaker version, and what looks like a gap
@@ -448,3 +449,65 @@ against a graph rewired to bypass the fit node.
   The mono-upmix question that sat beside it was closed on 2026-08-21 — no
   upmix happens and the packed layout raises — and `h3_references.md` carries
   it under Known limitations.
+
+## Third read, 2026-09-04
+
+[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) section 14 records what
+landed in sglang between 2026-08-31 and 2026-09-05. This section says what
+each item is against what we do, in the order a reader deciding what to borrow
+would want, and it changes no earlier verdict on this page.
+
+**FastH3 is a different model, and sglang treats it as one.** Its pipeline
+config refuses every mode, task, step count and quality tier the student was
+not distilled for. That is the discipline any FastH3 rung here would need to
+inherit: a t2va-only arm at five grid points, its own dense pair, never pooled
+with base-H3 rungs. [`vsa/vsa_node.md`](vsa/vsa_node.md) holds the blockers.
+
+**Their quality tiers are our ladder, stated as a contract instead of
+measured.** `lossless`, `extra-high` and `high` are request-time promises
+enforced at admission; our dense, sage and Sol rungs are renders judged blind.
+For H3 the middle tier is empty on their side, which says the same thing the
+ladder verdict says on ours: on this model the kernel arithmetic is not where
+the quality goes. Their definition of "lossless" also names the exception
+explicitly, `torch.compile`, and refuses it as ground truth; ours names the
+Comfy Compiler's malloc graph as the regime and checked one rung against it
+(`bench/results/2026-09-04_stairwell_dense_retime.jsonl`).
+
+**Silent fallback is now refused on their side too.** An explicit
+per-component attention backend must be consumed or the server does not
+start, and the SubBlock README's warning that `transformer=subblock_sparse_attn`
+"appears to work and silently does nothing" is the failure this repo's chain
+assert and `bench/check_attention_defaults.py` exist for. Two projects
+arriving at the same guard; nothing to import.
+
+**The AdaLN cache verdict stands, with a new hazard beside it.** The tiered
+host cache saves a checkpoint re-read on a plan miss, which a single-graph
+ComfyUI render never pays, so "no speed on the pruned file, unpruned
+accuracy at pruned memory" is unchanged. What is new is that they now fail
+closed on a LoRA that touches `adaln_proj` under either cache mode, after
+finding such deltas were silently dropped. Whether any LoRA this repo loads
+touches those weights is a question for `bench/check_pdd_head_selection.py`'s
+owner, not settled here.
+
+**The cube schedule is a step policy from the vendor's own engineers.** The
+recommended `topk_ratio_list` for the fifty-step grid keeps the first two
+updates dense and decays from there; roadmap step 5 (the window's start) has
+so far had only our own probe trend to reason from. It is a prior, not a
+measurement on our stack, and cube geometry is not Morton order.
+
+**SpargeAttention is adaptable and not urgent.** It runs on this card's
+architecture with one knob and no per-model tuning, so it could be an arm
+against Sol; their own measurement on another model found no single-GPU
+speed or memory win and a large perceptual change, and they call it
+approximate even at full keep. Below Sol's block policy in priority.
+
+**Block-FP8 is the qkv reorder hazard again.** A standard block-quantized
+export loaded clean and rendered blank until the scale-row permutation was
+made block-aware. Our refuted-hypothesis section above already established
+that our fp8 file has no row-indexed scale to misalign; this is corroboration
+that the hazard is real for formats that do, not evidence about ours.
+
+**Everything else is serving or other silicon**: warmup at the served shape
+(our runner's `--warmup` row is the same idea), profiler spans, SM120 paths,
+the SM12.x decoder workaround, key masks under Ulysses, third-party bundle
+loading. Read, priced, no action.

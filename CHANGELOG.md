@@ -65,6 +65,16 @@ artifact.
 
 - `docs/wiki/next_steps.md` replaces the two upstream-survey checks with
   their results; `docs/roadmap.md` step 7 carries the pointer.
+- **sglang's H3 path re-read holistically** against its tip of 2026-09-05:
+  `docs/research/sglang_h3_pipeline.md` section 14 records every H3-touching
+  commit since the 2026-08-30 anchor by stage (FastH3 as its own pipeline,
+  the three-tier quality contract, component-backend enforcement, block-FP8
+  loading, the tiered AdaLN cache with its fail-closed traps, the per-block
+  compression gate, per-step attention metadata, and four attention policies:
+  cube sparse, VSA-H3, SpargeAttention, SubBlock on SM120), and says which
+  line citations were not re-anchored. `docs/research/sglang_comparison.md`
+  closes with what each item is against what we do; no earlier verdict there
+  changed.
 
 ## 0.99.40
 
