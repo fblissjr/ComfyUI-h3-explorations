@@ -28,6 +28,22 @@ artifact.
   saw belongs to the sage floor, which lost the same pair against dense,
   not to Sol. One seed per scene.
 
+### Fixed (the morning after)
+
+- **`bench/check_literal_widgets.py` is green for the first time since
+  `caa81ef`** (peer session, commit `8abd3d8`): a third named allowlist
+  kind, `REFUSED_ZERO`, for a numeric widget whose only comparison against
+  zero is a raising guard, with the one entry the chunked Sol node's
+  `chunk_rows` earned (minimum 64, step 64, zero refused, no branch
+  selected). Red-proved both ways: the entry removed, and the guard
+  removed from a scratch copy so the entry reads as stale. This session's
+  first reading of that widget was wrong and the peer's correction is what
+  the entry records.
+- **`docs/checks.md` says how to run a check while a render holds the
+  card** (peer session, commit `6d2f28b`): mask the card and read exit 2
+  as the expected outcome, with the equivalence check and the generator as
+  the two invocations.
+
 ### Added (later the same evening)
 
 - **`h3_probe_t2v_sol_nosage`** (peer session, commit `7d59ec9`, at this
