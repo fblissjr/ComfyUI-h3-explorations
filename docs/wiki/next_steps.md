@@ -29,12 +29,43 @@ own below the rule.
   probes ... reached no sage kernel" line. Item 7 of the 2026-09-04
   postmortem under `internal/postmortems/`.
 - The fp16-sage rung's lost time (`bench/results/2026-09-03_ladder_outputs.json`
-  shows it slower than Sol as shipped on every scene): a per-step timing
-  places the extra time. Open since the 2026-09-03 postmortem.
+  shows it slower than Sol as shipped on every scene): moot since the
+  2026-09-04 plan dropped the rung (annotated in the 2026-09-03 postmortem
+  under `internal/postmortems/` on 2026-09-05); reopens only if the rung
+  returns.
 - Read the just-Sol renders (six arms, `bench/sol_nosage_arms.json`) beside
   the shipped-Sol clips of the same scenes, blind, once rendered.
 
 ---
+
+Items from the `evalman` render lane:
+
+- Blind the just-Sol session when its last row lands
+  (`internal/2026-09-04_run/phase_c2_blind.sh` on the server that rendered
+  it: against the ladder's sage and Sol rows, subway and standoff first),
+  then the owner scores it, singles included. Closes with the verdict
+  record for `sol_nosage_2026-09-04`.
+- One pair, no card time: the all-rows sink mode's armed subway clip
+  against the 2026-09-03 subway Sol clip
+  (`bench/results/2026-09-04_probe_allrows_vs_shipped_pixels.json` says the
+  change is the size of dense-versus-sage;
+  `bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json` says an
+  armed clip is a valid sample). Closes with a scored one-pair session.
+- An armed render of the just-Sol graph under `H3_SOL_PROBE`, so the
+  probe's counterfactual is stock attention and the record ranks Sol
+  against near-exact attention directly (roadmap 2026-09-04, step 1's next
+  footing). Closes with a probe record and its comparison against
+  `bench/results/2026-09-04_sol_probe_base16_subway.json`.
+- Then the vendor's start-schedule arm, open experiment 27 in
+  `../open_experiments.md` (`upman`'s lane), in the step-policy slot: probe
+  first, then one blind pair.
+- The PDD bake's hypothesis, written 2026-09-05 in the roadmap's bake
+  paragraph: the defects named blind on the shipped PDD8 rung are the kind
+  a requantised merge produces; the baked checkpoint on the same scenes at
+  the same seed is the test.
+- Unscheduled: sage at more steps against dense at sixteen, open
+  experiment 6 in `../open_experiments.md`, the base-model question the
+  owner raised.
 
 ## Now
 
