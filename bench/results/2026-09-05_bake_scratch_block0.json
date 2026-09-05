@@ -1,0 +1,89 @@
+{
+  "measured": "2026-09-05",
+  "produced_by": "bench/bake_pdd_checkpoint.py",
+  "commit": "457dbfb",
+  "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "reference": "MiniMaxAI_MiniMax-H3/FL2VA/transformer",
+  "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+  "lora_sha256": "e225a89fc9ff936252bd19908c1c19ecf3f927721f0cc77a2ba7031b40a593d4",
+  "strength": 1.0,
+  "rounding": "round_to_nearest",
+  "population": {
+    "depth": 50,
+    "refiner": 2,
+    "kinds": [
+      "attn.qkv_proj",
+      "attn.out_proj",
+      "mlp.fc1",
+      "mlp.fc2"
+    ],
+    "modules": 200
+  },
+  "groupsizes": [
+    256
+  ],
+  "mem_available_gb_at_start": 61.84772491455078,
+  "is_not": "a runtime or perceptual measurement. Stored weights only; int8_convrot is W8A8 and the activation rounding is untouched.",
+  "mode": "scratch_block",
+  "block": 0,
+  "out": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/5f2d96ff-cfa6-4c68-af12-6186c134fdb4/scratchpad/scratch_block0.safetensors",
+  "written_by_kind": {
+    "attn.qkv_proj": 1,
+    "attn.out_proj": 1,
+    "mlp.fc1": 1,
+    "mlp.fc2": 1
+  },
+  "bake_errs": [
+    {
+      "module": "blocks.0.attn.out_proj",
+      "err_vs_target": 0.012002873371433982
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "err_vs_target": 0.008836969569440701
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "err_vs_target": 0.008824442681842895
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "err_vs_target": 0.009370410616470764
+    }
+  ],
+  "reopened": {
+    "population_by_kind": {
+      "attn.qkv_proj": 1,
+      "attn.out_proj": 1,
+      "mlp.fc1": 1,
+      "mlp.fc2": 1
+    },
+    "population_ok": true,
+    "int8_modules": 4,
+    "sampled": [
+      {
+        "module": "blocks.0.attn.qkv_proj",
+        "err_vs_target": 0.008836969569440701,
+        "err_vs_release": 0.009373298915559613
+      },
+      {
+        "module": "blocks.0.attn.out_proj",
+        "err_vs_target": 0.012002873371433982,
+        "err_vs_release": 0.012905022043161105
+      },
+      {
+        "module": "blocks.0.mlp.fc1",
+        "err_vs_target": 0.008824442681842895,
+        "err_vs_release": 0.009951123077236501
+      },
+      {
+        "module": "blocks.0.mlp.fc2",
+        "err_vs_target": 0.009370410616470764,
+        "err_vs_release": 0.010574415141328971
+      }
+    ],
+    "err_vs_target_max": 0.012002873371433982
+  },
+  "wall_s": 5.475393996999628,
+  "peak_rss_gb": 4.928203582763672
+}

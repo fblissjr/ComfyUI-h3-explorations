@@ -1,0 +1,136 @@
+{
+  "measured": "2026-09-05",
+  "produced_by": "bench/bake_pdd_checkpoint.py",
+  "commit": "457dbfb",
+  "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "reference": "MiniMaxAI_MiniMax-H3/FL2VA/transformer",
+  "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+  "lora_sha256": null,
+  "strength": 1.0,
+  "rounding": "round_to_nearest",
+  "population": {
+    "depth": 50,
+    "refiner": 2,
+    "kinds": [
+      "attn.qkv_proj",
+      "attn.out_proj",
+      "mlp.fc1",
+      "mlp.fc2"
+    ],
+    "modules": 200
+  },
+  "groupsizes": [
+    256
+  ],
+  "mem_available_gb_at_start": 68.40818786621094,
+  "is_not": "a runtime or perceptual measurement. Stored weights only; int8_convrot is W8A8 and the activation rounding is untouched.",
+  "mode": "identity_control",
+  "modules_run": 4,
+  "all_codes_equal": false,
+  "all_scales_equal": false,
+  "per_kind": {
+    "attn.qkv_proj": {
+      "modules": 1,
+      "codes_equal": 0,
+      "scales_equal": 0,
+      "codes_differing_frac_max": 5.190064306972789e-08,
+      "codes_max_abs_diff": 1
+    },
+    "attn.out_proj": {
+      "modules": 1,
+      "codes_equal": 0,
+      "scales_equal": 0,
+      "codes_differing_frac_max": 2.5950321534863945e-08,
+      "codes_max_abs_diff": 1
+    },
+    "mlp.fc1": {
+      "modules": 1,
+      "codes_equal": 0,
+      "scales_equal": 0,
+      "codes_differing_frac_max": 7.785096460459183e-08,
+      "codes_max_abs_diff": 1
+    },
+    "mlp.fc2": {
+      "modules": 1,
+      "codes_equal": 0,
+      "scales_equal": 0,
+      "codes_differing_frac_max": 5.190064306972789e-08,
+      "codes_max_abs_diff": 1
+    }
+  },
+  "modules": [
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "codes_equal": false,
+      "scales_equal": false,
+      "codes_differing": 6,
+      "codes_differing_frac": 5.190064306972789e-08,
+      "codes_max_abs_diff": 1,
+      "scale_rel_max": 6.601035806852451e-08,
+      "err_shipped": 0.008837248361353049,
+      "err_control": 0.008837248399676081
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "codes_equal": false,
+      "scales_equal": false,
+      "codes_differing": 1,
+      "codes_differing_frac": 2.5950321534863945e-08,
+      "codes_max_abs_diff": 1,
+      "scale_rel_max": 9.435157011239426e-08,
+      "err_shipped": 0.012003647730316742,
+      "err_control": 0.012003647777100186
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "codes_equal": false,
+      "scales_equal": false,
+      "codes_differing": 12,
+      "codes_differing_frac": 7.785096460459183e-08,
+      "codes_max_abs_diff": 1,
+      "scale_rel_max": 5.904761835040517e-08,
+      "err_shipped": 0.008823984351221443,
+      "err_control": 0.008823984384018074
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "codes_equal": false,
+      "scales_equal": false,
+      "codes_differing": 4,
+      "codes_differing_frac": 5.190064306972789e-08,
+      "codes_max_abs_diff": 1,
+      "scale_rel_max": 4.761576022360714e-08,
+      "err_shipped": 0.009370209554956963,
+      "err_control": 0.009370209582881029
+    }
+  ],
+  "wall_s": 7.81507797499944,
+  "peak_rss_gb": 4.703449249267578,
+  "verdict": {
+    "criterion": {
+      "codes_max_abs_diff_le": 1,
+      "codes_differing_frac_lt": 1e-06,
+      "scale_rel_max_lt": 1e-06,
+      "err_control_vs_shipped_abs_lt": 1e-06,
+      "provenance": "measured, ties (2026-09-05, block 0, alternatives ruled out)"
+    },
+    "same_regime": true,
+    "failing_modules": [],
+    "bit_identical_modules": 0,
+    "modules": 4,
+    "codes_differing_frac_max": 7.785096460459183e-08,
+    "codes_max_abs_diff": 1,
+    "scale_rel_max": 9.435157011239426e-08,
+    "err_gap_max": 4.678344343866936e-11,
+    "reading": "round-to-nearest, same regime as the shipped file; the differing codes are rounding ties"
+  },
+  "regraded_by_commit": "457dbfb"
+}

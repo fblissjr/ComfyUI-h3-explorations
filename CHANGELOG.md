@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.46
+
+### Added
+
+- **`bench/bake_pdd_checkpoint.py`, the backbone bake script, and its
+  first three runs.** Three modes in order: a read-only identity control
+  (quantise the release weight with no delta through the exact pipeline
+  and compare int8 codes and fp32 row scales against the shipped file, per
+  module and per kind), a one-block bake to scratch that is reopened and
+  compared against `W_release + d`, and the full bake, written as
+  `.partial` and renamed only after the reopened file passes population
+  and error checks. One authority per operation, imported: the release
+  mapping from `analyze_quant_delta`, comfy-kitchen's quantiser, the delta
+  parsed by `pdd_lora.split_unmerged`, the population from
+  `vendor_config.transformer_depth()`. Refuses to start with a CUDA device
+  visible or with host memory below a stated budget; one module resident
+  at a time. Records: `bench/results/2026-09-05_bake_identity_control_block0.json`,
+  `..._bake_identity_control.json` (all 200 modules) and
+  `..._bake_scratch_block0.json`.
+- **The vendor's quantisation regime, measured**: round-to-nearest in
+  fp32, reproduced on every module of every kind up to a handful of
+  one-step rounding ties per module and float32-ulp scale differences,
+  with the error against the release equal to the shipped file's within
+  float epsilon. Stochastic rounding and every bf16 path were run and
+  ruled out on two modules. The pass criterion is explicit
+  (`bake_pdd_checkpoint.py::TIES_CRITERION`, provenance "measured, ties",
+  asked for on the render lane's review) and a `--regrade` mode stamps it
+  into a record written before it existed. Consequence for the plan: the
+  baked base is the shipped base except at ties, so no strength-zero
+  control checkpoint is needed.
+
+### Changed
+
+- **The bake plan page carries its execution state**: status line, the
+  three first runs marked done with their records, the re-rounded-base
+  risk row resolved, runtime and memory pointed at the records.
+
 ## 0.99.45
 
 ### Added
