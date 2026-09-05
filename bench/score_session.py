@@ -259,6 +259,14 @@ def main() -> int:
                 row.setdefault("scales", {})[q["id"]] = v
             elif q["type"] == "flag":
                 row.setdefault("flags", []).append(q["id"])
+        # Which halves the judge listened to, from the page's `pair_audio_heard`
+        # (since 2026-09-05; the stack file is silent and the page plays each
+        # half's own single). Absent on an older export, and absent on a pair
+        # the judge never unmuted: both read as "judged without audio".
+        heard = (scores.get("pair_audio_heard") or {}).get(name)
+        if heard:
+            row["heard"] = list(heard)
+            row["heard_arms"] = [slots[h]["label"] for h in heard if h in slots]
         by_pair.append(row)
     for c in contests.values():
         # Both arms stay in the tally even at zero -- "v11 2, v10 0" is the

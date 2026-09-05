@@ -218,10 +218,14 @@ any comparison that is meant to be quoted:
    key in `internal/blind_keys/<session>.json` (gitignored). For a two-arm
    session add `--pairs A,B`: the i-th clip of each arm, matched by run index,
    stacked by this tool's layout rule as `pair_NN.mp4` with "Clip 1" / "Clip 2"
-   in a per-pair random order, which the key also records. Stacks carry no
-   audio; the singles do, copied from the muxed `-audio.mp4` the combine
-   node wrote, and a single that would be silent refuses the batch unless
-   `--silent-ok` says the graph saves no audio. Rows flagged
+   in a per-pair random order, which the key also records. The stack file
+   carries no audio, but the scoring page plays the audio of the half the
+   judge selects from that half's own single, in sync, and exports which
+   halves were heard per pair (`pair_audio_heard`; since 2026-09-05, before
+   which every pair was judged deaf). The singles carry the audio, copied
+   from the muxed `-audio.mp4` the combine node wrote, and a single that
+   would be silent refuses the batch unless `--silent-ok` says the graph
+   saves no audio. Rows flagged
    `suspect_cache_hit` or `error`, or whose clip cannot be found, refuse the
    whole batch. The output root is `--output-root`, else `H3_COMFY_OUTPUT`,
    else the `--output-directory` the live server was launched with, read

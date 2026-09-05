@@ -63,10 +63,13 @@ of arm B (matched by run index, which `run_graph_arms` seeds identically
 across arms unless the seed bases were set apart on purpose) into
 `pair_NN.mp4`, top/bottom or side-by-side per `bench/stack_eval_clips.py`'s
 layout rule, labelled "Clip 1" / "Clip 2" with the order drawn per pair from
-the same seeded RNG. The key records which arm sat where. Stacks carry no
-audio -- `build_stacked_video` maps video only, and one track for two arms
-would be a bias anyway -- so the singles stay in the batch for the audio
-half of the brief. A pair is a presentation of two different samples, never a
+the same seeded RNG. The key records which arm sat where. The stack FILE
+carries no audio -- `build_stacked_video` maps video only, and one track for
+two arms would be a bias anyway -- but since 2026-09-05 the scoring page
+plays the audio of the half the judge selects from that half's own single,
+in sync, and records which halves were heard; the MANIFEST's pair rows are
+written in slot order for exactly that. The singles stay in the batch as
+those sources and for anything wrong with one clip on its own. A pair is a presentation of two different samples, never a
 matched comparison (CLAUDE.md, the different-sample rule); the judgement is
 still the aggregate over pairs.
 

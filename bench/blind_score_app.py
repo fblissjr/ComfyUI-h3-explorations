@@ -18,9 +18,19 @@ judge can actually report; a number per clip rates a sample against a
 remembered standard, and it was hard to give. Beside the text: quick tags,
 clicked per half, and one coarse verdict. **No numeric scale on a pair.**
 
-Singles are secondary and exist for what a stack cannot carry: the audio (the
-stacker maps video only) and any defect in one clip on its own. One note, the
-same tags, and a reject flag.
+A pair carries its audio per half, since 2026-09-05. The stack file is video
+only (the stacker maps video only, and one soundtrack under two arms would be
+a bias), so the page plays the audio of the half the judge selects from that
+half's own single, kept in sync with the stack. The MANIFEST records each
+pair's rows in slot order and each single's row, so the page maps Clip 1 and
+Clip 2 to their singles without the key; the export records which halves
+were heard per pair (`pair_audio_heard`), which the join carries through.
+Before this the stacks were silent and the first ladder was judged deaf on
+its pairs.
+
+Singles are secondary: any defect in one clip on its own, and the audio heard
+whole rather than under a comparison. One note, the same tags, and a reject
+flag.
 
 ## What it may read
 
@@ -162,6 +172,16 @@ def write_score_app(batch: Path | str, rubric: list[dict] | None = None,
     pairs = [p["pair"] for p in manifest.get("pairs", [])]
     if not clips and not pairs:
         raise ValueError(f"{manifest_path} lists no clips and no pairs")
+    # Each pair's rows are in slot order (blind_batch writes [Clip 1, Clip 2]),
+    # and each single names its row, so the page can play the audio of the
+    # selected half from that half's own single. Row indices only; no label.
+    clip_of_row = {c["row"]: c["clip"] for c in manifest.get("clips", []) if "row" in c}
+    pair_audio = {}
+    for p in manifest.get("pairs", []):
+        rows = p.get("rows") or []
+        srcs = [clip_of_row.get(r) for r in rows]
+        if len(srcs) == 2 and all(srcs):
+            pair_audio[p["pair"]] = srcs
 
     payload = {
         "session": session,
@@ -171,6 +191,7 @@ def write_score_app(batch: Path | str, rubric: list[dict] | None = None,
         "pair_rubric": pair_rubric if pair_rubric is not None else PAIR_RUBRIC,
         "slots": SLOTS,
         "brief": brief or "",
+        "pair_audio": pair_audio,
     }
     html = (_TEMPLATE
             .replace("__SESSION_TITLE__", session.replace("&", "&amp;").replace("<", "&lt;"))
@@ -260,15 +281,19 @@ textarea { width: 100%; font: inherit; color: var(--fg); background: var(--sunk)
                font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; }
 #io h2 { font-size: 16px; margin: 22px 0 6px; }
 #msg { color: var(--warn); min-height: 20px; }
+.hear { display: flex; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.hear .who { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
 <header>
   <h1>Blind scoring: <span id="sessname"></span></h1>
   <p class="sub">Nothing on this page says which arm a clip came from. Start on the
-  pairs: say what differs between the two halves and which way it goes. The singles
-  are there for the audio, which the stacks do not carry, and for anything wrong with
-  one clip on its own. Answers are held in this browser; export when you are done.</p>
+  pairs: say what differs between the two halves and which way it goes. A pair plays
+  the audio of the half you select (Hear: Clip 1 / Clip 2), from that half's own clip,
+  in sync with the stack; hear both before a verdict. The singles are for anything
+  wrong with one clip on its own. Answers are held in this browser; export when you
+  are done.</p>
   <details id="briefbox"><summary>The brief</summary><pre id="brief"></pre></details>
   <details><summary>Keyboard</summary>
     <ul>
@@ -460,10 +485,73 @@ textarea { width: 100%; font: inherit; color: var(--fg); background: var(--sunk)
     v.src = it.name;
     v.onplay = function () { cur = items.indexOf(it); paint(); };
     art.appendChild(v);
+    if (it.kind === "pairs" && DATA.pair_audio && DATA.pair_audio[it.name]) {
+      art.appendChild(hearRow(it, v, DATA.pair_audio[it.name]));
+    }
     var qs = el("div", "qs");
     it.qs.forEach(function (q, qi) { qs.appendChild(buildQuestion(it, q, qi)); });
     art.appendChild(qs);
     return art;
+  }
+
+  // The stack is video only. Each half's audio comes from that half's own
+  // single, kept in step with the stack: play, pause, seek and rate follow
+  // the video, and drift beyond a quarter second is corrected on timeupdate.
+  // Which halves were heard is recorded per pair and exported beside the
+  // answers, so a verdict on audio can be read against what was listened to.
+  function hearRow(it, v, srcs) {
+    var row = el("div", "hear");
+    row.appendChild(el("span", "who", "Hear:"));
+    var audios = srcs.map(function (src) {
+      var a = document.createElement("audio");
+      a.preload = "metadata";
+      a.src = src;
+      return a;
+    });
+    var active = -1;
+    var buttons = [];
+    function sync(a) {
+      if (Math.abs(a.currentTime - v.currentTime) > 0.25) { a.currentTime = v.currentTime; }
+      a.playbackRate = v.playbackRate;
+    }
+    function apply() {
+      audios.forEach(function (a, i) {
+        a.muted = (i !== active);
+        if (i === active) {
+          sync(a);
+          if (!v.paused && a.paused) { a.play().catch(function () {}); }
+        } else if (!a.paused) { a.pause(); }
+      });
+      buttons.forEach(function (b, i) { b.className = (i === active) ? "on" : ""; });
+    }
+    SLOTS.forEach(function (slot, i) {
+      var b = el("button", "", slot);
+      b.onclick = function () {
+        active = (active === i) ? -1 : i;
+        if (active >= 0) {
+          var a = answers(it);
+          var heard = Array.isArray(a.heard) ? a.heard.slice() : [];
+          if (heard.indexOf(slot) < 0) { heard.push(slot); }
+          a.heard = heard;
+          persist();
+        }
+        apply();
+      };
+      buttons.push(b);
+      row.appendChild(b);
+    });
+    var off = el("button", "", "neither");
+    off.onclick = function () { active = -1; apply(); };
+    row.appendChild(off);
+    v.addEventListener("play", function () { if (active >= 0) { sync(audios[active]); audios[active].play().catch(function () {}); } });
+    v.addEventListener("pause", function () { audios.forEach(function (a) { a.pause(); }); });
+    v.addEventListener("seeked", function () { if (active >= 0) { audios[active].currentTime = v.currentTime; } });
+    v.addEventListener("ratechange", function () { audios.forEach(function (a) { a.playbackRate = v.playbackRate; }); });
+    v.addEventListener("timeupdate", function () { if (active >= 0 && !v.paused) { sync(audios[active]); } });
+    v.addEventListener("ended", function () { audios.forEach(function (a) { a.pause(); }); });
+    audios.forEach(function (a) { row.appendChild(a); });
+    apply();
+    return row;
   }
 
   function build() {
@@ -599,8 +687,10 @@ textarea { width: 100%; font: inherit; color: var(--fg); background: var(--sunk)
 
   function exportDoc() {
     var out = { clips: {}, pairs: {} };
+    var heard = {};
     items.forEach(function (it) {
       var a = answers(it), kept = {};
+      if (it.kind === "pairs" && Array.isArray(a.heard) && a.heard.length) { heard[it.name] = a.heard; }
       it.qs.forEach(function (q) {
         var v = a[q.id];
         if (empty(v) || v === false) { return; }
@@ -615,7 +705,8 @@ textarea { width: 100%; font: inherit; color: var(--fg); background: var(--sunk)
       pair_rubric: DATA.pair_rubric,
       slots: SLOTS,
       clips: out.clips,
-      pairs: out.pairs
+      pairs: out.pairs,
+      pair_audio_heard: heard
     };
   }
 
