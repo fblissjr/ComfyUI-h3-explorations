@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.48
+
+### Added
+
+- **The baked PDD8 graphs and the pair that judges them.** `h3_config`
+  names the bake (`MODELS["unet_fl2va_pdd8_baked"]`) and its stripped
+  sidecar (`PDD_FL2VA_STRIPPED_LORA`) as a pair the node enforces by
+  content; `workflows/h3_probe_t2v_pdd8_baked_sage.json` is the twin of the
+  sage-alone PDD8 probe with only the checkpoint and sidecar swapped, and
+  `workflows/h3_candidate_t2v_pdd8_baked.json` is the shipped PDD8 graph on
+  the bake for the owner's own prompts. Registered in
+  `check_model_files.py::CONSTANT_CLASS` and exempted by mechanism in
+  `check_attention_defaults.py::SOL_EXEMPT_STEMS`; all graphs regenerated
+  and validated against the live server. `bench/pdd_bake_arms.json` renders
+  the probe on the PDD ladder's five scenes at the ladder's seed and pairs
+  it against the ladder's merged pdd8sage clips and the sage floor; the run
+  started 2026-09-05 afternoon (`bench/results/2026-09-05_pdd_bake_arms.jsonl`),
+  blind helpers in `internal/2026-09-05_run/`.
+
+### Fixed
+
+- **Two checks failing for reasons that were not defects.**
+  `check_provenance_stamp.py` treated `make_override`'s `settings`
+  parameter (the configuration dict handed to the probe for recording,
+  since 2026-09-01) as an unrecorded knob; it is now excluded beside
+  `previous`. `check_clone_v_wiring.py` pinned the attention builder's old
+  signature and failed with a TypeError once the builder gained
+  `via_optimized_attention` (2026-08-30); its wrapper now forwards what it
+  does not assert on. The second still needs the card and was not rerun
+  while the bake pair rendered.
+
 ## 0.99.47
 
 ### Added

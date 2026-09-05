@@ -113,7 +113,10 @@ def main() -> int:
     keys = tuple(prov.SOL_CLOSURE_KEYS)
     params = inspect.signature(sol.make_override).parameters
     # `previous` chains a prior override; it is plumbing, not a setting.
-    knobs = {n for n in params if n != "previous"}
+    # `settings` (excluded 2026-09-05): the node configuration dict handed to
+    # the probe for recording, a parameter since 2026-09-01; a record of the
+    # knobs, not a knob. `previous` is the chain.
+    knobs = {n for n in params if n not in ("previous", "settings")}
 
     print(f"provenance stamp v{prov.STAMP_SCHEMA_VERSION} against "
           f"{sol.make_override.__module__}.make_override\n")

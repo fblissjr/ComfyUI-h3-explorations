@@ -13,6 +13,12 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+- The bake pair: when `bench/results/2026-09-05_pdd_bake_arms.jsonl` holds
+  five non-warmup rows, run `internal/2026-09-05_run/pdd_bake_blind.sh`
+  (appends the merged twins and the sage floor, blinds as
+  `pdd_bake_2026-09-05`), tell the owner, then `bench/score_session.py` on
+  the export. The pair differs in one thing, the merge against the bake;
+  `bench/pdd_bake_arms.json` says how to read it.
 - Score the blinded PDD ladder, `pdd_ladder_2026-09-04` (20 pairs, 20
   singles). The pairs now play each half's audio on selection (Hear: Clip 1
   / Clip 2) and export which halves were heard; hear both before a verdict.
@@ -84,6 +90,7 @@ and the last column says why it is on the list and what would make it one.
 | graph | what it is | step mix (of 16, or of 8 under PDD) | why it is here, and what settles it |
 |---|---|---|---|
 | `workflows/h3_candidate_t2v_pdd8_sol_narrow.json` | PDD8 with Sol on two of the eight steps | six sage, two Sol | the shipped PDD8 rung lost every scene blind and carried Sol on four steps; this asks whether Sol on the coarse schedule is what lost. Blinded as `pdd_ladder_2026-09-04`; unjudged |
+| `workflows/h3_candidate_t2v_pdd8_baked.json` | the shipped PDD8 graph on the baked checkpoint with the stripped sidecar | four sage, four Sol | same work as the shipped PDD8 graph with the merge noise gone: the PDD backbone is quantised once with the weights instead of merged and requantised at load (`docs/research/pdd/2026-09-05_bake_plan.md`). Settled by the merged-versus-baked pair, `pdd_bake_2026-09-05`, rendered under sage alone so Sol is not in it |
 | `workflows/h3_probe_t2v_pdd8_sage.json` | PDD8 under sage alone, no Sol | eight sage | the PDD floor under the sage decision; if it reads the same as the sage floor, PDD8 is a near-doubling over it. Blinded as `pdd_ladder_2026-09-04`; unjudged |
 | `workflows/h3_candidate_t2v_sol_only.json` | just Sol, from the first step to the last-but-one, no sage node | one stock, fifteen Sol | the fastest base-model arm: the probe records put Sol's disagreement lowest early in the window, so the dense warm-up may be unneeded, and the owner asked what Sol does without sage under it. Blinded as `sol_nosage_2026-09-04`; unjudged |
 | `workflows/h3_text_to_video.json` | **the leader**: sage auto plus Sol as shipped | five sage, eleven Sol | the only arm with a blind verdict behind it: same as dense on four scenes of five at one seed, and the fifth scene's slip belonged to sage (`bench/results/2026-09-04_ladder_2026-09-03_frontier.json`, `docs/roadmap.md` step 1) |
@@ -94,8 +101,9 @@ which lost to the true baseline on every scene of the 2026-09-03 ladder; it
 stays the reference the two PDD candidates are judged against. PDD
 parameters on every PDD graph are the vendor's contract as
 `workflows/h3_config.py` states them (the fl2va eight-step LoRA at its
-shipped strength, heads on, the sampler's own step count), unchanged until
-the bake lane lands. The chunked Sol node is not wired into any of these:
+shipped strength, heads on, the sampler's own step count); the baked
+candidate above changes the weights those parameters act on, not the
+parameters. The chunked Sol node is not wired into any of these:
 it is a memory lever (`sol_chunked_h3.py`), and at the trained canvas and
 length every arm above rendered on this card without it.
 

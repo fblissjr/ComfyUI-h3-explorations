@@ -155,10 +155,16 @@ def check_node_wires_it():
     real_builder = node_mod.make_minimax_attn_forward
     real_guard = node_mod._is_minimax_h3
 
-    def recording_builder(kernel_fn, kernel_kwargs, head_chunks=1, clone_v=False):
+    def recording_builder(kernel_fn, kernel_kwargs, head_chunks=1, clone_v=False,
+                          **rest):
+        # `**rest` forwards whatever else the node's builder grows (2026-09-05:
+        # it had gained `via_optimized_attention` and this wrapper, pinned to
+        # the old signature, failed with a TypeError that read as a wiring
+        # defect). This check asserts clone_v reaches the builder, nothing
+        # about the rest of the signature.
         seen["clone_v"] = clone_v
         return real_builder(kernel_fn, kernel_kwargs, head_chunks=head_chunks,
-                            clone_v=clone_v)
+                            clone_v=clone_v, **rest)
 
     # setattr rather than attribute assignment: these are module globals, and
     # a type checker has no way to know nodes.py defines them.

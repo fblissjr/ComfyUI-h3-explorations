@@ -253,7 +253,12 @@ and pointed at `docs/h3_pdd.md`, which names none; the claim outlived its fix
 by two days. The plan is
 [`research/pdd/2026-09-05_bake_plan.md`](research/pdd/2026-09-05_bake_plan.md):
 inputs, the pieces it lifts, the script step by step, the repo wiring, the
-first pair, and a risk table with a control per row. It shares
+first pair, and a risk table with a control per row. **State 2026-09-05
+afternoon: the bake is built and verified** (CHANGELOG 0.99.46 to 0.99.48;
+`docs/pdd_artifacts.md` for the files), the graphs are wired, and the
+merged-versus-baked pair is rendering as `bench/pdd_bake_arms.json`; the
+owner scores it blind as `pdd_bake_2026-09-05` once
+`internal/2026-09-05_run/pdd_bake_blind.sh` has run on the finished JSONL. It shares
 nothing with the attention lane and must not wait for it. Granular PDD strength comes after
 the bake, on PDD's own ladder.
 
