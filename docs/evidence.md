@@ -416,10 +416,13 @@ WHY: the label lived an hour on 2026-09-03 and was replaced everywhere by
      "unsunk diagnostic"; any other occurrence is a reintroduction.
 
 PHRASE: one footing
-ALLOW: docs/evidence.md CHANGELOG.md bench/measure_sol_exact_variants.py
+ALLOW: docs/evidence.md CHANGELOG.md bench/measure_sol_exact_variants.py docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md
 WHY: withdrawn 2026-09-03; the grader's docstring and CHANGELOG 0.99.27
      quote it to say what was wrong with it. A new mention must say which
-     rows and which reference before it means anything.
+     rows and which reference before it means anything. The research
+     record's closing section (read 2026-09-05) says both: every retained
+     Base16 cell, against the offline exact_all_routed numbers, which the
+     replay reproduced; that is the mention the rule permits.
 ```
 
 **What this does not defend, and the gap is not small.** The sharpest decay

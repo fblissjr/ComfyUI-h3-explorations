@@ -12,10 +12,12 @@ artifact.
   the shipped t2v graph on the subway scene at the ladder's seed, each in
   its own server: the shipped sink mode
   (`bench/results/2026-09-04_sol_probe_base16_subway.json`, route
-  `..._sol_route_base16_subway_probe.json`) and `exact_kv_and_all_rows`
-  (`..._sol_probe_base16_subway_allrows.json`, route
-  `..._sol_route_base16_subway_allrows_probe.json`); render rows in the
-  two `2026-09-04_probe_base16_subway*.jsonl` files, raw records under
+  `bench/results/2026-09-04_sol_route_base16_subway_probe.json`) and
+  `exact_kv_and_all_rows`
+  (`bench/results/2026-09-04_sol_probe_base16_subway_allrows.json`, route
+  `bench/results/2026-09-04_sol_route_base16_subway_allrows_probe.json`);
+  render rows in `bench/results/2026-09-04_probe_base16_subway.jsonl` and
+  `bench/results/2026-09-04_probe_base16_subway_allrows.jsonl`, raw records under
   `internal/sol_observe/`. Every invariant holds on both. Read through
   `bench/compare_sol_probe_records.py`:
   `bench/results/2026-09-04_sol_probe_subway_vs_standoff.json` (same block
@@ -34,10 +36,12 @@ artifact.
   `sol_nosage_2026-09-04`: Sol on every step but the last with no sage node
   and no PDD on the ladder's five scenes at its seed, plus the subway scene
   at a slightly higher tau, all on one unarmed server carrying the merged
-  exercised assert; records `bench/results/2026-09-04_sol_nosage_*`
-  (rows, judged rows with the ladder's sage and Sol references appended,
-  outputs joined from the server's history, per-clip loudness for the five
-  tau-1.0 arms). Twelve stacked pairs against the ladder's sage and Sol
+  exercised assert; records `bench/results/2026-09-04_sol_nosage_arms.jsonl`
+  (rows), `bench/results/2026-09-04_sol_nosage_arms_judged.jsonl` (with the
+  ladder's sage and Sol reference rows appended),
+  `bench/results/2026-09-04_sol_nosage_outputs.json` (joined from the
+  server's history) and `bench/results/2026-09-04_sol_nosage_audio_loudness.json`
+  (per-clip loudness for the five tau-1.0 arms). Twelve stacked pairs against the ladder's sage and Sol
   clips and the tau variant against both; sixteen singles. The assert
   proved the Sol-over-stock state at registration on every render and
   skipped its call-time exercise for headroom each time. Scoring is the
@@ -90,7 +94,11 @@ artifact.
   post-pull output identical). Two judged arms rendered before the
   2026-09-04 power loss and eight after the 2026-09-05 reboot, so the
   record spans two cache states and says which is which; records under
-  `bench/results/2026-09-04_pdd_ladder_*`. Scoring is the owner's.
+  `bench/results/2026-09-04_pdd_ladder_arms.jsonl` (rows),
+  `bench/results/2026-09-04_pdd_ladder_arms_judged.jsonl` (with the
+  reference rows appended), `bench/results/2026-09-04_pdd_ladder_outputs.json`
+  and `bench/results/2026-09-04_pdd_ladder_audio_loudness.json`. Scoring
+  is the owner's.
 
 ### Fixed (the morning after)
 
