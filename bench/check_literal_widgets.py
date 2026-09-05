@@ -41,8 +41,17 @@ should not: 0 there means "gate nothing", which is literally what zero minimum
 tokens means. That distinction -- compared to zero versus compared to another
 quantity -- is the whole discrimination this check has.
 
-The point is not to relitigate the three below. It is that a FOURTH cannot be
-added without someone writing a line here saying what the magic value means.
+So the allowlist is split by WHAT ZERO MEANS, three kinds:
+
+  LITERAL_ZERO   zero means the quantity zero and the branch short-circuits
+  SENTINELS      zero selects a MODE: the defect, carried as migration debt
+  REFUSED_ZERO   zero is refused by a guard that raises, and the widget's own
+                 minimum already excludes it, so no branch is selected at all.
+                 The proxy trips on the comparison; the judgement is that a
+                 refusal is not a mode (added 2026-09-05)
+
+The point is not to relitigate the entries below. It is that a NEW one cannot
+be added without someone writing a line here saying what the magic value means.
 
     python bench/check_literal_widgets.py
 """
@@ -107,7 +116,20 @@ SENTINELS = {
         "for None, which already means absent without overloading a number."),
 }
 
-ALLOWED = {**LITERAL_ZERO, **SENTINELS}
+#: Zero is REFUSED: the comparison guards a `raise`, and the declared widget
+#: cannot type zero in the first place. Nothing is selected, so nothing is owed;
+#: the entry exists because the proxy cannot tell a refusal from a branch.
+REFUSED_ZERO = {
+    ("sol_chunked_h3.py", "chunk_rows"): (
+        "zero is refused by a raising guard in `make_chunked_forward` "
+        "(`chunk_rows % 64 or chunk_rows <= 0` raises ValueError) and the "
+        "widget's min is 64, step 64, so no branch is selected: the widget "
+        "means only rows per chunk. The author's reason for the guard: the "
+        "producer requires 64-aligned chunk starts because its blocks are 64 "
+        "rows. Red on this check from caa81ef (2026-09-01) until named here."),
+}
+
+ALLOWED = {**LITERAL_ZERO, **SENTINELS, **REFUSED_ZERO}
 
 NUMERIC = {"Int", "Float"}
 
@@ -240,7 +262,8 @@ def main() -> int:
     accounted = [f for f in findings if (f[0], f[1]) in ALLOWED]
 
     for fname, name, line, lines in accounted:
-        kind = "literal" if (fname, name) in LITERAL_ZERO else "SENTINEL"
+        kind = ("literal" if (fname, name) in LITERAL_ZERO else
+                "refused" if (fname, name) in REFUSED_ZERO else "SENTINEL")
         print(f"  ok   {fname}::{name}  [{kind}]  (declared line {line}, "
               f"branches {lines})")
         print(f"       {ALLOWED[(fname, name)]}")
