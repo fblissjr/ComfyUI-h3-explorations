@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.44
+
+### Added
+
+- **A plan for token routing**, `docs/research/2026-09-05_token_aug_plan.md`,
+  linked from roadmap step 7: the `blk_cnt` rebase onto kijai's branch with
+  the one semantics decision it forces, a scratch-wheel reproduction of the
+  2026-09-04 grade as the control, the node's per-block spec knob and its
+  install path through the vendoring rule, the probe pass that names a
+  block set, one blind pair per candidate against the sage floor, and the
+  ship-or-close conditions; card cost per stage in one table. Owner-asked;
+  nothing in it has started.
+
 ## 0.99.43
 
 ### Changed

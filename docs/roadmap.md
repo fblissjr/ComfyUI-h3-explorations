@@ -121,6 +121,11 @@ not restated here.
    every step, with a budget knob that barely moves anything, so it does
    not move the frontier under every policy; it is one more per-block
    candidate for step 4, to be ranked by the probe on the shipped call.
+   **The plan from here is
+   [`research/2026-09-05_token_aug_plan.md`](research/2026-09-05_token_aug_plan.md)**:
+   six stages from the `blk_cnt` rebase to ship-or-close, each with its card
+   cost, its record, what counts and what stops it; nothing in it starts
+   before the owner's go.
 
 **Not established after 2026-09-04, and must not be quoted as if it were:**
 any scene on which Sol itself is visibly worse than the sage floor (the one
