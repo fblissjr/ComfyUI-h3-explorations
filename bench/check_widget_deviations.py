@@ -262,6 +262,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
         ("ARM", "as above"),
     ("SageChainAssert", "require_override"):
         ("ARM", "as above"),
+    ("SageChainAssert", "require_no_forward_patch"):
+        ("ARM", "True on the Sol-over-stock arm (h3_probe_t2v_sol_nosage), where "
+                "the node forbids sage's forward patch and proves Sol's fallback "
+                "is stock attention; False elsewhere. Set by `_assert_inputs`"),
     ("SageChainAssert", "require_absent"):
         ("ARM", "True on every arm that patches attention not at all -- the "
                 "true baseline and the PDD reference arms -- so the node proves "

@@ -1213,14 +1213,12 @@ def _assert_inputs(sage: bool, sol_present: bool) -> dict:
                             patched attention. The true baseline and the PDD
                             reference arms (2026-09-03).
       Sol alone, no sage    require the override (Sol installs one) and
-                            nothing else. The five outer steps and Sol's own
-                            fallback run ComfyUI's stock attention. The
-                            exercise stays OFF: it asks whether sage took a
-                            probe below Sol's gate, and here nothing should.
-                            This PERMITS the state; it does not prove sage
-                            absent, which the node cannot express without a
-                            flag it does not have (2026-09-04, the
-                            `sol-nosage` branch carries that flag).
+                            `require_no_forward_patch`: no sage forward patch
+                            may be installed, and the exercise proves a probe
+                            below Sol's gate reaches no sage kernel. The five
+                            outer steps and Sol's own fallback run ComfyUI's
+                            stock attention. (Before the flag existed, on
+                            2026-09-04, this state was only permitted.)
 
     `warn_only` is False in every state: a gate that always raises on the
     control arm would make the comparison impossible to run rather than safe,
@@ -1228,19 +1226,19 @@ def _assert_inputs(sage: bool, sol_present: bool) -> dict:
     """
     if sage:
         return {"require_override": True, "require_forward_patch": True, "exercise": True,
-                "warn_only": False, "require_absent": False}
+                "warn_only": False, "require_absent": False, "require_no_forward_patch": False}
     if sol_present:
-        return {"require_override": True, "require_forward_patch": False, "exercise": False,
-                "warn_only": False, "require_absent": False}
+        return {"require_override": True, "require_forward_patch": False, "exercise": True,
+                "warn_only": False, "require_absent": False, "require_no_forward_patch": True}
     return {"require_override": False, "require_forward_patch": False, "exercise": False,
-            "warn_only": False, "require_absent": True}
+            "warn_only": False, "require_absent": True, "require_no_forward_patch": False}
 
 
 def _assert_widgets(sage: bool, sol_present: bool) -> list:
     """The same flags in the UI node's widget order."""
     a = _assert_inputs(sage, sol_present)
     return [a["require_override"], a["require_forward_patch"], a["exercise"],
-            a["warn_only"], a["require_absent"]]
+            a["warn_only"], a["require_absent"], a["require_no_forward_patch"]]
 
 
 def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
@@ -7694,8 +7692,8 @@ def main():
         # on an armed server, a probe record whose counterfactual is stock
         # attention rather than sage (bench/check_sol_probe.py), which is the
         # first direct Sol-against-near-exact measurement the repo would hold.
-        # SageChainAssert here requires Sol's override and nothing else; see
-        # `_assert_inputs` for what that permits and what it cannot prove.
+        # SageChainAssert here requires Sol's override and forbids sage's
+        # forward patch; see `_assert_inputs`.
         ("h3_probe_t2v_sol_nosage.json", "t2v-sol-nosage", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sol", out_prefix="Video/h3_probe_t2v_sol_nosage",
               variant_note=_probe_note(
