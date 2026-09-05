@@ -28,6 +28,26 @@ artifact.
   saw belongs to the sage floor, which lost the same pair against dense,
   not to Sol. One seed per scene.
 
+### Added (later the same evening)
+
+- **`h3_probe_t2v_sol_nosage`** (peer session, commit `7d59ec9`, at this
+  session's request after the owner's "maybe it's better to try without
+  sage at all"): Sol as shipped over ComfyUI's stock attention with no sage
+  node, so the outer steps and Sol's fallback run stock attention. The
+  generator's `dense_attn` gains the named mode `sol`, and the chain
+  assert's flags are derived from the chain in one place; validated
+  against the live server. A stronger assert for that state
+  (`require_no_forward_patch`, exercised) waits on branch `sol-nosage`
+  for a restart and a validation, since the live server predates the
+  input.
+- **`bench/sol_nosage_arms.json`**: just Sol on the ladder's five scenes
+  at its seed, Sol widened to every step but the last by two window
+  patches (one stock step, fifteen routed, by the sigma-window arithmetic
+  in `docs/SOLATTN.md`), subway and standoff first at the owner's ask for
+  at least two scenes tonight, plus an optional subway arm at a slightly
+  higher tau listed last. Judged blind against the ladder's sage and Sol
+  clips per scene.
+
 ## 0.99.41
 
 ### Added

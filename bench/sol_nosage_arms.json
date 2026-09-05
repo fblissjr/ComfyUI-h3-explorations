@@ -1,0 +1,47 @@
+{
+  "what": "Just Sol: Sol on every step but the last, no sage node, no PDD, 16 steps, on the speedup ladder's five scenes at its seed (2026-09-04, the owner's ask: 'at least 1-2 scenes of only sol, no sage/no pdd'). The graph is h3_probe_t2v_sol_nosage (Sol as shipped over ComfyUI's stock attention; the outer steps and Sol's fallback run stock attention); the two window patches widen Sol to every step but the last, so on the shipped 16-step schedule at shift 12 one step runs stock and fifteen route. Judged blind against the ladder's sage clip (the floor) and its Sol-as-shipped clip per scene.",
+  "policy": "sage always on is the floor decision (docs/roadmap.md 2026-09-04); this arm asks whether Sol alone, with no sage anywhere, can stand against that floor, and whether the dense warm-up steps the shipped window keeps are needed at all",
+  "scenes": {
+    "subway": "t2va_subway_chase",
+    "standoff": "t2va_frontier_standoff",
+    "diner": "t2va_diner_breakup",
+    "stairwell": "t2va_stairwell_dialogue",
+    "opera": "t2va_opera_grand_stage"
+  },
+  "order": "subway and standoff first (the two scenes with probe records), then diner, stairwell, opera, then the optional subway tau-1.2 arm; the owner asked for at least two scenes tonight",
+  "arms": {
+    "subway_solnosage": "workflows/h3_probe_t2v_sol_nosage_api.json",
+    "standoff_solnosage": "workflows/h3_probe_t2v_sol_nosage_api.json",
+    "diner_solnosage": "workflows/h3_probe_t2v_sol_nosage_api.json",
+    "stairwell_solnosage": "workflows/h3_probe_t2v_sol_nosage_api.json",
+    "opera_solnosage": "workflows/h3_probe_t2v_sol_nosage_api.json",
+    "subway_solnosage_tau12": "workflows/h3_probe_t2v_sol_nosage_api.json"
+  },
+  "patches": [
+    "subway_solnosage:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+    "subway_solnosage:MiniMaxH3SolAttn.start_percent=0.0",
+    "subway_solnosage:MiniMaxH3SolAttn.end_percent=0.9",
+    "standoff_solnosage:MiniMaxH3Conditioning.prompt=@bank:t2va_frontier_standoff",
+    "standoff_solnosage:MiniMaxH3SolAttn.start_percent=0.0",
+    "standoff_solnosage:MiniMaxH3SolAttn.end_percent=0.9",
+    "diner_solnosage:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+    "diner_solnosage:MiniMaxH3SolAttn.start_percent=0.0",
+    "diner_solnosage:MiniMaxH3SolAttn.end_percent=0.9",
+    "stairwell_solnosage:MiniMaxH3Conditioning.prompt=@bank:t2va_stairwell_dialogue",
+    "stairwell_solnosage:MiniMaxH3SolAttn.start_percent=0.0",
+    "stairwell_solnosage:MiniMaxH3SolAttn.end_percent=0.9",
+    "opera_solnosage:MiniMaxH3Conditioning.prompt=@bank:t2va_opera_grand_stage",
+    "opera_solnosage:MiniMaxH3SolAttn.start_percent=0.0",
+    "opera_solnosage:MiniMaxH3SolAttn.end_percent=0.9",
+    "subway_solnosage_tau12:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+    "subway_solnosage_tau12:MiniMaxH3SolAttn.start_percent=0.0",
+    "subway_solnosage_tau12:MiniMaxH3SolAttn.end_percent=0.9",
+    "subway_solnosage_tau12:MiniMaxH3SolAttn.selection.tau=1.2"
+  ],
+  "window": "start_percent 0.0 and end_percent 0.9: at shift 12 on 16 steps that leaves only the final step (sigma about 0.44) outside the window; reasoned from the sigma-window arithmetic in docs/SOLATTN.md, the same rule the shipped 16-step window uses for its end",
+  "reference_rows": "the ladder's <scene>_sage and <scene>_sol rows from bench/results/2026-09-03_ladder_arms_judged.jsonl, appended before blinding; regime checked pixel-identical (bench/results/2026-09-04_stairwell_dense_retime_pixels.json)",
+  "run": "python bench/run_graph_arms.py --manifest bench/sol_nosage_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-04_sol_nosage_arms.jsonl; append the ten reference rows; bench/blind_batch.py with, per scene, --pairs <scene>_sage,<scene>_solnosage --pairs <scene>_sol,<scene>_solnosage; score pairs and singles; bench/score_session.py",
+  "cost": "reasoned from bench/results/2026-09-03_ladder_outputs.json's per-step medians: fifteen Sol steps plus one stock step; not measured until rendered, and rendered on a warm server that just ran the PDD ladder",
+  "generated_by": "workflows/build_workflows.py for the graph (commit 7d59ec9); regenerate there, never edit the graph",
+  "tau_variant": "subway_solnosage_tau12, listed last and optional: the owner said tau could go up a bit if it speeds things; the 2026-08-22 selection records put that saving at a few percent of sampler time on this workload, so it is one extra render on the subway scene only, cut if the clock says so, and paired against the sage floor and against the tau-1.0 arm"
+}
