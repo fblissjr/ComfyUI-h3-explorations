@@ -78,20 +78,21 @@ a sentence that says "baked" without saying which is ambiguous:
    pruned checkpoint whose curves it was solved against, and why it is cheaper
    than `_adaln2688`, which has to do the conversion on every forward pass.
    The metadata says `h3_pdd_adaln_form: baked`.
-2. **The backbone bake (does not exist yet).** The large attention and MLP
-   corrections, one set per transformer block, are today added into the int8
-   weights at load time. Adding
+2. **The backbone bake (the first exists since 2026-09-05).** The large
+   attention and MLP corrections, one set per transformer block, are on the
+   shipped path added into the int8 weights at load time. Adding
    into an int8 weight forces a re-quantisation, and that adds noise about as
    large as the quantisation error the checkpoint already carries
    ([`h3_pdd.md`](h3_pdd.md) "What a backbone bake pins" has the numbers).
    Baking the backbone means adding those corrections into the checkpoint
    offline, once, and saving a **new checkpoint file**; the sidecar that goes
-   with it has the backbone removed and is called **stripped**. No baked
-   checkpoint and no stripped sidecar is on disk, and the script that would
-   make them is unwritten.
+   with it has the backbone removed and is called **stripped**. The script is
+   `bench/bake_pdd_checkpoint.py`; the first pair, fl2va at strength 1.0, is
+   in the inventory and the artifact changelog below and has not rendered
+   (`research/pdd/2026-09-05_bake_plan.md`).
 
-So: "the baked file" today always means the adaln bake, the `_comfy` file.
-"A baked checkpoint" always means the backbone bake, which is future work.
+So: "the baked file" always means the adaln bake, the `_comfy` file. "A
+baked checkpoint" always means the backbone bake, of which one exists.
 
 **Full and stripped.** A *full* sidecar carries the whole backbone (every
 file on disk today). A *stripped* one carries none of it and is paired with
@@ -137,16 +138,18 @@ points at.
 | `h3_pdd.adaln.blocks.N.alpha` | float32 | `[]` | x50 | fl2va adaln2688, ref2va adaln2688 | `6fab6b0` 2026-08-29 | `execute` |
 | `h3_pdd.adaln.blocks.N.lora_A` | bfloat16 | `[64, 2688]` | x50 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
 | `h3_pdd.adaln.blocks.N.lora_B` | bfloat16 | `[96768, 64]` | x50 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
-| `h3_pdd.adaln_baked.blocks.N.diff` | float16 | `[96768, 8]` | x50 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
-| `h3_pdd.adaln_baked.blocks.N.diff_b` | float32 | `[96768]` | x50 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
-| `h3_pdd.adaln_table` | float32 | `[1025, 8]` | x1 | fl2va comfy, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
-| `h3_pdd.backbone_probe` | int8 | `[64, 14336]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy | `2404409` 2026-09-02 | `execute` |
-| `h3_pdd.backbone_probe_scale` | float32 | `[64, 1]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy | `e38655d` 2026-09-03 | `execute` |
-| `h3_pdd.bank.audio.bias` | bfloat16 | `[32, 32]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
-| `h3_pdd.bank.audio.weight` | bfloat16 | `[32, 32, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
-| `h3_pdd.bank.video.bias` | bfloat16 | `[32, 96]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
-| `h3_pdd.bank.video.weight` | bfloat16 | `[32, 96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
-| `h3_pdd.base_video_out` | float32 | `[96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `ddc2ac9` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_baked.blocks.N.diff` | float16 | `[96768, 8]` | x50 | fl2va comfy, fl2va stripped, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_baked.blocks.N.diff_b` | float32 | `[96768]` | x50 | fl2va comfy, fl2va stripped, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.adaln_table` | float32 | `[1025, 8]` | x1 | fl2va comfy, fl2va stripped, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `e917a35` 2026-08-26 | `execute` |
+| `h3_pdd.backbone_probe` | int8 | `[64, 14336]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy | `2404409` 2026-09-02 | `execute` |
+| `h3_pdd.backbone_probe_base` | int8 | `[64, 14336]` | x1 | fl2va stripped | `e38655d` 2026-09-03 | `execute` |
+| `h3_pdd.backbone_probe_base_scale` | float32 | `[64, 1]` | x1 | fl2va stripped | `e38655d` 2026-09-03 | `execute` |
+| `h3_pdd.backbone_probe_scale` | float32 | `[64, 1]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy | `e38655d` 2026-09-03 | `execute` |
+| `h3_pdd.bank.audio.bias` | bfloat16 | `[32, 32]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.audio.weight` | bfloat16 | `[32, 32, 5376]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.video.bias` | bfloat16 | `[32, 96]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.bank.video.weight` | bfloat16 | `[32, 96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `548629e` 2026-08-26 | `execute` |
+| `h3_pdd.base_video_out` | float32 | `[96, 5376]` | x1 | fl2va adaln2688, fl2va comfy, fl2va stripped, ref2va adaln2688, ref2va comfy, archive:fl2va comfy_v1_2026-08-28, archive:ref2va comfy_v1_2026-08-28 | `ddc2ac9` 2026-08-26 | `execute` |
 | `h3_pdd.silu_temb_grid` | float32 | `[1025, 2688]` | x1 | fl2va adaln2688, ref2va adaln2688 | `7f460f7` 2026-08-26 | `execute` |
 
 <!-- END GENERATED: sidecar-tensors -->
@@ -333,7 +336,7 @@ the whole of what "versions" and "forms" have ever meant for these files.
 |---|---|---|
 | a **pruned** int8_convrot build (`minimax_h3_{fl2va,ref2va}_pruned_int8_convrot`), which is every shipped graph | `..._pdd_8step_comfy` of the same partition | adaln applied as weight patches; cheapest path |
 | an **unpruned** int8_convrot build (`minimax_h3_{fl2va,ref2va}_int8_convrot`) | `..._pdd_8step_adaln2688_comfy` of the same partition | the only form whose adaln fits a 2688-wide time space |
-| a **baked** checkpoint (none exists yet) | the stripped sidecar cut against that exact file | anything else applies the backbone twice or not at all |
+| a **baked** checkpoint (the first exists since 2026-09-05: `minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1`, under the owner's `h3_bakes` folder, symlinked into `models/diffusion_models`) | the stripped sidecar cut against that exact file (`minimax_h3_fl2va_pdd_8step_stripped_comfy`) | anything else applies the backbone twice or not at all; the node refuses both, verified on a loaded model 2026-09-05 (`bench/results/2026-09-05_bake_node_stripped_path.txt`) |
 
 The node decides by observables on the loaded model (`use_adaln_curves`, the
 live adaln table, the output head, the probe) and never by filename. Wrong
@@ -370,12 +373,13 @@ do not.
 | `MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors` | reference (Kijai's conversion) | - | 2026-08-27 (mtime) | - | - | - | - | - | 578 | `6a9b7e95be49` |
 | `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 | `cd788e5e3ac7` |
 | `minimax_h3_fl2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_FL2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 | `115fcd82dbf2` |
+| `minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors` | current, unwired | 3 | 2026-09-05 | f21e8d8 | stripped | baked | baked | a checkpoint with this backbone BAKED IN at strength 1, built from the pruned/curve-form build of this partition only | 134 | `d75a4e4b38d9` |
 | `minimax_h3_ref2va_pdd_8step_adaln2688_comfy.safetensors` | current, unwired | 3 | 2026-09-03 | eb791f8 | full | 2688 | base | either the pruned or the unpruned build | 782 | `7c402b48fc2a` |
 | `minimax_h3_ref2va_pdd_8step_comfy.safetensors` | current (`h3_config.PDD_REF2VA_LORA`) | 3 | 2026-09-03 | eb791f8 | full | baked | base | the pruned/curve-form build of this partition only | 732 | `102a83d1f57c` |
 | `pdd_archive/minimax_h3_fl2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_fl2va_pruned_int8_convrot.safetensors) | 730 | `c4f99a8c04f8` |
 | `pdd_archive/minimax_h3_ref2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_ref2va_pruned_int8_convrot.safetensors) | 730 | `22ebf7c92e06` |
 
-Record: `bench/results/2026-09-03_pdd_artifact_fingerprints.json` (recorded 2026-09-03 at repo commit `2b9b2bb`; content hash recipe: sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout).
+Record: `bench/results/2026-09-05_pdd_artifact_fingerprints.json` (recorded 2026-09-05 at repo commit `06bbb32`; content hash recipe: sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout).
 
 <!-- END GENERATED: inventory -->
 
@@ -471,7 +475,22 @@ down.
   moved to `pdd_archive/` with `v1` in their names; nothing in the repo
   named them, one saved UI graph names the ref2va one.
 
-**Next artifact, not yet made**: the first baked checkpoint (fl2va, from the
-pruned int8_convrot build) and the stripped sidecar cut against it, produced
-together by the bake script with the checkpoint reopened from disk before the
-sidecar is cut, per `docs/research/pdd/2026-08-31_handoff.md` step 2.
+- **2026-09-05**: the first baked checkpoint and its stripped sidecar, made
+  together. `bench/bake_pdd_checkpoint.py` wrote
+  `minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors` (the
+  fl2va PDD8 backbone at strength 1.0 quantised once from the release with
+  round-to-nearest into the pruned int8_convrot layout, every other key
+  copied from the shipped file; record
+  `bench/results/2026-09-05_bake_fl2va_full.json`, the identity control that
+  preceded it `2026-09-05_bake_identity_control.json`). It lives in the
+  owner's `h3_bakes` folder and is symlinked into `models/diffusion_models`.
+  The stripped sidecar `minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors`
+  was cut against the reopened bake by the converter at version 3 (probe of
+  the bake, base probe of the shipped file) and is in the inventory above
+  as of this fingerprint record. Verified: the contract check's real-pair
+  cases, and the node's stripped path on a loaded model
+  (`2026-09-05_bake_node_stripped_path.txt`). Not rendered. Plan and state:
+  `docs/research/pdd/2026-09-05_bake_plan.md`.
+
+**Next artifact, not yet made**: the ref2va bake, the same script pointed at
+the other partition, after the fl2va pair has rendered.

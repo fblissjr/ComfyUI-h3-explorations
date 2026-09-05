@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.47
+
+### Added
+
+- **The first baked checkpoint and its stripped sidecar, verified three
+  ways.** `minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors`
+  (owner's `h3_bakes` folder, symlinked into `models/diffusion_models`;
+  record `bench/results/2026-09-05_bake_fl2va_full.json`: every int8 module
+  of every kind, error against target at the shipped level, shards and
+  sidecar hashed into the metadata) and
+  `models/loras/h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors`,
+  cut by `bench/convert_pdd_lora.py --omit-backbone --baked` against the
+  reopened bake. `bench/check_pdd_sidecar_contract.py` gains the real pair
+  as cases (probes each way, the four identity decisions, the bake's
+  population and metadata) and is green. `bench/exercise_pdd_stripped_path.py`
+  runs the node's `execute` on a LOADED model, CPU only with ComfyUI's
+  `--cpu` flag set before its model manager imports: stripped on the base
+  refused as the unbaked base, stripped on its bake loads, full on the bake
+  refused as a double apply (`bench/results/2026-09-05_bake_node_stripped_path.txt`);
+  the path the contract check's docstring recorded as never run end to end.
+  Inventory re-recorded (`2026-09-05_pdd_artifact_fingerprints.json`) and
+  `docs/pdd_artifacts.md` regenerated, with its artifact changelog row and
+  the which-file table updated. Nothing rendered; the repo wiring for the
+  baked graph is on the render lane.
+
 ## 0.99.46
 
 ### Added

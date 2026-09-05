@@ -390,6 +390,72 @@ def main() -> int:
     else:
         print("  SKIP  real sidecar case: shipped fl2va sidecar not on disk")
 
+    # --- the real baked pair, when it is on disk ------------------------------
+    # The first bake was cut 2026-09-05 (docs/research/pdd/2026-09-05_bake_plan.md).
+    # The checkpoint lives outside the repo; it is reached through the
+    # gitignored `internal/h3_bakes` link until it is registered under
+    # models/diffusion_models, and either location counts here.
+    bake_name = "minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors"
+    bake_candidates = [models / "diffusion_models" / bake_name,
+                       HERE.parent / "internal" / "h3_bakes" / bake_name]
+    bake = next((p for p in bake_candidates if p.exists()), None)
+    stripped_side = models / "loras" / "h3" / "minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors"
+    if bake is not None and stripped_side.exists() and pruned.exists() and sidecar.exists():
+        from safetensors import safe_open
+        with safe_open(stripped_side, framework="pt") as f:
+            s_keys = {k: None for k in f.keys()}
+            s_meta = f.metadata() or {}
+            s_probe = {k: f.get_tensor(k) for k in s_keys
+                       if k.startswith("h3_pdd.backbone_probe")}
+        with safe_open(sidecar, framework="pt") as f:
+            f_probe = {k: f.get_tensor(k) for k in f.keys()
+                       if k.startswith("h3_pdd.backbone_probe")}
+        kc, ks_ = C.backbone_probe(bake)
+        pc, ps = C.backbone_probe(pruned)
+        live_bake, live_base = _Quantised(kc, ks_), _Quantised(pc, ps)
+        check("real bake: the stripped sidecar declares stripped, strength 1.0, "
+              "and names its bake",
+              P.sidecar_backbone_kind(s_meta) == "stripped"
+              and s_meta.get("h3_pdd_backbone_strength_baked") == "1.0"
+              and s_meta.get("h3_pdd_baked_checkpoint") == bake.name)
+        check("real bake: the stripped sidecar is refiner-only at the release "
+              "population",
+              P.check_file_population("stripped", s_keys, s_meta, stripped_side.name)
+              == (0, pop["refiner_modules"]))
+        pm = lambda live, t, pref: P.probe_match(live, t[pref], t[pref + "_scale"])  # noqa: E731
+        check("real bake: the stripped probe IS the bake and is NOT the base",
+              pm(live_bake, s_probe, "h3_pdd.backbone_probe") == {"codes": True, "scale": True}
+              and pm(live_base, s_probe, "h3_pdd.backbone_probe") == {"codes": False, "scale": False})
+        check("real bake: the stripped file's base probe IS the base and is NOT the bake",
+              pm(live_base, s_probe, "h3_pdd.backbone_probe_base") == {"codes": True, "scale": True}
+              and pm(live_bake, s_probe, "h3_pdd.backbone_probe_base") == {"codes": False, "scale": False})
+        check("real bake: the full sidecar's probe is NOT the bake",
+              pm(live_bake, f_probe, "h3_pdd.backbone_probe") == {"codes": False, "scale": False})
+        check("real bake: stripped on its bake passes identity",
+              P.check_backbone_identity(
+                  "stripped", pm(live_bake, s_probe, "h3_pdd.backbone_probe"), "s",
+                  base_match=pm(live_bake, s_probe, "h3_pdd.backbone_probe_base")) is None)
+        ok, msg = raises(lambda: P.check_backbone_identity(
+            "stripped", pm(live_base, s_probe, "h3_pdd.backbone_probe"), "s",
+            base_match=pm(live_base, s_probe, "h3_pdd.backbone_probe_base")), "unbaked base")
+        check("real bake: stripped on the base is refused as the unbaked base", ok, msg[:70])
+        ok, msg = raises(lambda: P.check_backbone_identity(
+            "full", pm(live_bake, f_probe, "h3_pdd.backbone_probe"), "f"), "SECOND time")
+        check("real bake: full sidecar on the bake is refused as a double apply", ok, msg[:70])
+        with safe_open(bake, framework="pt") as f:
+            b_meta = f.metadata() or {}
+            n_i8 = sum(1 for k in f.keys()
+                       if k.endswith(".weight") and f.get_slice(k).get_dtype() == "I8")
+        check("real bake: the checkpoint carries exactly the release's int8 "
+              "backbone population and names its LoRA, strength and rounding",
+              n_i8 == pop["block_modules"]
+              and b_meta.get("h3_bake_lora") == sidecar.name
+              and b_meta.get("h3_bake_strength") == "1.0"
+              and b_meta.get("h3_bake_rounding") == "round_to_nearest",
+              f"{n_i8} int8 modules")
+    else:
+        print("  SKIP  real baked-pair cases: bake or stripped sidecar not on disk")
+
     if FAILURES:
         print(f"RED: {len(FAILURES)} failed -- {', '.join(FAILURES)}")
         return 1

@@ -1,0 +1,8 @@
+# bench/exercise_pdd_stripped_path.py, first run 2026-09-05 (scratch copy of the same harness), CPU only, server down, CUDA masked
+device cpu cuda False
+loaded minimax_h3_fl2va_pruned_int8_convrot.safetensors in 0s
+[stripped on the base] expect REFUSED (unbaked base) -> REFUSED: h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors is a stripped sidecar -- it carries no backbone -- and the loaded checkpoint IS the unbaked base. Nothing would apply the PDD backbone, and the render would look n  (0s)
+loaded minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors in 0s
+[stripped on its bake] expect LOADED -> LOADED  (0s)
+[full on the bake] expect REFUSED (double apply) -> REFUSED: h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors carries the whole backbone, but the loaded checkpoint's probed module is not the base this file was converted against (codes and row scales differ). On a checkpoint with th  (0s)
+done
