@@ -107,7 +107,7 @@ from h3_config import (  # noqa: E402
     sol_for_graph,
     TURBO_REF2VA_LORA, TURBO_REF2VA_STEPS, TURBO_REF2VA_SHIFT,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
-    PDD_STRENGTH,
+    PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
 )
 
 
@@ -7274,6 +7274,36 @@ def main():
                   "only when the question is what the model itself does.")),
          "text -> video + audio at 8 steps via PDD, stock attention, the PDD ladder's baseline"),
 
+        # **The bake pair's arm, added 2026-09-05.** Identical to
+        # h3_probe_t2v_pdd8_sage except the checkpoint and the sidecar: the
+        # PDD backbone is folded into the int8 weights offline
+        # (bench/bake_pdd_checkpoint.py) and the sidecar carries only what the
+        # bake cannot hold. Same steps, same kernels, sage alone, so the pair
+        # differs in one thing: whether the backbone delta reaches the weights
+        # through a requantised merge at load or was quantised once with them.
+        ("h3_probe_t2v_pdd8_baked_sage.json", "t2v-pdd8-baked-sage", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+              unet=MODELS["unet_fl2va_pdd8_baked"],
+              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_probe_t2v_pdd8_baked_sage",
+              variant_note=_probe_note(
+                  "PDD8 on the baked checkpoint under sage alone: the "
+                  "merged-versus-baked pair's arm",
+                  "h3_probe_t2v_pdd8_sage.json",
+                  "the checkpoint is the fl2va PDD8 backbone bake and the "
+                  "sidecar is the stripped one; everything else is the twin. "
+                  "No backbone patch is applied at load and nothing "
+                  "requantises; the node refuses any other pairing.",
+                  "the defects the owner named blind on the shipped PDD8 rung "
+                  "(brightness, compressed skin texture, melted on-screen "
+                  "text) against the merged twin at the same seed: gone here "
+                  "and the requantised merge was the cause; still here and "
+                  "the schedule is (docs/roadmap.md, the bake paragraph).",
+                  "bench/pdd_bake_arms.json renders this on the PDD ladder's "
+                  "scenes at the ladder's seed and blinds it against the "
+                  "ladder's pdd8sage and sage clips.")),
+         "text -> video + audio at 8 steps via PDD on the baked checkpoint, sage alone"),
+
         # **The description-length pair.** Same PDD 4-step settings as the other
         # t2v PDD arms, so length is the only thing that differs from each
         # other AND the configuration is the one artifacts show up in. See the
@@ -7805,6 +7835,28 @@ def main():
                   "Reasoned cost: six sage steps and two Sol steps, between "
                   "PDD8 under sage alone and the shipped PDD8 graph.")),
          "CANDIDATE text -> video + audio at 8 steps via PDD, Sol on two steps"),
+
+        ("h3_candidate_t2v_pdd8_baked.json", "t2v-candidate-pdd8-baked", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              unet=MODELS["unet_fl2va_pdd8_baked"],
+              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_candidate_t2v_pdd8_baked",
+              variant_note=_probe_note(
+                  "CANDIDATE: the shipped PDD8 graph on the baked checkpoint",
+                  "h3_text_to_video_pdd.json",
+                  "only the checkpoint and the sidecar differ from the shipped "
+                  "twin: the PDD backbone is quantised once with the weights "
+                  "instead of merged and requantised at load. Sage and Sol at "
+                  "the PDD window as shipped, the heads and adaln from the "
+                  "stripped sidecar.",
+                  "whether the shipped PDD8 look improves with the merge noise "
+                  "gone; a candidate for the owner's own prompts once the "
+                  "sage-alone pair (h3_probe_t2v_pdd8_baked_sage) has been "
+                  "judged blind. Same speed as the shipped graph.",
+                  "The pair that decides it is rendered under sage alone so "
+                  "Sol is not in the comparison; this graph is the shipped "
+                  "configuration for use, not the arm.")),
+         "CANDIDATE text -> video + audio at 8 steps via PDD on the baked checkpoint, sage and Sol as shipped"),
 
         # Sol-Attn ON at full reference load: images + a reference video + its
         # soundtrack + standalone audio. This is the heaviest sink the model

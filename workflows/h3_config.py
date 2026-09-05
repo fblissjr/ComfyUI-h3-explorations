@@ -133,6 +133,19 @@ ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    # The fl2va PDD8 backbone bake, built 2026-09-05 by
+    # `bench/bake_pdd_checkpoint.py`: the shipped pruned checkpoint with its
+    # 200 int8 backbone linears replaced by quantise(W_release + PDD delta at
+    # strength 1.0), round-to-nearest, every other key copied byte for byte.
+    # The strength-zero control reproduced the shipped codes up to rounding
+    # ties (`bench/results/2026-09-05_bake_identity_control.json`), so this is
+    # the shipped file with the LoRA folded in and nothing else moved. It
+    # loads ONLY with `PDD_FL2VA_STRIPPED_LORA`; the node refuses the full
+    # sidecar on it (double apply) and refuses the stripped one on the base.
+    # `docs/pdd_artifacts.md` is the inventory; `_s1` in the name is the
+    # baked strength.
+    unet_fl2va_pdd8_baked=("minimax_h3_fl2va_pruned_int8_convrot"
+                           "_pdd8_baked_s1.safetensors"),
     # Two fl2va/ref2va hybrids, both int8_convrot, both fl2va everywhere
     # except the adaln projections named in their filenames. `b30` is the HF
     # release (blocks 30-49, final layer left on fl2va); `adaln_all` is built
@@ -1311,12 +1324,14 @@ LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
                        "MiniMaxH3PDDLoRA")
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
-# There is deliberately NO stripped-sidecar constant here yet. A stripped
-# sidecar is cut against ONE baked checkpoint (`bench/convert_pdd_lora.py
-# --omit-backbone --baked <ckpt>`) and no bake exists; the two staged files
-# from 2026-09-02, cut against the base under the earlier contract, were
-# deleted on 2026-09-03 when the node began requiring the baked probe. The
-# bake producer emits the pair, and the constant lands with it.
+# The stripped sidecar, cut 2026-09-05 against `MODELS["unet_fl2va_pdd8_baked"]`
+# with `bench/convert_pdd_lora.py --omit-backbone --baked <that file>
+# --baked-strength 1.0`: heads, adaln bake and the refiner LoRA, no backbone.
+# The two are a PAIR and the node enforces it by content (int8 codes and row
+# scales of one probe module), so a graph that names one without the other
+# fails at execute rather than rendering. Until 2026-09-05 this comment said
+# no such constant could exist because no bake did; the bake now does.
+PDD_FL2VA_STRIPPED_LORA = "h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors"
 # The ref2v turbo, on disk since 2026-08-18 and NAMED here for the first time
 # on 2026-08-26. It exists to be the thing PDD is measured against.
 #

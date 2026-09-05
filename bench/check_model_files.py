@@ -87,6 +87,7 @@ DEFAULT_URL = "http://127.0.0.1:8188"
 # Which loader class owns each h3_config model constant.
 CONSTANT_CLASS = {
     "unet": "UNETLoader", "unet_fl2va": "UNETLoader", "unet_ref2va": "UNETLoader",
+    "unet_fl2va_pdd8_baked": "UNETLoader",
     "unet_hybrid_b30": "UNETLoader", "unet_hybrid_adaln_all": "UNETLoader",
     # Resolved per file below, not pinned: the shipped encoder became a
     # ComfyUI-native build on 2026-08-27 and this map is what said

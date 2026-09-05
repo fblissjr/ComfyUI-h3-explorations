@@ -154,6 +154,12 @@ SOL_EXEMPT_STEMS = {
         "the same capture on the fl2va checkpoint with no LoRA, the control "
         "for whether block 49's input structure is a property of the released "
         "weights rather than of ref2va; Sol off for the same reason as its twin",
+    "h3_probe_t2v_pdd8_baked_sage":
+        "the baked arm of the merged-versus-baked PDD8 pair "
+        "(bench/pdd_bake_arms.json): the twin of h3_probe_t2v_pdd8_sage with "
+        "the checkpoint and sidecar swapped for the bake, sage on every step "
+        "and Sol absent so the pair differs in the weights alone. Its twin "
+        "with Sol as shipped is h3_candidate_t2v_pdd8_baked, not exempt",
     "h3_probe_t2v_pdd8_sage":
         "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json): "
         "PDD8 with sage on every step and Sol absent, so that the shipped "
