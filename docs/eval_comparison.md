@@ -360,6 +360,60 @@ texture in the dark, on-screen text.
 (paste the textarea into a file if the download is refused), and say it is
 there; `bench/score_session.py` does the rest.
 
+### Predictions before the verdict: the PDD bake pair as the worked example
+
+A session's brief should say, before anyone scores, what the arm changes,
+what should therefore move, what should not, and how the result reads either
+way. The judge can then be wrong in a named way. The bake pair
+(`pdd_bake_2026-09-05`, manifest `bench/pdd_bake_arms.json`) is the first
+session written this way, with the bake lane's predictions folded in on
+2026-09-05:
+
+- **What the arm changes, once.** Every int8 backbone linear in all fifty
+  blocks is quantised once from the release weights plus the PDD delta,
+  instead of dequantised, patched and requantised with stochastic rounding
+  on every cast. Nothing else moved: adaln patch, head bank, refiner patch,
+  schedule, seed, prompt, sage alone. So the merged half equals the baked
+  half plus a small random weight perturbation on every backbone linear,
+  about the size of the checkpoint's own quantisation error
+  (`research/merge_requantisation.md`;
+  `bench/results/2026-08-31_merge_realisation_pdd.json`), spread uniformly.
+- **Should move if the hypothesis holds**: the defects that look like added
+  quantisation noise. Compressed or waxy skin, melted or ringing on-screen
+  text, a brightness or contrast shift, lost fine detail in hair, fabric and
+  grain, banding in smooth gradients. Improved on the baked half and the
+  hypothesis holds; identical and the merge noise is below what one sample
+  shows.
+- **Should NOT move**: anything the eight-step partition owns, which the
+  bake does not touch. Motion smear on fast action, flicker at block
+  boundaries, shaky framing, temporal coherence (`CLAUDE.md`, "PDD quality
+  is governed by the sigma schedule's coarseness"). If those clear on the
+  baked half, suspect a sample difference, not the bake.
+- **Audio is in the pair.** The audio tokens run through the same backbone
+  linears, so merge noise perturbs the audio stream exactly as the video.
+  Listen for high-frequency dullness or hiss, smeared transients, sibilance;
+  speech content and sync should not change. Level is a measurement, not a
+  judgement: `bench/measure_clip_loudness.py` on the outputs record, beside
+  the verdict. If the ladder's "a bit quieter" on PDD8 was merge noise, the
+  baked clip's level moves toward the sage floor's; if not, the level
+  belongs to the heads or the schedule (`research/pdd/audio_under_pdd.md`).
+- **How "same" reads.** Merged-versus-baked judged *same* at one seed is a
+  success on hygiene regardless (exact weights, no stochastic dependence,
+  one artifact, no per-cast requantise), a small success on cost, and a
+  null on the hypothesis only in the weak sense: the merge noise's visible
+  effect is not larger than one sample's variation. The stronger reading is
+  the triangle: baked against the sage floor at the same seed, beside
+  merged against sage, which the 2026-09-03 ladder already judged (merged
+  lost every scene). Baked reading same-as-sage where merged read worse is
+  the positive result even when the direct pair reads *can't tell*; baked
+  also losing to sage on the same defects says the defects are the
+  schedule's, and the next lever is the partition, not the weights.
+- **Priming, a caution for the next brief.** Do not name the expected
+  defects to the judge before the pair verdict; put them in the singles'
+  questions. A judge primed to look for melted text finds it in one half.
+  The three briefs built on 2026-09-04 and 2026-09-05 do name the four
+  PDD8 defects up front; their verdict records should say so.
+
 **`--pairs` repeats.** A session with more than two arms is judged as one
 reference arm against each of the others at matched seeds, one `--pairs` per
 contest. `pair_NN` numbering runs continuously across contests so the judge

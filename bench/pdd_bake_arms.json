@@ -35,5 +35,13 @@
   "cost": "reasoned, not measured: the same eight sage steps as pdd8sage; the bake changes weights, not work. Nothing at load either, since no backbone patch is applied. Any timing is in the post-pull regime and is compared only with rows from that regime.",
   "requires": "a ComfyUI server up with this pack's graphs regenerated against the live /object_info; the baked checkpoint linked into models/diffusion_models and the stripped sidecar in models/loras/h3 (docs/pdd_artifacts.md).",
   "generated_by": "workflows/build_workflows.py for the probe graph; regenerate there, never edit the graph",
-  "policy": "sage always on (owner decision 2026-09-04); the pair is rendered under sage alone so Sol is not in the comparison"
+  "policy": "sage always on (owner decision 2026-09-04); the pair is rendered under sage alone so Sol is not in the comparison",
+  "predictions": {
+    "written": "2026-09-05, by the bake lane, before any score existed; the reasoning is docs/eval_comparison.md, 'Predictions before the verdict'",
+    "should_move_if_hypothesis_holds": "quantisation-noise-like defects: compressed or waxy skin, melted or ringing on-screen text, brightness or contrast shift, lost fine detail (hair, fabric, grain), banding in gradients; audio high-frequency dullness, hiss, smeared transients, sibilance",
+    "should_not_move": "what the eight-step partition owns: motion smear on fast action, flicker at block boundaries, shaky framing, temporal coherence; speech content and sync",
+    "audio_level": "a measurement, not a judgement: bench/measure_clip_loudness.py on this run's outputs record beside the merged twins and the sage floor; if PDD8's lower level was merge noise the baked level moves toward the floor's",
+    "how_same_reads": "success on hygiene and a small one on cost; a weak null on the hypothesis. The stronger reading is the triangle: baked vs sage beside merged vs sage (2026-09-03 ladder, merged lost every scene). Baked same-as-sage where merged lost is the positive result; baked losing on the same defects says the defects are the schedule's and the next lever is the partition",
+    "priming": "the brief names the four PDD8 defects before the pair verdict, against the caution in docs/eval_comparison.md; the verdict record should say so"
+  }
 }
