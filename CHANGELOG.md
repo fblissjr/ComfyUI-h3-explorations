@@ -30,6 +30,22 @@ artifact.
 
 ### Added (the morning after)
 
+- **The just-Sol family is rendered and blinded** as session
+  `sol_nosage_2026-09-04`: Sol on every step but the last with no sage node
+  and no PDD on the ladder's five scenes at its seed, plus the subway scene
+  at a slightly higher tau, all on one unarmed server carrying the merged
+  exercised assert; records `bench/results/2026-09-04_sol_nosage_*`
+  (rows, judged rows with the ladder's sage and Sol references appended,
+  outputs joined from the server's history, per-clip loudness for the five
+  tau-1.0 arms). Twelve stacked pairs against the ladder's sage and Sol
+  clips and the tau variant against both; sixteen singles. The assert
+  proved the Sol-over-stock state at registration on every render and
+  skipped its call-time exercise for headroom each time. Scoring is the
+  owner's. One limitation found: `bench/measure_clip_loudness.py` splits a
+  label as `<scene>_<rung>` at the last underscore, so a rung name with an
+  underscore in it is misread; the tau arm is left out of its record
+  rather than mislabelled.
+
 - **Blind pairs hear each half** (peer session at the owner's ask, commit
   `3637f6d`): the scoring page plays the selected half's audio from its own
   single in sync with the silent stack and exports which halves were

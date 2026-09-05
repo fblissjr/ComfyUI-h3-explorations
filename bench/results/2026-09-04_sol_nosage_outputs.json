@@ -1,0 +1,152 @@
+{
+  "what": "Just Sol (bench/sol_nosage_arms.json): Sol on every step but the last with no sage node and no PDD, on the ladder's five scenes at its seed, plus the subway scene at tau 1.2; rendered 2026-09-05 on one unarmed server (pid 61907) carrying the merged exercised chain assert (7b9c0ce), after the PDD ladder on a different server. Judged blind against the ladder's sage and Sol clips.",
+  "measured": "2026-09-05",
+  "produced_by": "bench/build_outputs_record.py joining 2026-09-04_sol_nosage_arms.jsonl to the rendering server's /history; basenames only, the clips live in the output folder the launcher names",
+  "source_jsonl": "bench/results/2026-09-04_sol_nosage_arms.jsonl",
+  "arms": [
+    {
+      "label": "subway_solnosage",
+      "prompt_id": "96d4abe5-2a95-48a8-8f20-40b3a86fd3b2",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 502.2724336270003,
+      "sampler_s": 445.60533607599973,
+      "decode_s": 36.06148102899988,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_subway_solnosage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "standoff_solnosage",
+      "prompt_id": "4127d283-bfc5-4d4a-8fd6-9d4eac026a46",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_frontier_standoff",
+        "prompt_sha256": "3466c32a073280babf9a3630e098344f867d5b7ea12765cee7e5f4fd53c6b9ce",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 499.1759958699995,
+      "sampler_s": 458.71186515999943,
+      "decode_s": 33.62619624099989,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_standoff_solnosage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "diner_solnosage",
+      "prompt_id": "90999bc7-0aed-4e81-be4b-67726205e1e7",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_diner_breakup",
+        "prompt_sha256": "1183fd392aab1a76d527a1f9588448002e470add649c2d481898b0f83af6111d",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 497.29869220100045,
+      "sampler_s": 456.1962589780005,
+      "decode_s": 33.790831364999576,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_diner_solnosage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "stairwell_solnosage",
+      "prompt_id": "ff58e46d-13cb-453c-bc04-96b1609fb45f",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_stairwell_dialogue",
+        "prompt_sha256": "6a88162bb9d2ca42082c066b1b0032f50aac55cdc58a5f9c11e0cac1c7bee497",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 491.40282663700054,
+      "sampler_s": 451.2408983969999,
+      "decode_s": 33.61080125999979,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_stairwell_solnosage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "opera_solnosage",
+      "prompt_id": "56e8f99b-65b1-4727-963f-174862396f9e",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_opera_grand_stage",
+        "prompt_sha256": "5db991257040d53caca4c63671183c809a3858660918e20d5937ce7582118f96",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 496.63392315799956,
+      "sampler_s": 456.5047276340001,
+      "decode_s": 33.61552600699997,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_opera_solnosage_00001-audio.mp4"
+      ],
+      "note": null
+    },
+    {
+      "label": "subway_solnosage_tau12",
+      "prompt_id": "3abbb495-e0b3-4e48-ba8d-036777f733af",
+      "seed": 730451892,
+      "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+      "graph_sha256": "6cc62c9fec12ea01",
+      "rendered": {
+        "prompt_id": "t2va_subway_chase",
+        "prompt_sha256": "fefad8304d0daf72ea3661fb1e3786e7d4a174de42112a8856a27b5ba4114772",
+        "prompt_text": null,
+        "length": 345,
+        "canvas": "1344x768",
+        "seed": 730451892
+      },
+      "warmup": false,
+      "total_s": 459.3913315360005,
+      "sampler_s": 418.57020639499933,
+      "decode_s": 33.59351788499953,
+      "suspect_cache_hit": false,
+      "outputs": [
+        "h3_probe_t2v_sol_nosage_subway_solnosage_tau12_00001-audio.mp4"
+      ],
+      "note": null
+    }
+  ]
+}

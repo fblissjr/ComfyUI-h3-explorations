@@ -1,0 +1,84 @@
+{
+ "measured": "2026-09-05",
+ "produced_by": "bench/measure_clip_loudness.py over solnosage_five.json; ffmpeg ebur128=peak=true on the first audio stream of each muxed clip",
+ "note": "just-Sol arms measured 2026-09-05, per-clip levels only (one rung, so no within-record delta); read beside the per-arm rows of bench/results/2026-09-04_ladder_audio_loudness.json for the same scenes' sage and sol levels; the tau-1.2 subway arm is absent because its label does not split as scene_rung",
+ "reading": "descriptive. One clip per arm, so a per-scene delta is a paired draw from two different samples, not a measurement of the rung; the sign summary counts how many scenes agree, which is the most this record can say. A seed sweep per arm is what would turn a delta into a level difference.",
+ "baseline_rung": "solnosage",
+ "units": {
+  "integrated_lufs": "EBU R128 integrated loudness, LUFS (higher is louder)",
+  "loudness_range_lu": "EBU R128 loudness range, LU",
+  "true_peak_dbfs": "true peak, dBFS",
+  "delta_lufs": "rung integrated loudness minus the scene's baseline rung"
+ },
+ "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+ "per_arm": [
+  {
+   "label": "subway_solnosage",
+   "scene": "subway",
+   "rung": "solnosage",
+   "clip": "h3_probe_t2v_sol_nosage_subway_solnosage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+   "prompt_id": "t2va_subway_chase",
+   "integrated_lufs": -16.1,
+   "loudness_range_lu": 3.5,
+   "true_peak_dbfs": -0.7
+  },
+  {
+   "label": "standoff_solnosage",
+   "scene": "standoff",
+   "rung": "solnosage",
+   "clip": "h3_probe_t2v_sol_nosage_standoff_solnosage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+   "prompt_id": "t2va_frontier_standoff",
+   "integrated_lufs": -19.7,
+   "loudness_range_lu": 8.9,
+   "true_peak_dbfs": -4.2
+  },
+  {
+   "label": "diner_solnosage",
+   "scene": "diner",
+   "rung": "solnosage",
+   "clip": "h3_probe_t2v_sol_nosage_diner_solnosage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+   "prompt_id": "t2va_diner_breakup",
+   "integrated_lufs": -30.1,
+   "loudness_range_lu": 6.9,
+   "true_peak_dbfs": -12.0
+  },
+  {
+   "label": "stairwell_solnosage",
+   "scene": "stairwell",
+   "rung": "solnosage",
+   "clip": "h3_probe_t2v_sol_nosage_stairwell_solnosage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+   "prompt_id": "t2va_stairwell_dialogue",
+   "integrated_lufs": -18.3,
+   "loudness_range_lu": 5.5,
+   "true_peak_dbfs": -2.4
+  },
+  {
+   "label": "opera_solnosage",
+   "scene": "opera",
+   "rung": "solnosage",
+   "clip": "h3_probe_t2v_sol_nosage_opera_solnosage_00001-audio.mp4",
+   "seed": 730451892,
+   "graph": "workflows/h3_probe_t2v_sol_nosage_api.json",
+   "prompt_id": "t2va_opera_grand_stage",
+   "integrated_lufs": -29.1,
+   "loudness_range_lu": 9.7,
+   "true_peak_dbfs": -16.8
+  }
+ ],
+ "delta_vs_baseline_by_scene": {
+  "subway": {},
+  "standoff": {},
+  "diner": {},
+  "stairwell": {},
+  "opera": {}
+ },
+ "sign_summary_by_rung": {}
+}
