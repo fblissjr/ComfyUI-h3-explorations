@@ -75,7 +75,7 @@ Items from the `evalman` render lane:
   experiment 6 in `../open_experiments.md`, the base-model question the
   owner raised.
 
-Items from the `larry` bake lane:
+Items from the PDD bake lane (session `larry`):
 
 - The bake script's open review candidates: a control-before-bake gate,
   the contract check's retyped filenames now that `h3_config` names the
