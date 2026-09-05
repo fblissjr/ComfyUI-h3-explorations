@@ -362,6 +362,10 @@ merge but was built from kijai's `sol_attn_continued`, which carried the
 same exact-branch algorithm, so the merge moved nothing numerically on this
 box; `bench/check_sol_kernel.py` reports the installed local segment and
 `comfy_kitchen_build.json` beside the venv names the branch it came from.
+The workspace clone's checked-out branch is not that sha and need not be:
+the clone is where sources and wheels are kept, the build record is what
+says which wheel runs, and a reader of the folder should trust the record
+over the checkout.
 
 **Open.** [PR 156](https://github.com/Comfy-Org/comfy-kitchen/pull/156)
 (kijai, opened 2026-09-04, head `sol_token_aug_main`): a `token_aug` knob,

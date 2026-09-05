@@ -49,7 +49,7 @@ Nothing here was rendered, and a rendered clip could not have A/B'd it
 
 | | |
 |---|---|
-| kernel | kijai's `sol_token_aug_main` at `1128df6`, the PR 156 head on 2026-09-04, fetched into the workspace clone behind `coderef/comfy-kitchen` as `kijai/sol_token_aug_main`; built from a detached worktree of that sha with the version line tagged `+sol.1128df6`; wheel kept under that clone's `dist/`; unzipped into a scratch directory and selected through `PYTHONPATH`. The venv's wheel (`0.2.31+sol.d25f2e8`, `.venv/comfy_kitchen_build.json`) was not touched. The record's `kernel_source` field says the same |
+| kernel | kijai's `sol_token_aug_main` at `1128df6`, the PR 156 head on 2026-09-04 (committed 2026-09-04 20:49 UTC; its `+0300` stamp reads as an evening time and the wheel was built after it in this box's zone), fetched into the workspace clone behind `coderef/comfy-kitchen` as `kijai/sol_token_aug_main`; built from a detached worktree of that sha with the version line tagged `+sol.1128df6`; wheel kept under that clone's `dist/`; unzipped into a scratch directory and selected through `PYTHONPATH`. The venv's wheel (`0.2.31+sol.d25f2e8`, `.venv/comfy_kitchen_build.json`) was not touched. The record's `kernel_source` field says the same |
 | capture | the 2026-09-03 Base16 dense-trajectory control, five blocks by five steps, manifest `bench/results/2026-09-03_capture_manifest_base16.json`, retained outside the repo |
 | reference | fp32 chunked softmax attention per head over every row, the grader's own |
 | arms | the plain `topk_0.10` and `tau_1.0_no_sinks` arms of the 2026-09-03 record, each repeated with `token_aug` at 64, 128 and 256; sage arms skipped (`--no-sage`), already on file for these cells in the 2026-09-03 record |
