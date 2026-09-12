@@ -35,6 +35,15 @@ to a 1/256 grid and DROPS a stream's mask when every value is within a
 thousandth of 1.0 (`MiniMaxH3._denoise_mask_values`), so 1.0 here means
 "no freeze at all", and values just under it do not survive.
 
+**What it fixes, and says so.** The vendor's path takes float PCM in
+[-1, 1] at the VAE's rate, stereo, with no gain. This node resamples with
+the vendor's resampler, duplicates mono, downmixes more than two channels
+with ffmpeg's default coefficients under the standard channel order for
+that count (a ComfyUI AUDIO tensor carries no layout, so the order is
+assumed and reported), removes a DC offset, and pulls a clipped window back
+under full scale (`level`, default `clip_guard`, which changes a well-formed
+file by nothing). Every transform is named in the report.
+
 **Trap this node guards.** Stock `SetLatentNoiseMask` reshapes one tensor
 and stores it flat; on an AV latent the sampler then pads a ones mask for the
 audio stream and the track regenerates silently. A flat mask on the input is
@@ -78,8 +87,33 @@ def _av_streams(samples):
     return streams[0], streams[1]
 
 
-def _stereo(audio, field: str = "audio") -> tuple[torch.Tensor, int]:
-    """First batch item as [1, 2, L] float32, mono duplicated, more than two refused."""
+# ffmpeg's default channel orders and stereo downmix, the ones sglang's
+# `-ac 2` applies from the file's own layout. A ComfyUI AUDIO tensor carries
+# no layout, so the order is assumed by channel count and the report says so.
+# Coefficients: front pair straight, centre and rears at 1/sqrt(2), LFE
+# dropped, then scaled so the largest gain sum is one (ffmpeg's rematrix
+# normalisation). 3 = FL FR FC, 4 = FL FR BL BR, 5 = FL FR FC BL BR,
+# 6 = FL FR FC LFE BL BR, 8 = FL FR FC LFE BL BR SL SR.
+_SIDE = 0.7071067811865476
+_DOWNMIX = {
+    3: ("FL FR FC", [(1.0, 0.0, _SIDE)], [(0.0, 1.0, _SIDE)]),
+    4: ("FL FR BL BR", [(1.0, 0.0, _SIDE, 0.0)], [(0.0, 1.0, 0.0, _SIDE)]),
+    5: ("FL FR FC BL BR", [(1.0, 0.0, _SIDE, _SIDE, 0.0)], [(0.0, 1.0, _SIDE, 0.0, _SIDE)]),
+    6: ("FL FR FC LFE BL BR", [(1.0, 0.0, _SIDE, 0.0, _SIDE, 0.0)], [(0.0, 1.0, _SIDE, 0.0, 0.0, _SIDE)]),
+    8: ("FL FR FC LFE BL BR SL SR",
+        [(1.0, 0.0, _SIDE, 0.0, _SIDE, 0.0, _SIDE, 0.0)],
+        [(0.0, 1.0, _SIDE, 0.0, 0.0, _SIDE, 0.0, _SIDE)]),
+}
+
+
+def _stereo(audio, field: str = "audio") -> tuple[torch.Tensor, int, list[str]]:
+    """First batch item as [1, 2, L] float32, plus the transforms applied, in words.
+
+    Mono is duplicated (what ffmpeg does for sglang). More than two channels
+    is downmixed with ffmpeg's default coefficients under the standard order
+    for that count, and the assumed order is reported; a count with no
+    standard layout is averaged into both channels.
+    """
     if not isinstance(audio, Mapping):
         raise ValueError(f"{field} must be a Comfy AUDIO value")
     waveform = audio.get("waveform")
@@ -92,15 +126,54 @@ def _stereo(audio, field: str = "audio") -> tuple[torch.Tensor, int]:
         raise ValueError(f"{field}.sample_rate must be a positive number")
     waveform = waveform[:1].to(torch.float32)
     channels = int(waveform.shape[1])
+    notes: list[str] = []
     if channels == 1:
         waveform = waveform.repeat(1, 2, 1)
-    elif channels != 2:
-        # Silently taking two of more channels can destroy the mix; the same
-        # refusal reference_conditioning._prepare_audio makes.
-        raise ValueError(
-            f"{field} must be mono or stereo; got {channels} channels. "
-            "Downmix before this node.")
-    return waveform, int(rate)
+        notes.append("mono duplicated to both channels")
+    elif channels == 2:
+        pass
+    elif channels in _DOWNMIX:
+        order, left, right = _DOWNMIX[channels]
+        lw = torch.tensor(left[0], dtype=torch.float32)
+        rw = torch.tensor(right[0], dtype=torch.float32)
+        norm = max(float(lw.sum()), float(rw.sum()))
+        x = waveform[0]  # [C, L]
+        mixed = torch.stack([(lw[:, None] * x).sum(0), (rw[:, None] * x).sum(0)]) / norm
+        waveform = mixed.unsqueeze(0)
+        notes.append(f"{channels} channels downmixed to stereo with ffmpeg's default "
+                     f"coefficients, assuming the order {order}")
+    else:
+        mono = waveform.mean(dim=1, keepdim=True)
+        waveform = mono.repeat(1, 2, 1)
+        notes.append(f"{channels} channels have no standard layout; averaged into both channels")
+    return waveform, int(rate), notes
+
+
+def condition_level(piece: torch.Tensor, level: str) -> tuple[torch.Tensor, list[str]]:
+    """Bring the window into the VAE's input contract, float PCM in [-1, 1], and say what changed.
+
+    `clip_guard`: remove a DC offset above a hundredth of full scale, and
+    scale down only when the peak exceeds one. `peak`: also scale so the
+    peak sits just under full scale, up or down. `none`: touch nothing.
+    The vendor's path applies no gain at all, so `clip_guard` changes a
+    well-formed file by nothing.
+    """
+    notes: list[str] = []
+    if level == "none":
+        return piece, notes
+    dc = float(piece.mean())
+    if abs(dc) > 0.01:
+        piece = piece - dc
+        notes.append(f"DC offset {dc:+.4f} removed")
+    peak = float(piece.abs().max()) if piece.numel() else 0.0
+    target = 0.999
+    if level == "peak" and peak > 1e-6:
+        piece = piece * (target / peak)
+        notes.append(f"peak {peak:.3f} scaled to {target}")
+    elif peak > 1.0:
+        piece = piece * (target / peak)
+        notes.append(f"peak {peak:.3f} exceeded full scale; scaled to {target}")
+    return piece, notes
 
 
 def audio_grid(audio_vae) -> tuple[int, int]:
@@ -204,6 +277,12 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
                                         "lets the model own the rows a little (1 - m * sigma). "
                                         "1.0 is no freeze; values within 0.001 of 1.0 are dropped "
                                         "by core and behave as 1.0.")),
+                io.Combo.Input("level", options=["clip_guard", "peak", "none"], default="clip_guard",
+                               tooltip=("What to do about the window's level before encoding. clip_guard "
+                                        "(default): remove a DC offset and scale down only if the peak "
+                                        "exceeds full scale, so a well-formed file is untouched, as in the "
+                                        "vendor's path. peak: also scale the peak to just under full scale. "
+                                        "none: encode as given. The report says what happened.")),
             ],
             outputs=[
                 io.Latent.Output(display_name="latent",
@@ -215,13 +294,15 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, latent, audio_vae, audio, start_seconds, audio_mask) -> io.NodeOutput:
+    def execute(cls, latent, audio_vae, audio, start_seconds, audio_mask, level="clip_guard") -> io.NodeOutput:
         video, target_audio = _av_streams(latent["samples"])
         audio_t = int(target_audio.shape[-1])
         in_channels = int(audio["waveform"].shape[1]) if isinstance(audio, Mapping) and isinstance(audio.get("waveform"), torch.Tensor) else -1
-        waveform, rate = _stereo(audio)
+        waveform, rate, fixes = _stereo(audio)
         piece, start_step, vae_rate, padded_steps = slice_window(
             waveform, rate, audio_vae, start_seconds, audio_t)
+        piece, level_fixes = condition_level(piece, level)
+        fixes += level_fixes
         # What the VAE is about to see, stated so a wrong input cannot pass
         # quietly: the vendor's path takes float PCM in [-1, 1] at 32 kHz,
         # stereo, with no gain or normalisation (docs/h3_audio_freeze.md
@@ -230,7 +311,7 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
         rms = float(piece.pow(2).mean().sqrt()) if piece.numel() else 0.0
         level_note = ""
         if peak > 1.0:
-            level_note = f" PEAK {peak:.3f} exceeds 1.0: the source is clipped or not unit-scaled, and the VAE was trained on [-1, 1];"
+            level_note = f" PEAK {peak:.3f} still exceeds 1.0 (level={level}): the VAE was trained on [-1, 1];"
         elif peak < 1e-4:
             level_note = " the window is silent;"
 
@@ -258,7 +339,7 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
             + f"video mask {'kept from input' if latent.get('noise_mask') is not None else 'all ones'}; "
             + f"source {rate} Hz {in_channels} ch -> {vae_rate} Hz stereo "
             + ("(resampled, torchaudio sinc at its defaults, the vendor's resampler)" if rate != vae_rate else "(no resample)")
-            + (", mono duplicated" if in_channels == 1 else "")
+            + ("; " + "; ".join(fixes) if fixes else "")
             + f"; peak {peak:.3f} rms {rms:.4f};" + level_note
         )
         logger.info("[h3] MiniMaxH3FreezeAudio: %s", report)

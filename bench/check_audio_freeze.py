@@ -106,14 +106,30 @@ def check_slice(problems):
     except ValueError:
         pass
     # mono is duplicated, three channels refused
-    w, _ = af._stereo({"waveform": torch.zeros(1, 1, 100), "sample_rate": 32000})
+    w, _, _ = af._stereo({"waveform": torch.zeros(1, 1, 100), "sample_rate": 32000})
     if tuple(w.shape) != (1, 2, 100):
         _fail(problems, f"mono became {tuple(w.shape)}, expected (1, 2, 100)")
-    try:
-        af._stereo({"waveform": torch.zeros(1, 3, 100), "sample_rate": 32000})
-        _fail(problems, "three channels were accepted")
-    except ValueError:
-        pass
+    w3, _, notes = af._stereo({"waveform": torch.ones(1, 6, 100), "sample_rate": 32000})
+    if tuple(w3.shape) != (1, 2, 100) or not notes or "downmixed" not in notes[0]:
+        _fail(problems, f"5.1 input was not downmixed to stereo with a note: {tuple(w3.shape)} {notes}")
+    # ffmpeg's normalisation: all-ones input lands at exactly full scale, not above it
+    if abs(float(w3.abs().max()) - 1.0) > 1e-6:
+        _fail(problems, f"downmix of an all-ones 5.1 input peaks at {float(w3.abs().max()):.4f}, expected 1.0")
+    hot = torch.full((1, 2, 800 * 4), 1.5)
+    guarded, gn = af.condition_level(hot, "clip_guard")
+    if float(guarded.abs().max()) > 1.0 or not gn:
+        _fail(problems, "clip_guard did not pull a 1.5 peak under full scale")
+    tone = 0.5 * torch.sin(torch.linspace(0, 40 * 3.14159, 800)).expand(1, 2, 800)
+    same, sn = af.condition_level(tone, "clip_guard")
+    if abs(float(same.abs().max()) - float(tone.abs().max())) > 1e-6 or sn:
+        _fail(problems, f"clip_guard changed a well-formed window: {sn}")
+    raw, rn = af.condition_level(hot, "none")
+    if float(raw.abs().max()) != 1.5 or rn:
+        _fail(problems, "level=none touched the window")
+    offset = torch.full((1, 2, 800), 0.2) + torch.linspace(-0.1, 0.1, 800)
+    fixed, on = af.condition_level(offset, "clip_guard")
+    if abs(float(fixed.mean())) > 1e-5 or not on:
+        _fail(problems, f"a DC offset was not removed: mean {float(fixed.mean()):.4f} {on}")
 
 
 def check_masks(problems):

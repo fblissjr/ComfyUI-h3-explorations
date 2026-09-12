@@ -96,7 +96,8 @@
       "audio_vae",
       "audio",
       "start_seconds",
-      "audio_mask"
+      "audio_mask",
+      "level"
     ],
     "node_id": "MiniMaxH3FreezeAudio",
     "outputs": [
