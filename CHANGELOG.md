@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.91
+
+### Added
+
+- **`bench/measure_audio_video_coupling.py`**: the instrument beside the
+  owner's verdict on an audio-freeze pair. Whole-frame motion against the
+  audio's onset envelope, motion power at the audio's tempo, lower-face
+  motion against the speech envelope, each with a null. First records under
+  `bench/results/2026-09-12_audio_freeze_dancer_*.json`.
+- **`prompt_bank/t2va_studio_dancer_close.txt`**: the dancer scene reframed
+  at medium shot then close-up, after the owner read the wide version's
+  face as blurred.
+- **`bench/results/2026-09-12_audio_freeze_step2_verdict.json`**: the
+  owner's free-text verdicts on the step 2 arms as they arrive; the first
+  is that the frozen dancer "is definitely moving to the beat".
+
 ## 0.99.90
 
 ### Added

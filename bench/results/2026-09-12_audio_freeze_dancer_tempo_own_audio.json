@@ -1,0 +1,77 @@
+{
+  "date": "2026-09-12",
+  "mode": "tempo",
+  "what": "power of the whole-frame motion energy at the audio's tempo (and first harmonic) over the median power across 0.5-8 Hz, against the same ratio at tempos drawn away from the track's",
+  "against": "each clip's own soundtrack",
+  "rows": [
+    {
+      "label": "dancer_free",
+      "clip": "h3_t2v_dancer_free_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "tempo",
+      "tempo": {
+        "tempo_bpm": 71.0,
+        "power_ratio_at_tempo": 0.893,
+        "null_median": 1.04,
+        "null_p95": 1.175,
+        "beats_chance": false,
+        "frames": 345
+      }
+    },
+    {
+      "label": "dancer_frozen",
+      "clip": "h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "tempo",
+      "tempo": {
+        "tempo_bpm": 150.3,
+        "power_ratio_at_tempo": 1.174,
+        "null_median": 1.05,
+        "null_p95": 1.184,
+        "beats_chance": false,
+        "frames": 345
+      }
+    },
+    {
+      "label": "dancer_loose",
+      "clip": "h3_t2v_audio_freeze_dancer_loose_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "tempo",
+      "tempo": {
+        "tempo_bpm": 150.3,
+        "power_ratio_at_tempo": 1.07,
+        "null_median": 1.051,
+        "null_p95": 1.206,
+        "beats_chance": false,
+        "frames": 345
+      }
+    },
+    {
+      "label": "market_frozen",
+      "clip": "h3_t2v_audio_freeze_freeze_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "tempo",
+      "tempo": {
+        "tempo_bpm": 196.2,
+        "power_ratio_at_tempo": 0.661,
+        "null_median": 1.083,
+        "null_p95": 1.702,
+        "beats_chance": false,
+        "frames": 345
+      }
+    }
+  ],
+  "caveats": [
+    "an instrument beside the owner's verdict, not a ranking (docs/checks.md)",
+    "motion energy is camera, cuts and fabric as much as the subject; the Haar face box is coarse",
+    "z is against a circular-shift null of the same envelope, so it says the coupling beats chance for this clip and nothing about how it looks"
+  ]
+}

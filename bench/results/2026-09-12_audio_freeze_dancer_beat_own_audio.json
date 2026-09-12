@@ -1,0 +1,64 @@
+{
+  "date": "2026-09-12",
+  "mode": "beat",
+  "what": "whole-frame motion energy against the audio onset envelope, per video frame, with a circular-shift null",
+  "against": "each clip's own soundtrack",
+  "rows": [
+    {
+      "label": "dancer_free",
+      "clip": "h3_t2v_dancer_free_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "beat",
+      "beat": {
+        "corr_lag0": -0.0012,
+        "corr_best": 0.1373,
+        "best_lag_frames": -1,
+        "null_mean": -0.0107,
+        "null_std": 0.0496,
+        "z_lag0": 0.19,
+        "frames": 345
+      }
+    },
+    {
+      "label": "dancer_frozen",
+      "clip": "h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "beat",
+      "beat": {
+        "corr_lag0": 0.0879,
+        "corr_best": 0.1047,
+        "best_lag_frames": -1,
+        "null_mean": -0.0009,
+        "null_std": 0.0607,
+        "z_lag0": 1.46,
+        "frames": 345
+      }
+    },
+    {
+      "label": "dancer_loose",
+      "clip": "h3_t2v_audio_freeze_dancer_loose_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "beat",
+      "beat": {
+        "corr_lag0": 0.0887,
+        "corr_best": 0.1083,
+        "best_lag_frames": -1,
+        "null_mean": -0.0008,
+        "null_std": 0.0597,
+        "z_lag0": 1.5,
+        "frames": 345
+      }
+    }
+  ],
+  "caveats": [
+    "an instrument beside the owner's verdict, not a ranking (docs/checks.md)",
+    "motion energy is camera, cuts and fabric as much as the subject; the Haar face box is coarse",
+    "z is against a circular-shift null of the same envelope, so it says the coupling beats chance for this clip and nothing about how it looks"
+  ]
+}

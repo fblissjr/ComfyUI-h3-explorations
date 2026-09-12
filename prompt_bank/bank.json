@@ -903,6 +903,14 @@
       "donor": null,
       "brief": "The same rooftop scene with the spoken line described but not transcribed (no <d> block); the audio-freeze lane's idea 4 arm",
       "tests": "whether the transcript in the prompt matters when the audio is frozen: same scene, same seed, same clip, no words in the text"
+    },
+    {
+      "id": "t2va_studio_dancer_close",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The studio dancer reframed at medium shot then close-up, face sharp and on the lens; the owner's 2026-09-12 note that the wide version blurs the face (a zoomed-out failure common to these models)",
+      "tests": "the same beat-following question as t2va_studio_dancer with the face large enough to judge; the framing the lane's later renders should use"
     }
   ]
 }

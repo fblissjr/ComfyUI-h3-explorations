@@ -1,0 +1,23 @@
+{
+  "date": "2026-09-12",
+  "what": "the owner's free-text verdicts on the audio-freeze step 2 arms (docs/h3_audio_freeze.md section 4 step 2), as given, in order. Arms and seeds: bench/audio_freeze_step2_arms.json; rows: bench/results/2026-09-12_audio_freeze_step2_arms.jsonl.",
+  "how_judged": "the owner watched the clip in the output share while the batch was still rendering; not blind, not a matched-pair comparison yet. The free twin (dancer_free) had rendered but had not been watched at the time of the first verdict.",
+  "verdicts": [
+    {
+      "arm": "dancer_frozen",
+      "clip": "Video/h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
+      "owner": "h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4 is definitely moving to the beat",
+      "when": "2026-09-12, during the batch, before dancer_loose finished"
+    },
+    {
+      "arm": "dancer_frozen",
+      "clip": "Video/h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
+      "owner": "Its too zoomed out on the face so its blurry (common problem in these models when zoomed out far) so prompt should compensate",
+      "when": "2026-09-12, same viewing; acted on: prompt_bank/t2va_studio_dancer_close.txt reframes the scene at medium shot then close-up"
+    }
+  ],
+  "caveats": [
+    "one arm, one seed, one scene, judged alone: a sample, not a result (docs/eval_comparison.md)",
+    "the throwaway first render (covered-market prompt under the same drum track, 2026-09-12_audio_freeze_first_run.jsonl) drew the opposite reading from the owner: 'not entirely sure it changed anything in the video'. The prompt there described dialogue and a market, not music; the dancer prompt describes a dancer to a beat. Whether the difference is the prompt, the scene or the seed is the pair question"
+  ]
+}

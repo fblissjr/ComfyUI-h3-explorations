@@ -151,6 +151,24 @@ Owner agreed 2026-09-12. Each step names what would count as done.
    frozen at one seed, plus the loose-mask arm and the no-transcript arm),
    rows in `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`. The
    stem variant (item 1) waits on a separated stem; none is on disk.
+   **First verdict, 2026-09-12, owner, one arm alone:** the frozen dancer
+   arm "is definitely moving to the beat"
+   ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../bench/results/2026-09-12_audio_freeze_step2_verdict.json)).
+   The throwaway market render under the same track had read as "not
+   entirely sure it changed anything", so the prompt describing the audio is
+   part of what moved; the pair against the free twin is what says how much.
+   The owner also read the wide framing as blurring the face, a zoomed-out
+   failure common to these models; `prompt_bank/t2va_studio_dancer_close.txt`
+   is the reframed twin for the lane's later renders.
+   **The instrument beside the eye**: `bench/measure_audio_video_coupling.py`
+   (motion energy against the onset envelope, motion power at the track's
+   tempo, lower-face motion against speech, each with a null). On the
+   dancer arms
+   ([`../bench/results/2026-09-12_audio_freeze_dancer_tempo_vs_track.json`](../bench/results/2026-09-12_audio_freeze_dancer_tempo_vs_track.json))
+   the frozen arm's motion is the most periodic at the track's tempo of the
+   three, the free twin the least, and none clears the instrument's own
+   chance threshold, so at frame-difference resolution it is coarser than
+   the eye. Read it as a direction, not a verdict.
    **The fast chain**: `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json`
    is the same freeze on the PDD8 baked checkpoint (owner, 2026-09-12,
    reopening the parked PDD lane for this use). PDD's documented weakness is
