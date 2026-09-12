@@ -55,6 +55,13 @@
       "owner": "The untold one works too. Not nearly as seamless as the t2v and somewhat unnatural but maybe that's to be expected or there's a better way. Ideally we don't need to prompt for this especially for music video ideas",
       "when": "2026-09-12",
       "reading": "idea 4 answered in direction: the audio alone drives the mouth; the transcript adds polish. The lane's target for music video is no transcript, so the next arms give the model more of the track without words: the loose mask on the untold prompt, and guide audio (core's MiniMaxH3AddGuide anchoring the same clip as conditioning rows) on top of the freeze, each on the PDD8 chain"
+    },
+    {
+      "arm": "voice arms, reading",
+      "clip": "all three voice arms",
+      "owner": "Her hair blows in all of them though so it's totally possible it's just a lack of any action or speaking style or using her body or head and such for facial expressions and physical expressions which could just mean prompt shows her speaking static and lip sync working at least. Now we need to see if motion in both the subject and then the camera and then both can keep it working and show natural expressions while keeping lip sync intact. Likely prompting and letting the audio be thought of like a strong second prompt that will guide it or be guided by it.",
+      "when": "2026-09-12",
+      "reading": "the next arms, same clip and seed on the PDD8 chain: t2va_none_of_this_is_real_moving_subject (subject moves, camera static), _moving_camera (camera arcs, delivery still), _moving (both). bench/audio_freeze_seam_and_moving_arms.json"
     }
   ],
   "caveats": [

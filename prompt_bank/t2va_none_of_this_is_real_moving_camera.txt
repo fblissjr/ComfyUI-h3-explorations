@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium close-up frames a woman in her thirties at the rail of a rooftop at dusk across the fourteen-second take, city lights soft and out of focus behind her, a steady wind moving her dark hair and the collar of her coat the whole time. She is on-screen, with a clear, measured mezzo (S1), both hands resting on the rail, and she keeps her eyes on the lens as she says, unhurried: <d>[English] It doesn't matter, Nicola Coughlan. None of this is real.</d> Her lips close and her jaw stops moving. She holds the look for a long beat, then turns her head slowly toward the city, her lips closed. The camera arcs slowly around her at medium amplitude through the whole take, the city lights sliding across the background behind her head, ending on her profile against the skyline.
+
+overall_soundscape: A steady wind moves across the rooftop with faint distant traffic far below, a flag rope ticks against a pole somewhere off frame, and her coat fabric rustles as she turns.
+
+non_diegetic_music: N/A

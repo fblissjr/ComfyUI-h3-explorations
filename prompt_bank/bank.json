@@ -919,6 +919,22 @@
       "donor": null,
       "brief": "The rooftop line with action inside the speech (a hand off the rail, a head shake, a half-smile, wind throughout, a slow push-in), after the owner read the still version as barely moving until the audio stopped",
       "tests": "whether stillness during a frozen line is the prompt's doing: same clip, same seed, action described during the words"
+    },
+    {
+      "id": "t2va_none_of_this_is_real_moving_subject",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The rooftop line with the subject moving (hand, head, eyebrows, a half-smile, shoulders) and the camera static; one of three motion arms after the owner read the still version as a talking head",
+      "tests": "whether subject motion during a frozen line keeps the lip sync and reads as natural, with the camera held"
+    },
+    {
+      "id": "t2va_none_of_this_is_real_moving_camera",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The rooftop line delivered still while the camera arcs around her; one of three motion arms",
+      "tests": "whether camera motion during a frozen line keeps the lip sync, with the subject held"
     }
   ]
 }
