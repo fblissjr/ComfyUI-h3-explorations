@@ -4,6 +4,18 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.87
+
+### Added
+
+- **`docs/h3_audio_freeze.md` opens the audio-freeze lane**: how a per-stream
+  `noise_mask` freezes a known track on H3 through core's own inpaint path,
+  the three routes (mask freeze, ref2va reference audio, guide audio) and the
+  hybrid, what the two installed third-party packs already do, the plan in
+  order, the ideas worth a render, and what the vendor's own serving path
+  reinforces or contradicts about each. Routed from the wiki index, pointed
+  at from `next_steps.md`, dated in `decisions.md`. Nothing rendered.
+
 ## 0.99.86
 
 ### Added

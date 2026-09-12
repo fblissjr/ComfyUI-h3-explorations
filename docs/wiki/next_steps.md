@@ -13,6 +13,13 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-12:**
+
+- Audio-freeze lane opened: [`../h3_audio_freeze.md`](../h3_audio_freeze.md)
+  section 4 is the plan in order and section 5 the ideas worth a render.
+  First build: the freeze node on the fl2va t2va chain at `LONG_LENGTH`, with
+  the installed pack's song node as the bit-for-bit control. Nothing rendered.
+
 **2026-09-11:**
 
 - Graphs regenerated on the rebuilt venv and validated against a live server;

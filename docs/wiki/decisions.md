@@ -15,6 +15,16 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-12
+
+- **Audio-freeze lane opened** (owner): a known track frozen into the target
+  audio rows with a per-stream mask, on the fl2va base first, the LTX pack's
+  loop geometry on H3's grid after; reference audio parked until the loop
+  runs because it regenerates the track. `docs/h3_audio_freeze.md` owns it.
+  Before this, the mask path was known here only as something no shipped
+  graph used (2026-08-30) and the looping packs were explicitly unread
+  (`custom_node_gaps.md` section 8).
+
 ## 2026-09-11
 
 - **The frontier table in `next_steps.md` counted a dense last step.** It said

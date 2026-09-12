@@ -43,6 +43,7 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | [`docs/open_experiments.md`](../../docs/open_experiments.md) | what is deliberately not measured, and the blocker for each |
 | [`docs/SOLATTN.md`](../../docs/SOLATTN.md) | the Sol-Attn authority: knobs, sink, measured arms, ordering, its own do-not-rely table. `morton.md`, `h3_input_impacts.md` and `sol_upstream.md` are reached only through it |
 | [`docs/h3_references.md`](../../docs/h3_references.md) | every reference type, its processing, label rules, and the three sizing knobs |
+| [`docs/h3_audio_freeze.md`](../../docs/h3_audio_freeze.md) | freezing a known audio track so the video follows it: the mask mechanism in core, the three routes and the hybrid, what the installed packs already do, the plan and the ideas worth a render. Opened 2026-09-12, nothing rendered yet |
 | [`docs/h3_resolutions.md`](../../docs/h3_resolutions.md) | every legal canvas and what each costs |
 | [`docs/h3_geometry_and_nodes.md`](../../docs/h3_geometry_and_nodes.md) | the frame grid, the token maths, and which node to use |
 | [`docs/h3_pdd.md`](../../docs/h3_pdd.md) | Parallel Decoding Distillation: what the Acc LoRAs are, the converter and node contract, the two silent traps |
