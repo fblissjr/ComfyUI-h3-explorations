@@ -15,17 +15,14 @@ own below the rule.
 
 **2026-09-12:**
 
-- Audio-freeze lane opened: [`../h3_audio_freeze.md`](../h3_audio_freeze.md)
-  section 4 is the plan in order and section 5 the ideas worth a render.
-  Step 1 built the same day: `MiniMaxH3FreezeAudio`,
-  `workflows/h3_text_to_video_audio_freeze.json`, `bench/check_audio_freeze.py`,
-  and the control against the pack's song node passed to the bit
-  (`bench/results/2026-09-12_audio_freeze_control.json`). One throwaway
-  render done. Step 2's six arms (`bench/audio_freeze_step2_arms.json`:
-  dancer and voice scenes, free against frozen, plus loose mask and
-  no-transcript) rendered the same day into
-  `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`; the owner's
-  free-text verdict on the pairs is what closes the step. Then first-frame.
+- Audio-freeze lane: [`../h3_audio_freeze.md`](../h3_audio_freeze.md)
+  section 4 is the plan, rewritten after the first verdicts. Step 1 built
+  and controlled; step 2's mechanism question closed on the owner's word for
+  both scenes (dancer follows the beat, speaker lip-syncs;
+  `bench/results/2026-09-12_audio_freeze_step2_verdict.json`). Next: PDD8
+  as the iteration chain (`bench/audio_freeze_pdd_arms.json`), the two open
+  pairs (loose mask at a second seed, transcript or not), first-frame, then
+  the loop.
 
 **2026-09-11:**
 

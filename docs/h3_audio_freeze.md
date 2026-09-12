@@ -128,89 +128,63 @@ yet map them.
 
 ## 4. The plan, in order
 
-Owner agreed 2026-09-12. Each step names what would count as done.
+Owner agreed 2026-09-12; rewritten the same evening once the first
+verdicts were in. Process note from the owner, same day: this does not need
+to be perfect scientific research. Verdicts are the owner's free-text on a
+clip or a pair, the instrument sits beside them, and one dated record per
+batch is enough.
 
-1. **A freeze node on the fl2va base, t2va chain.** Takes the AV latent from
-   the existing chain, a song and a start time on the audio grid, slices
-   exactly one audio latent's worth of samples per tick, encodes through the
-   aligned encoder, writes the target audio rows, and attaches a hard nested
-   mask: video ones, audio zeros. The generator emits a variant graph at
-   `h3_config.LONG_LENGTH`, which lands on both clocks where the trained
-   ceiling (`h3_rules.MAX_LENGTH`) does not (`temporal_shape`,
-   `comfy_extras/nodes_minimax_h3.py`). Original waveform muxed at output.
-   **Control**: the pack's song node fed the same song and start must produce
-   the same latent and mask, bit for bit, apart from its own grid slicing.
-2. **Throwaway first run, then one matched-seed pair per scene class**: frozen
-   against free audio on a beat-heavy track and on a spoken clip, judged
-   free-text before anything is measured ([`eval_comparison.md`](eval_comparison.md)).
-   The question: does the picture move to a track it did not generate.
-   Section 5's items 1, 2 and 4 fold in here as one-knob variants.
-   **Rendering 2026-09-12:** `bench/audio_freeze_step2_arms.json` is the
-   arm set (two scenes, `t2va_studio_dancer` against a drum-machine track
-   and `t2va_none_of_this_is_real` against a spoken line, each free and
-   frozen at one seed, plus the loose-mask arm and the no-transcript arm),
-   rows in `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`. The
-   stem variant (item 1) waits on a separated stem; none is on disk.
-   **First verdict, 2026-09-12, owner, one arm alone:** the frozen dancer
-   arm "is definitely moving to the beat"
-   ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../bench/results/2026-09-12_audio_freeze_step2_verdict.json)).
-   The throwaway market render under the same track had read as "not
-   entirely sure it changed anything", so the prompt describing the audio is
-   part of what moved; the pair against the free twin is what says how much.
-   The owner also read the wide framing as blurring the face, a zoomed-out
-   failure common to these models; `prompt_bank/t2va_studio_dancer_close.txt`
-   is the reframed twin for the lane's later renders.
-   **The instrument beside the eye**: `bench/measure_audio_video_coupling.py`
-   (motion energy against the onset envelope, motion power at the track's
-   tempo, lower-face motion against speech, each with a null). On the
-   dancer arms
-   ([`../bench/results/2026-09-12_audio_freeze_dancer_tempo_vs_track.json`](../bench/results/2026-09-12_audio_freeze_dancer_tempo_vs_track.json))
-   the frozen arm's motion is the most periodic at the track's tempo of the
-   three, the free twin the least, and none clears the instrument's own
-   chance threshold, so at frame-difference resolution it is coarser than
-   the eye. Read it as a direction, not a verdict.
-   **The fast chain**: `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json`
-   is the same freeze on the PDD8 baked checkpoint (owner, 2026-09-12,
-   reopening the parked PDD lane for this use). PDD's documented weakness is
-   its audio ([`research/pdd/audio_under_pdd.md`](research/pdd/audio_under_pdd.md)),
-   and a frozen track removes the audio rows from what PDD has to get right,
-   so if the PDD render follows the track as the base render does, the lane
-   iterates at PDD cost. `bench/audio_freeze_pdd_arms.json` renders both
-   scenes' frozen arms on it at the same seeds as the base pairs.
-3. **First-frame keyframe.** The LTX pack's init-image pattern; one graph
-   change once step 2 says the mechanism works.
-4. **The loop, the LTX geometry on H3's grid.** Window `LONG_LENGTH`, context
-   on the joint grid, previous video latent tail copied in as a frozen prefix,
-   next song slice frozen, stride equals window minus context, iterations
-   through the installed TensorLoop pack. Hard masks on both streams. The
-   per-window audio anchor is absolute song time, so nothing accumulates.
-   Expect identity drift across windows first; the fix is the ref2va
-   checkpoint with a per-window reference image, which is the one reason
-   ref2va enters this lane.
-5. **Reference audio after the loop runs**, not before: it regenerates the
-   track, the opposite of the aim, and its coupling advantage is unproven.
-   Then one blind pair as the hybrid. Every idea in section 5 renders
-   eventually (owner, 2026-09-12); results decide the order, and this list
-   is only the first pass through it.
-6. **Feather only when a seam shows.** With the whole track frozen there is
-   no audio edge inside a clip; at a loop seam a feather spends ticks of the
-   song.
+**Done, and what it found.**
 
-Alongside the code: a decisions line, a `next_steps.md` pointer, and one check
-that no shipped graph feeds an AV latent through the stock
-`SetLatentNoiseMask`, which replaces the nested mask with a flat one and
-silently unfreezes the audio.
+1. **The freeze node, its graph and its control**
+   (`audio_freeze.py::MiniMaxH3FreezeAudio`,
+   `workflows/h3_text_to_video_audio_freeze.json`,
+   `bench/check_audio_freeze.py`; the pack's song node as the bit-for-bit
+   control, [`../bench/results/2026-09-12_audio_freeze_control.json`](../bench/results/2026-09-12_audio_freeze_control.json)).
+   The node also fixes what it is given (rate, channels, level) and names
+   every transform; section 9 checks its path against the vendor's.
+2. **Does the picture follow a frozen track: yes, on both scenes**, on the
+   owner's word ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../bench/results/2026-09-12_audio_freeze_step2_verdict.json);
+   arms `bench/audio_freeze_step2_arms.json`, rows
+   `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`). The dancer
+   "is definitely moving to the beat" at mask 0.0 and "pretty awesome" at
+   0.25; the speaker's lip sync "looks good". The mechanism question is
+   closed for this lane. What the same batch left open: whether the loose
+   mask is better or the seed was (the pair at a second seed,
+   `bench/audio_freeze_mask_seed2_arms.json`), and whether the transcript
+   needs to be in the prompt (the `voice_untold` arm). The wide framing
+   blurs the face, so later renders use `t2va_studio_dancer_close`.
 
-**Built 2026-09-12, step 1:** `audio_freeze.py::MiniMaxH3FreezeAudio`, the
-graph `workflows/h3_text_to_video_audio_freeze.json` (the generator's
-`freeze_audio` knob), and `bench/check_audio_freeze.py`. The control ran the
-same day: `bench/audit_audio_freeze_control.py` against the pack's song node
-on the real audio VAE, equal to the bit on the audio latent, both masks and
-the sliced waveform
-([`../bench/results/2026-09-12_audio_freeze_control.json`](../bench/results/2026-09-12_audio_freeze_control.json)).
-The throwaway first render's timing row is
-[`../bench/results/2026-09-12_audio_freeze_first_run.jsonl`](../bench/results/2026-09-12_audio_freeze_first_run.jsonl);
-its clip is a sample, not a result.
+**Next, in order.**
+
+3. **PDD8 as the iteration chain** (owner's ask; the lane's speed lever).
+   `bench/audio_freeze_pdd_arms.json` renders both frozen arms on
+   `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json` at the base
+   pairs' seeds. If the PDD renders follow the track as the base ones do,
+   every later render in this lane goes through it first and the base chain
+   is for the keeper.
+4. **The two open pairs from step 2**: loose against frozen at a second
+   seed, and transcript against none. Owner's eye, one line each.
+5. **First-frame keyframe**: the LTX pack's init-image pattern, one graph
+   change on the freeze graph. Needed before the loop, because the loop
+   anchors each window on a frame.
+6. **The loop**: window `LONG_LENGTH`, context on the joint grid (39 plus
+   multiples of 51 frames land on both clocks), the previous window's video
+   latent tail copied in as a frozen prefix, the next song slice frozen at
+   its absolute time, stride equals window minus context, iterations
+   through the installed TensorLoop pack, hard masks on both streams. One
+   two-window render of the drum track is the first seam to look at. Expect
+   identity drift across windows first; the fix is the ref2va checkpoint
+   with a per-window reference image.
+7. **Then the ideas in section 5**, ordered by what the verdicts so far
+   suggest: the stem (once a separated stem is on disk), the hybrid and the
+   ref2va-checkpoint freeze at the loop stage, guide audio and the ceiling
+   as single renders when the card is free, feather only when a seam shows.
+   Every idea renders eventually (owner); results decide the order.
+
+Alongside: a `next_steps.md` pointer kept current, and the check that no
+shipped graph feeds an AV latent through the stock `SetLatentNoiseMask`,
+which is in `bench/check_audio_freeze.py`.
 
 ---
 

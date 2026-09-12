@@ -34,6 +34,13 @@
       "owner": "but either way it works",
       "when": "2026-09-12, after the loose-vs-frozen comparison",
       "reading": "the owner's verdict on step 2's question for the dancer scene: the picture follows a frozen track, at mask 0.0 and at 0.25. Which mask value is better is the open seed question above; that it works is not"
+    },
+    {
+      "arm": "voice_frozen",
+      "clip": "Video/h3_t2v_audio_freeze_voice_frozen_00001-audio.mp4",
+      "owner": "i checked quickly - lip sync looks good in h3_t2v_audio_freeze_voice_frozen_00001-audio",
+      "when": "2026-09-12, during the batch, before voice_untold rendered; a quick look, the free twin not yet compared",
+      "reading": "step 2's second question, lip sync against a frozen spoken clip, read as good on a quick look. Both scenes now have an owner verdict that the mechanism works"
     }
   ],
   "caveats": [
