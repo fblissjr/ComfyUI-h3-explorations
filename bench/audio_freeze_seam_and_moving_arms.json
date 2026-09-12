@@ -1,0 +1,15 @@
+{
+  "what": "docs/h3_audio_freeze.md: the loop's first seam (two windows of the drum track on the reframed dancer prompt, joined at a 39-frame frozen context), and the rooftop line with action inside the speech, after the owner read the still version as barely moving until the audio stopped. The moving arm renders on the PDD8 freeze chain if bench/results/2026-09-12_audio_freeze_pdd_arms.jsonl's clips follow the track; otherwise swap its graph for the base freeze graph.",
+  "arms": {
+    "seam_dancer_close": "workflows/h3_text_to_video_audio_freeze_2windows_api.json",
+    "voice_moving_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json"
+  },
+  "patches": [
+    "seam_dancer_close:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer_close",
+    "seam_dancer_close:RandomNoise.noise_seed=1101",
+    "seam_dancer_close:LoadAudio.audio=Drum Machine Pulse.mp3",
+    "voice_moving_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real_moving",
+    "voice_moving_pdd8:RandomNoise.noise_seed=2202",
+    "voice_moving_pdd8:LoadAudio.audio=none_of_this_is_real_final.mp3"
+  ]
+}
