@@ -48,6 +48,13 @@
       "owner": "the timing matched the audio clip but she barely moved. Only when the audio stopped did she turn. Maybe it's a prompting thing",
       "when": "2026-09-12, after the free and untold arms were sent",
       "reading": "two findings. (1) The mouth's timing followed the clip; the transcript in the prompt carried no timing, so the sync is the audio's. (2) Stillness during the line: the prompt describes no action during the speech and a static camera, the clip is a dry synthetic voice with no room, and single-face close-ups are this corpus's lowest-motion content (docs/research/pdd/audio_under_pdd.md). Next: t2va_none_of_this_is_real_moving, the same scene with action inside the line"
+    },
+    {
+      "arm": "voice_untold",
+      "clip": "Video/h3_t2v_audio_freeze_voice_untold_00001-audio.mp4",
+      "owner": "The untold one works too. Not nearly as seamless as the t2v and somewhat unnatural but maybe that's to be expected or there's a better way. Ideally we don't need to prompt for this especially for music video ideas",
+      "when": "2026-09-12",
+      "reading": "idea 4 answered in direction: the audio alone drives the mouth; the transcript adds polish. The lane's target for music video is no transcript, so the next arms give the model more of the track without words: the loose mask on the untold prompt, and guide audio (core's MiniMaxH3AddGuide anchoring the same clip as conditioning rows) on top of the freeze, each on the PDD8 chain"
     }
   ],
   "caveats": [

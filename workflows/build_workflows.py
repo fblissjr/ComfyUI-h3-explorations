@@ -1372,6 +1372,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # the second taking the first's sampled latent as frozen
               # context (docs/h3_audio_freeze.md section 4 step 6).
               freeze_windows: int = 0, freeze_context: int = 39,
+              # Guide audio on top of the freeze (docs/h3_audio_freeze.md
+              # idea 6 as the fl2va-base hybrid): core's MiniMaxH3AddGuide
+              # anchors the same track as conditioning rows at frame 0, so
+              # the track sits in the sequence twice, frozen in register and
+              # as a reference-style block. Needs freeze_audio.
+              freeze_guide: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2053,6 +2059,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["10"]["inputs"]["latent_image"] = ["49", 0]
         g["13"]["inputs"]["audio"] = ["49", 1]
         del g["12"]
+        if freeze_guide:
+            # Between the conditioner and the preflight on the positive path,
+            # so the preflight prices the rows the guide adds. Node id 70.
+            g["70"] = {"class_type": "MiniMaxH3AddGuide",
+                       "inputs": {"positive": ["5", 0], "audio_vae": ["4", 0],
+                                  "latent": ["5", 1], "audio": ["48", 0],
+                                  "frame_idx": 0}}
+            g["26"]["inputs"]["conditioning"] = ["70", 0]
+    elif freeze_guide:
+        raise SystemExit("freeze_guide needs freeze_audio")
 
     if freeze_windows:
         if freeze_audio or single_frame or split_at or stamp:
@@ -4951,8 +4967,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              freeze_audio: bool = False, freeze_start: float = 0.0,
              freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
              freeze_windows: int = 0, freeze_context: int = 39,
+             freeze_guide: bool = False,
              **canvas) -> dict:
     ref = task == "r2v"
+    if freeze_guide:
+        raise SystemExit("the guide-audio freeze graph is API only (api_only=True on its GRAPHS entry)")
     if freeze_windows:
         raise SystemExit("the two-window seam graph is API only (api_only=True on its GRAPHS entry)")
     # The same consistency guard `build_api` carries, and it has to be here
@@ -8153,6 +8172,19 @@ def main():
                   "the track frozen the audio rows are not PDD's to get right, "
                   "so this is the fast-iteration chain for the lane.")),
          "CANDIDATE text + a frozen audio track -> video at 8 steps via PDD"),
+
+        # The same on the PDD8 chain with the track also anchored as guide
+        # rows (owner, 2026-09-12: the untold arm works but is less natural;
+        # music video wants no transcript, so give the model more of the
+        # track without words). API only.
+        ("h3_candidate_t2v_pdd8_baked_audio_freeze_guide.json", "t2v-candidate-pdd8-baked-audio-freeze-guide",
+         "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              unet=MODELS["unet_fl2va_pdd8_baked"],
+              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              freeze_audio=True, freeze_guide=True, api_only=True,
+              out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze_guide"),
+         "CANDIDATE text + a frozen audio track, also anchored as guide rows -> video at 8 steps via PDD"),
 
         ("h3_candidate_t2v_pdd8_baked.json", "t2v-candidate-pdd8-baked", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",

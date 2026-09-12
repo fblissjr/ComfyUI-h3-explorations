@@ -1,0 +1,21 @@
+{
+  "what": "docs/h3_audio_freeze.md: the no-transcript voice scene with more of the track and no words, after the owner read the untold arm as working but less natural than the transcribed one. Same clip, same seed as the step 2 voice arms, on the PDD8 chain. Arms: the untold prompt at a loose mask; the untold prompt with the clip also anchored as guide rows; both together.",
+  "arms": {
+    "untold_loose_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json",
+    "untold_guide_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_guide_api.json",
+    "untold_guide_loose_pdd8": "workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_guide_api.json"
+  },
+  "patches": [
+    "untold_loose_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real_untold",
+    "untold_loose_pdd8:RandomNoise.noise_seed=2202",
+    "untold_loose_pdd8:LoadAudio.audio=none_of_this_is_real_final.mp3",
+    "untold_loose_pdd8:MiniMaxH3FreezeAudio.audio_mask=0.25",
+    "untold_guide_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real_untold",
+    "untold_guide_pdd8:RandomNoise.noise_seed=2202",
+    "untold_guide_pdd8:LoadAudio.audio=none_of_this_is_real_final.mp3",
+    "untold_guide_loose_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real_untold",
+    "untold_guide_loose_pdd8:RandomNoise.noise_seed=2202",
+    "untold_guide_loose_pdd8:LoadAudio.audio=none_of_this_is_real_final.mp3",
+    "untold_guide_loose_pdd8:MiniMaxH3FreezeAudio.audio_mask=0.25"
+  ]
+}
