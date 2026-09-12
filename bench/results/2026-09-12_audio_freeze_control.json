@@ -1,0 +1,76 @@
+{
+  "date": "2026-09-12",
+  "what": "audio-freeze node against the sibling pack's song node, same track, same start, real audio VAE on CPU",
+  "inputs": {
+    "audio": "4th-ninja-Breathless_Heights.mp3",
+    "start_seconds": 0.0,
+    "length": 345,
+    "frame_count": 345,
+    "latent_t": 102,
+    "audio_t": 575,
+    "canvas": [
+      1344,
+      768
+    ],
+    "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+    "pack_revision": "361624fb406b"
+  },
+  "ours_report": "froze 575 audio latent steps (14.375s) from step 0 (0.000s) of the track; audio_mask 0; video mask all ones",
+  "audio_latent": {
+    "shape": [
+      1,
+      32,
+      2,
+      575
+    ],
+    "equal": true,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0,
+    "first_differing_index": null
+  },
+  "video_mask": {
+    "shape": [
+      1,
+      1,
+      102,
+      48,
+      84
+    ],
+    "equal": true,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0,
+    "first_differing_index": null
+  },
+  "audio_mask": {
+    "shape": [
+      1,
+      1,
+      2,
+      575
+    ],
+    "equal": true,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0,
+    "first_differing_index": null
+  },
+  "clip_audio": {
+    "shape": [
+      1,
+      2,
+      460000
+    ],
+    "equal": true,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0,
+    "first_differing_index": null
+  },
+  "clip_rates": [
+    32000,
+    32000
+  ],
+  "caveats": [
+    "the pack's node was run with context_length=0 and no source, so only its audio path is compared",
+    "a difference in clip_audio is a difference in slicing or resampling, not in the encoder; read it first",
+    "the video stream is zeros on both sides by construction and is not compared"
+  ]
+}

@@ -4,6 +4,30 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.88
+
+### Added
+
+- **`MiniMaxH3FreezeAudio`** (`audio_freeze.py`): writes a window of a known
+  track into the H3 AV latent's audio rows on the audio latent grid and
+  attaches a nested `noise_mask` (video generated, audio frozen), so the
+  video is denoised against a track the model did not generate, through
+  core's own masked path. Returns the exact slice for the muxer. Refuses a
+  flat incoming mask, which is what stock `SetLatentNoiseMask` writes.
+- **`workflows/h3_text_to_video_audio_freeze.json`**, the generator's
+  `freeze_audio` knob: the shipped t2v graph plus the node between the
+  preflight and the sampler, the muxer on the node's slice, no audio
+  decoder. Node ids 48 and 49.
+- **`bench/check_audio_freeze.py`**: the slice is exact and on the grid, the
+  nested mask survives the sampler's per-stream reshape, a flat mask is
+  refused, every freeze graph is wired end to end, no shipped graph carries
+  `SetLatentNoiseMask`.
+- **`bench/audit_audio_freeze_control.py`**: the node against the sibling
+  pack's song node on the real audio VAE, to the bit; first record
+  `bench/results/2026-09-12_audio_freeze_control.json`, equal on every field.
+- `bench/node_id_manifest.json` gains the node, and records the Sol node's
+  appended optional `token_aug_blocks` input (an append, the permitted change).
+
 ## 0.99.87
 
 ### Added

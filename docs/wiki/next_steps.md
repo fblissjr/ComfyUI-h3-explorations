@@ -17,8 +17,12 @@ own below the rule.
 
 - Audio-freeze lane opened: [`../h3_audio_freeze.md`](../h3_audio_freeze.md)
   section 4 is the plan in order and section 5 the ideas worth a render.
-  First build: the freeze node on the fl2va t2va chain at `LONG_LENGTH`, with
-  the installed pack's song node as the bit-for-bit control. Nothing rendered.
+  Step 1 built the same day: `MiniMaxH3FreezeAudio`,
+  `workflows/h3_text_to_video_audio_freeze.json`, `bench/check_audio_freeze.py`,
+  and the control against the pack's song node passed to the bit
+  (`bench/results/2026-09-12_audio_freeze_control.json`). One throwaway
+  render done. Next: step 2, the matched-seed pairs with a prompt that
+  describes the track (needs a bank entry), then first-frame.
 
 **2026-09-11:**
 
@@ -29,7 +33,11 @@ own below the rule.
   (2026-09-08) because it compares declaration order. The server's
   `input_order` keeps the required inputs in the manifest's order and adds
   `token_aug_blocks` as the only optional input after them. Fix the check to
-  compare required then optional, then record the append.
+  compare required then optional, then record the append. *2026-09-12: the
+  append is recorded (`bench/node_id_manifest.json`, regenerated with
+  `--write` when the freeze node was added) and the check passes against
+  it; whether the check should also tolerate a required-then-optional
+  reorder is still open.*
 
 **2026-09-10 (upstream survey session):**
 

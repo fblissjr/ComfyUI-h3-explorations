@@ -90,6 +90,21 @@
       "Output"
     ]
   },
+  "MiniMaxH3FreezeAudio": {
+    "inputs": [
+      "latent",
+      "audio_vae",
+      "audio",
+      "start_seconds",
+      "audio_mask"
+    ],
+    "node_id": "MiniMaxH3FreezeAudio",
+    "outputs": [
+      "latent",
+      "clip_audio",
+      "report"
+    ]
+  },
   "MiniMaxH3KeyframeCanvas": {
     "inputs": [
       "first_frame",
@@ -253,6 +268,7 @@
       "selection",
       "start_percent",
       "end_percent",
+      "token_aug_blocks",
       "min_tokens",
       "sink_conditioning",
       "pooled_tail",

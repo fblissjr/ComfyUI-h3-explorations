@@ -155,17 +155,30 @@ Owner agreed 2026-09-12. Each step names what would count as done.
    Expect identity drift across windows first; the fix is the ref2va
    checkpoint with a per-window reference image, which is the one reason
    ref2va enters this lane.
-5. **Reference audio, parked** until the loop runs: it regenerates the track,
-   the opposite of the aim, and its coupling advantage is unproven. Then one
-   blind pair as the hybrid.
-6. **Feather never, until a seam shows.** With the whole track frozen there
-   is no audio edge inside a clip; at a loop seam a feather spends ticks of the
+5. **Reference audio after the loop runs**, not before: it regenerates the
+   track, the opposite of the aim, and its coupling advantage is unproven.
+   Then one blind pair as the hybrid. Every idea in section 5 renders
+   eventually (owner, 2026-09-12); results decide the order, and this list
+   is only the first pass through it.
+6. **Feather only when a seam shows.** With the whole track frozen there is
+   no audio edge inside a clip; at a loop seam a feather spends ticks of the
    song.
 
 Alongside the code: a decisions line, a `next_steps.md` pointer, and one check
 that no shipped graph feeds an AV latent through the stock
 `SetLatentNoiseMask`, which replaces the nested mask with a flat one and
 silently unfreezes the audio.
+
+**Built 2026-09-12, step 1:** `audio_freeze.py::MiniMaxH3FreezeAudio`, the
+graph `workflows/h3_text_to_video_audio_freeze.json` (the generator's
+`freeze_audio` knob), and `bench/check_audio_freeze.py`. The control ran the
+same day: `bench/audit_audio_freeze_control.py` against the pack's song node
+on the real audio VAE, equal to the bit on the audio latent, both masks and
+the sliced waveform
+([`../bench/results/2026-09-12_audio_freeze_control.json`](../bench/results/2026-09-12_audio_freeze_control.json)).
+The throwaway first render's timing row is
+[`../bench/results/2026-09-12_audio_freeze_first_run.jsonl`](../bench/results/2026-09-12_audio_freeze_first_run.jsonl);
+its clip is a sample, not a result.
 
 ---
 

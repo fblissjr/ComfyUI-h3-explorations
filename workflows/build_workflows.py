@@ -73,7 +73,7 @@ _CNR_ID = "comfyui-h3-explorations"
 _OUR_NODES = {
     "MiniMaxH3SageAttention", "SageChainAssert", "MiniMaxH3KeyframeCanvas",
     "MiniMaxH3ReferenceFit", "MiniMaxH3Resolution", "MiniMaxH3Preflight",
-    "MiniMaxH3ProvenanceStamp",
+    "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -1360,6 +1360,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # for the A/B against our conditioner; stills only, API only.
               ref_latents: bool = True,
               native_ref: bool = False,
+              # The audio-freeze lane (docs/h3_audio_freeze.md): a known track
+              # written into the target audio rows and frozen with a nested
+              # noise_mask, between the preflight and the sampler. The muxer
+              # takes the node's own slice of the track; the audio decoder is
+              # removed because the frozen latent is a control signal and its
+              # round trip is lossy. `freeze_mask` 0 is the hard freeze.
+              freeze_audio: bool = False, freeze_start: float = 0.0,
+              freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2021,6 +2029,26 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                               "sigmas": _sigma_src, "note": f"bench {task}"}}
         g["11"]["inputs"]["samples"] = ["22", 0]
         g["12"]["inputs"]["samples"] = ["22", 0]
+
+    if freeze_audio:
+        if single_frame or split_at or stamp:
+            raise SystemExit(
+                "freeze_audio does not compose with single_frame, split_at or "
+                "stamp: each rewires the sampler's latent or the audio decoder")
+        # Node ids 48 and 49 were free (45 too). The node takes the preflight's
+        # latent so the report still describes the graph that runs, and hands
+        # the sampler the same latent with the track written in and the mask
+        # attached. Node 12 goes: nothing may consume the decoded audio stream
+        # on this graph, and an unconsumed node reads as intentional wiring.
+        g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": freeze_track}}
+        g["49"] = {"class_type": "MiniMaxH3FreezeAudio",
+                   "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0],
+                              "audio": ["48", 0],
+                              "start_seconds": freeze_start,
+                              "audio_mask": freeze_mask}}
+        g["10"]["inputs"]["latent_image"] = ["49", 0]
+        g["13"]["inputs"]["audio"] = ["49", 1]
+        del g["12"]
     return g
 
 
@@ -4134,6 +4162,42 @@ def _image_graphs() -> tuple:
     )
 
 
+_NOTE_AUDIO_FREEZE = """\
+## A frozen audio track: the video is generated against it
+
+`MiniMaxH3FreezeAudio` sits between the preflight and the sampler. It cuts
+one window of the loaded track onto H3's audio latent grid, encodes it with
+the audio VAE, writes it into the target audio rows, and attaches a nested
+noise mask: video generated, audio frozen. Core's own masked path then
+re-injects the clean audio every step and labels those rows with the
+conditioning timestep, so the video is denoised in the presence of a track
+the model did not generate. `docs/h3_audio_freeze.md` is the lane.
+
+**Mux the node's `clip_audio`, never a decoded audio stream.** The latent is a
+control signal and the audio VAE round trip is lossy; this graph has no audio
+decoder for that reason. The muxed track is the node's exact slice, at the
+VAE's rate.
+
+**Knobs.** `start_seconds` is where in the track the window begins, snapped to
+the latent grid; for a loop it advances by the window minus the context each
+pass. `audio_mask` 0.0 is the hard freeze. A small value above zero lets the
+model own the audio rows a little, which the lane doc lists as worth a ladder;
+values within 0.001 of 1.0 are dropped by core and mean no freeze.
+
+**Do not add a stock `Set Latent Noise Mask` anywhere on this graph.** It
+stores a flat mask; the sampler then pads a ones mask for the audio stream and
+the track regenerates silently. The node refuses a flat mask on its input for
+the same reason.
+
+**Prompt.** The shipped t2v scene is carried here so the graph stays inside the
+prompt bank; it does not describe the placeholder track. Prompting the audio
+as it actually is (music, dialogue, transcript or not) is the lane's step 2,
+and the dialogue case is idea 4 there.
+
+**Length.** The graph renders at the long default, which lands on both the
+video run grid and the 40 Hz audio grid; the trained ceiling does not.
+"""
+
 _NOTE_TURBO_PACK = """\
 ## A different turbo LoRA, and a different loader on purpose
 
@@ -4843,6 +4907,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              vsa: tuple[float, bool] | None = None,
              vae_encoder: str | None = None,
              clip: str | None = None,
+             freeze_audio: bool = False, freeze_start: float = 0.0,
+             freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
              **canvas) -> dict:
     ref = task == "r2v"
     # The same consistency guard `build_api` carries, and it has to be here
@@ -5399,7 +5465,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # No audio decoder on the single-frame path: one frame's share of the
     # audio stream is 0.04s of nothing. Omitted rather than bypassed, so the
     # graph does not carry a node whose presence implies a soundtrack.
-    adec = (None if single_frame else
+    adec = (None if (single_frame or freeze_audio) else
             g.add("VAEDecodeAudio", (780, 110), size=(260, 60),
                   inputs=[_in("samples", "LATENT"), _in("vae", "VAE")],
                   outputs=[_out("AUDIO", "AUDIO")]))
@@ -5486,7 +5552,30 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     g.link(cond, 0, pre, "conditioning", "CONDITIONING")
     g.link(cond, 1, pre, "samples", "LATENT")
     g.link(pre, 0, guider, "conditioning", "CONDITIONING")
-    g.link(pre, 1, sampler, "latent_image", "LATENT")
+    freeze = None
+    if freeze_audio:
+        if single_frame or split_at or stamp:
+            raise SystemExit(
+                "freeze_audio does not compose with single_frame, split_at or "
+                "stamp: each rewires the sampler's latent or the audio decoder")
+        track = g.add("LoadAudio", (-460, 940), size=(300, 130),
+                      widgets=[freeze_track],
+                      outputs=[_out("AUDIO", "AUDIO")],
+                      title="The track to freeze")
+        freeze = g.add("MiniMaxH3FreezeAudio", (-60, 940), size=(420, 200),
+                       widgets=[freeze_start, freeze_mask],
+                       inputs=[_in("latent", "LATENT"), _in("audio_vae", "VAE"),
+                               _in("audio", "AUDIO")],
+                       outputs=[_out("latent", "LATENT"),
+                                _out("clip_audio", "AUDIO"),
+                                _out("report", "STRING")],
+                       title="Freeze the track into the audio rows")
+        g.link(pre, 1, freeze, "latent", "LATENT")
+        g.link(avae, 0, freeze, "audio_vae", "VAE")
+        g.link(track, 0, freeze, "audio", "AUDIO")
+        g.link(freeze, 0, sampler, "latent_image", "LATENT")
+    else:
+        g.link(pre, 1, sampler, "latent_image", "LATENT")
     g.link(noise, 0, sampler, "noise", "NOISE")
     g.link(guider, 0, sampler, "guider", "GUIDER")
     g.link(samp, 0, sampler, "sampler", "SAMPLER")
@@ -5566,6 +5655,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     g.link(vdec, 0, save, "images", "IMAGE")
     if adec is not None:
         g.link(adec, 0, save, "audio", "AUDIO")
+    elif freeze is not None:
+        g.link(freeze, 1, save, "audio", "AUDIO")
 
     # Guidance in the graph rather than in a doc nobody opens next to it.
     # MarkdownNote is in _UI_ONLY, so these never reach the API form and
@@ -6350,6 +6441,18 @@ def main():
     GRAPHS: tuple[tuple[str, str, str, str | None, dict[str, Any], str], ...] = (
         ("h3_text_to_video.json", "t2v", "t2v", LONG_T2V_PROMPT, {},
          "text -> video + audio"),
+        # The audio-freeze lane's first graph (docs/h3_audio_freeze.md,
+        # section 4 step 1). One node between the preflight and the sampler
+        # is the whole difference from the graph above, plus the muxer
+        # taking the node's own slice of the track in place of the audio
+        # decoder. The prompt is the shipped t2v scene for now, which does
+        # NOT describe the placeholder track; prompting the audio as it is
+        # belongs to step 2 and needs a bank entry.
+        ("h3_text_to_video_audio_freeze.json", "t2v-audio-freeze", "t2v",
+         LONG_T2V_PROMPT,
+         dict(freeze_audio=True, out_prefix="Video/h3_t2v_audio_freeze",
+              variant_note=_NOTE_AUDIO_FREEZE),
+         "text + a frozen audio track -> video, the track muxed as given"),
         ("h3_image_ref_plus_text_to_video.json", "r2v", "r2v", _ref_prompt(images=True), {},
          "reference image(s) + text -> video + audio"),
         ("h3_first_frame_to_video.json", "i2v", "i2v", None, {},
