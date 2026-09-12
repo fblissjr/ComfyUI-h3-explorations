@@ -1,0 +1,16 @@
+{
+  "what": "docs/h3_audio_freeze.md idea 2, second seed: the owner read the loose-mask dancer arm as a lot better than the hard freeze at seed 1101 and said it could be the seed. Same two arms on the reframed dancer prompt at a second seed; if loose wins again the mask value is doing something, if it swaps the first pair was seed. Chain to be chosen when queued: the base freeze graph, or the PDD8 freeze graph if bench/audio_freeze_pdd_arms.json shows PDD follows the track.",
+  "arms": {
+    "dancer_close_frozen_s2": "workflows/h3_text_to_video_audio_freeze_api.json",
+    "dancer_close_loose_s2": "workflows/h3_text_to_video_audio_freeze_api.json"
+  },
+  "patches": [
+    "dancer_close_frozen_s2:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer_close",
+    "dancer_close_frozen_s2:RandomNoise.noise_seed=3303",
+    "dancer_close_frozen_s2:LoadAudio.audio=Drum Machine Pulse.mp3",
+    "dancer_close_loose_s2:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer_close",
+    "dancer_close_loose_s2:RandomNoise.noise_seed=3303",
+    "dancer_close_loose_s2:LoadAudio.audio=Drum Machine Pulse.mp3",
+    "dancer_close_loose_s2:MiniMaxH3FreezeAudio.audio_mask=0.25"
+  ]
+}

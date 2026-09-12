@@ -14,6 +14,26 @@
       "clip": "Video/h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
       "owner": "Its too zoomed out on the face so its blurry (common problem in these models when zoomed out far) so prompt should compensate",
       "when": "2026-09-12, same viewing; acted on: prompt_bank/t2va_studio_dancer_close.txt reframes the scene at medium shot then close-up"
+    },
+    {
+      "arm": "dancer_loose",
+      "clip": "Video/h3_t2v_audio_freeze_dancer_loose_00001-audio.mp4",
+      "owner": "h3_t2v_audio_freeze_dancer_loose_00001-audio is pretty awesome too",
+      "when": "2026-09-12, after the free and loose arms were sent; the free twin's verdict not yet given"
+    },
+    {
+      "arm": "dancer_loose vs dancer_frozen",
+      "clip": "Video/h3_t2v_audio_freeze_dancer_loose_00001-audio.mp4 against Video/h3_t2v_audio_freeze_dancer_frozen_00001-audio.mp4",
+      "owner": "h3_t2v_audio_freeze_dancer_loose_00001-audio is actually a lot better ... but could be seed",
+      "when": "2026-09-12, after watching both",
+      "reading": "same seed (1101) on both arms, but the mask value changes every step's trajectory, so one pair is two samples and cannot attribute the difference to the mask (CLAUDE.md). Next: frozen against loose at a second seed on t2va_studio_dancer_close; queued behind the PDD arms"
+    },
+    {
+      "arm": "dancer scene, the mechanism",
+      "clip": "the frozen and loose dancer arms together",
+      "owner": "but either way it works",
+      "when": "2026-09-12, after the loose-vs-frozen comparison",
+      "reading": "the owner's verdict on step 2's question for the dancer scene: the picture follows a frozen track, at mask 0.0 and at 0.25. Which mask value is better is the open seed question above; that it works is not"
     }
   ],
   "caveats": [

@@ -374,3 +374,34 @@ lacks are both evidence.
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py`); core consumes one generator in
   order. Neither matters once the audio draw is discarded by the mask, but a
   seed-matched pair across engines is not matched on audio.
+
+---
+
+## 9. The audio path, checked against the vendor's
+
+Owner's ask, 2026-09-12: is the track sampled correctly, at the rate,
+channel layout and grid the audio VAE expects, as sglang does it. Read the
+same day; each row names the observable on both sides.
+
+| step | sglang (reference audio, the only audio it encodes) | this node | agree |
+|---|---|---|---|
+| decode | ffmpeg to interleaved float PCM at the file's own rate, forced to two channels (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::_load_waveform`) | core's `LoadAudio` decodes with PyAV to float in [-1, 1] at the file's rate (`comfy_extras/nodes_audio.py::load`, `f32_pcm`) | yes: same codec output, different decoder |
+| channels | ffmpeg `-ac 2`: mono duplicated, more than two downmixed | mono duplicated, more than two refused (`audio_freeze.py::_stereo`, the refusal `reference_conditioning._prepare_audio` makes) | yes for mono and stereo; a surround file must be downmixed first here, where sglang would downmix silently |
+| resample | `torchaudio.transforms.Resample(source, 32000)` at its defaults (`_audio_resampler`) | `torchaudio.functional.resample(wave, source, 32000)` at its defaults (`slice_window`); the transform precomputes the same kernel | yes: same sinc interpolation, same lowpass width and rolloff |
+| target rate and grid | 32 kHz, one latent step per 800 samples, 40 steps per second (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/vaes/minimax_h3_audio_vae/audio_vae.py`, `hop_length` from the encoder rates) | read off the loaded VAE (`audio_grid`: `audio_sample_rate` and `spacial_compression_encode()`), refused if they do not give the 40 Hz grid | yes, and checked at run time rather than assumed |
+| length | `-t` caps at the target's duration, then `preprocess` right-pads with zeros to a whole number of hops | exactly `audio_t * hop` samples from a start snapped to the grid; zeros only when the track runs out | yes: the slice is already whole hops, so the VAE's pad is a no-op; core's generic input crop is a no-op for the same reason |
+| level | no gain, no peak or loudness normalisation | none | yes |
+| encoder | encoder, attention projection, `mean_proj`, then `(z - mean) / std` with the stored latent statistics; the posterior mean, no sampling | core's `MiniMaxH3AudioVAE.encode` does the same four steps in the same order (`comfy/ldm/minimax/audio_vae.py`) | yes |
+| layout | `[2*T, 32]` rows, channel-major | latent `[1, 32, 2, T]`, packed channel-major by core's `pack_audio` when the sampler runs | yes |
+| precision | fp32 | core pins the H3 audio VAE to fp32 (`comfy/sd.py`, the H3 audio VAE block) | yes |
+
+Two things that are not the same and are meant not to be. sglang's audio
+enters as a reference block ahead of the target on the time axis (section
+8); ours enters the target rows in register with the frames, which is the
+point of the lane. And DiffSynth's retake path pads a short track by
+repeating its last latent step; this node pads the waveform with silence
+and encodes that, so a track that runs out reads as silence rather than as
+a held frame.
+
+The muxed `clip_audio` is the same resampled slice the VAE saw, so the file
+carries what the model heard, at the VAE's rate.

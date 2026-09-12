@@ -218,9 +218,21 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
     def execute(cls, latent, audio_vae, audio, start_seconds, audio_mask) -> io.NodeOutput:
         video, target_audio = _av_streams(latent["samples"])
         audio_t = int(target_audio.shape[-1])
+        in_channels = int(audio["waveform"].shape[1]) if isinstance(audio, Mapping) and isinstance(audio.get("waveform"), torch.Tensor) else -1
         waveform, rate = _stereo(audio)
         piece, start_step, vae_rate, padded_steps = slice_window(
             waveform, rate, audio_vae, start_seconds, audio_t)
+        # What the VAE is about to see, stated so a wrong input cannot pass
+        # quietly: the vendor's path takes float PCM in [-1, 1] at 32 kHz,
+        # stereo, with no gain or normalisation (docs/h3_audio_freeze.md
+        # section 9). Anything outside that is reported, not corrected.
+        peak = float(piece.abs().max()) if piece.numel() else 0.0
+        rms = float(piece.pow(2).mean().sqrt()) if piece.numel() else 0.0
+        level_note = ""
+        if peak > 1.0:
+            level_note = f" PEAK {peak:.3f} exceeds 1.0: the source is clipped or not unit-scaled, and the VAE was trained on [-1, 1];"
+        elif peak < 1e-4:
+            level_note = " the window is silent;"
 
         # Core's own call shape: VAE.encode takes [B, samples, channels].
         z = audio_vae.encode(piece.movedim(1, -1))
@@ -243,7 +255,11 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
             f"audio_mask {float(audio_mask):g}; "
             + (f"{padded_steps} trailing steps are silence (the track ran out); "
                if padded_steps else "")
-            + f"video mask {'kept from input' if latent.get('noise_mask') is not None else 'all ones'}"
+            + f"video mask {'kept from input' if latent.get('noise_mask') is not None else 'all ones'}; "
+            + f"source {rate} Hz {in_channels} ch -> {vae_rate} Hz stereo "
+            + ("(resampled, torchaudio sinc at its defaults, the vendor's resampler)" if rate != vae_rate else "(no resample)")
+            + (", mono duplicated" if in_channels == 1 else "")
+            + f"; peak {peak:.3f} rms {rms:.4f};" + level_note
         )
         logger.info("[h3] MiniMaxH3FreezeAudio: %s", report)
         return io.NodeOutput(out, clip_audio, report)
