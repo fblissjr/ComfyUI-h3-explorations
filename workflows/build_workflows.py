@@ -8070,6 +8070,29 @@ def main():
                   "PDD8 under sage alone and the shipped PDD8 graph.")),
          "CANDIDATE text -> video + audio at 8 steps via PDD, Sol on two steps"),
 
+        # The audio-freeze lane on the fast chain (owner, 2026-09-12: "worth
+        # testing if PDD works with this since it's faster iteration", which
+        # reopens the parked PDD lane for this use only). Same graph as the
+        # candidate below plus the freeze node; the documented PDD weakness is
+        # its audio (docs/research/pdd/audio_under_pdd.md), and a frozen track
+        # takes the audio rows out of what PDD has to get right.
+        ("h3_candidate_t2v_pdd8_baked_audio_freeze.json", "t2v-candidate-pdd8-baked-audio-freeze",
+         "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              unet=MODELS["unet_fl2va_pdd8_baked"],
+              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              freeze_audio=True,
+              out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze",
+              variant_note=_NOTE_AUDIO_FREEZE + (
+                  "\n\n**On the PDD8 baked chain.** Everything above holds; the "
+                  "sampler runs the 8-evaluation PDD schedule on the baked "
+                  "checkpoint with the stripped sidecar, exactly as "
+                  "`h3_candidate_t2v_pdd8_baked.json`. PDD's documented weakness "
+                  "is its audio (`docs/research/pdd/audio_under_pdd.md`); with "
+                  "the track frozen the audio rows are not PDD's to get right, "
+                  "so this is the fast-iteration chain for the lane.")),
+         "CANDIDATE text + a frozen audio track -> video at 8 steps via PDD"),
+
         ("h3_candidate_t2v_pdd8_baked.json", "t2v-candidate-pdd8-baked", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               unet=MODELS["unet_fl2va_pdd8_baked"],

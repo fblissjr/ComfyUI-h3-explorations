@@ -151,6 +151,14 @@ Owner agreed 2026-09-12. Each step names what would count as done.
    frozen at one seed, plus the loose-mask arm and the no-transcript arm),
    rows in `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`. The
    stem variant (item 1) waits on a separated stem; none is on disk.
+   **The fast chain**: `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json`
+   is the same freeze on the PDD8 baked checkpoint (owner, 2026-09-12,
+   reopening the parked PDD lane for this use). PDD's documented weakness is
+   its audio ([`research/pdd/audio_under_pdd.md`](research/pdd/audio_under_pdd.md)),
+   and a frozen track removes the audio rows from what PDD has to get right,
+   so if the PDD render follows the track as the base render does, the lane
+   iterates at PDD cost. `bench/audio_freeze_pdd_arms.json` renders both
+   scenes' frozen arms on it at the same seeds as the base pairs.
 3. **First-frame keyframe.** The LTX pack's init-image pattern; one graph
    change once step 2 says the mechanism works.
 4. **The loop, the LTX geometry on H3's grid.** Window `LONG_LENGTH`, context

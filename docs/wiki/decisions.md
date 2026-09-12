@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-12
 
+- **PDD reopened for the audio-freeze lane only** (owner: "worth testing if
+  PDD works with this since it's faster iteration"). The lane was parked on
+  2026-09-05 for quality work; this is iteration speed, and the documented
+  PDD weakness is its audio, which a frozen track takes out of PDD's hands.
+  `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json` is the graph;
+  the parked quality work stays parked.
 - **Audio-freeze lane opened** (owner): a known track frozen into the target
   audio rows with a per-stream mask, on the fl2va base first, the LTX pack's
   loop geometry on H3's grid after; reference audio parked until the loop

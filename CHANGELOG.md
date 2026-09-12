@@ -4,6 +4,16 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.90
+
+### Added
+
+- **`workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json`**: the audio
+  freeze on the PDD8 baked chain, the lane's fast-iteration graph (owner,
+  reopening the parked PDD lane for this use only; `decisions.md`).
+  `bench/audio_freeze_pdd_arms.json` renders both step 2 scenes' frozen arms
+  on it at the base pairs' seeds.
+
 ## 0.99.89
 
 ### Added
