@@ -879,6 +879,30 @@
       "frames": 345,
       "donor": null,
       "brief": "The generator's l2va default, and the mode's only shipped prompt: an unconstrained opening converging on <Picture 1>. Part One is base_en's L2VA sentence, which brackets both label and shot where FL2VA brackets neither, resolved here at 345 frames."
+    },
+    {
+      "id": "t2va_studio_dancer",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action; a lone dancer in a rehearsal studio moving to a fast drum-machine pulse from a floor speaker, two shots cut on the beat grid; the audio-freeze lane's music scene (docs/h3_audio_freeze.md)",
+      "tests": "whether the picture follows a frozen instrumental track: isolations and drops on the hits, a cut on the beat grid; the free-audio twin generates the music the prompt describes"
+    },
+    {
+      "id": "t2va_none_of_this_is_real",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "Live-action; one woman at a rooftop rail speaks a single short line to camera in the first five seconds and is silent after; the audio-freeze lane's voice scene, transcript carried in <d>",
+      "tests": "lip sync against a frozen spoken clip: the mouth should move only while the clip speaks and close for the silent tail; the free-audio twin generates the line"
+    },
+    {
+      "id": "t2va_none_of_this_is_real_untold",
+      "mode": "t2va",
+      "frames": 345,
+      "donor": null,
+      "brief": "The same rooftop scene with the spoken line described but not transcribed (no <d> block); the audio-freeze lane's idea 4 arm",
+      "tests": "whether the transcript in the prompt matters when the audio is frozen: same scene, same seed, same clip, no words in the text"
     }
   ]
 }

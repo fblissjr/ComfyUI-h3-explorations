@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.89
+
+### Added
+
+- **Three bank prompts for the audio-freeze lane's step 2**:
+  `t2va_studio_dancer` (a lone dancer to a drum-machine pulse from a floor
+  speaker, one cut on the beat grid), `t2va_none_of_this_is_real` (one short
+  line to camera, transcript in `<d>`, silence after) and its `_untold` twin
+  with the line described but not transcribed. All grade clean at 345
+  frames; `docs/prompt_bank.md` regenerated.
+- **`bench/audio_freeze_step2_arms.json`**: the six-arm set, free against
+  frozen per scene at one seed, plus the loose-mask and no-transcript arms.
+
 ## 0.99.88
 
 ### Added

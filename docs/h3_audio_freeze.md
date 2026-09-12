@@ -145,6 +145,12 @@ Owner agreed 2026-09-12. Each step names what would count as done.
    free-text before anything is measured ([`eval_comparison.md`](eval_comparison.md)).
    The question: does the picture move to a track it did not generate.
    Section 5's items 1, 2 and 4 fold in here as one-knob variants.
+   **Rendering 2026-09-12:** `bench/audio_freeze_step2_arms.json` is the
+   arm set (two scenes, `t2va_studio_dancer` against a drum-machine track
+   and `t2va_none_of_this_is_real` against a spoken line, each free and
+   frozen at one seed, plus the loose-mask arm and the no-transcript arm),
+   rows in `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`. The
+   stem variant (item 1) waits on a separated stem; none is on disk.
 3. **First-frame keyframe.** The LTX pack's init-image pattern; one graph
    change once step 2 says the mechanism works.
 4. **The loop, the LTX geometry on H3's grid.** Window `LONG_LENGTH`, context

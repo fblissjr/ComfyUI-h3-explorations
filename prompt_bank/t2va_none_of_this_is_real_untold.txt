@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium close-up frames a woman in her thirties standing at the rail of a rooftop at dusk across the fourteen-second take, city lights soft and out of focus behind her, a light wind moving strands of her dark hair. She is on-screen, with a clear, measured mezzo (S1), and she looks straight into the lens and speaks one short unhurried line. Her lips close and her jaw stops moving. She holds the look for a long beat, then turns her head slowly toward the city, her lips closed, and rests both forearms on the rail. The camera holds a static shot as the wind lifts her hair and the lights behind her drift slightly with the shallow focus.
+
+overall_soundscape: A steady wind moves across the rooftop with faint distant traffic far below, a flag rope ticks against a pole somewhere off frame, and her coat fabric rustles as she turns.
+
+non_diegetic_music: N/A

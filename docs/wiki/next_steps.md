@@ -21,8 +21,11 @@ own below the rule.
   `workflows/h3_text_to_video_audio_freeze.json`, `bench/check_audio_freeze.py`,
   and the control against the pack's song node passed to the bit
   (`bench/results/2026-09-12_audio_freeze_control.json`). One throwaway
-  render done. Next: step 2, the matched-seed pairs with a prompt that
-  describes the track (needs a bank entry), then first-frame.
+  render done. Step 2's six arms (`bench/audio_freeze_step2_arms.json`:
+  dancer and voice scenes, free against frozen, plus loose mask and
+  no-transcript) rendered the same day into
+  `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`; the owner's
+  free-text verdict on the pairs is what closes the step. Then first-frame.
 
 **2026-09-11:**
 

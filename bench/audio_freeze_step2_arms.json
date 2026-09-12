@@ -1,0 +1,42 @@
+{
+  "what": "docs/h3_audio_freeze.md section 4 step 2: does the picture follow a frozen track. Two scenes, each rendered free (the shipped t2va chain generating its own audio) and frozen (the same chain with MiniMaxH3FreezeAudio between preflight and sampler), at one matched seed per scene, 1344x768 and 345 frames. Judged free-text by the owner before anything is measured; a rendered pair cannot attribute a numerical change (CLAUDE.md), and here the arms differ by a whole track, so the question is semantic: does the mouth move with the words, does the body move on the hits.",
+  "scenes": {
+    "dancer": "t2va_studio_dancer against Drum Machine Pulse.mp3 (152 bpm per the owner's analyzer, run 2026-09-12; the prompt's one cut sits on the sixteenth beat)",
+    "voice": "t2va_none_of_this_is_real against none_of_this_is_real_final.mp3 (a 4.6 s spoken line, then silence to the end of the window; whisper-medium transcript in the prompt's <d>)"
+  },
+  "arms_meaning": {
+    "dancer_free": "audio generated from the prompt; the control for the frozen twin",
+    "dancer_frozen": "the track frozen, audio_mask 0.0",
+    "dancer_loose": "the track at audio_mask 0.25: idea 2, the rows sit just below the clean timestep so the model owns them a little; the shipped file still carries the original track",
+    "voice_free": "the line generated from the transcript; the control",
+    "voice_frozen": "the clip frozen, transcript in the prompt",
+    "voice_untold": "the clip frozen, the line described but not transcribed: idea 4"
+  },
+  "arms": {
+    "dancer_free": "workflows/h3_text_to_video_api.json",
+    "dancer_frozen": "workflows/h3_text_to_video_audio_freeze_api.json",
+    "dancer_loose": "workflows/h3_text_to_video_audio_freeze_api.json",
+    "voice_free": "workflows/h3_text_to_video_api.json",
+    "voice_frozen": "workflows/h3_text_to_video_audio_freeze_api.json",
+    "voice_untold": "workflows/h3_text_to_video_audio_freeze_api.json"
+  },
+  "patches": [
+    "dancer_free:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer",
+    "dancer_free:RandomNoise.noise_seed=1101",
+    "dancer_frozen:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer",
+    "dancer_frozen:RandomNoise.noise_seed=1101",
+    "dancer_frozen:LoadAudio.audio=Drum Machine Pulse.mp3",
+    "dancer_loose:MiniMaxH3Conditioning.prompt=@bank:t2va_studio_dancer",
+    "dancer_loose:RandomNoise.noise_seed=1101",
+    "dancer_loose:LoadAudio.audio=Drum Machine Pulse.mp3",
+    "dancer_loose:MiniMaxH3FreezeAudio.audio_mask=0.25",
+    "voice_free:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real",
+    "voice_free:RandomNoise.noise_seed=2202",
+    "voice_frozen:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real",
+    "voice_frozen:RandomNoise.noise_seed=2202",
+    "voice_frozen:LoadAudio.audio=none_of_this_is_real_final.mp3",
+    "voice_untold:MiniMaxH3Conditioning.prompt=@bank:t2va_none_of_this_is_real_untold",
+    "voice_untold:RandomNoise.noise_seed=2202",
+    "voice_untold:LoadAudio.audio=none_of_this_is_real_final.mp3"
+  ]
+}
