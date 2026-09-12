@@ -252,7 +252,8 @@
         0
       ],
       "start_seconds": 0.0,
-      "audio_mask": 0.0
+      "audio_mask": 0.0,
+      "level": "clip_guard"
     }
   }
 }

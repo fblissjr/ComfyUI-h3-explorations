@@ -73,7 +73,7 @@ _CNR_ID = "comfyui-h3-explorations"
 _OUR_NODES = {
     "MiniMaxH3SageAttention", "SageChainAssert", "MiniMaxH3KeyframeCanvas",
     "MiniMaxH3ReferenceFit", "MiniMaxH3Resolution", "MiniMaxH3Preflight",
-    "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio",
+    "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio", "MiniMaxH3FreezeAudioWindow",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -1368,6 +1368,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # round trip is lossy. `freeze_mask` 0 is the hard freeze.
               freeze_audio: bool = False, freeze_start: float = 0.0,
               freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
+              # The loop's first seam, API only: two windows of the track,
+              # the second taking the first's sampled latent as frozen
+              # context (docs/h3_audio_freeze.md section 4 step 6).
+              freeze_windows: int = 0, freeze_context: int = 39,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2045,9 +2049,46 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                    "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0],
                               "audio": ["48", 0],
                               "start_seconds": freeze_start,
-                              "audio_mask": freeze_mask}}
+                              "audio_mask": freeze_mask, "level": "clip_guard"}}
         g["10"]["inputs"]["latent_image"] = ["49", 0]
         g["13"]["inputs"]["audio"] = ["49", 1]
+        del g["12"]
+
+    if freeze_windows:
+        if freeze_audio or single_frame or split_at or stamp:
+            raise SystemExit("freeze_windows composes with none of freeze_audio, single_frame, split_at, stamp")
+        if freeze_windows != 2:
+            raise SystemExit("freeze_windows: only the two-window seam is built here; a loop needs TensorLoop")
+        # Window 0: the window node in the freeze node's place. Window 1: a
+        # second window node fed the first sampler's output, its own noise
+        # (seed + 1), its own guider and sampler on the same model, sigmas
+        # and conditioning; decoded separately, its context frames dropped,
+        # the two image batches joined, and the muxer on the span audio.
+        # Node ids 48 (LoadAudio), 62-69 (free).
+        g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": freeze_track}}
+        g["62"] = {"class_type": "MiniMaxH3FreezeAudioWindow",
+                   "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0], "audio": ["48", 0],
+                              "window_index": 0, "context_frames": freeze_context,
+                              "audio_mask": freeze_mask, "level": "clip_guard"}}
+        g["10"]["inputs"]["latent_image"] = ["62", 0]
+        g["63"] = {"class_type": "MiniMaxH3FreezeAudioWindow",
+                   "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0], "audio": ["48", 0],
+                              "window_index": 1, "context_frames": freeze_context,
+                              "previous": ["10", 0],
+                              "audio_mask": freeze_mask, "level": "clip_guard"}}
+        g["64"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": seed + 1}}
+        g["65"] = {"class_type": "BasicGuider",
+                   "inputs": {"model": g["9"]["inputs"]["model"], "conditioning": ["26", 0]}}
+        g["66"] = {"class_type": "SamplerCustomAdvanced",
+                   "inputs": {"noise": ["64", 0], "guider": ["65", 0], "sampler": ["7", 0],
+                              "sigmas": g["10"]["inputs"]["sigmas"], "latent_image": ["63", 0]}}
+        g["67"] = {"class_type": "VAEDecode", "inputs": {"samples": ["66", 0], "vae": ["3", 0]}}
+        g["68"] = {"class_type": "ImageFromBatch",
+                   "inputs": {"image": ["67", 0], "batch_index": freeze_context,
+                              "length": length - freeze_context}}
+        g["69"] = {"class_type": "ImageBatch", "inputs": {"image1": ["11", 0], "image2": ["68", 0]}}
+        g["13"]["inputs"]["images"] = ["69", 0]
+        g["13"]["inputs"]["audio"] = ["63", 2]
         del g["12"]
     return g
 
@@ -4909,8 +4950,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              clip: str | None = None,
              freeze_audio: bool = False, freeze_start: float = 0.0,
              freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
+             freeze_windows: int = 0, freeze_context: int = 39,
              **canvas) -> dict:
     ref = task == "r2v"
+    if freeze_windows:
+        raise SystemExit("the two-window seam graph is API only (api_only=True on its GRAPHS entry)")
     # The same consistency guard `build_api` carries, and it has to be here
     # too: `main()` writes every UI graph in one loop BEFORE the API loop runs,
     # so a guard only in `build_api` lets a wrong `.json` reach disk and then
@@ -5563,7 +5607,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       outputs=[_out("AUDIO", "AUDIO")],
                       title="The track to freeze")
         freeze = g.add("MiniMaxH3FreezeAudio", (-60, 940), size=(420, 200),
-                       widgets=[freeze_start, freeze_mask],
+                       widgets=[freeze_start, freeze_mask, "clip_guard"],
                        inputs=[_in("latent", "LATENT"), _in("audio_vae", "VAE"),
                                _in("audio", "AUDIO")],
                        outputs=[_out("latent", "LATENT"),
@@ -6453,6 +6497,23 @@ def main():
          dict(freeze_audio=True, out_prefix="Video/h3_t2v_audio_freeze",
               variant_note=_NOTE_AUDIO_FREEZE),
          "text + a frozen audio track -> video, the track muxed as given"),
+        # First-frame twin (plan step 5): the same node on the i2v chain, so
+        # a window can be anchored on a frame. Canvas from the keyframe as
+        # the shipped i2v graph does.
+        ("h3_first_frame_to_video_audio_freeze.json", "i2v-audio-freeze", "i2v", None,
+         dict(freeze_audio=True, out_prefix="Video/h3_i2v_audio_freeze",
+              variant_note=_NOTE_AUDIO_FREEZE),
+         "first frame + text + a frozen audio track -> video"),
+        # The loop's first seam (plan step 6), API only: two windows of the
+        # track, the second window's head frozen to the first window's tail
+        # (39 frames, the smallest context on both clocks), decoded
+        # separately, the overlap dropped, the two joined, the muxer on the
+        # track's span. The seam is the thing to look at.
+        ("h3_text_to_video_audio_freeze_2windows.json", "t2v-audio-freeze-2windows", "t2v",
+         LONG_T2V_PROMPT,
+         dict(freeze_windows=2, freeze_context=39, api_only=True,
+              out_prefix="Video/h3_t2v_audio_freeze_2windows"),
+         "text + a frozen audio track -> two windows joined at a 39-frame frozen seam"),
         ("h3_image_ref_plus_text_to_video.json", "r2v", "r2v", _ref_prompt(images=True), {},
          "reference image(s) + text -> video + audio"),
         ("h3_first_frame_to_video.json", "i2v", "i2v", None, {},

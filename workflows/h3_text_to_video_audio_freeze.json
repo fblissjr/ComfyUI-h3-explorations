@@ -990,7 +990,8 @@
       },
       "widgets_values": [
         0.0,
-        0.0
+        0.0,
+        "clip_guard"
       ],
       "title": "Freeze the track into the audio rows"
     },

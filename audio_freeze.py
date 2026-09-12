@@ -65,7 +65,8 @@ import torch
 from comfy_api.latest import io
 
 import comfy.nested_tensor
-from comfy_extras.nodes_minimax_h3 import AUDIO_LATENT_FPS
+from comfy.ldm.minimax.model import FRAME_PER_TOKEN
+from comfy_extras.nodes_minimax_h3 import AUDIO_LATENT_FPS, FPS, video_latent_t
 
 logger = logging.getLogger(__name__)
 
@@ -344,3 +345,157 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
         )
         logger.info("[h3] MiniMaxH3FreezeAudio: %s", report)
         return io.NodeOutput(out, clip_audio, report)
+
+
+# ---------------------------------------------------------------------------
+# The loop: one window of a long track, with the previous window's tail frozen
+# in as context. The LTX pack's geometry (window, context, stride) on H3's grid.
+
+def pixel_frames(latent_t: int) -> int:
+    return sum(FRAME_PER_TOKEN[k % len(FRAME_PER_TOKEN)] for k in range(int(latent_t)))
+
+
+def window_geometry(latent_t: int, context_frames: int) -> dict:
+    """Frames, context steps and stride for one window, or raise naming the rule broken.
+
+    Three rules, all derived from core's grid and stated in
+    docs/h3_audio_freeze.md section 4 step 6:
+    - the context is a valid video run (17k + 5 frames) so it maps to whole
+      latent steps;
+    - it lands on the audio grid (frames * 5/3 whole), so the seam is at an
+      audio step: 39, 90, 141, ... frames (39 + 51k);
+    - the previous window's tail starts on the run pattern's phase
+      ((latent_t - context_steps) % 5 == 0), or the copied latents would
+      describe 1-frame and 4-frame steps in the wrong order.
+    """
+    frames = pixel_frames(latent_t)
+    c = int(context_frames)
+    if c < 0:
+        raise ValueError("context_frames must be non-negative")
+    if c == 0:
+        return {"frames": frames, "context_frames": 0, "context_steps": 0,
+                "stride_frames": frames, "stride_seconds": frames / FPS}
+    if c % 17 != 5:
+        raise ValueError(f"context_frames {c} is not a video run (17k + 5): 39, 56, 73, ...")
+    if (c * 5) % 3 != 0:
+        raise ValueError(f"context_frames {c} does not land on the audio grid; use 39 + 51k: 39, 90, 141, ...")
+    steps = video_latent_t(c)
+    if steps >= latent_t:
+        raise ValueError(f"context {c} frames ({steps} latent steps) is not shorter than the window ({latent_t} steps)")
+    if (latent_t - steps) % len(FRAME_PER_TOKEN) != 0:
+        raise ValueError(
+            f"a {c}-frame context ({steps} steps) does not start on the run phase of a "
+            f"{latent_t}-step window; the tail would be copied out of phase")
+    stride = frames - c
+    if (stride * 5) % 3 != 0:
+        raise ValueError(f"stride {stride} frames does not land on the audio grid")
+    return {"frames": frames, "context_frames": c, "context_steps": steps,
+            "stride_frames": stride, "stride_seconds": stride / FPS}
+
+
+class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="MiniMaxH3FreezeAudioWindow",
+            display_name="MiniMax H3 Freeze Audio Window (loop)",
+            category="model/latent/minimax",
+            description=(
+                "One window of a long track: freezes the track's slice for this window "
+                "(start = window_index * (window - context)), and, from the second window on, "
+                "copies the previous window's video latent tail into this window's head and "
+                "freezes it as context. Chain one per window, each feeding its own sampler; "
+                "drop trim_frames from each decoded window after the first and concatenate. "
+                "span_audio is the track from the start to the end of this window, for the muxer. "
+                "docs/h3_audio_freeze.md section 4 step 6."
+            ),
+            inputs=[
+                io.Latent.Input("latent", tooltip="A fresh joint video+audio latent for this window, from the H3 conditioner."),
+                io.Vae.Input("audio_vae"),
+                io.Audio.Input("audio", tooltip="The whole track."),
+                io.Int.Input("window_index", default=0, min=0, max=999,
+                             tooltip="0 for the first window. The song start is window_index * stride."),
+                io.Int.Input("context_frames", default=39, min=0, max=999,
+                             tooltip=("Frames of the previous window kept as frozen context at the head of "
+                                      "this one. Must be a video run that lands on the audio grid: 39, 90, 141 "
+                                      "(39 + 51k). 0 disables context. Ignored on window 0.")),
+                io.Latent.Input("previous", optional=True,
+                                tooltip="The previous window's SAMPLED latent (the sampler's output). Required from window 1 on."),
+                io.Float.Input("audio_mask", default=0.0, min=0.0, max=1.0, step=0.01),
+                io.Combo.Input("level", options=["clip_guard", "peak", "none"], default="clip_guard"),
+            ],
+            outputs=[
+                io.Latent.Output(display_name="latent"),
+                io.Audio.Output(display_name="clip_audio", tooltip="This window's slice, at the VAE's rate."),
+                io.Audio.Output(display_name="span_audio", tooltip="The track from its start to the end of this window, for the muxer of the concatenated video."),
+                io.Int.Output(display_name="trim_frames", tooltip="Frames to drop from the head of this window's decode: context_frames after window 0, else 0."),
+                io.Float.Output(display_name="start_seconds"),
+                io.String.Output(display_name="report"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, latent, audio_vae, audio, window_index, context_frames, previous=None,
+                audio_mask=0.0, level="clip_guard") -> io.NodeOutput:
+        video, target_audio = _av_streams(latent["samples"])
+        latent_t = int(video.shape[2])
+        audio_t = int(target_audio.shape[-1])
+        geo = window_geometry(latent_t, context_frames if window_index > 0 else 0)
+        start_seconds = float(window_index) * geo["stride_seconds"]
+
+        waveform, rate, fixes = _stereo(audio)
+        piece, start_step, vae_rate, padded_steps = slice_window(
+            waveform, rate, audio_vae, start_seconds, audio_t)
+        piece, level_fixes = condition_level(piece, level)
+        fixes += level_fixes
+        z = audio_vae.encode(piece.movedim(1, -1))
+        if tuple(z.shape[:3]) != tuple(target_audio.shape[:3]) or int(z.shape[-1]) != audio_t:
+            raise ValueError(
+                f"audio VAE returned {tuple(z.shape)} for a {audio_t}-step window; the target "
+                f"audio latent is {tuple(target_audio.shape)}")
+        z = z.to(device=target_audio.device, dtype=target_audio.dtype)
+
+        video = video.clone()
+        video_mask = torch.ones((1, 1) + tuple(video.shape[2:]), dtype=torch.float32)
+        c = geo["context_steps"]
+        if window_index > 0 and c > 0:
+            if previous is None:
+                raise ValueError(f"window {window_index} needs the previous window's sampled latent on `previous`")
+            prev_video, _prev_audio = _av_streams(previous["samples"])
+            if tuple(prev_video.shape[1:]) != tuple(video.shape[1:]):
+                raise ValueError(
+                    f"previous window's video latent {tuple(prev_video.shape)} does not match this "
+                    f"window's {tuple(video.shape)}: every window must share canvas and length")
+            video[:, :, :c] = prev_video[:, :, latent_t - c:].to(device=video.device, dtype=video.dtype)
+            video_mask[:, :, :c] = 0.0
+        out = latent.copy()
+        out["samples"] = comfy.nested_tensor.NestedTensor((video, z))
+        audio_part = torch.full((1, 1) + tuple(z.shape[2:]), float(audio_mask), dtype=torch.float32)
+        out["noise_mask"] = comfy.nested_tensor.NestedTensor((video_mask, audio_part))
+
+        # the track from 0 to the end of this window, on the same grid, for the muxer
+        vae_rate2, hop = audio_grid(audio_vae)
+        full = waveform
+        if rate != vae_rate2:
+            import torchaudio
+            full = torchaudio.functional.resample(full, rate, vae_rate2)
+        end = (start_step + audio_t) * hop
+        span = full[..., :end]
+        if span.shape[-1] < end:
+            span = torch.nn.functional.pad(span, (0, end - span.shape[-1]))
+        span, _ = condition_level(span.contiguous(), level)
+
+        trim = int(geo["context_frames"]) if window_index > 0 else 0
+        report = (
+            f"window {window_index}: {geo['frames']} frames, context {geo['context_frames']} frames "
+            f"({c} latent steps{' copied from the previous window and frozen' if window_index > 0 and c else ''}), "
+            f"stride {geo['stride_frames']} frames; track from step {start_step} ({start_seconds:.3f}s), "
+            f"{audio_t} steps frozen at mask {float(audio_mask):g}"
+            + (f", {padded_steps} trailing steps silent" if padded_steps else "")
+            + f"; trim {trim} frames from this window's decode; source {rate} Hz -> {vae_rate} Hz"
+            + ("; " + "; ".join(fixes) if fixes else "")
+        )
+        logger.info("[h3] MiniMaxH3FreezeAudioWindow: %s", report)
+        return io.NodeOutput(out, {"waveform": piece, "sample_rate": vae_rate},
+                             {"waveform": span, "sample_rate": vae_rate}, trim, start_seconds, report)
+

@@ -81,7 +81,7 @@
         0
       ],
       "latent_image": [
-        "49",
+        "62",
         0
       ]
     }
@@ -103,16 +103,16 @@
     "class_type": "VHS_VideoCombine",
     "inputs": {
       "images": [
-        "11",
+        "69",
         0
       ],
       "audio": [
-        "49",
-        1
+        "63",
+        2
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_t2v_audio_freeze",
+      "filename_prefix": "Video/h3_t2v_audio_freeze_2windows",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -235,8 +235,8 @@
       "audio": "4th-ninja-Breathless_Heights.mp3"
     }
   },
-  "49": {
-    "class_type": "MiniMaxH3FreezeAudio",
+  "62": {
+    "class_type": "MiniMaxH3FreezeAudioWindow",
     "inputs": {
       "latent": [
         "26",
@@ -250,9 +250,116 @@
         "48",
         0
       ],
-      "start_seconds": 0.0,
+      "window_index": 0,
+      "context_frames": 39,
       "audio_mask": 0.0,
       "level": "clip_guard"
+    }
+  },
+  "63": {
+    "class_type": "MiniMaxH3FreezeAudioWindow",
+    "inputs": {
+      "latent": [
+        "26",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "audio": [
+        "48",
+        0
+      ],
+      "window_index": 1,
+      "context_frames": 39,
+      "previous": [
+        "10",
+        0
+      ],
+      "audio_mask": 0.0,
+      "level": "clip_guard"
+    }
+  },
+  "64": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451893
+    }
+  },
+  "65": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "66": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "64",
+        0
+      ],
+      "guider": [
+        "65",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "63",
+        0
+      ]
+    }
+  },
+  "67": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "66",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "68": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "image": [
+        "67",
+        0
+      ],
+      "batch_index": 39,
+      "length": 306
+    }
+  },
+  "69": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "11",
+        0
+      ],
+      "image2": [
+        "68",
+        0
+      ]
     }
   }
 }

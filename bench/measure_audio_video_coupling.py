@@ -103,8 +103,15 @@ def video_frames(path: str, width: int = 160):
 
 
 def face_box(path: str):
-    """Median frontal-face box over the clip at full resolution, or None."""
+    """Median frontal-face box over the clip at full resolution, or None.
+
+    Returns None when this OpenCV build has no cascade detector (the venv's
+    build did not, 2026-09-12); the caller then falls back to a fixed
+    centre-lower region and says so in the record.
+    """
     import cv2
+    if not hasattr(cv2, "CascadeClassifier"):
+        return None
     cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     cap = cv2.VideoCapture(path)
     boxes = []
@@ -240,23 +247,30 @@ def measure(label: str, clip: str, mode: str, audio: str | None, max_lag: int) -
         rec["tempo"] = tempo_locking(motion_energy(frames), env, fps)
     else:
         fb = face_box(clip)
+        H, W = frames.shape[1], frames.shape[2]
         if fb is None:
-            rec["mouth"] = {"error": "no frontal face detected"}
-            return rec
-        (x, y, w, h), hits = fb
-        # the detector ran at full resolution; the frames are downscaled
-        import cv2
-        cap = cv2.VideoCapture(clip)
-        full_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        cap.release()
-        s = frames.shape[2] / full_w
-        region = (int((y + 0.62 * h) * s), int((y + h) * s), int(x * s), int((x + w) * s))
+            # No detector: the voice prompts frame one face at medium close-up,
+            # centred, so the mouth sits in the centre-lower part of the frame.
+            region = (int(0.50 * H), int(0.78 * H), int(0.35 * W), int(0.65 * W))
+            box_note = {"face_box_full_res": None, "face_hits": 0,
+                        "region_source": "fixed centre-lower region; no cascade detector in this OpenCV build"}
+        else:
+            (x, y, w, h), hits = fb
+            # the detector ran at full resolution; the frames are downscaled
+            import cv2
+            cap = cv2.VideoCapture(clip)
+            full_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+            cap.release()
+            s = frames.shape[2] / full_w
+            region = (int((y + 0.62 * h) * s), int((y + h) * s), int(x * s), int((x + w) * s))
+            box_note = {"face_box_full_res": [int(x), int(y), int(w), int(h)], "face_hits": hits,
+                        "region_source": "lower 38% of the median Haar face box"}
         motion = motion_energy(frames, region)
         env = rms_envelope(wav, sr, n, fps)
         loud = env > 0.2 * env.max()
         quiet = ~loud
         rec["mouth"] = {
-            "face_box_full_res": [int(x), int(y), int(w), int(h)], "face_hits": hits,
+            **box_note,
             "lower_face_region_small": list(region),
             "loud_frames": int(loud.sum()), "quiet_frames": int(quiet.sum()),
             "motion_loud_mean": round(float(motion[loud].mean()), 4) if loud.any() else None,

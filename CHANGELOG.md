@@ -4,6 +4,28 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.92
+
+### Added
+
+- **`MiniMaxH3FreezeAudioWindow`** (`audio_freeze.py`): one window of a long
+  track for the loop. Freezes the track's slice at `window_index * stride`,
+  and from the second window on copies the previous window's video latent
+  tail into this window's head and freezes it as context; `window_geometry`
+  holds the three grid rules (a video run, on the audio grid, on the run
+  phase). Outputs the window's slice, the track's span for the muxer, the
+  frames to trim, the start time and a report.
+- **`workflows/h3_text_to_video_audio_freeze_2windows.json`** (API only,
+  generator knob `freeze_windows`): the loop's first seam, two windows joined
+  at a 39-frame frozen context. **`workflows/h3_first_frame_to_video_audio_freeze.json`**:
+  the freeze on the i2v chain.
+- `MiniMaxH3FreezeAudio` gains `level` (appended): `clip_guard` default.
+  `bench/check_audio_freeze.py` covers the window node's geometry, the
+  context copy and the seam graph's wiring; the manifest records both.
+- `bench/measure_audio_video_coupling.py` falls back to a fixed centre-lower
+  region when OpenCV has no cascade detector, and says so; its mouth record
+  on the voice arms reads head motion in the silent tail, not the mouth.
+
 ## 0.99.91
 
 ### Added

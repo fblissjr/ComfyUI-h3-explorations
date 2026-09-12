@@ -56,6 +56,7 @@ import h3_config  # noqa: E402
 import audio_freeze as af  # noqa: E402
 
 FREEZE = "MiniMaxH3FreezeAudio"
+WINDOW = "MiniMaxH3FreezeAudioWindow"
 STOCK_MASK = "SetLatentNoiseMask"
 
 
@@ -166,6 +167,49 @@ def check_masks(problems):
         _fail(problems, "an incoming nested video mask was not kept, or audio was not re-frozen")
 
 
+def check_window_geometry(problems):
+    # 345 frames: 102 latent steps. 39 frames is 12 steps, phase-aligned, on the audio grid.
+    geo = af.window_geometry(102, 39)
+    if (geo["context_steps"], geo["stride_frames"]) != (12, 306):
+        _fail(problems, f"window geometry for 345/39 is {geo}")
+    if abs(geo["stride_seconds"] * 40 - round(geo["stride_seconds"] * 40)) > 1e-9:
+        _fail(problems, "the stride does not land on the audio grid")
+    for bad in (17, 22, 56, 40):
+        try:
+            af.window_geometry(102, bad)
+            _fail(problems, f"context {bad} was accepted")
+        except ValueError:
+            pass
+    if af.window_geometry(102, 0)["stride_frames"] != 345:
+        _fail(problems, "context 0 did not give a full-window stride")
+    # window 1 copies the previous tail into the head and freezes it
+    video = torch.randn(1, 24, 102, 48, 84)
+    audio = torch.randn(1, 32, 2, 575)
+    fresh = {"samples": comfy.nested_tensor.NestedTensor((torch.zeros_like(video), torch.zeros_like(audio)))}
+    prev = {"samples": comfy.nested_tensor.NestedTensor((video, audio))}
+    song = {"waveform": torch.randn(1, 2, 44100 * 40), "sample_rate": 44100}
+    out = af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 1, 39, previous=prev)
+    args = getattr(out, "args", out)
+    lat, _clip, span, trim, start, _rep = args
+    v2, _ = lat["samples"].unbind()
+    if not torch.equal(v2[:, :, :12], video[:, :, 90:]):
+        _fail(problems, "window 1 did not copy the previous window's last 12 latent steps into its head")
+    if v2[:, :, 12:].abs().max() != 0.0:
+        _fail(problems, "window 1 wrote outside the context")
+    vm, am = lat["noise_mask"].unbind()
+    if vm[:, :, :12].max() != 0.0 or vm[:, :, 12:].min() != 1.0 or am.max() != 0.0:
+        _fail(problems, "window 1's masks are wrong")
+    if trim != 39 or abs(start - 306 / 24) > 1e-9:
+        _fail(problems, f"window 1 trim/start {trim} {start}")
+    if span["waveform"].shape[-1] != (510 + 575) * 800:
+        _fail(problems, f"span audio is {span['waveform'].shape[-1]} samples, expected {(510 + 575) * 800}")
+    try:
+        af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 1, 39)
+        _fail(problems, "window 1 without a previous latent was accepted")
+    except ValueError:
+        pass
+
+
 def check_execute(problems):
     video = torch.randn(1, 24, 37, 48, 84)
     audio = torch.randn(1, 32, 2, 207)
@@ -207,27 +251,32 @@ def check_graphs(problems) -> tuple[int, int]:
         classes = {nid: n.get("class_type") for nid, n in g.items()}
         if STOCK_MASK in classes.values():
             _fail(problems, f"{p.name}: carries {STOCK_MASK}, which flattens an AV noise_mask")
-        ids = [nid for nid, ct in classes.items() if ct == FREEZE]
+        ids = [nid for nid, ct in classes.items() if ct in (FREEZE, WINDOW)]
         if not ids:
             continue
         frozen += 1
-        if len(ids) != 1:
-            _fail(problems, f"{p.name}: {len(ids)} freeze nodes")
-            continue
-        fid = ids[0]
-        node = g[fid]["inputs"]
-        if node.get("latent") != ["26", 1]:
-            _fail(problems, f"{p.name}: freeze node takes its latent from {node.get('latent')}, not the preflight")
+        for fid in ids:
+            if g[fid]["inputs"].get("latent") != ["26", 1]:
+                _fail(problems, f"{p.name}: node {fid} takes its latent from {g[fid]['inputs'].get('latent')}, not the preflight")
         samplers = [nid for nid, ct in classes.items() if ct == "SamplerCustomAdvanced"]
         for sid in samplers:
-            if g[sid]["inputs"].get("latent_image") != [fid, 0]:
-                _fail(problems, f"{p.name}: sampler {sid} does not take the frozen latent")
+            src = g[sid]["inputs"].get("latent_image")
+            if not (isinstance(src, list) and src[0] in ids and src[1] == 0):
+                _fail(problems, f"{p.name}: sampler {sid} does not take a frozen latent ({src})")
         muxers = [nid for nid, ct in classes.items() if ct == "VHS_VideoCombine"]
         for mid in muxers:
-            if g[mid]["inputs"].get("audio") != [fid, 1]:
-                _fail(problems, f"{p.name}: muxer {mid} does not take the node's clip_audio")
+            src = g[mid]["inputs"].get("audio")
+            ok = isinstance(src, list) and src[0] in ids and (
+                (classes[src[0]] == FREEZE and src[1] == 1) or (classes[src[0]] == WINDOW and src[1] == 2))
+            if not ok:
+                _fail(problems, f"{p.name}: muxer {mid} does not take a freeze node's track ({src})")
         if "VAEDecodeAudio" in classes.values():
             _fail(problems, f"{p.name}: an audio decoder is still present on a freeze graph")
+        windows = [nid for nid in ids if classes[nid] == WINDOW]
+        for wid in windows:
+            w = g[wid]["inputs"]
+            if w.get("window_index", 0) > 0 and not w.get("previous"):
+                _fail(problems, f"{p.name}: window node {wid} is not window 0 and has no previous latent")
     return len(paths), frozen
 
 
@@ -236,6 +285,7 @@ def main() -> int:
     check_slice(problems)
     check_masks(problems)
     check_execute(problems)
+    check_window_geometry(problems)
     n, frozen = check_graphs(problems)
     print(f"  {n} api graphs walked, {frozen} carry {FREEZE}, none carry {STOCK_MASK}"
           if not any(STOCK_MASK in p for p in problems) else

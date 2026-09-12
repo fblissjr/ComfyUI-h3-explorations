@@ -1,0 +1,106 @@
+{
+  "date": "2026-09-12",
+  "mode": "mouth",
+  "what": "lower-face motion energy against the audio RMS envelope, per video frame, with a circular-shift null; loud/quiet is the mean motion ratio between frames where the audio is above a fifth of its peak RMS and the rest",
+  "against": "each clip's own soundtrack",
+  "rows": [
+    {
+      "label": "voice_free",
+      "clip": "h3_t2v_voice_free_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "mouth",
+      "mouth": {
+        "face_box_full_res": null,
+        "face_hits": 0,
+        "region_source": "fixed centre-lower region; no cascade detector in this OpenCV build",
+        "lower_face_region_small": [
+          45,
+          70,
+          56,
+          104
+        ],
+        "loud_frames": 53,
+        "quiet_frames": 292,
+        "motion_loud_mean": 0.8338,
+        "motion_quiet_mean": 1.0942,
+        "loud_over_quiet": 0.762,
+        "corr_lag0": -0.0908,
+        "corr_best": -0.0897,
+        "best_lag_frames": -1,
+        "null_mean": 0.0175,
+        "null_std": 0.2175,
+        "z_lag0": -0.5,
+        "frames": 345
+      }
+    },
+    {
+      "label": "voice_frozen",
+      "clip": "h3_t2v_audio_freeze_voice_frozen_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "mouth",
+      "mouth": {
+        "face_box_full_res": null,
+        "face_hits": 0,
+        "region_source": "fixed centre-lower region; no cascade detector in this OpenCV build",
+        "lower_face_region_small": [
+          45,
+          70,
+          56,
+          104
+        ],
+        "loud_frames": 88,
+        "quiet_frames": 257,
+        "motion_loud_mean": 1.171,
+        "motion_quiet_mean": 1.6055,
+        "loud_over_quiet": 0.729,
+        "corr_lag0": -0.1167,
+        "corr_best": -0.1046,
+        "best_lag_frames": 2,
+        "null_mean": -0.0019,
+        "null_std": 0.3012,
+        "z_lag0": -0.38,
+        "frames": 345
+      }
+    },
+    {
+      "label": "voice_untold",
+      "clip": "h3_t2v_audio_freeze_voice_untold_00001-audio.mp4",
+      "audio": "the clip's own",
+      "fps": 24.0,
+      "frames": 345,
+      "mode": "mouth",
+      "mouth": {
+        "face_box_full_res": null,
+        "face_hits": 0,
+        "region_source": "fixed centre-lower region; no cascade detector in this OpenCV build",
+        "lower_face_region_small": [
+          45,
+          70,
+          56,
+          104
+        ],
+        "loud_frames": 88,
+        "quiet_frames": 257,
+        "motion_loud_mean": 0.6642,
+        "motion_quiet_mean": 1.2363,
+        "loud_over_quiet": 0.537,
+        "corr_lag0": -0.2105,
+        "corr_best": -0.1796,
+        "best_lag_frames": 3,
+        "null_mean": 0.0139,
+        "null_std": 0.3416,
+        "z_lag0": -0.66,
+        "frames": 345
+      }
+    }
+  ],
+  "caveats": [
+    "an instrument beside the owner's verdict, not a ranking (docs/checks.md)",
+    "motion energy is camera, cuts and fabric as much as the subject; the Haar face box is coarse",
+    "z is against a circular-shift null of the same envelope, so it says the coupling beats chance for this clip and nothing about how it looks"
+  ]
+}

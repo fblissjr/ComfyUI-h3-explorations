@@ -155,6 +155,24 @@ batch is enough.
    needs to be in the prompt (the `voice_untold` arm). The wide framing
    blurs the face, so later renders use `t2va_studio_dancer_close`.
 
+   The lower-face instrument
+   ([`../bench/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json`](../bench/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json))
+   reads the wrong thing on this scene: the silent tail is where she turns
+   her head, so a fixed region sees more motion in silence than in speech
+   on every arm, and this OpenCV build has no face detector. The eye is the
+   verdict here; the instrument's mouth mode needs a landmark model before
+   it says anything.
+
+**Built while the owner was away, 2026-09-12 evening**, for steps 5 and 6:
+`audio_freeze.py::MiniMaxH3FreezeAudioWindow` (one window of a long track,
+the previous window's video latent tail copied in as frozen context, the
+geometry rules in `window_geometry`), the first-frame twin
+`workflows/h3_first_frame_to_video_audio_freeze.json`, and the API-only
+two-window seam graph `workflows/h3_text_to_video_audio_freeze_2windows.json`
+(second window fed the first sampler's output, decoded separately, the
+39-frame overlap dropped, the two joined, the muxer on the track's span).
+The freeze node also grew a `level` input (the level guard above).
+
 **Next, in order.**
 
 3. **PDD8 as the iteration chain** (owner's ask; the lane's speed lever).

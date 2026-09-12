@@ -19,7 +19,7 @@ from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
 from .h3_encoder_loader import MiniMaxH3EncoderLoader
 from .pdd_lora import MiniMaxH3PDDLoRA
 from .audio_carry_probe import MiniMaxH3AudioCarryProbe
-from .audio_freeze import MiniMaxH3FreezeAudio
+from .audio_freeze import MiniMaxH3FreezeAudio, MiniMaxH3FreezeAudioWindow
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .quant_observe import MiniMaxH3QuantObserve
@@ -268,7 +268,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ExactBlocks, MiniMaxH3SolAttn, MiniMaxH3SolChunked,
                 MiniMaxH3VSAAttention,
                 MiniMaxH3QuantObserve,
-                MiniMaxH3FreezeAudio]
+                MiniMaxH3FreezeAudio, MiniMaxH3FreezeAudioWindow]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

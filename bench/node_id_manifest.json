@@ -106,6 +106,27 @@
       "report"
     ]
   },
+  "MiniMaxH3FreezeAudioWindow": {
+    "inputs": [
+      "latent",
+      "audio_vae",
+      "audio",
+      "window_index",
+      "context_frames",
+      "previous",
+      "audio_mask",
+      "level"
+    ],
+    "node_id": "MiniMaxH3FreezeAudioWindow",
+    "outputs": [
+      "latent",
+      "clip_audio",
+      "span_audio",
+      "trim_frames",
+      "start_seconds",
+      "report"
+    ]
+  },
   "MiniMaxH3KeyframeCanvas": {
     "inputs": [
       "first_frame",
