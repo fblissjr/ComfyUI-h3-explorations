@@ -69,6 +69,13 @@
       "owner": "Yeah they all look and sound great. Last speaking clip from above has her moving her head in the middle to end",
       "when": "2026-09-12",
       "reading": "PDD8 keeps the coupling on both scenes: it is the lane's iteration chain from here (plan step 3 closed). Both second-seed dancer arms read good, so the seed-1 loose-over-frozen gap reads as the seed; hard freeze stays the default, the loose mask a knob. The PDD8 voice arm moved her head mid-line on the still prompt"
+    },
+    {
+      "arm": "dancer_close_frozen_s2, dancer_close_loose_s2",
+      "clip": "the second-seed pair on t2va_studio_dancer_close",
+      "owner": "Both dancer clips are great. I love them.",
+      "when": "2026-09-12",
+      "reading": "the reframed prompt at a second seed: both arms land. The framing fix holds (face sharp at medium shot and close-up) and the mask value does not separate them"
     }
   ],
   "caveats": [
