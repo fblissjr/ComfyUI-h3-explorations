@@ -194,19 +194,49 @@ The freeze node also grew a `level` input (the level guard above).
    and whether more of the track without words closes the gap (the loose
    mask and guide audio, `bench/audio_freeze_untold_arms.json`).
 
+**For the owner to judge, rendered 2026-09-12 evening and not yet judged.**
+Clips are in the output share under `Video/`; the rows name each arm's graph,
+prompt id and seed. One line per clip into
+`bench/results/2026-09-12_audio_freeze_step2_verdict.json` is what closes each.
+
+| clip (under `Video/`) | what it asks | rows |
+|---|---|---|
+| `h3_t2v_audio_freeze_2windows_seam_dancer_close_00001-audio.mp4` | the loop's first seam: two windows joined at 39 frames, about 12.75 s in. Does the join read? | `2026-09-12_audio_freeze_seam_and_moving_arms.jsonl` |
+| `h3_candidate_t2v_pdd8_baked_audio_freeze_voice_moving_subject_pdd8_00001-audio.mp4` | subject moves during the line, camera held: lip sync intact, natural? | same |
+| `..._voice_moving_camera_pdd8_00001-audio.mp4` | camera arcs, delivery still | same |
+| `..._voice_moving_both_pdd8_00001-audio.mp4` | both | same |
+| `h3_candidate_t2v_pdd8_baked_audio_freeze_untold_loose_pdd8_00001-audio.mp4` | no transcript, loose mask: more natural than the untold base arm? | `2026-09-12_audio_freeze_untold_arms.jsonl` |
+| `h3_candidate_t2v_pdd8_baked_audio_freeze_guide_untold_guide_pdd8_00001-audio.mp4` | no transcript, the clip also as guide rows | same |
+| `..._guide_untold_guide_loose_pdd8_00001-audio.mp4` | both | same |
+
+**Built the same evening, first run still owed** (a new tool's first run is
+a throwaway): the whole-track node `MiniMaxH3AudioFreezeSong`
+(`workflows/h3_text_to_video_audio_freeze_song.json`, a 30 s look by
+default, uniform or random window lengths, one prompt or blocks in cycle,
+uniform or random order); the shot-per-window chain
+(`workflows/h3_text_to_video_audio_freeze_shots.json`, three windows of
+345, 192 and 192 frames, and `..._shots_repeat.json`, one shot four times);
+the audio attention gain knob (`MiniMaxH3AudioAttentionGain`,
+`bench/audio_freeze_gain_arms.json` renders key and value gains of two on the
+PDD8 chain). The first item tomorrow is one short run of the song graph.
+
 **Next, in order.**
 
 5. **First-frame keyframe**: the LTX pack's init-image pattern, one graph
    change on the freeze graph. Needed before the loop, because the loop
    anchors each window on a frame.
-6. **The loop**: window `LONG_LENGTH`, context on the joint grid (39 plus
-   multiples of 51 frames land on both clocks), the previous window's video
-   latent tail copied in as a frozen prefix, the next song slice frozen at
-   its absolute time, stride equals window minus context, iterations
-   through the installed TensorLoop pack, hard masks on both streams. One
-   two-window render of the drum track is the first seam to look at. Expect
-   identity drift across windows first; the fix is the ref2va checkpoint
-   with a per-window reference image.
+6. **The loop**: one shot per window (owner, 2026-09-12 evening), windows
+   of different lengths allowed, each on both clocks (39 plus multiples of
+   51 frames: 141, 192, 243, 294, 345), the context on the same grid, the
+   previous window's video latent tail copied in as a frozen prefix, the
+   next song slice frozen at the previous window's `next_start_seconds`,
+   hard masks on both streams, iterations through the installed TensorLoop
+   pack. Shorter windows are the lane's cost lever: attention is quadratic
+   in the packed sequence (`bench/preflight_graph.py` prices it), a seam
+   re-pays its context, and short windows sit inside the trained range.
+   The two-window seam render at 345 frames is the first join to look at.
+   Expect identity drift across windows first; the fix is the ref2va
+   checkpoint with a per-window reference image.
 7. **Then the ideas in section 5**, ordered by what the verdicts so far
    suggest: the stem (once a separated stem is on disk), the hybrid and the
    ref2va-checkpoint freeze at the loop stage, guide audio and the ceiling

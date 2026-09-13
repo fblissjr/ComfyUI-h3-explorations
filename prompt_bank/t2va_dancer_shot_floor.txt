@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a low wide shot frames a dancer's feet and legs on a sprung wooden studio floor across the eight-second take, the mirrored wall behind, a portable speaker on the floor at the edge of frame playing a fast, dry drum-machine pulse. She is in her twenties in a grey vest and loose black trousers, barefoot, and she produces no vocal sound. Her footwork hits on every beat: heel drops on the downbeats, quick toe taps between them, weight shifting side to side so the trousers swing, and on the fourth hit of each bar both feet leave the floor together and land square. The camera holds a static shot as the steps travel toward the lens until her knees fill the frame.
+
+overall_soundscape: Bare feet squeak and slap on the sprung floor, fabric swings and rustles with each shift of weight, and her breath comes in short controlled bursts between hits, under the dry room tone of an empty studio.
+
+non_diegetic_music: N/A

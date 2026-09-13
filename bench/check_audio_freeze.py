@@ -188,9 +188,11 @@ def check_window_geometry(problems):
     fresh = {"samples": comfy.nested_tensor.NestedTensor((torch.zeros_like(video), torch.zeros_like(audio)))}
     prev = {"samples": comfy.nested_tensor.NestedTensor((video, audio))}
     song = {"waveform": torch.randn(1, 2, 44100 * 40), "sample_rate": 44100}
-    out = af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 1, 39, previous=prev)
+    out = af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39, previous=prev)
     args = getattr(out, "args", out)
-    lat, _clip, span, trim, start, _rep = args
+    lat, _clip, span, trim, next_start, _rep, new_audio = args
+    if new_audio["waveform"].shape[-1] != (575 - 65) * 800:
+        _fail(problems, f"new_audio is {new_audio['waveform'].shape[-1]} samples, expected the window minus 65 context steps")
     v2, _ = lat["samples"].unbind()
     if not torch.equal(v2[:, :, :12], video[:, :, 90:]):
         _fail(problems, "window 1 did not copy the previous window's last 12 latent steps into its head")
@@ -199,15 +201,28 @@ def check_window_geometry(problems):
     vm, am = lat["noise_mask"].unbind()
     if vm[:, :, :12].max() != 0.0 or vm[:, :, 12:].min() != 1.0 or am.max() != 0.0:
         _fail(problems, "window 1's masks are wrong")
-    if trim != 39 or abs(start - 306 / 24) > 1e-9:
-        _fail(problems, f"window 1 trim/start {trim} {start}")
-    if span["waveform"].shape[-1] != (510 + 575) * 800:
-        _fail(problems, f"span audio is {span['waveform'].shape[-1]} samples, expected {(510 + 575) * 800}")
+    if trim != 39 or abs(next_start - 2 * 306 / 24) > 1e-9:
+        _fail(problems, f"window 1 trim/next_start {trim} {next_start}")
+    # windows may differ in length: a 141-frame window (42 steps, 235 audio steps) after the 345-frame one
+    short = {"samples": comfy.nested_tensor.NestedTensor((torch.zeros(1, 24, 42, 48, 84), torch.zeros(1, 32, 2, 235)))}
+    out2 = getattr(af.MiniMaxH3FreezeAudioWindow.execute(short, FakeAudioVAE(), song, 306 / 24, 39, previous=prev), "args", None)
+    v3, _ = out2[0]["samples"].unbind()
+    if not torch.equal(v3[:, :, :12], video[:, :, 90:]) or out2[3] != 39:
+        _fail(problems, "a shorter second window did not take the previous window's tail")
+    if abs(out2[4] - (306 / 24 + (141 - 39) / 24)) > 1e-9:
+        _fail(problems, f"next_start after a 141-frame window is {out2[4]}")
+    # 124 frames is a legal render length but not a chain window: its stride is off the audio grid
     try:
-        af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 1, 39)
-        _fail(problems, "window 1 without a previous latent was accepted")
+        af.window_geometry(37, 39)
+        _fail(problems, "a 124-frame chained window was accepted")
     except ValueError:
         pass
+    if span["waveform"].shape[-1] != (510 + 575) * 800:
+        _fail(problems, f"span audio is {span['waveform'].shape[-1]} samples, expected {(510 + 575) * 800}")
+    # no previous: no context, trim 0, whatever the start
+    out3 = getattr(af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39), "args", None)
+    if out3[3] != 0 or out3[0]["noise_mask"].unbind()[0].min() != 1.0:
+        _fail(problems, "a window with no previous latent froze video context")
 
 
 def check_execute(problems):
@@ -256,8 +271,10 @@ def check_graphs(problems) -> tuple[int, int]:
             continue
         frozen += 1
         for fid in ids:
-            if g[fid]["inputs"].get("latent") != ["26", 1]:
-                _fail(problems, f"{p.name}: node {fid} takes its latent from {g[fid]['inputs'].get('latent')}, not the preflight")
+            src = g[fid]["inputs"].get("latent")
+            ok = src == ["26", 1] or (isinstance(src, list) and classes.get(src[0]) == "MiniMaxH3Conditioning" and src[1] == 1)
+            if not ok:
+                _fail(problems, f"{p.name}: node {fid} takes its latent from {src}, not the preflight or a conditioner")
         samplers = [nid for nid, ct in classes.items() if ct == "SamplerCustomAdvanced"]
         for sid in samplers:
             src = g[sid]["inputs"].get("latent_image")
@@ -267,7 +284,7 @@ def check_graphs(problems) -> tuple[int, int]:
         for mid in muxers:
             src = g[mid]["inputs"].get("audio")
             ok = isinstance(src, list) and src[0] in ids and (
-                (classes[src[0]] == FREEZE and src[1] == 1) or (classes[src[0]] == WINDOW and src[1] == 2))
+                (classes[src[0]] == FREEZE and src[1] == 1) or (classes[src[0]] == WINDOW and src[1] in (2, 6)))
             if not ok:
                 _fail(problems, f"{p.name}: muxer {mid} does not take a freeze node's track ({src})")
         if "VAEDecodeAudio" in classes.values():
@@ -275,8 +292,20 @@ def check_graphs(problems) -> tuple[int, int]:
         windows = [nid for nid in ids if classes[nid] == WINDOW]
         for wid in windows:
             w = g[wid]["inputs"]
-            if w.get("window_index", 0) > 0 and not w.get("previous"):
-                _fail(problems, f"{p.name}: window node {wid} is not window 0 and has no previous latent")
+            if w.get("previous") and not (isinstance(w.get("start_seconds"), list) or w.get("start_seconds")):
+                _fail(problems, f"{p.name}: window node {wid} has a previous latent but starts at 0")
+        # a chain: more than one window means a join node fed every muxer, in order
+        if len(windows) > 1 and len(muxers) > 1:
+            joins = [nid for nid, ct in classes.items() if ct == "MiniMaxH3JoinWindows"]
+            if len(joins) != 1:
+                _fail(problems, f"{p.name}: {len(windows)} windows and {len(joins)} join nodes")
+            else:
+                j = g[joins[0]]["inputs"]
+                fed = [j.get(f"window_{k + 1}") for k in range(len(windows))]
+                if any(not (isinstance(f, list) and classes.get(f[0]) == "VHS_VideoCombine") for f in fed):
+                    _fail(problems, f"{p.name}: the join node is not fed one muxer per window")
+                if len(muxers) != len(windows):
+                    _fail(problems, f"{p.name}: {len(muxers)} muxers for {len(windows)} windows")
     return len(paths), frozen
 
 

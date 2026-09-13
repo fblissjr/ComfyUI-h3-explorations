@@ -23,6 +23,15 @@ own below the rule.
   as the iteration chain (`bench/audio_freeze_pdd_arms.json`), the two open
   pairs (loose mask at a second seed, transcript or not), first-frame, then
   the loop.
+- **Morning brief, 2026-09-13.** The lane doc's "For the owner to judge"
+  table lists seven clips (the seam, three motion arms, three untold arms)
+  and the verdict file takes one line each. Then the first run of the
+  whole-track node `MiniMaxH3AudioFreezeSong`
+  (`workflows/h3_text_to_video_audio_freeze_song.json`, 30 s look; its
+  one-window smoke row is `bench/results/2026-09-12_audio_freeze_song_smoke.jsonl`),
+  the shot chain graphs, and `bench/audio_freeze_gain_arms.json` on PDD8.
+  PDD8 is the iteration chain; the base chain is for keepers. The mouth
+  instrument needs a face model before it says anything.
 
 **2026-09-11:**
 

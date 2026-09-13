@@ -219,6 +219,48 @@ def build_kernel(mode):
     return call_without_release, base_kwargs
 
 
+def apply_audio_gain(k, v, transformer_options, seq_axis):
+    """Scale the audio rows' keys and values in place, when the model carries the knob.
+
+    `MiniMaxH3AudioAttentionGain` (audio_freeze.py) publishes
+    `transformer_options["minimax_h3_audio_gain"]`: key_gain, value_gain, a
+    sigma window and a block set. The audio rows are read off the packed
+    layout the DiT publishes per forward (`minimax_h3_layout.segments`), so
+    this is exact for any geometry. Scaling K is a temperature on the audio
+    keys for every query; scaling V scales what the audio rows contribute to
+    every row's attention output, audio rows included. In place on the
+    fresh per-call buffer, so no copy of a 100k-row tensor is made.
+    Kernel-agnostic: sage, Sol and the stock path all consume k and v after
+    this. Inert when the knob is absent or both gains are one.
+    """
+    if not isinstance(transformer_options, dict):
+        return k, v
+    cfg = transformer_options.get("minimax_h3_audio_gain")
+    if not cfg:
+        return k, v
+    layout = transformer_options.get("minimax_h3_layout")
+    if layout is None:
+        return k, v
+    sig = transformer_options.get("sigmas")
+    if sig is not None:
+        sigma = float(sig.flatten()[0])
+        if not (cfg["sigma_end"] <= sigma <= cfg["sigma_start"]):
+            return k, v
+    blocks = cfg.get("blocks")
+    if blocks is not None and transformer_options.get("block_index") not in blocks:
+        return k, v
+    kinds = {"audio"} | ({"ref_audio", "cond_audio"} if cfg.get("include_reference_rows") else set())
+    kg, vg = float(cfg["key_gain"]), float(cfg["value_gain"])
+    for a, b, kind in layout.segments:
+        if kind not in kinds or b <= a:
+            continue
+        if kg != 1.0:
+            k.narrow(seq_axis, a, b - a).mul_(kg)
+        if vg != 1.0:
+            v.narrow(seq_axis, a, b - a).mul_(vg)
+    return k, v
+
+
 def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
     """An `optimized_attention_override` that routes eligible calls to sage.
 
@@ -276,6 +318,7 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
             layout = "NHD"
         if q.dtype not in (torch.bfloat16, torch.float16) or dim_head > 128:
             return fallback()
+        k, v = apply_audio_gain(k, v, kwargs.get("transformer_options"), 2 if layout == "HND" else 1)
 
         # Deliberately does NOT hand ownership to the kernel here. Dropping
         # q/k/v would free them earlier, but `fallback` closes over those
@@ -454,6 +497,9 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         else:
             q = self.q_norm(q)
             k = self.k_norm(k)
+        # The audio-gain knob, after norm and rope so it scales exactly what
+        # the kernel sees; [1, s, heads, dim], the sequence on axis 1.
+        k, v = apply_audio_gain(k, v, transformer_options, 1)
 
         # Post-RMSNorm, post-RoPE: exactly what the kernel receives, and the
         # only point where capturing means anything. Inert unless H3_CAPTURE

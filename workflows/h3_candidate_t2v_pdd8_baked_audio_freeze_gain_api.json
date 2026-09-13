@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -33,26 +33,14 @@
   "7": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "er_sde"
-    }
-  },
-  "8": {
-    "class_type": "BasicScheduler",
-    "inputs": {
-      "model": [
-        "23",
-        0
-      ],
-      "scheduler": "simple",
-      "steps": 16,
-      "denoise": 1.0
+      "sampler_name": "euler"
     }
   },
   "9": {
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "23",
+        "73",
         0
       ],
       "conditioning": [
@@ -77,11 +65,11 @@
         0
       ],
       "sigmas": [
-        "8",
-        0
+        "18",
+        1
       ],
       "latent_image": [
-        "62",
+        "49",
         0
       ]
     }
@@ -103,16 +91,16 @@
     "class_type": "VHS_VideoCombine",
     "inputs": {
       "images": [
-        "69",
+        "11",
         0
       ],
       "audio": [
-        "63",
-        2
+        "49",
+        1
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_t2v_audio_freeze_2windows",
+      "filename_prefix": "Video/h3_candidate_t2v_pdd8_baked_audio_freeze_gain",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -157,22 +145,35 @@
       "canvas": "explicit"
     }
   },
-  "19": {
-    "class_type": "MiniMaxH3SigmaShift",
+  "18": {
+    "class_type": "MiniMaxH3PDDLoRA",
     "inputs": {
       "model": [
         "1",
         0
       ],
-      "shift_video": 12.0,
-      "shift_audio": 3.0
+      "lora_name": "h3/minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors",
+      "strength": 1.0,
+      "head_strength": -1.0,
+      "patch_heads": true,
+      "nfe": 0,
+      "steps": [
+        "61",
+        0
+      ]
+    }
+  },
+  "61": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 8
     }
   },
   "20": {
     "class_type": "MiniMaxH3SageAttention",
     "inputs": {
       "model": [
-        "19",
+        "18",
         0
       ],
       "mode": "auto",
@@ -235,8 +236,8 @@
       "audio": "4th-ninja-Breathless_Heights.mp3"
     }
   },
-  "62": {
-    "class_type": "MiniMaxH3FreezeAudioWindow",
+  "49": {
+    "class_type": "MiniMaxH3FreezeAudio",
     "inputs": {
       "latent": [
         "26",
@@ -251,118 +252,23 @@
         0
       ],
       "start_seconds": 0.0,
-      "context_frames": 39,
       "audio_mask": 0.0,
       "level": "clip_guard"
     }
   },
-  "63": {
-    "class_type": "MiniMaxH3FreezeAudioWindow",
-    "inputs": {
-      "latent": [
-        "26",
-        1
-      ],
-      "audio_vae": [
-        "4",
-        0
-      ],
-      "audio": [
-        "48",
-        0
-      ],
-      "start_seconds": [
-        "62",
-        4
-      ],
-      "context_frames": 39,
-      "previous": [
-        "10",
-        0
-      ],
-      "audio_mask": 0.0,
-      "level": "clip_guard"
-    }
-  },
-  "64": {
-    "class_type": "RandomNoise",
-    "inputs": {
-      "noise_seed": 730451893
-    }
-  },
-  "65": {
-    "class_type": "BasicGuider",
+  "73": {
+    "class_type": "MiniMaxH3AudioAttentionGain",
     "inputs": {
       "model": [
         "23",
         0
       ],
-      "conditioning": [
-        "26",
-        0
-      ]
-    }
-  },
-  "66": {
-    "class_type": "SamplerCustomAdvanced",
-    "inputs": {
-      "noise": [
-        "64",
-        0
-      ],
-      "guider": [
-        "65",
-        0
-      ],
-      "sampler": [
-        "7",
-        0
-      ],
-      "sigmas": [
-        "8",
-        0
-      ],
-      "latent_image": [
-        "63",
-        0
-      ]
-    }
-  },
-  "67": {
-    "class_type": "VAEDecode",
-    "inputs": {
-      "samples": [
-        "66",
-        0
-      ],
-      "vae": [
-        "3",
-        0
-      ]
-    }
-  },
-  "68": {
-    "class_type": "ImageFromBatch",
-    "inputs": {
-      "image": [
-        "67",
-        0
-      ],
-      "batch_index": 39,
-      "length": 306
-    }
-  },
-  "69": {
-    "class_type": "ImageBatch",
-    "inputs": {
-      "image1": [
-        "11",
-        0
-      ],
-      "image2": [
-        "68",
-        0
-      ]
+      "key_gain": 1.0,
+      "value_gain": 1.0,
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "blocks": "all",
+      "include_reference_rows": false
     }
   }
 }

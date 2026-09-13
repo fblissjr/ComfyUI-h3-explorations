@@ -74,6 +74,8 @@ _OUR_NODES = {
     "MiniMaxH3SageAttention", "SageChainAssert", "MiniMaxH3KeyframeCanvas",
     "MiniMaxH3ReferenceFit", "MiniMaxH3Resolution", "MiniMaxH3Preflight",
     "MiniMaxH3ProvenanceStamp", "MiniMaxH3FreezeAudio", "MiniMaxH3FreezeAudioWindow",
+    "MiniMaxH3EncodeTrack", "MiniMaxH3JoinWindows", "MiniMaxH3AudioAttentionGain",
+    "MiniMaxH3AudioFreezeSong",
 }
 
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
@@ -1378,6 +1380,20 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # the track sits in the sequence twice, frozen in register and
               # as a reference-style block. Needs freeze_audio.
               freeze_guide: bool = False,
+              # The shot-per-window chain (docs/h3_audio_freeze.md section 4
+              # step 6): a tuple of (frames, bank prompt id) per window, each
+              # window on both clocks, the previous window's tail frozen in as
+              # context, per-window files joined by MiniMaxH3JoinWindows.
+              freeze_shots: tuple[tuple[int, str], ...] | None = None,
+              # The audio attention gain node in front of the guider, inert at
+              # (1.0, 1.0) so a bench arm can patch its values. API only.
+              freeze_gain: bool = False,
+              # The whole-track node in place of the conditioner, sampler,
+              # decoders and muxer: windows planned from the track. The
+              # shipped graph caps the plan at `freeze_song_seconds` so a
+              # first run is a quick look; 0 covers the whole track.
+              freeze_song: bool = False, freeze_song_seconds: float = 30.0,
+              freeze_song_mode: str = "cycle",
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2084,12 +2100,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": freeze_track}}
         g["62"] = {"class_type": "MiniMaxH3FreezeAudioWindow",
                    "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0], "audio": ["48", 0],
-                              "window_index": 0, "context_frames": freeze_context,
+                              "start_seconds": 0.0, "context_frames": freeze_context,
                               "audio_mask": freeze_mask, "level": "clip_guard"}}
         g["10"]["inputs"]["latent_image"] = ["62", 0]
         g["63"] = {"class_type": "MiniMaxH3FreezeAudioWindow",
                    "inputs": {"latent": ["26", 1], "audio_vae": ["4", 0], "audio": ["48", 0],
-                              "window_index": 1, "context_frames": freeze_context,
+                              # the first window's next_start_seconds, wired
+                              "start_seconds": ["62", 4], "context_frames": freeze_context,
                               "previous": ["10", 0],
                               "audio_mask": freeze_mask, "level": "clip_guard"}}
         g["64"] = {"class_type": "RandomNoise", "inputs": {"noise_seed": seed + 1}}
@@ -2106,6 +2123,89 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["13"]["inputs"]["images"] = ["69", 0]
         g["13"]["inputs"]["audio"] = ["63", 2]
         del g["12"]
+
+    if freeze_gain:
+        # Node id 73, between the model chain and the guider (and the
+        # scheduler, which reads the same model object).
+        g["73"] = {"class_type": "MiniMaxH3AudioAttentionGain",
+                   "inputs": {"model": g["9"]["inputs"]["model"], "key_gain": 1.0, "value_gain": 1.0,
+                              "start_percent": 0.0, "end_percent": 1.0, "blocks": "all",
+                              "include_reference_rows": False}}
+        g["9"]["inputs"]["model"] = ["73", 0]
+
+    if freeze_song:
+        if freeze_audio or freeze_windows or freeze_shots or single_frame or split_at or stamp or ref or task == "i2v":
+            raise SystemExit("freeze_song is a t2v chain and composes with no other latent-side knob")
+        _sig = g["10"]["inputs"]["sigmas"]
+        _model = g["9"]["inputs"]["model"]
+        for nid in ("5", "6", "9", "10", "11", "12", "13", "26"):
+            g.pop(nid, None)
+        g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": freeze_track}}
+        g["74"] = {"class_type": "MiniMaxH3AudioFreezeSong",
+                   "inputs": {"model": _model, "clip": ["2", 0], "vae": vae_enc, "audio_vae": ["4", 0],
+                              "audio": ["48", 0], "sampler": ["7", 0], "sigmas": _sig,
+                              "prompt": prompt, "width": cv["width"], "height": cv["height"],
+                              "window_frames": length, "context_frames": freeze_context,
+                              "max_seconds": freeze_song_seconds, "seed": seed,
+                              "audio_mask": freeze_mask, "level": "clip_guard",
+                              "filename_prefix": out_prefix or "Video/h3_song", "crf": 19,
+                              "prompt_mode": freeze_song_mode, "window_mode": "uniform"}}
+
+    if freeze_shots:
+        if freeze_audio or freeze_windows or single_frame or split_at or stamp or ref or task == "i2v":
+            raise SystemExit("freeze_shots is a t2v chain and composes with no other latent-side knob")
+        if len(freeze_shots) > 12:
+            raise SystemExit("freeze_shots: the join node takes at most 12 windows")
+        for frames, _pid in freeze_shots:
+            if frames % 17 != 5 or (frames * 5) % 3 != 0:
+                raise SystemExit(f"freeze_shots: {frames} frames is not on both clocks (39 + 51k: 141, 192, 243, 294, 345)")
+        _sig = g["10"]["inputs"]["sigmas"]
+        _model = g["9"]["inputs"]["model"]
+        # the base noise node (6) goes too: each window brings its own
+        for nid in ("5", "6", "9", "10", "11", "12", "13", "26"):
+            g.pop(nid, None)
+        g["48"] = {"class_type": "LoadAudio", "inputs": {"audio": freeze_track}}
+        g["71"] = {"class_type": "MiniMaxH3EncodeTrack",
+                   "inputs": {"audio_vae": ["4", 0], "audio": ["48", 0], "level": "clip_guard"}}
+        prev_sampler = prev_window = None
+        joins = {}
+        for i, (frames, pid) in enumerate(freeze_shots):
+            b = 100 + 10 * i
+            cond, win, noise, guider, sampler, dec, trim, mux = (str(b + k) for k in range(8))
+            g[cond] = {"class_type": "MiniMaxH3Conditioning",
+                       "inputs": {"clip": ["2", 0], "vae": vae_enc, "prompt": _bank_prompt(pid),
+                                  "width": ["27", 0], "height": ["27", 1],
+                                  "length": frames, "canvas": "explicit"}}
+            win_inputs = {"latent": [cond, 1], "audio_vae": ["4", 0], "audio": ["48", 0],
+                          "start_seconds": (0.0 if prev_window is None else [prev_window, 4]),
+                          "context_frames": freeze_context, "audio_mask": freeze_mask,
+                          "level": "clip_guard", "track_latent": ["71", 0]}
+            if prev_sampler is not None:
+                win_inputs["previous"] = [prev_sampler, 0]
+            g[win] = {"class_type": "MiniMaxH3FreezeAudioWindow", "inputs": win_inputs}
+            g[noise] = {"class_type": "RandomNoise", "inputs": {"noise_seed": seed + i}}
+            g[guider] = {"class_type": "BasicGuider", "inputs": {"model": _model, "conditioning": [cond, 0]}}
+            g[sampler] = {"class_type": "SamplerCustomAdvanced",
+                          "inputs": {"noise": [noise, 0], "guider": [guider, 0], "sampler": ["7", 0],
+                                     "sigmas": _sig, "latent_image": [win, 0]}}
+            g[dec] = {"class_type": "VAEDecode", "inputs": {"samples": [sampler, 0], "vae": ["3", 0]}}
+            ctx = freeze_context if prev_sampler is not None else 0
+            g[trim] = {"class_type": "ImageFromBatch",
+                       "inputs": {"image": [dec, 0], "batch_index": ctx, "length": frames - ctx}}
+            g[mux] = {"class_type": "VHS_VideoCombine",
+                      "inputs": {"images": [trim, 0], "audio": [win, 6],
+                                 "frame_rate": FPS, "loop_count": 0,
+                                 "filename_prefix": f"{out_prefix or 'Video/h3_shots'}_w{i:02d}",
+                                 "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
+                                 "crf": 19, "save_metadata": True,
+                                 "trim_to_audio": False,
+                                 "pingpong": False, "save_output": True}}
+            joins[f"window_{i + 1}"] = [mux, 0]
+            prev_sampler, prev_window = sampler, win
+        g["72"] = {"class_type": "MiniMaxH3JoinWindows",
+                   "inputs": {"audio": ["48", 0], "filename_prefix": out_prefix or "Video/h3_shots", **joins}}
+        # the Resolution node's length widget is inert on a chain; say the first shot's
+        g["27"]["inputs"]["length"] = freeze_shots[0][0]
     return g
 
 
@@ -2187,6 +2287,23 @@ class UIGraph:
             if n["id"] == nid:
                 return n
         raise KeyError(nid)
+
+    def remove(self, nid):
+        """Drop a node and every link touching it. For a branch that replaces
+        the base chain's tail (the shot-per-window chain) after the base
+        nodes were already added; link ids are not renumbered."""
+        if nid is None:
+            return
+        dead = {lk[0] for lk in self.links if lk[1] == nid or lk[3] == nid}
+        self.links = [lk for lk in self.links if lk[0] not in dead]
+        for n in self.nodes:
+            for o in n.get("outputs", []):
+                if o.get("links"):
+                    o["links"] = [l for l in o["links"] if l not in dead]
+            for i in n.get("inputs", []):
+                if i.get("link") in dead:
+                    i["link"] = None
+        self.nodes = [n for n in self.nodes if n["id"] != nid]
 
     def link(self, src, src_slot, dst, dst_input_name, type_):
         lid = self._next_link
@@ -4255,6 +4372,65 @@ and the dialogue case is idea 4 there.
 video run grid and the 40 Hz audio grid; the trained ceiling does not.
 """
 
+_NOTE_SHOTS = """\
+## One shot per window, a whole song
+
+Each window is one shot: its own prompt and length (on both clocks: 141,
+192, 243, 294 or 345 frames), its own sampler. The track is encoded once
+(`MiniMax H3 Encode Track`) and every window slices its rows from that
+latent at its start time, so the seam carries identical audio values on both
+sides. From the second window on, `MiniMax H3 Freeze Audio Window` copies
+the previous window's last 39 frames of video latent into the head of the
+new one and freezes them, so the new window continues the old; its
+`next_start_seconds` output feeds the next window's start.
+
+Each window decodes on its own and writes its NEW frames (the context frames
+dropped) to its own file with its own slice of the track. `MiniMax H3 Join
+Windows` concatenates those files without re-encoding and muxes the full
+track over them. Nothing in the graph holds more than one window of frames,
+which is what lets this cover a whole song.
+
+**To add a window**: copy one group, give it the next prompt and length,
+wire `previous` from the sampler above and `start_seconds` from the window
+above, add its file to the join node's next socket. Keep every window's
+muxer settings identical, or the join cannot copy the streams.
+
+**The seam** is the thing to watch at each join. If it shows, the knobs are
+a longer context (90 frames) and, later, a feathered video mask.
+`docs/h3_audio_freeze.md` section 4 step 6.
+"""
+
+_NOTE_SONG = """\
+## A whole track from one node
+
+`MiniMax H3 Audio Freeze Song` plans the windows from the track's length
+(`window_frames` long, `context_frames` of the previous window frozen at
+each head, the last window the smallest length on both clocks that reaches
+the end), encodes the track once, and renders the windows one after another
+inside itself: each window's conditioning from the prompt, the track's slice
+frozen in its audio rows, the previous window's tail frozen as context, its
+new frames written to a file at once. At the end the files are joined
+without re-encoding and the full track muxed over them. Nothing holds more
+than one window of frames, so the track's length is not a memory question.
+
+**Prompt.** One block for every window, or blocks separated by a line of
+`---`: `cycle` uses them in order (the last repeating), `uniform` uses the
+first everywhere, `random` draws one per window from the seed. A block may
+start with `frames: N` to set that window's length (141, 192, 243, 294 or
+345).
+
+**`max_seconds`** caps the plan; the shipped value is a quick look. Set it to
+0 for the whole track. The seed advances by one per window.
+
+**Cost.** Attention is quadratic in a window's packed sequence
+(`bench/preflight_graph.py` prices one), so shorter windows are cheaper per
+second of song, at the price of more seams. Sage and Sol on the model apply
+inside each window as on any graph.
+
+The first run of this node on 2026-09-12 had not happened when it shipped;
+treat it as a throwaway and read the report. `docs/h3_audio_freeze.md`.
+"""
+
 _NOTE_TURBO_PACK = """\
 ## A different turbo LoRA, and a different loader on purpose
 
@@ -4968,8 +5144,14 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              freeze_mask: float = 0.0, freeze_track: str = PLACEHOLDER_AUDIO,
              freeze_windows: int = 0, freeze_context: int = 39,
              freeze_guide: bool = False,
+             freeze_shots: tuple[tuple[int, str], ...] | None = None,
+             freeze_gain: bool = False,
+             freeze_song: bool = False, freeze_song_seconds: float = 30.0,
+             freeze_song_mode: str = "cycle",
              **canvas) -> dict:
     ref = task == "r2v"
+    if freeze_gain:
+        raise SystemExit("the audio-gain graph is API only (api_only=True on its GRAPHS entry)")
     if freeze_guide:
         raise SystemExit("the guide-audio freeze graph is API only (api_only=True on its GRAPHS entry)")
     if freeze_windows:
@@ -5601,6 +5783,138 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(resn, 0, cond, "width", "INT")
         g.link(resn, 1, cond, "height", "INT")
         g.link(resn, 2, cond, "length", "INT")
+
+    if freeze_song:
+        # The whole-track node replaces the base chain's tail. Mirrors build_api.
+        for dead in (cond, noise, guider, sampler, vdec, adec, save, manual_node if manual_sigmas else None):
+            g.remove(dead)
+        if stamp or split_at or single_frame or ref or task == "i2v":
+            raise SystemExit("freeze_song is a t2v chain and composes with no other latent-side knob")
+        _sig_node = sched if sched is not None else (lora_node if _pdd_sigmas else None)
+        _sig_slot = 1 if (_pdd_sigmas and sched is None) else 0
+        track = g.add("LoadAudio", (-460, 940), size=(300, 130), widgets=[freeze_track],
+                      outputs=[_out("AUDIO", "AUDIO")], title="The track")
+        song = g.add("MiniMaxH3AudioFreezeSong", (-60, 0), size=(520, 760),
+                     widgets=[prompt, cv["width"], cv["height"], length, freeze_context,
+                              # no control widget: the node's seed input declares none, and
+                              # the node advances the seed by one per window itself
+                              freeze_song_seconds, seed, freeze_mask, "clip_guard",
+                              out_prefix or "Video/h3_song", 19, freeze_song_mode, "uniform"],
+                     inputs=[_in("model", "MODEL"), _in("clip", "CLIP"), _in("vae", "VAE"),
+                             _in("audio_vae", "VAE"), _in("audio", "AUDIO"),
+                             _in("sampler", "SAMPLER"), _in("sigmas", "SIGMAS")],
+                     outputs=[_out("path", "STRING"), _out("report", "STRING"),
+                              _out("Filenames", "VHS_FILENAMES")],
+                     title="Whole track: windows planned from the song")
+        g.link(stage1_src, 0, song, "model", "MODEL")
+        g.link(clip, 0, song, "clip", "CLIP")
+        g.link(vae_enc_src if vae_encoder else vvae, 0, song, "vae", "VAE")
+        g.link(avae, 0, song, "audio_vae", "VAE")
+        g.link(track, 0, song, "audio", "AUDIO")
+        g.link(samp, 0, song, "sampler", "SAMPLER")
+        g.link(_sig_node, _sig_slot, song, "sigmas", "SIGMAS")
+        g.add("MarkdownNote", (-2180, 0), size=(620, 620), widgets=[_NOTE_SONG],
+              title="Whole track: how it works")
+        return g.dump(title or f"h3-{task}-song")
+
+    if freeze_shots:
+        # The shot-per-window chain replaces the base chain's tail: the
+        # conditioner, noise, guider, sampler, decoders and muxer are removed
+        # and one group per window is added, the last window's file joined
+        # with the others by MiniMaxH3JoinWindows. Mirrors build_api's block.
+        for dead in (cond, noise, guider, sampler, vdec, adec, save, manual_node if manual_sigmas else None):
+            g.remove(dead)
+        if stamp or split_at or single_frame or ref or task == "i2v":
+            raise SystemExit("freeze_shots is a t2v chain and composes with no other latent-side knob")
+        _sig_node = sched if sched is not None else (lora_node if _pdd_sigmas else None)
+        _sig_slot = 1 if (_pdd_sigmas and sched is None) else 0
+        track = g.add("LoadAudio", (-460, 940), size=(300, 130), widgets=[freeze_track],
+                      outputs=[_out("AUDIO", "AUDIO")], title="The track")
+        enc = g.add("MiniMaxH3EncodeTrack", (-60, 940), size=(360, 120), widgets=["clip_guard"],
+                    inputs=[_in("audio_vae", "VAE"), _in("audio", "AUDIO")],
+                    outputs=[_out("track_latent", "LATENT"), _out("report", "STRING")],
+                    title="Encode the track once")
+        g.link(avae, 0, enc, "audio_vae", "VAE")
+        g.link(track, 0, enc, "audio", "AUDIO")
+        join_inputs = [_in("audio", "AUDIO")] + [
+            _in(f"window_{i + 1}", "VHS_FILENAMES", optional=(i > 0)) for i in range(len(freeze_shots))]
+        join = g.add("MiniMaxH3JoinWindows", (2200, 0), size=(420, 80 + 30 * len(freeze_shots)),
+                     widgets=[out_prefix or "Video/h3_shots"], inputs=join_inputs,
+                     outputs=[_out("Filenames", "VHS_FILENAMES"), _out("path", "STRING")],
+                     title="Join the windows, mux the track")
+        g.link(track, 0, join, "audio", "AUDIO")
+        prev_sampler = prev_window = None
+        for i, (frames, pid) in enumerate(freeze_shots):
+            y = 1200 + 720 * i
+            c = g.add("MiniMaxH3Conditioning", (-460, y), size=(430, 620),
+                      widgets=[_bank_prompt(pid), cv["width"], cv["height"], frames, "explicit"],
+                      inputs=[_in("clip", "CLIP"), _in("vae", "VAE", optional=True),
+                              _in("first_frame", "IMAGE", optional=True), _in("last_frame", "IMAGE", optional=True),
+                              _in("width", "INT", widget=True), _in("height", "INT", widget=True)],
+                      outputs=[_out("conditioning", "CONDITIONING"), _out("samples", "LATENT")],
+                      title=f"Window {i + 1}: {pid} ({frames} frames)")
+            g.link(clip, 0, c, "clip", "CLIP")
+            g.link(vae_enc_src if vae_encoder else vvae, 0, c, "vae", "VAE")
+            if resn is not None:
+                g.link(resn, 0, c, "width", "INT")
+                g.link(resn, 1, c, "height", "INT")
+            w_inputs = [_in("latent", "LATENT"), _in("audio_vae", "VAE"), _in("audio", "AUDIO"),
+                        _in("start_seconds", "FLOAT", widget=True), _in("previous", "LATENT", optional=True),
+                        _in("track_latent", "LATENT", optional=True)]
+            w = g.add("MiniMaxH3FreezeAudioWindow", (0, y), size=(420, 260),
+                      widgets=[0.0, freeze_context, freeze_mask, "clip_guard"], inputs=w_inputs,
+                      outputs=[_out("latent", "LATENT"), _out("clip_audio", "AUDIO"), _out("span_audio", "AUDIO"),
+                               _out("trim_frames", "INT"), _out("next_start_seconds", "FLOAT"),
+                               _out("report", "STRING"), _out("new_audio", "AUDIO")],
+                      title=f"Window {i + 1}: freeze the slice" + (", carry the tail" if i else ""))
+            g.link(c, 1, w, "latent", "LATENT")
+            g.link(avae, 0, w, "audio_vae", "VAE")
+            g.link(track, 0, w, "audio", "AUDIO")
+            g.link(enc, 0, w, "track_latent", "LATENT")
+            if prev_window is not None:
+                g.link(prev_window, 4, w, "start_seconds", "FLOAT")
+                g.link(prev_sampler, 0, w, "previous", "LATENT")
+            nz = g.add("RandomNoise", (460, y), size=(300, 110), widgets=[seed + i, "randomize"],
+                       outputs=[_out("NOISE", "NOISE")])
+            gd = g.add("BasicGuider", (460, y + 150), size=(300, 70),
+                       inputs=[_in("model", "MODEL"), _in("conditioning", "CONDITIONING")],
+                       outputs=[_out("GUIDER", "GUIDER")])
+            g.link(stage1_src, 0, gd, "model", "MODEL")
+            g.link(c, 0, gd, "conditioning", "CONDITIONING")
+            sp = g.add("SamplerCustomAdvanced", (800, y), size=(320, 150),
+                       inputs=[_in("noise", "NOISE"), _in("guider", "GUIDER"), _in("sampler", "SAMPLER"),
+                               _in("sigmas", "SIGMAS"), _in("latent_image", "LATENT")],
+                       outputs=[_out("output", "LATENT"), _out("denoised_output", "LATENT")])
+            g.link(nz, 0, sp, "noise", "NOISE")
+            g.link(gd, 0, sp, "guider", "GUIDER")
+            g.link(samp, 0, sp, "sampler", "SAMPLER")
+            g.link(_sig_node, _sig_slot, sp, "sigmas", "SIGMAS")
+            g.link(w, 0, sp, "latent_image", "LATENT")
+            dc = g.add("VAEDecode", (1160, y), size=(260, 60),
+                       inputs=[_in("samples", "LATENT"), _in("vae", "VAE")], outputs=[_out("IMAGE", "IMAGE")])
+            g.link(sp, 0, dc, "samples", "LATENT")
+            g.link(vvae, 0, dc, "vae", "VAE")
+            ctx = freeze_context if prev_sampler is not None else 0
+            tr = g.add("ImageFromBatch", (1460, y), size=(260, 100), widgets=[ctx, frames - ctx],
+                       inputs=[_in("image", "IMAGE")], outputs=[_out("IMAGE", "IMAGE")],
+                       title="Drop the context frames" if ctx else "All frames (first window)")
+            g.link(dc, 0, tr, "image", "IMAGE")
+            mx = g.add("VHS_VideoCombine", (1760, y), size=(400, 420),
+                       widgets={"frame_rate": FPS, "loop_count": 0,
+                                "filename_prefix": f"{out_prefix or 'Video/h3_shots'}_w{i:02d}",
+                                "format": VIDEO_FORMAT, "pix_fmt": "yuv420p", "crf": 19,
+                                "save_metadata": True, "trim_to_audio": False,
+                                "pingpong": False, "save_output": True},
+                       inputs=[_in("images", "IMAGE"), _in("audio", "AUDIO", optional=True),
+                               _in("meta_batch", "VHS_BatchManager", optional=True), _in("vae", "VAE", optional=True)],
+                       outputs=[_out("Filenames", "VHS_FILENAMES")], title=f"Window {i + 1} file")
+            g.link(tr, 0, mx, "images", "IMAGE")
+            g.link(w, 6, mx, "audio", "AUDIO")
+            g.link(mx, 0, join, f"window_{i + 1}", "VHS_FILENAMES")
+            prev_sampler, prev_window = sp, w
+        g.add("MarkdownNote", (-2180, 0), size=(620, 620), widgets=[_NOTE_SHOTS],
+              title="One shot per window: how the chain works")
+        return g.dump(title or f"h3-{task}-shots")
 
     # Pass-through, between conditioning and the sampler, so the report is
     # about the graph that is actually going to run.
@@ -6528,6 +6842,43 @@ def main():
         # (39 frames, the smallest context on both clocks), decoded
         # separately, the overlap dropped, the two joined, the muxer on the
         # track's span. The seam is the thing to look at.
+        # The loop as a graph (plan step 6, owner 2026-09-12 evening: one
+        # shot per window, windows may differ in length, files joined so any
+        # song length fits). Three windows on the drum track; the chain is
+        # the UX, the API twin is what the bench drives.
+        ("h3_text_to_video_audio_freeze_shots.json", "t2v-audio-freeze-shots", "t2v",
+         LONG_T2V_PROMPT,
+         dict(freeze_shots=((345, "t2va_studio_dancer_close"), (192, "t2va_dancer_shot_floor"),
+                            (192, "t2va_dancer_shot_face")),
+              freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_shots"),
+         "one shot per window over a track: three windows joined at 39-frame frozen seams"),
+        # The whole-track node (owner, 2026-09-12 evening: "if there's a way
+        # to make it not manual"). The reframed dancer prompt on every
+        # window, a 30-second look by default.
+        ("h3_text_to_video_audio_freeze_song.json", "t2v-audio-freeze-song", "t2v",
+         _bank_prompt("t2va_studio_dancer_close"),
+         dict(freeze_song=True, freeze_song_seconds=30.0, freeze_song_mode="uniform",
+              freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_song",
+              length=LONG_LENGTH),
+         "a whole track from one node: windows planned from the song, one prompt throughout"),
+        # The same shot in every window: only the audio slice and the carried
+        # tail differ between windows, so the picture goes where the track
+        # takes it (owner, 2026-09-12 evening).
+        ("h3_text_to_video_audio_freeze_shots_repeat.json", "t2v-audio-freeze-shots-repeat", "t2v",
+         LONG_T2V_PROMPT,
+         dict(freeze_shots=((192, "t2va_dancer_shot_face"),) * 4,
+              freeze_context=39, out_prefix="Video/h3_t2v_audio_freeze_shots_repeat"),
+         "one shot repeated over four windows of the track: the audio decides what changes"),
+        # The PDD8 freeze with the audio attention gain node in front of the
+        # guider, inert as shipped; bench arms patch key_gain / value_gain.
+        ("h3_candidate_t2v_pdd8_baked_audio_freeze_gain.json", "t2v-candidate-pdd8-baked-audio-freeze-gain",
+         "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              unet=MODELS["unet_fl2va_pdd8_baked"],
+              lora=(PDD_FL2VA_STRIPPED_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              freeze_audio=True, freeze_gain=True, api_only=True,
+              out_prefix="Video/h3_candidate_t2v_pdd8_baked_audio_freeze_gain"),
+         "CANDIDATE the PDD8 freeze with the audio attention gain knob, inert as shipped"),
         ("h3_text_to_video_audio_freeze_2windows.json", "t2v-audio-freeze-2windows", "t2v",
          LONG_T2V_PROMPT,
          dict(freeze_windows=2, freeze_context=39, api_only=True,

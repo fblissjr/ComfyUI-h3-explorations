@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close-up frames a dancer's face and shoulders in a bare rehearsal studio across the eight-second take, the mirrored wall soft behind her, a portable speaker off frame playing a fast, dry drum-machine pulse. She is in her twenties in a grey vest, hair tied back, face sharp and well lit, and she produces no vocal sound. Her head snaps to the lens on the downbeats and her shoulders roll on the hits between, eyebrows lifting on the fourth hit of each bar, a grin breaking and holding as the groove builds. Her lips stay closed throughout. The camera pushes in with small amplitude at slow speed until her eyes sit at the centre of the frame.
+
+overall_soundscape: Her breath comes in short controlled bursts between hits, fabric rustles at her shoulders, and bare feet squeak faintly on the sprung floor below the frame, under the dry room tone of an empty studio.
+
+non_diegetic_music: N/A

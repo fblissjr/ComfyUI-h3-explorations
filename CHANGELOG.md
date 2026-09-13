@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.93
+
+### Added
+
+- **The loop, two ways** (`docs/h3_audio_freeze.md` section 4 step 6, owner
+  2026-09-12 evening). `MiniMaxH3AudioFreezeSong` (`audio_freeze_song.py`):
+  drop a track and a prompt; windows planned from the track's length
+  (uniform, or random lengths on both clocks), one prompt or `---` blocks in
+  cycle, uniform or random order, each window rendered inside the node with
+  the previous tail frozen as context and its new frames written to a file
+  at once, the files joined and the full track muxed at the end. Nothing
+  holds more than one window of frames. The shot-per-window chain:
+  `MiniMaxH3FreezeAudioWindow` now takes an explicit `start_seconds`, allows
+  windows of different lengths (141, 192, 243, 294, 345 frames), slices from
+  a pre-encoded track (`MiniMaxH3EncodeTrack`) and hands out
+  `next_start_seconds` and `new_audio`; `MiniMaxH3JoinWindows` concatenates
+  the per-window files without re-encoding and muxes the track. Graphs:
+  `h3_text_to_video_audio_freeze_song`, `h3_text_to_video_audio_freeze_shots`
+  (345, 192, 192), `..._shots_repeat` (one shot four times), generator knobs
+  `freeze_song`, `freeze_shots`. Two one-shot 192-frame dancer prompts.
+- **`MiniMaxH3AudioAttentionGain`**: a knob on how much the audio rows weigh
+  in attention. `key_gain` scales the audio rows' keys (a temperature),
+  `value_gain` what they contribute to every row's output, with a sigma window
+  and block range; applied in this pack's sage forward and override
+  (`attention.py::apply_audio_gain`), so Sol sees it too. Unmeasured.
+  `h3_candidate_t2v_pdd8_baked_audio_freeze_gain` carries it inert;
+  `bench/audio_freeze_gain_arms.json` renders gains of two.
+- Rows for the seam, the three motion arms and the three untold arms.
+- `bench/check_attention_defaults.py` knows the two file-writing nodes as
+  output nodes; `bench/check_audio_freeze.py` covers the chain's shape.
+
 ## 0.99.92
 
 ### Added

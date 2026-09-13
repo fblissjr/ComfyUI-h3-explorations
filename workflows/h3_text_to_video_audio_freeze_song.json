@@ -1,0 +1,774 @@
+{
+  "extra": {
+    "ds": {
+      "scale": 0.5,
+      "offset": [
+        3000.0,
+        400.0
+      ]
+    }
+  },
+  "id": "c3e6fa86-d17d-5fca-b4da-ecc7c5949afe",
+  "revision": 0,
+  "last_node_id": 23,
+  "last_link_id": 19,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -1500,
+        0
+      ],
+      "size": [
+        560,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "MiniMaxH3EncoderLoader",
+      "pos": [
+        -1500,
+        140
+      ],
+      "size": [
+        560,
+        110
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3EncoderLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+      ],
+      "title": "Load H3 encoder (core's load, plus the checks core omits)"
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        -1500,
+        300
+      ],
+      "size": [
+        560,
+        70
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_fp16.safetensors"
+      ],
+      "title": "Load VAE (video)"
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        -1500,
+        410
+      ],
+      "size": [
+        560,
+        70
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ],
+      "title": "Load VAE (audio)"
+    },
+    {
+      "id": 5,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        -1500,
+        700
+      ],
+      "size": [
+        360,
+        110
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift"
+      },
+      "widgets_values": [
+        12.0,
+        3.0
+      ],
+      "title": "Sigma shift (video 12, audio 3)"
+    },
+    {
+      "id": 6,
+      "type": "MiniMaxH3SageAttention",
+      "pos": [
+        -880,
+        0
+      ],
+      "size": [
+        360,
+        110
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SageAttention"
+      },
+      "widgets_values": [
+        "auto",
+        false,
+        1
+      ]
+    },
+    {
+      "id": 7,
+      "type": "MarkdownNote",
+      "pos": [
+        -880,
+        -660
+      ],
+      "size": [
+        560,
+        480
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## What this node does that the UI does not show\n\n**Sol runs from `start_percent` through the last step.** `end_percent` is\n1.0, the default that sglang's Sol backend and ComfyUI's own sparse-attention\nnode both use. The steps before `start_percent` run on sage.\n\n**The window is a sigma band, not a step fraction.** The node turns a percent\ninto a sigma when it is patched, before the step count exists, so the same\n`start_percent` covers a different share of the steps at 16 steps than at 4.\n\n**The packed conditioning rows always run dense** (`sink_conditioning`). They\nare a few hundred rows in a ~90k sequence and are the first thing a\nblock-sparse router drops; dropping them is what breaks generated audio.\n\n**No block is forced dense** (`dense_blocks` is empty, as in ComfyUI's own\nnode; sglang's Sol backend keeps blocks 0-1 dense by default).\n\n**It composes onto the sage patch rather than replacing it**, which is why it\nmust sit after it. See the node-order note.\n"
+      ],
+      "title": "Sol-Attn: what runs that the widgets do not show"
+    },
+    {
+      "id": 8,
+      "type": "MiniMaxH3SolAttn",
+      "pos": [
+        -880,
+        190
+      ],
+      "size": [
+        360,
+        330
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SolAttn"
+      },
+      "widgets_values": [
+        "adaptive tau",
+        1.0,
+        0.2,
+        1.0,
+        12288,
+        "exact_kv_and_rows",
+        true,
+        false,
+        "3d",
+        false,
+        "",
+        ""
+      ],
+      "title": "Patch Sol-Attn"
+    },
+    {
+      "id": 9,
+      "type": "ModelPreviewOverrideKJ",
+      "pos": [
+        -460,
+        190
+      ],
+      "size": [
+        360,
+        200
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelPreviewOverrideKJ"
+      },
+      "widgets_values": [
+        512,
+        80,
+        true,
+        4,
+        8,
+        "taeh3.safetensors"
+      ],
+      "title": "Preview (taeh3)"
+    },
+    {
+      "id": 10,
+      "type": "MiniMaxH3Resolution",
+      "pos": [
+        -1900,
+        900
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "video_tokens",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "tokens_per_frame",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "attn_cost_vs_16_9",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "name": "summary",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3Resolution"
+      },
+      "widgets_values": [
+        "wide",
+        "1344x768  7/4  1008 tok/frame  1.00x",
+        345
+      ],
+      "title": "Resolution: shape, and what it costs"
+    },
+    {
+      "id": 13,
+      "type": "KSamplerSelect",
+      "pos": [
+        40,
+        150
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "er_sde"
+      ]
+    },
+    {
+      "id": 14,
+      "type": "BasicScheduler",
+      "pos": [
+        40,
+        250
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicScheduler"
+      },
+      "widgets_values": [
+        "simple",
+        16,
+        1.0
+      ]
+    },
+    {
+      "id": 20,
+      "type": "SageChainAssert",
+      "pos": [
+        -480,
+        0
+      ],
+      "size": [
+        360,
+        130
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            8,
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SageChainAssert"
+      },
+      "widgets_values": [
+        true,
+        true,
+        true,
+        false,
+        false,
+        false
+      ],
+      "title": "Assert the attention chain composed"
+    },
+    {
+      "id": 21,
+      "type": "LoadAudio",
+      "pos": [
+        -460,
+        940
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "4th-ninja-Breathless_Heights.mp3"
+      ],
+      "title": "The track"
+    },
+    {
+      "id": 22,
+      "type": "MiniMaxH3AudioFreezeSong",
+      "pos": [
+        -60,
+        0
+      ],
+      "size": [
+        520,
+        760
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 13
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 14
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 15
+        },
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": 16
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 17
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 18
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 19
+        }
+      ],
+      "outputs": [
+        {
+          "name": "path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3AudioFreezeSong"
+      },
+      "widgets_values": [
+        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a dancer from the waist up in a bare rehearsal studio across the fourteen-second take, one mirrored wall behind her, a portable speaker on the floor at the edge of frame playing a fast, dry drum-machine pulse. She is in her twenties in a grey vest, hair tied back, face sharp and well lit, and she produces no vocal sound. She moves to the beat: sharp isolations of the shoulders and head on every hit, chin snapping to the lens on the downbeats, both arms punching out and folding back in time. The camera holds a static shot as her groove builds and her expression stays locked on the lens. [Shot 2] At 00:06.316, the shot cuts to a close-up of her face and shoulders from the mirror side, her reflection sharing the frame, as she turns on the beat and hits a pose, then rolls her shoulders in a step sequence that lands on every fourth hit. Her lips stay closed throughout. The camera pushes in slowly at small amplitude until her face fills the frame and she stops square to the lens on a final hit and holds still, breathing hard.\n\noverall_soundscape: Bare feet squeak and slap on the sprung floor, fabric rustles with each turn, and her breath comes in short controlled bursts between hits, under the dry room tone of an empty studio.\n\nnon_diegetic_music: N/A\n",
+        1344,
+        768,
+        345,
+        39,
+        30.0,
+        730451892,
+        0.0,
+        "clip_guard",
+        "Video/h3_t2v_audio_freeze_song",
+        19,
+        "uniform",
+        "uniform"
+      ],
+      "title": "Whole track: windows planned from the song"
+    },
+    {
+      "id": 23,
+      "type": "MarkdownNote",
+      "pos": [
+        -2180,
+        0
+      ],
+      "size": [
+        620,
+        620
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## A whole track from one node\n\n`MiniMax H3 Audio Freeze Song` plans the windows from the track's length\n(`window_frames` long, `context_frames` of the previous window frozen at\neach head, the last window the smallest length on both clocks that reaches\nthe end), encodes the track once, and renders the windows one after another\ninside itself: each window's conditioning from the prompt, the track's slice\nfrozen in its audio rows, the previous window's tail frozen as context, its\nnew frames written to a file at once. At the end the files are joined\nwithout re-encoding and the full track muxed over them. Nothing holds more\nthan one window of frames, so the track's length is not a memory question.\n\n**Prompt.** One block for every window, or blocks separated by a line of\n`---`: `cycle` uses them in order (the last repeating), `uniform` uses the\nfirst everywhere, `random` draws one per window from the seed. A block may\nstart with `frames: N` to set that window's length (141, 192, 243, 294 or\n345).\n\n**`max_seconds`** caps the plan; the shipped value is a quick look. Set it to\n0 for the whole track. The seed advances by one per window.\n\n**Cost.** Attention is quadratic in a window's packed sequence\n(`bench/preflight_graph.py` prices one), so shorter windows are cheaper per\nsecond of song, at the price of more seams. Sage and Sol on the model apply\ninside each window as on any graph.\n\nThe first run of this node on 2026-09-12 had not happened when it shipped;\ntreat it as a throwaway and read the report. `docs/h3_audio_freeze.md`.\n"
+      ],
+      "title": "Whole track: how it works"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      5,
+      0,
+      6,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      6,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      4,
+      8,
+      0,
+      9,
+      0,
+      "MODEL"
+    ],
+    [
+      7,
+      9,
+      0,
+      20,
+      0,
+      "MODEL"
+    ],
+    [
+      8,
+      20,
+      0,
+      14,
+      0,
+      "MODEL"
+    ],
+    [
+      13,
+      20,
+      0,
+      22,
+      0,
+      "MODEL"
+    ],
+    [
+      14,
+      2,
+      0,
+      22,
+      1,
+      "CLIP"
+    ],
+    [
+      15,
+      3,
+      0,
+      22,
+      2,
+      "VAE"
+    ],
+    [
+      16,
+      4,
+      0,
+      22,
+      3,
+      "VAE"
+    ],
+    [
+      17,
+      21,
+      0,
+      22,
+      4,
+      "AUDIO"
+    ],
+    [
+      18,
+      13,
+      0,
+      22,
+      5,
+      "SAMPLER"
+    ],
+    [
+      19,
+      14,
+      0,
+      22,
+      6,
+      "SIGMAS"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "version": 0.4
+}

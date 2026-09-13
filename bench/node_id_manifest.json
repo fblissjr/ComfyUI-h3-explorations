@@ -43,6 +43,21 @@
       "references"
     ]
   },
+  "MiniMaxH3AudioAttentionGain": {
+    "inputs": [
+      "model",
+      "key_gain",
+      "value_gain",
+      "start_percent",
+      "end_percent",
+      "blocks",
+      "include_reference_rows"
+    ],
+    "node_id": "MiniMaxH3AudioAttentionGain",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3AudioCarryProbe": {
     "inputs": [
       "model",
@@ -51,6 +66,36 @@
     "node_id": "MiniMaxH3AudioCarryProbe",
     "outputs": [
       "Output"
+    ]
+  },
+  "MiniMaxH3AudioFreezeSong": {
+    "inputs": [
+      "model",
+      "clip",
+      "vae",
+      "audio_vae",
+      "audio",
+      "sampler",
+      "sigmas",
+      "prompt",
+      "width",
+      "height",
+      "window_frames",
+      "context_frames",
+      "max_seconds",
+      "seed",
+      "audio_mask",
+      "level",
+      "filename_prefix",
+      "crf",
+      "prompt_mode",
+      "window_mode"
+    ],
+    "node_id": "MiniMaxH3AudioFreezeSong",
+    "outputs": [
+      "path",
+      "report",
+      "Filenames"
     ]
   },
   "MiniMaxH3Conditioning": {
@@ -69,6 +114,18 @@
     "outputs": [
       "positive",
       "Output"
+    ]
+  },
+  "MiniMaxH3EncodeTrack": {
+    "inputs": [
+      "audio_vae",
+      "audio",
+      "level"
+    ],
+    "node_id": "MiniMaxH3EncodeTrack",
+    "outputs": [
+      "track_latent",
+      "report"
     ]
   },
   "MiniMaxH3EncoderLoader": {
@@ -111,11 +168,12 @@
       "latent",
       "audio_vae",
       "audio",
-      "window_index",
+      "start_seconds",
       "context_frames",
       "previous",
       "audio_mask",
-      "level"
+      "level",
+      "track_latent"
     ],
     "node_id": "MiniMaxH3FreezeAudioWindow",
     "outputs": [
@@ -123,8 +181,32 @@
       "clip_audio",
       "span_audio",
       "trim_frames",
-      "start_seconds",
-      "report"
+      "next_start_seconds",
+      "report",
+      "new_audio"
+    ]
+  },
+  "MiniMaxH3JoinWindows": {
+    "inputs": [
+      "audio",
+      "filename_prefix",
+      "window_1",
+      "window_2",
+      "window_3",
+      "window_4",
+      "window_5",
+      "window_6",
+      "window_7",
+      "window_8",
+      "window_9",
+      "window_10",
+      "window_11",
+      "window_12"
+    ],
+    "node_id": "MiniMaxH3JoinWindows",
+    "outputs": [
+      "Filenames",
+      "path"
     ]
   },
   "MiniMaxH3KeyframeCanvas": {

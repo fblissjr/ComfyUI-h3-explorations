@@ -935,6 +935,22 @@
       "donor": null,
       "brief": "The rooftop line delivered still while the camera arcs around her; one of three motion arms",
       "tests": "whether camera motion during a frozen line keeps the lip sync, with the subject held"
+    },
+    {
+      "id": "t2va_dancer_shot_floor",
+      "mode": "t2va",
+      "frames": 192,
+      "donor": null,
+      "brief": "One shot, eight seconds: the dancer's feet on the sprung floor to the drum-machine pulse; a window of the audio-freeze lane's shot-per-window chain",
+      "tests": "a single-shot window on both clocks (192 frames) chained after the reframed dancer window; footwork on the beat with the camera held"
+    },
+    {
+      "id": "t2va_dancer_shot_face",
+      "mode": "t2va",
+      "frames": 192,
+      "donor": null,
+      "brief": "One shot, eight seconds: the dancer's face and shoulders to the pulse, a slow push-in; the third window of the chain",
+      "tests": "a single-shot close-up window chained after the floor window; head snaps on the downbeats, lips closed, face sharp"
     }
   ]
 }
