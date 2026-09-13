@@ -11,6 +11,10 @@ the plan in order, and every idea worth a render, each with a confidence.
 Nothing here has rendered yet; every claim is a source read, cited, until a
 dated record under `bench/results/` says otherwise.
 
+The day's postmortem and session log are under `internal/` (gitignored):
+`internal/postmortems/2026-09-12_session_audio-freeze-lane.md` and
+`internal/log/log_2026-09-12.md`.
+
 Read first: [`h3_geometry_and_nodes.md`](h3_geometry_and_nodes.md) for the two
 clocks and the frame grid, [`h3_references.md`](h3_references.md) "Audio
 references" for how core encodes audio and where it crops, and
