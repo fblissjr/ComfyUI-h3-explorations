@@ -173,16 +173,25 @@ two-window seam graph `workflows/h3_text_to_video_audio_freeze_2windows.json`
 39-frame overlap dropped, the two joined, the muxer on the track's span).
 The freeze node also grew a `level` input (the level guard above).
 
+3. **PDD8 is the iteration chain** (closed 2026-09-12 evening, owner:
+   both PDD8 arms "look and sound great"; rows
+   `bench/results/2026-09-12_audio_freeze_pdd_arms.jsonl`). Every later
+   render in this lane goes through
+   `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json` first; the base
+   chain is for keepers.
+4. **The two open pairs from step 2, answered in direction.** Loose against
+   frozen at a second seed: both read good, so the seed-1 gap was the seed;
+   hard freeze stays the default, the loose mask a knob
+   (`bench/results/2026-09-12_audio_freeze_mask_seed2_arms.jsonl`).
+   Transcript against none: the untold arm works, the mouth's timing follows
+   the clip, and the words in the text add polish; the still delivery was
+   the prompt's. Open now: how much subject and camera motion a frozen line
+   carries (three motion arms, `bench/audio_freeze_seam_and_moving_arms.json`)
+   and whether more of the track without words closes the gap (the loose
+   mask and guide audio, `bench/audio_freeze_untold_arms.json`).
+
 **Next, in order.**
 
-3. **PDD8 as the iteration chain** (owner's ask; the lane's speed lever).
-   `bench/audio_freeze_pdd_arms.json` renders both frozen arms on
-   `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze.json` at the base
-   pairs' seeds. If the PDD renders follow the track as the base ones do,
-   every later render in this lane goes through it first and the base chain
-   is for the keeper.
-4. **The two open pairs from step 2**: loose against frozen at a second
-   seed, and transcript against none. Owner's eye, one line each.
 5. **First-frame keyframe**: the LTX pack's init-image pattern, one graph
    change on the freeze graph. Needed before the loop, because the loop
    anchors each window on a frame.

@@ -62,6 +62,13 @@
       "owner": "Her hair blows in all of them though so it's totally possible it's just a lack of any action or speaking style or using her body or head and such for facial expressions and physical expressions which could just mean prompt shows her speaking static and lip sync working at least. Now we need to see if motion in both the subject and then the camera and then both can keep it working and show natural expressions while keeping lip sync intact. Likely prompting and letting the audio be thought of like a strong second prompt that will guide it or be guided by it.",
       "when": "2026-09-12",
       "reading": "the next arms, same clip and seed on the PDD8 chain: t2va_none_of_this_is_real_moving_subject (subject moves, camera static), _moving_camera (camera arcs, delivery still), _moving (both). bench/audio_freeze_seam_and_moving_arms.json"
+    },
+    {
+      "arm": "dancer_frozen_pdd8, voice_frozen_pdd8, dancer_close_frozen_s2, dancer_close_loose_s2",
+      "clip": "the four clips sent after batch A (bench/results/2026-09-12_audio_freeze_pdd_arms.jsonl, ..._mask_seed2_arms.jsonl)",
+      "owner": "Yeah they all look and sound great. Last speaking clip from above has her moving her head in the middle to end",
+      "when": "2026-09-12",
+      "reading": "PDD8 keeps the coupling on both scenes: it is the lane's iteration chain from here (plan step 3 closed). Both second-seed dancer arms read good, so the seed-1 loose-over-frozen gap reads as the seed; hard freeze stays the default, the loose mask a knob. The PDD8 voice arm moved her head mid-line on the still prompt"
     }
   ],
   "caveats": [
