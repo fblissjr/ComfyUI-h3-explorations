@@ -290,3 +290,8 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   says kitchen's kernel is the better one (`bench/results/2026-09-15_dense_kernels_*.json`);
   these clips decide whether the market seed was luck. Postmortem in the
   sage fork's internal postmortems, 2026-09-15.
+- 2026-09-15, later: all eleven reproduction renders succeeded; wall
+  times and the scoring table in
+  `bench/results/2026-09-15_block49_repro_batch.md`; captioned
+  default-over-sagelevers stacks per scene under
+  `Video/block49_repro/stacks/`. Scoring is the owner's, pending.
