@@ -1,0 +1,51 @@
+{
+  "block": 0,
+  "step": 15,
+  "heads": 8,
+  "tau": 1.0,
+  "rows": {
+    "eager_block_route_only": {
+      "total_l2": 0.12469438272745632
+    },
+    "plain_tok0": {
+      "total_l2": 0.12437333740164076,
+      "quant_vs_eager_l2": 0.0024024396885058853
+    },
+    "plain_tok64": {
+      "total_l2": 0.045976393789241614,
+      "quant_vs_eager_l2": 0.11672706097733922
+    },
+    "balanced_tok0": {
+      "total_l2": 0.12437350930195577,
+      "quant_vs_eager_l2": 0.002418942790232194
+    },
+    "balanced_tok64": {
+      "total_l2": 0.04642107304474135,
+      "quant_vs_eager_l2": 0.11783665602317214
+    },
+    "rotated_tok0": {
+      "total_l2": 0.12437663573893497,
+      "quant_vs_eager_l2": 0.0021377541640165364
+    },
+    "rotated_tok64": {
+      "total_l2": 0.08553288023275302,
+      "quant_vs_eager_l2": 0.05159691095133931
+    },
+    "both_tok0": {
+      "total_l2": 0.12436736386569426,
+      "quant_vs_eager_l2": 0.002166803302795958
+    },
+    "both_tok64": {
+      "total_l2": 0.0855127249208184,
+      "quant_vs_eager_l2": 0.05190824390935696
+    }
+  },
+  "what": "token routing (token_aug=64) on top of plain / qk_balance / rotate / both, served wheel 0.2.34+sol.757657f, tau 1.0, first 8 heads; total_l2 = kernel vs fp32 dense attention on the same inputs (the eager reference ignores token_aug, so its row is the block-route-only sparsity term for scale)",
+  "reading": "block 49: token routing hurts plain (+30%), helps balanced slightly (0.0375 -> 0.0366, the best block-49 number of any Sol arm), and is broken under rotation (0.035 -> 0.136): the token stage scores or bins against something the rotation moved; a defect in the rotate path, not a property of token routing. block 0: token routing takes most of the sparsity term away (0.124 -> 0.046) for plain and balanced, half as much under rotation. Timing on 8 heads: +4.4 ms per call for the budget (26.7 -> 31.1 ms plain), rotation still +14% on top.",
+  "timing_token_aug64_heads8_ms": {
+    "plain": 31.1,
+    "balanced": 31.4,
+    "rotated": 35.6,
+    "both": 35.7
+  }
+}
