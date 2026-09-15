@@ -14,7 +14,7 @@ Long H3 renders run attention in INT8 for speed: SageAttention on the dense
 steps for some, the Sol / Block Sparse Attention kernel on the routed steps
 for most. Both round q and k with one scale per row across a head's 128
 channels. H3's `k_norm.weight` on blocks 45, 48 and 49 puts most of its
-energy into four channels, on every checkpoint we checked
+energy into four channels, on every checkpoint checked
 ([scan](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/bench/results/2026-09-14_block49_checkpoint_scan_and_targets.txt)),
 so on those blocks the loud channels set the scale and the rest keep a
 couple of levels. Block 49 also reads the prompt most sharply, and on our
@@ -25,7 +25,7 @@ Check the weights fact on your own checkpoint, no GPU needed:
 
     python check_h3_loud_blocks.py /path/to/minimax_h3_*.safetensors
 
-## What "error" means, and what we measured
+## What "error" means, and what was measured
 
 Not the video: the same captured q, k, v through the INT8 kernel and through
 fp32 attention, outputs subtracted, divided by the size of the exact output
@@ -39,8 +39,6 @@ The weights fold in this node takes about 13 percent off Sol's term
 per-head factors and a Hadamard rotation inside the kernels do two to four
 times that and are headed upstream as comfy-kitchen PRs
 ([policy and status](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_quant_policy.md)).
-On three scenes every viewer, unblinded, ranked the unrebalanced clip last
-([their words](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/bench/results/2026-09-15_block49_market_feedback.md)).
 
 ## What ships here
 
