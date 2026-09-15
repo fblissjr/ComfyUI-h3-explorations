@@ -1,0 +1,79 @@
+{
+  "capture_dir": "2026-09-03_base16_t2v_1344x768",
+  "heads_measured": 8,
+  "referent": "fp32 dense attention on the same bf16 inputs (analyze_sol_error.dense_reference)",
+  "rows": [
+    {
+      "block": 0,
+      "step": 4,
+      "kitchen_int8": 0.0033616778468804776,
+      "sage_fp8pp": 0.007773878403259838,
+      "bf16_sdpa": 0.0017924636455223487
+    },
+    {
+      "block": 0,
+      "step": 15,
+      "kitchen_int8": 0.002096300335903959,
+      "sage_fp8pp": 0.0036126254603705307,
+      "bf16_sdpa": 0.0018045196957471859
+    },
+    {
+      "block": 24,
+      "step": 4,
+      "kitchen_int8": 0.008005384836228879,
+      "sage_fp8pp": 0.010925119232246755,
+      "bf16_sdpa": 0.0016879151533168036
+    },
+    {
+      "block": 24,
+      "step": 15,
+      "kitchen_int8": 0.009127011983411332,
+      "sage_fp8pp": 0.01409056136584235,
+      "bf16_sdpa": 0.0017146533346551638
+    },
+    {
+      "block": 32,
+      "step": 4,
+      "kitchen_int8": 0.008003544979799796,
+      "sage_fp8pp": 0.009965698948550978,
+      "bf16_sdpa": 0.0016823140053388547
+    },
+    {
+      "block": 32,
+      "step": 15,
+      "kitchen_int8": 0.008860432991334611,
+      "sage_fp8pp": 0.01353958253052137,
+      "bf16_sdpa": 0.0016913200861030056
+    },
+    {
+      "block": 40,
+      "step": 4,
+      "kitchen_int8": 0.009509097647680636,
+      "sage_fp8pp": 0.012419076699192665,
+      "bf16_sdpa": 0.0016872416489758452
+    },
+    {
+      "block": 40,
+      "step": 15,
+      "kitchen_int8": 0.013768237579627913,
+      "sage_fp8pp": 0.019893878682575705,
+      "bf16_sdpa": 0.0017057217938712475
+    },
+    {
+      "block": 49,
+      "step": 4,
+      "kitchen_int8": 0.015767189482285962,
+      "sage_fp8pp": 0.04304393422387447,
+      "bf16_sdpa": 0.0017003052244903912
+    },
+    {
+      "block": 49,
+      "step": 15,
+      "kitchen_int8": 0.01659192905470406,
+      "sage_fp8pp": 0.04871045343923265,
+      "bf16_sdpa": 0.0016942350311016222
+    }
+  ],
+  "conditions": "2026-09-15 night, served wheel 0.2.34+sol.757657f (int8_attention and sage untouched by the fork), sage fork v0.7.19, RTX 4090, first 8 heads, blocks 0/24/32/40/49 at steps 4 and 15; bench/grade_dense_kernels_on_captures.py",
+  "reading": "kitchen's rotated INT8 dense kernel has the lowest error of the two INT8 kernels at every cell, early steps included (block 49 step 4: 0.0158 against sage fp8++ 0.0430; bf16 SDPA 0.0017 is the floor). So the missing hand on the coin drop in every kitchen-dense arm of the market seed is NOT explained by per-call error against fp32 attention; whatever it is, this instrument cannot see it. One seed of clips against a lower number everywhere: the visible evidence is real and the mechanism is unknown."
+}

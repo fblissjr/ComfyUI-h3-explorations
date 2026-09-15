@@ -271,3 +271,13 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   against `Video/h3_probe_t2v_ck_balanced_00001-audio.mp4` (the current
   default) and `Video/h3_probe_t2v_sol_nosage_00001-audio.mp4` (bf16
   dense + Sol).
+- 2026-09-15, night: the early-step grade of the three dense kernels
+  (`bench/results/2026-09-15_dense_kernels_by_step.json`) puts kitchen's
+  rotated INT8 kernel below sage at every cell, step 4 included; the
+  coins flaw is not a per-call-error effect this instrument can see. One
+  seed of clips against a lower number everywhere: the default dense
+  kernel stays an open question, to be settled by the same pair on a
+  second seed and a second scene. Token routing (`bench/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`):
+  on the fixed producer branch, balance + rotation + token routing is the
+  best Sol number on block 49; token routing without the balance still
+  hurts it.

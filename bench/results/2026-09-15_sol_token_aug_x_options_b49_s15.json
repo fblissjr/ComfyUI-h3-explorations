@@ -47,5 +47,19 @@
     "balanced": 31.4,
     "rotated": 35.6,
     "both": 35.7
+  },
+  "fixed_wheel": {
+    "branch": "h3-sol-rotate-producer (token stage's group centroid rotated; producer threshold from the unrotated block mean)",
+    "rows_total_l2": {
+      "plain_tok0": 0.0415,
+      "plain_tok64": 0.0539,
+      "balanced_tok0": 0.0375,
+      "balanced_tok64": 0.0366,
+      "rotated_tok0": 0.0349,
+      "rotated_tok64": 0.0489,
+      "both_tok0": 0.0347,
+      "both_tok64": 0.0337
+    },
+    "reading": "rotation no longer breaks token routing (0.136 -> 0.049); token routing still hurts block 49 without the balance (as on 2026-09-04) and helps slightly with it; balance + rotation + token routing is the best Sol number on this block"
   }
 }
