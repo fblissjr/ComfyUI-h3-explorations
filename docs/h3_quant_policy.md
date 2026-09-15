@@ -281,3 +281,12 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   on the fixed producer branch, balance + rotation + token routing is the
   best Sol number on block 49; token routing without the balance still
   hurts it.
+- 2026-09-15, end of session: eleven reproduction renders queued under
+  `Video/block49_repro/`, default chain (kitchen dense + Sol balanced)
+  against the sage levers chain, same seed per pair: diner, the kitchen
+  scene, market at seed 20260915, hardware aisle, post office, noodle bar.
+  Filenames `<scene>_default_s<seed>_00001-audio.mp4` and
+  `<scene>_sagelevers_s<seed>_00001-audio.mp4`. Every capture instrument
+  says kitchen's kernel is the better one (`bench/results/2026-09-15_dense_kernels_*.json`);
+  these clips decide whether the market seed was luck. Postmortem in the
+  sage fork's internal postmortems, 2026-09-15.
