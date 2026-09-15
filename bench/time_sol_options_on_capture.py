@@ -28,6 +28,7 @@ def main() -> int:
     ap.add_argument("--heads", type=int, default=0)
     ap.add_argument("--iters", type=int, default=5)
     ap.add_argument("--tau", type=float, default=1.0)
+    ap.add_argument("--token-aug", type=int, default=0, help="token routing budget applied to every arm (0 off)")
     args = ap.parse_args()
     q, k, v = load_capture(args.capture)
     if 0 < args.heads < q.shape[1]:
@@ -42,9 +43,9 @@ def main() -> int:
         arms["rotated"] = {"rotate": True}
         if "qk_balance" in params: arms["both"] = {"rotate": True, "qk_balance": True}
     m = re.search(r"_b(\d+)_s(\d+)", Path(args.capture).name)
-    print(f"timing: {Path(args.capture).name}  S={qs.shape[1]} heads {qs.shape[2]}  tau {args.tau}  iters {args.iters}")
+    print(f"timing: {Path(args.capture).name}  S={qs.shape[1]} heads {qs.shape[2]}  tau {args.tau}  token_aug {args.token_aug}  iters {args.iters}")
     def call(kw):
-        return sol(qs, ks, vs, tau=args.tau, scale=None, sink_blocks=[0, 0], sink_q=[0, 0], topk_ratio=0.0, tail=True, **kw)
+        return sol(qs, ks, vs, tau=args.tau, scale=None, sink_blocks=[0, 0], sink_q=[0, 0], topk_ratio=0.0, tail=True, token_aug=args.token_aug, **kw)
     for kw in arms.values():   # warm every arm before any timing
         call(kw)
     torch.cuda.synchronize()
