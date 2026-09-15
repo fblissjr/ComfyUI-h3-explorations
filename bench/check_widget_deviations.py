@@ -316,9 +316,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "reason; the per-graph value is graded by "
                 "bench/check_attention_defaults.py::DEVIATIONS"),
     ("MiniMaxH3SolAttn", "rotate"):
-        ("ARM", "True on h3_probe_t2v_rotate, the Tier 2 witness: Sol's Hadamard "
-                "rotation of q/k before INT8 (2026-09-15, docs/h3_quant_policy.md); "
-                "off everywhere else"),
+        ("ARM", "True on h3_probe_t2v_rotate (the Tier 2 witness) and on "
+                "h3_probe_t2v_sage_rotate (the sage chain with every lever): Sol's "
+                "Hadamard rotation of q/k before INT8 (2026-09-15, "
+                "docs/h3_quant_policy.md); off everywhere else"),
     ("MiniMaxH3SolAttn", "dense_blocks"):
         ("ARM", "'45,48,49' on h3_probe_t2v_ck_dense_tail, the three lopsided "
                 "blocks handed to the dense backend (2026-09-15, "

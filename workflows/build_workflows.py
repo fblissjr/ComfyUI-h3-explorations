@@ -5054,6 +5054,14 @@ def main():
          dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
               sage_mode="fp8++ balanced", out_prefix="Video/h3_probe_t2v_levers"),
          "text -> video + audio, the sage chain with every free lever: balance node + sage and Sol qk_balance, no exact blocks"),
+        # The sage chain with every lever AND Sol's rotation (2026-09-15 night,
+        # owner's ask): the best the sage chain can do against the kitchen
+        # chain, same seed as every other market arm.
+        ("h3_probe_t2v_sage_rotate.json", "t2v-sage-rotate", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
+              sage_mode="fp8++ balanced", sol_overrides={"rotate": True},
+              out_prefix="Video/h3_probe_t2v_sage_rotate"),
+         "text -> video + audio, the sage chain with every free lever plus Sol rotate, no exact blocks"),
         ("h3_probe_t2v_policy.json", "t2v-policy", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
               sage_mode="fp8++ balanced",

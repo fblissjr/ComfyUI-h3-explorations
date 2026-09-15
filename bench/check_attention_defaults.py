@@ -158,6 +158,9 @@ DEVIATIONS = {
                                 "bench/results/2026-09-15_block49_*): kept as it rendered, "
                                 "so Sol's qk_balance stays off; the switch predates the "
                                 "recipe's"),
+    "h3_probe_t2v_sage_rotate": (("mode", "rotate"),
+                                 "the sage chain with every lever plus Sol rotate (2026-09-15 "
+                                 "night); the mode and the switch ARE the arm"),
     "h3_probe_t2v_levers": (("mode",),
                             "block-49 Tier 1 witness (2026-09-15, docs/h3_quant_policy.md), "
                             "kept on the sage chain while its pair is scored: every free "
@@ -259,6 +262,9 @@ FLOOR_STEMS = {
         ("sage", "head_chunks is an input of MiniMaxH3SageAttention; the arm "
                  "means nothing without the node"),
     # Block-49 arms on the sage chain, scored or still being scored there.
+    "h3_probe_t2v_sage_rotate":
+        ("sage", "the sage chain with every lever plus Sol rotate, against the "
+                 "kitchen chain (2026-09-15 night)"),
     "h3_probe_t2v_levers":
         ("sage", "block-49 Tier 1 witness on the sage chain; its pair with "
                  "h3_probe_t2v_policy is still being scored"),
