@@ -46,3 +46,31 @@ and the Sol balance or the dense tail is worth shipping to them.
 ## Owner's scoring
 
 (unfilled)
+
+## The controls, 2026-09-15 evening: the coins from nowhere are the kitchen dense kernel's
+
+The owner: "in all 3 of those clips - ck, ck balanced, and ck dense tail,
+the coins fall from nowhere in all 3." Frames at 0.5 s spacing from 6 to
+11.5 s, same prompt and seed (730451892):
+
+| arm | dense-step kernel | routed steps | the coin beat | wall time |
+|---|---|---|---|---|
+| ck, ck_balanced, ck_dense_tail | kitchen `int8_attention` (rotated INT8) | Sol | both hands stay on the crate from 7.5 to 9.0 s; no hand goes near the tins; coins appear anyway | 500 / 500 / 516 s |
+| `h3_probe_t2v_dense` (new) | ComfyUI's own bf16 attention | none (no Sol) | a hand reaches over at 7.5 s, is over the open tin at 8.0 and 8.5 s, withdraws at 9.0 s | 1785 s |
+| `h3_probe_t2v_sol_nosage` | ComfyUI's own bf16 attention | Sol | the same hand, the same beat, a near-identical take to the fully dense arm | 742 s |
+| the sage arms of the morning | sage fp8++ | Sol | a hand drops coins (small and fast in the levers clip, a stack in the policy clip) | 508 / 511 / 569 s |
+
+Reading. The action is decided on the dense steps (the first fifth of the
+schedule): the three kitchen-dense arms share the flaw and diverge only
+later, and the two bf16-dense arms are almost one take. With Sol present
+in one bf16 arm and absent in the other and the hand present in both, Sol
+is cleared. The dense-step kernel is the variable, and the kitchen rotated
+INT8 kernel is the one that loses the hand. One seed; it needs a second
+before it is more than a strong hint. It is also the first sign that the
+kernel with the lowest measured block-49 error at the last step has a
+visible cost of its own, which no grade so far could see: every grade is
+at step 15, and composition is set at steps 4 to 8, where kitchen's INT8
+P and V may not behave like sage's fp8 ones. That grade is next.
+
+Costs from the same table: bf16 on the dense steps only costs about half
+again (742 s); bf16 everywhere three and a half times (1785 s).

@@ -251,3 +251,13 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   (serial per-row Hadamard; a warp-per-row form is the optimization if it
   earns a default). Two control renders queued for the coins question
   (`h3_probe_t2v_dense`, `h3_probe_t2v_sol_nosage`, market seed).
+- 2026-09-15, evening, the coins: the two controls say the flaw all three
+  community-chain arms share (coins with no hand) belongs to the kitchen
+  rotated INT8 dense kernel on the early steps, not to Sol and not to the
+  take: bf16 dense with Sol and bf16 dense without Sol both keep the hand,
+  as do sage's dense steps (`bench/results/2026-09-15_block49_community_chain.md`,
+  the controls section). One seed. Consequence for the policy: the dense
+  kernel is not settled by the block-49 last-step grade alone; the
+  early-step and mid-block grades of the three dense kernels come next,
+  and the sage chain with every lever plus Sol rotate is rendering as the
+  comparison arm.
