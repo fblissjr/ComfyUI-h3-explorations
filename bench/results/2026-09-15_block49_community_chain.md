@@ -59,6 +59,7 @@ the coins fall from nowhere in all 3." Frames at 0.5 s spacing from 6 to
 | `h3_probe_t2v_dense` (new) | ComfyUI's own bf16 attention | none (no Sol) | a hand reaches over at 7.5 s, is over the open tin at 8.0 and 8.5 s, withdraws at 9.0 s | 1785 s |
 | `h3_probe_t2v_sol_nosage` | ComfyUI's own bf16 attention | Sol | the same hand, the same beat, a near-identical take to the fully dense arm | 742 s |
 | the sage arms of the morning | sage fp8++ | Sol | a hand drops coins (small and fast in the levers clip, a stack in the policy clip) | 508 / 511 / 569 s |
+| `h3_probe_t2v_sage_rotate` (owner's ask) | sage fp8++ balanced + balance node | Sol balanced AND rotated | a hand over the open tin at 8.0 and 8.5 s | 508 s |
 
 Reading. The action is decided on the dense steps (the first fifth of the
 schedule): the three kitchen-dense arms share the flaw and diverge only

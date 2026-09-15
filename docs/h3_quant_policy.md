@@ -261,3 +261,13 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   early-step and mid-block grades of the three dense kernels come next,
   and the sage chain with every lever plus Sol rotate is rendering as the
   comparison arm.
+- 2026-09-15, evening: `h3_probe_t2v_sage_rotate` rendered (the sage chain
+  with every lever plus Sol's rotation; 508 s, the same cost as the plain
+  sage chain): the hand does the coin drop. Four dense-step configurations
+  keep the hand (sage, sage with every lever and rotation, bf16 with Sol,
+  bf16 alone) and the three that lose it all run kitchen's rotated INT8
+  dense kernel. One seed, but the split is clean along one variable.
+  Files for the owner's look: `Video/h3_probe_t2v_sage_rotate_00001-audio.mp4`
+  against `Video/h3_probe_t2v_ck_balanced_00001-audio.mp4` (the current
+  default) and `Video/h3_probe_t2v_sol_nosage_00001-audio.mp4` (bf16
+  dense + Sol).
