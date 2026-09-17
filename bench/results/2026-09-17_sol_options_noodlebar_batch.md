@@ -171,3 +171,15 @@ remove the morph either, which completes the token-routing column of the tally
 above: measured blocks, early and middle, and all blocks with rotate all still
 show it.
 
+### Owner's verdict on `stack_noodlebar_default_vs_tokens_all_rotate`, 2026-09-17 evening
+
+Both rows have it. Token routing on every block with `rotate` and `qk_balance`
+on, the combination that graded best on block 49, does not remove the morph.
+The owner's question at this point: "does this prompt just suck?" See the
+session's answer; in short the scene has a structurally hard moment (a person
+entering from off frame while a slow zoom-out opens the bottom of the frame)
+and scripts a few seconds of action for a clip of over fourteen, so it is a
+stress scene rather than a typical one. That it discriminates (plain order
+fails it, the reorder passes it, same prompt and seed) is what makes it useful,
+and also why one scene must not carry a default.
+
