@@ -183,3 +183,36 @@ stress scene rather than a typical one. That it discriminates (plain order
 fails it, the reorder passes it, same prompt and seed) is what makes it useful,
 and also why one scene must not carry a default.
 
+## Closing checks, 2026-09-17 evening: nothing changed the renders, and the stacks are rebuilt
+
+Renders on this stack repeat bit for bit, so PSNR infinity between two clips
+is an identity test.
+
+| comparison | result |
+|---|---|
+| shipped `h3_probe_t2v_sage_rotate` graph rendered on the evening's stack (sage fork v0.7.20, kitchen 0.2.34+sol.36e29f1) against `h3_probe_t2v_sage_rotate_00001` of 2026-09-15 | identical |
+| noodle bar default, memory compiler ON against memory compiler OFF, same prompt and seed | identical |
+| market default, 2026-09-15 against 2026-09-17 at 10:56 and 15:03 | identical |
+| market with Sol `rotate`, 2026-09-15 against 2026-09-17 at 14:54 | identical |
+
+So no change in the sage fork, the kitchen fork or this pack between 2026-09-15
+and the end of 2026-09-17 altered the output of the default chain, the rotate
+path or the sage chain with rotate; the ported rotation kernel and sage
+v0.7.20's off path are bit-identical in a full render, not only on captures;
+and `--disable-comfy-compiler` does not change a render, so the reorder clips
+made under it compare fairly with a normal default. The sage render was served
+from ComfyUI's node cache (an identical graph and seed had just rendered on the
+same server), which does not weaken the test: the cached result came from the
+same stack and the same inputs.
+
+The owner looked at the same-prompt default (`default_today_compiler_on_*`,
+two files, one render) and confirmed it morphs like every other plain-order
+clip.
+
+Stacks rebuilt with that default on top, so every row shares the prompt byte
+for byte: `Video/sol_options_noodlebar/stacks/stack_noodlebar_sameprompt_*`
+(rotate, the three token-routing presets, the sage chain, the reorder at tau
+1.0, and sage balanced against rotated) and
+`Video/sol_start_percent/stacks/stack_noodlebar_sameprompt_start_percent.mp4`.
+The earlier stacks are kept, since the verdicts above name them.
+
