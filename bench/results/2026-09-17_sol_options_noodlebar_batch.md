@@ -150,3 +150,17 @@ reorder clips are clean. Note the two rows are different samples (the prompt
 newline correction above), so "worse" here is about two samples of one scene,
 not about what `rotate` did.
 
+### Owner's verdict on `stack_noodlebar_default_vs_sage_chain`, 2026-09-17 evening
+
+Both rows have the problem; the bottom row, the generated sage chain (sage
+balanced under Sol), is the worse one because it also clones the man. Same
+caution as the rotate stack: the rows are different samples, so this is not a
+clean kitchen-against-sage comparison. What it adds to the tally is that the
+sage chain in plain token order morphs too.
+
+Tally across the owner's verdicts this evening, noodle bar, seed 730451892:
+every plain-order arm morphs (2026-09-15 default, today's default, Sol rotate,
+sage balanced, sage rotated, token routing on the measured blocks, the sage
+chain); the two 3d reorder arms do not. `tokens_early_middle` and
+`tokens_all_rotate` were reported as "two of him" as well.
+
