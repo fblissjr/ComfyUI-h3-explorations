@@ -773,6 +773,18 @@ async def _run_once_inner(host, prompt, client_id, timeout_s):
                     msg = await asyncio.wait_for(ws.receive(), timeout=remaining)
                 except asyncio.TimeoutError:
                     return None, per_node, f"timed out after {timeout_s:.0f}s", prompt_id
+                # A closed socket is the END, not a message to skip. Once the
+                # server goes away `ws.receive()` returns CLOSED immediately and
+                # forever, so skipping it made this a loop that never yields:
+                # each pass left a cancelled `wait_for` timer in the event
+                # loop's heap, and on 2026-09-17 a runner whose server had
+                # exited grew to 127 GB in a quarter of an hour and was taken
+                # by the kernel's OOM killer.
+                if msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING,
+                                aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    return (None, per_node,
+                            f"websocket {msg.type.name.lower()}: the server went away mid-render",
+                            prompt_id)
                 if msg.type != aiohttp.WSMsgType.TEXT:
                     continue
                 data = json.loads(msg.data)

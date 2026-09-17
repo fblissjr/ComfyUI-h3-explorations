@@ -257,6 +257,11 @@ async def render_with_spans(host, graph, timeout_s):
                     msg = await asyncio.wait_for(ws.receive(), timeout=remaining)
                 except asyncio.TimeoutError:
                     return spans, f"timed out after {timeout_s:.0f}s", prompt_id
+                # A closed socket ends the run; skipping it is a loop that never
+                # yields and leaks a timer per pass (bench_e2e_h3.py has the story).
+                if msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING,
+                                aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    return spans, f"websocket {msg.type.name.lower()}: the server went away mid-render", prompt_id
                 if msg.type != aiohttp.WSMsgType.TEXT:
                     continue
                 data = json.loads(msg.data)

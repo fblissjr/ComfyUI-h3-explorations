@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.122.1
+
+### Fixed
+
+- **A render runner whose server died grew to 127 GB and was taken by the
+  kernel's OOM killer.** `bench_e2e_h3.py`'s websocket loop skipped every
+  non-text message, and a closed socket returns CLOSED immediately and forever,
+  so the loop never yielded and left a cancelled timer in the event loop per
+  pass. A closed or errored socket now ends the run with "the server went
+  away". Same loop, same fix, in `instrument_render_occupancy.py`.
+- **The token reorder took the whole server down on its first full-length
+  render.** ComfyUI's memory compiler (core, September 2026) records one
+  allocation plan per DiT block; with the reorder on, the forward raised
+  "aimdo memory compile error", and the cleanup then freed the reorder's state
+  into a pool it had not come from: a CUDA invalid-argument inside a
+  destructor, process aborted, no traceback. The reorder's long-lived
+  allocations now sit outside the recorder (`_outside_memory_compiler`, the
+  call core's own sparse node makes), which stops the crash; the compile error
+  itself remains, so **`morton` is refused at patch time while the compiler is
+  active**, with the way round it in the message (`--disable-comfy-compiler`).
+  The forward also logs what it raised when the reorder was live, since the
+  crash used to hide it. Nothing shipped turns the reorder on.
+
 ## 0.122.0
 
 ### Fixed

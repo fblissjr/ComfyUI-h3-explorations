@@ -498,6 +498,31 @@ def _patch_packed_layout(module):
     _PATCHED_LAYOUTS.add(id(layout_cls))
 
 
+def _outside_memory_compiler():
+    """A context in which allocations stay out of ComfyUI's memory compiler.
+
+    Since September 2026 core records every allocation of the H3 forward and
+    replays the plan (`comfy.model_prefetch`, aimdo's malloc graph). A tensor
+    allocated inside the forward that OUTLIVES the scope it was recorded in
+    breaks the recording: the forward raises "aimdo memory compile error", and
+    the tensor is then freed into a pool it did not come from, which is a CUDA
+    invalid-argument inside a destructor and takes the whole server down with
+    no Python traceback. The reorder makes exactly such tensors: the permuted
+    RoPE table lives from the first block to the last, the reordered hidden
+    states outlive the hook that made them, and the permutation is cached on
+    the device across forwards. Core's own sparse-attention node pauses the
+    recorder around its long-lived allocations; this is the same call. Found
+    2026-09-17 on the first full-length render with the reorder on: the server
+    died sixteen seconds in, on every attempt.
+    """
+    try:
+        import comfy.model_prefetch as model_prefetch
+        return model_prefetch.pause_malloc_graph()
+    except Exception:                       # an older core, or a bench with no comfy
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def _permute_mod_segments(mod_segments, start, stop, perm):
     """`mod_segments` with the video segment's per-token rows reordered by `perm`.
 
@@ -550,6 +575,13 @@ def install_h3_morton(model):
         try:
             return original_forward(x, timestep, context,
                                     transformer_options=transformer_options, **kwargs)
+        except BaseException as exc:
+            # Said here because the cleanup below can take the process down
+            # before anyone sees this: see the note on `_sol_morton_state`.
+            if getattr(model, "_sol_morton_state", None) is not None:
+                logging.error(f"[h3-sol] the forward raised with the reorder active: "
+                              f"{type(exc).__name__}: {exc}")
+            raise
         finally:
             model._sol_morton_active = previous
             model._sol_morton_span = None
@@ -633,20 +665,22 @@ def install_h3_morton(model):
         curve = getattr(model, "_sol_morton_curve", "3d")
         _h3_log_once(f"ACTIVE: video span [{start}, {stop}), grid {grid}, "
                      f"curve {curve}")
-        perm, inverse = _perm_for(grid, curve, h.device, start)
-        mod_segments = _permute_mod_segments(args[2], start, stop, perm)
-        if mod_segments is None:
-            _h3_log_once("per-token modulation does not line up with the video span; "
-                         "Morton declined for this forward")
-            return None
-        h = h.clone()
-        h[start:stop] = h[start:stop][perm]
+        # Every tensor made here outlives this hook; see _outside_memory_compiler.
+        with _outside_memory_compiler():
+            perm, inverse = _perm_for(grid, curve, h.device, start)
+            mod_segments = _permute_mod_segments(args[2], start, stop, perm)
+            if mod_segments is None:
+                _h3_log_once("per-token modulation does not line up with the video span; "
+                             "Morton declined for this forward")
+                return None
+            h = h.clone()
+            h[start:stop] = h[start:stop][perm]
 
-        # rope_rotation_table is elementwise per row, so permuting the table is
-        # identical to permuting position_ids -- and keeps the decision here.
-        full = torch.arange(rope.shape[1], device=rope.device)
-        full[start:stop] = perm + start
-        rope = rope.index_select(1, full)
+            # rope_rotation_table is elementwise per row, so permuting the table
+            # is identical to permuting position_ids -- and keeps the decision here.
+            full = torch.arange(rope.shape[1], device=rope.device)
+            full[start:stop] = perm + start
+            rope = rope.index_select(1, full)
 
         model._sol_morton_state = (inverse, rope, mod_segments)
         return (h, args[1], mod_segments, rope) + tuple(args[4:])
@@ -663,8 +697,9 @@ def install_h3_morton(model):
             logging.error("[h3-sol] H3 Morton: block stack changed the token count "
                           f"({tuple(output.shape)}); cannot restore order")
             return None
-        output = output.clone()
-        output[start:stop] = output[start:stop][inverse]
+        with _outside_memory_compiler():      # the restored output outlives this hook
+            output = output.clone()
+            output[start:stop] = output[start:stop][inverse]
         return output
 
     first = model.blocks[0]
@@ -1214,6 +1249,28 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
 
     # H3 publishes its segment layout from the same hooks Morton uses, so the
     # conditioning sink needs them installed even when reordering is off.
+    if morton and is_h3:
+        # Refused HERE, where it can be said. ComfyUI's memory compiler (core,
+        # September 2026; aimdo's malloc graph) records one allocation plan per
+        # DiT block and replays it for all fifty; the reorder makes block 0
+        # allocate differently, the recording fails with "aimdo memory compile
+        # error" on the first step, and before 2026-09-17 the cleanup that
+        # followed freed a tensor into the wrong pool and took the whole server
+        # down with no traceback. Pausing the recorder around the reorder's
+        # allocations (`_outside_memory_compiler`) stops the crash and not the
+        # error. Until the reorder is moved out of the block scope, it needs
+        # the compiler off.
+        try:
+            import comfy.model_prefetch as _mp
+            import comfy.model_management as _mm
+            compiling = bool(_mp.malloc_graph_enabled(_mm.get_torch_device()))
+        except Exception:
+            compiling = False
+        if compiling:
+            raise RuntimeError(
+                "morton is on, and ComfyUI's memory compiler is active; the two do not "
+                "work together yet (the render fails on its first step). Start ComfyUI "
+                "with --disable-comfy-compiler to use the reorder, or turn morton off.")
     reorder = False
     if is_h3 and (morton or sink_conditioning != "off"):
         install_h3_morton(diffusion_model)
