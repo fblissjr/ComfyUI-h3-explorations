@@ -86,3 +86,27 @@ and `stack_noodlebar_start_percent.mp4`. Unscored.
 |---|---|---|---|
 | market, seed 20260915 | | | |
 | noodle bar | | | |
+
+## Correction, 2026-09-17 evening: the reference clip in these stacks is a different sample
+
+Found while checking the owner's report that today's clips morph around the
+four second mark. The runner scripts for the 2026-09-17 batches read the prompt
+file with its trailing newline; the 2026-09-15 reproduction batch had passed it
+stripped. One character changes the conditioning, so **every noodle bar and post
+office clip rendered on 2026-09-17 is a different sample from the 2026-09-15
+default of the same scene and seed** (about 20 dB PSNR apart, as far as two
+unrelated arms are). Consequences:
+
+- Stacks whose top row is `Video/block49_repro/noodle_bar_default_s730451892`
+  compare across samples and cannot be read as "what the option changed":
+  the five `stack_noodlebar_default_vs_*` stacks, the top row of
+  `stack_noodlebar_sage_balanced_vs_rotated`, and the top row of
+  `stack_noodlebar_start_percent`.
+- Comparisons WITHIN one day's batch stand, since every arm carries the same
+  prompt: the reorder stack (its own default on top), sage balanced against
+  sage rotated, the post office start_percent stack, and both market stacks
+  (the market prompt comes from the graph, not from a file).
+- Not a regression in any repository: the market default and the market rotate
+  clips rendered on 2026-09-17 at 10:56, 14:54 and 15:03 are bit-identical
+  (PSNR infinite) to the 2026-09-15 renders of the same graphs and seed, and
+  renders repeat exactly across server restarts.
