@@ -50,3 +50,13 @@ Fill in below.
 | hardware_aisle_short | | | |
 | post_office | | | |
 | noodle_bar | | | |
+
+## Owner's verdict, 2026-09-17
+
+Across the six stacks the owner could not tell the default chain from the sage
+levers chain: "very hard to tell the difference", nothing obviously off in
+either, and no preference. So the missing hand on the coin drop did not
+reproduce on the second market seed or on the other five scenes; it is a
+property of market at seed 730451892, not of the kitchen dense kernel in
+general. The owner's standing position the same day: sage and kitchen are both
+good in different ways, the choice is per use and stays open.

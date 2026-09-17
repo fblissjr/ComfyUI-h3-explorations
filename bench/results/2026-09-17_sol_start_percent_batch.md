@@ -38,9 +38,27 @@ layout, subject count and framing rather than texture. Compare shot
 composition, whether people and objects are where the prompt puts them, and
 the first second of each shot.
 
-Scoring: owner, by eye. Unscored at the time of writing.
+Scoring: owner, by eye, 2026-09-17.
 
-| scene | 0.1 against 0.2 | 0.0 against 0.2 | notes |
+| scene | 0.2 | 0.1 | 0.0 |
 |---|---|---|---|
-| market | | | |
-| post office | | | |
+| market, seed 730451892 | coins come from nowhere (the known flaw of this seed on this chain) | the stallholder drops the coins; in shot 3 the porter walks TOWARD the camera | the stallholder drops the coins; in shot 3 the porter walks BACKWARDS |
+| post office | camera at a three-quarter angle to the window | the same angle | head-on, centred on the cat; nothing wrong with it |
+
+Read against the prompt: shot 3 asks for a static wide as he "carries both
+crates away between the stalls", so walking away is the instruction; toward
+the camera at 0.1 is a staging change, walking backwards at 0.0 is a motion
+defect. The coin sentence names no agent ("coins clatter one after another
+into a metal tin"), and the porter's hands are on a crate, so the stallholder
+dropping them is a fair reading and "from nowhere" is partly the prompt's
+doing. The owner's call: this seed and scene are a poor judge, use another.
+Post office against its prompt: it asks for a medium shot of the front window,
+the letter slot at the left of frame, a stone step below the glass, a static
+camera and the cat on the inner sill, and names no angle. All three clips have
+all of that (checked on a frame at six seconds); 0.0 differs only in being
+frontal and flatter.
+
+Two scenes, one pattern worth testing rather than believing: with no dense
+steps the staging drifts (a frontal composition, a porter walking backwards),
+while 0.1 stays close to 0.2.
+Follow-up arms: `2026-09-17_sol_start_percent_arms_2.jsonl`.
