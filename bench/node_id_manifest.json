@@ -408,7 +408,8 @@
       "verbose",
       "dense_blocks",
       "qk_balance",
-      "rotate"
+      "rotate",
+      "token_routing"
     ],
     "node_id": "MiniMaxH3SolAttn",
     "outputs": [

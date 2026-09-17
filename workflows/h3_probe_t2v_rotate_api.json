@@ -211,7 +211,8 @@
       "dense_blocks": "",
       "token_aug_blocks": "",
       "qk_balance": true,
-      "rotate": true
+      "rotate": true,
+      "token_routing": "text field"
     }
   },
   "23": {

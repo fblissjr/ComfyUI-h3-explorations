@@ -207,6 +207,69 @@ def parse_token_aug_profile(spec, count):
     return _parse_block_profile(spec, count, "token_aug_blocks", _budget, "0,24,32=64")
 
 
+# `token_routing`: named fills for `token_aug_blocks`, so the common choices
+# need no syntax. "text field" is the default BECAUSE it is what every saved
+# graph already means: the text as typed, empty for off. Each other name
+# states how far its blocks were measured, since that is the one thing the
+# text field cannot say. Budget 64 throughout; `parse_token_aug_profile` says
+# why. The blocks of the last two are counted from the model's end so the
+# five blocks left out are the last five at any depth.
+TOKEN_ROUTING_TEXT = "text field"
+TOKEN_ROUTING_OFF = "off"
+TOKEN_ROUTING_MEASURED = "measured blocks (0, 24, 32, 40)"
+TOKEN_ROUTING_EARLY_MIDDLE = "early and middle (all but the last five)"
+TOKEN_ROUTING_ALL = "all blocks (needs qk_balance and rotate)"
+TOKEN_ROUTING_MODES = (TOKEN_ROUTING_TEXT, TOKEN_ROUTING_OFF, TOKEN_ROUTING_MEASURED,
+                       TOKEN_ROUTING_EARLY_MIDDLE, TOKEN_ROUTING_ALL)
+TOKEN_ROUTING_BUDGET = 64
+# The four captured blocks where the grade improved; block 49 is the fifth
+# and the one it hurt (docs/research/2026-09-04_sol_token_aug_grade.md).
+TOKEN_ROUTING_MEASURED_BLOCKS = (0, 24, 32, 40)
+TOKEN_ROUTING_TAIL = 5
+
+
+def resolve_token_routing(mode, spec, count, *, qk_balance=False, rotate=False):
+    """{block: budget} for the node's `token_routing` choice and text field.
+
+    A preset with text also typed is refused rather than resolved by
+    precedence: whichever won, the other widget would be showing a setting
+    the render did not use. "off" is the exception and the reason it exists,
+    an A/B that leaves the typed profile in place.
+    """
+    mode = mode or TOKEN_ROUTING_TEXT
+    if mode not in TOKEN_ROUTING_MODES:
+        raise ValueError(f"token_routing={mode!r} is not one of {list(TOKEN_ROUTING_MODES)}")
+    if mode == TOKEN_ROUTING_TEXT:
+        return parse_token_aug_profile(spec or "", count)
+    if mode == TOKEN_ROUTING_OFF:
+        return {}
+    if str(spec or "").strip():
+        raise ValueError(
+            f"token_routing is {mode!r} and token_aug_blocks also has text "
+            f"({str(spec).strip()!r}). Clear the text, or set token_routing to "
+            f"{TOKEN_ROUTING_TEXT!r} to use it.")
+    if mode == TOKEN_ROUTING_MEASURED:
+        missing = [b for b in TOKEN_ROUTING_MEASURED_BLOCKS if b >= count]
+        if missing:
+            raise ValueError(
+                f"token_routing={mode!r} names MiniMax H3 blocks; this model has "
+                f"{count} and lacks {missing}")
+        blocks = TOKEN_ROUTING_MEASURED_BLOCKS
+    elif mode == TOKEN_ROUTING_EARLY_MIDDLE:
+        blocks = range(max(count - TOKEN_ROUTING_TAIL, 0))
+    else:
+        # The last blocks are where token routing RAISED the error on its own;
+        # it only lowered it there with both quantizer options on
+        # (bench/results/2026-09-15_sol_token_aug_x_options_b49_s15.json).
+        if not (qk_balance and rotate):
+            raise ValueError(
+                f"token_routing={mode!r} needs qk_balance and rotate both on: "
+                f"without them token routing measured worse on the last block. "
+                f"Turn both on, or use {TOKEN_ROUTING_EARLY_MIDDLE!r}.")
+        blocks = range(count)
+    return {int(b): TOKEN_ROUTING_BUDGET for b in blocks}
+
+
 def _install_block_index(model):
     """Publish the running block index into transformer_options, and CLEAR it.
 
@@ -1061,7 +1124,8 @@ def _install_compose_hooks(model, attn_attr):
 def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                  sink_conditioning, morton, morton_curve, dense_blocks,
                  verbose, tau_profile, token_aug_blocks="",
-                 topk_ratio=0.0, tail=True, qk_balance=False, rotate=False):
+                 topk_ratio=0.0, tail=True, qk_balance=False, rotate=False,
+                 token_routing=TOKEN_ROUTING_TEXT):
     # Before anything else: fail here if the installed kernel cannot take what
     # this node passes. Patch time is the only place that can be said -- see
     # `_require_kernel`.
@@ -1097,7 +1161,8 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
     count = len(blocks) if blocks is not None else 0
     dense = parse_blocks(dense_blocks, count)
     profile = parse_tau_profile(tau_profile or "", count)
-    aug = parse_token_aug_profile(token_aug_blocks or "", count)
+    aug = resolve_token_routing(token_routing, token_aug_blocks, count,
+                                qk_balance=qk_balance, rotate=rotate)
     # A build without `token_aug` would take the keyword only to fail inside
     # the override, where the failure becomes a silent dense render. Asserted
     # here, and only when something actually asks for it, so a stock wheel
@@ -1109,6 +1174,20 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                 "token_aug_blocks is set, but the installed comfy_kitchen.sol_attn "
                 "has no token_aug argument. It landed in Comfy-Org/comfy-kitchen "
                 "#156, released in 0.2.33; upgrade, or clear the field.")
+        if rotate:
+            # The first build with `rotate` binned the token stage's group
+            # centroid unrotated against rotated keys, and the pair graded
+            # several times worse than either alone. The build that fixed it
+            # is the one that also gave the chunked producer the option, which
+            # is the only difference between the two visible from Python.
+            from comfy_kitchen.backends import cuda as _ck_cuda
+            if "rotate" not in inspect.signature(_ck_cuda.sol_attn_chunked).parameters:
+                raise RuntimeError(
+                    "rotate is on together with token routing, and the installed "
+                    "comfy_kitchen build predates the fix for that pair (its token "
+                    "stage mixes rotated and unrotated spaces). Rebuild from the "
+                    "owner's fork (h3-build) with vendor/rebuild_kernel.sh, or turn "
+                    "one of the two off.")
     observing = sol_observe.enabled()
     if (dense or profile or aug or observing) and not _install_block_index(diffusion_model):
         logging.warning(
@@ -1159,6 +1238,7 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
         "dense_blocks": sorted(int(b) for b in dense),
         "tau_profile": {str(k): float(v) for k, v in sorted(profile.items())},
         "token_aug_blocks": {str(k): int(v) for k, v in sorted(aug.items())},
+        "token_routing": str(token_routing or TOKEN_ROUTING_TEXT),
         "morton": bool(reorder), "morton_curve": morton_curve if reorder else None,
         "n_blocks": count, "chained_previous": previous is not None,
     }
@@ -1382,6 +1462,29 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                      "kernel build that takes rotate; refused at patch time "
                                      "otherwise."),
                                  ),
+                # Last again, for the reason above qk_balance gives.
+                io.Combo.Input("token_routing", optional=True,
+                               options=list(TOKEN_ROUTING_MODES),
+                               default=TOKEN_ROUTING_TEXT,
+                               tooltip=(
+                                   "Fills token_aug_blocks for you, at budget "
+                                   f"{TOKEN_ROUTING_BUDGET}.\n\n"
+                                   "text field: use token_aug_blocks as typed; empty "
+                                   "means off. This is what every saved graph does.\n\n"
+                                   "off: ignore the text, for an A/B without deleting it.\n\n"
+                                   "measured blocks: the four captured layers where "
+                                   "token routing lowered the error. The cautious choice.\n\n"
+                                   "early and middle: every layer but the last five. "
+                                   "An extrapolation from those four; the last five "
+                                   "are left out because the last layer measured "
+                                   "WORSE with it.\n\n"
+                                   "all blocks: every layer. Only lowered the last "
+                                   "layer's error with qk_balance and rotate both on, "
+                                   "so the node refuses it without them.\n\n"
+                                   "A preset and typed text together are refused: "
+                                   "clear one. No render has been judged by eye with "
+                                   "token routing on; it costs render time."),
+                               ),
             ],
             outputs=[io.Model.Output()],
         )
@@ -1389,7 +1492,8 @@ class MiniMaxH3SolAttn(io.ComfyNode):
     @classmethod
     def execute(cls, model, selection, start_percent, end_percent, min_tokens,
                 sink_conditioning, pooled_tail, morton, morton_curve, verbose,
-                dense_blocks, token_aug_blocks="", qk_balance=False, rotate=False) -> io.NodeOutput:
+                dense_blocks, token_aug_blocks="", qk_balance=False, rotate=False,
+                token_routing=TOKEN_ROUTING_TEXT) -> io.NodeOutput:
         topk = selection["selection"] == "top-k (SLA)"
         return _apply_patch(
             model, tau=selection.get("tau", 1.0),
@@ -1399,4 +1503,5 @@ class MiniMaxH3SolAttn(io.ComfyNode):
             verbose=verbose, tau_profile=selection.get("tau_profile"),
             token_aug_blocks=token_aug_blocks,
             topk_ratio=selection["keep_percent"] / 100.0 if topk else 0.0,
-            tail=pooled_tail, qk_balance=bool(qk_balance), rotate=bool(rotate))
+            tail=pooled_tail, qk_balance=bool(qk_balance), rotate=bool(rotate),
+            token_routing=token_routing)

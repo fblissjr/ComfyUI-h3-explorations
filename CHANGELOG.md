@@ -4,6 +4,32 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.117.0
+
+### Added
+
+- **`token_routing` on `MiniMaxH3SolAttn`**: a dropdown that fills
+  `token_aug_blocks` so the common choices need no `blocks=budget` syntax:
+  `text field` (the default: the text as typed, so every saved graph keeps its
+  meaning), `off`, `measured blocks`, `early and middle`, `all blocks`. The
+  last is refused unless `qk_balance` and `rotate` are both on, because token
+  routing measured worse on the last block without them; a preset with text
+  also typed is refused rather than resolved by precedence. Declared last;
+  both shared Sol configs pin `text field`, so no shipped graph changes what
+  it renders. `docs/SOLATTN.md`'s knob table has the row.
+- **A refusal for `rotate` with token routing on a kernel build older than the
+  fix for that pair**, at patch time, where it can be said; inside the
+  override it would be a silently worse render.
+- **`bench/check_token_routing.py`**: what each preset resolves to, the two
+  refusals, the default reproducing the text field, and the widget's position.
+  No GPU. Confirmed able to fail by breaking the guard and the tail count.
+
+### Changed
+
+- Graphs regenerated for the trailing widget; validated against the served
+  schema with the new input added, since the server predates it. The running
+  server ignores the input until its next restart.
+
 ## 0.116.4
 
 ### Added

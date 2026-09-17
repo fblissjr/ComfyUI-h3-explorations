@@ -722,6 +722,10 @@ SOL_RECOMMENDED_CUDA = dict(
     # block-49 quantization term (bench/results/2026-09-15_sol_rotate_*.json);
     # an experiment until a witness render says otherwise.
     rotate=False,
+    # The node's named fills for `token_aug_blocks` (2026-09-17). "text field"
+    # is the node default and means the text above as typed, which is empty:
+    # token routing off, as before the widget existed.
+    token_routing="text field",
 )
 
 
@@ -834,6 +838,7 @@ SOL_CUDA_DEFAULTS = dict(
     # the values follow SOL_RECOMMENDED_CUDA.
     qk_balance=True,
     rotate=False,
+    token_routing="text field",
 )
 
 # Our own node. `auto`, which resolves to fp8_cuda++ on sm89.
