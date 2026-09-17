@@ -860,8 +860,12 @@ coherence on one pair.
    says which transformer blocks the sparsity is hurting. Unblocks
    `dense_blocks`, which is currently a guess. Partly overtaken: item 2 already
    shows the per-block spread, so this is now about routed density specifically.
-4. **Profile the Sol stages** (`bench/profile_sol_stages.py`, scaffolded, not
-   implemented). Needs the card alone.
+4. **Profile the Sol stages.** *Done 2026-09-17 for stage shares*
+   (`bench/profile_sol_stages.py`, implemented; reading and the live-render
+   cross-check in `bench/results/2026-09-17_sol_stage_profile.md`): the exact
+   stage is nearly the whole call. Still open: whether that stage is bound by
+   issuing its multiply-accumulates or by staging, which needs `ncu`'s
+   counters. Needs the card alone.
 5. **Paired render**, fl2va+LoRA@1.0 against ref2va, same seed. The only thing
    that can close the reconstruction question.
 6. **Watch a clip end to end.** Nothing above substitutes for it.

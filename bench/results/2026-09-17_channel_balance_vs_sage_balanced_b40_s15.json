@@ -1,0 +1,32 @@
+{
+  "capture": "qkv_L104361_S104361_b40_s15.pt",
+  "block": 40,
+  "step": 15,
+  "tau": 1.0,
+  "heads_measured": 8,
+  "alpha": 0.5,
+  "source": "weights",
+  "input_rounding_rel_l2": 0.0023756123149132947,
+  "eager_balanced_vs_plain_rel_l2": 0.006347971320923385,
+  "rows": {
+    "plain": {
+      "sparsity_l2": 0.2592537940722976,
+      "quant_l2": 0.031006982495025114,
+      "total_l2": 0.2599859068149441,
+      "sage_fp8pp_l2": 0.019893878682575705,
+      "sage_balanced_l2": 0.01988288252669404
+    },
+    "balanced": {
+      "sparsity_l2": 0.25929096944314406,
+      "quant_l2": 0.03115864334653751,
+      "total_l2": 0.25991431126219694,
+      "sage_fp8pp_l2": 0.019855932104823445,
+      "sage_balanced_l2": 0.01984046983686054
+    },
+    "kernel": {
+      "sparsity_l2": 0.2592537940722976,
+      "quant_l2": 0.031100614639357968,
+      "total_l2": 0.2599975573282004
+    }
+  }
+}

@@ -1,0 +1,1478 @@
+{
+  "what": "comfy_kitchen.sol_attn device time by stage on captured q/k/v, the node's own sinks and the shipped recipe",
+  "model": "MiniMax H3, int8 convrot checkpoint, captures from a base 16-step t2v render",
+  "conditions": {
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "torch": "2.14.0+cu132",
+    "comfy_kitchen": "0.2.34+sol.b532e28",
+    "heads": "all",
+    "iters": 5,
+    "tau": 1.0,
+    "sink_conditioning": "exact_kv_and_rows",
+    "pooled_tail": true,
+    "layout": {
+      "audio_span": "395,1545",
+      "video_start": 1545
+    },
+    "captures": [
+      "qkv_L104361_S104361_b0_s4.pt",
+      "qkv_L104361_S104361_b0_s8.pt",
+      "qkv_L104361_S104361_b0_s15.pt",
+      "qkv_L104361_S104361_b24_s4.pt",
+      "qkv_L104361_S104361_b24_s8.pt",
+      "qkv_L104361_S104361_b24_s15.pt",
+      "qkv_L104361_S104361_b32_s4.pt",
+      "qkv_L104361_S104361_b32_s8.pt",
+      "qkv_L104361_S104361_b32_s15.pt",
+      "qkv_L104361_S104361_b40_s4.pt",
+      "qkv_L104361_S104361_b40_s8.pt",
+      "qkv_L104361_S104361_b40_s15.pt",
+      "qkv_L104361_S104361_b49_s4.pt",
+      "qkv_L104361_S104361_b49_s8.pt",
+      "qkv_L104361_S104361_b49_s15.pt"
+    ]
+  },
+  "how_to_read": "stage_ms is device time per call from CUDA-device profiler events grouped by kernel name; call_ms is the same call timed by CUDA events with no profiler; coverage = kernel_ms / call_ms and says how much of the call the stages account for",
+  "cells": {
+    "b0_s4": {
+      "shipped": {
+        "call_ms": 220.96,
+        "kernel_ms": 221.37,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 205.75,
+          "preprocess": 12.06,
+          "route": 1.09,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.929,
+          "preprocess": 0.054,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2321
+      },
+      "plain": {
+        "call_ms": 220.54,
+        "kernel_ms": 219.83,
+        "coverage": 0.997,
+        "stage_ms": {
+          "exact": 206.79,
+          "preprocess": 9.43,
+          "route": 1.13,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.941,
+          "preprocess": 0.043,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2322
+      },
+      "balance+rotate": {
+        "call_ms": 247.65,
+        "kernel_ms": 248.51,
+        "coverage": 1.003,
+        "stage_ms": {
+          "exact": 203.89,
+          "preprocess": 41.11,
+          "route": 1.04,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.82,
+          "preprocess": 0.165,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2321
+      },
+      "balance+rotate+token64": {
+        "call_ms": 273.27,
+        "kernel_ms": 273.37,
+        "coverage": 1.0,
+        "stage_ms": {
+          "exact": 205.52,
+          "preprocess": 40.54,
+          "route": 1.12,
+          "token": 22.8,
+          "vtranspose": 3.38
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.752,
+          "preprocess": 0.148,
+          "route": 0.004,
+          "token": 0.083,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2321
+      }
+    },
+    "b0_s8": {
+      "shipped": {
+        "call_ms": 220.24,
+        "kernel_ms": 220.01,
+        "coverage": 0.999,
+        "stage_ms": {
+          "exact": 204.37,
+          "preprocess": 12.08,
+          "route": 1.1,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.929,
+          "preprocess": 0.055,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2296
+      },
+      "plain": {
+        "call_ms": 218.35,
+        "kernel_ms": 218.45,
+        "coverage": 1.0,
+        "stage_ms": {
+          "exact": 205.39,
+          "preprocess": 9.44,
+          "route": 1.12,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.94,
+          "preprocess": 0.043,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2296
+      },
+      "balance+rotate": {
+        "call_ms": 246.36,
+        "kernel_ms": 245.29,
+        "coverage": 0.996,
+        "stage_ms": {
+          "exact": 201.4,
+          "preprocess": 40.39,
+          "route": 1.02,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.821,
+          "preprocess": 0.165,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2296
+      },
+      "balance+rotate+token64": {
+        "call_ms": 270.68,
+        "kernel_ms": 271.5,
+        "coverage": 1.003,
+        "stage_ms": {
+          "exact": 204.5,
+          "preprocess": 40.07,
+          "route": 1.1,
+          "token": 22.42,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.753,
+          "preprocess": 0.148,
+          "route": 0.004,
+          "token": 0.083,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2296
+      }
+    },
+    "b0_s15": {
+      "shipped": {
+        "call_ms": 218.27,
+        "kernel_ms": 214.69,
+        "coverage": 0.984,
+        "stage_ms": {
+          "exact": 199.01,
+          "preprocess": 12.08,
+          "route": 1.11,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.927,
+          "preprocess": 0.056,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2233
+      },
+      "plain": {
+        "call_ms": 213.37,
+        "kernel_ms": 212.91,
+        "coverage": 0.998,
+        "stage_ms": {
+          "exact": 199.9,
+          "preprocess": 9.42,
+          "route": 1.11,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.939,
+          "preprocess": 0.044,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2233
+      },
+      "balance+rotate": {
+        "call_ms": 241.23,
+        "kernel_ms": 241.92,
+        "coverage": 1.003,
+        "stage_ms": {
+          "exact": 196.64,
+          "preprocess": 41.73,
+          "route": 1.08,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.813,
+          "preprocess": 0.173,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2233
+      },
+      "balance+rotate+token64": {
+        "call_ms": 265.38,
+        "kernel_ms": 266.01,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 197.82,
+          "preprocess": 40.54,
+          "route": 1.13,
+          "token": 23.11,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.744,
+          "preprocess": 0.152,
+          "route": 0.004,
+          "token": 0.087,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2233
+      }
+    },
+    "b24_s4": {
+      "shipped": {
+        "call_ms": 221.05,
+        "kernel_ms": 220.31,
+        "coverage": 0.997,
+        "stage_ms": {
+          "exact": 204.64,
+          "preprocess": 12.06,
+          "route": 1.12,
+          "vtranspose": 2.49
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.929,
+          "preprocess": 0.055,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2299
+      },
+      "plain": {
+        "call_ms": 218.47,
+        "kernel_ms": 218.82,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 205.78,
+          "preprocess": 9.44,
+          "route": 1.12,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.94,
+          "preprocess": 0.043,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2299
+      },
+      "balance+rotate": {
+        "call_ms": 246.33,
+        "kernel_ms": 246.28,
+        "coverage": 1.0,
+        "stage_ms": {
+          "exact": 202.23,
+          "preprocess": 40.56,
+          "route": 1.03,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.821,
+          "preprocess": 0.165,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2299
+      },
+      "balance+rotate+token64": {
+        "call_ms": 271.62,
+        "kernel_ms": 271.37,
+        "coverage": 0.999,
+        "stage_ms": {
+          "exact": 203.12,
+          "preprocess": 40.5,
+          "route": 1.12,
+          "token": 23.23,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.748,
+          "preprocess": 0.149,
+          "route": 0.004,
+          "token": 0.086,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2299
+      }
+    },
+    "b24_s8": {
+      "shipped": {
+        "call_ms": 217.83,
+        "kernel_ms": 218.28,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 202.66,
+          "preprocess": 12.02,
+          "route": 1.09,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.928,
+          "preprocess": 0.055,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2274
+      },
+      "plain": {
+        "call_ms": 217.45,
+        "kernel_ms": 216.7,
+        "coverage": 0.997,
+        "stage_ms": {
+          "exact": 203.68,
+          "preprocess": 9.44,
+          "route": 1.12,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.94,
+          "preprocess": 0.044,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2274
+      },
+      "balance+rotate": {
+        "call_ms": 243.68,
+        "kernel_ms": 244.06,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 199.0,
+          "preprocess": 41.53,
+          "route": 1.07,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.815,
+          "preprocess": 0.17,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2274
+      },
+      "balance+rotate+token64": {
+        "call_ms": 272.39,
+        "kernel_ms": 270.89,
+        "coverage": 0.994,
+        "stage_ms": {
+          "exact": 201.61,
+          "preprocess": 40.8,
+          "route": 1.15,
+          "token": 23.94,
+          "vtranspose": 3.38
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.744,
+          "preprocess": 0.151,
+          "route": 0.004,
+          "token": 0.088,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2274
+      }
+    },
+    "b24_s15": {
+      "shipped": {
+        "call_ms": 219.3,
+        "kernel_ms": 217.03,
+        "coverage": 0.99,
+        "stage_ms": {
+          "exact": 201.37,
+          "preprocess": 12.06,
+          "route": 1.12,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.928,
+          "preprocess": 0.056,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2259
+      },
+      "plain": {
+        "call_ms": 215.3,
+        "kernel_ms": 215.5,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 202.44,
+          "preprocess": 9.42,
+          "route": 1.12,
+          "vtranspose": 2.51
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.939,
+          "preprocess": 0.044,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2259
+      },
+      "balance+rotate": {
+        "call_ms": 244.2,
+        "kernel_ms": 242.77,
+        "coverage": 0.994,
+        "stage_ms": {
+          "exact": 197.87,
+          "preprocess": 41.38,
+          "route": 1.06,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.815,
+          "preprocess": 0.17,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2259
+      },
+      "balance+rotate+token64": {
+        "call_ms": 269.47,
+        "kernel_ms": 270.48,
+        "coverage": 1.004,
+        "stage_ms": {
+          "exact": 200.79,
+          "preprocess": 40.76,
+          "route": 1.16,
+          "token": 24.36,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.742,
+          "preprocess": 0.151,
+          "route": 0.004,
+          "token": 0.09,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2259
+      }
+    },
+    "b32_s4": {
+      "shipped": {
+        "call_ms": 250.18,
+        "kernel_ms": 250.36,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 234.7,
+          "preprocess": 12.06,
+          "route": 1.11,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.937,
+          "preprocess": 0.048,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2623
+      },
+      "plain": {
+        "call_ms": 247.76,
+        "kernel_ms": 248.87,
+        "coverage": 1.004,
+        "stage_ms": {
+          "exact": 235.82,
+          "preprocess": 9.45,
+          "route": 1.13,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.948,
+          "preprocess": 0.038,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2623
+      },
+      "balance+rotate": {
+        "call_ms": 276.65,
+        "kernel_ms": 277.21,
+        "coverage": 1.002,
+        "stage_ms": {
+          "exact": 232.68,
+          "preprocess": 41.0,
+          "route": 1.02,
+          "vtranspose": 2.52
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.839,
+          "preprocess": 0.148,
+          "route": 0.004,
+          "vtranspose": 0.009
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2623
+      },
+      "balance+rotate+token64": {
+        "call_ms": 302.03,
+        "kernel_ms": 301.79,
+        "coverage": 0.999,
+        "stage_ms": {
+          "exact": 233.53,
+          "preprocess": 40.72,
+          "route": 1.14,
+          "token": 23.01,
+          "vtranspose": 3.38
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.774,
+          "preprocess": 0.135,
+          "route": 0.004,
+          "token": 0.076,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2623
+      }
+    },
+    "b32_s8": {
+      "shipped": {
+        "call_ms": 247.69,
+        "kernel_ms": 249.56,
+        "coverage": 1.008,
+        "stage_ms": {
+          "exact": 233.9,
+          "preprocess": 12.09,
+          "route": 1.1,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.937,
+          "preprocess": 0.048,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2619
+      },
+      "plain": {
+        "call_ms": 247.1,
+        "kernel_ms": 248.48,
+        "coverage": 1.006,
+        "stage_ms": {
+          "exact": 235.46,
+          "preprocess": 9.41,
+          "route": 1.12,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.948,
+          "preprocess": 0.038,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2619
+      },
+      "balance+rotate": {
+        "call_ms": 275.58,
+        "kernel_ms": 277.6,
+        "coverage": 1.007,
+        "stage_ms": {
+          "exact": 232.01,
+          "preprocess": 41.96,
+          "route": 1.12,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.836,
+          "preprocess": 0.151,
+          "route": 0.004,
+          "vtranspose": 0.009
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2619
+      },
+      "balance+rotate+token64": {
+        "call_ms": 299.73,
+        "kernel_ms": 301.36,
+        "coverage": 1.005,
+        "stage_ms": {
+          "exact": 231.9,
+          "preprocess": 40.95,
+          "route": 1.18,
+          "token": 23.91,
+          "vtranspose": 3.42
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.769,
+          "preprocess": 0.136,
+          "route": 0.004,
+          "token": 0.079,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.014,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2619
+      }
+    },
+    "b32_s15": {
+      "shipped": {
+        "call_ms": 242.42,
+        "kernel_ms": 243.82,
+        "coverage": 1.006,
+        "stage_ms": {
+          "exact": 228.17,
+          "preprocess": 12.08,
+          "route": 1.12,
+          "vtranspose": 2.45
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.936,
+          "preprocess": 0.05,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2553
+      },
+      "plain": {
+        "call_ms": 242.23,
+        "kernel_ms": 242.42,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 229.36,
+          "preprocess": 9.42,
+          "route": 1.13,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.946,
+          "preprocess": 0.039,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2553
+      },
+      "balance+rotate": {
+        "call_ms": 270.14,
+        "kernel_ms": 270.38,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 226.14,
+          "preprocess": 40.72,
+          "route": 1.04,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.836,
+          "preprocess": 0.151,
+          "route": 0.004,
+          "vtranspose": 0.009
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2553
+      },
+      "balance+rotate+token64": {
+        "call_ms": 296.27,
+        "kernel_ms": 295.23,
+        "coverage": 0.996,
+        "stage_ms": {
+          "exact": 227.13,
+          "preprocess": 40.33,
+          "route": 1.14,
+          "token": 23.24,
+          "vtranspose": 3.38
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.769,
+          "preprocess": 0.137,
+          "route": 0.004,
+          "token": 0.079,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2553
+      }
+    },
+    "b40_s4": {
+      "shipped": {
+        "call_ms": 234.62,
+        "kernel_ms": 236.56,
+        "coverage": 1.008,
+        "stage_ms": {
+          "exact": 220.92,
+          "preprocess": 12.06,
+          "route": 1.12,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.934,
+          "preprocess": 0.051,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2474
+      },
+      "plain": {
+        "call_ms": 234.32,
+        "kernel_ms": 235.16,
+        "coverage": 1.004,
+        "stage_ms": {
+          "exact": 222.09,
+          "preprocess": 9.48,
+          "route": 1.13,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.944,
+          "preprocess": 0.04,
+          "route": 0.005,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2474
+      },
+      "balance+rotate": {
+        "call_ms": 263.63,
+        "kernel_ms": 263.13,
+        "coverage": 0.998,
+        "stage_ms": {
+          "exact": 218.57,
+          "preprocess": 41.0,
+          "route": 1.07,
+          "vtranspose": 2.49
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.831,
+          "preprocess": 0.156,
+          "route": 0.004,
+          "vtranspose": 0.009
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2474
+      },
+      "balance+rotate+token64": {
+        "call_ms": 290.33,
+        "kernel_ms": 289.49,
+        "coverage": 0.997,
+        "stage_ms": {
+          "exact": 219.68,
+          "preprocess": 40.92,
+          "route": 1.18,
+          "token": 24.32,
+          "vtranspose": 3.38
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.759,
+          "preprocess": 0.141,
+          "route": 0.004,
+          "token": 0.084,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.014,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2474
+      }
+    },
+    "b40_s8": {
+      "shipped": {
+        "call_ms": 228.42,
+        "kernel_ms": 229.56,
+        "coverage": 1.005,
+        "stage_ms": {
+          "exact": 213.9,
+          "preprocess": 12.07,
+          "route": 1.12,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.932,
+          "preprocess": 0.053,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2394
+      },
+      "plain": {
+        "call_ms": 228.0,
+        "kernel_ms": 228.01,
+        "coverage": 1.0,
+        "stage_ms": {
+          "exact": 214.94,
+          "preprocess": 9.44,
+          "route": 1.13,
+          "vtranspose": 2.49
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.943,
+          "preprocess": 0.041,
+          "route": 0.005,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2394
+      },
+      "balance+rotate": {
+        "call_ms": 254.13,
+        "kernel_ms": 255.95,
+        "coverage": 1.007,
+        "stage_ms": {
+          "exact": 211.51,
+          "preprocess": 40.91,
+          "route": 1.04,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.826,
+          "preprocess": 0.16,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2394
+      },
+      "balance+rotate+token64": {
+        "call_ms": 279.7,
+        "kernel_ms": 279.88,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 212.65,
+          "preprocess": 40.01,
+          "route": 1.1,
+          "token": 22.72,
+          "vtranspose": 3.37
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.76,
+          "preprocess": 0.143,
+          "route": 0.004,
+          "token": 0.081,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2394
+      }
+    },
+    "b40_s15": {
+      "shipped": {
+        "call_ms": 212.22,
+        "kernel_ms": 210.63,
+        "coverage": 0.993,
+        "stage_ms": {
+          "exact": 194.97,
+          "preprocess": 12.08,
+          "route": 1.1,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.926,
+          "preprocess": 0.057,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.218
+      },
+      "plain": {
+        "call_ms": 208.34,
+        "kernel_ms": 209.24,
+        "coverage": 1.004,
+        "stage_ms": {
+          "exact": 196.17,
+          "preprocess": 9.47,
+          "route": 1.12,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.938,
+          "preprocess": 0.045,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.218
+      },
+      "balance+rotate": {
+        "call_ms": 236.9,
+        "kernel_ms": 236.61,
+        "coverage": 0.999,
+        "stage_ms": {
+          "exact": 192.47,
+          "preprocess": 40.64,
+          "route": 1.02,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.813,
+          "preprocess": 0.172,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.218
+      },
+      "balance+rotate+token64": {
+        "call_ms": 263.72,
+        "kernel_ms": 262.85,
+        "coverage": 0.997,
+        "stage_ms": {
+          "exact": 194.63,
+          "preprocess": 40.47,
+          "route": 1.12,
+          "token": 23.25,
+          "vtranspose": 3.36
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.74,
+          "preprocess": 0.154,
+          "route": 0.004,
+          "token": 0.088,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.218
+      }
+    },
+    "b49_s4": {
+      "shipped": {
+        "call_ms": 211.71,
+        "kernel_ms": 210.18,
+        "coverage": 0.993,
+        "stage_ms": {
+          "exact": 194.55,
+          "preprocess": 12.06,
+          "route": 1.11,
+          "vtranspose": 2.45
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.926,
+          "preprocess": 0.057,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2197
+      },
+      "plain": {
+        "call_ms": 208.7,
+        "kernel_ms": 208.31,
+        "coverage": 0.998,
+        "stage_ms": {
+          "exact": 195.32,
+          "preprocess": 9.42,
+          "route": 1.1,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.938,
+          "preprocess": 0.045,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2198
+      },
+      "balance+rotate": {
+        "call_ms": 236.49,
+        "kernel_ms": 236.75,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 192.12,
+          "preprocess": 41.09,
+          "route": 1.06,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.811,
+          "preprocess": 0.174,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2197
+      },
+      "balance+rotate+token64": {
+        "call_ms": 263.19,
+        "kernel_ms": 262.68,
+        "coverage": 0.998,
+        "stage_ms": {
+          "exact": 194.1,
+          "preprocess": 40.87,
+          "route": 1.15,
+          "token": 23.16,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.739,
+          "preprocess": 0.156,
+          "route": 0.004,
+          "token": 0.088,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.013,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2197
+      }
+    },
+    "b49_s8": {
+      "shipped": {
+        "call_ms": 210.01,
+        "kernel_ms": 209.24,
+        "coverage": 0.996,
+        "stage_ms": {
+          "exact": 193.64,
+          "preprocess": 12.04,
+          "route": 1.09,
+          "vtranspose": 2.46
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.925,
+          "preprocess": 0.058,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2188
+      },
+      "plain": {
+        "call_ms": 207.23,
+        "kernel_ms": 207.52,
+        "coverage": 1.001,
+        "stage_ms": {
+          "exact": 194.52,
+          "preprocess": 9.41,
+          "route": 1.1,
+          "vtranspose": 2.48
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.937,
+          "preprocess": 0.045,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.219
+      },
+      "balance+rotate": {
+        "call_ms": 235.48,
+        "kernel_ms": 236.36,
+        "coverage": 1.004,
+        "stage_ms": {
+          "exact": 191.73,
+          "preprocess": 41.12,
+          "route": 1.04,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.811,
+          "preprocess": 0.174,
+          "route": 0.004,
+          "vtranspose": 0.01
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2187
+      },
+      "balance+rotate+token64": {
+        "call_ms": 260.26,
+        "kernel_ms": 260.94,
+        "coverage": 1.003,
+        "stage_ms": {
+          "exact": 192.11,
+          "preprocess": 40.77,
+          "route": 1.17,
+          "token": 23.5,
+          "vtranspose": 3.39
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.736,
+          "preprocess": 0.156,
+          "route": 0.004,
+          "token": 0.09,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.014,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2187
+      }
+    },
+    "b49_s15": {
+      "shipped": {
+        "call_ms": 208.97,
+        "kernel_ms": 207.71,
+        "coverage": 0.994,
+        "stage_ms": {
+          "exact": 192.08,
+          "preprocess": 12.04,
+          "route": 1.11,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.925,
+          "preprocess": 0.058,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.217
+      },
+      "plain": {
+        "call_ms": 206.94,
+        "kernel_ms": 205.83,
+        "coverage": 0.995,
+        "stage_ms": {
+          "exact": 192.82,
+          "preprocess": 9.43,
+          "route": 1.1,
+          "vtranspose": 2.47
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.937,
+          "preprocess": 0.046,
+          "route": 0.005,
+          "vtranspose": 0.012
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.001,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.2172
+      },
+      "balance+rotate": {
+        "call_ms": 233.18,
+        "kernel_ms": 234.68,
+        "coverage": 1.006,
+        "stage_ms": {
+          "exact": 190.16,
+          "preprocess": 40.98,
+          "route": 1.04,
+          "vtranspose": 2.5
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.81,
+          "preprocess": 0.175,
+          "route": 0.004,
+          "vtranspose": 0.011
+        },
+        "unmapped_ms": {
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memset (Device)": 0.001,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.217
+      },
+      "balance+rotate+token64": {
+        "call_ms": 263.18,
+        "kernel_ms": 260.07,
+        "coverage": 0.988,
+        "stage_ms": {
+          "exact": 190.75,
+          "preprocess": 41.18,
+          "route": 1.18,
+          "token": 23.55,
+          "vtranspose": 3.4
+        },
+        "stage_share_of_kernels": {
+          "exact": 0.733,
+          "preprocess": 0.158,
+          "route": 0.005,
+          "token": 0.091,
+          "vtranspose": 0.013
+        },
+        "unmapped_ms": {
+          "Memset (Device)": 0.014,
+          "void at::native::vectorized_elementwise_kernel<4, at::native": 0.002,
+          "Memcpy HtoD (Pageable -> Device)": 0.0
+        },
+        "routed_density": 0.217
+      }
+    }
+  }
+}

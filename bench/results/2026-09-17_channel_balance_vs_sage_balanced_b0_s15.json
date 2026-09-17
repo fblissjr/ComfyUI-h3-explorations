@@ -1,0 +1,32 @@
+{
+  "capture": "qkv_L104361_S104361_b0_s15.pt",
+  "block": 0,
+  "step": 15,
+  "tau": 1.0,
+  "heads_measured": 8,
+  "alpha": 0.5,
+  "source": "weights",
+  "input_rounding_rel_l2": 0.0005410366844673023,
+  "eager_balanced_vs_plain_rel_l2": 0.0005423745775684055,
+  "rows": {
+    "plain": {
+      "sparsity_l2": 0.12469438272745632,
+      "quant_l2": 0.0024024393527630823,
+      "total_l2": 0.12437333740164076,
+      "sage_fp8pp_l2": 0.0036126254603705307,
+      "sage_balanced_l2": 0.003622690022368528
+    },
+    "balanced": {
+      "sparsity_l2": 0.12475503130734485,
+      "quant_l2": 0.00242393444635206,
+      "total_l2": 0.12443598432269125,
+      "sage_fp8pp_l2": 0.0036173725278585943,
+      "sage_balanced_l2": 0.0036367982706828304
+    },
+    "kernel": {
+      "sparsity_l2": 0.12469438272745632,
+      "quant_l2": 0.0024189424544893913,
+      "total_l2": 0.12437350930195577
+    }
+  }
+}

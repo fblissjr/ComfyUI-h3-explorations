@@ -115,6 +115,7 @@ from comfy_api.latest import io
 from .block_spec import parse_blocks
 from . import sol_observe
 from . import sol_block_probe as _probe
+from . import sol_call_timer as _timer
 
 try:
     import comfy_kitchen as _ck
@@ -870,7 +871,7 @@ def make_override(tau=1.0, min_tokens=4096,
         # canonical graph (no dense_blocks, no profile) would have had no
         # block identity at all.
         block = None
-        if dense_blocks or tau_profile or token_aug_profile or observing:
+        if dense_blocks or tau_profile or token_aug_profile or observing or _timer.enabled():
             block = (options or {}).get("sol_block")
         block_tau = tau_profile.get(block, tau) if tau_profile else tau
         # Absent from the profile means zero, which is the kernel's default and
@@ -911,8 +912,20 @@ def make_override(tau=1.0, min_tokens=4096,
                             batch=q.shape[0], heads=heads, sink=sink, sink_q=sink_q,
                             tail=tail, topk_ratio=topk_ratio, min_tokens=min_tokens)
 
+        def _timed(route_name):
+            # H3_SOL_TIME only; see sol_call_timer.py. No sync is added.
+            sig = (options or {}).get("sigmas")
+            return _timer.span(route_name, block=block,
+                               sigma=float(sig[0]) if sig is not None else None,
+                               tokens=tokens, batch=q.shape[0], heads=heads)
+
         def dense():
             target = func if previous is None else partial(previous, func)
+            if _timer.enabled():
+                with _timed("dense"):
+                    return target(q, k, v, heads, mask=mask, attn_precision=attn_precision,
+                                  skip_reshape=skip_reshape,
+                                  skip_output_reshape=skip_output_reshape, **kwargs)
             return target(q, k, v, heads, mask=mask, attn_precision=attn_precision,
                           skip_reshape=skip_reshape,
                           skip_output_reshape=skip_output_reshape, **kwargs)
@@ -968,10 +981,17 @@ def make_override(tau=1.0, min_tokens=4096,
             counts = torch.empty((q.shape[0], heads, (tokens + BLOCK_SIZE - 1) // BLOCK_SIZE),
                                  dtype=torch.int32, device=q.device)
         try:
-            out = _run(q, k, v, heads, skip_reshape, skip_output_reshape,
-                       kwargs.get("scale", None), block_tau, min_tokens, verbose,
-                       sink, sink_q, topk_ratio, tail, blk_cnt=counts,
-                       token_aug=block_aug, qk_balance=qk_balance, rotate=rotate)
+            if _timer.enabled():
+                with _timed("sol"):
+                    out = _run(q, k, v, heads, skip_reshape, skip_output_reshape,
+                               kwargs.get("scale", None), block_tau, min_tokens, verbose,
+                               sink, sink_q, topk_ratio, tail, blk_cnt=counts,
+                               token_aug=block_aug, qk_balance=qk_balance, rotate=rotate)
+            else:
+                out = _run(q, k, v, heads, skip_reshape, skip_output_reshape,
+                           kwargs.get("scale", None), block_tau, min_tokens, verbose,
+                           sink, sink_q, topk_ratio, tail, blk_cnt=counts,
+                           token_aug=block_aug, qk_balance=qk_balance, rotate=rotate)
         except Exception as exc:
             _stats["errors"] += 1
             _log_kernel_failure(exc)
@@ -1189,7 +1209,7 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                     "owner's fork (h3-build) with vendor/rebuild_kernel.sh, or turn "
                     "one of the two off.")
     observing = sol_observe.enabled()
-    if (dense or profile or aug or observing) and not _install_block_index(diffusion_model):
+    if (dense or profile or aug or observing or _timer.enabled()) and not _install_block_index(diffusion_model):
         logging.warning(
             f"[h3-sol] dense_blocks/tau_profile/token_aug_blocks ignored: "
             f"{type(diffusion_model).__name__} has no .blocks list to index")

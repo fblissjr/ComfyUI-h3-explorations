@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.119.0
+
+### Added
+
+- **`bench/profile_sol_stages.py`, implemented.** It had been a scaffold that
+  raised since 2026-08-16. It replays captured q/k/v through the kernel with
+  the node's own sinks and the shipped recipe and splits device time by stage,
+  with a coverage figure per row so a split that does not account for the call
+  is visible.
+- **`sol_call_timer.py` and `H3_SOL_TIME`**: device time of every attention
+  call the Sol override handles in a real render, Sol and the chained dense
+  fallback both, from event pairs that are never waited on. Inert unless the
+  variable is set. It is the check that the replay describes a render.
+- **`bench/results/2026-09-17_sol_stage_profile.md`** and its data files: the
+  exact stage is nearly the whole Sol call and follows routed density, the
+  replay matches the render, and the dense steps before `start_percent` cost
+  more attention time than the Sol steps. `docs/SOLATTN.md` has the section.
+- **`bench/grade_channel_balance.py` gains a sage balanced-mode column**, alone
+  and with the weights fold under it
+  (`bench/results/2026-09-17_channel_balance_vs_sage_balanced_b{49,40,0}_s15.json`):
+  on the captured blocks the fold adds nothing once sage balances per head
+  itself. Blocks 45 and 48 are not captured, so that is measured on 49 and
+  inferred for them.
+- **A wall-time baseline for the default chain after the core VAE and
+  streaming changes** (`bench/results/2026-09-17_default_chain_walltime_baseline.jsonl`):
+  unchanged against 2026-09-15.
+
 ## 0.118.0
 
 ### Removed

@@ -191,7 +191,9 @@ The full packed sequence goes through the CUDA kernel at the shipped length:
 
 ### Never measured, still
 
-`start_percent` and `end_percent`, at any length, on either backend. The
+`start_percent` and `end_percent`, at any length, on either backend
+(*2026-09-17:* its cost in attention time is now measured, its quality cost is
+not; see "Where the call's time goes"). The
 segment breakdown of any graph **as shipped**. Sol's accuracy against dense
 attention at production sequence length, on real activations.
 
@@ -1000,6 +1002,38 @@ already-projected text, so there are NO sampler-time refiner rows (the
 "two per forward" expectation was a source read of a path these graphs do
 not take), and the chain assert's probe runs on a fresh thread that did not
 inherit the executing context until `assert_chain.py` copied it in.
+
+### Where the call's time goes, measured 2026-09-17
+
+Two instruments, and a record that joins them:
+`bench/results/2026-09-17_sol_stage_profile.md`.
+
+`bench/profile_sol_stages.py` replays captured full-length q/k/v through the
+kernel with the node's own sink ranges and `SOL_RECOMMENDED_CUDA`, and splits
+device time by kernel name into preprocess, vtranspose, route, exact and the
+token stage. Each row carries a `coverage` figure, the summed kernel time over
+the same call timed with no profiler attached, so a split that does not add up
+to the call says so.
+
+`sol_call_timer.py` is the check on the replay. `H3_SOL_TIME=<out.jsonl>` on
+the server process records the device time of every attention call the
+override handles in a real render, route and block included, from CUDA event
+pairs that are only read once complete, so arming adds no synchronisation
+point:
+
+    H3_SOL_TIME=/path/to/calls.jsonl <comfy>/start.sh
+
+Its `dense` rows are the chained fallback's live cost on the steps outside
+Sol's window, which is what prices `start_percent`.
+
+What they found, in direction only: the exact stage is nearly the whole call
+at every captured block and step, and its time follows routed density; routing
+and the pooled tail are negligible; `rotate` and token routing each add a
+visible fraction, `qk_balance` almost nothing; a call costs the same inside a
+render as alone; and on the shipped 16-step graph the dense steps before
+`start_percent` cost more attention time than all the Sol steps together.
+Not answered: whether the exact stage is bound by issuing multiply-accumulates
+or by staging, which needs `ncu`'s counters rather than kernel times.
 
 ### The one silent exception to "Sol is on in every shipped video workflow"
 

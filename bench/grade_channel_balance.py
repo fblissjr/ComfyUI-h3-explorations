@@ -105,12 +105,16 @@ def cuda_sol(q, k, v, tau, **extra):
     return out.permute(0, 2, 1, 3).float().cpu()
 
 
-def sage_fp8pp(q, k, v):
+def sage_fp8pp(q, k, v, qk_balance=False):
     import sageattention
 
+    # `qk_balance` is the fork's per-head factor inside its own quantizer (its
+    # v0.7.19); forwarded only when asked so a build without it still grades
+    # the plain column.
+    extra = {"qk_balance": True} if qk_balance else {}
     return sageattention.sageattn_qk_int8_pv_fp8_cuda(
         q.cuda(), k.cuda(), v.cuda(), tensor_layout="HND", is_causal=False,
-        pv_accum_dtype="fp32+fp16", smooth_k=False,
+        pv_accum_dtype="fp32+fp16", smooth_k=False, **extra,
     ).float().cpu()
 
 
@@ -179,11 +183,20 @@ def main() -> int:
         rows["balanced"]["sage_fp8pp_l2"] = rel_l2_against(sage_b, dense_b, dn)
     except Exception as exc:  # sage absent from this venv is not a Sol result
         print(f"(sage column skipped: {type(exc).__name__}: {exc})")
+    # Does the fold add anything once sage balances per head itself? Row
+    # `plain` is sage's own factor alone; row `balanced` is the fold under it.
+    # If the second is not lower, the node is redundant on a sage chain that
+    # runs the balanced mode, and the chain needs one node, not two.
+    try:
+        rows["plain"]["sage_balanced_l2"] = rel_l2_against(sage_fp8pp(q, k, v, qk_balance=True), dense, dn)
+        rows["balanced"]["sage_balanced_l2"] = rel_l2_against(sage_fp8pp(qb, kb, v, qk_balance=True), dense_b, dn)
+    except Exception as exc:
+        print(f"(sage balanced column skipped: {type(exc).__name__}: {exc})")
 
-    cols = ["sparsity_l2", "quant_l2", "total_l2", "sage_fp8pp_l2"]
-    print(f"{'arm':10s}" + "".join(f"{c:>15s}" for c in cols))
+    cols = ["sparsity_l2", "quant_l2", "total_l2", "sage_fp8pp_l2", "sage_balanced_l2"]
+    print(f"{'arm':10s}" + "".join(f"{c:>17s}" for c in cols))
     for arm, r in rows.items():
-        print(f"{arm:10s}" + "".join(f"{r[c]:>15.4f}" if c in r else f"{'-':>15s}" for c in cols))
+        print(f"{arm:10s}" + "".join(f"{r[c]:>17.4f}" if c in r else f"{'-':>17s}" for c in cols))
     qp, qb_ = rows["plain"]["quant_l2"], rows["balanced"]["quant_l2"]
     print(f"Sol INT8 term, weights fold: {qp:.4f} -> {qb_:.4f} ({100 * (qb_ - qp) / qp:+.1f}%)")
     if "kernel" in rows:
