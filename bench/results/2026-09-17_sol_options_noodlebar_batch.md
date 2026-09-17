@@ -117,3 +117,16 @@ unrelated arms are). Consequences:
   clips rendered on 2026-09-17 at 10:56, 14:54 and 15:03 are bit-identical
   (PSNR infinite) to the 2026-09-15 renders of the same graphs and seed, and
   renders repeat exactly across server restarts.
+
+### Owner's verdict on `stack_noodlebar_sage_balanced_vs_rotated`, 2026-09-17 evening
+
+All three rows have the clone / morphing around the four second mark: the
+2026-09-15 default on the kitchen chain (top, rendered before any of this day's
+changes, and with the stripped prompt), sage balanced and sage rotated. The
+owner had separately seen "two of him" in the token-routing arms and the sage
+chain clip, and ranked the two reorder clips clean. Taken together: the
+duplicate figure is a property of this scene and seed under PLAIN token order,
+on both dense chains, on both prompt variants, and it predates 2026-09-17. The
+only arms without it are the two with the 3d reorder. Rotation in sage neither
+causes nor cures it. One scene, one seed; a second scene is the next test.
+
