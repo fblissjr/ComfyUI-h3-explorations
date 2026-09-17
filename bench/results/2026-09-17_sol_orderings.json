@@ -1,0 +1,957 @@
+{
+  "what": "Sol-Attn error against fp32 dense attention versus routed density, per token ordering, tau swept; only the video rows are permuted, by the node's own _perm_for",
+  "model": "MiniMax H3, int8 convrot checkpoint, base 16-step t2v captures",
+  "conditions": {
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "comfy_kitchen": "0.2.34+sol.b532e28",
+    "heads": 8,
+    "grid_thw": [
+      102,
+      24,
+      42
+    ],
+    "video_start": 1545,
+    "audio_span": [
+      395,
+      1545
+    ],
+    "sink_conditioning": "exact_kv_and_rows",
+    "pooled_tail": true,
+    "qk_balance": true,
+    "captures": [
+      "qkv_L104361_S104361_b0_s15.pt",
+      "qkv_L104361_S104361_b24_s15.pt",
+      "qkv_L104361_S104361_b32_s15.pt",
+      "qkv_L104361_S104361_b40_s15.pt",
+      "qkv_L104361_S104361_b49_s15.pt",
+      "qkv_L104361_S104361_b32_s4.pt"
+    ]
+  },
+  "how_to_read": "an ordering beats raster only where its (density, rel_l2) curve lies below raster's; density is cost (call time is linear in it)",
+  "cells": {
+    "b0_s15": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.31282,
+          "rel_l2": 0.09266,
+          "call_ms": 42.58
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2593,
+          "rel_l2": 0.10984,
+          "call_ms": 34.96
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21185,
+          "rel_l2": 0.12494,
+          "call_ms": 28.8
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17021,
+          "rel_l2": 0.13692,
+          "call_ms": 23.48
+        },
+        {
+          "tau": 1.5,
+          "density": 0.11879,
+          "rel_l2": 0.14916,
+          "call_ms": 17.7
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06482,
+          "rel_l2": 0.16231,
+          "call_ms": 11.78
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.31742,
+          "rel_l2": 0.07722,
+          "call_ms": 41.65
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2643,
+          "rel_l2": 0.09394,
+          "call_ms": 35.96
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2177,
+          "rel_l2": 0.10926,
+          "call_ms": 29.73
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17694,
+          "rel_l2": 0.1224,
+          "call_ms": 24.26
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12689,
+          "rel_l2": 0.14109,
+          "call_ms": 18.63
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07099,
+          "rel_l2": 0.1662,
+          "call_ms": 12.58
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.32029,
+          "rel_l2": 0.07915,
+          "call_ms": 43.2
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26524,
+          "rel_l2": 0.0957,
+          "call_ms": 35.74
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21608,
+          "rel_l2": 0.11078,
+          "call_ms": 29.28
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17318,
+          "rel_l2": 0.12363,
+          "call_ms": 23.9
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12075,
+          "rel_l2": 0.13875,
+          "call_ms": 18.03
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06786,
+          "rel_l2": 0.15634,
+          "call_ms": 12.03
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.32015,
+          "rel_l2": 0.08197,
+          "call_ms": 43.06
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26494,
+          "rel_l2": 0.09853,
+          "call_ms": 36.02
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21556,
+          "rel_l2": 0.11339,
+          "call_ms": 29.35
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17243,
+          "rel_l2": 0.12588,
+          "call_ms": 23.73
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12004,
+          "rel_l2": 0.14018,
+          "call_ms": 17.81
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06714,
+          "rel_l2": 0.15616,
+          "call_ms": 12.17
+        }
+      ]
+    },
+    "b24_s15": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.30102,
+          "rel_l2": 0.06817,
+          "call_ms": 40.22
+        },
+        {
+          "tau": 0.8,
+          "density": 0.25495,
+          "rel_l2": 0.08101,
+          "call_ms": 34.14
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21476,
+          "rel_l2": 0.09579,
+          "call_ms": 29.33
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18021,
+          "rel_l2": 0.1126,
+          "call_ms": 24.91
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13759,
+          "rel_l2": 0.14298,
+          "call_ms": 19.76
+        },
+        {
+          "tau": 2.0,
+          "density": 0.0875,
+          "rel_l2": 0.20996,
+          "call_ms": 14.12
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.31288,
+          "rel_l2": 0.04787,
+          "call_ms": 41.13
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26595,
+          "rel_l2": 0.05694,
+          "call_ms": 35.73
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22403,
+          "rel_l2": 0.06711,
+          "call_ms": 30.51
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18748,
+          "rel_l2": 0.07869,
+          "call_ms": 25.49
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14235,
+          "rel_l2": 0.09948,
+          "call_ms": 20.2
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09025,
+          "rel_l2": 0.14231,
+          "call_ms": 14.39
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.30958,
+          "rel_l2": 0.07478,
+          "call_ms": 41.06
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26075,
+          "rel_l2": 0.08729,
+          "call_ms": 34.82
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21791,
+          "rel_l2": 0.1026,
+          "call_ms": 29.68
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18123,
+          "rel_l2": 0.12017,
+          "call_ms": 24.75
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13694,
+          "rel_l2": 0.152,
+          "call_ms": 19.73
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08708,
+          "rel_l2": 0.21898,
+          "call_ms": 13.75
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.31099,
+          "rel_l2": 0.06309,
+          "call_ms": 43.13
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26306,
+          "rel_l2": 0.0744,
+          "call_ms": 35.38
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22079,
+          "rel_l2": 0.08751,
+          "call_ms": 29.92
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18432,
+          "rel_l2": 0.10319,
+          "call_ms": 25.31
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13974,
+          "rel_l2": 0.13147,
+          "call_ms": 19.84
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08889,
+          "rel_l2": 0.19337,
+          "call_ms": 14.3
+        }
+      ]
+    },
+    "b32_s15": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.32032,
+          "rel_l2": 0.06682,
+          "call_ms": 42.52
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27018,
+          "rel_l2": 0.07865,
+          "call_ms": 36.32
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22653,
+          "rel_l2": 0.09221,
+          "call_ms": 30.49
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18946,
+          "rel_l2": 0.10794,
+          "call_ms": 25.99
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14474,
+          "rel_l2": 0.13586,
+          "call_ms": 20.92
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09329,
+          "rel_l2": 0.19753,
+          "call_ms": 14.91
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.33221,
+          "rel_l2": 0.06122,
+          "call_ms": 43.3
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28184,
+          "rel_l2": 0.07084,
+          "call_ms": 37.81
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23643,
+          "rel_l2": 0.08218,
+          "call_ms": 32.01
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19666,
+          "rel_l2": 0.09446,
+          "call_ms": 27.31
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1483,
+          "rel_l2": 0.11426,
+          "call_ms": 21.28
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09302,
+          "rel_l2": 0.1542,
+          "call_ms": 15.45
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.32306,
+          "rel_l2": 0.07202,
+          "call_ms": 43.25
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27262,
+          "rel_l2": 0.08507,
+          "call_ms": 36.1
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22789,
+          "rel_l2": 0.10011,
+          "call_ms": 30.82
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18919,
+          "rel_l2": 0.11762,
+          "call_ms": 25.75
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14244,
+          "rel_l2": 0.14845,
+          "call_ms": 21.26
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09049,
+          "rel_l2": 0.2128,
+          "call_ms": 14.95
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.32819,
+          "rel_l2": 0.06765,
+          "call_ms": 43.78
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27845,
+          "rel_l2": 0.07826,
+          "call_ms": 37.05
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23385,
+          "rel_l2": 0.09125,
+          "call_ms": 31.44
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19481,
+          "rel_l2": 0.10584,
+          "call_ms": 26.37
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14712,
+          "rel_l2": 0.13297,
+          "call_ms": 21.11
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09284,
+          "rel_l2": 0.19213,
+          "call_ms": 14.85
+        }
+      ]
+    },
+    "b40_s15": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.30434,
+          "rel_l2": 0.2019,
+          "call_ms": 40.56
+        },
+        {
+          "tau": 0.8,
+          "density": 0.24955,
+          "rel_l2": 0.23002,
+          "call_ms": 33.34
+        },
+        {
+          "tau": 1.0,
+          "density": 0.20232,
+          "rel_l2": 0.26142,
+          "call_ms": 27.43
+        },
+        {
+          "tau": 1.2,
+          "density": 0.1631,
+          "rel_l2": 0.29578,
+          "call_ms": 22.78
+        },
+        {
+          "tau": 1.5,
+          "density": 0.11908,
+          "rel_l2": 0.35324,
+          "call_ms": 17.77
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07542,
+          "rel_l2": 0.46704,
+          "call_ms": 12.84
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.30057,
+          "rel_l2": 0.16427,
+          "call_ms": 38.56
+        },
+        {
+          "tau": 0.8,
+          "density": 0.24543,
+          "rel_l2": 0.18777,
+          "call_ms": 33.3
+        },
+        {
+          "tau": 1.0,
+          "density": 0.19816,
+          "rel_l2": 0.21305,
+          "call_ms": 27.01
+        },
+        {
+          "tau": 1.2,
+          "density": 0.15925,
+          "rel_l2": 0.24039,
+          "call_ms": 22.23
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1152,
+          "rel_l2": 0.28472,
+          "call_ms": 17.29
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07129,
+          "rel_l2": 0.37161,
+          "call_ms": 12.74
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.29682,
+          "rel_l2": 0.19714,
+          "call_ms": 39.53
+        },
+        {
+          "tau": 0.8,
+          "density": 0.24053,
+          "rel_l2": 0.23152,
+          "call_ms": 32.66
+        },
+        {
+          "tau": 1.0,
+          "density": 0.19297,
+          "rel_l2": 0.2684,
+          "call_ms": 26.52
+        },
+        {
+          "tau": 1.2,
+          "density": 0.15424,
+          "rel_l2": 0.30842,
+          "call_ms": 21.68
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1116,
+          "rel_l2": 0.37252,
+          "call_ms": 17.0
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07007,
+          "rel_l2": 0.48246,
+          "call_ms": 12.54
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.30096,
+          "rel_l2": 0.18137,
+          "call_ms": 40.16
+        },
+        {
+          "tau": 0.8,
+          "density": 0.24539,
+          "rel_l2": 0.21111,
+          "call_ms": 33.2
+        },
+        {
+          "tau": 1.0,
+          "density": 0.19789,
+          "rel_l2": 0.24426,
+          "call_ms": 27.39
+        },
+        {
+          "tau": 1.2,
+          "density": 0.159,
+          "rel_l2": 0.28018,
+          "call_ms": 22.4
+        },
+        {
+          "tau": 1.5,
+          "density": 0.11556,
+          "rel_l2": 0.34034,
+          "call_ms": 17.19
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07219,
+          "rel_l2": 0.45209,
+          "call_ms": 12.6
+        }
+      ]
+    },
+    "b49_s15": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.32757,
+          "rel_l2": 0.02877,
+          "call_ms": 43.24
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27262,
+          "rel_l2": 0.03292,
+          "call_ms": 36.3
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22337,
+          "rel_l2": 0.0377,
+          "call_ms": 29.93
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18056,
+          "rel_l2": 0.04449,
+          "call_ms": 24.6
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12885,
+          "rel_l2": 0.05985,
+          "call_ms": 18.66
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07378,
+          "rel_l2": 0.10345,
+          "call_ms": 12.32
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.33062,
+          "rel_l2": 0.02068,
+          "call_ms": 44.08
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27815,
+          "rel_l2": 0.02192,
+          "call_ms": 36.67
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23056,
+          "rel_l2": 0.02817,
+          "call_ms": 30.62
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18778,
+          "rel_l2": 0.043,
+          "call_ms": 25.47
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13401,
+          "rel_l2": 0.0557,
+          "call_ms": 19.24
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07474,
+          "rel_l2": 0.0778,
+          "call_ms": 12.5
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.33302,
+          "rel_l2": 0.04906,
+          "call_ms": 43.98
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27941,
+          "rel_l2": 0.05991,
+          "call_ms": 37.15
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23075,
+          "rel_l2": 0.07436,
+          "call_ms": 30.87
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18791,
+          "rel_l2": 0.09466,
+          "call_ms": 25.69
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13526,
+          "rel_l2": 0.12891,
+          "call_ms": 19.44
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07717,
+          "rel_l2": 0.21125,
+          "call_ms": 12.98
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.33568,
+          "rel_l2": 0.03322,
+          "call_ms": 43.95
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28288,
+          "rel_l2": 0.03954,
+          "call_ms": 37.48
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23462,
+          "rel_l2": 0.05051,
+          "call_ms": 31.45
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19185,
+          "rel_l2": 0.06759,
+          "call_ms": 26.14
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13848,
+          "rel_l2": 0.10029,
+          "call_ms": 19.77
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07835,
+          "rel_l2": 0.17469,
+          "call_ms": 12.95
+        }
+      ]
+    },
+    "b32_s4": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.31794,
+          "rel_l2": 0.07197,
+          "call_ms": 43.27
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26723,
+          "rel_l2": 0.08171,
+          "call_ms": 35.57
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2224,
+          "rel_l2": 0.09251,
+          "call_ms": 29.54
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18417,
+          "rel_l2": 0.10465,
+          "call_ms": 25.28
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13933,
+          "rel_l2": 0.1258,
+          "call_ms": 19.91
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09132,
+          "rel_l2": 0.16694,
+          "call_ms": 14.4
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.32316,
+          "rel_l2": 0.06951,
+          "call_ms": 42.83
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27172,
+          "rel_l2": 0.07851,
+          "call_ms": 36.43
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22605,
+          "rel_l2": 0.08882,
+          "call_ms": 30.88
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18684,
+          "rel_l2": 0.10039,
+          "call_ms": 25.64
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14005,
+          "rel_l2": 0.12041,
+          "call_ms": 20.08
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08867,
+          "rel_l2": 0.15905,
+          "call_ms": 14.4
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.31681,
+          "rel_l2": 0.07005,
+          "call_ms": 42.79
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26508,
+          "rel_l2": 0.08013,
+          "call_ms": 35.09
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21924,
+          "rel_l2": 0.09208,
+          "call_ms": 29.53
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18012,
+          "rel_l2": 0.1061,
+          "call_ms": 25.14
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13421,
+          "rel_l2": 0.13095,
+          "call_ms": 19.45
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08579,
+          "rel_l2": 0.179,
+          "call_ms": 13.95
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.32124,
+          "rel_l2": 0.06897,
+          "call_ms": 43.13
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26979,
+          "rel_l2": 0.07821,
+          "call_ms": 36.47
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22388,
+          "rel_l2": 0.08905,
+          "call_ms": 30.28
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18449,
+          "rel_l2": 0.10183,
+          "call_ms": 25.27
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13815,
+          "rel_l2": 0.12447,
+          "call_ms": 19.68
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08874,
+          "rel_l2": 0.16747,
+          "call_ms": 14.3
+        }
+      ]
+    }
+  }
+}

@@ -4,6 +4,47 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.122.0
+
+### Fixed
+
+- **Sol's token reorder left per-token modulation rows behind.** With a
+  non-uniform video denoise mask the blocks receive a per-token index tensor
+  for the video segment; the reorder permuted the tokens and the RoPE table and
+  not that tensor, so such a render modulated the wrong rows with no error.
+  Found by a code review of the August reorder code; the rows now move with the
+  tokens, and the reorder declines when a per-token row does not line up with
+  the video span. No shipped graph turns the reorder on, so nothing rendered
+  was affected.
+- **The reorder, block-index and compose installs were keyed on `id(model)`**,
+  which is recycled once a model is freed: a reloaded model on a recycled id
+  was taken for installed and ran with no layout published and the
+  conditioning sink silently off. They are marker attributes on the model now.
+- **An unknown `morton_curve` fell through to `3d` silently**; it raises, and
+  the combo is built from the one tuple the dispatch checks.
+
+### Added
+
+- **`bench/check_sol_reorder_equivalence.py`**: the real reorder hooks on a
+  stub block stack, on against off, including per-token modulation and every
+  curve, with a control that puts the old behaviour back and must fail.
+- **`bench/sweep_sol_orderings_on_capture.py`** and
+  `bench/results/2026-09-17_sol_orderings.md`: error against routed density
+  per ordering with tau swept, the comparison `docs/morton.md` had called
+  unbuildable before the kernel's routed count and the stage profile existed.
+  `3d` is below plain order on every captured cell; `2d_frame` and `hilbert`
+  are not improvements and are deprecated as choices (`sol_curves.py` says so
+  at its top). The reorder stays off by default until a clip is judged.
+- **`fp8++ rotated` on the sage node** (sage fork v0.7.20, `qk_rotate`), an
+  alternative to `fp8++ balanced`, refused on a build without the keyword.
+  `bench/results/2026-09-17_sage_qk_rotate_kernel.json`.
+- **Captures record `sol_morton` and the curve**, so a consumer can tell a
+  raster capture from a reordered one.
+- Records: `2026-09-17_sol_rotate_warp_port.json` (the kitchen fork's ported
+  Sol rotation: bit-identical, rotate's cost per call down by about nine
+  tenths, not yet installed), `2026-09-17_sol_options_noodlebar_batch.md`,
+  `2026-09-17_market_prompt_fix_and_rotate_timing.jsonl`.
+
 ## 0.121.0
 
 ### Changed

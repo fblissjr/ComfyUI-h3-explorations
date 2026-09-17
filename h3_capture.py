@@ -286,6 +286,15 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
               "server": _server_stamp()}
     if segments is not None:
         record["segments"] = segments
+    # Token order. With Sol's reorder on, q/k/v are captured in PERMUTED row
+    # order while `segments` above describes the raster layout, and until
+    # 2026-09-17 nothing in the file said which. A consumer that permutes a
+    # capture itself (bench/sweep_sol_orderings_on_capture.py) needs a raster
+    # one, and can now check instead of trusting the caller.
+    if isinstance(transformer_options, dict):
+        record["sol_morton"] = bool(transformer_options.get("sol_morton", False))
+        if record["sol_morton"]:
+            record["sol_morton_curve"] = str(transformer_options.get("sol_morton_curve", "3d"))
 
     # **The capture asserts its own shape before it is written.** Adopted from
     # the PDD lane, which hit two silent short-capture bugs in one day: a file

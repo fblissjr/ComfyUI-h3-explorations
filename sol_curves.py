@@ -1,4 +1,13 @@
-"""Alternative token orderings for Sol-Attn, in the shape its node already expects.
+"""DEPRECATED as a choice, 2026-09-17. Measured on full-length H3 captures with the
+CUDA kernel, error against routed density with tau swept
+(`bench/results/2026-09-17_sol_orderings.md`): `hilbert` is no improvement on
+raster order, loses to it on the last block by a wide margin, and is beaten by
+`3d` on every captured cell. The geometric case below is true and, as
+`docs/morton.md` warned before the measurement existed, does not rank
+orderings. The curve stays selectable so the record can be reproduced; do not
+choose it. Everything below is as written, with one stale section removed.
+
+Alternative token orderings for Sol-Attn, in the shape its node already expects.
 
 Sol-Attn's block router summarises each 64-token block with one centroid, so the
 only thing a token ordering can change is which 64 tokens share a block. kijai's
@@ -37,21 +46,6 @@ and connectivity answer mechanism questions -- does a block hold one region or
 three -- and must not be used to rank curves; `bench/analyze_capture.py` is what
 ranks them. See "Geometry does not rank orderings" in `docs/morton.md`, and read
 it before adding a fourth curve.
-
-## Why this is not a fork
-
-`_perm_for` in the vendored node calls `morton_perm(...)` as a plain module
-global, and the curve name arrives as a string through
-`transformer_options["sol_morton_curve"]`. So an ordering can be added by
-rebinding that one name and passing a different string, with no edit to
-upstream's file and no kernel rebuild. `vendor/README.md`'s preference order
-asks for exactly that: upstream it, else wrap it, and only fork with the
-divergence recorded.
-
-`install()` does the rebinding. It resolves the live module **by identity**
-rather than by name, because a running ComfyUI can hold two module objects for
-one file and patching the wrong one looks exactly like success -- see the
-`comfy_extras` trap in CLAUDE.md, which cost a day on 2026-08-15's predecessor.
 
 ## The curves
 

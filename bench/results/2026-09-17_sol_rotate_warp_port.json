@@ -1,0 +1,101 @@
+{
+  "what": "Sol rotate, the row quantizers ported from one thread per row (serial butterfly in local memory) to one warp per row in registers; installed wheel against the port, same captures",
+  "model": "MiniMax H3, int8 convrot checkpoint, base 16-step t2v captures",
+  "conditions": "2026-09-17, RTX 4090, card alone; installed 0.2.34+sol.b532e28; port = kitchen fork branch h3-sol-rotate-warp at 36e29f1, unpacked wheel loaded by PYTHONPATH, not installed; bench/profile_sol_stages.py, all 56 heads, 5 iters",
+  "outputs": "bit-identical (relative difference exactly 0) between the two builds on block 49 and block 0, step 15, first 8 heads, for plain, rotate, rotate+qk_balance and rotate+qk_balance+token_aug 64; within one build rotate differs from plain by about 0.027 relative, so the comparison could have shown a difference",
+  "timing": {
+    "installed": {
+      "b49_s15": {
+        "shipped": {
+          "call_ms": 207.17,
+          "preprocess_ms": 12.05,
+          "exact_ms": 190.34
+        },
+        "plain": {
+          "call_ms": 204.44,
+          "preprocess_ms": 9.4,
+          "exact_ms": 191.73
+        },
+        "balance+rotate": {
+          "call_ms": 233.26,
+          "preprocess_ms": 40.75,
+          "exact_ms": 189.83
+        },
+        "balance+rotate+token64": {
+          "call_ms": 258.25,
+          "preprocess_ms": 40.81,
+          "exact_ms": 190.68
+        }
+      },
+      "b32_s15": {
+        "shipped": {
+          "call_ms": 242.59,
+          "preprocess_ms": 12.05,
+          "exact_ms": 228.18
+        },
+        "plain": {
+          "call_ms": 241.42,
+          "preprocess_ms": 9.43,
+          "exact_ms": 228.96
+        },
+        "balance+rotate": {
+          "call_ms": 269.83,
+          "preprocess_ms": 40.51,
+          "exact_ms": 225.52
+        },
+        "balance+rotate+token64": {
+          "call_ms": 295.01,
+          "preprocess_ms": 40.9,
+          "exact_ms": 226.17
+        }
+      }
+    },
+    "warp": {
+      "b49_s15": {
+        "shipped": {
+          "call_ms": 209.43,
+          "preprocess_ms": 12.08,
+          "exact_ms": 191.2
+        },
+        "plain": {
+          "call_ms": 206.34,
+          "preprocess_ms": 9.4,
+          "exact_ms": 192.9
+        },
+        "balance+rotate": {
+          "call_ms": 209.48,
+          "preprocess_ms": 11.83,
+          "exact_ms": 193.99
+        },
+        "balance+rotate+token64": {
+          "call_ms": 235.21,
+          "preprocess_ms": 11.83,
+          "exact_ms": 193.76
+        }
+      },
+      "b32_s15": {
+        "shipped": {
+          "call_ms": 244.46,
+          "preprocess_ms": 12.19,
+          "exact_ms": 229.31
+        },
+        "plain": {
+          "call_ms": 242.41,
+          "preprocess_ms": 9.45,
+          "exact_ms": 229.84
+        },
+        "balance+rotate": {
+          "call_ms": 246.11,
+          "preprocess_ms": 11.82,
+          "exact_ms": 230.02
+        },
+        "balance+rotate+token64": {
+          "call_ms": 271.06,
+          "preprocess_ms": 11.8,
+          "exact_ms": 231.05
+        }
+      }
+    }
+  },
+  "reading": "rotate's cost per call falls from about 29 ms to about 3 ms; preprocess with rotate on is back near its unrotated size. At about 600 Sol calls per 16-step render that is roughly 15 s recovered, which is what the render-level rotate on/off pair measured as rotate's cost (bench/results/2026-09-17_market_prompt_fix_and_rotate_timing.jsonl)."
+}

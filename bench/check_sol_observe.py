@@ -530,7 +530,8 @@ def main() -> int:
                                    tau_profile=None)
         patched = result.args[0] if hasattr(result, "args") else result[0]
         dit = patched.get_model_object("diffusion_model")
-        assert id(dit) in node._BLOCK_INDEX_HOOKED, "armed patch did not install the block hooks"
+        # A marker on the model since 2026-09-17, not its id() in a module set.
+        assert getattr(dit, "_sol_h3_block_index_hooked", False), "armed patch did not install the block hooks"
         holder["override"] = patched.model_options["transformer_options"]["optimized_attention_override"]
         o = {"sigmas": torch.tensor([0.5]), "sample_sigmas": torch.tensor([1.0, 0.5, 0.0])}
         dit.blocks[7](torch.zeros(1), transformer_options=o)

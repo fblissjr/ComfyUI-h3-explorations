@@ -117,6 +117,16 @@ MODES = {
     # neutral elsewhere for +0.7% call time and no memory. Off in the fork;
     # this mode is how a graph turns it on. docs/h3_block49_quant_error.md.
     "fp8++ balanced": (None, {"pv_accum_dtype": "fp32+fp16", "qk_balance": True}),
+    # fp8++ with the fork's fused Hadamard rotation of q/k inside the INT8
+    # quantizer (sage fork v0.7.20, `qk_rotate`): exact for the attention math,
+    # no statistics and no gate, the same matrix kitchen's rotated INT8 kernels
+    # use. On H3 captures it removes about half of block 49's error where the
+    # balanced mode removes about a third, is a few percent better on every
+    # other captured block, and costs about one percent of the call
+    # (bench/results/2026-09-17_sage_qk_rotate_kernel.json). An alternative to
+    # the balanced mode, not an addition: with rotation on the balance factor
+    # finds nothing to do. No clip has been judged with it yet.
+    "fp8++ rotated": (None, {"pv_accum_dtype": "fp32+fp16", "qk_rotate": True}),
     "fp8": (None, {"pv_accum_dtype": "fp32+fp32"}),
     "fp16 (most accurate)": ("sageattn_qk_int8_pv_fp16_cuda", {"pv_accum_dtype": "fp32"}),
 }
@@ -185,15 +195,19 @@ def build_kernel(mode):
         )
 
     attr, extra = MODES[mode]
-    if "qk_balance" in extra:
-        import inspect
-        params = inspect.signature(sa.sageattn_qk_int8_pv_fp8_cuda).parameters
-        if "qk_balance" not in params:
-            raise RuntimeError(
-                f"mode {mode!r} needs a sageattention with qk_balance on "
-                "sageattn_qk_int8_pv_fp8_cuda (the Ada fork at v0.7.19 or later); "
-                "the installed one has no such keyword."
-            )
+    # The fork's entry points take **kwargs and ignore what they do not know,
+    # so a mode that names a newer keyword would run as a plain call on an
+    # older build, with no error and a render that looks like any other.
+    for keyword, since in (("qk_balance", "v0.7.19"), ("qk_rotate", "v0.7.20")):
+        if keyword in extra:
+            import inspect
+            params = inspect.signature(sa.sageattn_qk_int8_pv_fp8_cuda).parameters
+            if keyword not in params:
+                raise RuntimeError(
+                    f"mode {mode!r} needs a sageattention with {keyword} on "
+                    f"sageattn_qk_int8_pv_fp8_cuda (the Ada fork at {since} or later); "
+                    "the installed one has no such keyword."
+                )
     # A note for anyone arriving from KJNodes' "pad V to CTA_K=128 in H3 mem-eff
     # sage sm90" fix: that bug is not reachable from here. It comes from
     # reimplementing sage's internals and skipping the kv_len pad that the

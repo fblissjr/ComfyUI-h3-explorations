@@ -1,0 +1,72 @@
+{
+  "what": "sage fp8++ on H3 captures: plain, qk_balance, q/k rotated in PyTorch before the call, both; rel L2 vs fp32 SDPA on the unrotated inputs",
+  "model": "MiniMax H3",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "torch": "2.14.0+cu132",
+  "rotation": {
+    "form": "x @ (P @ diag(random signs) @ blockdiag(Sylvester-Hadamard)); full = one block of head_dim, block32 = four of 32, +perm = stride-37 channel permutation first",
+    "seed": 334446
+  },
+  "cells": {
+    "b49_s15": {
+      "plain": 0.05488547363451549,
+      "qk_balance": 0.03866324893065861,
+      "kernel qk_rotate": 0.02391811047813722,
+      "rotated": 0.02576552890241146,
+      "rotated+qk_balance": 0.025765541142651012,
+      "rotated block32": 0.02726693850542818,
+      "rotated block32+perm": 0.026763809312667166,
+      "rerounding": 0.00597484250153814
+    },
+    "b49_s4": {
+      "plain": 0.05089272239378521,
+      "qk_balance": 0.03407497238367796,
+      "kernel qk_rotate": 0.020340700234685625,
+      "rotated": 0.022326169668563774,
+      "rotated+qk_balance": 0.022330032661557198,
+      "rotated block32": 0.02325871546885797,
+      "rotated block32+perm": 0.022860452133630003,
+      "rerounding": 0.005343570107860225
+    },
+    "b40_s15": {
+      "plain": 0.01937094676707472,
+      "qk_balance": 0.019477824547461102,
+      "kernel qk_rotate": 0.018049162147300585,
+      "rotated": 0.018270881846547127,
+      "rotated+qk_balance": 0.018270881846547127,
+      "rotated block32": 0.019133864236729487,
+      "rotated block32+perm": 0.018232999369502068,
+      "rerounding": 0.00285422130088721
+    },
+    "b32_s15": {
+      "plain": 0.012813040720564979,
+      "qk_balance": 0.012818413121359689,
+      "kernel qk_rotate": 0.01240207121840545,
+      "rotated": 0.012517674160855157,
+      "rotated+qk_balance": 0.012517674160855157,
+      "rotated block32": 0.01276052463799715,
+      "rotated block32+perm": 0.01249684952199459,
+      "rerounding": 0.0016898228121655329
+    },
+    "b24_s15": {
+      "plain": 0.013294792068856103,
+      "qk_balance": 0.013261493561523301,
+      "kernel qk_rotate": 0.012815422511526517,
+      "rotated": 0.012925296888819762,
+      "rotated+qk_balance": 0.012925296888819762,
+      "rotated block32": 0.0130092500309859,
+      "rotated block32+perm": 0.012891316786408424,
+      "rerounding": 0.0015274283276604755
+    },
+    "b0_s15": {
+      "plain": 0.004237826514456954,
+      "qk_balance": 0.004236739627750856,
+      "kernel qk_rotate": 0.004013754992878863,
+      "rotated": 0.004055609394397054,
+      "rotated+qk_balance": 0.004055609394397054,
+      "rotated block32": 0.004084836192695158,
+      "rotated block32+perm": 0.004058232963351267,
+      "rerounding": 0.0003031867152978001
+    }
+  }
+}

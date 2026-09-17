@@ -134,7 +134,6 @@ SINK_CONDITIONING_MODES = ("exact_kv", "exact_kv_and_rows", "exact_kv_and_all_ro
 _stats = {"sparse": 0, "dense_fallback": 0, "outside_range": 0,
           "dense_block": 0, "errors": 0}
 _seen = set()
-_BLOCK_INDEX_HOOKED = set()
 
 
 def _parse_block_profile(spec, count, name, cast, example):
@@ -288,7 +287,7 @@ def _install_block_index(model):
     blocks = getattr(model, "blocks", None)
     if blocks is None:
         return False
-    if id(model) in _BLOCK_INDEX_HOOKED:
+    if getattr(model, "_sol_h3_block_index_hooked", False):   # see install_h3_morton on why not id()
         return True
 
     def make_hooks(index):
@@ -309,7 +308,7 @@ def _install_block_index(model):
         pre, post = make_hooks(index)
         block.register_forward_pre_hook(pre, with_kwargs=True)
         block.register_forward_hook(post, with_kwargs=True)
-    _BLOCK_INDEX_HOOKED.add(id(model))
+    model._sol_h3_block_index_hooked = True
     return True
 
 
@@ -352,6 +351,16 @@ _PERM_CACHE = {}
 # inside `morton_perm` so this module stays importable without torch-heavy
 # siblings resolved, and named here so the combo and the dispatch cannot drift.
 _CURVES_OURS = ("hilbert",)
+#: Every curve name the node accepts; the combo is built from this and
+#: `morton_perm` refuses anything else. Until 2026-09-17 an unknown name fell
+#: through to "3d" without a word.
+#:
+#: Measured 2026-09-17 on full-length captures with the CUDA kernel
+#: (bench/results/2026-09-17_sol_orderings.md): "3d" is below raster on every
+#: captured cell, error against cost; "2d_frame" and "hilbert" are not
+#: improvements and lose badly on the last block. They stay selectable so that
+#: record can be reproduced, and are DEPRECATED as choices.
+MORTON_CURVES = ("3d", "2d_frame", "hilbert")
 
 
 def morton_perm(grid, device, curve="3d"):
@@ -369,6 +378,8 @@ def morton_perm(grid, device, curve="3d"):
                      index-adjacent frames are 1 or 4 real frames apart and a 3D
                      curve groups temporally distant tokens together.
     """
+    if curve not in MORTON_CURVES:
+        raise ValueError(f"morton_curve {curve!r} is not one of {MORTON_CURVES}")
     if curve in _CURVES_OURS:
         from .sol_curves import hilbert_perm
         return hilbert_perm(grid, device)
@@ -408,7 +419,6 @@ def _h3_log_once(message):
     _log_once(("h3", message), f"H3 Morton: {message}")
 
 
-_INSTALLED = set()
 _PATCHED_LAYOUTS = set()
 BLOCK_SIZE = 64  # kernel block size; the permutation is aligned to this grid
 _DEVICE_CACHE = {}
@@ -488,9 +498,40 @@ def _patch_packed_layout(module):
     _PATCHED_LAYOUTS.add(id(layout_cls))
 
 
+def _permute_mod_segments(mod_segments, start, stop, perm):
+    """`mod_segments` with the video segment's per-token rows reordered by `perm`.
+
+    Blocks receive `[(a, b, row)]`. `row` is one integer for a uniformly
+    modulated segment and a LongTensor of per-token indices when the video
+    denoise mask is not uniform (inpainting, a frozen region). The reorder moved
+    the video tokens, so those indices have to move with them; until 2026-09-17
+    they did not, and a reordered render with such a mask modulated the wrong
+    rows without any error. Returns None when a per-token row overlaps the
+    video span in a way this does not understand, and the caller then declines
+    to reorder rather than guess.
+    """
+    if not isinstance(mod_segments, (list, tuple)):
+        return mod_segments
+    out = []
+    for seg in mod_segments:
+        if not (isinstance(seg, (list, tuple)) and len(seg) == 3):
+            return None
+        a, b, row = seg
+        if torch.is_tensor(row) and row.ndim >= 1 and row.shape[0] > 1 and a < stop and b > start:
+            if a != start or b != stop or row.shape[0] != stop - start:
+                return None
+            row = row.index_select(0, perm.to(row.device))
+        out.append((a, b, row))
+    return out if isinstance(mod_segments, list) else tuple(out)
+
+
 def install_h3_morton(model):
     """Idempotently install the reorder. Inert without transformer_options['sol_morton']."""
-    if id(model) in _INSTALLED:
+    # A marker on the model, not its id() in a module-level set: an id is
+    # recycled once a model is freed, and a reloaded model landing on a
+    # recycled id was taken for installed, which left it with no layout
+    # published and the conditioning sink silently off.
+    if getattr(model, "_sol_h3_morton_installed", False):
         return
     for attr in ("rope_freqs", "_forward", "blocks"):
         if not hasattr(model, attr):
@@ -568,8 +609,9 @@ def install_h3_morton(model):
             state = getattr(model, "_sol_morton_state", None)
             if state is None:
                 return None
-            # Hidden states are already reordered; reuse the table built once.
-            return args[:3] + (state[1],) + tuple(args[4:])
+            # Hidden states are already reordered; reuse the table and the
+            # modulation segments built once on the first block.
+            return args[:2] + (state[2], state[1]) + tuple(args[4:])
 
         model._sol_morton_state = None
         span = getattr(model, "_sol_morton_span", None)
@@ -592,6 +634,11 @@ def install_h3_morton(model):
         _h3_log_once(f"ACTIVE: video span [{start}, {stop}), grid {grid}, "
                      f"curve {curve}")
         perm, inverse = _perm_for(grid, curve, h.device, start)
+        mod_segments = _permute_mod_segments(args[2], start, stop, perm)
+        if mod_segments is None:
+            _h3_log_once("per-token modulation does not line up with the video span; "
+                         "Morton declined for this forward")
+            return None
         h = h.clone()
         h[start:stop] = h[start:stop][perm]
 
@@ -601,8 +648,8 @@ def install_h3_morton(model):
         full[start:stop] = perm + start
         rope = rope.index_select(1, full)
 
-        model._sol_morton_state = (inverse, rope)
-        return (h,) + args[1:3] + (rope,) + tuple(args[4:])
+        model._sol_morton_state = (inverse, rope, mod_segments)
+        return (h, args[1], mod_segments, rope) + tuple(args[4:])
 
     def post_hook(_module, _args, output):
         state = getattr(model, "_sol_morton_state", None)
@@ -611,7 +658,7 @@ def install_h3_morton(model):
         if state is None or span is None:
             return None
         start, stop, _grid = span
-        inverse, _rope = state
+        inverse = state[0]
         if not torch.is_tensor(output) or output.shape[0] < stop:
             logging.error("[h3-sol] H3 Morton: block stack changed the token count "
                           f"({tuple(output.shape)}); cannot restore order")
@@ -626,7 +673,7 @@ def install_h3_morton(model):
     for block in model.blocks:
         block.register_forward_pre_hook(pre_hook)
     model.blocks[-1].register_forward_hook(post_hook)
-    _INSTALLED.add(id(model))
+    model._sol_h3_morton_installed = True
 
 
 
@@ -1107,7 +1154,6 @@ def _compose_module_patch(module, patched_forward):
     return forward
 
 
-_COMPOSE_HOOKED = set()
 
 
 def _install_compose_hooks(model, attn_attr):
@@ -1116,7 +1162,7 @@ def _install_compose_hooks(model, attn_attr):
     composition alone loses. The pre-hooks re-wrap any foreign attn forward
     before each block runs; inert unless sol_compose is published.
     """
-    if id(model) in _COMPOSE_HOOKED:
+    if getattr(model, "_sol_h3_compose_hooked", False):   # see install_h3_morton on why not id()
         return
 
     def pre_hook(block, args):
@@ -1138,7 +1184,7 @@ def _install_compose_hooks(model, attn_attr):
 
     for block in model.blocks:
         block.register_forward_pre_hook(pre_hook)
-    _COMPOSE_HOOKED.add(id(model))
+    model._sol_h3_compose_hooked = True
 
 
 def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
@@ -1438,19 +1484,26 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                          "the method's own correction and is not a "
                                          "speed setting to reach for."),
                 io.Boolean.Input("morton", default=False,
-                                 tooltip="Reorder video tokens so each 64-token block is "
-                                         "a compact 3D neighbourhood. Exactly neutral "
-                                         "for dense attention."),
-                io.Combo.Input("morton_curve", options=["3d", "2d_frame", "hilbert"],
+                                 tooltip="Reorder the video tokens along a space-filling "
+                                         "curve so each 64-token block is a compact 3D "
+                                         "neighbourhood, which makes a block's centroid a "
+                                         "better stand-in for its members. Invisible to the "
+                                         "model (bench/check_sol_reorder_equivalence.py); "
+                                         "it changes what Sol approximates, not what is "
+                                         "computed exactly. On captures the 3d curve lowers "
+                                         "Sol's error at equal cost on every measured cell, "
+                                         "or the cost at equal error. Off by default: no "
+                                         "full-length clip has been judged with it yet."),
+                io.Combo.Input("morton_curve", options=list(MORTON_CURVES),
                                default="3d",
-                               tooltip="3d interleaves t/h/w equally and scores best on "
-                                       "captured activations at the shipped canvas, "
-                                       "though it is also the most canvas-variable of "
-                                       "the three. 2d_frame orders within each frame and "
-                                       "leaves frame order alone. hilbert is this repo's, "
-                                       "2D within each frame, and has the best block "
-                                       "geometry of the three; geometry does not rank "
-                                       "orderings. See docs/morton.md."),
+                               tooltip="Which curve orders the video tokens when morton is "
+                                       "on. Use 3d. Measured 2026-09-17 on full-length "
+                                       "captures, error against cost with tau swept: 3d "
+                                       "is better than plain order on every captured "
+                                       "cell; 2d_frame and hilbert are not improvements "
+                                       "and lose badly on the last block. They stay "
+                                       "selectable so that record can be reproduced "
+                                       "(bench/results/2026-09-17_sol_orderings.md)."),
                 io.Boolean.Input("verbose", default=True,
                                  tooltip="Log, once per distinct call shape, whether the call "
                                          "ran sparse or stayed dense and with which options "
