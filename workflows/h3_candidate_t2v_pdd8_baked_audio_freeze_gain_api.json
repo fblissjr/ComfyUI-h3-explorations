@@ -203,21 +203,6 @@
       "token_routing": "text field"
     }
   },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "21",
-        0
-      ],
-      "require_override": true,
-      "require_forward_patch": false,
-      "exercise": true,
-      "warn_only": false,
-      "require_absent": false,
-      "require_no_forward_patch": true
-    }
-  },
   "26": {
     "class_type": "MiniMaxH3Preflight",
     "inputs": {
@@ -261,7 +246,7 @@
     "class_type": "MiniMaxH3AudioAttentionGain",
     "inputs": {
       "model": [
-        "23",
+        "21",
         0
       ],
       "key_gain": 1.0,

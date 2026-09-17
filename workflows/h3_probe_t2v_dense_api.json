@@ -40,7 +40,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "23",
+        "19",
         0
       ],
       "scheduler": "simple",
@@ -52,7 +52,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "23",
+        "19",
         0
       ],
       "conditioning": [
@@ -179,21 +179,6 @@
       ],
       "shift_video": 12.0,
       "shift_audio": 3.0
-    }
-  },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "19",
-        0
-      ],
-      "require_override": false,
-      "require_forward_patch": false,
-      "exercise": false,
-      "warn_only": false,
-      "require_absent": true,
-      "require_no_forward_patch": false
     }
   },
   "26": {

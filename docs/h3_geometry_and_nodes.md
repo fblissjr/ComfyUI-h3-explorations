@@ -339,15 +339,19 @@ Load Diffusion Model (UNETLoader)
   -> ModelSamplingMiniMaxH3          (core's MiniMaxH3SigmaShift; anywhere
                                       before the fork; absent on a PDD graph
                                       at the default shift)
-  -> MiniMax H3 SageAttention        (ours: kernel + attention override)
-  -> MiniMax H3 Sol-Attn             (ours, MiniMaxH3SolAttn; must be after sage)
-  -> SageChainAssert                 (ours: refuses a wrong composition)
+  -> Model Attention Backend         (core's, "comfy kitchen attention": the
+                                      dense kernel; the sage arms wire
+                                      MiniMax H3 SageAttention here instead)
+  -> MiniMax H3 Sol-Attn             (ours, MiniMaxH3SolAttn; must be after
+                                      the dense node)
   -> BasicScheduler / BasicGuider    (MODEL forks to both -- rewire both)
 ```
 
 `workflows/build_workflows.py::build_api` is the order; read it over this
 block. Until 2026-09-14 the block named `SolAttnPatch` and left out the shift
-node and the assert.
+node and the assert. Until 2026-09-17 it showed our sage node as the dense
+node, two days after the default moved to core's backend node, and
+`SageChainAssert` after Sol, which left every generated graph that day.
 
 MODEL forks to **two** consumers, `BasicScheduler.model` and
 `BasicGuider.model`. Rewiring only the guider leaves the scheduler reading

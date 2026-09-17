@@ -34,7 +34,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "23",
+        "21",
         0
       ],
       "scheduler": "simple",
@@ -95,21 +95,6 @@
       "token_routing": "text field"
     }
   },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "21",
-        0
-      ],
-      "require_override": true,
-      "require_forward_patch": false,
-      "exercise": true,
-      "warn_only": false,
-      "require_absent": false,
-      "require_no_forward_patch": true
-    }
-  },
   "48": {
     "class_type": "LoadAudio",
     "inputs": {
@@ -120,7 +105,7 @@
     "class_type": "MiniMaxH3AudioFreezeSong",
     "inputs": {
       "model": [
-        "23",
+        "21",
         0
       ],
       "clip": [

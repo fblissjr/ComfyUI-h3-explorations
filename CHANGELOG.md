@@ -4,6 +4,44 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.118.0
+
+### Removed
+
+- **`SageChainAssert` is no longer in any generated workflow** (owner,
+  2026-09-17). The generator stopped emitting it (node 23, and 43 on a split
+  graph's plain chain), and every graph was rebuilt. Each graph differs from
+  before only by the removed node, with its consumers rewired to the node it
+  guarded. `bench/_shot_ablation_base.json` lost it the same way. The node
+  stays registered, so saved graphs that carry it still load.
+  - **Why.** On the default chain (the kitchen backend under Sol, no sage) it
+    could only confirm that no sage kernel ran. Its flags were fixed when the
+    graph was generated, so swapping the dense node in the editor made it
+    refuse an intended chain. It did exactly that on 2026-09-17, to
+    `h3_candidate_t2v_pdd8_baked` with our sage node swapped in.
+  - **What goes with it.** Its call-time probe on the sage arms (sage patches
+    present, the kernel named, Sol's gate live) and its "nothing patched"
+    guard on the baselines. `bench/check_attention_defaults.py` still grades
+    the wiring, and Sol logs its own composition.
+  - **Also gone from render logs:** the "[h3] sol window" line, which only the
+    assert printed. The Sol node does not log its sigma window.
+
+### Changed
+
+- **`bench/smoke_h3.py`:** the line it expects on a sage graph is now the sage
+  node's own install line. The "no sage" line went with the assert.
+- **`bench/check_widget_deviations.py`:** the assert's five rows went, since a
+  row for a widget no graph carries is stale.
+- **Docs that still showed our sage node or the assert as the default chain**
+  now show core's backend node under Sol:
+  - `docs/h3_geometry_and_nodes.md`'s chain block;
+  - `docs/SOLATTN.md`'s Ordering section;
+  - `docs/wiki/stages.md`;
+  - two rows and a note in `docs/custom_node_gaps.md`.
+- **Validation.** The rebuild was validated against the served schema plus
+  the `token_routing` input on disk (0.117.0), because the running server
+  predates that input. A live validation is owed after the next restart.
+
 ## 0.117.0
 
 ### Added

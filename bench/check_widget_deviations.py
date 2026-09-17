@@ -285,25 +285,8 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("EasyCache", "verbose"):
         ("HOUSE", "h3_config.CACHE_NODE['verbose'] -- the cache logs what it "
                   "skipped, which is the only way to see it worked", True),
-    ("SageChainAssert", "exercise"):
-        ("ARM", "the assert node's own probe knobs, set per instrumentation "
-                "graph"),
-    ("SageChainAssert", "require_forward_patch"):
-        ("ARM", "as above"),
-    ("SageChainAssert", "require_override"):
-        ("ARM", "as above"),
-    ("SageChainAssert", "require_no_forward_patch"):
-        ("ARM", "True on every graph with Sol or core's ModelAttentionBackend and "
-                "no sage -- the default chain since 2026-09-15, and the "
-                "Sol-over-stock arms -- where the node forbids sage's forward "
-                "patch and proves no sage kernel takes a call; False on the sage "
-                "arms and the baselines. Set by `_assert_inputs`"),
-    ("SageChainAssert", "require_absent"):
-        ("ARM", "True on every arm that patches attention not at all -- the "
-                "true baseline and the PDD reference arms -- so the node proves "
-                "the graph is the baseline it claims to be; False wherever sage, "
-                "Sol or core's ModelAttentionBackend is wired. Set by the generator's `_assert_inputs` from "
-                "the chain, since 2026-09-03 (Sol-alone state added 2026-09-04)"),
+    # SageChainAssert's five rows went when the node left every generated
+    # graph (2026-09-17); a row for a widget no graph carries is stale.
     ("ModelAttentionBackend", "attention"):
         ("HOUSE", "h3_config.DENSE_BACKEND_NODE: kitchen's int8_attention as the "
                   "dense kernel under Sol, the default chain since 2026-09-15 "

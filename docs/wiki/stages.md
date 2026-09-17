@@ -28,10 +28,10 @@ checkout is and is not evidence of.
 |---|---|---|---|---|
 | checkpoint load | core `UNETLoader` | [`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) | `check_model_files.py` — a graph naming a file its loader cannot open goes red | LightX2V, for what the same int8 path does there |
 | sigma shift | core `MiniMaxH3SigmaShift` | [`../../workflows/h3_config.py`](../../workflows/h3_config.py)'s `SAMPLING` note | `check_distill_settings.py` (shift and step count) | diffusers' named H3 scheduler |
-| attention patch | `attention.py`, `MiniMaxH3SageAttention` | [`../SOLATTN.md`](../SOLATTN.md) | `check_attention_defaults.py` — by reachability, and values not presence | sglang (dense FA varlen); LightX2V for the kernel choice on this card |
+| attention patch | core's `ModelAttentionBackend` on kitchen int8, the default since 2026-09-15; `attention.py`'s `MiniMaxH3SageAttention` on the sage arms | [`../SOLATTN.md`](../SOLATTN.md) | `check_attention_defaults.py` — by reachability, and values not presence | sglang (dense FA varlen); LightX2V for the kernel choice on this card |
 | sparse attention | the vendored Sol node | [`../SOLATTN.md`](../SOLATTN.md) | same | `comfy-kitchen-kijai` (read-only; `comfy-kitchen-sol` until 2026-09-08), for sources that ship in no wheel |
 | channel balance (off by default) | `channel_balance.py`, `MiniMaxH3ChannelBalance` | [`../h3_block49_quant_error.md`](../h3_block49_quant_error.md) | `check_channel_balance.py` — the fold is exact, RoPE-safe, off by default, and selects 45/48/49 on the shipped weights | the sage fork's `spike_h3_k_channel_balance.py`, the same fold graded on sage's kernel; `grade_channel_balance.py` on Sol's |
-| chain order | `SageChainAssert` | [`../custom_node_gaps.md`](../custom_node_gaps.md) | itself, at call time — and **nothing** asserts it stays wired | — |
+| chain order | the generator's wiring, `workflows/build_workflows.py::build_api` (`SageChainAssert` left every generated graph on 2026-09-17) | [`../custom_node_gaps.md`](../custom_node_gaps.md) | `check_attention_defaults.py`, by reachability and the dense floor; Sol's own composition log at render time | — |
 | step distillation | `MiniMaxH3PDDLoRA`, `pdd_math.py` | [`../h3_pdd.md`](../h3_pdd.md) | `check_pdd_sigmas.py`, `check_pdd_head_selection.py`, `check_distill_grid.py` | [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md) — four other implementations |
 
 ## The conditioning branch

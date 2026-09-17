@@ -1461,8 +1461,10 @@ TAOMATE_SWAPPED_CONTROL_LORA = ("h3/minimax_h3_taomate_3step_rank128_comfy_bf16"
 #
 # The order now lives in one place that a reader reaches, docs/SOLATTN.md's
 # Ordering section, and in one place a machine checks -- every graph's actual
-# wiring, with `SageChainAssert` as the runtime gate that fails the render
-# when the chain is not composed as intended. A constant is not a check.
+# wiring, graded by `bench/check_attention_defaults.py`. (`SageChainAssert`,
+# the runtime gate that failed a render whose chain was not composed as
+# intended, left every generated graph on 2026-09-17.) A constant is not a
+# check.
 #
 # If this is ever wanted back, bring it back with a check that reads it.
 

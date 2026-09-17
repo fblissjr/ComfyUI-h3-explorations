@@ -40,7 +40,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "23",
+        "20",
         0
       ],
       "scheduler": "simple",
@@ -52,7 +52,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "23",
+        "20",
         0
       ],
       "conditioning": [
@@ -244,21 +244,6 @@
       "head_chunks": 1
     }
   },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "20",
-        0
-      ],
-      "require_override": true,
-      "require_forward_patch": true,
-      "exercise": true,
-      "warn_only": false,
-      "require_absent": false,
-      "require_no_forward_patch": false
-    }
-  },
   "26": {
     "class_type": "MiniMaxH3Preflight",
     "inputs": {
@@ -280,7 +265,7 @@
         0
       ],
       "model": [
-        "23",
+        "20",
         0
       ],
       "sigmas": [

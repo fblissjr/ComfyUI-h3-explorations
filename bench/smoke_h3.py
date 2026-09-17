@@ -3,17 +3,17 @@
 
 Verification comes from the log lines, not the video.
 
-    [h3] ... sage routed a 2048-token probe on fp16_cuda      graphs with a sage node
-    [h3] chain assert, call-time: no sage: ...                graphs with Sol or the backend, no sage
+    [h3] MiniMax H3 self-attention on sage (...)              graphs with a sage node
     [h3-sol] chaining onto an existing attention override     Sol graphs only
     [h3-sol] sparse (1, ..., 56, 128) tau=...                 Sol graphs only
 
-Line 1 says sage engaged. Line 2 says, on a graph with no sage node -- the
-default chain since 2026-09-15, core's ModelAttentionBackend under Sol -- that
-a probe through the composed override reached no sage kernel. Line 4 says
-sparse engaged at the configured tau. **Line 3 is the order check** -- it
+Line 1 says the sage node patched the model; the default chain since
+2026-09-15 has no sage node, so it is owed only by the sage arms. Line 3 says
+sparse engaged at the configured tau. **Line 2 is the order check** -- it
 prints only when Sol-Attn finds an override already installed (sage's, or the
-backend node's). Missing on a Sol graph means the chain is reversed and you
+backend node's). Until 2026-09-17 the sage line and a "no sage" line came
+from `SageChainAssert`'s call-time probe; no generated graph carries that
+node now, so the sage line is the sage node's own. Missing on a Sol graph means the chain is reversed and you
 are silently paying full price, with no error anywhere.
 That seam is a protocol two third-party repos agree on and neither owns, so
 it is worth re-checking on every update rather than assuming.
@@ -92,21 +92,16 @@ WF = Path(__file__).resolve().parent.parent / "workflows"
 
 # (label, needle, gate). The needles are matched against the ComfyUI log
 # written during THIS run, so they must be the strings the code actually emits
-# -- `assert_chain.py` for the first two. Anything here that no longer appears
-# in the source is a stale needle, not a finding; grep before believing a
-# MISSING. `gate` is what the submitted graph must carry for the line to be
-# owed: "sage" a sage node; "nosage" no sage node but Sol or the backend node,
-# whose assert exercises the override (added 2026-09-15, when the default
-# chain dropped sage and the sage line stopped being owed on every run); "sol"
-# a Sol node.
+# -- `nodes.py` for the first. Anything here that no longer appears in the
+# source is a stale needle, not a finding; grep before believing a MISSING.
+# `gate` is what the submitted graph must carry for the line to be owed:
+# "sage" a sage node, "sol" a Sol node.
 WANT = [
-    ("sage engaged", "sage routed a", "sage"),
-    ("no sage     ", "chain assert, call-time: no sage:", "nosage"),
+    ("sage engaged", "MiniMax H3 self-attention on sage", "sage"),
     ("node order  ", "chaining onto an existing attention override", "sol"),
     ("sparse ran  ", "] sparse (", "sol"),
 ]
 SAGE_NODE_IDS = ("MiniMaxH3SageAttention",)
-BACKEND_NODE_IDS = ("ModelAttentionBackend",)
 
 # Every Sol node id a graph on this box can carry: the Triton pack's, the
 # vendored CUDA one, and ours since 2026-08-30. A graph carrying any should
@@ -234,9 +229,7 @@ def main() -> int:
     # run -- Sol ships OFF and API graphs omit it entirely.
     has_sol = any(n["class_type"] in SOL_NODE_IDS for n in wf.values())
     has_sage = any(n["class_type"] in SAGE_NODE_IDS for n in wf.values())
-    has_backend = any(n["class_type"] in BACKEND_NODE_IDS for n in wf.values())
-    owed = {"sol": has_sol, "sage": has_sage,
-            "nosage": not has_sage and (has_sol or has_backend)}
+    owed = {"sol": has_sol, "sage": has_sage}
 
     if log_path is None or not log_path.is_file():
         print(f"\nrender succeeded, but --log does not exist: {log_path}")

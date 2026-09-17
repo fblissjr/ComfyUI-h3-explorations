@@ -1970,16 +1970,19 @@ what is installed — put it in the run log.
 ## Ordering
 
 ```
-Load Diffusion Model -> MiniMax H3 SageAttention -> SolAttn* -> SageChainAssert -> BasicGuider
+Load Diffusion Model -> Model Attention Backend (kitchen) -> MiniMax H3 Sol-Attn -> BasicGuider
 ```
 
 Sol must come second: it walks the model's existing object patches and composes
 with the attention forwards it finds. Reversed, it overwrites sage's patch and
-you silently get sage only.
+you silently get sage only. The default dense node since 2026-09-15 is core's
+backend node, whose override Sol chains onto the same way; the sage arms wire
+our sage node in its place.
 
-`SageChainAssert` comes last because it can only grade patches that are already
-installed. Every shipped graph wires it there; the diagram above omitted it
-until 2026-08-14 while all 71 graphs carried it.
+*Since 2026-09-17 no generated graph wires `SageChainAssert`* (owner). It came
+last because it could only grade patches already installed, and the node stays
+registered so saved graphs still load. The diagram above showed our sage node
+and the assert until that date.
 
 They **alternate rather than stack.** Inside the sigma window Sol runs sparse
 and sage is bypassed; outside it, sage runs dense.

@@ -121,6 +121,9 @@ wired. The two most heavily asserted, `MiniMaxH3ProvenanceStamp` and
 `MiniMaxH3MarkerArm`, are wired in bench graphs and none respectively. Coverage
 has grown where the work happened, not where the renders are.
 
+*2026-09-17:* `SageChainAssert` is no longer in any generated graph (owner); the
+paragraph above describes the graphs before that.
+
 ---
 
 ## 2. End to end, per mode
@@ -450,8 +453,8 @@ audit; these are candidates for it, not additions to it.
 |---|---|
 | Sol's live-module surgery is undone when the node is bypassed | **nothing.** It rebinds module attributes and registers hooks outside the patcher, keyed on object identity, and nothing removes them |
 | a PDD arm is consumed by `euler` | **nothing** — already in `docs/checks.md`, re-verified here |
-| `SageChainAssert` and `MiniMaxH3Preflight` stay wired in shipped graphs | **nothing** |
-| the two attention nodes' order is what the graph actually contains | asserted at call time by `SageChainAssert`, not statically |
+| `MiniMaxH3Preflight` stays wired in shipped graphs (`SageChainAssert` left them 2026-09-17) | **nothing** |
+| the two attention nodes' order is what the graph actually contains | `check_attention_defaults.py`, statically (reachability, the dense floor); the call-time `SageChainAssert` left the generated graphs 2026-09-17 |
 | the SLA router covers the modules the SLA LoRA adapts | **nothing**, and it currently does not (§4.1) |
 | the sigma tail lands outside Sol's window | **nothing.** The node logs the window and tells the reader to check; it never sees the sigmas |
 | the audio stream's higher-order sampler terms are valid on the video schedule | **nothing** (§4.1) |

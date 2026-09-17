@@ -40,7 +40,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "23",
+        "18",
         0
       ],
       "conditioning": [
@@ -231,21 +231,6 @@
     "class_type": "PrimitiveInt",
     "inputs": {
       "value": 8
-    }
-  },
-  "23": {
-    "class_type": "SageChainAssert",
-    "inputs": {
-      "model": [
-        "18",
-        0
-      ],
-      "require_override": false,
-      "require_forward_patch": false,
-      "exercise": false,
-      "warn_only": false,
-      "require_absent": true,
-      "require_no_forward_patch": false
     }
   },
   "26": {

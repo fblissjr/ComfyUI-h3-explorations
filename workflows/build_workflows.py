@@ -1312,43 +1312,6 @@ def _check_geometry(length, canvas):
         )
 
 
-def _assert_inputs(sage: bool, sol_present: bool, backend: bool = False) -> dict:
-    """`SageChainAssert`'s flags from what the chain in front of it holds.
-
-    Three states, and the node's flags spell each:
-
-      sage wired            require the override, the per-block forward
-                            patches and the call-time probe; Sol or not.
-      nothing wired         `require_absent`: the render refuses if anything
-                            patched attention. The true baseline and the PDD
-                            reference arms (2026-09-03).
-      Sol or the backend    require the override (Sol and core's Model
-      node, no sage         Attention Backend each install one) and
-                            `require_no_forward_patch`: no sage forward patch
-                            may be installed, and the exercise proves a probe
-                            below Sol's gate reaches no sage kernel. The outer
-                            steps and Sol's own fallback run whatever the
-                            backend node chose, or ComfyUI's stock attention
-                            without it. (Before the flag existed, on
-                            2026-09-04, this state was only permitted. The
-                            backend joined it on 2026-09-15, the default
-                            chain since; the flags and the log line are
-                            unchanged, the latter still naming "Sol-over-stock".)
-
-    `warn_only` is False in every state: a gate that always raises on the
-    control arm would make the comparison impossible to run rather than safe,
-    and `require_absent` is what makes the control arm's gate meaningful.
-    """
-    if sage:
-        return {"require_override": True, "require_forward_patch": True, "exercise": True,
-                "warn_only": False, "require_absent": False, "require_no_forward_patch": False}
-    if sol_present or backend:
-        return {"require_override": True, "require_forward_patch": False, "exercise": True,
-                "warn_only": False, "require_absent": False, "require_no_forward_patch": True}
-    return {"require_override": False, "require_forward_patch": False, "exercise": False,
-            "warn_only": False, "require_absent": True, "require_no_forward_patch": False}
-
-
 def _plain_model_chain(g, *, sage, sol, shift, head_chunks, dense_backend=None):
     """A second model path off the same UNETLoader, WITHOUT the LoRA.
 
@@ -1384,10 +1347,7 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks, dense_backend=None):
         g["42"] = {"class_type": SOL_NODE,
                    "inputs": {"model": src, **sol_api_inputs(sol)}}
         src = ["42", 0]
-    g["43"] = {"class_type": "SageChainAssert",
-               "inputs": {"model": src, **_assert_inputs(sage, sol is not None,
-                                                         dense_backend is not None)}}
-    return ["43", 0]
+    return src
 
 
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
@@ -1406,9 +1366,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # on the fork's qk_balance); channel_balance is
               # MiniMaxH3ChannelBalance's combo value, placed before the
               # attention nodes since it only patches norm weights;
-              # exact_blocks is MiniMaxH3ExactBlocks' list, placed AFTER the
-              # chain assert so the assert still grades the sage/Sol
-              # composition it was written for.
+              # exact_blocks is MiniMaxH3ExactBlocks' list, placed after the
+              # attention nodes (its forward survives either order).
               sage_mode: str | None = None,
               channel_balance: str | None = None,
               exact_blocks: str | None = None,
@@ -1823,8 +1782,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # ModelPatcher, and keeping that clone upstream of both attention
         # nodes avoids inserting it between the two that have to compose.
         # The load-bearing ordering constraint is sage-then-Sol (see
-        # docs/SOLATTN.md's Ordering section, and SageChainAssert, which fails
-        # the render when it is violated). A LoRA in front of both is
+        # docs/SOLATTN.md's Ordering section). A LoRA in front of both is
         # orthogonal to it and does not belong in that constraint.
         # Node id 18; 20/21/22 are already spoken for.
         # The turbo pack's loader is not a drop-in for LoraLoaderModelOnly and
@@ -1994,31 +1952,24 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["21"] = {"class_type": SOL_NODE,
                    "inputs": {"model": model_src, **sol_api_inputs(sol)}}
         model_src = ["21", 0]
-    # Last in the chain, because it asserts what the composition ended up
-    # as, not what any one node intended. Sol-Attn negotiates with our
-    # override through a duck-typed attribute that both sides rewrote within
-    # a minute of each other once already; when that seam breaks the render
-    # still succeeds and is quietly slower or numerically different. This
-    # turns that into a refused render. `exercise` stays on: install-time
-    # evidence is exactly what today has taught us not to trust.
-    # `warn_only` follows `sage`: with the node absent this graph is a
-    # control arm, and a gate that always raises on the control makes the
-    # comparison impossible to run rather than making it safe.
-    g["23"] = {"class_type": "SageChainAssert",
-               "inputs": {"model": model_src, **_assert_inputs(sage, sol is not None,
-                                                               dense_backend is not None)}}
-    model_src = ["23", 0]
+    # `SageChainAssert` (node 23, and 43 on the split chain) stood here until
+    # 2026-09-17, when the owner took it out of every generated graph. On the
+    # default chain it could only confirm that no sage kernel ran, and its
+    # flags, fixed at generation time, went stale the moment a graph was
+    # edited in the editor. `bench/check_attention_defaults.py` grades the
+    # wiring, and Sol logs its own composition. The node stays registered so
+    # saved graphs still load; ids 23 and 43 stay reserved.
     if exact_blocks is not None:
-        # After the assert: it grades the sage/Sol composition as shipped, and
-        # exact blocks wrap on top (the node's forward survives either order).
+        # After the attention nodes; exact blocks wrap on top (the node's
+        # forward survives either order).
         g["51"] = {"class_type": "MiniMaxH3ExactBlocks",
                    "inputs": {"model": model_src, "blocks": exact_blocks}}
         model_src = ["51", 0]
 
     if cache is not None:
-        # Step caching, AFTER the assert: the assert grades the attention
-        # composition, and the cache is a forward-skipping wrapper on top of
-        # it, not part of it. On a reused step nothing downstream of the
+        # Step caching, after the attention nodes: the cache is a
+        # forward-skipping wrapper on top of the attention composition, not
+        # part of it. On a reused step nothing downstream of the
         # wrapper runs -- sage and Sol included -- which is the mechanism, not
         # a conflict. See CACHE_NODE in h3_config.py for why this arm exists
         # and its er_sde caveat. Node id 44: 28-33 are the reference loaders
@@ -4988,8 +4939,6 @@ def main():
         # on an armed server, a probe record whose counterfactual is stock
         # attention rather than sage (bench/check_sol_probe.py), which is the
         # first direct Sol-against-near-exact measurement the repo would hold.
-        # SageChainAssert here requires Sol's override and forbids sage's
-        # forward patch; see `_assert_inputs`.
         ("h3_probe_t2v_sol_nosage.json", "t2v-sol-nosage", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sol", out_prefix="Video/h3_probe_t2v_sol_nosage"),
          "text -> video + audio, Sol as shipped, no sage: stock attention outside Sol"),
@@ -5308,11 +5257,10 @@ def main():
     # `_dense_stamped` is the TRUE BASELINE: no sage node, no Sol node, no
     # LoRA -- the DiT and encoder every graph loads under ComfyUI's stock
     # attention at the base step count, i.e. the render you would otherwise
-    # make on this box. `sage=False` turns SageChainAssert into the inverse
-    # control (`require_absent`): the render RAISES if anything patches
-    # attention, the same shape as the PDD reference arms since 2026-09-03
-    # (before that: warn-only with nothing required, logging "override
-    # installed" over an empty chain). The `_stamped` graph beside it is the repo's older "dense"
+    # make on this box. Until 2026-09-17 a SageChainAssert in `require_absent`
+    # mode made this render raise if anything patched attention on the model;
+    # no generated graph carries that node now, so the baseline is a baseline
+    # by its wiring alone. The `_stamped` graph beside it is the repo's older "dense"
     # convention, sage alone; every speedup number before 2026-09-03 was
     # relative to that, not to this. Outside check_attention_defaults'
     # scope like every bench graph.
