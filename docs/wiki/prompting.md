@@ -76,6 +76,8 @@ prompt already in a graph, `bench/preflight_graph.py <graph.json>`.
 | No negative prompt; guidance is distilled in | `prompting.md` §15.1 |
 | Camera vocabulary is checked by `bench/check_camera_vocabulary.py`; amplitude and speed fail, an off-table motion warns | `prompting.md` §11, §13 |
 | Mood words in the music line break a guide sentence nothing checks; found across a dozen bank entries on 2026-09-03 | `prompt_audit.md` |
+| A long single shot with a few seconds of scripted action is filled by the model with undeclared people and motion; a person entering space a zoom-out has just revealed tends to morph in rather than walk in. Such a scene is a stress scene, good for telling candidates apart and wrong for choosing a default | [`eval_comparison.md`](../eval_comparison.md), "A stress scene is not a typical scene" |
+| A bank prompt passed with and without its trailing newline is two different samples; rows of a stack must share the prompt byte for byte, and the clip's embedded `prompt` is how to check | same section |
 
 **A rendered clip cannot A/B a prompt change.** Two arms that differ in any way
 give different samples, not a better and a worse version of one.

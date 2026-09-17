@@ -153,6 +153,70 @@ they cannot settle: the distilled dialogue arm shows MORE frame-to-frame change
 than the undistilled one on the same prompt, which is either motion the base did
 not generate or the artifact registering as motion.
 
+## A stress scene is not a typical scene, and neither carries a default alone
+
+Written 2026-09-17, after an evening in which the owner scored every noodle bar
+stack and then asked whether the prompt just sucks. The answer was "partly",
+and the parts are worth keeping because they say what a scene can and cannot
+tell us while new defaults are being evaluated. The clips and verdicts are in
+`bench/results/2026-09-17_sol_options_noodlebar_batch.md`.
+
+**What makes a scene fragile, on any attention stack.** Two things, both
+visible in `prompt_bank/t2va_noodle_bar.txt`:
+
+- *It scripts a few seconds of action for a clip several times that long.* One
+  customer steps up, gestures, says one line and lowers a hand; one cook nods
+  and lifts a ladle. Nothing injects the duration into the model
+  (`docs/prompting.md`, the duration trap), so the rest of the clip is the
+  model's to fill, and what it fills with is undeclared people and motion.
+- *Its hardest moment is structural.* A slow zoom-out keeps opening the bottom
+  of the frame while a person has to arrive from off frame. Someone entering
+  newly revealed space is the case a diffusion model fades in rather than walks
+  in, and the artifact the owner saw sits exactly there: a figure morphing in
+  at the bottom of the frame, duplicating, and dissolving a second or two later.
+
+A tighter prompt would reduce both: say where the entering person starts, say
+the rest of the street is empty, and either fill the timeline with beats or
+shorten the clip.
+
+**Why the scene is still worth keeping.** Same prompt, same seed: every arm
+with plain token order morphed (both dense chains, both rotations, all three
+token-routing presets, and the default rendered two days earlier), and the two
+arms with Sol's `3d` token reorder did not. A scene that one candidate passes
+and the others fail is a discriminating scene. That is what a stress scene is
+for.
+
+**What it must not be used for.** Choosing a default. One scene at one seed
+says a candidate CAN matter; it does not say it matters in general, and this
+pack has made that mistake once already: the market scene at seed 730451892
+carried the kitchen-versus-sage question for two days on a missing hand that
+did not reproduce on five other scenes, and whose prompt sentence named no one
+doing the action (`bench/results/2026-09-15_block49_repro_batch.md`). A result
+from a stress scene earns a panel, not a flip.
+
+**The panel.** Four or five prompts from the bank chosen for DIFFERENT hard
+moments (a person entering frame, hands with objects, on-screen text, fast
+motion, a static shot), each at one seed, plain order against the candidate,
+scored on one question at a time (for the reorder: does anything morph, yes or
+no). A default moves when the panel agrees, and the record says which scenes
+and what was asked.
+
+**Two instrument lessons from the same evening.**
+
+- *One character in a prompt is a different sample.* The runner scripts of
+  2026-09-17 passed a bank prompt with its trailing newline; an earlier batch
+  had passed it stripped; the two defaults of "the same scene and seed" were as
+  far apart as two unrelated arms, and several stacks had been built with the
+  older clip on top as the reference. Rows of a stack must share the prompt
+  byte for byte, and the embedded `prompt` in each clip's metadata is how to
+  check (`VHS_VideoCombine` writes it to the mp4 `comment` tag and the png).
+  Renders on this stack repeat bit for bit, so a PSNR of infinity between two
+  clips is a usable identity test, and anything less is a different input.
+- *An option that improves a capture metric does not thereby fix what the eye
+  sees.* Rotation and balancing lower the INT8 error and are worth having; none
+  of them touched this artifact. It comes from which tokens share a block, and
+  the reorder is the only lever that changes that.
+
 ## 1. Automatic Layout Optimization
 
 The tool automatically detects canvas aspect ratio ($W/H$) to pick the optimal stacking layout:

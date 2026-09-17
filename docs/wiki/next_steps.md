@@ -516,6 +516,16 @@ length every arm above rendered on this card without it.
 
 ## Now
 
+*2026-09-17: the reorder is the lever the eye can see.* On the noodle bar the
+owner found every plain-order arm morphing and the two `3d` reorder arms clean
+([`decisions.md`](decisions.md)). Next, in order: make the reorder work with
+core's memory compiler (the Sol node refuses `morton` under it today); then a
+panel of four or five bank scenes, plain order against the reorder, before any
+default moves ([`../eval_comparison.md`](../eval_comparison.md), "A stress
+scene is not a typical scene"). Waiting on the owner's go: Sol `rotate` on, and
+the sage chain to `fp8++ rotated`; `start_percent` stays at 0.2. The paragraphs
+below are older states.
+
 *2026-09-15: the floor moved.* The default dense kernel under Sol is core's
 Model Attention Backend on kitchen int8 (`h3_config.DENSE_BACKEND_NODE`), sage
 off, Sol's `qk_balance` on (owner; [`decisions.md`](decisions.md)). The

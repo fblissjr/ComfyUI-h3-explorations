@@ -17,6 +17,25 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-17
 
+- **The owner scored every noodle bar stack: only Sol's `3d` token reorder is
+  clean.** Every plain-order arm morphs around the four second mark (both
+  dense chains, Sol `rotate`, sage balanced and rotated, all three
+  token-routing presets, and the default rendered on 2026-09-15); the reorder
+  at tau 1.0 looks best and at tau 1.3 second
+  (`bench/results/2026-09-17_sol_options_noodlebar_batch.md`).
+  - **What it decides.** Making the reorder work with ComfyUI's memory
+    compiler is the next piece of work; the node refuses `morton` while the
+    compiler is active (`CHANGELOG.md` 0.122.1).
+  - **What it does not decide.** Any default. The scene is a stress scene: a
+    discriminating one, and one scene at one seed. A default moves on a panel
+    of scenes ([`../eval_comparison.md`](../eval_comparison.md), "A stress
+    scene is not a typical scene").
+  - **Corrected the same evening.** Several 2026-09-17 stacks had the
+    2026-09-15 default on top as their reference; the day's runner scripts had
+    passed the prompt with a trailing newline, so those rows are different
+    samples. Recorded in both batch records; token routing showed no visible
+    benefit and stays off.
+
 - **`SageChainAssert` taken out of every generated workflow and the
   generator** (owner, 2026-09-17; `cfeeaa1`). The node stays registered, so
   saved graphs still load.
