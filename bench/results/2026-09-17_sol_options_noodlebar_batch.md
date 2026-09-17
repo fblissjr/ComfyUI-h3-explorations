@@ -68,6 +68,28 @@ above.
 
 | stack | verdict | notes |
 |---|---|---|
-| reorder3d: tau 1.0 against plain order | | |
-| reorder3d: tau 1.3 against plain order | | |
+| reorder3d: tau 1.0 against plain order | BEST of the three (owner, 2026-09-17) | clean; none of the default's morphing |
+| reorder3d: tau 1.3 against plain order | second | better than plain order; a man in the left stall visible moving around, and possibly a little less detail |
 | sage rotated against sage balanced | | |
+
+
+### Owner's verdict on the reorder stack, 2026-09-17
+
+The 3d reorder at tau 1.0 looks best, the reorder at tau 1.3 second, and the
+plain-order default last by a distance: "an artifacted morphing mess", with a
+figure at the bottom centre-right near the radio around the four second mark
+that starts dissolving through the five second mark and is gone by six, and
+music that "sounds creepy as hell like a broken radio".
+
+Checked the same evening on frames at 3.5, 4.5, 5.5 and 6.5 s from four clips
+of this scene and seed: the phantom figure at the bottom right around 4.5 s is
+in BOTH plain-order default renders, the one made with the memory compiler off
+for this stack and the 2026-09-15 default render made with it on
+(`Video/block49_repro/noodle_bar_default_s730451892`), and the two are the same
+composition frame for frame. It is in neither reorder clip. So it belongs to
+the default chain with plain token order, not to the compiler flag, and the
+2026-09-15 clip that was judged to have nothing obviously wrong has it too.
+This is the first case in this pack where a Sol change was visibly better and
+the capture metric had said so beforehand (`2026-09-17_sol_orderings.md`).
+Audio was not checked by instrument; the prompt does ask for a thin, tinny
+radio, so part of that may be intended. One scene, one seed.
