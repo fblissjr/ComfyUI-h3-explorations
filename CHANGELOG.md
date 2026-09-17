@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.121.0
+
+### Changed
+
+- **`verbose` on `MiniMaxH3SolAttn` defaults to on**, owner's call, in the node
+  and in both CUDA Sol configs, and the graphs are regenerated with it. It
+  gates three log-once lines and nothing else, so it costs nothing, and it is
+  the cheap way to tell a render where Sol ran from one where it silently
+  stayed dense.
+
+### Added
+
+- **An `[h3-sol] on:` line every time the Sol node patches a model**, not gated
+  on `verbose`: the sigma window and the percents behind it, the selection
+  rule, `qk_balance`, `rotate`, how many blocks carry token routing or stay
+  dense, and what the fallback is. The sigma window had been printed by the
+  assert node the generated graphs stopped carrying in 0.118.0.
+
 ## 0.120.0
 
 ### Added

@@ -662,7 +662,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # justify False is a Turbo-SLA LoRA arm, where the model HAS been distilled
     # against exactly that routing; on the base model it is a strictly worse
     # approximation with no compensating training. See docs/SOLATTN.md.
-    pooled_tail=True, verbose=False,
+    pooled_tail=True, verbose=True,
     # Empty again by owner decision on 2026-09-02. `0-2,32` shipped from
     # 2026-08-29 until this correction, but it came from an EXPERIMENT rather
     # than a production-default result: `2026-08-29_block_propagation.json`
@@ -831,7 +831,7 @@ SOL_CUDA_DEFAULTS = dict(
     start_percent=0.2, end_percent=1.0, min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
     morton_curve="3d", pooled_tail=True,
-    verbose=False, dense_blocks="",
+    verbose=True, dense_blocks="",
     # Token routing off everywhere. `SOL_RECOMMENDED_CUDA` above owns why.
     token_aug_blocks="",
     # Pinned so an ad-hoc bench spec can flip them (`shipped[qk_balance=0]`);

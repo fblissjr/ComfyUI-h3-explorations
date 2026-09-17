@@ -1262,6 +1262,17 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
         "morton": bool(reorder), "morton_curve": morton_curve if reorder else None,
         "n_blocks": count, "chained_previous": previous is not None,
     }
+    # One line per patch, always: what this node is about to do to the render.
+    # The sigma window used to be printed by an assert node the generated
+    # graphs no longer carry, and nothing else said where Sol starts and stops.
+    logging.info(
+        f"[h3-sol] on: sigma window [{sigma_end:.4g}, {sigma_start:.4g}] "
+        f"(start_percent {start_percent}, end_percent {end_percent}), "
+        + (f"top-k {topk_ratio:.3f}" if topk_ratio else f"tau {tau}")
+        + f", qk_balance {bool(qk_balance)}, rotate {bool(rotate)}, "
+        f"token routing on {len(aug)} block(s), {len(dense)} dense block(s), "
+        f"pooled tail {bool(tail)}, fallback "
+        + ("the chained attention override" if previous is not None else "stock attention"))
     if observing:
         logging.info(f"[h3-sol] route observation ARMED ({sol_observe.spec()['spec']}); "
                      f"every attention call is recorded and timings from this "
@@ -1440,7 +1451,15 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                        "2D within each frame, and has the best block "
                                        "geometry of the three; geometry does not rank "
                                        "orderings. See docs/morton.md."),
-                io.Boolean.Input("verbose", default=False),
+                io.Boolean.Input("verbose", default=True,
+                                 tooltip="Log, once per distinct call shape, whether the call "
+                                         "ran sparse or stayed dense and with which options "
+                                         "(token_aug, qk_balance, rotate), plus the conditioning "
+                                         "sink ranges. A handful of lines per server process, no "
+                                         "synchronisation and no cost. On by default since "
+                                         "2026-09-17: a render where Sol silently stayed dense "
+                                         "looks exactly like one where it ran, and these lines "
+                                         "are the cheap way to tell."),
                 io.String.Input("dense_blocks", default="",
                                 tooltip="Transformer blocks kept off Sol, e.g. '0-2,32'. "
                                         "Negative indices count from the end. NOTE these "

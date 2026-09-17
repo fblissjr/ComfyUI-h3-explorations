@@ -241,7 +241,7 @@
       "morton": false,
       "morton_curve": "3d",
       "pooled_tail": true,
-      "verbose": false,
+      "verbose": true,
       "dense_blocks": "",
       "token_aug_blocks": "",
       "qk_balance": true,
