@@ -15,6 +15,23 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-17
+
+- **`SageChainAssert` taken out of every generated workflow and the
+  generator** (owner, 2026-09-17; `cfeeaa1`). The node stays registered, so
+  saved graphs still load.
+  - **Why.** On the default chain it could only confirm that no sage kernel
+    ran. Its generation-time flags refused an intended editor swap to our
+    sage node on `h3_candidate_t2v_pdd8_baked`.
+  - **Lost with it.** The call-time probe on the sage arms, the "nothing
+    patched" guard on the baselines, and the "[h3] sol window" log line.
+    `bench/check_attention_defaults.py` still grades the wiring.
+  - **Corrected.** Three docs still showed our sage node as the default dense
+    node after the 2026-09-15 flip, which that change's prose sweep missed:
+    - `docs/h3_geometry_and_nodes.md`'s chain block;
+    - `docs/wiki/stages.md`'s attention row;
+    - `docs/SOLATTN.md`'s Ordering diagram, which also showed the assert.
+
 ## 2026-09-15
 
 - **Two bench manifests and one probe graph retired** (the owner deferred the
