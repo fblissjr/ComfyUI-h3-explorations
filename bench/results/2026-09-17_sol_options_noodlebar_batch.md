@@ -35,3 +35,39 @@ Scoring: owner, by eye. Unscored.
 | tokens_early_middle | | |
 | tokens_all_rotate | | |
 | sage_chain | | |
+
+## Second round, same day: the token reorder, rotate on the ported kernel, sage in its rotated mode
+
+Rows: `2026-09-17_sol_options_noodlebar_arms_2.jsonl` (normal server) and
+`2026-09-17_sol_reorder_noodlebar_arms.jsonl` (server started with
+`--disable-comfy-compiler`, because the reorder and ComfyUI's memory compiler do
+not work together yet; CHANGELOG 0.122.1). Kitchen wheel 0.2.34+sol.36e29f1,
+sage fork v0.7.20. The three reorder-round clips share that flag, so they
+compare with each other and not with the clips above.
+
+| arm | what differs | sampler s |
+|---|---|---|
+| rotate_fastkernel | Sol `rotate` on, the ported in-register kernel (first render after a restart) | 466 |
+| sage_chain_rotated | sage `fp8++ rotated` under Sol | 460 |
+| nocompiler_default | default chain, memory compiler off | 466 |
+| nocompiler_reorder3d_tau10 | `morton` on, curve `3d`, tau 1.0 | 465 |
+| nocompiler_reorder3d_tau13 | `morton` on, curve `3d`, tau 1.3 | 436 |
+
+Three timing readings. `rotate` now costs nothing at render level (466 s against
+the default's 468 s; it was about 15 s on the serial kernel). Turning the memory
+compiler off did not slow the default render. The reorder itself is free, and
+at tau 1.3 it takes about 30 s off the sampling, which is the speed side of the
+capture result (`2026-09-17_sol_orderings.md`): fewer routed blocks for about
+the same measured error.
+
+Stacks: `stack_noodlebar_reorder3d.mp4` (plain order, reorder at tau 1.0,
+reorder at tau 1.3) and `stack_noodlebar_sage_balanced_vs_rotated.mp4` (default
+chain, sage balanced, sage rotated). The rotate_fastkernel clip needs no stack:
+the ported kernel is bit-identical to the one that rendered the `rotate` clip
+above.
+
+| stack | verdict | notes |
+|---|---|---|
+| reorder3d: tau 1.0 against plain order | | |
+| reorder3d: tau 1.3 against plain order | | |
+| sage rotated against sage balanced | | |
