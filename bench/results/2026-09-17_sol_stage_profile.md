@@ -90,10 +90,22 @@ fastest are 49, 45, 13 and 10 (208 to 213 ms); the spread is routed density.
   it matters only if `rotate` becomes a default.
 - Token routing on every block would be about 14 s.
 
-## 6. What this does not answer
+## 6. Staging-bound or compute-bound, answered without counters
 
-Whether the exact stage is bound by issuing its INT8 multiply-accumulates or
-by staging keys and values into shared memory. That was the question this
-script's scaffold was written for on 2026-08-16, it needs `ncu`'s counters
-rather than kernel times, and it now matters more, since the stage it asks
-about is over nine tenths of the call.
+GPU performance counters are admin-only on this machine, so `ncu` could not
+run. Substitute: three compile-time probe builds of the exact kernel (stage
+only, compute only, neither), timed against the kernel as written;
+`2026-09-17_sol_exact_stage_vs_compute.json`.
+
+| variant | exact stage, share of the kernel as written |
+|---|---|
+| stage only | about 0.70 |
+| compute only | about 0.91 |
+| neither | about 0.03 |
+
+Compute is the critical path and the one-block-ahead async staging hides most
+of the copy time behind it. Removing staging entirely would save about a
+tenth, which bounds what comfy-kitchen#184's shared staging can give here;
+making compute free would save at most three tenths. No single change to this
+stage is worth a kernel week. The levers are outside it: `start_percent` and
+routed density.

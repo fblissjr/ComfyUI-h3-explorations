@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.120.0
+
+### Added
+
+- **`h3_config.DEFAULT_DENSE_CHAIN` and `DENSE_CHAINS`**: the dense kernel a
+  video graph gets when its entry names none is a named choice, `kitchen` or
+  `sage`, instead of a literal inside `_attention_plan`. The sage chain is the
+  sage node in its balanced mode under Sol, with no channel-balance node, since
+  the fold was graded redundant under that mode.
+- **`build_workflows.py --chain sage --out <dir>`**: writes the other chain's
+  version of every graph that takes the default, validated like the shipped
+  set, with `_sage` on each output prefix. Refused over the shipped tree,
+  which every check reads as one chain; bench copies and arms that name their
+  own kernel are left out. The shipped tree regenerates with no diff.
+- **`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`**: Sol's exact
+  stage is compute-bound with the staging hidden behind it, from three probe
+  builds of the kernel in place of `ncu`. `docs/SOLATTN.md` has the reading.
+
 ## 0.119.0
 
 ### Added

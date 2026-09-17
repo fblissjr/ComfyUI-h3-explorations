@@ -1215,7 +1215,7 @@ tie-breaker between two numbers; it is the only way to get a second one.**
 
 ### Three gates, all cheap, before any CUDA is written
 
-**17b and 17c are done; 17a is half done (2026-09-17): the stage shares are measured, the `ncu` question is not.**
+**17b and 17c are done; 17a is done (2026-09-17) by other means than it planned.**
 The scaffolds exist to fix the metric, the control and the sampling before the
 measurement, because in each case a wrong design produces a plausible number
 rather than an error -- which is exactly what 17b then demonstrated, by shipping
@@ -1234,9 +1234,12 @@ implemented and splits the call by kernel name on captured q/k/v; the exact
 branch is nearly the whole call, its time is linear in routed density, and a
 live render with `H3_SOL_TIME` armed (`sol_call_timer.py`) reproduces the
 replay's per-call time, so the split is the render's. Record:
-`bench/results/2026-09-17_sol_stage_profile.md`. *Still open:* MMA-bound
-against staging-bound inside that stage, which kernel times cannot say.
-*Blocker for that half: an idle GPU and an `ncu` run.*
+`bench/results/2026-09-17_sol_stage_profile.md`. The first half was answered
+the same day by probe builds rather than `ncu`, whose counters are admin-only
+on the owner's machine: compute is the critical path, staging hides behind it
+(`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`). That is a
+coarser answer than counters would give, and it is about the INT8 PV kernel as
+written, not the 16-bit PV variant the 2.5x estimate was about.
 
 **17b. Decompose Sol's error on captured activations.**
 `bench/analyze_sol_error.py`. Split total error into sparsity error (eager Sol

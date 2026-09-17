@@ -1032,8 +1032,14 @@ and the pooled tail are negligible; `rotate` and token routing each add a
 visible fraction, `qk_balance` almost nothing; a call costs the same inside a
 render as alone; and on the shipped 16-step graph the dense steps before
 `start_percent` cost more attention time than all the Sol steps together.
-Not answered: whether the exact stage is bound by issuing multiply-accumulates
-or by staging, which needs `ncu`'s counters rather than kernel times.
+Whether the exact stage is bound by staging or by compute was answered the
+same day without `ncu` (performance counters are admin-only on the owner's
+machine): three probe builds of the kernel, stage only, compute only and
+neither, timed against the kernel as written
+(`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`). Compute is the
+critical path and the async staging hides behind it, so sharing staged blocks
+between query blocks has little to give on this card and no single change to
+the stage is large. The levers are `start_percent` and routed density.
 
 ### The one silent exception to "Sol is on in every shipped video workflow"
 

@@ -90,7 +90,7 @@ _OUR_NODES = {
 from prompts import text as _bank_prompt  # noqa: E402
 from h3_config import (  # noqa: E402
     CORE_LOADED_ENCODERS, IMAGE_VAE, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
-    SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
+    SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     VSA_KEEP_PERCENT,
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
@@ -730,13 +730,40 @@ def _attention_plan(extra: dict) -> tuple[bool, bool, str | None, bool]:
         if vsa_on:
             raise SystemExit("a VSA arm names its dense kernel (dense_attn='sage'); "
                              "the kitchen default has never run beside VSA")
-        dense_mode = "ck"
+        dense_mode = DENSE_CHAINS[DEFAULT_DENSE_CHAIN]["dense_attn"]
     if dense_mode in ("sol", "ck", "sage_sol"):
         if is_image or vsa_on:
             raise SystemExit(f"dense_attn={dense_mode!r} names a Sol-over-dense video arm; "
                              "it cannot be an image arm or carry VSA")
         return dense_mode == "sage_sol", bool(extra.get("sol_on", True)), dense_mode, vsa_on
     return dense_mode == "sage", False, dense_mode, vsa_on
+
+
+def _takes_default_chain(extra: dict) -> bool:
+    """True for a GRAPHS entry whose dense kernel is the default's to choose:
+    a video entry that names no `dense_attn` and carries no VSA. Everything
+    else is an arm about a particular chain and stays on it under `--chain`."""
+    return (not extra.get("single_frame", False) and extra.get("vsa") is None
+            and not extra.get("dense_attn", False))
+
+
+def _on_chain(extra: dict, chain: str) -> dict:
+    """A default-taking entry's extras, moved onto `chain`.
+
+    The chain's keys from `h3_config.DENSE_CHAINS` are laid under the entry's
+    own, so an entry that already names a `sage_mode` keeps it."""
+    return {**DENSE_CHAINS[chain], **extra}
+
+
+def _suffix_output_prefixes(wf: dict, chain: str) -> None:
+    """Append `_<chain>` to every `filename_prefix` in a built graph, in place,
+    so a clip from the alternate set cannot land on top of the shipped
+    graph's. Done on the built graph because the builder derives a default
+    prefix per task when the entry names none."""
+    for node in wf.values():
+        prefix = node.get("inputs", {}).get("filename_prefix")
+        if isinstance(prefix, str):
+            node["inputs"]["filename_prefix"] = f"{prefix}_{chain}"
 
 
 def _graph_dir(out, extra: dict):
@@ -3749,6 +3776,11 @@ def main():
                     help="running ComfyUI base URL, or a path to a saved object_info.json")
     ap.add_argument("--out", default=str(HERE))
     ap.add_argument("--no-validate", action="store_true")
+    ap.add_argument("--chain", choices=sorted(DENSE_CHAINS), default=DEFAULT_DENSE_CHAIN,
+                    help="dense kernel under Sol for every graph that names none "
+                         f"(default {DEFAULT_DENSE_CHAIN!r}, h3_config.DEFAULT_DENSE_CHAIN). "
+                         "Any other chain writes ONLY those graphs, needs --out "
+                         "pointing outside the shipped tree, and skips the bench copies.")
     # Loading the right prompt into the right arm, without opening a JSON.
     # The graphs already ship with theirs baked in; these are for pasting one
     # into a graph you are editing by hand, or reading one without ComfyUI.
@@ -5228,7 +5260,20 @@ def main():
     # but the canonical shipped default across all video workflows is ON.
     # Every shipped graph is API format: the editor loads one by input name
     # and arranges it, and every runner drives it over /prompt.
+    alt_chain = args.chain != DEFAULT_DENSE_CHAIN
+    if alt_chain and Path(args.out).resolve() == HERE.resolve():
+        raise SystemExit(
+            f"--chain {args.chain} would write over the shipped tree, which every check "
+            f"reads as the {DEFAULT_DENSE_CHAIN!r} chain. Give it its own --out, or change "
+            "h3_config.DEFAULT_DENSE_CHAIN to move the shipped tree itself.")
     for fname, label, task, prompt, extra, note in GRAPHS:
+        if alt_chain and not _takes_default_chain(extra):
+            continue
+        # Applied on the shipped chain too, so that changing
+        # h3_config.DEFAULT_DENSE_CHAIN moves every key of the chain (the
+        # sage chain's mode, not only its node) rather than the node alone.
+        if _takes_default_chain(extra):
+            extra = _on_chain(extra, args.chain)
         sage_on, sol_on, _dense_mode, _vsa_on = _attention_plan(extra)
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("sol_on", "dense_attn", "sol_overrides")}
@@ -5238,6 +5283,8 @@ def main():
                        **({"dense_backend": DENSE_BACKEND_NODE["attention"]}
                           if _dense_mode == "ck" else {}),
                        **{**api_extra, "length": graph_length(api_extra)})
+        if alt_chain:
+            _suffix_output_prefixes(wf, args.chain)
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         written.append((label, p, wf))
         print(f"  {p.name}: {note}")
@@ -5246,7 +5293,8 @@ def main():
     # shipped graphs: the stamp reads another pack's closure internals, so it
     # breaks when that pack changes, and a bench is where breakage is cheap.
     bench = out / "bench"
-    bench.mkdir(parents=True, exist_ok=True)
+    if not alt_chain:
+        bench.mkdir(parents=True, exist_ok=True)
     # The t2v bench pair renders BENCH_T2V_PROMPT, a bank scene chosen for
     # its failure surfaces (a figure at distance, a painted sign, dialogue,
     # a silent bystander) and NOT the covered-market scene the shipped t2v
@@ -5264,7 +5312,9 @@ def main():
     # convention, sage alone; every speedup number before 2026-09-03 was
     # relative to that, not to this. Outside check_attention_defaults'
     # scope like every bench graph.
-    for fname, task, prompt, sage in (
+    # The bench copies name their own kernels and belong to the shipped tree
+    # alone; an alternate-chain set is the default-taking graphs and nothing else.
+    for fname, task, prompt, sage in () if alt_chain else (
         ("h3_text_to_video_dense_stamped_api.json", "t2v", BENCH_T2V_PROMPT, False),
         ("h3_text_to_video_stamped_api.json", "t2v", BENCH_T2V_PROMPT, True),
         ("h3_image_ref_plus_text_to_video_stamped_api.json", "r2v", None, True),

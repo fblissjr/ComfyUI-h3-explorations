@@ -934,6 +934,29 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # call Sol declines and every step outside Sol's window.
 DENSE_BACKEND_NODE = dict(attention="comfy kitchen attention")
 
+#: The dense kernel a video graph gets when its GRAPHS entry names none, and
+#: what each choice means in `build_workflows._attention_plan`'s vocabulary.
+#: Two chains, both Sol on top, and the owner's standing position (2026-09-17)
+#: is that neither has won: they are good in different ways and both move.
+#:
+#:   "kitchen"  core's Model Attention Backend node (kitchen's rotated int8
+#:              attention). Needs nothing else: the kernel rotates q/k itself.
+#:   "sage"     the sage node in its balanced mode, which rebalances q/k per
+#:              head inside its own quantizer. No MiniMaxH3ChannelBalance node:
+#:              graded 2026-09-17, the weights fold adds nothing under that mode
+#:              (bench/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
+#:
+#: `DEFAULT_DENSE_CHAIN` is what the shipped tree is generated on. The other
+#: chain's set is one command, written OUTSIDE the shipped tree because every
+#: check here reads that tree as one chain:
+#:
+#:   python workflows/build_workflows.py --chain sage --out <some dir>
+DENSE_CHAINS = {
+    "kitchen": dict(dense_attn="ck"),
+    "sage": dict(dense_attn="sage_sol", sage_mode="fp8++ balanced"),
+}
+DEFAULT_DENSE_CHAIN = "kitchen"
+
 # Step caching, on ComfyUI core's EasyCache node (comfy_extras/
 # nodes_easycache.py). Added 2026-08-18. The node thresholds the relative
 # change of the model's input between adjacent steps and, under threshold,
