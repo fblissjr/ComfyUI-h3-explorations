@@ -164,3 +164,10 @@ sage balanced, sage rotated, token routing on the measured blocks, the sage
 chain); the two 3d reorder arms do not. `tokens_early_middle` and
 `tokens_all_rotate` were reported as "two of him" as well.
 
+### Owner's verdict on `stack_noodlebar_default_vs_tokens_early_middle`, 2026-09-17 evening
+
+Both rows have it. Token routing on every block but the last five does not
+remove the morph either, which completes the token-routing column of the tally
+above: measured blocks, early and middle, and all blocks with rotate all still
+show it.
+
