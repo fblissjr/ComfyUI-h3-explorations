@@ -62,3 +62,27 @@ Two scenes, one pattern worth testing rather than believing: with no dense
 steps the staging drifts (a frontal composition, a porter walking backwards),
 while 0.1 stays close to 0.2.
 Follow-up arms: `2026-09-17_sol_start_percent_arms_2.jsonl`.
+
+## Second batch, 2026-09-17: a second market seed and the noodle bar
+
+Rows: `2026-09-17_sol_start_percent_arms_2.jsonl`. The 0.2 arm of each scene is
+the default-chain clip the owner already judged in the block-49 reproduction
+batch (`Video/block49_repro/`, same chain and recipe, rendered 2026-09-15 on
+the previous kitchen wheel; the default path did not change between the two
+wheels). The first row's total includes time queued behind other renders, so
+read sampler seconds.
+
+| scene | seed | start_percent | sampler s |
+|---|---|---|---|
+| market | 20260915 | 0.1 | 419 |
+| market | 20260915 | 0.0 | 369 |
+| noodle bar | 730451892 | 0.1 | 418 |
+| noodle bar | 730451892 | 0.0 | 365 |
+
+Stacks: `Video/sol_start_percent/stacks/stack_market_s20260915_start_percent.mp4`
+and `stack_noodlebar_start_percent.mp4`. Unscored.
+
+| scene | 0.2 | 0.1 | 0.0 |
+|---|---|---|---|
+| market, seed 20260915 | | | |
+| noodle bar | | | |
