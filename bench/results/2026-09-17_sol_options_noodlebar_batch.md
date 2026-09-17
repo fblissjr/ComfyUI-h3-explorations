@@ -130,3 +130,13 @@ on both dense chains, on both prompt variants, and it predates 2026-09-17. The
 only arms without it are the two with the 3d reorder. Rotation in sage neither
 causes nor cures it. One scene, one seed; a second scene is the next test.
 
+### Owner's verdict on `stack_noodlebar_default_vs_tokens_measured`, 2026-09-17 evening
+
+Both rows have the man morphing in at the bottom of the frame and out again:
+the 2026-09-15 default (top) and token routing on the four measured blocks
+(bottom). So token routing on blocks 0, 24, 32 and 40 does not remove the
+artifact. It is the same artifact as in every other plain-order clip of this
+scene; see the verdict above. Token routing recovers individual tokens inside
+blocks that were already routed badly or well; it does not change which tokens
+share a block, which is what the reorder changes.
+
