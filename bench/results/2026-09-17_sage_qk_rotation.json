@@ -1,0 +1,66 @@
+{
+  "what": "sage fp8++ on H3 captures: plain, qk_balance, q/k rotated in PyTorch before the call, both; rel L2 vs fp32 SDPA on the unrotated inputs",
+  "model": "MiniMax H3",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "torch": "2.14.0+cu132",
+  "rotation": {
+    "form": "x @ (P @ diag(random signs) @ blockdiag(Sylvester-Hadamard)); full = one block of head_dim, block32 = four of 32, +perm = stride-37 channel permutation first",
+    "seed": 334446
+  },
+  "cells": {
+    "b0_s15": {
+      "plain": 0.004237826514456954,
+      "qk_balance": 0.004236739627750856,
+      "rotated": 0.004066910627963287,
+      "rotated+qk_balance": 0.004066910627963287,
+      "rotated block32": 0.0040951076495860305,
+      "rotated block32+perm": 0.0040690153171973565,
+      "rerounding": 0.00031378002937084863
+    },
+    "b24_s15": {
+      "plain": 0.013294792068856103,
+      "qk_balance": 0.013261493561523301,
+      "rotated": 0.012929059165929045,
+      "rotated+qk_balance": 0.012929059165929045,
+      "rotated block32": 0.01301618998071977,
+      "rotated block32+perm": 0.012896493742508548,
+      "rerounding": 0.0015364074248022266
+    },
+    "b32_s15": {
+      "plain": 0.012813040720564979,
+      "qk_balance": 0.012818413121359689,
+      "rotated": 0.012520377524197102,
+      "rotated+qk_balance": 0.012520377524197102,
+      "rotated block32": 0.012770984188786574,
+      "rotated block32+perm": 0.012502260905291353,
+      "rerounding": 0.0016983955865725875
+    },
+    "b40_s15": {
+      "plain": 0.01937094676707472,
+      "qk_balance": 0.019477824547461102,
+      "rotated": 0.018270781529801234,
+      "rotated+qk_balance": 0.018270781529801234,
+      "rotated block32": 0.019139169050114497,
+      "rotated block32+perm": 0.018240478688052723,
+      "rerounding": 0.0028669634900454965
+    },
+    "b49_s15": {
+      "plain": 0.05488547363451549,
+      "qk_balance": 0.03866324893065861,
+      "rotated": 0.025811415697847093,
+      "rotated+qk_balance": 0.025811424744980677,
+      "rotated block32": 0.027379544052694525,
+      "rotated block32+perm": 0.02674419672361442,
+      "rerounding": 0.0059999860157924035
+    },
+    "b49_s4": {
+      "plain": 0.05089272239378521,
+      "qk_balance": 0.03407497238367796,
+      "rotated": 0.0223015109077096,
+      "rotated+qk_balance": 0.02230507574443306,
+      "rotated block32": 0.023267732667071477,
+      "rotated block32+perm": 0.022820818504052504,
+      "rerounding": 0.005462240128378783
+    }
+  }
+}
