@@ -140,3 +140,13 @@ scene; see the verdict above. Token routing recovers individual tokens inside
 blocks that were already routed badly or well; it does not change which tokens
 share a block, which is what the reorder changes.
 
+### Owner's verdict on `stack_noodlebar_default_vs_rotate`, 2026-09-17 evening
+
+Both rows morph. The top row, the 2026-09-15 default, is the worse of the two:
+"wild", the shape turns into a person who disappears between the five and six
+second marks. Sol `rotate` on (bottom) still has the artifact. So rotation in
+Sol, like rotation in sage and token routing, does not remove it; only the
+reorder clips are clean. Note the two rows are different samples (the prompt
+newline correction above), so "worse" here is about two samples of one scene,
+not about what `rotate` did.
+
