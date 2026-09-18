@@ -55,12 +55,12 @@ goes back to the singles (`*-audio.mp4`).
 
 Owner's verdicts: not yet scored.
 
-| scene | top | bottom | notes |
+| scene | plain order | `3d` reorder | notes (scored blind as clip 1 / clip 2; each key opened only after its verdict) |
 |---|---|---|---|
-| diner | | | |
+| diner | **better, the owner's pick**: "a better scene overall ... more things in it that make sense", a neon sign of the diner, more legible text | `3d`: weaker; less legible text, and a cook walks past OUTSIDE briefly, which the prompt does not ask for (its cook is at the griddle, in the background) | Owner, 2026-09-18, blind as clip 1 / clip 2; key opened after: clip 1 is `3d`, clip 2 is plain (the 2026-09-15 clip). Column order here is plain, then `3d`. A loss for the reorder on a typical scene: subtle, but on text legibility and an unscripted figure, which are the kinds of thing the panel exists to catch |
 | kitchen | | | |
 | market | | | |
-| hardware_aisle_short | | | |
+| hardware_aisle_short | no difference seen | no difference seen | Owner, 2026-09-18, blind: "im not sure i can tell a difference with hardware." Key opened after the verdict |
 | post_office | | | |
 | cafe_kids | plain order: no morph or duplicate reported. Two burgers on each child's plate but the red-haired boy's; the brunette reads slightly red-haired; the red-haired boy (centre) and the soda girl speak the lines the prompt gives them | `3d`: no morph or duplicate reported. One burger each; "just better" framing, the better-looking clip; the red-haired boy sits at the left edge, out of frame, and his line is spoken by the brunette girl, whom the prompt declares silent | Owner, 2026-09-18, scored blind as clip 1 / clip 2, key opened after: clip 1 is plain, clip 2 is `3d`. Owner's call: "if the prompt isn't specific on that, then clip 2 wins." The prompt does not say where anyone sits; it does say the red-haired boy is on-screen and speaks that line, that the brunette makes no vocal sound, and "a plate of hamburgers" (plural) each. **Owner's verdict: clip 2 (`3d`) wins.** Two burgers per child is implausible whatever the grammar allows ("why would each kid be eating two hamburgers"); the plural is loose prompt wording that plain order rendered literally and `3d` rendered sensibly. Caveat kept: `3d` puts the first line on the wrong child. Neither clip shows a morph or a duplicate, so this is a win on the quality of the take, not on the defect the panel asks about. Both prompt fixes made the same day at the owner's word (one hamburger per plate; the red-haired boy seated at the centre facing the camera), and the pair re-rendered on the new text as `cafe_kids_v2_*`, stack `blind_cafe_kids_v2_plain_vs_3d.mp4` |
-| crowd_churn_long | | | |
+| crowd_churn_long | no difference seen | no difference seen | Owner, 2026-09-18, blind: "dont think i can tell the difference ... both get grainy in the middle to end because so much is going on but both look and sound equal to me." Key opened after: clip 1 is `3d`, clip 2 is plain. The grain from the middle on is in BOTH arms, so it is not a token-order effect; it is what this chain does on the densest scene in the bank, and a question for a fully dense control, not for this panel |
