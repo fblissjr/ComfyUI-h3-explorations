@@ -187,6 +187,10 @@ def main() -> int:
                     help="run this arm once first and mark the row warmup")
     ap.add_argument("--no-alternate", action="store_true",
                     help="run each arm's runs as a block instead of A B A B")
+    ap.add_argument("--allow-off-length", action="store_true",
+                    help="render a bank prompt at a length other than the one "
+                         "its bank entry declares (refused by default: past "
+                         "its script the model improvises)")
     ap.add_argument("--allow-unstripped-prompt", action="store_true",
                     help="accept a prompt patch with leading or trailing "
                          "whitespace (refused by default: it is a different "
@@ -237,6 +241,11 @@ def main() -> int:
         if label not in arms or not node_key or not raw:
             raise SystemExit(f"--set wants LABEL:NODE.FIELD=VALUE, got {spec!r}")
         value = _parse_value(raw)
+        # The bank's files end in a newline and `@bank:` hands the text over
+        # verbatim; stripped is the convention (below), so the shortcut strips
+        # unless the unstripped bytes are asked for by flag.
+        if raw.startswith("@bank:") and isinstance(value, str) and not args.allow_unstripped_prompt:
+            value = value.strip()
         # One character in a prompt is a different sample. On 2026-09-17 prompt
         # files were passed with their trailing newline while an earlier batch
         # had stripped it, and stacks then compared different samples as if
@@ -251,6 +260,24 @@ def main() -> int:
         nids = apply_patch(arms[label]["graph"], node_key, field, value)
         arms[label]["patches"].append(
             {"nodes": nids, "field": f"{node_key}.{field}", "value": value})
+
+    # A bank prompt is written for a length (`frames` in the bank manifest):
+    # its action and dialogue fill that many frames and no more. Rendered
+    # longer, the model runs out of script and improvises, and what it
+    # improvises was read as an attention artifact: the noodle bar is a
+    # 107-frame prompt, every 2026-09-15 to 2026-09-18 arm rendered it at 345,
+    # and its "morph at four seconds" starts where the script ends (the owner,
+    # 2026-09-18). Refused unless the mismatch is the thing under test.
+    for label, arm in arms.items():
+        what = _prompts.describe(arm["graph"])
+        entry = _prompts.entry(what.get("prompt_id") or "") if what.get("prompt_id") else None
+        want, got = (entry or {}).get("frames"), what.get("length")
+        if want and got and int(want) != int(got) and not args.allow_off_length:
+            raise SystemExit(
+                f"arm {label!r}: bank prompt {what['prompt_id']!r} is written for {want} frames and "
+                f"this graph renders {got}. Set the length to {want} "
+                f"(--set {label}:MiniMaxH3Resolution.length={want}), pick a prompt written for {got}, "
+                "or pass --allow-off-length if the mismatch is what you are testing")
 
     if args.seed is None and args.runs > 1:
         raise SystemExit(

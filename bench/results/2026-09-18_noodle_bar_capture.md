@@ -1,5 +1,7 @@
 # The noodle bar, captured: a capture metric that sees the morph, 2026-09-18
 
+> **2026-09-18, read first:** the noodle bar prompt is written for 107 frames and post office for 141; both were rendered here at 345, past the end of their scripts, where the model improvises. What this record measured stands; what it is evidence of changed. See `2026-09-18_off_length_prompts.md`.
+
 Model: MiniMax H3, int8 convrot checkpoint, base 16-step text to video with
 audio, trained canvas, full length. Card: RTX 4090, alone. Kitchen
 `0.2.35+sol.8176242`.

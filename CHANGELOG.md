@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.126.0
+
+### Fixed
+
+- **Two bank prompts had been rendered at three times the length they were
+  written for** (the owner, 2026-09-18): the noodle bar is a 107-frame prompt
+  and post office a 141-frame one, and every arm since 2026-09-15 patched them
+  into the 345-frame graph without setting the length. Past its script the
+  model improvises, and the noodle bar's "morph at four seconds" starts where
+  its script ends. `bench/results/2026-09-18_off_length_prompts.md` lists the
+  records it touches and what still stands (every bit-identity result; the
+  measurements, though not their reading as a defect of normal use); each of
+  those records now opens with a pointer to it, and the stress-scene section
+  of `docs/eval_comparison.md` is corrected: the fault was the render length,
+  not the prompt.
+
+### Changed
+
+- **`bench/run_graph_arms.py` refuses a bank prompt at a length its bank entry
+  does not declare**, names the fix, and takes `--allow-off-length` when the
+  mismatch is the thing under test. Its `@bank:` shortcut hands over the
+  stripped text, which the whitespace guard of 0.123.2 would otherwise refuse.
+
 ## 0.125.0
 
 ### Added

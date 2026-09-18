@@ -1,5 +1,7 @@
 # start_percent on the default chain: 0.2 against 0.1 against 0.0
 
+> **2026-09-18, read first:** the noodle bar prompt is written for 107 frames and post office for 141; both were rendered here at 345, past the end of their scripts, where the model improvises. What this record measured stands; what it is evidence of changed. See `2026-09-18_off_length_prompts.md`.
+
 Date: 2026-09-17. Model: MiniMax H3, int8 convrot checkpoint, base 16-step
 t2v, 345 frames at 1344x768. Default chain (kitchen int8 dense under Sol,
 `qk_balance` on), graph `workflows/h3_text_to_video_api.json` with only

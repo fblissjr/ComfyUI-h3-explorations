@@ -518,6 +518,8 @@ length every arm above rendered on this card without it.
 
 ## Now
 
+*2026-09-18, corrected: the noodle bar result below came from an over-length render* (a 107-frame prompt at 345; the owner), so it shows how Sol behaves while the model improvises past a script, not a defect of normal use (`bench/results/2026-09-18_off_length_prompts.md`). The panel and an on-length rerun decide what is left of it.
+
 *2026-09-17: the reorder is the lever the eye can see.* On the noodle bar the
 owner found every plain-order arm morphing and the two `3d` reorder arms clean
 ([`decisions.md`](decisions.md)). *2026-09-18: the reorder now works with

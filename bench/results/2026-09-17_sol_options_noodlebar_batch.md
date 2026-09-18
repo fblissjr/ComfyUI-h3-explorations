@@ -1,5 +1,7 @@
 # Sol options on a scene already judged clean: rotate, token routing, and the generated sage chain
 
+> **2026-09-18, read first:** the noodle bar prompt is written for 107 frames and post office for 141; both were rendered here at 345, past the end of their scripts, where the model improvises. What this record measured stands; what it is evidence of changed. See `2026-09-18_off_length_prompts.md`.
+
 Date: 2026-09-17. Noodle bar scene (`prompt_bank/t2va_noodle_bar.txt`), seed
 730451892, base 16-step t2v at full length, `workflows/h3_text_to_video_api.json`
 with one thing changed per arm by `bench/run_graph_arms.py`; the sage arm is the

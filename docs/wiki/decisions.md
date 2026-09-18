@@ -15,6 +15,16 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-18
+
+- **The noodle bar is retired at full length (the owner).** Its prompt is
+  written for 107 frames and was rendered at 345, out of distribution; post
+  office (141) likewise. A bank prompt is rendered at the length its bank
+  entry declares, and `bench/run_graph_arms.py` now refuses anything else
+  without a flag. The 2026-09-17 entry below stands as what was seen and is
+  withdrawn as evidence about normal use
+  (`bench/results/2026-09-18_off_length_prompts.md`).
+
 ## 2026-09-17
 
 - **The owner scored every noodle bar stack: only Sol's `3d` token reorder is

@@ -155,6 +155,20 @@ not generate or the artifact registering as motion.
 
 ## A stress scene is not a typical scene, and neither carries a default alone
 
+> **Corrected 2026-09-18 (the owner): the fault below was ours, not the
+> prompt's.** The bank declares the length each prompt was written for, and
+> the noodle bar is a 107-frame prompt; every arm discussed here rendered it at
+> 345. "It scripts a few seconds of action for a clip several times that long"
+> describes what WE did to it. Rendered past its script, the model improvises,
+> and the morph starts where the script ends. So this was not a stress scene
+> in the sense this section means (a hard moment inside the prompt's own
+> length); it was an out-of-distribution render, and it is retired at that
+> length. What stands and what does not:
+> `bench/results/2026-09-18_off_length_prompts.md`. The runner now refuses a
+> bank prompt at a length its entry does not declare. The rest of the section,
+> on what a stress scene may and may not decide, stands as written; read "the
+> noodle bar" in it as "an over-length render".
+
 Written 2026-09-17, after an evening in which the owner scored every noodle bar
 stack and then asked whether the prompt just sucks. The answer was "partly",
 and the parts are worth keeping because they say what a scene can and cannot

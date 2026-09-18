@@ -1,5 +1,7 @@
 # Reorder panel: plain token order against the `3d` reorder, seven scenes, 2026-09-18
 
+> **2026-09-18, read first:** the noodle bar prompt is written for 107 frames and post office for 141; both were rendered here at 345, past the end of their scripts, where the model improvises. What this record measured stands; what it is evidence of changed. See `2026-09-18_off_length_prompts.md`.
+
 Model: MiniMax H3, text to video with audio, `workflows/h3_text_to_video_api.json`
 (default chain: kitchen int8 dense, Sol with `qk_balance`, tau 1.0), full
 length at the trained canvas, one seed per scene. Core at `a8686f2b`, memory
