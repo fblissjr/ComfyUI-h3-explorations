@@ -1,7 +1,7 @@
 ---
 name: h3-ab-session
 description: Route any rendered comparison in this repo -- "compare these", "A/B", "which LoRA / checkpoint / sampler / knob is better", "blind session", "score the clips", "judge the pair" -- to the one documented process (render with matched seeds, blind, score before unblinding, record the aggregate). Points at the authority; restates nothing that could drift.
-reviewed: 7191aff
+reviewed: 69f3ccf
 ---
 
 # A rendered comparison in this repo
@@ -13,7 +13,11 @@ the baseline `VISION.md` defines and `CLAUDE.md` names as a graph.
 The four pieces, in the order the process runs them; each script's docstring
 is its contract:
 
-1. `bench/run_graph_arms.py` renders the arms.
+1. `bench/run_graph_arms.py` renders the arms. It refuses a bank prompt at a
+   length other than the `frames` its bank entry declares, and a prompt patch
+   with leading or trailing whitespace; both refusals name their override
+   flag, and both exist because an over-length render and a stray newline
+   were each read as a real difference between arms in September 2026.
 2. `bench/blind_batch.py` blinds them and seals the key under
    `internal/blind_keys/`.
 3. The owner scores in the app `bench/blind_score_app.py` generates.
