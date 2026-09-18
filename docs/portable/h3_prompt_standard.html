@@ -196,10 +196,10 @@ non_diegetic_music: ...</pre>
 
 <section id="shots">
   <h2><span class="num">04</span>Shots and timing</h2>
-  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Shot 1 carries no timestamp; later shots do</h4>
-    <p>Later shots open with a strictly increasing cut time: <code>[Shot 2] At 00:03.500, the camera cuts to…</code>. A cut should introduce new information; if only distance or angle changes, prefer camera motion over a cut.</p></div>
-  <div class="rule"><h4><span class="chip c-house">House</span>A timestamped cut is the only hard temporal anchor the format has</h4>
-    <p>Nothing else in the prompt tells the model when something happens. If two speakers must share a shot, the ordering has to be carried in prose instead — and prose ordering is weaker than a cut.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House · 2026-09-18</span>No shot header carries a timestamp</h4>
+    <p>Write <code>[Shot 2] The shot cuts to…</code>. A time is used only to split action <em>inside</em> one shot. The vendor guides open later shots with a cut time (<code>[Shot 2] At 00:03.500, the camera cuts to…</code>); this house departs from them, on the owner's judgement that fixed cut times cause trouble on a model that is never told the clip's duration. Not yet measured in either direction. A cut should introduce new information; if only distance or angle changes, prefer camera motion over a cut.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>Ordering rides on prose and on cuts, not on clock times</h4>
+    <p>With no timestamps in the headers, nothing in the prompt tells the model WHEN something happens; a cut still separates what comes before from what comes after. If two speakers must share a shot, the ordering has to be carried in prose instead — and prose ordering is weaker than a cut.</p></div>
   <div class="rule"><h4><span class="chip c-open">Open</span>How many spoken words fit in a shot</h4>
     <p>A budget of roughly 2.5 words per second of shot, minus about a second of air, is commonly used. <strong>Its shape is assumed, not measured</strong> — a one-parameter form fits the vendor's own example exactly where the two-parameter one is off by a word, and the two diverge by up to 1.8× on short shots, which is where the decisions are tightest. Treat short-shot budgets as possibly far too tight, and never cite either form as measured.</p></div>
 </section>
@@ -350,7 +350,7 @@ delivery, and says: &lt;d&gt;[English] Last crossing until Thursday.&lt;/d&gt; H
 close and her jaw stops moving as she pushes back from the rail. A younger man
 in a canvas jacket stands two paces behind her and produces no vocal sound.
 The camera trucks right with small amplitude at slow speed, carrying the
-harbour lights across the frame. [Shot 2] At 00:05.000, the shot cuts to a
+harbour lights across the frame. [Shot 2] The shot cuts to a
 close shot of the man's hands folding a paper timetable against his knee. The
 man, on-screen, mid-twenties, with a dry, slightly hoarse tenor (S2), looks up
 and answers: &lt;d&gt;[English] Then we wait it out here.&lt;/d&gt; His lips settle closed

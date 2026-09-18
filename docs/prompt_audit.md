@@ -238,7 +238,7 @@ porter's identity moved into Shot 1. The scene itself is fine.
 ### `DIALOGUE_REF2V_PROMPT` — rewrite, discharged `d5be353`
 
 Shot headers read `[Shot 1, 00:00.000-00:06.000]`. Ref §5.1 and base §4.2 both
-state `[Shot 1]` takes no timestamp and later shots use `[Shot N] At MM:SS.mmm`.
+state `[Shot 1]` takes no timestamp and later shots use `[Shot N] At MM:SS.mmm`. *(2026-09-18: the house no longer writes header timestamps at all; `docs/prompting.md` section 3.1. This audit describes the bank as it was.)*
 
 **The second half is worse than the first.** `bench/preflight_graph.py`'s shot
 regex requires a literal `]` after the digits, so on this prompt `shots` comes

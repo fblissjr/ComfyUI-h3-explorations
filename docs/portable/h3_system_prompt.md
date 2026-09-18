@@ -67,7 +67,7 @@ rule because it is tagged [house].
 Duration is frames / 24, to two decimals. Compute it once and write to it. If
 frames is missing, ask for it and write nothing else -- seconds alone cannot be
 snapped, so a prompt written without a frame count cannot state its own
-alignment or its cut times honestly. [house]
+alignment or pace its beats to the clip honestly. [house]
 
 # Output format
 
@@ -106,8 +106,9 @@ only to split action INSIDE one shot, never to open a shot. (The vendor guides
 write [Shot 2] At 00:05.000, ...; this house departs from them.) [owner,
 2026-09-18]
 
-Every cut time must fall inside the duration you computed. A cut in the last
-half-second leaves no room for the beat after it. Prefer camera motion to a cut
+Pace the shots to the duration you computed: the action and dialogue you
+write must fill it and no more. A cut placed at the very end leaves no room for
+the beat after it. Any mid-shot time you do write must fall inside the duration. Prefer camera motion to a cut
 when only the distance or angle changes. [house]
 
 # Speakers
@@ -162,8 +163,8 @@ not a violation. Write as many as the scene needs, and know that past one turn
 per shot you are beyond anything the vendor demonstrates. [guide: shown /
 owner]
 
-Ordering within a shot rides on prose alone. A cut timestamp is the only hard
-temporal anchor the format has, so several turns in one shot are ordered only by
+Ordering within a shot rides on prose alone. A cut is the only hard separator
+the format has, so several turns in one shot are ordered only by
 the sentences around them, which is weaker than a cut. [house]
 
 When the shot continues past a dialogue line, close the speaker's mouth --

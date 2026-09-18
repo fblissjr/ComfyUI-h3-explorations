@@ -1190,8 +1190,16 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     # shot, and the t2va path returns before reading `shots` at all. Found
     # 2026-09-01 writing the first multi-shot keyframe examples.
     shots = re.findall(SHOT_HEADER_RE, dd)
-    if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
-        out.append(("FAIL", "[Shot 1] carries a timestamp; it must not"))
+    # HOUSE RULE since 2026-09-18 (the owner): NO shot header carries a
+    # timestamp; a time is written only to split action INSIDE one shot. The
+    # vendor guides open later shots with `At MM:SS.mmm,` and until that date
+    # this only refused one on `[Shot 1]`. The three rules below it still run
+    # on whatever stamps a prompt has, so they now guard the mid-shot times.
+    stamped = [n for n, body in shots if re.match(r"\s*At \d", body)]
+    if stamped:
+        out.append(("FAIL", f"[Shot {stamped[0]}] opens with a timestamp; shot headers carry "
+                            "none (house rule 2026-09-18): write `[Shot N] The shot cuts to ...`, "
+                            "and use a time only to split action inside one shot"))
     stamps = [int(a) * 60 + float(b)
               for a, b in re.findall(r"At (\d+):(\d+\.\d+)", dd)]
     if stamps != sorted(stamps):

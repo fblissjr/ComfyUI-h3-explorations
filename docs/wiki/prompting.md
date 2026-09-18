@@ -76,6 +76,7 @@ prompt already in a graph, `bench/preflight_graph.py <graph.json>`.
 | No negative prompt; guidance is distilled in | `prompting.md` §15.1 |
 | Camera vocabulary is checked by `bench/check_camera_vocabulary.py`; amplitude and speed fail, an off-table motion warns | `prompting.md` §11, §13 |
 | Mood words in the music line break a guide sentence nothing checks; found across a dozen bank entries on 2026-09-03 | `prompt_audit.md` |
+| Shot headers carry no timestamps: `[Shot 2] The shot cuts to ...`. A time is written only to split action inside one shot. The owner's rule, 2026-09-18; it departs from both vendor guides, preflight fails a stamped header, and it is not yet measured in either direction (`Video/timestamps_test/`) | [`prompting.md`](../prompting.md), section 3.1 |
 | *2026-09-18: check the bank's `frames` first; the case that taught this was a 107-frame prompt rendered at 345, which the runner now refuses.* A long single shot with a few seconds of scripted action is filled by the model with undeclared people and motion; a person entering space a zoom-out has just revealed tends to morph in rather than walk in. Such a scene is a stress scene, good for telling candidates apart and wrong for choosing a default | [`eval_comparison.md`](../eval_comparison.md), "A stress scene is not a typical scene" |
 | A bank prompt passed with and without its trailing newline is two different samples; rows of a stack must share the prompt byte for byte, and the clip's embedded `prompt` is how to check | same section |
 

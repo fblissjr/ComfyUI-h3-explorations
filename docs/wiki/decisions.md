@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-18
 
+- **No timestamps on shot headers (the owner).** "The only time you should use
+  timestamps in prompts is if you break stuff up mid-shot." Removed from the
+  whole prompt bank, the shipped graphs, the prompting guide's examples, the
+  portable system prompt and the prompt skill; `bench/preflight_graph.py`
+  fails a stamped header. It departs from the vendor guides' stated format, on
+  the owner's judgement that fixed cut times are "probably a big cause of
+  issues"; one same-seed render with and without them is the first evidence
+  either way (`Video/timestamps_test/`).
+- **`morton` stays off by default.** Six on-length pairs scored blind: plain
+  order better on three, the `3d` reorder on one (a prompt since fixed), two
+  ties; on no scene did the reorder remove a defect plain order had
+  (`bench/results/2026-09-18_sol_reorder_panel.md`).
 - **The noodle bar is retired at full length (the owner).** Its prompt is
   written for 107 frames and was rendered at 345, out of distribution; post
   office (141) likewise. A bank prompt is rendered at the length its bank

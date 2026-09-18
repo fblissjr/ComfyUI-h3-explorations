@@ -1167,7 +1167,7 @@ non_diegetic_music: Traditional 1970s martial arts cinematic percussion at a fas
 
 ## t2va_lighthouse
 
-**t2va, 345 frames, 14.375 s.** Live-action; lighthouse keeper at dawn, two shots with a cut at 3 s; the generator's short default
+**t2va, 345 frames, 14.375 s.** Live-action; lighthouse keeper at dawn, two shots with one cut; the generator's short default
 
 Derived: camera: Push In; cuts: the shot cuts to; 97 words in the main field; 895 characters in all.
 

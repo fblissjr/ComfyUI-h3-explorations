@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.1
+
+### Changed
+
+- **The no-timestamp rule is enforced and written down everywhere a prompt is
+  graded or taught.** `bench/preflight_graph.py` FAILS any shot header that
+  opens with a time (it used to refuse one only on `[Shot 1]`), and through it
+  the bank gate (`build_prompt_bank.py --check`), the prompt grader and
+  `check_prompt_docs_sync.py`, which immediately failed the prompting guide's
+  own worked examples; those and the portable page's example are converted the
+  way the bank was. `docs/prompting.md` (section 3.1, the rule table, the
+  passages that called a timestamped cut the format's only time anchor), the
+  portable system prompt and page, `docs/checks.md`, the wiki's prompting and
+  decisions pages and one `bank.json` brief now say what the house does. The
+  vendor guides' own text and the one verbatim vendor example stay as quoted,
+  labelled as the vendor format.
+
 ## 0.127.0
 
 ### Changed

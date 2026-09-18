@@ -161,7 +161,7 @@ places house prompts have gone wrong.
 | reference labels | not used | `<Subject N>`, `<Picture N>`, `<Video N>`, `<Audio N>` inserted at first appearance and where their roles apply |
 | audio | describes the video's own sound | cites `<Audio N>` in the corresponding shot or audio phase and states whether the signal is copied or referenced |
 
-ref §5.2's opening example:
+ref §5.2's opening example, verbatim (the vendor's timestamped header; the house writes `[Shot 2] The shot cuts to ...`, section 3.1):
 
 ```text
 The target video is in a cinematic, literary music-video style with soft lighting and a slightly desaturated color palette.
@@ -199,12 +199,11 @@ and do not "correct" a prompt on this axis. What *is* stated: entries inside
 > told the clip's duration. Every header timestamp was removed from
 > `prompt_bank/` on that date. NOT yet measured in either direction: a same-seed
 > render of one three-shot prompt with and without its cut times was queued the
-> same day (`Video/timestamps_test/`). Every later passage in this document
-> that shows or requires a header timestamp (the graded examples of section 10,
-> the rule table's cut-time rows, "the cut carries the timestamp") describes
-> the vendor format and the bank as it was before this rule, and is due a
-> rewrite; `preflight_graph.py`'s three cut-time rules fire only on stamps that
-> exist, so they now guard the mid-shot exception alone.
+> same day (`Video/timestamps_test/`). The graded examples of section 10 and
+> the rule table were converted with the bank. `preflight_graph.py` now FAILS
+> any shot header that opens with a time; its older cut-time rules (strictly
+> increasing, inside the clip's duration) still run on whatever times a prompt
+> has, so they now guard the mid-shot exception.
 
 base §4.2 and ref §5.1, *stated* (the vendor format; superseded for shot
 headers by the house rule above):
@@ -360,7 +359,7 @@ The camera holds a static shot as the runner exits the frame.
   and the concept is "write nothing".
 - **`Truck Left` and `Tracking Shot` are different rows.** `tracks left`
   conflates them.
-- **A `[Shot N]` header carrying a timestamp already IS the cut.** `whip pan` is
+- **A `[Shot N]` header already IS the cut.** `whip pan` is
   absent from the table entirely, and in the prompt where it shipped it also
   re-described a cut the header had already made. Write the cut, then the move.
 
@@ -612,7 +611,7 @@ measured]
 - **Shorten generated dialogue until it fits; never pad it** with filler,
   babble or vocal lead-ins outside `<d>`. [HOUSE, external writer prompt]
 - **Cuts and shot counts come from the scene's beats**, not from an earlier
-  prompt: copying one prompt's cut times or shot count into another is the
+  prompt: copying one prompt's shot count or pacing into another is the
   failure this section was written against. The last-cut margin is in §3.4.
   [HOUSE]
 
@@ -1104,8 +1103,11 @@ prompt in a shipped graph of the requested mode and runs the same grader.
     python bench/grade_prompt_text.py --mode fl2va --length 345 example.txt
 
 **A prompt is conformant AT A DURATION**, which is why every heading names one.
-`S.SS` in Part One and every `At MM:SS.mmm` cut resolve against the snapped
-length, so the same text is correct at 345 frames and wrong at 192. Pass
+`S.SS` in Part One and any mid-shot time resolve against the snapped length,
+and the action and dialogue are written to fill it, so the same text is correct
+at 345 frames and wrong at 192 (the noodle bar, a 107-frame prompt, was
+rendered at 345 for three days in September 2026 and its improvised tail was
+read as an attention artifact). Pass
 `--length` to grade at the duration the example is written for.
 
 **For ref2va, pass `--like` a graph that wires the references the prompt
@@ -1117,7 +1119,7 @@ names. The tool says so when every failure is of that shape.
 ### 10.1 T2VA — 243 frames, 10.125 s, two shots
 
 ```text
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a night ferry deck across the ten-second take, wet steel railing in the foreground and harbour lights smeared behind. A dock worker in her forties with a low, level alto (S1) leans on the rail, on-screen, unhurried delivery, and says: <d>[English] Last crossing until Thursday.</d> Her lips close and her jaw stops moving as she pushes back from the rail. A younger man in a canvas jacket stands two paces behind her and produces no vocal sound. The camera trucks right with small amplitude at slow speed, carrying the harbour lights across the frame. [Shot 2] At 00:05.000, the shot cuts to a close shot of the man's hands folding a paper timetable against his knee. The man, on-screen, mid-twenties, with a dry, slightly hoarse tenor (S2), looks up and answers: <d>[English] Then we wait it out here.</d> His lips settle closed and the paper flattens under his thumb.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a night ferry deck across the ten-second take, wet steel railing in the foreground and harbour lights smeared behind. A dock worker in her forties with a low, level alto (S1) leans on the rail, on-screen, unhurried delivery, and says: <d>[English] Last crossing until Thursday.</d> Her lips close and her jaw stops moving as she pushes back from the rail. A younger man in a canvas jacket stands two paces behind her and produces no vocal sound. The camera trucks right with small amplitude at slow speed, carrying the harbour lights across the frame. [Shot 2] The shot cuts to a close shot of the man's hands folding a paper timetable against his knee. The man, on-screen, mid-twenties, with a dry, slightly hoarse tenor (S2), looks up and answers: <d>[English] Then we wait it out here.</d> His lips settle closed and the paper flattens under his thumb.
 
 overall_soundscape: Diesel engine rumble carries under a steady wash of water against the hull. Wind pulls at loose canvas, boots scuff on wet steel, and a mooring chain knocks twice against the deck plate.
 
@@ -1154,12 +1156,12 @@ non_diegetic_music: N/A
 
 #### 10.2.3 — 345 frames, 14.375 s
 
-**Two shots, one speaking turn, dialogue in the second.** The cut carries the timestamp; `[Shot 1]` does not.
+**Two shots, one speaking turn, dialogue in the second.** Neither header carries a time (section 3.1).
 
 ```text
 For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
 
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a woman in a grey linen shirt stands among staged seedling trays in a glasshouse, flat overcast light falling through the panes above her. She lifts one tray to eye level and turns it slowly. The camera pushes in with small amplitude at slow speed toward her hands. [Shot 2] At 00:07.000, the camera cuts to a close shot of the tray against her chest. The woman, on-screen, with a warm unhurried mezzo (S1), looks up and says: <d>[English] These two came up early.</d> Her lips close and her jaw stops moving as she sets the tray down on the bench.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a woman in a grey linen shirt stands among staged seedling trays in a glasshouse, flat overcast light falling through the panes above her. She lifts one tray to eye level and turns it slowly. The camera pushes in with small amplitude at slow speed toward her hands. [Shot 2] The camera cuts to a close shot of the tray against her chest. The woman, on-screen, with a warm unhurried mezzo (S1), looks up and says: <d>[English] These two came up early.</d> Her lips close and her jaw stops moving as she sets the tray down on the bench.
 
 overall_soundscape: A steady wash of rain on glass carries throughout, with the hollow knock of a plastic tray set on a wooden bench and the faint drip of condensation running down a pane.
 
@@ -1229,7 +1231,7 @@ non_diegetic_music: N/A
 ```text
 How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 14.38-second mark of the target video.
 
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a chalkboard wall in an empty lecture room, late afternoon light raking across it from tall windows. A lecturer in a rolled-sleeve shirt works left to right, filling the board with diagrams, his back mostly to camera. He produces no vocal sound. The camera pans right with small amplitude at slow speed, following the writing as it advances. [Shot 2] At 00:08.000, the camera cuts to a medium shot from the far side of the room, the filled board now behind him. He sets the chalk in the tray, steps back once to take in the whole board, and folds his arms. His stance, the finished board, the raking light and the camera's angle and framing converge on Picture 2 at the end.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a chalkboard wall in an empty lecture room, late afternoon light raking across it from tall windows. A lecturer in a rolled-sleeve shirt works left to right, filling the board with diagrams, his back mostly to camera. He produces no vocal sound. The camera pans right with small amplitude at slow speed, following the writing as it advances. [Shot 2] The camera cuts to a medium shot from the far side of the room, the filled board now behind him. He sets the chalk in the tray, steps back once to take in the whole board, and folds his arms. His stance, the finished board, the raking light and the camera's angle and framing converge on Picture 2 at the end.
 
 overall_soundscape: Chalk taps and drags against slate in short irregular bursts, each stroke ending with a dry click. The room carries a long empty reverb, with distant corridor footsteps passing once and fading.
 
@@ -1257,7 +1259,7 @@ non_diegetic_music: Light pizzicato strings at a moderate tempo, playful and eve
 ```text
 How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 14.38-second mark of the target video.
 
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a guard in a navy uniform at a museum door, the gallery beyond her lit low for closing. She checks a wall clock, then walks the length of the doorway and puts her hand on the frame. The guard, on-screen, with a level unhurried contralto (S1), says: <d>[English] Two minutes, then we lock up.</d> Her lips close and her jaw stops moving as she turns back to the gallery. The camera trucks left with small amplitude at slow speed alongside her. [Shot 2] At 00:08.500, the camera cuts to a wide shot of the gallery from behind her, the far lights already out. She reaches the last switch, holds still a moment, and lowers her hand. Her position, the darkened gallery, the remaining doorway light and the camera's angle and framing converge on Picture 2 at the end.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a guard in a navy uniform at a museum door, the gallery beyond her lit low for closing. She checks a wall clock, then walks the length of the doorway and puts her hand on the frame. The guard, on-screen, with a level unhurried contralto (S1), says: <d>[English] Two minutes, then we lock up.</d> Her lips close and her jaw stops moving as she turns back to the gallery. The camera trucks left with small amplitude at slow speed alongside her. [Shot 2] The camera cuts to a wide shot of the gallery from behind her, the far lights already out. She reaches the last switch, holds still a moment, and lowers her hand. Her position, the darkened gallery, the remaining doorway light and the camera's angle and framing converge on Picture 2 at the end.
 
 overall_soundscape: Hard-soled footsteps carry across a stone gallery floor with a long cold reverb. Switches throw with a heavy mechanical clack, and the room tone drops noticeably as each bank of lights goes out.
 
@@ -1299,7 +1301,7 @@ non_diegetic_music: N/A
 ```text
 How the reference pictures align with the target video — <Picture 1> (from [Shot 2]) aligns with the 14.38-second mark of the target video.
 
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a rooftop at dusk, city haze behind and a folded deck chair by the parapet. A woman in a long cardigan steps out through a stairwell door and crosses toward the parapet, unhurried. She produces no vocal sound. The camera pans right with small amplitude at slow speed to follow her across the roof. [Shot 2] At 00:07.500, the camera cuts to a medium shot from beside the parapet as she arrives. She unfolds the deck chair, sets it square to the view, and lowers herself into it. Her seated position, the opened chair, the fading dusk light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a rooftop at dusk, city haze behind and a folded deck chair by the parapet. A woman in a long cardigan steps out through a stairwell door and crosses toward the parapet, unhurried. She produces no vocal sound. The camera pans right with small amplitude at slow speed to follow her across the roof. [Shot 2] The camera cuts to a medium shot from beside the parapet as she arrives. She unfolds the deck chair, sets it square to the view, and lowers herself into it. Her seated position, the opened chair, the fading dusk light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
 
 overall_soundscape: A steady rooftop wind carries throughout with occasional gusts. A metal door swings shut once behind her, the chair frame clicks as it opens, and distant traffic hums many floors below.
 
@@ -1327,7 +1329,7 @@ non_diegetic_music: A solo clarinet line at a slow tempo, curious and unhurried,
 ```text
 How the reference pictures align with the target video — <Picture 1> (from [Shot 2]) aligns with the 14.38-second mark of the target video.
 
-integrated_multimodal_description: [Shot 1] Live-action, documentary, a medium shot frames a farrier in a leather apron at the open side of a stable yard, cold morning light flattening the scene. He works a rasp along the edge of a hoof held between his knees, steady and repetitive. The farrier, on-screen, with a low weathered baritone (S1), says: <d>[English] Nearly there, stand easy.</d> His lips close and his jaw stops moving as he returns to the rasp. The camera holds a static shot. [Shot 2] At 00:08.000, the camera cuts to a wide shot of the yard as he finishes. He lowers the hoof, straightens up, and rests one hand on the horse's shoulder. His standing position, the settled horse, the flat morning light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+integrated_multimodal_description: [Shot 1] Live-action, documentary, a medium shot frames a farrier in a leather apron at the open side of a stable yard, cold morning light flattening the scene. He works a rasp along the edge of a hoof held between his knees, steady and repetitive. The farrier, on-screen, with a low weathered baritone (S1), says: <d>[English] Nearly there, stand easy.</d> His lips close and his jaw stops moving as he returns to the rasp. The camera holds a static shot. [Shot 2] The camera cuts to a wide shot of the yard as he finishes. He lowers the hoof, straightens up, and rests one hand on the horse's shoulder. His standing position, the settled horse, the flat morning light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
 
 overall_soundscape: A rasp draws across horn in long even strokes with a dry grain to each pass. Hooves shift on wet cobbles, a bucket handle rings once, and the yard carries an open outdoor ambience with birdsong at a distance.
 
@@ -1358,7 +1360,7 @@ retention_analysis:
 detailed_description:
 The target video is in a warm, naturalistic documentary style with a single practical light source and a slightly muted colour palette.
 [Shot 1] A medium shot establishes <Subject 2>, the bicycle-repair workshop, its whitewashed brick wall and pegboard of hanging tools lit by one bare bulb over the bench. <Subject 1> (S1), the woman with cropped black hair and a tan canvas apron over a grey long-sleeved shirt, stands at the floor stand on the right of frame with a rear wheel clamped in the truing jig, a spoke key held between two fingers of her right hand. She rotates the wheel a half turn, watches the rim pass the indicator, and stops it with the flat of her palm. The camera pushes in with small amplitude at slow speed toward the jig as the rim comes to rest. A man in a wet cycling jacket stands just inside the doorway at the left edge of frame, helmet under one arm, and produces no vocal sound. Using the low, even timbre referenced from <Audio 1>, <Subject 1> (S1) says without looking up, <d>[English] Two spokes are loose.</d> Her lips close and her jaw stops moving as she fits the spoke key onto a nipple and turns it a quarter turn.
-[Shot 2] At 00:04.500, the shot cuts to a close shot over her shoulder, the rim filling the lower half of the frame and the pegboard soft behind it. Her thumb steadies the rim while the spoke key turns twice more, and the leather cord at her wrist slides against the apron edge. The camera holds a static shot as she releases the rim and sets it spinning. The man in the wet cycling jacket, on-screen at the frame edge, mid-forties, with a light, hesitant tenor (S2), steps forward and asks, <d>[English] Can I still ride it home?</d> His lips close and he shifts the helmet to his other arm. <Subject 1> (S1) watches one full rotation, then answers in the same low, even timbre referenced from <Audio 1>, <d>[English] Yes. Slowly.</d> Her lips settle closed and her jaw stops moving while the wheel keeps turning, the rim passing the indicator without touching it, and the bare bulb throws a moving band of light across the pegboard behind her.
+[Shot 2] The shot cuts to a close shot over her shoulder, the rim filling the lower half of the frame and the pegboard soft behind it. Her thumb steadies the rim while the spoke key turns twice more, and the leather cord at her wrist slides against the apron edge. The camera holds a static shot as she releases the rim and sets it spinning. The man in the wet cycling jacket, on-screen at the frame edge, mid-forties, with a light, hesitant tenor (S2), steps forward and asks, <d>[English] Can I still ride it home?</d> His lips close and he shifts the helmet to his other arm. <Subject 1> (S1) watches one full rotation, then answers in the same low, even timbre referenced from <Audio 1>, <d>[English] Yes. Slowly.</d> Her lips settle closed and her jaw stops moving while the wheel keeps turning, the rim passing the indicator without touching it, and the bare bulb throws a moving band of light across the pegboard behind her.
 
 overall_soundscape:
 Quiet workshop room tone and a faint street hum continue underneath throughout. A spoke key ticks against metal in short bursts, a wheel rim hums as it spins down, and wet fabric creaks as the waiting man shifts his weight.
@@ -1395,10 +1397,10 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | `<Picture N>` bracket convention inside the body | GUIDE base §3.1-§3.3, *shown* | `preflight_graph.py` accepts bare `Picture N` only on a two-keyframe graph |
 | the prompt names exactly the labels the graph wires | HOUSE (runtime) | `check_ref_prompt_labels.py`, `preflight_graph.py`, both directions |
 | label ordinals follow append-chain order; a soundtrack's `<Audio j>` precedes its own `<Video k>`; `<Audio>` is one counter | HOUSE (runtime) | `check_reference_order.py` |
-| `[Shot 1]` carries no timestamp | GUIDE base §4.2, ref §5.1 | `preflight_graph.py` |
-| cut times strictly increasing | GUIDE base §4.2 | `preflight_graph.py` |
-| cut times fall inside the video duration | GUIDE base §4.2 | `preflight_graph.py` |
-| `[Shot N] At MM:SS.mmm` format | GUIDE ref §5.1 (*stated*), base §4.2 (*shown*) | nothing — a malformed header makes preflight's shot list empty and takes three rules inert |
+| NO shot header carries a timestamp; a time only splits action inside a shot | HOUSE (the owner, 2026-09-18); departs from GUIDE base §4.2, ref §5.1 | `preflight_graph.py` (FAIL), and through it `build_prompt_bank.py --check` and `check_prompt_docs_sync.py` |
+| mid-shot times strictly increasing | GUIDE base §4.2, applied to the times the house still allows | `preflight_graph.py` |
+| mid-shot times fall inside the video duration | GUIDE base §4.2, likewise | `preflight_graph.py` |
+| `[Shot N]` header format, sequential numbers | GUIDE ref §5.1, base §4.2, minus their cut time | nothing — a malformed header makes preflight's shot list empty and takes the shot rules inert |
 | the five cut phrasings; dissolve/fade/wipe on request only | GUIDE base §4.2 | nothing |
 | camera motion type from the twelve-row table | GUIDE base §4.3 | `check_camera_vocabulary.py`, partially: `vocab_matches_guide` pins the check's own motion list to §4.3 (red/green) and `denied_motion` reports known-bad phrases as WARN and never goes red, so a novel out-of-table phrase is caught by neither. This was the escaped instance: a shipped prompt carried `whip pan`, `tracks left` and `at medium amplitude and moderate speed` and every gate passed it. The check has run since 2026-08-28 and this row said "nothing" until 2026-09-01 |
 | amplitude only `with small/large amplitude` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, red/green over every shipped prompt since 2026-08-28; this row said "nothing" until 2026-09-01) |
@@ -1848,11 +1850,11 @@ observed outputs, not measurements.
    exact phrase verbatim on every mention. Keep the name too; never rely on it.
    Naming the *property* as a style anchor is worth doing.
 3. **Nothing in the prompt knows how long the clip is** (§15.2), so a writer
-   picks cut timestamps by feel and overruns the clip. §3.3 is the fix.
+   paces beats by feel and overruns the clip. §3.3 is the fix. (Until 2026-09-18 this read "picks cut timestamps"; the house no longer writes them, section 3.1.)
 4. **Line breaking has no single convention** and the vendor's own artifacts use
    two — see §12.11 and §14.3, which is where this now lives.
 5. **Characters talk over each other**, from three causes: two speakers in one
-   shot with no time anchor (a timestamped cut is the only hard temporal anchor
+   shot with nothing to order them but prose (a cut is the only hard separator
    the format offers); a **compound speaker id used by mistake** — `(S4,S5)` is
    the documented notation for literal simultaneous group speech, so it
    instructs two characters to say the line in unison; and simply too many
