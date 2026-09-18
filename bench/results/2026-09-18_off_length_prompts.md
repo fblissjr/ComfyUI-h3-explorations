@@ -66,7 +66,24 @@ than its bank entry declares, names the fix in the message, and takes
 `--allow-off-length` when the mismatch is the thing under test. Its `@bank:`
 shortcut now hands over the stripped text.
 
-## The test that follows
+## The test, run the same day
+
+The noodle bar at 107 frames and post office at 141, plain order against the
+`3d` reorder, seed 730451892, default chain, memory compiler on
+(`2026-09-18_on_length_arms.jsonl`; clips in `Video/on_length/`). All four
+rendered without error.
+
+Noodle bar, read from five stills per clip across the take (frames 20 to 100),
+by the analyst, NOT yet by the owner: in BOTH orderings there is one customer
+in a grey raincoat and one cook in an apron for the whole clip, the customer
+raises his hand, the sign reads correctly, and no extra figure arrives. So at
+the length the prompt was written for, plain order shows none of what the
+345-frame renders showed. The morph was the over-length render. Stills cannot
+see flicker or a brief morph between sampled frames; the owner's look at the
+two clips is what closes this.
+
+What was planned before the test:
+
 
 The noodle bar at 107 frames and post office at 141, plain order against the
 `3d` reorder, same seed (`Video/on_length/`). If plain order is clean at the

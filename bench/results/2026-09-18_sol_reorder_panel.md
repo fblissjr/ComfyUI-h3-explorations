@@ -53,13 +53,24 @@ Blind pairs, top and bottom in random order per scene:
 anything morph, duplicate, or lose its identity? Stacks carry no audio; sound
 goes back to the singles (`*-audio.mp4`).
 
-Owner's verdicts: not yet scored.
+Owner's verdicts, 2026-09-18, all six on-length pairs (post office is off-length and was skipped):
+
+- plain order better: diner, kitchen, market (slightly)
+- `3d` better: cafe_kids, on a prompt with two wording faults that are now fixed; re-rendered as `cafe_kids_v2_*`, not yet scored
+- no difference: crowd_churn_long, hardware_aisle_short
+
+**Conclusion.** On no scene did the reorder remove a defect plain order had. Where the owner saw a difference it was the
+difference between two takes (staging, which character speaks, a figure the prompt did not ask for, the sex of a character),
+and it went to plain order three times and to `3d` once. `morton` stays OFF by default. The capture metrics had said the
+reorder lowers Sol's error on most cells and raises it on one block of one scene; the eye does not see the former as a
+benefit on scenes rendered at the length their prompts were written for. What is left for the reorder is an untested use:
+letting tau rise for speed (`3d` at a higher tau against plain order at tau 1.0, same six scenes).
 
 | scene | plain order | `3d` reorder | notes (scored blind as clip 1 / clip 2; each key opened only after its verdict) |
 |---|---|---|---|
 | diner | **better, the owner's pick**: "a better scene overall ... more things in it that make sense", a neon sign of the diner, more legible text | `3d`: weaker; less legible text, and a cook walks past OUTSIDE briefly, which the prompt does not ask for (its cook is at the griddle, in the background) | Owner, 2026-09-18, blind as clip 1 / clip 2; key opened after: clip 1 is `3d`, clip 2 is plain (the 2026-09-15 clip). Column order here is plain, then `3d`. A loss for the reorder on a typical scene: subtle, but on text legibility and an unscripted figure, which are the kinds of thing the panel exists to catch |
-| kitchen | | | |
-| market | | | |
+| kitchen | **the owner's pick**: at about 4 s the line cook is a short-haired woman with earrings, which matches the prompt ("her", "she", a "light, quick soprano") | `3d`: the line cook at about 4 s is a man, and on the audio clip a woman's voice comes out of a man's face ("weird") | Owner, 2026-09-18, blind; key opened after: clip 1 is `3d`, clip 2 is plain (the 2026-09-15 clip). A loss for the reorder on a character the prompt does specify |
+| market | **slightly better, the owner's pick**: no coins seen, but they are heard and "you can assume he put them in"; she stacks the oranges onto crates at the end, as the prompt asks | `3d`: good too, but the coins appear from the middle of the crate | Owner, 2026-09-18, blind; key opened after: clip 1 is plain (the 2026-09-15 clip), clip 2 is `3d`. "Both are good"; without the coin moment the owner "may have said equal" (their message names clip 1 for the coins at that point and clip 2 earlier; read as clip 2, which is where they first placed it). The owner puts the coins down to the prompt, which names no one dropping them, the same sentence behind the coins-from-nowhere on the other market seed (`2026-09-15_block49_repro_batch.md`). So: a slight plain-order preference, on a moment the prompt leaves open |
 | hardware_aisle_short | no difference seen | no difference seen | Owner, 2026-09-18, blind: "im not sure i can tell a difference with hardware." Key opened after the verdict |
 | post_office | | | |
 | cafe_kids | plain order: no morph or duplicate reported. Two burgers on each child's plate but the red-haired boy's; the brunette reads slightly red-haired; the red-haired boy (centre) and the soda girl speak the lines the prompt gives them | `3d`: no morph or duplicate reported. One burger each; "just better" framing, the better-looking clip; the red-haired boy sits at the left edge, out of frame, and his line is spoken by the brunette girl, whom the prompt declares silent | Owner, 2026-09-18, scored blind as clip 1 / clip 2, key opened after: clip 1 is plain, clip 2 is `3d`. Owner's call: "if the prompt isn't specific on that, then clip 2 wins." The prompt does not say where anyone sits; it does say the red-haired boy is on-screen and speaks that line, that the brunette makes no vocal sound, and "a plate of hamburgers" (plural) each. **Owner's verdict: clip 2 (`3d`) wins.** Two burgers per child is implausible whatever the grammar allows ("why would each kid be eating two hamburgers"); the plural is loose prompt wording that plain order rendered literally and `3d` rendered sensibly. Caveat kept: `3d` puts the first line on the wrong child. Neither clip shows a morph or a duplicate, so this is a win on the quality of the take, not on the defect the panel asks about. Both prompt fixes made the same day at the owner's word (one hamburger per plate; the red-haired boy seated at the centre facing the camera), and the pair re-rendered on the new text as `cafe_kids_v2_*`, stack `blind_cafe_kids_v2_plain_vs_3d.mp4` |
