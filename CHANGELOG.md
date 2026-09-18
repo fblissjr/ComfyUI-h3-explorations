@@ -4,6 +4,16 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.2
+
+### Changed
+
+- **`bench/convert_t2va_to_ref2va.py` follows the no-timestamp rule** (the
+  owner). It copies shot bodies into its output verbatim, so a source written
+  before 2026-09-18 carried its header times straight through; they are now
+  dropped on the way in and the sentence re-capitalised, while a time inside a
+  shot is kept. The two default cut times it parsed and never used are gone.
+
 ## 0.127.1
 
 ### Changed
@@ -59,9 +69,10 @@ artifact.
 
 - Bench instruments that write their own timestamped prompts
   (`bench/bench_e2e_h3.py::PROMPT_LONG`, `bench/grade_h3_marker_tokens.py`,
-  `bench/run_shot_count_ablation.py`) and `bench/convert_t2va_to_ref2va.py`,
-  which inserts default cut times when it finds none. Their past records
-  depend on those bytes.
+  `bench/run_shot_count_ablation.py`). Their past records depend on those
+  bytes. (*Corrected in 0.127.2:* this entry also said
+  `bench/convert_t2va_to_ref2va.py` inserts default cut times; it parsed two
+  defaults and never used them.)
 
 ## 0.126.2
 

@@ -76,11 +76,16 @@ def parse_t2va_prompt(path: Path) -> dict:
         cname = re.sub(r"^(?:An?\s+.*?frames\s+)", "", cname).strip()
         chars.append((cname, cactor))
 
-    # Extract timestamps
-    t2_m = re.search(r"At (\d+:\d+\.\d+),", shot2_raw)
-    t3_m = re.search(r"At (\d+:\d+\.\d+),", shot3_raw)
-    t2 = t2_m.group(1) if t2_m else "00:04.750"
-    t3 = t3_m.group(1) if t3_m else "00:09.150"
+    # HOUSE RULE since 2026-09-18 (the owner): no shot header carries a
+    # timestamp. A source written before that date opens its later shots with
+    # "At MM:SS.mmm, the shot cuts to"; the shot bodies are copied into the
+    # output verbatim, so the time is dropped here and the sentence re-capitalised.
+    # (Until then this parsed the two times, with defaults, and never used them.)
+    def _no_header_time(body: str) -> str:
+        return re.sub(r"^At \d+:\d+(?:\.\d+)?,\s*(\w)", lambda m: m.group(1).upper(), body)
+
+    shot2_raw = _no_header_time(shot2_raw)
+    shot3_raw = _no_header_time(shot3_raw)
 
     return {
         "path": path,
@@ -88,8 +93,6 @@ def parse_t2va_prompt(path: Path) -> dict:
         "shot1_body": shot1_body,
         "shot2_raw": shot2_raw,
         "shot3_raw": shot3_raw,
-        "t2": t2,
-        "t3": t3,
         "chars": chars,
         "soundscape": soundscape,
         "music": music,
