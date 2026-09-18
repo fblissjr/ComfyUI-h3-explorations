@@ -1,0 +1,647 @@
+{
+  "what": "Sol-Attn error against fp32 dense attention versus routed density, per token ordering, tau swept; only the video rows are permuted, by the node's own _perm_for",
+  "model": "MiniMax H3, int8 convrot checkpoint, base 16-step t2v captures",
+  "conditions": {
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "comfy_kitchen": "0.2.35+sol.8176242",
+    "heads": 8,
+    "grid_thw": [
+      102,
+      24,
+      42
+    ],
+    "video_start": 1670,
+    "audio_span": [
+      520,
+      1670
+    ],
+    "sink_conditioning": "exact_kv_and_rows",
+    "pooled_tail": true,
+    "qk_balance": true,
+    "captures": [
+      "qkv_L104486_S104486_b49_s13.pt",
+      "qkv_L104486_S104486_b24_s13.pt",
+      "qkv_L104486_S104486_b0_s13.pt",
+      "qkv_L104486_S104486_b49_s5.pt"
+    ]
+  },
+  "how_to_read": "an ordering beats raster only where its (density, rel_l2) curve lies below raster's; density is cost (call time is linear in it)",
+  "cells": {
+    "b49_s13": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.3174,
+          "rel_l2": 0.02562,
+          "call_ms": 40.72
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26531,
+          "rel_l2": 0.02765,
+          "call_ms": 34.59
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21885,
+          "rel_l2": 0.03125,
+          "call_ms": 29.25
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17804,
+          "rel_l2": 0.03721,
+          "call_ms": 23.77
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12777,
+          "rel_l2": 0.05182,
+          "call_ms": 17.79
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07483,
+          "rel_l2": 0.07892,
+          "call_ms": 12.32
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.32013,
+          "rel_l2": 0.02259,
+          "call_ms": 41.83
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26839,
+          "rel_l2": 0.02514,
+          "call_ms": 34.45
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22129,
+          "rel_l2": 0.037,
+          "call_ms": 29.04
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17933,
+          "rel_l2": 0.05165,
+          "call_ms": 23.87
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12861,
+          "rel_l2": 0.0596,
+          "call_ms": 18.32
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07543,
+          "rel_l2": 0.08091,
+          "call_ms": 12.45
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.32178,
+          "rel_l2": 0.03024,
+          "call_ms": 41.88
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27005,
+          "rel_l2": 0.03512,
+          "call_ms": 35.23
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22374,
+          "rel_l2": 0.04379,
+          "call_ms": 29.5
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18324,
+          "rel_l2": 0.05917,
+          "call_ms": 24.47
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13363,
+          "rel_l2": 0.0814,
+          "call_ms": 18.6
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07947,
+          "rel_l2": 0.12717,
+          "call_ms": 12.74
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.32459,
+          "rel_l2": 0.0266,
+          "call_ms": 43.0
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2733,
+          "rel_l2": 0.03098,
+          "call_ms": 35.73
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22705,
+          "rel_l2": 0.04232,
+          "call_ms": 29.6
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18636,
+          "rel_l2": 0.05885,
+          "call_ms": 25.11
+        },
+        {
+          "tau": 1.5,
+          "density": 0.13612,
+          "rel_l2": 0.08177,
+          "call_ms": 18.93
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08046,
+          "rel_l2": 0.12062,
+          "call_ms": 12.97
+        }
+      ]
+    },
+    "b24_s13": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.30514,
+          "rel_l2": 0.09462,
+          "call_ms": 39.65
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2599,
+          "rel_l2": 0.11112,
+          "call_ms": 34.14
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22013,
+          "rel_l2": 0.12975,
+          "call_ms": 29.41
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18567,
+          "rel_l2": 0.14987,
+          "call_ms": 24.87
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1428,
+          "rel_l2": 0.18518,
+          "call_ms": 19.85
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09167,
+          "rel_l2": 0.25951,
+          "call_ms": 14.45
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.31029,
+          "rel_l2": 0.06097,
+          "call_ms": 40.54
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26322,
+          "rel_l2": 0.07168,
+          "call_ms": 34.65
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22163,
+          "rel_l2": 0.08399,
+          "call_ms": 29.59
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18558,
+          "rel_l2": 0.09811,
+          "call_ms": 24.76
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14142,
+          "rel_l2": 0.12266,
+          "call_ms": 19.77
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09038,
+          "rel_l2": 0.17272,
+          "call_ms": 14.17
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.3112,
+          "rel_l2": 0.08384,
+          "call_ms": 40.33
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26401,
+          "rel_l2": 0.09866,
+          "call_ms": 33.95
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2224,
+          "rel_l2": 0.11499,
+          "call_ms": 29.4
+        },
+        {
+          "tau": 1.2,
+          "density": 0.1865,
+          "rel_l2": 0.13359,
+          "call_ms": 25.14
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14255,
+          "rel_l2": 0.16619,
+          "call_ms": 19.84
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09186,
+          "rel_l2": 0.23513,
+          "call_ms": 14.31
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.3123,
+          "rel_l2": 0.07467,
+          "call_ms": 40.75
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26544,
+          "rel_l2": 0.0882,
+          "call_ms": 34.44
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22409,
+          "rel_l2": 0.10337,
+          "call_ms": 29.55
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18809,
+          "rel_l2": 0.12081,
+          "call_ms": 25.54
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14404,
+          "rel_l2": 0.15097,
+          "call_ms": 20.1
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09289,
+          "rel_l2": 0.21336,
+          "call_ms": 14.62
+        }
+      ]
+    },
+    "b0_s13": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.32075,
+          "rel_l2": 0.09766,
+          "call_ms": 41.88
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26652,
+          "rel_l2": 0.11749,
+          "call_ms": 35.31
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21753,
+          "rel_l2": 0.13471,
+          "call_ms": 28.87
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17253,
+          "rel_l2": 0.14838,
+          "call_ms": 23.24
+        },
+        {
+          "tau": 1.5,
+          "density": 0.11913,
+          "rel_l2": 0.16173,
+          "call_ms": 17.26
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06567,
+          "rel_l2": 0.17835,
+          "call_ms": 11.44
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.32704,
+          "rel_l2": 0.0812,
+          "call_ms": 43.44
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2731,
+          "rel_l2": 0.09932,
+          "call_ms": 35.96
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22466,
+          "rel_l2": 0.11634,
+          "call_ms": 29.43
+        },
+        {
+          "tau": 1.2,
+          "density": 0.18166,
+          "rel_l2": 0.13109,
+          "call_ms": 24.69
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12802,
+          "rel_l2": 0.15112,
+          "call_ms": 18.38
+        },
+        {
+          "tau": 2.0,
+          "density": 0.0721,
+          "rel_l2": 0.18252,
+          "call_ms": 12.43
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.32936,
+          "rel_l2": 0.08516,
+          "call_ms": 41.79
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27508,
+          "rel_l2": 0.10326,
+          "call_ms": 35.87
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22529,
+          "rel_l2": 0.11943,
+          "call_ms": 29.98
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17944,
+          "rel_l2": 0.13312,
+          "call_ms": 24.01
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12414,
+          "rel_l2": 0.14952,
+          "call_ms": 17.84
+        },
+        {
+          "tau": 2.0,
+          "density": 0.0698,
+          "rel_l2": 0.17353,
+          "call_ms": 11.9
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.3284,
+          "rel_l2": 0.08619,
+          "call_ms": 43.27
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2743,
+          "rel_l2": 0.10426,
+          "call_ms": 36.17
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2247,
+          "rel_l2": 0.12017,
+          "call_ms": 29.77
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17891,
+          "rel_l2": 0.13381,
+          "call_ms": 24.13
+        },
+        {
+          "tau": 1.5,
+          "density": 0.12352,
+          "rel_l2": 0.14996,
+          "call_ms": 18.03
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06923,
+          "rel_l2": 0.17248,
+          "call_ms": 11.92
+        }
+      ]
+    },
+    "b49_s5": {
+      "raster": [
+        {
+          "tau": 0.6,
+          "density": 0.33302,
+          "rel_l2": 0.03031,
+          "call_ms": 43.19
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28417,
+          "rel_l2": 0.03376,
+          "call_ms": 36.97
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23909,
+          "rel_l2": 0.03924,
+          "call_ms": 31.61
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19748,
+          "rel_l2": 0.04771,
+          "call_ms": 26.2
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1434,
+          "rel_l2": 0.06548,
+          "call_ms": 19.85
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08442,
+          "rel_l2": 0.09657,
+          "call_ms": 13.46
+        }
+      ],
+      "3d": [
+        {
+          "tau": 0.6,
+          "density": 0.31753,
+          "rel_l2": 0.0295,
+          "call_ms": 40.1
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26444,
+          "rel_l2": 0.03647,
+          "call_ms": 34.59
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2175,
+          "rel_l2": 0.04912,
+          "call_ms": 28.95
+        },
+        {
+          "tau": 1.2,
+          "density": 0.17705,
+          "rel_l2": 0.06387,
+          "call_ms": 23.67
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1282,
+          "rel_l2": 0.07692,
+          "call_ms": 18.04
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07433,
+          "rel_l2": 0.10525,
+          "call_ms": 12.36
+        }
+      ],
+      "2d_frame": [
+        {
+          "tau": 0.6,
+          "density": 0.33214,
+          "rel_l2": 0.03454,
+          "call_ms": 43.56
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28333,
+          "rel_l2": 0.04027,
+          "call_ms": 36.73
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23876,
+          "rel_l2": 0.05,
+          "call_ms": 31.43
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19899,
+          "rel_l2": 0.06656,
+          "call_ms": 26.52
+        },
+        {
+          "tau": 1.5,
+          "density": 0.14875,
+          "rel_l2": 0.09262,
+          "call_ms": 20.44
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09016,
+          "rel_l2": 0.14044,
+          "call_ms": 14.15
+        }
+      ],
+      "hilbert": [
+        {
+          "tau": 0.6,
+          "density": 0.33238,
+          "rel_l2": 0.02995,
+          "call_ms": 43.84
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28372,
+          "rel_l2": 0.0365,
+          "call_ms": 36.72
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2394,
+          "rel_l2": 0.05035,
+          "call_ms": 31.7
+        },
+        {
+          "tau": 1.2,
+          "density": 0.19986,
+          "rel_l2": 0.06723,
+          "call_ms": 26.39
+        },
+        {
+          "tau": 1.5,
+          "density": 0.1497,
+          "rel_l2": 0.09334,
+          "call_ms": 20.57
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09096,
+          "rel_l2": 0.1358,
+          "call_ms": 14.05
+        }
+      ]
+    }
+  }
+}

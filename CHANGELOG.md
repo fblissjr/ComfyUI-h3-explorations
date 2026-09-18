@@ -4,6 +4,26 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.125.0
+
+### Added
+
+- **The noodle bar is captured, and a capture metric finally agrees with the
+  eye about its morph** (`bench/results/2026-09-18_noodle_bar_capture.md`).
+  The capture is of the exact sample the owner judged to morph (the armed
+  render is bit-identical to that clip), plain order, and includes blocks 45
+  and 48 for the first time.
+- **`bench/map_sol_error_on_capture.py`**: per-token Sol error on a capture, by
+  latent frame and inside a named region, per token ordering. On the deep
+  blocks plain order concentrates the error where and when the morph happens
+  and the `3d` reorder removes the concentration; three control regions stay
+  near or below the mean. Whole-call error never separated those arms.
+- **The CUDA ordering sweep on two more scenes**
+  (`bench/results/2026-09-18_sol_orderings_noodle_bar.json`,
+  `_courtroom.json`): the reorder's largest gain yet is on blocks 45 and 48; on
+  the courtroom scene's last block it loses to plain order at tau 1.0 and
+  above, so "wins every cell" was a one-scene result.
+
 ## 0.124.0
 
 ### Added
