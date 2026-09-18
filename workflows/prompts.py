@@ -52,13 +52,23 @@ CONDITIONERS = {"MiniMaxH3Conditioning": "prompt",
 
 
 def text(prompt_id: str) -> str:
-    """The bank text for `prompt_id`, verbatim. Raises if the file is absent,
-    so a generator naming a prompt that does not exist fails at import."""
+    """The bank text for `prompt_id`, STRIPPED of leading and trailing
+    whitespace. Raises if the file is absent, so a generator naming a prompt
+    that does not exist fails at import.
+
+    Stripped since 2026-09-18 (the owner: "avoid footguns"). The files end in
+    a newline, as text files do, and this used to hand that over verbatim, so
+    the newline was baked into some shipped graphs and passed on by runners.
+    One character in a prompt is a different sample: on 2026-09-17 a trailing
+    newline made two "identical" arms different renders and a day of stacks
+    compared them as one. Stripping here, at the one door every caller comes
+    through, means no caller has to remember. `identify` and `sha256` already
+    right-strip, so ids and hashes do not move."""
     path = BANK / f"{prompt_id}.txt"
     if not path.is_file():
         raise FileNotFoundError(f"prompt_bank/{prompt_id}.txt does not exist; "
                                 f"every shipped prompt must live in the bank")
-    return path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8").strip()
 
 
 @lru_cache(maxsize=1)

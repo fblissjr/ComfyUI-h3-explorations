@@ -4,6 +4,21 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.4
+
+### Changed
+
+- **Bank text is stripped at the door (`workflows/prompts.py::text`), the
+  owner: "avoid footguns".** The files end in a newline and the function handed
+  it over verbatim, so the generator baked it into some shipped graphs (the
+  list is this commit's `git show --stat -- workflows`) and runners passed it
+  on, while `bench/run_graph_arms.py` refuses exactly those bytes as a patch.
+  Every caller now gets stripped text without having to remember; ids and
+  hashes already right-stripped, so none moved. The affected graphs were
+  regenerated and validated: they render a different sample from before, by
+  one newline, and clips rendered from the old bytes keep that text in their
+  own metadata.
+
 ## 0.127.3
 
 An audit of everything else that creates, validates, transforms or teaches
