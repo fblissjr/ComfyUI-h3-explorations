@@ -518,6 +518,19 @@ length every arm above rendered on this card without it.
 
 ## Now
 
+*End of 2026-09-18, where things stand.* The reorder works under core's memory compiler and stays OFF by default: six
+full-length pairs scored blind showed no benefit (`bench/results/2026-09-18_sol_reorder_panel.md`), while the noodle bar at
+its declared 107 frames showed plain order ghosting a figure in and the reorder not
+(`bench/results/2026-09-18_off_length_prompts.md`); a short-clip panel decides. Most of what looked like attention trouble
+was prompt trouble: two prompts rendered at three times their length, an action with no agent, a speaker with no seat, a
+plural that doubled an object. The bank lost every shot-header timestamp (the owner's rule; one same-seed pair says it is
+safe, `bench/results/2026-09-18_timestamps_diner.md`) and is getting one-clause wording fixes. Sage against kitchen on the
+same prompt: no visual difference, and the owner found sage's audio more natural on one scene
+(`bench/results/2026-09-18_sage_chain_panel.md`), which is the live lead on which chain should be the default. Sol `rotate`
+and the sage set's rotated mode are HELD: no visible benefit shown, and a default flip costs every reference clip its
+bit-identity. Next: score the short-clip panel, the sage diner pair and the six 2026-09-15 pairs by ear; take the two
+approved captures; rewrite the 345-frame prompts that script only a few seconds.
+
 *2026-09-18, corrected: the noodle bar result below came from an over-length render* (a 107-frame prompt at 345; the owner), so it shows how Sol behaves while the model improvises past a script, not a defect of normal use (`bench/results/2026-09-18_off_length_prompts.md`). The panel and an on-length rerun decide what is left of it.
 
 *2026-09-17: the reorder is the lever the eye can see.* On the noodle bar the
