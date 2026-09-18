@@ -13,7 +13,7 @@
    "host": "vojo",
    "device": "NVIDIA GeForce RTX 4090",
    "torch": "2.13.0+cu132",
-   "arming_spec": "dir=/home/fbliss/ComfyUI/custom_nodes/ComfyUI-h3-explorations/internal/sol_observe/2026-09-01_chunked_ab",
+   "arming_spec": "dir=internal/sol_observe/2026-09-01_chunked_ab",
    "raw_sidecar": true,
    "timing_quotable": false,
    "why_not_quotable": "every Sol call synchronizes the stream to copy its counts to the host; wall times from an armed render are not measurements",
