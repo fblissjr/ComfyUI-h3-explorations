@@ -2445,7 +2445,7 @@ fork's dispatcher comment now says so with the date.
 The four-step experiment above, in that order. Step 1 needs no card and
 decides whether this is a one-block fix or a deep-block fix; step 3 is the
 only step that can say whether Sol's kernel benefits at all. The capture
-set this rests on is kept to 2026-09-20.
+set this rests on is kept to 2026-10-31 (moved from 2026-09-20 on 2026-09-18).
 
 ## What is open
 

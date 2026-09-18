@@ -187,6 +187,10 @@ def main() -> int:
                     help="run this arm once first and mark the row warmup")
     ap.add_argument("--no-alternate", action="store_true",
                     help="run each arm's runs as a block instead of A B A B")
+    ap.add_argument("--allow-unstripped-prompt", action="store_true",
+                    help="accept a prompt patch with leading or trailing "
+                         "whitespace (refused by default: it is a different "
+                         "sample from the stripped text)")
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--timeout", type=float, default=3600.0,
                     help="per-render timeout seconds (default 3600)")
@@ -233,6 +237,17 @@ def main() -> int:
         if label not in arms or not node_key or not raw:
             raise SystemExit(f"--set wants LABEL:NODE.FIELD=VALUE, got {spec!r}")
         value = _parse_value(raw)
+        # One character in a prompt is a different sample. On 2026-09-17 prompt
+        # files were passed with their trailing newline while an earlier batch
+        # had stripped it, and stacks then compared different samples as if
+        # they were one. Convention: stripped. The flag is for reproducing a
+        # clip that was rendered from the unstripped bytes.
+        if (isinstance(value, str) and field.split(".")[-1] == "prompt"
+                and value != value.strip() and not args.allow_unstripped_prompt):
+            raise SystemExit(
+                f"--set {label}:{target}: the prompt has leading or trailing whitespace, "
+                "which makes it a different sample from the stripped text. Strip it, or "
+                "pass --allow-unstripped-prompt to reproduce a clip rendered that way")
         nids = apply_patch(arms[label]["graph"], node_key, field, value)
         arms[label]["patches"].append(
             {"nodes": nids, "field": f"{node_key}.{field}", "value": value})

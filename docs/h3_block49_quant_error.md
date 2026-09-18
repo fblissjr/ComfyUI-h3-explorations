@@ -7,7 +7,7 @@ checkpoint** (`h3_config.MODELS["unet_fl2va"]`), the one the capture set was
 rendered with and the one every graph here ships; the weights finding holds
 for every H3 DiT checkpoint on disk, see "So what". Capture: the 2026-09-03
 base16 t2v set at 1344x768, S=104,361 (395 text, 1,150 audio, 102,816 video
-rows), kept to 2026-09-20.
+rows), kept to 2026-10-31 (moved from 2026-09-20 on 2026-09-18).
 
 ## What "error" means on this page
 

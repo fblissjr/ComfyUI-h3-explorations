@@ -183,8 +183,10 @@ own below the rule.
   path's memory saving depends on it (the comment beside it), so this is a
   graded trade to run on captures (`bench/grade_sage_on_capture.py`) across
   early and late cells, not a flip. The 2026-09-03 base-16 capture that
-  served the fork's grading is retention-extended to 2026-09-20 and is due
-  for `bench/recycle_captures.py` after that; the owner's call.
+  served the fork's grading is retention-extended to 2026-10-31 (the owner,
+  2026-09-18: every capture-graded record since uses its cells as the common
+  yardstick) and is due for `bench/recycle_captures.py` after that; the
+  owner's call.
   **The served sage build** since the 17:16 restart is the fork's tag
   `served/2026-09-13` (commit 1408254; the process started on the 071b186
   tree, comments apart), with `sageattention.quant.ELEMENT_OFFSET_BITS`

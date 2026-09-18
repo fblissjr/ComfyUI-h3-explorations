@@ -4,6 +4,27 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.123.2
+
+### Changed
+
+- **`bench/run_graph_arms.py` refuses a prompt patch with leading or trailing
+  whitespace.** One character in a prompt is a different sample; on 2026-09-17
+  prompt files went in with their trailing newline while an earlier batch had
+  stripped it, and stacks compared different samples as one. Stripped is the
+  convention; `--allow-unstripped-prompt` exists to reproduce a clip that was
+  rendered from the unstripped bytes.
+- **The 2026-09-03 base-16 capture set is kept to 2026-10-31** (was
+  2026-09-20; the owner, 2026-09-18), because every capture-graded record
+  since uses its cells as the common yardstick. Its `retention.json` and the
+  three docs that named the date say so.
+- **Three sage probe graphs are marked as records in the generator**
+  (`h3_probe_t2v_levers`, `_sage_rotate`, `_policy`): they stack the
+  channel-balance node under sage's own balanced mode, which was graded
+  redundant on 2026-09-17. Their bytes do not change, because dated records
+  and clips were rendered from them; the sage set (`--chain sage`) is the
+  chain to use.
+
 ## 0.123.1
 
 ### Changed

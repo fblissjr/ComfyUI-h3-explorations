@@ -5032,6 +5032,18 @@ def main():
         ("h3_probe_t2v_rotate.json", "t2v-rotate", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="ck", sol_overrides={"rotate": True}, out_prefix="Video/h3_probe_t2v_rotate"),
          "text -> video + audio, the default chain with Sol rotate on"),
+        # RECORDS, not recommendations (2026-09-18). The three graphs below
+        # stack MiniMaxH3ChannelBalance under sage's own `fp8++ balanced`.
+        # Graded 2026-09-17, the fold adds nothing there (sage rebalances per
+        # head inside its quantizer) and it re-rounds q/k in bf16, which moves
+        # exact attention on the last block a little
+        # (bench/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
+        # They stay byte for byte because dated records and clips were rendered
+        # from them and renders repeat bit for bit: `levers` is the sage arm of
+        # bench/results/2026-09-15_block49_repro_batch.md, `sage_rotate` was
+        # proven identical across two days on 2026-09-17. For a sage chain to
+        # USE, build the sage set (`--chain sage`, h3_config.DENSE_CHAINS),
+        # which has no fold.
         ("h3_probe_t2v_levers.json", "t2v-levers", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sage_sol", channel_balance="loud blocks (from weights)",
               sage_mode="fp8++ balanced", out_prefix="Video/h3_probe_t2v_levers"),
