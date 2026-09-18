@@ -4,6 +4,48 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.0
+
+### Changed
+
+- **Shot headers carry no timestamps (the owner's house rule, 2026-09-18).**
+  "The only time you should use timestamps in prompts is if you break stuff up
+  mid-shot." Every `[Shot N] At MM:SS.mmm, ...` header in `prompt_bank/` lost
+  its time and kept everything else byte for byte (the count of files and
+  headers is `git show --stat` on this commit and `git grep -c "\] At "` on
+  its parent); the mid-shot ranges of one reference prompt, the Part One
+  alignment marks and clock times that are on-screen text stay. Six inline
+  shot lines in `workflows/build_workflows.py` that must equal the bank byte
+  for byte moved with it, and every shipped graph was regenerated and
+  validated against the live server. This DEPARTS from both vendor guides,
+  whose stated format is the timestamped header; `docs/prompting.md` section
+  3.1, the portable system prompt and the prompt skill now state the house
+  rule, and the rest of `docs/prompting.md` that shows the old format is
+  marked as due a rewrite. Not measured in either direction yet: one
+  three-shot prompt is rendered with and without its cut times at the same
+  seed (`Video/timestamps_test/`). Clips rendered before this carry their own
+  prompt text in their metadata.
+- **The covered market prompt, and its reference variant, name who drops the
+  coins** (the owner, scoring the reorder panel): "coins clatter ... into a
+  metal tin" had no agent, and arms rendered the coins coming from nowhere or
+  out of the crate. The porter now drops them with his free hand.
+- `prompt_bank/ref2va_night_porter_refs.txt` gained four words of setting, because
+  losing its timestamp put it two words under the vendor guide's floor.
+
+### Fixed
+
+- `bench/build_prompt_bank.py` matched the five cut phrasings case-sensitively,
+  so with the timestamps gone ("[Shot 2] The shot cuts to") it would have
+  reported four of the five as never exercised.
+
+### Known, not changed
+
+- Bench instruments that write their own timestamped prompts
+  (`bench/bench_e2e_h3.py::PROMPT_LONG`, `bench/grade_h3_marker_tokens.py`,
+  `bench/run_shot_count_ablation.py`) and `bench/convert_t2va_to_ref2va.py`,
+  which inserts default cut times when it finds none. Their past records
+  depend on those bytes.
+
 ## 0.126.2
 
 ### Fixed

@@ -129,7 +129,9 @@ def facts(text: str, mode: str) -> dict:
         "languages": sorted(set(re.findall(r"<d>\s*\[([A-Z][a-z]+)\]", main))),
         "motions": [n for n, rx in MOTION_PROSE.items() if re.search(rx, main, re.I)],
         "modifiers": [m for m in MODIFIERS if m in main],
-        "cuts": [c for c in CUTS if c in main],
+        # case-folded since 2026-09-18: with no timestamp in front of it a cut
+        # phrase opens its shot, so it is capitalised ("[Shot 2] The shot cuts to")
+        "cuts": [c for c in CUTS if c in main.lower()],
         "requested": [r for r in REQUESTED if r in main.lower()],
         "styles": [s for s in STYLES if s.lower() in opening.lower()],
         "on_screen_text": re.findall(r'"([^"\n]{1,80})"', re.sub(r"<d>.*?</d>", "", main, flags=re.S)),

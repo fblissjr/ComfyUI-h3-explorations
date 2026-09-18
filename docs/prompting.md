@@ -189,7 +189,25 @@ and do not "correct" a prompt on this axis. What *is* stated: entries inside
 
 ### 3.1 Shot headers
 
-base §4.2 and ref §5.1, *stated*:
+> **HOUSE RULE since 2026-09-18 (the owner): shot headers carry NO timestamps.**
+> Write `[Shot 2] The shot cuts to ...`, never `[Shot 2] At 00:05.200, the shot
+> cuts to ...`. "The only time you should use timestamps in prompts is if you
+> break stuff up mid-shot", that is, a time that splits action INSIDE one shot,
+> not one that opens a shot. This departs from both vendor guides, whose stated
+> format is quoted below and kept for reference; the owner's judgement is that
+> fixed cut times are "probably a big cause of issues" on a model that is never
+> told the clip's duration. Every header timestamp was removed from
+> `prompt_bank/` on that date. NOT yet measured in either direction: a same-seed
+> render of one three-shot prompt with and without its cut times was queued the
+> same day (`Video/timestamps_test/`). Every later passage in this document
+> that shows or requires a header timestamp (the graded examples of section 10,
+> the rule table's cut-time rows, "the cut carries the timestamp") describes
+> the vendor format and the bank as it was before this rule, and is due a
+> rewrite; `preflight_graph.py`'s three cut-time rules fire only on stamps that
+> exist, so they now guard the mid-shot exception alone.
+
+base §4.2 and ref §5.1, *stated* (the vendor format; superseded for shot
+headers by the house rule above):
 
 - **`[Shot 1]` carries no timestamp.** Do not add one.
 - Later shots use sequential numbers and open with a **strictly increasing** cut

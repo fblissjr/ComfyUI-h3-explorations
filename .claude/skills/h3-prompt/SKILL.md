@@ -21,9 +21,9 @@ rule. `docs/wiki/prompting.md` is the router if you want the map first.
 **Writing a new one.** Section 2 of `docs/prompting.md` decides the field
 structure per mode; section 10 has graded worked examples to copy the shape
 of. Fix the frame count before writing: a prompt is only correct at a
-duration, for the reason section 2 gives. Fit scene beats, shot counts, and cut
-timestamps dynamically to the narrative; never copy-paste fixed cut timestamps
-(e.g. `00:05.600`) across prompts. Fit dialogue to the shot's speaking time
+duration, for the reason section 2 gives. Fit scene beats and shot counts to the narrative. Shot headers carry NO
+timestamps (the owner's house rule, 2026-09-18: `[Shot 2] The shot cuts to ...`);
+a time is used only to split action inside one shot. Fit dialogue to the shot's speaking time
 so actors neither rush nor sit in dead air (section 5.10). For character likeness in T2VA, introduce
 subjects as `[Name] (played by [Actor] in [Show])` once in Shot 1, keeping vocal
 timbre in narrative prose outside `<d>`.

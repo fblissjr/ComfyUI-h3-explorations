@@ -2429,7 +2429,7 @@ REF_SCENE_SHOTS = {
         "<|lyrics_end|> Her lips close on the last word as the headlights wash "
         "across her face and commuters surge past in both directions, one man "
         "breaking into a run.",
-        "[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters "
+        "[Shot 2] The shot cuts to a tight two-shot of two commuters "
         "shouldering fast through the crowd, the camera tracking with them at "
         "large amplitude. A woman in a soaked raincoat with a clipped, urgent "
         "contralto (S2) turns her head without slowing and says: <d>[English] Do "
@@ -2437,7 +2437,7 @@ REF_SCENE_SHOTS = {
         "his thirties with a breathless, higher tenor (S3), answers half a step "
         "behind her: <d>[English] I know, I know, go, go.</d> His lips close and "
         "he shoves his bag under one arm as they cut left around a column.",
-        "[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the "
+        "[Shot 3] The camera whip pans to a low wide shot of the "
         "platform edge as the doors open and the crowd compresses inward, a "
         "dropped umbrella skidding across the tiles. {character} keeps playing "
         "through it, her identity unchanged from the reference, and sings over "
@@ -2447,7 +2447,7 @@ REF_SCENE_SHOTS = {
         "overhead signage of the reference setting continuously visible behind "
         "her while the crowd moves across the frame in both directions, coats "
         "and bags passing close to the lens without occluding her face.",
-        "[Shot 4] At 00:11.000, the shot changes to a close shot inside the "
+        "[Shot 4] The shot changes to a close shot inside the "
         "carriage looking out through the closing doors, the woman in the raincoat "
         "pressed against the glass, breathing hard, calling back to her companion "
         "still on the platform: <d>[English] Get the next one and meet me at the"
@@ -2466,14 +2466,14 @@ REF_SCENE_SHOTS = {
         "close and he snaps the ticket free with two fingers. The camera tracks "
         "right at large amplitude and fast speed past three cooks, one tossing a "
         "pan so the flame climbs above the rim.",
-        "[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook "
+        "[Shot 2] The shot cuts to a close shot of a young line cook "
         "with a light, quick soprano (S2) at the flat top, moving fast, who "
         "answers without looking up: <d>[English] Two on twelve, heard.</d> Her "
         "lips close, and she sings along under her breath with a radio on the "
         "shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it "
         "hot.</d><|lyrics_end|> Her lips close as she flips two portions in one "
         "motion and the flame flares behind her shoulder.",
-        "[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on "
+        "[Shot 3] The camera pushes in fast with large amplitude on "
         "the pass as plates land in a row, hands entering frame from three "
         "directions, a thumb wiping a rim clean. {character} and the cook overlap "
         "with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind "
@@ -2489,7 +2489,7 @@ REF_SCENE_SHOTS = {
         # band -- the beat is here because the shot was underspecified, not to
         # clear the number. `Pedestal Up` is base 4.3's table entry for this
         # move; "cranes up" is not in it.
-        "[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts "
+        "[Shot 4] The shot changes to a low shot as a runner lifts "
         "both plates and turns for the door, the kitchen receding behind him in a "
         "blur of steam. The camera pedestals up with small amplitude at slow "
         "speed as he passes, holding the lit burners and the loaded ticket rail "

@@ -101,8 +101,10 @@ Open [Shot 1] with the overall style and the initial composition. For keyframe
 modes take the style from the reference image; for t2va take it from the
 idea. [guide]
 
-[Shot 1] carries no timestamp. Every later shot opens with a strictly
-increasing cut time: [Shot 2] At 00:05.000, the shot cuts to ... [guide]
+No shot header carries a timestamp: [Shot 2] The shot cuts to ... Use a time
+only to split action INSIDE one shot, never to open a shot. (The vendor guides
+write [Shot 2] At 00:05.000, ...; this house departs from them.) [owner,
+2026-09-18]
 
 Every cut time must fall inside the duration you computed. A cut in the last
 half-second leaves no room for the beat after it. Prefer camera motion to a cut
