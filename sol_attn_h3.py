@@ -507,13 +507,13 @@ def _outside_memory_compiler():
     breaks the recording: the forward raises "aimdo memory compile error", and
     the tensor is then freed into a pool it did not come from, which is a CUDA
     invalid-argument inside a destructor and takes the whole server down with
-    no Python traceback. The reorder makes exactly such tensors: the permuted
-    RoPE table lives from the first block to the last, the reordered hidden
-    states outlive the hook that made them, and the permutation is cached on
-    the device across forwards. Core's own sparse-attention node pauses the
-    recorder around its long-lived allocations; this is the same call. Found
-    2026-09-17 on the first full-length render with the reorder on: the server
-    died sixteen seconds in, on every attempt.
+    no Python traceback. Core's own sparse-attention node pauses the recorder
+    around its long-lived allocations; this is the same call. Found 2026-09-17
+    on the first full-length render with the reorder on: the server died
+    sixteen seconds in, on every attempt. Since 2026-09-18 the reorder makes no
+    tensor inside a block (see `install_h3_morton`), and the one thing still
+    wrapped in this is the permutation, which is cached on the device across
+    forwards and so belongs to no single forward's recording.
     """
     try:
         import comfy.model_prefetch as model_prefetch
@@ -523,42 +523,71 @@ def _outside_memory_compiler():
         return contextlib.nullcontext()
 
 
-def _permute_mod_segments(mod_segments, start, stop, perm):
-    """`mod_segments` with the video segment's per-token rows reordered by `perm`.
+#: Segment kinds whose rows pass through `video_patch_proj`, in the order core
+#: lays them into that module's input (segment order). Core's own tuple, read
+#: from `MiniMaxH3Model._forward`; a kind core adds later makes the row count
+#: disagree, and the reorder then declines rather than guessing a slice.
+_VIDEO_ROW_KINDS = ("cond", "ref_img", "video")
 
-    Blocks receive `[(a, b, row)]`. `row` is one integer for a uniformly
-    modulated segment and a LongTensor of per-token indices when the video
-    denoise mask is not uniform (inpainting, a frozen region). The reorder moved
-    the video tokens, so those indices have to move with them; until 2026-09-17
-    they did not, and a reordered render with such a mask modulated the wrong
-    rows without any error. Returns None when a per-token row overlaps the
-    video span in a way this does not understand, and the caller then declines
-    to reorder rather than guess.
+
+def _mask_is_uniform(mask):
+    """True when a denoise mask cannot produce per-token modulation rows.
+
+    Core turns a non-uniform video denoise mask into per-token modulation
+    indices in raster order, for the blocks and for the final layer. Until
+    2026-09-18 the reorder permuted those indices inside block 0; it now does
+    nothing inside a block (see `install_h3_morton`), so it declines instead.
+    One value everywhere is the only case core collapses to a single row, and
+    min == max is a sufficient test for it.
     """
-    if not isinstance(mod_segments, (list, tuple)):
-        return mod_segments
-    out = []
-    for seg in mod_segments:
-        if not (isinstance(seg, (list, tuple)) and len(seg) == 3):
-            return None
-        a, b, row = seg
-        if torch.is_tensor(row) and row.ndim >= 1 and row.shape[0] > 1 and a < stop and b > start:
-            if a != start or b != stop or row.shape[0] != stop - start:
-                return None
-            row = row.index_select(0, perm.to(row.device))
-        out.append((a, b, row))
-    return out if isinstance(mod_segments, list) else tuple(out)
+    if mask is None or not torch.is_tensor(mask) or mask.numel() == 0:
+        return True
+    return bool(mask.min() == mask.max())
+
+
+def _video_row_slice(layout, start, stop):
+    """(offset, total) of the target video rows inside `video_patch_proj`'s input."""
+    offset = total = None
+    count = 0
+    for a, b, kind in getattr(layout, "segments", None) or ():
+        if kind in _VIDEO_ROW_KINDS:
+            if kind == "video" and offset is None:
+                if (a, b) != (start, stop):
+                    return None
+                offset = count
+            count += b - a
+    total = count
+    return None if offset is None else (offset, total)
 
 
 def install_h3_morton(model):
-    """Idempotently install the reorder. Inert without transformer_options['sol_morton']."""
+    """Idempotently install the reorder. Inert without transformer_options['sol_morton'].
+
+    Where each step happens, and why there. Core records one allocation plan
+    per DiT block and replays it for every block (`comfy.model_prefetch`), so a
+    block that allocates differently from the others fails the forward with
+    "aimdo memory compile error". Until 2026-09-18 the reorder cloned the hidden
+    states and gathered the RoPE table in a pre-hook on block 0, which is
+    exactly that. Core's forward has a module on each side of the block loop,
+    and both are per-token, so the work moves there:
+
+      decide    our `_forward` wrapper: wanted, and the denoise mask is uniform
+      permute   pre-hook on `video_patch_proj`: the target video rows of its
+                INPUT (a row-wise Linear, so this permutes its output rows, and
+                the input is patch-wide where the hidden states are model-wide)
+      RoPE      the `rope_freqs` wrapper: the same rows of `position_ids`,
+                only if the permute step happened
+      restore   forward hook on `final_layer`: its video OUTPUT rows
+
+    Nothing of the reorder runs inside a block.
+    """
     # A marker on the model, not its id() in a module-level set: an id is
     # recycled once a model is freed, and a reloaded model landing on a
     # recycled id was taken for installed, which left it with no layout
     # published and the conditioning sink silently off.
     if getattr(model, "_sol_h3_morton_installed", False):
         return
-    for attr in ("rope_freqs", "_forward", "blocks"):
+    for attr in ("rope_freqs", "_forward", "blocks", "video_patch_proj", "final_layer"):
         if not hasattr(model, attr):
             raise RuntimeError(f"MiniMax-H3 Morton needs .{attr} on the diffusion model")
 
@@ -569,23 +598,26 @@ def install_h3_morton(model):
 
     def _forward(x, timestep, context, transformer_options={}, **kwargs):
         previous = getattr(model, "_sol_morton_active", False)
-        model._sol_morton_active = bool(transformer_options.get("sol_morton"))
+        wanted = bool(transformer_options.get("sol_morton"))
+        if wanted and not _mask_is_uniform(kwargs.get("denoise_mask")):
+            _h3_log_once("the video denoise mask is not uniform, so modulation is per token; "
+                         "Morton declined for such forwards")
+            wanted = False
+        model._sol_morton_active = wanted
         model._sol_morton_curve = transformer_options.get("sol_morton_curve", "3d")
+        model._sol_morton_live = None
         model._sol_transformer_options = transformer_options
         try:
             return original_forward(x, timestep, context,
                                     transformer_options=transformer_options, **kwargs)
         except BaseException as exc:
-            # Said here because the cleanup below can take the process down
-            # before anyone sees this: see the note on `_sol_morton_state`.
-            if getattr(model, "_sol_morton_state", None) is not None:
+            if getattr(model, "_sol_morton_live", None) is not None:
                 logging.error(f"[h3-sol] the forward raised with the reorder active: "
                               f"{type(exc).__name__}: {exc}")
             raise
         finally:
             model._sol_morton_active = previous
-            model._sol_morton_span = None
-            model._sol_morton_state = None
+            model._sol_morton_live = None
             model._sol_transformer_options = None
             transformer_options.pop("sol_h3_video_span", None)
             transformer_options.pop("sol_h3_audio_span", None)
@@ -594,17 +626,61 @@ def install_h3_morton(model):
             # previous layout. Cleared here since 2026-09-01, beside the spans.
             transformer_options.pop("h3_segments", None)
 
+    def embed_pre_hook(_module, args):
+        """Permute the target video rows on their way into the embedder."""
+        model._sol_morton_live = None
+        if not getattr(model, "_sol_morton_active", False) or not args:
+            return None
+        options = getattr(model, "_sol_transformer_options", None) or {}
+        # Core publishes the layout it is ABOUT to use just before embedding;
+        # the one in the payload can be replaced inline on a signature mismatch.
+        layout = options.get("minimax_h3_layout")
+        entry = _SPANS.get(id(getattr(layout, "position_ids", None)))
+        if entry is None:
+            _h3_log_once("no layout published before the embedder; Morton inactive")
+            return None
+        span = entry[3]
+        if span is None:
+            _h3_log_once("video grid does not match the segment; Morton inactive")
+            return None
+        start, stop, grid = span
+        rows = args[0]
+        where = _video_row_slice(layout, start, stop)
+        if (where is None or not torch.is_tensor(rows) or rows.ndim != 2
+                or rows.shape[0] != where[1]):
+            _h3_log_once(f"the embedder's input {tuple(rows.shape) if torch.is_tensor(rows) else type(rows)} "
+                         f"does not line up with the layout's video rows {where}; Morton inactive")
+            return None
+        offset = where[0]
+        curve = getattr(model, "_sol_morton_curve", "3d")
+        _h3_log_once(f"ACTIVE: video span [{start}, {stop}), grid {grid}, curve {curve}")
+        # The permutation is cached on the device across forwards, so it must
+        # not belong to this forward's recording; see _outside_memory_compiler.
+        with _outside_memory_compiler():
+            perm, inverse = _perm_for(grid, curve, rows.device, start)
+        if offset == 0 and rows.shape[0] == stop - start:
+            rows = rows.index_select(0, perm)
+        else:
+            index = torch.arange(rows.shape[0], device=rows.device)
+            index[offset:offset + (stop - start)] = perm + offset
+            rows = rows.index_select(0, index)
+        model._sol_morton_live = (id(layout.position_ids), start, stop, grid, curve, inverse)
+        return (rows,) + tuple(args[1:])
+
     def rope_freqs(position_ids, device):
-        """Publish the layout only. Permuting happens in the block hook, which is
-        the single place that sees the tokens and the rope table together."""
-        model._sol_morton_span = None
-        model._sol_morton_state = None
+        """Publish the layout, and move the positions with the tokens.
+
+        `rope_rotation_table` is elementwise per row, so permuting the rows of
+        `position_ids` is the same as permuting the table. It happens only if
+        the embedder hook permuted the tokens of THIS layout: one decision, made
+        once, and this follows it.
+        """
         entry = _SPANS.get(id(position_ids))
         if entry is None:
             _h3_log_once("no layout registered; Morton and the conditioning sink are inactive")
             return original_rope_freqs(position_ids, device)
 
-        _layout, bounds, audio, span = entry
+        _layout, bounds, audio, _span = entry
         # Publish the video-segment boundary so the attention override can keep
         # the conditioning rows (text / audio / reference) exact.
         options = getattr(model, "_sol_transformer_options", None)
@@ -625,89 +701,37 @@ def install_h3_morton(model):
             if segments:
                 options["h3_segments"] = [
                     (int(a), int(b), str(kind)) for a, b, kind in segments]
-        if getattr(model, "_sol_morton_active", False):
-            if span is None:
-                _h3_log_once("video grid does not match the segment; Morton inactive")
-            else:
-                model._sol_morton_span = span
+        live = getattr(model, "_sol_morton_live", None)
+        if live is not None:
+            layout_id, start, stop, grid, curve, _inverse = live
+            if layout_id != id(position_ids) or position_ids.shape[0] < stop:
+                # The tokens are already permuted; positions that do not follow
+                # them would corrupt the render without an error.
+                raise RuntimeError("[h3-sol] H3 Morton: the video rows were reordered for one "
+                                   "layout and RoPE was asked for another")
+            perm, _ = _perm_for(grid, curve, position_ids.device, start)
+            index = torch.arange(position_ids.shape[0], device=position_ids.device)
+            index[start:stop] = perm + start
+            position_ids = position_ids.index_select(0, index)
         return original_rope_freqs(position_ids, device)
 
-    def pre_hook(module, args):
-        # Blocks are called as block(h, t_emb, mod_segments, rope_freqs, ...).
-        if len(args) < 4:
+    def final_hook(_module, _args, output):
+        """Put the video output rows back in raster order."""
+        live = getattr(model, "_sol_morton_live", None)
+        model._sol_morton_live = None
+        if live is None:
             return None
+        _layout_id, start, stop, _grid, _curve, inverse = live
+        video = output[0] if isinstance(output, (tuple, list)) and len(output) == 2 else None
+        if not torch.is_tensor(video) or video.shape[0] != stop - start:
+            raise RuntimeError("[h3-sol] H3 Morton: the final layer did not return "
+                               f"{stop - start} video rows; cannot restore order")
+        return (video.index_select(0, inverse.to(video.device)), output[1])
 
-        if module is not first:
-            state = getattr(model, "_sol_morton_state", None)
-            if state is None:
-                return None
-            # Hidden states are already reordered; reuse the table and the
-            # modulation segments built once on the first block.
-            return args[:2] + (state[2], state[1]) + tuple(args[4:])
-
-        model._sol_morton_state = None
-        span = getattr(model, "_sol_morton_span", None)
-        if span is None:
-            return None
-        start, stop, grid = span
-        h, rope = args[0], args[3]
-
-        # One decision, both tensors in hand. Splitting this across rope_freqs
-        # and the hook is what corrupts output when the two guards disagree.
-        if not torch.is_tensor(h) or h.ndim != 2 or h.shape[0] < stop:
-            _h3_log_once(f"hidden states do not cover the video span {(start, stop)}; inactive")
-            return None
-        if not torch.is_tensor(rope) or rope.ndim < 2 or rope.shape[1] != h.shape[0]:
-            _h3_log_once(f"rope table {tuple(rope.shape) if torch.is_tensor(rope) else type(rope)} "
-                      f"does not match {h.shape[0]} tokens; inactive")
-            return None
-
-        curve = getattr(model, "_sol_morton_curve", "3d")
-        _h3_log_once(f"ACTIVE: video span [{start}, {stop}), grid {grid}, "
-                     f"curve {curve}")
-        # Every tensor made here outlives this hook; see _outside_memory_compiler.
-        with _outside_memory_compiler():
-            perm, inverse = _perm_for(grid, curve, h.device, start)
-            mod_segments = _permute_mod_segments(args[2], start, stop, perm)
-            if mod_segments is None:
-                _h3_log_once("per-token modulation does not line up with the video span; "
-                             "Morton declined for this forward")
-                return None
-            h = h.clone()
-            h[start:stop] = h[start:stop][perm]
-
-            # rope_rotation_table is elementwise per row, so permuting the table
-            # is identical to permuting position_ids -- and keeps the decision here.
-            full = torch.arange(rope.shape[1], device=rope.device)
-            full[start:stop] = perm + start
-            rope = rope.index_select(1, full)
-
-        model._sol_morton_state = (inverse, rope, mod_segments)
-        return (h, args[1], mod_segments, rope) + tuple(args[4:])
-
-    def post_hook(_module, _args, output):
-        state = getattr(model, "_sol_morton_state", None)
-        span = getattr(model, "_sol_morton_span", None)
-        model._sol_morton_state = None
-        if state is None or span is None:
-            return None
-        start, stop, _grid = span
-        inverse = state[0]
-        if not torch.is_tensor(output) or output.shape[0] < stop:
-            logging.error("[h3-sol] H3 Morton: block stack changed the token count "
-                          f"({tuple(output.shape)}); cannot restore order")
-            return None
-        with _outside_memory_compiler():      # the restored output outlives this hook
-            output = output.clone()
-            output[start:stop] = output[start:stop][inverse]
-        return output
-
-    first = model.blocks[0]
     model._forward = _forward
     model.rope_freqs = rope_freqs
-    for block in model.blocks:
-        block.register_forward_pre_hook(pre_hook)
-    model.blocks[-1].register_forward_hook(post_hook)
+    model.video_patch_proj.register_forward_pre_hook(embed_pre_hook)
+    model.final_layer.register_forward_hook(final_hook)
     model._sol_h3_morton_installed = True
 
 
@@ -1249,28 +1273,6 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
 
     # H3 publishes its segment layout from the same hooks Morton uses, so the
     # conditioning sink needs them installed even when reordering is off.
-    if morton and is_h3:
-        # Refused HERE, where it can be said. ComfyUI's memory compiler (core,
-        # September 2026; aimdo's malloc graph) records one allocation plan per
-        # DiT block and replays it for all fifty; the reorder makes block 0
-        # allocate differently, the recording fails with "aimdo memory compile
-        # error" on the first step, and before 2026-09-17 the cleanup that
-        # followed freed a tensor into the wrong pool and took the whole server
-        # down with no traceback. Pausing the recorder around the reorder's
-        # allocations (`_outside_memory_compiler`) stops the crash and not the
-        # error. Until the reorder is moved out of the block scope, it needs
-        # the compiler off.
-        try:
-            import comfy.model_prefetch as _mp
-            import comfy.model_management as _mm
-            compiling = bool(_mp.malloc_graph_enabled(_mm.get_torch_device()))
-        except Exception:
-            compiling = False
-        if compiling:
-            raise RuntimeError(
-                "morton is on, and ComfyUI's memory compiler is active; the two do not "
-                "work together yet (the render fails on its first step). Start ComfyUI "
-                "with --disable-comfy-compiler to use the reorder, or turn morton off.")
     reorder = False
     if is_h3 and (morton or sink_conditioning != "off"):
         install_h3_morton(diffusion_model)

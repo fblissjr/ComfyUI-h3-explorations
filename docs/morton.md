@@ -778,6 +778,20 @@ traced to block membership is a trajectory difference, not a Morton effect.
 
 ## How it works in the code
 
+> *2026-09-18: this section describes the vendored reference file, which is
+> kept for reading. The node this pack runs (`sol_attn_h3.py`,
+> `install_h3_morton`) no longer does the work in block hooks: core now
+> records one allocation plan per DiT block and replays it for all of them, so
+> a first block that clones the hidden states fails the forward. The
+> permutation and `_perm_for` are unchanged; the token rows are permuted on
+> their way into the video embedder, the rows of `position_ids` in the
+> `rope_freqs` wrapper, and the order is restored on the final layer's video
+> output. The single decision the last paragraph below asks for is kept: the
+> embedder hook decides, and the RoPE wrapper follows it or raises. Under a
+> non-uniform video denoise mask (per-token modulation) the reorder declines.
+> Pinned by `bench/check_sol_reorder_equivalence.py`; the render that accepted
+> it is `bench/results/2026-09-18_sol_reorder_under_memory_compiler.md`.*
+
 The implementation lives in `vendor/sol_attn_minimax.py`, kept byte-identical
 to upstream. Four pieces:
 

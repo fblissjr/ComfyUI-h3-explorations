@@ -4,6 +4,39 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.123.0
+
+### Changed
+
+- **The token reorder (`morton`) works with ComfyUI's memory compiler, and the
+  node no longer refuses it.** Core records one allocation plan per DiT block
+  and replays it for all of them; the reorder cloned the hidden states and
+  gathered the RoPE table in a pre-hook on block 0, so block 0 allocated
+  differently and the forward failed. Core's forward has a per-token module on
+  each side of the block loop, and the work moved there: the target video rows
+  are permuted on their way INTO `video_patch_proj` (a row-wise Linear, and its
+  input is patch-wide where the hidden states are model-wide), the same rows of
+  `position_ids` in the `rope_freqs` wrapper, and the order is restored on
+  `final_layer`'s video output. Nothing of the reorder runs inside a block, and
+  no hook of it sits on one. The embedder hook makes the one decision, from the
+  layout core publishes just before embedding; the RoPE wrapper follows it or
+  raises, and a final layer that returns the wrong row count raises rather than
+  handing back a scrambled clip. Accepted on a full-length render with the
+  compiler on, bit-identical in video and audio to the compiler-off render of
+  the day before, and on the toggle flipped off and on again on one server:
+  `bench/results/2026-09-18_sol_reorder_under_memory_compiler.md`.
+- **The reorder declines under a non-uniform video denoise mask.** 0.122.0
+  moved the per-token modulation rows with their tokens inside block 0; with no
+  work left in a block that is gone (`_permute_mod_segments` is deleted), and
+  such a forward runs in plain order, said once in the log. A uniform mask does
+  not decline.
+- **`bench/check_sol_reorder_equivalence.py` is rewritten around a stub with
+  the shape of core's forward.** It now also requires that block 0 saw
+  different hidden states before it accepts "equal" (the old check could not
+  tell an invisible reorder from one that never ran), that no block carries a
+  hook, and it has two controls that must fail: the restore removed, and the
+  positions left in raster order.
+
 ## 0.122.1
 
 ### Fixed
