@@ -19,10 +19,23 @@ sage-against-kitchen look was the owner's six-scene verdict of 2026-09-17
 
 | scene | kitchen chain | sage chain | notes |
 |---|---|---|---|
-| kitchen | the expediter wears a white shirt and black apron; line cook at about 4 s is a woman | the expediter wears a black shirt; line cook at about 4 s is a woman | "not sure i see anything else but my eyes are tired." A wardrobe difference the prompt leaves open; the character it does specify (a woman, soprano) is right on both. No defect on either chain |
+| kitchen | the expediter wears a white shirt and black apron; line cook at about 4 s is a woman | the expediter wears a black shirt; line cook at about 4 s is a woman | "not sure i see anything else but my eyes are tired." A wardrobe difference the prompt leaves open; the character it does specify (a woman, soprano) is right on both. No visual defect on either chain. **Audio, listened to afterwards on the singles: the sage-chain clip is better, "just more natural".** |
 | diner | | | not yet scored |
 
 ## What it says so far
+
+**Audio is the one place the owner preferred a chain here**, and it went to
+sage. One scene, one listen, so it is a lead and not a finding. It is a
+plausible one: the chains differ only on the dense steps (the first few of
+sixteen, below Sol's window), and on those steps the dense kernel computes
+EVERY row, the audio rows included, while inside Sol's window the audio rows
+are attended exactly on both chains. So whatever the two dense kernels do
+differently to the audio tokens happens early, where the coarse structure of
+the sound is laid down. Untested. The cheapest test needs no GPU: the six
+2026-09-15 pairs (`Video/block49_repro/*_default_*-audio.mp4` against
+`*_sagelevers_*-audio.mp4`) were scored by eye only; listening to them, blind,
+asks the same question on six scenes.
+
 
 One scene, no defect on either chain, the visible difference is unscripted
 wardrobe: the same kind of take-to-take variation the reorder panel showed. It
