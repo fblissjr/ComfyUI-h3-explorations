@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.128.0
+
+### Changed
+
+- **One-clause wording fixes across the prompt bank, from a full read of it for
+  the three traps the owner's panel scoring exposed** (the owner approved the
+  batches): a speaker with no stated position beside a silent character who
+  has one (five prompts of the three-shot family, the seance widow, the third
+  operative of the safehouse), an action with no agent (a breaker that slams
+  itself, an envelope that pushes itself out), a count the scene contradicts
+  (a second crate that was never lifted, in both market prompts; plates "in a
+  row" on a two-cover ticket). Also: four women described with a baritone are
+  contraltos; "produces no vocal sound" on a character who speaks later became
+  "does not answer" (the phrase is kept for characters who never vocalise, as
+  the guide reserves it, and on the submarine it moved to the crew it was
+  meant for); vocal events that had no speaker id got one, which in the two
+  reference scenes composed in code meant a new `(S1)` with the voice phrase of
+  their text-to-video twins, edited identically in `workflows/build_workflows.py`.
+  The diner's rain-streaked window is now "behind the booth" (the owner, from
+  the timestamp pair). No dialogue, existing speaker id, reference label, shot
+  header or marker changed in any file, which was checked mechanically; every
+  edited prompt grades clean at its declared length; shipped graphs
+  regenerated and validated. Old and new clauses side by side are this
+  commit's diff of `prompt_bank/`.
+- Not done, by decision: the hardware aisle cartons (ambiguous), an addressee
+  described one shot late, the piano rope, and the prompts declared at 345
+  frames that script only a few seconds, which need rewrites.
+
 ## 0.127.5
 
 ### Changed

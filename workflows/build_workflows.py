@@ -2422,7 +2422,8 @@ REF_SCENE_SHOTS = {
         "still moving fast. A tiled platform sign above her head reads "
         "\"NORTHBOUND - PLATFORM 2\" in white capitals on a dark blue "
         "ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> "
-        "{character} stands over an open guitar case, preserving the face, hair, "
+        "{character}, with a bright, slightly raw mezzo (S1), stands over an open "
+        "guitar case, preserving the face, hair, "
         "wardrobe and build established in the reference, strums once, and sings "
         "into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the "
         "northbound line.</d><d>[English] Everybody's leaving on time.</d>"
@@ -2439,7 +2440,7 @@ REF_SCENE_SHOTS = {
         "he shoves his bag under one arm as they cut left around a column.",
         "[Shot 3] The camera whip pans to a low wide shot of the "
         "platform edge as the doors open and the crowd compresses inward, a "
-        "dropped umbrella skidding across the tiles. {character} keeps playing "
+        "dropped umbrella skidding across the tiles. {character} (S1) keeps playing "
         "through it, her identity unchanged from the reference, and sings over "
         "the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line."
         "</d><|lyrics_end|> Her lips close. The camera holds wide long enough "
@@ -2449,7 +2450,7 @@ REF_SCENE_SHOTS = {
         "and bags passing close to the lens without occluding her face.",
         "[Shot 4] The shot changes to a close shot inside the "
         "carriage looking out through the closing doors, the woman in the raincoat "
-        "pressed against the glass, breathing hard, calling back to her companion "
+        "(S2) pressed against the glass, breathing hard, calling back to her companion "
         "still on the platform: <d>[English] Get the next one and meet me at the"
         "</d><|cutoff|>",
     ],
@@ -2460,7 +2461,8 @@ REF_SCENE_SHOTS = {
         "loaded above the pass. The ticket closest to camera reads "
         "\"TABLE 12 - 2 COVERS - FIRE\" in narrow black type on white "
         "thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE"
-        "<|caption_end|> {character} works the pass, preserving the face, hair, "
+        "<|caption_end|> {character}, with a hard, carrying baritone (S1), works "
+        "the pass, preserving the face, hair, "
         "wardrobe and build established in the reference, slaps the rail and calls "
         "down the line: <d>[English] Two on twelve, fire it now.</d> His lips "
         "close and he snaps the ticket free with two fingers. The camera tracks "
@@ -2474,8 +2476,8 @@ REF_SCENE_SHOTS = {
         "hot.</d><|lyrics_end|> Her lips close as she flips two portions in one "
         "motion and the flame flares behind her shoulder.",
         "[Shot 3] The camera pushes in fast with large amplitude on "
-        "the pass as plates land in a row, hands entering frame from three "
-        "directions, a thumb wiping a rim clean. {character} and the cook overlap "
+        "the pass as two plates land side by side, hands entering frame from three "
+        "directions, a thumb wiping a rim clean. {character} (S1) and the cook (S2) overlap "
         "with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind "
         "you, behind you.</d> Both sets of lips close as a plate is spun into "
         "position. The camera stays low across the pass so the stainless "
@@ -2495,7 +2497,7 @@ REF_SCENE_SHOTS = {
         "speed as he passes, holding the lit burners and the loaded ticket rail "
         "of the reference setting across the top of the frame while the ticket "
         "printer starts another run behind the pass and a pan is set down hard "
-        "on the flat top. {character} calls after him already reading the next "
+        "on the flat top. {character} (S1) calls after him already reading the next "
         "ticket: <d>[English] And tell them the special is</d><|cutoff|>",
     ],
 }
