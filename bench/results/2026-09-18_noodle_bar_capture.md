@@ -8,6 +8,8 @@ audio, trained canvas, full length. Card: RTX 4090, alone. Kitchen
 
 ## The capture
 
+*Recycled 2026-09-18 at the owner's word, once the render was known to be over-length: the tensors are gone, the manifest and a deletion record remain under the capture root, and the repo keeps `2026-09-18_capture_manifest_noodle_bar_over_length.json` and `2026-09-18_capture_inventory_noodle_bar_over_length.json`. The numbers below cannot be re-derived; they stand as recorded.*
+
 Set `2026-09-18_noodle_bar_sage_chain_plain` under the capture root (manifest
 and retention file beside the tensors; kept to 2026-10-31). Blocks 0, 24, 45,
 48, 49 at steps 4, 8, 12, 15, post-RoPE q/k/v, plain token order. Blocks 45 and

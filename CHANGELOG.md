@@ -4,6 +4,17 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.126.2
+
+### Fixed
+
+- **`bench/record_capture_inventory.py` recorded a capture taken through the
+  Sol delegate path as holding no files.** Those files carry the route in
+  their name (`_ksol`), which the filename pattern did not know, so the
+  inventory listed nothing and said so without complaint. Found while
+  recycling the over-length noodle bar capture, which now has a correct
+  inventory and manifest copy under `bench/results/`.
+
 ## 0.126.1
 
 ### Changed

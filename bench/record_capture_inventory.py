@@ -38,7 +38,10 @@ from pathlib import Path
 #: projection from before RMSNorm and RoPE beside the usual post-RoPE file.
 #: Before this pattern knew it, those files landed in `unparsed_files` and the
 #: record could not say what half a capture held.
-NAME = re.compile(r"qkv(pre)?_L(\d+)_S(\d+)_b(\d+)_s(\d+)(?:_r(\d+))?\.pt$")
+#: `_k<route>` since 2026-09-18: a capture taken through the Sol delegate path
+#: tags each file with the route the call took (`h3_capture.maybe_capture`,
+#: `ktag`), and a whole capture of such files was recorded as holding nothing.
+NAME = re.compile(r"qkv(pre)?_L(\d+)_S(\d+)_b(\d+)_s(\d+)(?:_k[a-z0-9_]+)?(?:_r(\d+))?\.pt$")
 
 
 def scrub_paths(node):
