@@ -203,9 +203,12 @@ _TIMED = re.compile(r"\bAt \d\d:\d\d(?:\.\d+)?\b|\b\d+(?:\.\d+)?\s*(?:s|sec|secs
 
 def adaptable(text: str) -> bool:
     """Whether the text can be rendered at another frame count without a
-    rewrite: it names no cut time and no duration. Mechanical, so it can be
-    wrong in both directions (a prompt can pace itself in prose); it says
-    which entries the length knob is free on, not that the result is good."""
+    rewrite: it names no clock time and no duration. Mechanical, so it can be
+    wrong in both directions (a prompt can pace itself in prose), and since
+    2026-09-18, when shot headers lost their timestamps, it is True for most
+    of the bank. It says the GRADER would pass the text at another length; it
+    is not a permission, and `run_graph_arms.py` refuses a bank prompt off its
+    declared `frames` whatever this returns."""
     return _TIMED.search(text) is None
 
 
@@ -311,10 +314,16 @@ def render(rows: list[dict]) -> str:
     w("")
     w("**Re-grading one:** the command under each prompt, from the repo root with the "
       "ComfyUI venv's python. A prompt is conformant AT A DURATION: `S.SS` and every "
-      "`At MM:SS.mmm` resolve against the snapped frame count, so grading at another "
-      "`--length` is expected to fail. The `adapt` column is the mechanical exception: "
-      "a prompt that names no cut time and no duration can take another length from "
-      "the graph alone. **Adding one:** write the file, add a manifest "
+      "mid-shot `At MM:SS.mmm` resolve against the snapped frame count, so grading at "
+      "another `--length` is expected to fail. The `adapt` column is mechanical and "
+      "NOT a permission: it says the text names no clock time and no duration, so the "
+      "GRADER would pass it at another length. It does not say the clip would be "
+      "right there. A prompt's action and dialogue are written to fill its `frames` "
+      "whether or not it names a time (the noodle bar names none, was rendered at "
+      "three times its length, and improvised the rest), and since shot headers lost "
+      "their timestamps on 2026-09-18 most entries read `yes` here for that reason "
+      "alone. `bench/run_graph_arms.py` refuses any bank prompt off its declared "
+      "`frames` regardless of this column. **Adding one:** write the file, add a manifest "
       "entry, run the builder, commit all three. **Shipping one:** name it by id in "
       "`workflows/build_workflows.py`; the text never goes anywhere else. **A "
       "COMPOSED prompt is shipped the other way round:** `_ref_prompt()` builds a "

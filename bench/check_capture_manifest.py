@@ -168,6 +168,22 @@ def assert_model_hashes(models: dict, where: str) -> None:
                 f"sha256 or a reason string saying why not")
 
 
+def _was_bank_text(bank_id, text) -> bool:
+    """True when `prompt_bank/<bank_id>.txt` held `text` (right-stripped) at some commit."""
+    import subprocess
+    if not bank_id or "/" in str(bank_id):
+        return False
+    rel = f"prompt_bank/{bank_id}.txt"
+    repo = Path(__file__).resolve().parents[1]
+    revs = subprocess.run(["git", "-C", str(repo), "log", "--format=%H", "--", rel],
+                          capture_output=True, text=True).stdout.split()
+    for rev in revs:
+        old = subprocess.run(["git", "-C", str(repo), "show", f"{rev}:{rel}"], capture_output=True)
+        if old.returncode == 0 and old.stdout.decode("utf-8", "replace").rstrip() == text.rstrip():
+            return True
+    return False
+
+
 def check_manifest(manifest_path: Path):
     assert manifest_path.is_file(), f"Manifest file missing: {manifest_path}"
     data = json.loads(manifest_path.read_text())
@@ -282,8 +298,14 @@ def check_manifest(manifest_path: Path):
         want = hashlib.sha256(data["prompt"]["full_prompt_text"].rstrip().encode("utf-8")).hexdigest()
         assert data["prompt"]["prompt_sha256"] == want, (
             "prompt_sha256 is not the sha256 of full_prompt_text (rstripped)")
-        assert data["prompt"]["bank_id"] == _prompts.identify(data["prompt"]["full_prompt_text"]), (
-            f"bank_id {data['prompt']['bank_id']!r} is not the bank entry full_prompt_text identifies as")
+        # The bank is edited (2026-09-18: every shot-header timestamp removed,
+        # two prompts reworded), and a capture is a record of the bytes it was
+        # rendered from. So the id must be the entry this text identifies as
+        # NOW, or an entry whose file WAS this text at some commit. A wrong id
+        # still fails: no version of that entry's file ever held this text.
+        text, bank_id = data["prompt"]["full_prompt_text"], data["prompt"]["bank_id"]
+        assert bank_id == _prompts.identify(text) or _was_bank_text(bank_id, text), (
+            f"bank_id {bank_id!r} is not the bank entry full_prompt_text identifies as, now or at any commit")
         assert data["provenance"]["server"] is None or isinstance(data["provenance"]["server"], dict), (
             "provenance.server must be null or the server stamp dict")
         for k in ("workflow_sha256", "graph_sha256"):

@@ -24,8 +24,10 @@ covered length are left out. With no timeline the whole track is one part.
 **The prompt** is one text for every window, or with a timeline one block per
 label, each opened by a line `--- label`. Every label in the timeline needs a
 block and every block a label in the timeline. A window whose text has an `At
-mm:ss` cut at or past its own length is refused: windows differ in length, and
-a cut the window never reaches renders a different scene from the one written.
+mm:ss` time at or past its own length is refused: windows differ in length, and
+a beat the window never reaches renders a different scene from the one written.
+(Since 2026-09-18 shot headers carry no time, so this is a time that splits
+action inside a shot, the one place the house still writes one.)
 
 **Uses of the lists.** `Plan.uses` is one text per use: per timeline entry, so
 every window of one chorus shares a filled-in text and the next chorus takes
@@ -54,7 +56,9 @@ GRID = 51
 
 TIMELINE_LINE = re.compile(r"^(\d+):([0-5]\d(?:\.\d+)?)\s+(\S.*)$")
 BLOCK_LINE = re.compile(r"^---(.*)$")
-#: A shot cut as H3 prompts write it (`docs/prompting.md`): "At 00:04.500, ...".
+#: A clock time in prompt text: "At 00:04.500, ...". Until 2026-09-18 that was how
+#: a later shot opened; the house now writes one only to split action INSIDE a
+#: shot (`docs/prompting.md` section 3.1), and that is what this still guards.
 CUT_TIME = re.compile(r"\bAt (\d+):(\d{2}(?:\.\d+)?)")
 
 

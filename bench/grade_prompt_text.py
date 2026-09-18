@@ -40,7 +40,8 @@ fl2va graph would compare it to the wrong alignment template and pass it.
 
 ## The duration is part of the answer
 
-`S.SS` and every `[Shot N] At MM:SS.mmm` in a prompt are resolved against the
+`S.SS` and every mid-shot `At MM:SS.mmm` in a prompt (shot headers carry no time
+since 2026-09-18, and one that does is a FAIL) are resolved against the
 graph's snapped length, so a prompt is only conformant AT A DURATION. The donor
 supplies one, and it is printed with the expected Part One line so an author can
 see what the text has to match. Pass `--like` to grade against a different
@@ -176,8 +177,8 @@ def main() -> int:
                     help="grade against this graph's sockets and length instead")
     ap.add_argument("--length", type=int, metavar="FRAMES",
                     help="grade at this length instead of the donor's. A prompt "
-                         "is conformant AT A DURATION -- `S.SS` and every cut "
-                         "timestamp resolve against it -- so an example written "
+                         "is conformant AT A DURATION -- `S.SS` and every mid-shot "
+                         "time resolve against it -- so an example written "
                          "for 192 frames must be graded at 192, not at whatever "
                          "the donor happens to be. Snapped the way the node "
                          "snaps it.")

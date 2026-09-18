@@ -535,11 +535,17 @@ def check_song_plan(problems):
     plain = lp.plan_song(3000, 345, ctx, "one prompt", "")
     if len(plain.uses) != len(plain.segments[0][1]):
         _fail(problems, f"lists: with no timeline {len(plain.uses)} uses for {len(plain.segments[0][1])} windows")
-    cut = lp.plan_song(600, 345, ctx, "At 00:13.000, the shot cuts", "")
-    _refused(problems, "cuts: a cut past a window's end",
-             lambda: lp.place_windows(cut, ["At 00:13.000, the shot cuts"] * len(cut.uses), ctx), "window 2")
-    early = lp.plan_song(600, 345, ctx, "At 00:04.500, the shot cuts", "")
-    lp.place_windows(early, ["At 00:04.500, the shot cuts"] * len(early.uses), ctx)
+    # Mid-shot times, the only kind the house writes since 2026-09-18 (a shot
+    # header carries none). This is the one live control that the guard fires.
+    late_text = "[Shot 1] A wide shot of the room. At 00:13.000, she turns and walks out."
+    cut = lp.plan_song(600, 345, ctx, late_text, "")
+    _refused(problems, "cuts: a mid-shot time past a window's end",
+             lambda: lp.place_windows(cut, [late_text] * len(cut.uses), ctx), "window 2")
+    early_text = "[Shot 1] A wide shot of the room. At 00:04.500, she turns and walks out."
+    early = lp.plan_song(600, 345, ctx, early_text, "")
+    lp.place_windows(early, [early_text] * len(early.uses), ctx)
+    headers_only = "[Shot 1] A wide shot of the room. [Shot 2] The shot cuts to her hands."
+    lp.place_windows(lp.plan_song(600, 345, ctx, headers_only, ""), [headers_only] * len(cut.uses), ctx)
 
     source = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     for p in lazy_problems(source):

@@ -4,6 +4,57 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.3
+
+An audit of everything else that creates, validates, transforms or teaches
+prompts, after the rules of 2026-09-18 (no shot-header timestamps; a bank
+prompt at its declared length; stripped prompts).
+
+### Fixed
+
+- **`bench/check_capture_manifest.py` had turned red on both live captures.**
+  It requires a capture's `bank_id` to be the entry its prompt text identifies
+  as, and editing the bank broke that for every capture taken before the edit.
+  A capture is a record of the bytes it was rendered from, so the id now also
+  passes when that entry's file held this text at some commit; a wrong id still
+  fails, which its control check confirms.
+- **`docs/prompt_bank.md`'s `adapt` column read as permission to render a
+  prompt at another length**, which `run_graph_arms.py` refuses, and removing
+  the timestamps had flipped most of the bank to `yes`. The column stays (it is
+  a fact about what the grader would pass); the text now says it is not a
+  permission, and why.
+- `bench/verify_taomate_stream.py` put a bank prompt into a graph verbatim
+  (unstripped) at a length unrelated to its entry; it strips, and refuses the
+  length mismatch without `--allow-off-length`.
+
+### Changed
+
+- The one live control that the loop planner's time guard fires
+  (`bench/check_audio_freeze.py`) exercised it with a timestamped shot header;
+  it now uses a mid-shot time, the only kind the house writes, and also plans a
+  prompt whose headers carry no time. `loop_plan.py`'s comments say what the
+  guard guards now. Behaviour unchanged: windows were never planned from shot
+  headers.
+- Stale teaching lines: the portable page's "why it works", the prompt
+  grader's docstring and help, one sentence of `docs/eval_comparison.md`, and
+  the A/B session skill, which now names the runner's two refusals.
+
+### Known, the owner's call
+
+- Three experiment instruments still WRITE timestamped headers:
+  `bench/compile_marker_corpus.py` (and the `start_seconds` its scenes carry,
+  with `bench/marker_corpus/compiled.json` pinned by hash),
+  `bench/run_shot_count_ablation.py` with `bench/_shot_ablation_base.json` (a
+  stale out-of-bank copy of the market scene at an illegal length), and the
+  inline prompts of `bench/marker_arms.json`; plus `bench/bench_e2e_h3.py`'s
+  perf prompt.
+- The generator bakes bank text unstripped (`workflows/prompts.py::text`), so
+  some shipped graphs carry a trailing newline the runner would refuse as a
+  patch. Stripping changes those graphs' samples.
+- `bench/run_pruning_arms.py` renders 345-frame bank prompts at a fixed short
+  length by design and is now refused by the length guard;
+  `bench/gen_phaseb_grid.py` probably likewise (not verified).
+
 ## 0.127.2
 
 ### Changed

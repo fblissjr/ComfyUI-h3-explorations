@@ -129,7 +129,13 @@ def build_graph(args) -> dict:
         return doc
     if args.prompt_id:
         import prompts
-        cond["inputs"]["prompt"] = prompts.text(args.prompt_id)
+        # stripped (the house convention: one character is a different sample),
+        # and at the length the bank entry was written for unless told otherwise
+        cond["inputs"]["prompt"] = prompts.text(args.prompt_id).strip()
+        want = (prompts.entry(args.prompt_id) or {}).get("frames")
+        if want and int(want) != int(args.length) and not args.allow_off_length:
+            raise SystemExit(f"bank prompt {args.prompt_id!r} is written for {want} frames and --length is "
+                             f"{args.length}; pass --length {want}, or --allow-off-length if the mismatch is the test")
     if args.seed is not None:
         doc[by_class["RandomNoise"][0]]["inputs"]["noise_seed"] = args.seed
     if args.audio:
@@ -164,6 +170,8 @@ def main(argv=None) -> int:
     ap.add_argument("--width", type=int, default=864)
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--length", type=int, default=tm.frame_count(1))
+    ap.add_argument("--allow-off-length", action="store_true",
+                    help="render a bank prompt at a length its bank entry does not declare")
     ap.add_argument("--cache-device", default=None, choices=("cpu_pinned", "cpu", "gpu"),
                     help="default: gpu for verify (no cache is used), cpu_pinned for stream")
     ap.add_argument("--prompt-id", help="stream: a prompt bank id")

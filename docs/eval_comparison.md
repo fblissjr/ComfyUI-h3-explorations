@@ -91,7 +91,7 @@ hundreds, and fewer steps means less refinement at exactly that scale.
 
 The two rows oppose each other on `shots12`, which is what makes it worth
 scoring first. And the demand pairs hold subjects, actions, camera moves,
-dialogue and cut times exactly, so they manipulate demand more cleanly than any
+dialogue and cut phrasing exactly, so they manipulate demand more cleanly than any
 shot swap can — a shot swap necessarily changes content.
 
 ### Scored the same evening, then corrected within the hour
