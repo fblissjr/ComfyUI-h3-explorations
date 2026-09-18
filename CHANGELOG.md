@@ -4,6 +4,20 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.126.1
+
+### Changed
+
+- **`prompt_bank/t2va_cafe_kids.txt`: two wording fixes (the owner, scoring the
+  reorder panel).** "a plate of hamburgers" read literally puts two burgers in
+  front of each child, and one arm rendered exactly that; it now says one
+  hamburger. The red-haired boy, who speaks the first line, had no stated seat,
+  and one arm staged him out of frame and gave his line to the girl the prompt
+  declares silent; he now sits at the centre of the table facing the camera.
+  Clips rendered before this carry the old text in their own metadata. The
+  panel's cafe pair is re-rendered on the new text as `cafe_kids_v2_*`
+  (`bench/results/2026-09-18_sol_reorder_panel.md`).
+
 ## 0.126.0
 
 ### Fixed
