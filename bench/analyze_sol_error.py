@@ -209,7 +209,7 @@ def calibrate_against_oracle(tau: float = 1.3, lengths: tuple[int, ...] = (320, 
         torch.manual_seed(0)
         q, k, v = (torch.randn(1, t_len, 1, 64) for _ in range(3))
         qh, kh, vh = (x.permute(0, 2, 1, 3).contiguous() for x in (q, k, v))
-        ora = _oracle.sol_attn(q, k, v, tau=tau, centroid_tail=True)
+        ora = _oracle.sol_attn(q, k, v, tau=tau, tail=True)
         ora = ora.permute(0, 2, 1, 3).float()
         mine = eager_sol_reference(qh, kh, vh, tau=tau).float()
         drift = rel_l2_error(mine, ora)

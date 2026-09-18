@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.124.0
+
+### Added
+
+- **`bench/sweep_sol_block_size_on_capture.py`**: the Sol algorithm in fp32 at
+  block sizes 64, 32 and 16, under plain and `3d` token order, error against
+  routed density on full-length captures. It answers whether a kernel with
+  smaller blocks could buy error that ordering cannot, before anyone designs
+  one. Resumable, with three instrument checks it refuses to run without, and
+  `--summarize` for the equal-density table. Run on two scenes:
+  `bench/results/2026-09-18_sol_block_size.md`. Finer blocks help and compound
+  with the reorder; halving buys little; and on the second scene's last block
+  the reorder at block 64 is worse than plain order in float arithmetic, which
+  the 2026-09-17 ordering sweep (one scene) could not have seen.
+
+### Fixed
+
+- **The calibration gate of the chunked float Sol reference could not run.**
+  `analyze_sol_error.calibrate_against_oracle` called the vendored oracle with
+  a keyword the oracle had since renamed (`centroid_tail`, now `tail`), so it
+  raised before comparing anything. Found when the sweep above ran it at every
+  block size.
+
 ## 0.123.2
 
 ### Changed

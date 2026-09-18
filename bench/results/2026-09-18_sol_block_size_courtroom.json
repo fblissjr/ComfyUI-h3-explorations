@@ -1,0 +1,697 @@
+{
+  "what": "Sol-Attn ALGORITHM in fp32 (no INT8 term): error against fp32 dense attention versus routed density, per token ordering and per block size, tau swept; only the video rows are permuted, by the node's own _perm_for; sinks rescaled so the same rows stay exact at every block size",
+  "model": "MiniMax H3, int8 convrot checkpoint, base 16-step t2v captures",
+  "conditions": {
+    "device": "NVIDIA GeForce RTX 4090",
+    "heads": 8,
+    "grid_thw": [
+      102,
+      24,
+      42
+    ],
+    "video_start": 1670,
+    "audio_span": [
+      520,
+      1670
+    ],
+    "sink_conditioning": "exact_kv_and_rows",
+    "pooled_tail": true,
+    "captures": [
+      "qkv_L104486_S104486_b49_s13.pt",
+      "qkv_L104486_S104486_b24_s13.pt",
+      "qkv_L104486_S104486_b0_s13.pt",
+      "qkv_L104486_S104486_b49_s5.pt"
+    ],
+    "capture_set": "2026-09-10_sol_impl_courtroom"
+  },
+  "instrument": {
+    "chunked_reference_vs_oracle_worst_rel_l2": {
+      "64": 0.00040140648598085293,
+      "32": 0.0003824597850706926,
+      "16": 0.00038410179933944747
+    },
+    "density_vs_kitchen_eager": {
+      "largest_per_block_difference": 1,
+      "largest_relative_total_difference": 0.00042716787697565144
+    }
+  },
+  "how_to_read": "a configuration beats another only where its (density, rel_l2) curve lies below; density is the share of key blocks attended exactly, forced diagonal and sinks included; routing cost, which grows with the square of the block count, is not in it",
+  "cells": {
+    "b49_s13": {
+      "raster_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.31744,
+          "rel_l2": 0.01329
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2653,
+          "rel_l2": 0.0168
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21886,
+          "rel_l2": 0.02203
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15971,
+          "rel_l2": 0.03469
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07484,
+          "rel_l2": 0.07459
+        }
+      ],
+      "raster_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.31692,
+          "rel_l2": 0.01516
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26351,
+          "rel_l2": 0.01777
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21597,
+          "rel_l2": 0.02194
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15639,
+          "rel_l2": 0.03322
+        },
+        {
+          "tau": 2.0,
+          "density": 0.0717,
+          "rel_l2": 0.06995
+        }
+      ],
+      "raster_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.31822,
+          "rel_l2": 0.00789
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26338,
+          "rel_l2": 0.01023
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21466,
+          "rel_l2": 0.01462
+        },
+        {
+          "tau": 1.3,
+          "density": 0.1543,
+          "rel_l2": 0.03865
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06946,
+          "rel_l2": 0.07541
+        }
+      ],
+      "3d_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.32013,
+          "rel_l2": 0.00614
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26839,
+          "rel_l2": 0.01253
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22129,
+          "rel_l2": 0.02972
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16068,
+          "rel_l2": 0.05033
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07544,
+          "rel_l2": 0.07713
+        }
+      ],
+      "3d_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.32006,
+          "rel_l2": 0.00502
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26849,
+          "rel_l2": 0.01184
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22163,
+          "rel_l2": 0.02924
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16151,
+          "rel_l2": 0.04927
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07495,
+          "rel_l2": 0.07236
+        }
+      ],
+      "3d_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.31519,
+          "rel_l2": 0.00368
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26122,
+          "rel_l2": 0.00505
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21357,
+          "rel_l2": 0.01006
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15421,
+          "rel_l2": 0.02773
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06938,
+          "rel_l2": 0.06194
+        }
+      ]
+    },
+    "b24_s13": {
+      "raster_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.30514,
+          "rel_l2": 0.09307
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2599,
+          "rel_l2": 0.10921
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22013,
+          "rel_l2": 0.12785
+        },
+        {
+          "tau": 1.3,
+          "density": 0.17026,
+          "rel_l2": 0.15837
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09168,
+          "rel_l2": 0.25561
+        }
+      ],
+      "raster_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.30517,
+          "rel_l2": 0.08214
+        },
+        {
+          "tau": 0.8,
+          "density": 0.25948,
+          "rel_l2": 0.09709
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21941,
+          "rel_l2": 0.11432
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16921,
+          "rel_l2": 0.14374
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09062,
+          "rel_l2": 0.23723
+        }
+      ],
+      "raster_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.30863,
+          "rel_l2": 0.05592
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26155,
+          "rel_l2": 0.06725
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22014,
+          "rel_l2": 0.08041
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16827,
+          "rel_l2": 0.10392
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08864,
+          "rel_l2": 0.18002
+        }
+      ],
+      "3d_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.31028,
+          "rel_l2": 0.05957
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26321,
+          "rel_l2": 0.07022
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22162,
+          "rel_l2": 0.08236
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16962,
+          "rel_l2": 0.10394
+        },
+        {
+          "tau": 2.0,
+          "density": 0.09039,
+          "rel_l2": 0.16994
+        }
+      ],
+      "3d_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.31019,
+          "rel_l2": 0.05135
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26248,
+          "rel_l2": 0.06121
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22034,
+          "rel_l2": 0.07246
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16769,
+          "rel_l2": 0.0924
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08834,
+          "rel_l2": 0.1545
+        }
+      ],
+      "3d_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.3092,
+          "rel_l2": 0.0428
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26106,
+          "rel_l2": 0.05166
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21855,
+          "rel_l2": 0.06194
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16548,
+          "rel_l2": 0.07986
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08604,
+          "rel_l2": 0.13663
+        }
+      ]
+    },
+    "b0_s13": {
+      "raster_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.32074,
+          "rel_l2": 0.09689
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26651,
+          "rel_l2": 0.11659
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2175,
+          "rel_l2": 0.13372
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15281,
+          "rel_l2": 0.1524
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06566,
+          "rel_l2": 0.17614
+        }
+      ],
+      "raster_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.31982,
+          "rel_l2": 0.09045
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26522,
+          "rel_l2": 0.10921
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21605,
+          "rel_l2": 0.12603
+        },
+        {
+          "tau": 1.3,
+          "density": 0.1517,
+          "rel_l2": 0.14552
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06544,
+          "rel_l2": 0.16994
+        }
+      ],
+      "raster_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.32592,
+          "rel_l2": 0.07505
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27116,
+          "rel_l2": 0.09189
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22173,
+          "rel_l2": 0.10772
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15704,
+          "rel_l2": 0.12802
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06906,
+          "rel_l2": 0.15767
+        }
+      ],
+      "3d_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.32703,
+          "rel_l2": 0.08029
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2731,
+          "rel_l2": 0.09828
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22466,
+          "rel_l2": 0.11506
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16175,
+          "rel_l2": 0.13616
+        },
+        {
+          "tau": 2.0,
+          "density": 0.0721,
+          "rel_l2": 0.18022
+        }
+      ],
+      "3d_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.32673,
+          "rel_l2": 0.07546
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2731,
+          "rel_l2": 0.09277
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22241,
+          "rel_l2": 0.10911
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15859,
+          "rel_l2": 0.13145
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06914,
+          "rel_l2": 0.17043
+        }
+      ],
+      "3d_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.32679,
+          "rel_l2": 0.06813
+        },
+        {
+          "tau": 0.8,
+          "density": 0.2734,
+          "rel_l2": 0.08387
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22275,
+          "rel_l2": 0.09928
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15909,
+          "rel_l2": 0.12157
+        },
+        {
+          "tau": 2.0,
+          "density": 0.06948,
+          "rel_l2": 0.16066
+        }
+      ]
+    },
+    "b49_s5": {
+      "raster_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.33303,
+          "rel_l2": 0.01952
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28418,
+          "rel_l2": 0.0244
+        },
+        {
+          "tau": 1.0,
+          "density": 0.2391,
+          "rel_l2": 0.0314
+        },
+        {
+          "tau": 1.3,
+          "density": 0.17815,
+          "rel_l2": 0.04745
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08442,
+          "rel_l2": 0.09246
+        }
+      ],
+      "raster_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.33233,
+          "rel_l2": 0.01799
+        },
+        {
+          "tau": 0.8,
+          "density": 0.28214,
+          "rel_l2": 0.02245
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23598,
+          "rel_l2": 0.02907
+        },
+        {
+          "tau": 1.3,
+          "density": 0.1742,
+          "rel_l2": 0.04499
+        },
+        {
+          "tau": 2.0,
+          "density": 0.08055,
+          "rel_l2": 0.08835
+        }
+      ],
+      "raster_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.32976,
+          "rel_l2": 0.01373
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27769,
+          "rel_l2": 0.01707
+        },
+        {
+          "tau": 1.0,
+          "density": 0.23024,
+          "rel_l2": 0.02255
+        },
+        {
+          "tau": 1.3,
+          "density": 0.16922,
+          "rel_l2": 0.04779
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07704,
+          "rel_l2": 0.09822
+        }
+      ],
+      "3d_b64": [
+        {
+          "tau": 0.6,
+          "density": 0.31756,
+          "rel_l2": 0.0183
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26446,
+          "rel_l2": 0.0281
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21749,
+          "rel_l2": 0.04314
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15924,
+          "rel_l2": 0.06464
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07434,
+          "rel_l2": 0.1019
+        }
+      ],
+      "3d_b32": [
+        {
+          "tau": 0.6,
+          "density": 0.32308,
+          "rel_l2": 0.01161
+        },
+        {
+          "tau": 0.8,
+          "density": 0.27092,
+          "rel_l2": 0.02236
+        },
+        {
+          "tau": 1.0,
+          "density": 0.22408,
+          "rel_l2": 0.03792
+        },
+        {
+          "tau": 1.3,
+          "density": 0.1651,
+          "rel_l2": 0.05841
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07752,
+          "rel_l2": 0.08849
+        }
+      ],
+      "3d_b16": [
+        {
+          "tau": 0.6,
+          "density": 0.31946,
+          "rel_l2": 0.00898
+        },
+        {
+          "tau": 0.8,
+          "density": 0.26603,
+          "rel_l2": 0.01196
+        },
+        {
+          "tau": 1.0,
+          "density": 0.21877,
+          "rel_l2": 0.0176
+        },
+        {
+          "tau": 1.3,
+          "density": 0.15935,
+          "rel_l2": 0.03562
+        },
+        {
+          "tau": 2.0,
+          "density": 0.07195,
+          "rel_l2": 0.0767
+        }
+      ]
+    }
+  }
+}
