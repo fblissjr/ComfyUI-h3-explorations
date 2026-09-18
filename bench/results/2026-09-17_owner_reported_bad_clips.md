@@ -70,7 +70,25 @@ and re-rounds q/k in bf16 (`2026-09-17_channel_balance_vs_sage_balanced_b49_s15.
 The test is the same prompt and seed on the default chain, plain order against
 the `3d` reorder, and once fully dense.
 
-## Status
+## Tested 2026-09-18: neither reproduces on the shipped graphs
+
+Renders in `Video/reported_clips/`, prompt and seed read from each bad clip's
+own metadata, prompts stripped. The owner's verdict: "all of them look good.
+even the pdd one."
+
+- `agent_00001`'s prompt and seed on `h3_candidate_t2v_pdd8_baked` AS SHIPPED
+  (8 steps, sigma shift, 345 frames, kitchen chain): good, no lattice. So the
+  lattice came from the off-recipe settings of the original (18 steps on a
+  distilled checkpoint, no sigma shift, 362 frames, three balancers plus
+  rotate); which of those is not isolated.
+- The meerkat prompt on the default chain in plain order, on the default chain
+  with the `3d` reorder, and fully dense: all good. The original bad clip was
+  the shipped `h3_probe_t2v_sage_rotate` graph: sage `fp8++ balanced`, the
+  channel-balance fold, Sol `qk_balance` AND `rotate`. Nothing was fixed; what
+  differs is the attention stack (and possibly prompt whitespace). Two renders
+  queued to isolate it: the same prompt on the clean sage chain (no fold, no
+  rotate) and on the `sage_rotate` graph as shipped.
+
 
 Open. Two renders would settle the first clip and three the second; none has
 been run. Related: every plain-token-order clip of the noodle bar morphs and

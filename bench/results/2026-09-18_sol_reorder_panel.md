@@ -59,6 +59,14 @@ Owner's verdicts, 2026-09-18, all six on-length pairs (post office is off-length
 - `3d` better: cafe_kids, twice: clearly on the first prompt (whose two wording faults drove most of that), and slightly on the fixed prompt (`cafe_kids_v2_*`: "really close", dialogue a little more natural)
 - no difference: crowd_churn_long, hardware_aisle_short
 
+**Amended the same afternoon.** Two later looks by the owner bear on the conclusion below. (1) The crowd scene
+rendered FULLY DENSE (no Sol, no INT8) is "mostly the same ... same grainy" as both Sol arms, so that grain is the
+model on a scene with "too much going on", not the attention chain. (2) On the noodle bar at its declared 107 frames,
+plain order ghosts a figure in at about four seconds and `3d` does not
+(`2026-09-18_off_length_prompts.md`): a real, visible win for the reorder on an on-length SHORT clip, which none of the
+six full-length pairs here showed. So "no scene where the reorder removed a defect" is true of this panel and no longer
+true overall. `morton` still stays off until the short-clip panel is scored.
+
 **Conclusion.** On no scene did the reorder remove a defect plain order had. Where the owner saw a difference it was the
 difference between two takes (staging, which character speaks, a figure the prompt did not ask for, the sex of a character),
 and it went to plain order three times and to `3d` once (the cafe scene, on both versions of its prompt, the second time narrowly). `morton` stays OFF by default. The capture metrics had said the

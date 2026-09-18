@@ -82,6 +82,29 @@ the length the prompt was written for, plain order shows none of what the
 see flicker or a brief morph between sampled frames; the owner's look at the
 two clips is what closes this.
 
+### The owner's look, the same afternoon, which OVERTURNS the stills reading above
+
+"Still someone ghosts in out of nowhere at the 4s mark" in the plain-order clip
+at 107 frames; "that does NOT happen" in the `3d` clip. "Better scene now tho
+for both, but still ghosting on that first one but not second is a big deal."
+Checked afterwards on a crop of the last second of the plain clip: a second
+head does appear beside the customer from about frame 88. The five stills
+sampled above, at low resolution across the whole take, missed it, which is the
+limit that paragraph named.
+
+So the over-length render made the noodle bar much worse (crowds of invented
+figures for ten seconds), but it was NOT the whole story: at the length the
+prompt was written for, plain order still ghosts a figure in near the end and
+the reorder does not. Post office at 141 frames: the owner cannot tell the
+orders apart. One scene, one seed, a short clip; a short-clip panel (more seeds
+of this scene and three other short prompts, plain against `3d`, blind) was
+queued the same day: `Video/short_clip_panel/`.
+
+What this does to the sections above: "Does not stand" still holds for the
+345-frame renders as evidence about normal use. But the statement that the
+morph "was the over-length render and not the token order" is WRONG as written;
+both contributed.
+
 What was planned before the test:
 
 
