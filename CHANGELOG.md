@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.123.1
+
+### Changed
+
+- **Kitchen build `0.2.34+sol.36e29f1` -> `0.2.35+sol.8176242`** (2026-09-18).
+  ComfyUI pinned `comfy-kitchen==0.2.35`, and the requirements install that
+  came with the core update put the stock wheel back, which has no
+  `qk_balance`, `rotate` or `blk_cnt`: every default video graph was refused at
+  patch time until the rebuild. `h3-build` rebased onto the tag,
+  `archive/h3-build-0.2.34` keeps the old tip, our commits unchanged and the
+  attention sources identical between the two builds. The tag brings a W4A8
+  decode GEMV, a fused gated-delta decode, INT8 linear changes for
+  autoregressive models with CFG, and ROCm cleanups; nothing on the H3
+  attention path. A default-chain render on the new build is bit-identical in
+  video and audio to the 2026-09-15 clip of the same scene and seed
+  (`bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`), so earlier clips
+  remain valid references.
+
+### Added
+
+- **The reorder panel is rendered and waits for the owner's eye**: seven scenes,
+  plain token order against the `3d` reorder at tau 1.0, as blind pairs
+  (`bench/results/2026-09-18_sol_reorder_panel.md`). Five plain arms are the
+  2026-09-15 clips, reused because the rebuilt kitchen reproduces them bit for
+  bit; two harder scenes were rendered on both arms. No default moves before
+  it is scored.
+
 ## 0.123.0
 
 ### Changed
