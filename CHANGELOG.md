@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.127.5
+
+### Changed
+
+- **The idle instruments that write timestamped shot headers, or render bank
+  prompts off their length, are marked CLOSED RECORDS** at the top of each
+  (the owner's approval): `bench/compile_marker_corpus.py`,
+  `bench/marker_arms.json`, `bench/run_shot_count_ablation.py`,
+  `bench/run_pruning_arms.py`, `bench/gen_phaseb_grid.py`. Their bytes
+  otherwise stay, because dated records came from them; the shot-count ablation
+  was going to be deleted until its record turned up
+  (`docs/research/pdd/2026-08-28_scene_complexity.md`).
+- `bench/bench_e2e_h3.py`'s long perf prompt lost its three header timestamps:
+  it is the one live script among them, and the likeliest to be copied. Timing
+  rows before and after differ by those few text tokens.
+
 ## 0.127.4
 
 ### Changed

@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Drive the arms for `docs/open_experiments.md` #22 and attribute the captures.
+"""CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for
+345 frames at a fixed short length, which bench/run_graph_arms.py now refuses;
+it needs prompts written for its length before it runs again (its results are
+the 2026-08-21 pruning records). Kept byte for byte because dated records were
+produced by it; do not copy its prompt format into new work: the house no
+longer writes timestamps on shot headers (docs/prompting.md section 3.1) and
+renders a bank prompt only at the length its entry declares.
+
+Drive the arms for `docs/open_experiments.md` #22 and attribute the captures.
 
 `run_graph_arms.py` submits graphs and times them; it knows nothing about the
 capture module, which writes into ONE directory named by `H3_CAPTURE` at server

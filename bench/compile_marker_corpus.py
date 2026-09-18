@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Compile one scene specification into every marker arm, deterministically.
+"""CLOSED RECORD since 2026-09-18. This compiler stamps every shot after the
+first with a cut time, and its compiled corpus is pinned by hash (August 2026
+marker grading). Kept byte for byte because dated records were produced by it;
+do not copy its prompt format into new work: the house no longer writes
+timestamps on shot headers (docs/prompting.md section 3.1) and renders a bank
+prompt only at the length its entry declares.
+
+Compile one scene specification into every marker arm, deterministically.
 
 `canonical/owner_authored_marker_corpus.md` is the brief. Its central
 requirement is that the compared arms request the *same scene*: the rejected

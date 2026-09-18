@@ -97,8 +97,8 @@ DEFAULTS = dict(
 #
 # Two reasons this exists rather than stretching PROMPT. First, format: past
 # a few seconds MiniMax's guide wants the timeline carried by numbered shots
-# with explicit cut times and the three core fields, not one run-on
-# description -- a 15-second request against a 6-second prompt leaves the
+# and the three core fields, not one run-on description (the guide also puts a
+# cut time on each later shot; the house stopped writing those on 2026-09-18) -- a 15-second request against a 6-second prompt leaves the
 # model to invent twelve seconds of nothing, which is its own confound.
 #
 # Second, and the reason the content is what it is: docs/SOLATTN.md flags that
@@ -118,13 +118,13 @@ PROMPT_LONG = (
     "facade with iron railings filling the background. The camera tracks "
     "right at medium amplitude and moderate speed as she snaps her helmet "
     "strap and pushes off.\n"
-    "[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running "
+    "[Shot 2] The shot cuts to a low tracking shot running "
     "alongside the spinning front wheel, spokes flickering, spray coming off "
     "the tyre, painted lane markings streaming past underneath.\n"
-    "[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the "
+    "[Shot 3] The camera whip pans up to a wide shot of the "
     "street as she cuts between two parked cars, pigeons scattering off the "
     "railings, neon shopfront signs reflected in the puddles.\n"
-    "[Shot 4] At 00:11.500, the shot changes to a close shot of her face "
+    "[Shot 4] The shot changes to a close shot of her face "
     "under the helmet, rain streaking across the lens, as she glances back "
     "over her shoulder and then forward again, breathing hard.\n\n"
     "overall_soundscape: steady heavy rain on asphalt and metal, tyre hiss "

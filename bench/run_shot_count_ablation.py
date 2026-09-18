@@ -1,4 +1,12 @@
-"""Render the same market scene as three two-shot arms, holding everything but the prompt.
+"""CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot
+headers by design, from a frozen out-of-bank base graph at 362 frames, which
+is past the legal length (docs/research/pdd/2026-08-28_scene_complexity.md is
+its record). Kept byte for byte because dated records were produced by it; do
+not copy its prompt format into new work: the house no longer writes
+timestamps on shot headers (docs/prompting.md section 3.1) and renders a bank
+prompt only at the length its entry declares.
+
+Render the same market scene as three two-shot arms, holding everything but the prompt.
 
 The question is whether visible degradation tracks the number of cuts (and the
 large frame-to-frame deltas a cut produces) rather than clip length. Each arm
