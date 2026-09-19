@@ -57,6 +57,13 @@ repeat them.
   Steps" (Appendix A) states the mechanism: early perturbation moves the
   sample into a different basin, and per-sample metrics against the dense
   render stop meaning anything. [V for the tables; I for the Sol analogy]
+  *Cross-reference, added by the commissioning session:*
+  [`2026-09-19_evaluation_one_judge.md`](2026-09-19_evaluation_one_judge.md)
+  item 2 proposes an alignment index (per-frame PSNR/SSIM and audio envelope
+  correlation against the dense render) that says per contest whether a pair
+  is the same take or two takes. It is the instrument that tests this
+  paragraph's prediction on H3: if `start_percent` contests read as two takes,
+  distance-to-dense cannot score the ladder and only a blind panel can.
 - **So the instrument decides the answer for `start_percent`.** Cosine or
   PSNR against a same-seed dense render (sglang's H3 sweep, and this pack's
   B.4 instrument) measures basin membership. Only a quality judgement over

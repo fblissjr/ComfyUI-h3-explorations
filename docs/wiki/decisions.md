@@ -37,6 +37,14 @@ Older history lives elsewhere and is not copied here:
   a dated note under the table says so. The same survey found sglang's new
   RTX 5090 recipe sets memory placement only, so the adopt-upstream rule has
   nothing new to act on (that page's "Sixth read").
+- **`docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md` D.9
+  credited DFSAttn with "layer-wise sparsity profiling + bidirectional
+  co-clustering".** That mechanism is SVOO's (arXiv 2603.18636, whose v1
+  title D.9 also listed separately); DFSAttn is arXiv 2605.23445 (Hilbert
+  reordering, hierarchical block scoring, mask caching). Found independently
+  by two research subagents (`docs/research/2026-09-19_token_selection_scorers.md`
+  section 1, `docs/research/2026-09-19_video_sparse_attention_2026.md` "ID
+  check"); corrected in place by the survey's owner in `15db381`.
 
 ## 2026-09-18
 

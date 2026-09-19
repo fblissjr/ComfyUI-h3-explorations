@@ -213,6 +213,15 @@ what to measure first, zero-GPU first.
    *Measure first:* the alignment index on the clips already stacked and scored
    (`Video/reorder_panel/`, `Video/sage_chain_panel/`), CPU. How many real pairs
    stay aligned is unknown and decides whether item 2 is worth building.
+   *Cross-reference, added by the commissioning session:*
+   [`2026-09-19_where_approximation_is_tolerated.md`](2026-09-19_where_approximation_is_tolerated.md)
+   section 1.1 finds the opposite expectation for `start_percent`: removing
+   the dense warm-up moves the sample into a different basin (PISA; "Not All
+   Tokens Need 40 Steps", Appendix A), which is the two-takes regime where no
+   reference metric reads. The two agree on the instrument, the alignment
+   index, and disagree on what it will find for small warm-up moves. If it
+   classes `start_percent` contests as two takes, the ladder can only be
+   scored blind.
 3. **Audio: add the one speech check with high reported agreement, and stop
    expecting any metric to answer "more natural".** Whisper transcription error
    against the scripted dialogue line had the highest human agreement of any
