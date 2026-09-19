@@ -329,6 +329,14 @@ Shapes: about 1,600 key blocks per head, so `T` is about 102,400 tokens;
   38k tokens (survey D.5) that is about 4% and 2%, before any pool, and it
   is the ceiling on what a pool can save. Treat the density as illustrative; H3 at 104k has not
   been measured here.
+  *Corrected the same day: this counts one QK pass over every key. The
+  kernel makes two QK passes over the unrouted keys (a histogram, then the
+  listing) and folds the pooled tail's PV into the second, so its cost is
+  three passes over the unrouted share, not one over all keys; the priced
+  table is section 5 of
+  [`2026-09-19_token_selection_scorers.md`](2026-09-19_token_selection_scorers.md).
+  The direction of this paragraph's conclusion (a pool cuts the token pass
+  and nothing else in Sol) is unchanged.*
 
 ### 3.2 Block-max pool then token-level selection, mapped onto Sol
 
