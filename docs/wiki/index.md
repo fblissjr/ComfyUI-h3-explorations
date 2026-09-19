@@ -68,6 +68,12 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | [`docs/research/sglang_h3_pipeline.md`](../../docs/research/sglang_h3_pipeline.md) | sglang's H3 pipeline stage by stage, at source level. Compares nothing |
 | [`docs/research/sglang_comparison.md`](../../docs/research/sglang_comparison.md) | what the vendor serving path does that we do not. Read before proposing an optimization |
 | [`docs/research/technique_transfer.md`](../../docs/research/technique_transfer.md) | what transfers from LLM and ViT serving to H3 and what does not |
+| [`docs/research/2026-09-19_dsv41_hierarchical_indexer.md`](../../docs/research/2026-09-19_dsv41_hierarchical_indexer.md) | DeepSeek V4.1's hierarchical sparse indexer and layer modes, read for H3's Sol routing |
+| [`docs/research/2026-09-19_token_selection_scorers.md`](../../docs/research/2026-09-19_token_selection_scorers.md) | cheap scorers that choose what attention computes exactly, finer than a block |
+| [`docs/research/2026-09-19_video_sparse_attention_2026.md`](../../docs/research/2026-09-19_video_sparse_attention_2026.md) | four training-free video sparse-attention methods of 2026, with a frozen-route test stated in advance |
+| [`docs/research/2026-09-19_in_context_reference_and_sinks.md`](../../docs/research/2026-09-19_in_context_reference_and_sinks.md) | in-context references, the prefix and attention sinks; the every-fifth-latent-frame finding starts here |
+| [`docs/research/2026-09-19_where_approximation_is_tolerated.md`](../../docs/research/2026-09-19_where_approximation_is_tolerated.md) | which layers, heads and steps tolerate approximate attention; nobody measures the dense warm-up |
+| [`docs/research/2026-09-19_evaluation_one_judge.md`](../../docs/research/2026-09-19_evaluation_one_judge.md) | evaluation for one judge and one GPU: decoys, a low anchor, stop rules, small-panel arithmetic. Read before building a blind panel |
 | [`docs/research/m3_h3_bridge.md`](../../docs/research/m3_h3_bridge.md) | the MiniMax-M3 to H3 conditioning bridge: what H3 consumes, what M3 provides, the alignment that is not open, the tolerance that defines "accepted", what the text lane measured, and the case against the idea. The capture side is the heylook checkout's plan document |
 
 ## Code and directories
