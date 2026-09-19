@@ -115,6 +115,44 @@ checkout is at `3c80da7f`; `git reflog` in it dates each pull):
   about 16326: the checkout had `6cff1e97` from the 2026-09-15 morning pull,
   and no record says whether the server that rendered the reference clip was
   started before or after it.
+
+  **What of 15623 reaches H3's encode path, read 2026-09-19 at `3c80da7f`:
+  one change, and it is a load-order change.** Most of the PR is decode-time
+  work (fixed KV caches, CUDA-graph decode, speculative verify, layer
+  prefetch), and H3 conditions with one prefill and a layer tap, never a
+  decode loop: in `comfy/text_encoders/llama.py::Llama2_.forward`, graph
+  capture needs a decode step, and layer prefetch is gated on
+  `past_key_values is not None`. `Qwen3VL_32BConfig` inherits the new
+  `fixed_kv`, `graph_dynamic_vbar_blocks` and `prefetch_dynamic_vbars`
+  flags from `Qwen3VL_8BConfig`, but only the second reaches an encode: the
+  PR moved `get_dynamic_vram__units` onto `comfy/sd1_clip.py::SD1ClipModel`,
+  which `MiniMaxH3TEModel` extends, so `comfy/model_patcher.py`'s dynamic-VRAM
+  load now groups the encoder's weights one unit per decoder layer, where
+  before the H3 TE model offered no units. Checked by building
+  `comfy/text_encoders/minimax.py::MiniMaxH3TEModel` on the meta device and
+  calling it.
+
+  **Its multi-token prediction (MTP) half cannot apply to H3, three ways.**
+  Wiring: `comfy/sd.py` passes `mtp=` only in the `QWEN35_*` branch, and
+  `MTPHead` lives in `comfy/text_encoders/qwen35.py`; H3 loads through the
+  `CLIPType.MINIMAX` branch, and
+  `comfy/text_encoders/qwen3vl.py::Qwen3VLClipModel.generate`
+  accepts `mtp` and ignores it. Weights: core arms MTP on an `mtp.fc.weight`
+  tensor, and the shipped encoder's header (`h3_config.ENCODER_INT8`) has no
+  `mtp`, `lm_head` or final-norm tensors, matching the config's
+  `lm_head=False, final_norm=False`, so it cannot produce logits at all. Call
+  path: MTP is speculative decoding inside `generate()`, and nothing in this
+  pack calls `generate()`; conditioning goes through
+  `encode_from_tokens_scheduled` (`conditioning.py`).
+
+  **`MiniMaxH3EncoderLoader` gets all of it, as `CLIPLoader` does.**
+  `h3_encoder_loader.py::load_guarded_clip` is core's `comfy.sd.load_clip`
+  with `CLIPType.MINIMAX`, guards run after construction, and the
+  `cached_patcher_init` it registers rebuilds through the same call. The
+  flags live on the config class and the units method on the base class, so
+  nothing here has to opt in. What the unit grouping does to encode wall time
+  or peak VRAM is not measured, and a figure for it would be a statement
+  about cache state.
 - 16285 (`linear_input_act` respects `_full_precision_mm`): acts only where a
   format is disabled on the device; INT8 is supported on this card
   (reasoned). 16240: the Fun ControlNet under the memory compiler.

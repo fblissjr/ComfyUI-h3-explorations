@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.130.1
+
+### Changed
+
+- **`docs/sol_upstream.md`: what core PR 15623 (Qwen3 CUDA graphs, W4A8
+  GEMV, MTP) does to H3's text encoder, read at core `3c80da7f`.** The owner
+  asked whether `MiniMaxH3EncoderLoader` gets the benefits core's own loader
+  now has with MTP. It gets everything core's loader gets, because it is
+  `comfy.sd.load_clip` with `CLIPType.MINIMAX`. The only part of the PR that
+  reaches an H3 encode is a load-order change: dynamic VRAM now groups the
+  encoder's weights one unit per decoder layer, through a units method the
+  PR moved onto `SD1ClipModel`. The rest is decode-time work, and H3 never
+  decodes. MTP cannot apply for three separate reasons: core wires it only
+  for Qwen3.5, the shipped encoder has no MTP, `lm_head` or final-norm
+  tensors, and nothing here calls `generate()`. Encode time and VRAM under
+  the new grouping are not measured.
+
 ## 0.130.0
 
 ### Added
