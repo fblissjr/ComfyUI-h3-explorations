@@ -4,6 +4,20 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.128.1
+
+### Fixed
+
+- **362 frames is a legal length, and three notes of 2026-09-18 said it was
+  not.** It is on the grid and is the trained ceiling
+  (`docs/h3_resolutions.md`, `h3_rules.MAX_LENGTH`); 345 is what every shipped
+  graph renders (`h3_config.LONG_LENGTH`) and where the REFERENCE pipeline's
+  15.0 s check stops. `docs/bench_plan.md` records this same mistake being made
+  and withdrawn once before. Corrected in the reported-clips record (where the
+  length now drops out of the suspects for the lattice), in the closed-record
+  notes of two bench scripts, and in the 0.127.3 entry below. Caught by the
+  session that took the work over.
+
 ## 0.128.0
 
 ### Changed
@@ -104,7 +118,7 @@ prompt at its declared length; stripped prompts).
   `bench/compile_marker_corpus.py` (and the `start_seconds` its scenes carry,
   with `bench/marker_corpus/compiled.json` pinned by hash),
   `bench/run_shot_count_ablation.py` with `bench/_shot_ablation_base.json` (a
-  stale out-of-bank copy of the market scene at an illegal length), and the
+  stale out-of-bank copy of the market scene at 362 frames), and the
   inline prompts of `bench/marker_arms.json`; plus `bench/bench_e2e_h3.py`'s
   perf prompt.
 - The generator bakes bank text unstripped (`workflows/prompts.py::text`), so

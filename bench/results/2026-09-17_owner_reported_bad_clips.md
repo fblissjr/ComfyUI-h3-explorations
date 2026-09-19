@@ -39,7 +39,7 @@ Settings read from the clip, against what this pack ships:
 | checkpoint | `minimax_h3_fl2va_pruned_int8_convrot_pdd8_baked_s1`, the PDD 8-step BAKED checkpoint | the baked checkpoint belongs to the PDD graphs, at 8 steps with the PDD recipe (`docs/h3_pdd.md`) |
 | steps / scheduler | 18, `simple` | 8 for the baked checkpoint; 16 for the base model |
 | sigma shift | no `MiniMaxH3SigmaShift` node in the graph | 12.0 video / 3.0 audio on every shipped graph |
-| length | 362 frames | 345 is the legal ceiling at this canvas; 362 is past the reference's 15.0 s check (`docs/h3_geometry_and_nodes.md`) |
+| length | 362 frames | 345 is what every shipped graph renders (`h3_config.LONG_LENGTH`). *Corrected 2026-09-19:* this row called 345 "the legal ceiling"; it is not. 362 is on the grid and is the trained ceiling (`docs/h3_resolutions.md`, `h3_rules.MAX_LENGTH`); it is only past the REFERENCE PIPELINE's 15.0 s check. So the length is one grid step above the default, not off-recipe, and it drops out of the list of suspects for the lattice |
 | seed | 492696341373225 (random) | fixed seeds in every record here |
 | attention | sage `fp8++ balanced` + `MiniMaxH3ChannelBalance` fold + Sol with `qk_balance` and `rotate` on, base-model Sol recipe | the PDD graphs carry their own Sol recipe (`h3_config.SOL_PDD_CUDA`) |
 | encoder | `qwen3vl_32b_minimax_h3_bf16_pruned` | either |

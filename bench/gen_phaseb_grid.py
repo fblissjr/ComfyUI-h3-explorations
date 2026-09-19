@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLOSED RECORD since 2026-09-18. This grid pairs full-length bank prompts with
-fixed lengths of 243, 311 and 362 frames (362 is past the legal length), which
-bench/run_graph_arms.py now refuses. Kept byte for byte because dated records
+fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained
+ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept byte for byte because dated records
 were produced by it; do not copy its prompt format into new work: the house no
 longer writes timestamps on shot headers (docs/prompting.md section 3.1) and
 renders a bank prompt only at the length its entry declares.
