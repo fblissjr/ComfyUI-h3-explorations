@@ -1156,8 +1156,14 @@ comfy-kitchen's only sparse attention is Sol-Attn; `VSA`, `SLA`, `SpargeAttn`,
 
 ### D.9 The 2026 landscape [V — from the Awesome-Sparse-Attention-Video-Diffusion index]
 
-Training-free: DFSAttn (ICML 2026, layer-wise sparsity profiling +
-bidirectional co-clustering); Training-Free Sparse Attention via Offline
+*Corrected 2026-09-19 (caught by the reference-code session; verified against the papers in
+[`2026-09-19_video_sparse_attention_2026.md`](2026-09-19_video_sparse_attention_2026.md)): this list credited DFSAttn
+with layer-wise sparsity profiling and bidirectional co-clustering. That mechanism is SVOO's, the next entry (arXiv
+2603.18636, "Attention Sparsity is Input-Stable"). DFSAttn (arXiv 2605.23445) is Hilbert reordering with mask caching.
+HASTE below was retitled HEART in its second version.*
+
+Training-free: DFSAttn (ICML 2026, Hilbert reordering and mask caching);
+SVOO, Training-Free Sparse Attention via Offline
 Layer-Wise Sparsity Profiling and Online Bidirectional Co-Clustering (ICML
 2026); QuantSparse (ICLR 2026, **joint quantization + sparsification**);
 Training-free and Adaptive Sparse Attention for Efficient Long Video
