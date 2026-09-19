@@ -121,13 +121,19 @@ def _sync_spec():
             _config = _parse(_SPEC)
             if not _config["dir"]:
                 enabled = False
-                print("[h3_capture] H3_CAPTURE set but no dir=; capture disabled")
+                print("[h3_capture] H3_CAPTURE set but no dir=; capture disabled", flush=True)
             else:
                 os.makedirs(_config["dir"], exist_ok=True)
+                # flush=True on every print here: core's LogInterceptor
+                # (app/logger.py) rewraps stdout block-buffered when it is a
+                # pipe, so without it this line reached a piped server log
+                # only when a later logging call flushed, mid-render, and a
+                # launcher waiting for it before submitting waited forever.
                 print(f"[h3_capture] ARMED: dir={_config['dir']} "
                       f"blocks={sorted(_config['blocks'])} steps={sorted(_config['steps'])}"
                       + (" final=on" if _config.get("final") else "")
-                      + (f" pre={_config['pre']}" if _config.get("pre") else ""))
+                      + (f" pre={_config['pre']}" if _config.get("pre") else ""),
+                      flush=True)
         else:
             _config = {}
 
@@ -320,7 +326,7 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
     size = os.path.getsize(path) / 2**30
     print(f"[h3_capture] wrote {name}  {tuple(qh.shape)} {qh.dtype}  "
           f"kernel={kernel}  segments={'yes' if segments else 'NO'}  "
-          f"{size:.2f} GiB")
+          f"{size:.2f} GiB", flush=True)
 
 
 def _block_step(module, advance):
@@ -516,7 +522,7 @@ def maybe_capture_pre(module, qkv, x, rope_freqs, transformer_options=None,
     size = os.path.getsize(path) / 2**30
     print(f"[h3_capture] wrote {name}  qkv{tuple(qkv_h.shape)} {qkv_h.dtype}  "
           f"segments={'yes' if segments else 'NO'}  chunk identical="
-          f"{chunk_check.get('identical', 'n/a')}  {size:.2f} GiB")
+          f"{chunk_check.get('identical', 'n/a')}  {size:.2f} GiB", flush=True)
 
 
 def wants_final():
@@ -630,7 +636,7 @@ def maybe_capture_final(out, length_hint=None):
         streams = dict(zip(names, out))
     else:
         print(f"[h3_capture] final tap: expected a tensor or a list of them, "
-              f"got {type(out).__name__}; nothing written")
+              f"got {type(out).__name__}; nothing written", flush=True)
         return
 
     # Same CPU-before-reshape discipline as the q/k/v path, for the same
@@ -645,7 +651,7 @@ def maybe_capture_final(out, length_hint=None):
     torch.save(saved, path)
     size = os.path.getsize(path) / 2**30
     shapes = " ".join(f"{k}{tuple(v.shape)}" for k, v in saved.items())
-    print(f"[h3_capture] wrote {name}  {shapes} {ref.dtype}  {size:.3f} GiB")
+    print(f"[h3_capture] wrote {name}  {shapes} {ref.dtype}  {size:.3f} GiB", flush=True)
 
 
 def summary():
