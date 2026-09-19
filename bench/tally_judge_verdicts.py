@@ -16,7 +16,9 @@ the judge's tie rate, which decides how often a five-scene rule passes a
 judge who is guessing. These are contests between different arms, not decoys:
 a tie here mixes the judge's habit with arms that really are alike, so the
 rate is what the rule meets in practice, not the judge's false-positive rate.
-That needs decoys.
+That needs decoys: a panel record (`bench/join_panel_verdicts.py`) marks each
+pair's kind, and its decoy verdicts are counted apart under `decoys`, where a
+picked winner is a false positive. Only real contests enter the tie rate.
 
 Panels recorded only as prose (the 2026-09-17 and 2026-09-18 records) are not
 read. No GPU.
@@ -50,12 +52,22 @@ def main() -> int:
     args = ap.parse_args()
 
     per_file, total = [], Counter()
+    decoys: dict[str, Counter] = {"two_seed_decoy": Counter(), "identical_decoy": Counter()}
     for path in sorted((REPO / "bench" / "results").glob("*verdict*.json")):
         data = orjson.loads(path.read_bytes())
         block = data.get("pairs") if isinstance(data, dict) else None
         pairs = block.get("by_pair") if isinstance(block, dict) else None
         if not isinstance(pairs, list):
             continue
+        # A panel record (`bench/join_panel_verdicts.py`) marks each pair's kind. Only
+        # real contests count toward the tie rate; decoy verdicts are tallied apart,
+        # because a winner on a decoy is the false positive this tally cannot see otherwise.
+        kind_of = {c["pair"]: c["kind"] for c in (data.get("panel") or {}).get("contests", [])}
+        for p in pairs:
+            k = kind_of.get(p.get("pair"), "real")
+            if k in ("two_seed_decoy", "identical_decoy") and p.get("scored"):
+                decoys[k][p.get("verdict")] += 1
+        pairs = [p for p in pairs if kind_of.get(p.get("pair"), "real") == "real"]
         counts = Counter(p.get("verdict") for p in pairs if p.get("scored"))
         unknown = set(counts) - set(ANSWERS)
         if unknown:
@@ -82,6 +94,9 @@ def main() -> int:
         "decisive": decisive,
         "slot_1_share_of_decisive": total["Clip 1 better"] / decisive if decisive else None,
         "slot_split_two_sided_p": two_sided_binomial(total["Clip 1 better"], decisive),
+        "decoys": {k: {"scored": sum(c.values()),
+                       "winner_picked": c["Clip 1 better"] + c["Clip 2 better"],
+                       **{a: c.get(a, 0) for a in ANSWERS}} for k, c in decoys.items()},
     }
     text = orjson.dumps(record, option=orjson.OPT_INDENT_2)
     sys.stdout.write(text.decode() + "\n")
