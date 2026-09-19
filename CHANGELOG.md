@@ -4,6 +4,52 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.132.0
+
+### Added
+
+Placed by the lead session for the capture and research sessions, 2026-09-19. Values live in the named records.
+
+- **`bench/measure_pair_alignment.py`** (6ca1440): per-pair picture and sound
+  alignment against a reference render, two verdicts (they come apart in both
+  directions), with a self-pair and a two-seed control. Record
+  `bench/results/2026-09-19_pair_alignment` over every scored pair: most
+  knob pairs on full-length scenes are two takes in picture, so a reference
+  picture metric reads only a minority of contests.
+- **`bench/tally_judge_verdicts.py`** (6ca7636): tie and slot tally over the
+  structured verdict files; record `2026-09-19_judge_tie_rate`. Ties are about
+  as common as decisive verdicts, so no five-scene verdict is read without a
+  decoy.
+- **`bench/map_attention_mass_on_capture.py`** (d9dc17a, ecfe360): exact
+  attention mass per segment, per latent frame and on the heaviest keys, all
+  heads, CPU; record on the covered-market depth capture (every fifth latent
+  frame draws more mass than its share in every cell but block 0; audio
+  queries look at video in a few blocks only).
+- **`bench/compare_sol_orderings.py`** (f684211): orderings-sweep outputs side
+  by side at raster's shipped point. Records
+  `2026-09-19_sol_orderings_old_vs_new` (the 2026-09-03 capture set holds for
+  rankings and signs, not absolute error; the kitchen rebuild changed nothing)
+  and the three new capture sets' inventories and manifest copies (80155ec).
+- **`bench/depth_profile_tables.py`** (4cd937e, 0f091b4): per-block Sol and
+  dense-kernel tables across scenes with rank stability. Record
+  `2026-09-19_depth_profile`: on two scenes Sol hurts block 40 most and block
+  49 least at the recorded tau with `qk_balance` on, while block 49 is the
+  dense kernels' worst; `dense_blocks` = 40 is nominated for one blind check,
+  nothing decided.
+- **Capture manifest schema 1.7.0** (fd87357): `workload.attention.dense_node`
+  names the node that supplied the chain's dense attention, read from the
+  graph; older manifests lack it and are not back-filled.
+  `docs/capture_manifest_schema.md` has the section.
+- **Research lane** (9e5e43f, a001cbd, 54d747a, a43ff5f, 7d804f6, 8b5cf65,
+  c2c360b): six dated files under `docs/research/` (DeepSeek V4.1's
+  hierarchical indexer; token-selection scorers; four 2026 training-free
+  video sparse methods; references and sinks; where approximation is
+  tolerated; evaluation for one judge), each with its measure-first list.
+- **`bench/probe_encoder_rope_kitchen.py`** (9d7a277; records dc04082,
+  5b5d86f): core's old encoder RoPE against kitchen's. Bit-identical on
+  kitchen's eager CPU path; on the CUDA kernel a handful of elements round
+  differently, equally accurate against an fp64 reference.
+
 ## 0.131.1
 
 ### Changed
