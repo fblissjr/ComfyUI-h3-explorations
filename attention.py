@@ -560,13 +560,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         # On the sage path the kernel is known here, so capture here. On the
         # delegate path it is NOT: `optimized_attention` reaches Sol's
         # override, which decides `dense_blocks`, eligibility and kernel
-        # failure itself and can hand the call back to sage. Tagging before
-        # that call claims an attribution this frame cannot support -- the
-        # first verification run tagged a `dense_blocks` block as `sol` when
-        # it had run on sage. So the delegate captures AFTER, reading the
-        # route the override published. Costs nothing: `qh/kh/vh` below are
-        # views of this same storage, so holding q/k/v across the call keeps
-        # no extra bytes alive.
+        # failure itself and can hand the call back to sage. Since 2026-09-19
+        # the override captures those calls itself (`h3_capture.seam_begin`,
+        # host copy before the call, route tag after), which is also what lets
+        # the kitchen chain, with no sage node, be captured at all. Capturing
+        # here too would count each delegate call twice and shift every step
+        # index after it, so this forward captures only what it runs.
         if _capture.enabled and not via_optimized_attention:
             _capture.maybe_capture(
                 self, q, k, v, length_hint=s, kernel="sage",
@@ -587,13 +586,6 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             out = optimized_attention(qh, kh, vh, self.heads, mask=None,
                                       skip_reshape=True,
                                       transformer_options=transformer_options)
-            if _capture.enabled:
-                taken = "unknown"
-                if isinstance(transformer_options, dict):
-                    taken = transformer_options.get("h3_attn_route", "unknown")
-                _capture.maybe_capture(
-                    self, q, k, v, length_hint=s, kernel=taken,
-                    transformer_options=transformer_options)
             del q, k, v
             _trace.route(s, "sol_delegate")
             return self.out_proj(out.squeeze(0))
