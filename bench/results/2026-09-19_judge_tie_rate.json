@@ -1,0 +1,78 @@
+{
+  "tool": "bench/tally_judge_verdicts.py",
+  "files": [
+    {
+      "file": "bench/results/2026-08-20_session1_verdict.json",
+      "scored": 24,
+      "same_seed_pairs": 24,
+      "partial": true,
+      "Clip 1 better": 5,
+      "Clip 2 better": 3,
+      "same": 6,
+      "can't tell": 10
+    },
+    {
+      "file": "bench/results/2026-09-04_ladder_2026-09-03_verdict.json",
+      "scored": 25,
+      "same_seed_pairs": 25,
+      "partial": true,
+      "Clip 1 better": 7,
+      "Clip 2 better": 6,
+      "same": 10,
+      "can't tell": 2
+    },
+    {
+      "file": "bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json",
+      "scored": 4,
+      "same_seed_pairs": 4,
+      "partial": true,
+      "Clip 1 better": 1,
+      "Clip 2 better": 0,
+      "same": 1,
+      "can't tell": 2
+    },
+    {
+      "file": "bench/results/2026-09-05_pdd_bake_2026-09-05_verdict.json",
+      "scored": 10,
+      "same_seed_pairs": 10,
+      "partial": true,
+      "Clip 1 better": 3,
+      "Clip 2 better": 4,
+      "same": 3,
+      "can't tell": 0
+    },
+    {
+      "file": "bench/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json",
+      "scored": 20,
+      "same_seed_pairs": 20,
+      "partial": true,
+      "Clip 1 better": 7,
+      "Clip 2 better": 4,
+      "same": 8,
+      "can't tell": 1
+    },
+    {
+      "file": "bench/results/2026-09-05_sol_nosage_2026-09-04_verdict.json",
+      "scored": 12,
+      "same_seed_pairs": 12,
+      "partial": true,
+      "Clip 1 better": 6,
+      "Clip 2 better": 3,
+      "same": 2,
+      "can't tell": 1
+    }
+  ],
+  "total": {
+    "Clip 1 better": 29,
+    "Clip 2 better": 20,
+    "same": 30,
+    "can't tell": 16
+  },
+  "scored": 95,
+  "tie_rate": 0.4842105263157895,
+  "same_rate": 0.3157894736842105,
+  "cant_tell_rate": 0.16842105263157894,
+  "decisive": 49,
+  "slot_1_share_of_decisive": 0.5918367346938775,
+  "slot_split_two_sided_p": 0.2528697301676033
+}
