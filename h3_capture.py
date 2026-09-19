@@ -50,24 +50,42 @@ contiguous at save time, so nothing is altered -- but the file is HND and the
 call site is NHD, and confusing the two silently transposes an accuracy
 measurement.
 
-**Captured AFTER the fused RMSNorm+RoPE**, which is what sage actually
+**Captured AFTER the fused RMSNorm+RoPE**, which is what the kernel actually
 receives. Capturing before it would measure a tensor no kernel ever sees.
 
-## Why sage, and why Sol must be off
+## Which calls are captured, and on which chain (rewritten 2026-09-19)
 
-These are the tensors the *sage* path holds, and **a capture run must have
-Sol-Attn bypassed** -- but not for the reason this docstring gave until
-2026-08-14. It said sage receives nothing with Sol on, so the run would
-produce no files. That is the claim retracted in `docs/SOLATTN.md`: Sol only
-takes the calls inside its sigma window, so at the shipped `0.2 / 0.9` and 16
-steps sage still runs **5 of 16** steps.
+**Both chains, every call, one hook each.** Two hooks share the counters:
 
-The real failure is worse than an empty directory, because it is not empty.
-Those 5 steps are 0-3 and 15 -- both ends of the schedule and none of the
-middle -- so a capture taken with Sol on yields a plausible-looking set of
-files drawn from an unrepresentative slice of the trajectory, and every
-accuracy number computed from it inherits that skew silently. An empty run
-announces itself; this one does not. The block counter still warns.
+- the sage node's forward (`attention.py`) captures the calls it runs itself,
+  tagged `sage`;
+- Sol's override seam (`seam_begin` / `seam_end`, called from
+  `sol_attn_h3.py`) captures every call the override receives, on the sage
+  chain AND on the default kitchen chain, tagged with the route that ran.
+
+Until 2026-09-19 the only hook was the sage forward, so the DEFAULT chain --
+core's `ModelAttentionBackend` with no sage node, shipped since 2026-09-15 --
+could not be captured at all, and every capture-graded number in this pack came
+from the sage chain. `bench/results/2026-09-19_sol_seam_capture.md` is the
+change and its acceptance.
+
+**What this section said until then: "a capture run must have Sol-Attn
+bypassed".** That was written on 2026-08-14 for a real failure mode and outlived
+it. The reasoning was: Sol takes the calls inside its sigma window, so with Sol
+on, the sage forward saw only steps 0-3 and 15 -- both ends of the schedule and
+none of the middle -- and a capture came out plausible-looking but drawn from an
+unrepresentative slice, which is worse than an empty directory because an empty
+run announces itself. The delegate-path capture closed most of that on
+2026-08-30 and the seam closes the rest: the calls Sol takes are captured where
+Sol takes them. **Sol may be on, and on a shipped graph it is.** What still
+holds from the old section: read the `_k<route>` tag before comparing two files,
+because a `sol` record and a dense-fallback record are different kernels on the
+same inputs.
+
+**What is still not captured here:** the token-refiner calls, which carry no
+`sol_block` label at the seam and are only reached by the sage forward when the
+sage node patches the refiner. The block counter still warns when a render ends
+with nothing written.
 """
 
 from __future__ import annotations
