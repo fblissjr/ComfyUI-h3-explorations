@@ -15,6 +15,29 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-19
+
+- **Upstream survey: three pieces of prose had lost.** `docs/sol_upstream.md`
+  described kitchen PR 171 (chunked `key_bias`) as an open draft with a rebase
+  hazard for `blk_cnt`, core PR 16239 as an open PR that would rewrite core's
+  Sol node, and kitchen PR 176 (W4A8 GEMV) as assessed and not carried. 171
+  and 16239 were closed unmerged by their author on 2026-09-16; 176 merged
+  into `v0.2.35`, which this install has carried since the 0.123.1 rebuild.
+  Dated notes now stand beside each, and the new section "comfy-kitchen and
+  core, 2026-09-19" holds the state.
+- **`docs/open_experiments.md` #28 (the kitchen VAE kernels) said both PRs
+  were open and the check waited on a tag.** Both halves merged (kitchen 167
+  in `v0.2.34`, core 16187 on 2026-09-15) and have run on every render here
+  since this install's 2026-09-15 core pull; the item's 2026-09-19 status says
+  so and notes that its before-and-after capture check has no record. No
+  decision taken: reopening it is the owner's call.
+- **`docs/research/sglang_comparison.md`'s Sol defaults table said our dense
+  attention outside the Sol window is Sage.** It has been kitchen's dense
+  attention since 2026-09-15 (`workflows/h3_config.py::DEFAULT_DENSE_CHAIN`);
+  a dated note under the table says so. The same survey found sglang's new
+  RTX 5090 recipe sets memory placement only, so the adopt-upstream rule has
+  nothing new to act on (that page's "Sixth read").
+
 ## 2026-09-18
 
 - **No timestamps on shot headers (the owner).** "The only time you should use

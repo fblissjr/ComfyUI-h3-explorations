@@ -1,6 +1,8 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-09-15 (the comfy-kitchen section); before that 2026-09-11, when sglang's own Sol-Attn backend was added, the
+Last updated: 2026-09-19 (section "comfy-kitchen and core, 2026-09-19", with
+dated notes on the PRs it found closed or merged); 2026-09-15 (the
+comfy-kitchen section); before that 2026-09-11, when sglang's own Sol-Attn backend was added, the
 comfy-kitchen snapshot moved forward, an
 open core PR against core's Sol node was read, and a third ComfyUI Sol pack
 was added from its README. Before that, 2026-09-10, when Sana's `sol-engine`
@@ -31,11 +33,116 @@ disagree about our configuration, they are right.
 | sglang's Sol-Attn backend | source at `593c7a900d`, with its attention-backend doc and H3 cookbook page | 2026-09-11 |
 | two third-party ComfyUI packs | their READMEs only | 2026-08-16 |
 | xmarre's ComfyUI-Sol-H3 | its README and the body of its PR 9, via `gh` | 2026-09-11 |
-| Comfy-Org/ComfyUI PR 16239 (open) | its diff via `gh`: `nodes_sparse_attention.py` and two helpers in its new module | 2026-09-11 |
-| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11 |
+| Comfy-Org/ComfyUI PR 16239 (closed unmerged 2026-09-16) | its diff via `gh`: `nodes_sparse_attention.py` and two helpers in its new module | 2026-09-11 |
+| Comfy-Org/ComfyUI PRs touching H3 or core's sparse node, and kitchen's open PRs | `gh`: lists, bodies and threads; diffs for 16388, 16344, 16404, 16245, 16362, 16378 | 2026-09-19 |
+| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19 |
 
 Every `coderef/Sana/...` pointer below resolves against a checkout at
 `757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
+
+---
+
+## comfy-kitchen and core, 2026-09-19
+
+Read with the fork's remotes fetched and `gh` (PR lists, bodies, threads, and
+the diffs named below). ComfyUI's pin is `comfy-kitchen==0.2.35`
+(`requirements.txt` in the ComfyUI checkout); upstream `main` has nothing past
+the `v0.2.35` tag, and `h3-build` is rebased onto it (CHANGELOG 0.123.1).
+
+**Closed since the last read, and what that retires here:**
+
+- **Kitchen PR 171 (chunked `key_bias`) and core PR 16239 (attention key
+  measure) were both closed unmerged by their author on 2026-09-16.** The
+  author's closing comments say the mixed-resolution path they served was
+  retired from the author's own pipeline, and that the branches are kept on
+  the author's fork. The `*, key_bias` rebase hazard in the 2026-09-11 section
+  and the "would rewrite this node" note under core's Sol node no longer
+  apply. Neither came back under a new number: the same author's 2026-09-18
+  core PRs 16401 and 16402 are for "MiniMax H3 Keyless", a checkpoint variant
+  whose main blocks carry a packed `qv_proj` and no K projection (core's
+  sparse node would give it only the generic override and refuse VSA; generic
+  LoRA loading fails closed). This repo loads no such checkpoint.
+- **Kitchen PR 176 (W4A8 decode GEMV) merged into `v0.2.35`**, with its HIP
+  port 182, so the 2026-09-15 table's "not carried" row is now carried code.
+  What the tag brings is in CHANGELOG 0.123.1: nothing on the H3 attention
+  path. Its core half, PR 15623 (Qwen3 cudagraphs and W4A8 GEMV), merged
+  2026-09-18.
+
+**Open kitchen PRs new since 2026-09-15:**
+
+- **179 (another developer), `draft_attention`, with its core half 16362.**
+  A DraftMap block-sparse self-attention for packed video, adapted from the
+  anemoi project, with a native Ada executor: its body lists SM89 among the
+  served capabilities, so **it is the one open kernel that would run on this
+  card.** The core half adds it as a `draft` method in core's Sparse
+  Attention node, H3 only, prefix exact, sparse routing on the video rows.
+  The PR body's end-to-end table includes an RTX 4090. kijai's reply on
+  2026-09-16 graded it against kitchen's `sol_attn` on real H3 captures (two
+  blocks, relative L2 against dense, on a 5090) and found it no better than
+  Sol at matched speed, with a much larger workspace; the numbers are in that
+  thread and not copied here. If it merges and is ever worth a look, the
+  instrument is a capture grader (`bench/grade_sol_route_on_capture.py` and
+  its siblings), not a render.
+- **186 (comfyanonymous): head dim 256 in the Flash kernel.** H3's DiT head
+  dim is `attention_head_dim` in `vendor_config/fl2va_transformer_config.json`,
+  which is not 256. Not H3.
+- 183, 184 (HIP Sol exact attention), 174, 180, 185 (HIP), 151 (Ascend), 181
+  (agent docs): not this card.
+- **168 (ours, `blk_cnt`)** is open, no activity since 2026-09-11. The
+  `qk_balance` branch (`sol-qk-balance-pr`, section "2026-09-15, evening"
+  below) has no PR.
+
+**kijai's fork.** `zero-pad-mode` (`16651db`, 2026-09-19, not a PR yet) adds a
+zero-padding mode to the fused VAE group-norm, SiLU and pad3d kernel from PR
+167, and touches the fp16 conv3d path. The commit does not name the model it
+is for.
+
+**Core, merged since 2026-09-11 and running in this install** (the ComfyUI
+checkout is at `3c80da7f`; `git reflog` in it dates each pull):
+
+- **16187 and 16332: the H3 VAE kernels are live.** With kitchen PR 167 in
+  `v0.2.34`, both halves of [`open_experiments.md`](open_experiments.md) #28
+  have merged; its status line carries what that means.
+- **16326, 16351, 16389 and 15623 reach H3's text encoder, not the DiT.**
+  Core's Qwen3-VL encoder is `Llama2_` from `comfy/text_encoders/llama.py`
+  (`comfy/text_encoders/qwen3vl.py` imports it), and 16326 (`6cff1e97`) makes
+  that file's `apply_rope` call kitchen's `apply_rope_split_half` in place of
+  core's own torch code. The 2026-09-18 rebuild record's bit-identical render
+  (`bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`) spans core `36da3ff7`
+  to `a8686f2b`, which covers 16351, 16389 and 15623 on that graph and scene.
+  It does not cover 16326: both of its renders already had it, since this
+  install pulled `6cff1e97` on 2026-09-15.
+- 16285 (`linear_input_act` respects `_full_precision_mm`): acts only where a
+  format is disabled on the device; INT8 is supported on this card
+  (reasoned). 16240: the Fun ControlNet under the memory compiler.
+
+**Open core PRs that touch H3, read against their diffs:**
+
+- **16388** makes core's `parse_block_list` (the `dense_blocks` of core's
+  sparse node) refuse a negative entry that it used to read as positive. Ours
+  is not affected: `block_spec.py::parse_blocks` resolves negatives from the
+  end and refuses anything else, and no graph uses core's node (a walk of
+  `h3_config.graph_paths(..., include_bench=True)` finds only
+  `MiniMaxH3SolAttn`).
+- **16344**: core's sparse node replaced any earlier `double_block` patch (a
+  Fun ControlNet applied before it silently stopped acting), and the ControlNet
+  tower inherited the sparse override. Our VSA node already refuses an earlier
+  block patch (`vsa_attention.py`), and our Sol node composes with a previous
+  override. The second half applies to our Sol override too: a ControlNet
+  wired under it would run its tower through Sol. Nothing here wires one.
+- **16404** (supersedes the closed 16378): keeps one INT8 QKV cast alive
+  across core's chunked producer when VBAR falls back to temporary casts;
+  measured on AMD. Our `MiniMaxH3SolChunked` projects per chunk the same way
+  (`sol_chunked_h3.py::make_chunked_forward`), and no shipped graph uses it.
+  kijai's reply on 16378 disputes its chunk-size claim on CUDA.
+- **16245**: a per-model `disable_comfy_compiler` key in `transformer_options`
+  for H3. If it merges, it is the per-graph alternative to a node refusing
+  the memory compiler (the reorder's history: CHANGELOG 0.123.0).
+- 16116 (attention memory estimate; its body says NVIDIA with PyTorch
+  attention on is unaffected), 15735 (an H3 AV latent builder for two-pass
+  upscales), 16283 and 16221 (Fun ControlNet), 16391 (XPU VAE), 16228 (AMD
+  encoder fallback), 16301 (startup guard): title and body only, none reaches
+  a shipped graph on this card.
 
 ---
 
@@ -67,8 +174,8 @@ A local branch named `sol_fp16_pv` in the kijai mirror is kijai's
 
 | PR | what | why not |
 |---|---|---|
-| 176, kijai, `w4a8_gemv` | W4A8 codebook GEMV for M <= 8, int8 decode GEMV, fused GatedDeltaNet decode; for an LLM text-encoder *decode* loop, paired with a core PR | H3's encoder is prefill only here; no decode path runs. Revisit if ComfyUI's pin moves to a tag that needs it, which the rebuild gate will say |
-| 171, xmarre, chunked `key_bias` | per-key logit bias on the fused-QKV `sol_attn_chunked` producers, CUDA and HIP | `sol_attn_chunked` is registered and unwired here, and `key_bias` is left at its default on the direct path too |
+| 176, kijai, `w4a8_gemv` (*merged into `v0.2.35` on 2026-09-16 and carried since the 0.123.1 rebuild; 2026-09-19*) | W4A8 codebook GEMV for M <= 8, int8 decode GEMV, fused GatedDeltaNet decode; for an LLM text-encoder *decode* loop, paired with a core PR | H3's encoder is prefill only here; no decode path runs. Revisit if ComfyUI's pin moves to a tag that needs it, which the rebuild gate will say |
+| 171, xmarre, chunked `key_bias` (*closed unmerged 2026-09-16; 2026-09-19*) | per-key logit bias on the fused-QKV `sol_attn_chunked` producers, CUDA and HIP | `sol_attn_chunked` is registered and unwired here, and `key_bias` is left at its default on the direct path too |
 | 172, neuregex, Triton INT8 GEMM int64 offsets | the same overflow class as the sage fork's v0.7.0 and v0.7.17 fixes, in kitchen's Triton INT8 GEMM output offset | this card runs the CUDA INT8 linear, not the Triton one; a correct fix for a path not on ours. Worth taking if that changes |
 | 174 (HIP WMMA), 151/153/154/155/161 (Ascend), 157 (stochastic fp8, Triton), 160 (dead import) | other backends, or cosmetic | not this card |
 
@@ -432,6 +539,10 @@ display name "Model Sparse Attention", experimental
   `transformer_options` keys for attention patches, `minimax_h3_layout`
   (`comfy/ldm/minimax/model.py:623`) and `block_index` (`:754`).
 
+*2026-09-19: PR 16239 was closed unmerged on 2026-09-16 and this paragraph no
+longer describes a pending change; section "comfy-kitchen and core,
+2026-09-19".*
+
 **An open PR would rewrite this node (read 2026-09-11).** Comfy-Org/ComfyUI
 PR 16239 (another developer; draft, unreviewed) adds a per-key "attention
 measure" to both paths for a mixed-resolution pipeline, handed to kitchen as
@@ -702,6 +813,9 @@ searched source outside kijai's packs applies a spatial token order to H3.
 Fetch and `gh` only. Nothing merged since the 2026-09-10 snapshot: `main` is
 still `21003fa`, and there is no tag after `v0.2.33`.
 
+- *2026-09-19: PR 171 was closed unmerged on 2026-09-16, so the rebase
+  hazard below no longer applies; section "comfy-kitchen and core,
+  2026-09-19".*
 - **PR 171** (another developer; draft, no maintainer review, and its body
   says a compiled GPU run is still owed) gives `sol_attn_chunked` the
   `key_bias` the direct `sol_attn` already takes: a natural-log per-key score

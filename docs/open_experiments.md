@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-09-11
+Last updated: 2026-09-19 (#28, a status line); otherwise 2026-09-11
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -2096,6 +2096,22 @@ out: a kitchen tag that contains it reaches this install through ComfyUI's
 pin or the next fork rebase. Whether the DiT's numbers move is unmeasured.
 The check when that tag lands is the DiT's INT8 linear outputs on a capture,
 before and after, which is cheaper than any render and needs no core patch.
+
+**Status 2026-09-19: both reopen halves have merged, and the kernels have run
+on every render here since 2026-09-15.** Kitchen PR 167 is in `v0.2.34`,
+which `h3-build` was rebased onto on 2026-09-15 (CHANGELOG, the `0.2.34+sol`
+entry); core PR 16187 merged on 2026-09-15 with a follow-up, 16332, and this
+install's ComfyUI checkout pulled both that morning (`git reflog` in the
+checkout; the commits are `b2e31e89` and `f14bbe28`). So the core-patch
+blocker above is gone: it is stock. The before-and-after capture check named
+in the 2026-09-11 status has no record in `bench/results/`, and no record
+there compares a render made before that pull with one made after it (the
+bit-identical pairs in `2026-09-17_sol_options_noodlebar_batch.md` and
+`2026-09-18_kitchen_0.2.35_rebuild.md` both start on 2026-09-15). The same
+pull also moved H3's text encoder RoPE onto kitchen
+([`sol_upstream.md`](sol_upstream.md), section "comfy-kitchen and core,
+2026-09-19"). Whether to reopen this item is the owner's call; what is
+settled is that the code runs here either way.
 
 ## 29. What makes token routing's selection unstable, on one block
 

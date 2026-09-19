@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -198,7 +198,124 @@ node and the ComfyUI Sol packs live in [`../sol_upstream.md`](../sol_upstream.md
   file sits in this install's model directory, and neither
   `workflows/h3_config.py`, the generator nor any shipped graph names it.
 - **Upstream PRs, not cloned**: Comfy-Org/ComfyUI #16239 and the kitchen and
-  ComfyUI-pack PRs around it are read in `sol_upstream.md`.
+  ComfyUI-pack PRs around it are read in `sol_upstream.md`. *2026-09-19:
+  16239 and kitchen 171 were closed unmerged on 2026-09-16; see that page's
+  section "comfy-kitchen and core, 2026-09-19".*
+
+---
+
+## What moved by 2026-09-19
+
+Read on 2026-09-19 by fetch, from each clone's upstream branch, against the
+revision its last section recorded. The list of commits for any clone is
+`git log <recorded>..origin/main` inside it (Sana: `origin/sol-engine`).
+comfy-kitchen, kijai's fork and core's PRs live in
+[`../sol_upstream.md`](../sol_upstream.md), section "comfy-kitchen and core,
+2026-09-19"; sglang's sixth read lives in
+[`../research/sglang_comparison.md`](../research/sglang_comparison.md).
+
+**Nothing below changes what runs on this card, and nothing triggers the
+adopt-upstream rule.** Only sglang, core's node and comfy-kitchen can trigger
+it, and none of the three moved a default this repo differs on.
+
+- **`vllm-omni`** (`ffcaaa943` to `fa506e0fe`), the most H3 activity of any
+  clone.
+  - **Its ComfyUI "workflows" do not run H3 in ComfyUI.**
+    `coderef/vllm-omni/apps/ComfyUI-vLLM-Omni` is a ComfyUI pack whose nodes
+    send a request to a vllm-omni server
+    (`coderef/vllm-omni/apps/ComfyUI-vLLM-Omni/docs/minimax-h3-t2v.md` says
+    ComfyUI loads no H3 weights). Its example graphs (t2v, ref2va, upscale,
+    FastH3) are therefore templates for that server's sampler, which is
+    deterministic Euler on a shifted linear schedule with no CFG
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/time_request.py`).
+    They differ from our shipped graphs on base step count, sampler, frame
+    count, the canvas used with a reference video, and the 768p Turbo LoRA's
+    version, step count and strength; the templates are in
+    `coderef/vllm-omni/apps/ComfyUI-vLLM-Omni/example_workflows/` and ours are
+    `workflows/h3_config.py`. vllm-omni is not one of the rule's upstreams, so
+    any of these is an ordinary judgement call. They agree with ours on
+    shift, fps, the base canvas and no CFG.
+  - `cb439f3e8` (#7610) loads `FastVideo/FastVideo-FastH3-8-Step-V2`, a full
+    distilled DiT in Diffusers layout, on its own sigma ladder and shift
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py`).
+    ComfyUI cannot load that layout as shipped. If one is ever converted,
+    `bench/check_distill_settings.py` would classify the graph as base (it
+    keys on LoRA filenames) and demand the base shift, which V2 does not use.
+  - `507cb1d83` (#7535) moves its H3 VSA into the model. Same cube tiling and
+    gated coarse branch as `vsa_attention.py`; it keeps a fixed count of
+    video tiles where ours keeps a fraction (`h3_config.VSA_KEEP_PERCENT`).
+  - `5d3e6dc1b` (#7693) rounds the DiT's AdaLN RMSNorm output to bf16 before
+    scale and shift, on SM90 only
+    (`coderef/vllm-omni/vllm_omni/diffusion/layers/indexed_modulation.py::_use_hopper_bf16_affine_semantics`).
+    Core already applies scale and shift in the input dtype
+    (`comfy/ldm/minimax/model.py`, `_mod_scale_shift`).
+  - `3d952d133` (#7281) gives a reference video's soundtrack and a
+    standalone reference audio separate duration budgets. Core has no
+    reference-audio budget to conflate. `43b8de9b0` (#7167) fuses q/k
+    RMSNorm and RoPE in the **video VAE**, not the DiT, on SM90 and newer.
+    The rest is multi-GPU serving, NPU docs and a Music 3 node.
+- **`LightX2V`** (`fabad304` to `52161985`). No H3 default changed on NVIDIA.
+  `3acec9e8`'s fused DiT QKV, norm and RoPE path is enabled only in Intel XPU
+  configs; `6214d38a` loads the Qwen3-VL encoder's vision tower at init
+  (memory and load time, not numerics); `8335bb48` lets the fl2av variant
+  take ref2av requests; the rest is XPU VAE attention, a multi-GPU VAE tiling
+  fix, an FP8 VAE decoder converter fix and shared host offload.
+- **`Sana`** (`sol-engine`, `757d902` to `ca26dbd`). `ca26dbd` (#507) adds
+  HyperFlow, a third-party 8-step adapter for H3 that conditions each step on
+  the interval it covers, so it swaps the DiT's time embedder for a two-time
+  one (`coderef/Sana/models/minimax_h3/HyperFlow/hyperflow_h3/embedder.py`).
+  No ComfyUI H3 model has that embedder, so it is not a LoRA-load away; its
+  grid is not one `bench/check_distill_grid.py` grades; its runtime requires
+  eight GPUs. `bb60499` fuses unmerged LoRA branches into consumer kernels,
+  multi-GPU.
+- **`flashinfer`** (`01587699` to `dc04f50c`). H3 BF16 pre-attention for
+  SM100a and SM103a (`561f5af7`, `604da4ff`) and an SM120 Sage block-sparse
+  kernel (`6a84331e`). Nothing runs on SM89.
+- **`ComfyUI-UtilsCollection`** (`d6a9600` to `1d5b202`), mostly clip
+  continuation.
+  - **How it continues a clip.** It saves the previous clip's last decoded
+    frames and audio
+    (`coderef/ComfyUI-UtilsCollection/helpers/model_helpers.py::save_minimax_h3_clip_continuation_media`).
+    It re-encodes them through its own encoder, which writes core's
+    `minimax_keyframes` directly: the first and last tail frames become
+    single-frame DiT keyframes, and the tail audio becomes guide-audio rows,
+    not a reference. On the encoder side, the first tail frame goes in as a
+    Picture and the rest as a Video block
+    (`coderef/ComfyUI-UtilsCollection/helpers/encoder_helpers.py::execute_advanced_minimax_h3_image_to_video`).
+    After rendering, an accumulator finds the re-rendered overlap by frame
+    and audio similarity and cuts at the best seam.
+  - **A lead, not a recommendation.** This is the decode-and-re-encode arm
+    that [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 5 lists
+    and never ran. Ours carries the sampled latent tail instead
+    (`audio_freeze.py::MiniMaxH3FreezeAudioWindow`). Theirs also carries
+    generated audio forward, which ours has no path for. No closed lane
+    covers continuation.
+  - **Two departures from the release's keyframe rules:** a keyframe inside
+    the clip, and a keyframe that carries audio.
+  - **Encoder pixel bounds.** `e25109c` patches the Qwen3-VL encoder's
+    still-image pixel bounds to the release's
+    (`coderef/ComfyUI-UtilsCollection/helpers/minimax_h3_preprocessing_helpers.py`).
+    That is a runtime workaround for
+    [`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md) gaps 3 and 4,
+    for stills only.
+- **`TaoMate-H3`** (`ccc1a70` to `b933d8e`): README only. It now names the
+  released adapter T2AV and lists FL2AV and Ref2AV as coming. Adapter, grid
+  and audio regime are unchanged.
+- **`DiffSynth-Studio`** (`32ef37e` to `c458cb4`): an audio loader fix for
+  another model and a README. **`diffusers`** (`d30c748f5` to `a3e0b8ec2`):
+  no H3 path touched.
+- **Unmoved:** `Minimax-H3-Turbo` (`02e26d5`), `MiniMax-H3` (`d21241f`),
+  `TurboDiffusion` (`e3d6136`), `TaoMate-LTX` (`136d890`).
+- **Three clones on disk that the tables above do not list:**
+  `comfyui_dagthomas` (a third-party H3 prompt-writer pack with chain
+  renderers), `h3-the-transformation-engine` (the sister prompt compiler) and
+  `ComfyUI-H3-Quant` (the owner's pack published from `standalone/h3_quant`).
+  None is an H3 implementation to compare against.
+- **Not read:** the infrastructure clones (`transformers`, `vllm`,
+  `llm-compressor`, `triton`) past a commit-message search for H3 and
+  Qwen3-VL since 2026-09-10, which found test fixes and a CPU and
+  pipeline-parallel fix to vllm's Qwen3-VL; and the bodies of the multi-GPU
+  and XPU commits named above.
 
 ---
 

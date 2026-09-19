@@ -1,8 +1,9 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-09-11 (subsection "Sol-Attn defaults: sglang against core's
-and ours" added under "What we do that they do not", and closing section
-"Fifth read" added; "Fourth read" added 2026-09-10; one subsection under "What
+last updated: 2026-09-19 (closing section "Sixth read" added, and a dated
+note under the Sol-Attn defaults table); 2026-09-11 (subsection "Sol-Attn
+defaults: sglang against core's and ours" added under "What we do that they
+do not", and closing section "Fifth read" added; "Fourth read" added 2026-09-10; one subsection under "What
 they do that we do not" and the section "Third read" added 2026-09-04;
 everything else is the 2026-08-29 read)
 
@@ -411,6 +412,13 @@ copied into `workflows/h3_config.py::SOL_CORE_DEFAULTS`.
 | token routing | none | `extra_tokens` 256 on every block | off |
 | outside the window | FlashAttention, or Sage in the documented recipe | the block's own attention, whatever the model already runs | Sage, which Sol chains onto |
 
+*2026-09-19: the last cell is no longer true. Since 2026-09-15 the shipped
+graphs chain Sol onto kitchen's dense attention through core's Model
+Attention Backend, not onto Sage; `workflows/h3_config.py::DEFAULT_DENSE_CHAIN`
+names the chain and its comment block says what each chain runs. The other
+cells of our column still match `SOL_RECOMMENDED_CUDA`, the knobs added to it
+since (`qk_balance`, `rotate`, `morton`) aside.*
+
 The start row agrees only on a fifty-step grid, where 10 steps is a fifth.
 At our sixteen-step base, sglang's count would keep 10 steps dense against
 the 4 that `start_percent` 0.2 keeps (the `start_percent` comment in
@@ -604,3 +612,53 @@ H3's DiT imports neither: it keeps its own `MiniMaxH3Rope` and
 **Everything else is serving**: in-place pinning for layerwise-offload host
 stores (#39021), IPC JIT recovery after an interrupted build (#39034), and
 LLM-side work. Read, priced, no action.
+
+## Sixth read, 2026-09-19
+
+What landed in `coderef/sglang` between `593c7a900d` and `993d1fccba`. It
+changes no earlier verdict on this page. Of the commits touching H3 files,
+three matter here.
+
+**The RTX 5090 recipe (`a25f213bc4`, #39373) is documentation, and it sets
+memory placement only.** The command in
+`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx` (section on
+the RTX 5090) picks the allocator, the fl2va variant, the `memory`
+performance preset, what is offloaded and how many DiT layers stay resident.
+The preset sets offload and residency defaults only
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/server_args/auto_tune.py`);
+it chooses no attention backend, quantisation, compile or step cache. The
+sampler settings on that page describe the benchmark run on both engines, not
+a new sglang default. So the adopt-upstream rule has nothing new to act on:
+the Sol table above still holds (sglang's `sol_attn` defaults and core's node
+schema have not moved since 2026-09-11), and on canvas, steps, sampler and
+text-encoder precision sglang and core still disagree with each other. Two
+things on that page are easy to misread:
+
+- **"kitchen int8" in its 24 GB row means INT8 for the DiT's Linear layers**
+  (the page says it changes Linear numerics only). This repo's "kitchen" chain
+  is an attention kernel. Same word, different stage.
+- **The recipe's SDPA attention is a property of SM120**, where sglang
+  defaults to SDPA (`coderef/sglang/python/sglang/multimodal_gen/runtime/platforms/cuda.py`);
+  the same command on SM89 gets FlashAttention. Its resident-layer count and
+  bf16 DiT are for the 32 GB card.
+
+The same page withdraws its earlier physical-4090 step time as an artifact of
+an old pinning path and replaces it with a derived figure for a machine it
+has not re-measured. Nothing in this repo quoted the withdrawn figure.
+
+**VDN-H3 (`ff1ce11348`, #37903) is a different checkpoint, not a backend for
+ours.** OpenVDN's `vdn-minimax-h3` adds a trained linear-attention branch and
+an 8-step DMD2 LoRA to the H3 backbone, t2va and fl2va only. Its
+`hybrid_window_attn_h3` backend replaces video-to-video self-attention with
+an exact gated softmax over a window of neighbouring frame chunks (first and
+last frames, text and audio rows dense) plus a bidirectional linear branch
+for the rest
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/hybrid_window_attn_h3.py`,
+`coderef/sglang/python/sglang/multimodal_gen/configs/models/dits/minimax_h3_vdn.py`).
+The linear branch is trained, so it does not transfer to the base weights.
+The 2026-09-17 rotation survey already lists it. `42b5af8c62` refreshes its
+cookbook numbers.
+
+**Everything else is serving, other models or docs**: out-of-tree platform
+support, CFG and tracing docs, DSV4 and Qwen work, ROCm and XPU. Read at the
+title, priced, no action.
