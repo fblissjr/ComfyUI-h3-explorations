@@ -27,8 +27,8 @@ Older history lives elsewhere and is not copied here:
   core, 2026-09-19" holds the state.
 - **`docs/open_experiments.md` #28 (the kitchen VAE kernels) said both PRs
   were open and the check waited on a tag.** Both halves merged (kitchen 167
-  in `v0.2.34`, core 16187 on 2026-09-15) and have run on every render here
-  since this install's 2026-09-15 core pull; the item's 2026-09-19 status says
+  in `v0.2.34`, core 16187 on 2026-09-15) and have been in this install
+  since its 2026-09-15 core pull; the item's 2026-09-19 status says
   so and notes that its before-and-after capture check has no record. No
   decision taken: reopening it is the owner's call.
 - **`docs/research/sglang_comparison.md`'s Sol defaults table said our dense

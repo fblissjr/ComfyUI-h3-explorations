@@ -2097,8 +2097,8 @@ pin or the next fork rebase. Whether the DiT's numbers move is unmeasured.
 The check when that tag lands is the DiT's INT8 linear outputs on a capture,
 before and after, which is cheaper than any render and needs no core patch.
 
-**Status 2026-09-19: both reopen halves have merged, and the kernels have run
-on every render here since 2026-09-15.** Kitchen PR 167 is in `v0.2.34`,
+**Status 2026-09-19: both reopen halves have merged, and the kernels have been
+in this install since 2026-09-15.** Kitchen PR 167 is in `v0.2.34`,
 which `h3-build` was rebased onto on 2026-09-15 (CHANGELOG, the `0.2.34+sol`
 entry); core PR 16187 merged on 2026-09-15 with a follow-up, 16332, and this
 install's ComfyUI checkout pulled both that morning (`git reflog` in the

@@ -109,9 +109,12 @@ checkout is at `3c80da7f`; `git reflog` in it dates each pull):
   that file's `apply_rope` call kitchen's `apply_rope_split_half` in place of
   core's own torch code. The 2026-09-18 rebuild record's bit-identical render
   (`bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`) spans core `36da3ff7`
-  to `a8686f2b`, which covers 16351, 16389 and 15623 on that graph and scene.
-  It does not cover 16326: both of its renders already had it, since this
-  install pulled `6cff1e97` on 2026-09-15.
+  to `a8686f2b`, which covers 16351, 16389 and 15623 on that graph and scene:
+  none of the three reached this checkout before the 2026-09-16 pull, and the
+  reference clip was rendered on 2026-09-15. It does not establish anything
+  about 16326: the checkout had `6cff1e97` from the 2026-09-15 morning pull,
+  and no record says whether the server that rendered the reference clip was
+  started before or after it.
 - 16285 (`linear_input_act` respects `_full_precision_mm`): acts only where a
   format is disabled on the device; INT8 is supported on this card
   (reasoned). 16240: the Fun ControlNet under the memory compiler.
