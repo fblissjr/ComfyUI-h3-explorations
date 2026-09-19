@@ -9,7 +9,8 @@
   "2": {
     "class_type": "MiniMaxH3EncoderLoader",
     "inputs": {
-      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "device": "default"
     }
   },
   "3": {

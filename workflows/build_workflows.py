@@ -1536,8 +1536,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # `CLIPLoader` gives. The AWQ adapter branch that used to sit here
         # went with its lane on 2026-09-13; `_require_core_encoder` is what
         # refuses a file core cannot open, since no loader here opens it now.
+        # `device` is core's `CLIPLoader` input, appended to our loader on
+        # 2026-09-19 (CHANGELOG 0.131.0): "default" is ComfyUI's own
+        # text-encoder device, which is the GPU whenever dynamic VRAM is on
+        # (`comfy/model_management.py::text_encoder_device`). Written out so
+        # a render record carries the placement rather than implying it.
         "2": {"class_type": "MiniMaxH3EncoderLoader",
-              "inputs": {"encoder_name": _require_core_encoder(_encoder)}},
+              "inputs": {"encoder_name": _require_core_encoder(_encoder),
+                         "device": "default"}},
         # The image VAE ONLY on the single-frame path. See h3_config: same
         # frozen encoder, decoder retrained for one temporal latent, and its
         # own README says it regresses multi-frame reconstruction -- so this

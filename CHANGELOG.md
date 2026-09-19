@@ -121,6 +121,23 @@ Placed by the lead session for the capture and research sessions, 2026-09-19. Va
   kitchen's eager CPU path; on the CUDA kernel a handful of elements round
   differently, equally accurate against an fp64 reference.
 
+## 0.131.2
+
+### Changed
+
+- **Every generated graph writes `device: "default"` on its encoder loader**,
+  and `bench/bench_e2e_h3.py` writes it too. Regenerated against the live
+  `/object_info` of a server already serving the new schema, so the placement
+  is recorded per render rather than implied. "default" is ComfyUI's own
+  text-encoder device, which is the GPU while dynamic VRAM is on
+  (`comfy/model_management.py::text_encoder_device`); the owner's answer on
+  the node's option list was to keep core's, so a specific GPU stays core's
+  `SelectCLIPDevice` downstream. `bench/node_id_manifest.json` records the
+  appended input. `check_bench_matches_shipped.py` went red on the bench
+  file before it was updated, which is what it is for. The smoke
+  (`bench/smoke_h3.py`) is owed and has not run: it renders, and the card
+  was busy.
+
 ## 0.131.1
 
 ### Changed
