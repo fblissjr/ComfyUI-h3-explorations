@@ -1,0 +1,1508 @@
+{
+  "tool": "bench/measure_pair_alignment.py",
+  "same_take_min_luma_ssim": 0.7,
+  "sound_aligned_min_envelope_r": 0.9,
+  "audio": {
+    "rate": 16000,
+    "envelope_ms": 20,
+    "max_lag_s": 0.5
+  },
+  "pairs": [
+    {
+      "label": "control/self_diner_3d",
+      "a": "Video/reorder_panel/diner_3d_s730451892_diner_3d_00001.mp4",
+      "b": "Video/reorder_panel/diner_3d_s730451892_diner_3d_00001.mp4",
+      "graph_differences": [],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 345,
+        "psnr_db": null,
+        "ssim_luma": {
+          "mean": 1.0,
+          "p5": 1.0,
+          "min": 1.0,
+          "argmin_frame": 0
+        },
+        "ssim_all": {
+          "mean": 1.0,
+          "p5": 1.0,
+          "min": 1.0,
+          "argmin_frame": 0
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 1.0,
+        "envelope_r_best": 1.0,
+        "best_lag_ms": 0,
+        "bit_identical": true
+      },
+      "verdict": "identical",
+      "sound_verdict": "identical",
+      "expect": "identical",
+      "as_expected": true
+    },
+    {
+      "label": "control/rerender_diner_default_0915_vs_0918",
+      "a": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+      "b": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 345,
+        "psnr_db": null,
+        "ssim_luma": {
+          "mean": 1.0,
+          "p5": 1.0,
+          "min": 1.0,
+          "argmin_frame": 0
+        },
+        "ssim_all": {
+          "mean": 1.0,
+          "p5": 1.0,
+          "min": 1.0,
+          "argmin_frame": 0
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9999999999999999,
+        "envelope_r_best": 0.9999999999999999,
+        "best_lag_ms": 0,
+        "bit_identical": true
+      },
+      "verdict": "identical",
+      "sound_verdict": "identical",
+      "expect": "identical",
+      "as_expected": true
+    },
+    {
+      "label": "control/two_seed_noodle_plain_107f",
+      "a": "Video/short_clip_panel/noodle_bar_plain_s20260915_noodle_bar_plain_s20260915_00001.mp4",
+      "b": "Video/short_clip_panel/noodle_bar_plain_s4242_noodle_bar_plain_s4242_00001.mp4",
+      "graph_differences": [
+        "RandomNoise[0].noise_seed"
+      ],
+      "picture": {
+        "frames": 107,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 15.25411214953271,
+          "p5": 14.083,
+          "min": 14.05,
+          "argmin_frame": 1
+        },
+        "ssim_luma": {
+          "mean": 0.35480135514018696,
+          "p5": 0.3463849,
+          "min": 0.342763,
+          "argmin_frame": 60
+        },
+        "ssim_all": {
+          "mean": 0.5047695514018692,
+          "p5": 0.4959141,
+          "min": 0.491716,
+          "argmin_frame": 60
+        }
+      },
+      "sound": {
+        "envelope_frames": 222,
+        "envelope_r_lag0": -0.0060186902822938395,
+        "envelope_r_best": 0.5546575420950742,
+        "best_lag_ms": -500,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged",
+      "expect": "two_takes",
+      "as_expected": true
+    },
+    {
+      "label": "control/two_seed_noodle_3d_107f",
+      "a": "Video/short_clip_panel/noodle_bar_3d_s20260915_noodle_bar_3d_s20260915_00001.mp4",
+      "b": "Video/short_clip_panel/noodle_bar_3d_s4242_noodle_bar_3d_s4242_00001.mp4",
+      "graph_differences": [
+        "RandomNoise[0].noise_seed"
+      ],
+      "picture": {
+        "frames": 107,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 15.30214953271028,
+          "p5": 14.45,
+          "min": 14.43,
+          "argmin_frame": 0
+        },
+        "ssim_luma": {
+          "mean": 0.3437135794392524,
+          "p5": 0.3324972,
+          "min": 0.329005,
+          "argmin_frame": 56
+        },
+        "ssim_all": {
+          "mean": 0.4948077476635514,
+          "p5": 0.48404420000000004,
+          "min": 0.480371,
+          "argmin_frame": 56
+        }
+      },
+      "sound": {
+        "envelope_frames": 222,
+        "envelope_r_lag0": 0.011645834879056554,
+        "envelope_r_best": 0.5545373268509667,
+        "best_lag_ms": -500,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged",
+      "expect": "two_takes",
+      "as_expected": true
+    },
+    {
+      "label": "reorder/diner",
+      "a": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+      "b": "Video/reorder_panel/diner_3d_s730451892_diner_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.3072463768115942,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 20.981333333333332,
+          "p5": 19.07,
+          "min": 14.38,
+          "argmin_frame": 121
+        },
+        "ssim_luma": {
+          "mean": 0.651675747826087,
+          "p5": 0.5681118000000001,
+          "min": 0.400999,
+          "argmin_frame": 228
+        },
+        "ssim_all": {
+          "mean": 0.7308889536231884,
+          "p5": 0.6569594,
+          "min": 0.554096,
+          "argmin_frame": 228
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9703221927771248,
+        "envelope_r_best": 0.9703221927771248,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder/kitchen_three_knobs",
+      "a": "Video/block49_kitchen/default_s730451892_00001.mp4",
+      "b": "Video/reorder_panel/kitchen_3d_s730451892_kitchen_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SageAttention[0].head_chunks",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SageAttention[0].model",
+        "MiniMaxH3SageAttention[0].patch_token_refiner",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.263768115942029,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 17.652405797101448,
+          "p5": 15.962,
+          "min": 12.77,
+          "argmin_frame": 275
+        },
+        "ssim_luma": {
+          "mean": 0.6419754811594204,
+          "p5": 0.5565516,
+          "min": 0.464025,
+          "argmin_frame": 274
+        },
+        "ssim_all": {
+          "mean": 0.741500188405797,
+          "p5": 0.6730324,
+          "min": 0.615425,
+          "argmin_frame": 274
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.612991164029666,
+        "envelope_r_best": 0.612991164029666,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder/market",
+      "a": "Video/block49_repro/market_default_s20260915_00001.mp4",
+      "b": "Video/reorder_panel/market_3d_s20260915_market_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.002898550724637681,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 18.994637681159418,
+          "p5": 17.782,
+          "min": 13.1,
+          "argmin_frame": 217
+        },
+        "ssim_luma": {
+          "mean": 0.574994,
+          "p5": 0.5308706,
+          "min": 0.373796,
+          "argmin_frame": 217
+        },
+        "ssim_all": {
+          "mean": 0.6799787739130435,
+          "p5": 0.6458822,
+          "min": 0.53535,
+          "argmin_frame": 217
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9803292207551806,
+        "envelope_r_best": 0.9803292207551806,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder/market_v2",
+      "a": "Video/reorder_panel/market_v2_plain_market_v2_plain_00001.mp4",
+      "b": "Video/reorder_panel/market_v2_3d_market_v2_3d_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3Conditioning[0].prompt",
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 16.840869565217393,
+          "p5": 14.712000000000002,
+          "min": 13.26,
+          "argmin_frame": 107
+        },
+        "ssim_luma": {
+          "mean": 0.5091867275362318,
+          "p5": 0.4301336,
+          "min": 0.426251,
+          "argmin_frame": 193
+        },
+        "ssim_all": {
+          "mean": 0.6318178666666667,
+          "p5": 0.5805238,
+          "min": 0.57747,
+          "argmin_frame": 193
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.56994909376137,
+        "envelope_r_best": 0.5723035280325373,
+        "best_lag_ms": 20,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder/hardware_aisle_short",
+      "a": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+      "b": "Video/reorder_panel/hardware_aisle_short_3d_s730451892_hardware_aisle_short_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 17.912666666666667,
+          "p5": 15.38,
+          "min": 15.3,
+          "argmin_frame": 0
+        },
+        "ssim_luma": {
+          "mean": 0.48105441739130433,
+          "p5": 0.33873739999999997,
+          "min": 0.332759,
+          "argmin_frame": 8
+        },
+        "ssim_all": {
+          "mean": 0.6121061507246377,
+          "p5": 0.5073818,
+          "min": 0.50093,
+          "argmin_frame": 8
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9849657319840062,
+        "envelope_r_best": 0.9849657319840062,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder/post_office_345f",
+      "a": "Video/block49_repro/post_office_default_s730451892_00001.mp4",
+      "b": "Video/reorder_panel/post_office_3d_s730451892_post_office_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 23.444318840579708,
+          "p5": 22.96,
+          "min": 22.74,
+          "argmin_frame": 12
+        },
+        "ssim_luma": {
+          "mean": 0.7479741333333333,
+          "p5": 0.7382232,
+          "min": 0.734045,
+          "argmin_frame": 179
+        },
+        "ssim_all": {
+          "mean": 0.820207863768116,
+          "p5": 0.8135512,
+          "min": 0.809796,
+          "argmin_frame": 179
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.5304032214523514,
+        "envelope_r_best": 0.5304032214523514,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder/cafe_kids",
+      "a": "Video/reorder_panel/cafe_kids_plain_s730451892_cafe_kids_plain_00001.mp4",
+      "b": "Video/reorder_panel/cafe_kids_3d_s730451892_cafe_kids_3d_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 17.67608695652174,
+          "p5": 16.868,
+          "min": 16.63,
+          "argmin_frame": 278
+        },
+        "ssim_luma": {
+          "mean": 0.44821825797101444,
+          "p5": 0.4144336,
+          "min": 0.403971,
+          "argmin_frame": 278
+        },
+        "ssim_all": {
+          "mean": 0.5779777826086956,
+          "p5": 0.5546934,
+          "min": 0.544875,
+          "argmin_frame": 278
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.03982000189282347,
+        "envelope_r_best": 0.13046435909655235,
+        "best_lag_ms": 80,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder/cafe_kids_v2",
+      "a": "Video/reorder_panel/cafe_kids_v2_plain_cafe_kids_v2_plain_00001.mp4",
+      "b": "Video/reorder_panel/cafe_kids_v2_3d_cafe_kids_v2_3d_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 20.498579710144927,
+          "p5": 19.65,
+          "min": 19.18,
+          "argmin_frame": 344
+        },
+        "ssim_luma": {
+          "mean": 0.5731103362318841,
+          "p5": 0.5241982,
+          "min": 0.515164,
+          "argmin_frame": 249
+        },
+        "ssim_all": {
+          "mean": 0.6740762144927536,
+          "p5": 0.6387136,
+          "min": 0.631045,
+          "argmin_frame": 249
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.11203822450643958,
+        "envelope_r_best": 0.19968261152082403,
+        "best_lag_ms": -120,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder/crowd_churn_long",
+      "a": "Video/reorder_panel/crowd_churn_long_plain_s730451892_crowd_churn_long_plain_00001.mp4",
+      "b": "Video/reorder_panel/crowd_churn_long_3d_s730451892_crowd_churn_long_3d_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.057971014492753624,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 19.90086956521739,
+          "p5": 18.384,
+          "min": 17.37,
+          "argmin_frame": 75
+        },
+        "ssim_luma": {
+          "mean": 0.639113168115942,
+          "p5": 0.5844412,
+          "min": 0.538489,
+          "argmin_frame": 92
+        },
+        "ssim_all": {
+          "mean": 0.7214517159420291,
+          "p5": 0.6792742,
+          "min": 0.647646,
+          "argmin_frame": 92
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9348465473083447,
+        "envelope_r_best": 0.9348465473083447,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_short/night_porter",
+      "a": "Video/short_clip_panel/night_porter_plain_s730451892_night_porter_plain_s730451892_00001.mp4",
+      "b": "Video/short_clip_panel/night_porter_3d_s730451892_night_porter_3d_s730451892_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 175,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 24.125942857142856,
+          "p5": 22.52,
+          "min": 22.19,
+          "argmin_frame": 174
+        },
+        "ssim_luma": {
+          "mean": 0.7887278400000001,
+          "p5": 0.7290415,
+          "min": 0.724522,
+          "argmin_frame": 152
+        },
+        "ssim_all": {
+          "mean": 0.850428217142857,
+          "p5": 0.806803,
+          "min": 0.803689,
+          "argmin_frame": 152
+        }
+      },
+      "sound": {
+        "envelope_frames": 363,
+        "envelope_r_lag0": 0.8254024272169006,
+        "envelope_r_best": 0.8254024272169006,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "reorder_short/rooftop_pov",
+      "a": "Video/short_clip_panel/rooftop_pov_plain_s730451892_rooftop_pov_plain_s730451892_00001.mp4",
+      "b": "Video/short_clip_panel/rooftop_pov_3d_s730451892_rooftop_pov_3d_s730451892_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 192,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.25,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 21.923697916666665,
+          "p5": 19.99,
+          "min": 19.8,
+          "argmin_frame": 179
+        },
+        "ssim_luma": {
+          "mean": 0.640384625,
+          "p5": 0.5552753500000001,
+          "min": 0.518844,
+          "argmin_frame": 9
+        },
+        "ssim_all": {
+          "mean": 0.7448716666666666,
+          "p5": 0.68880215,
+          "min": 0.664111,
+          "argmin_frame": 9
+        }
+      },
+      "sound": {
+        "envelope_frames": 400,
+        "envelope_r_lag0": 0.9598921155860756,
+        "envelope_r_best": 0.9598921155860756,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_short/swimming_lesson",
+      "a": "Video/short_clip_panel/swimming_lesson_plain_s730451892_swimming_lesson_plain_s730451892_00001.mp4",
+      "b": "Video/short_clip_panel/swimming_lesson_3d_s730451892_swimming_lesson_3d_s730451892_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 124,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.9193548387096774,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 21.9483064516129,
+          "p5": 20.913,
+          "min": 20.42,
+          "argmin_frame": 19
+        },
+        "ssim_luma": {
+          "mean": 0.7173622580645163,
+          "p5": 0.69462205,
+          "min": 0.684692,
+          "argmin_frame": 22
+        },
+        "ssim_all": {
+          "mean": 0.787447935483871,
+          "p5": 0.768683,
+          "min": 0.759757,
+          "argmin_frame": 22
+        }
+      },
+      "sound": {
+        "envelope_frames": 257,
+        "envelope_r_lag0": 0.954951939950569,
+        "envelope_r_best": 0.954951939950569,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_short/noodle_bar_s20260915",
+      "a": "Video/short_clip_panel/noodle_bar_plain_s20260915_noodle_bar_plain_s20260915_00001.mp4",
+      "b": "Video/short_clip_panel/noodle_bar_3d_s20260915_noodle_bar_3d_s20260915_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 107,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 21.43869158878505,
+          "p5": 20.559,
+          "min": 20.08,
+          "argmin_frame": 0
+        },
+        "ssim_luma": {
+          "mean": 0.6466267476635513,
+          "p5": 0.6085921,
+          "min": 0.582824,
+          "argmin_frame": 0
+        },
+        "ssim_all": {
+          "mean": 0.7317447757009345,
+          "p5": 0.700496,
+          "min": 0.677714,
+          "argmin_frame": 0
+        }
+      },
+      "sound": {
+        "envelope_frames": 222,
+        "envelope_r_lag0": 0.9942280168585454,
+        "envelope_r_best": 0.9942280168585454,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_short/noodle_bar_s4242",
+      "a": "Video/short_clip_panel/noodle_bar_plain_s4242_noodle_bar_plain_s4242_00001.mp4",
+      "b": "Video/short_clip_panel/noodle_bar_3d_s4242_noodle_bar_3d_s4242_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 107,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 20.367009345794393,
+          "p5": 19.679000000000002,
+          "min": 19.56,
+          "argmin_frame": 106
+        },
+        "ssim_luma": {
+          "mean": 0.5245648317757009,
+          "p5": 0.4926798,
+          "min": 0.484019,
+          "argmin_frame": 72
+        },
+        "ssim_all": {
+          "mean": 0.6462655700934579,
+          "p5": 0.6195602,
+          "min": 0.612828,
+          "argmin_frame": 72
+        }
+      },
+      "sound": {
+        "envelope_frames": 222,
+        "envelope_r_lag0": 0.9931992447735857,
+        "envelope_r_best": 0.9931992447735857,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_on_length/noodle_bar_107f",
+      "a": "Video/on_length/noodle_bar_plain_107f_noodle_bar_plain_107f_00001.mp4",
+      "b": "Video/on_length/noodle_bar_3d_107f_noodle_bar_3d_107f_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 107,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 18.70672897196262,
+          "p5": 17.623,
+          "min": 17.53,
+          "argmin_frame": 0
+        },
+        "ssim_luma": {
+          "mean": 0.5377495981308411,
+          "p5": 0.5105006,
+          "min": 0.505337,
+          "argmin_frame": 6
+        },
+        "ssim_all": {
+          "mean": 0.6442281308411215,
+          "p5": 0.6241874000000001,
+          "min": 0.619984,
+          "argmin_frame": 76
+        }
+      },
+      "sound": {
+        "envelope_frames": 222,
+        "envelope_r_lag0": 0.8981000720286076,
+        "envelope_r_best": 0.9250309219704815,
+        "best_lag_ms": -20,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "reorder_on_length/post_office_141f",
+      "a": "Video/on_length/post_office_plain_141f_post_office_plain_141f_00001.mp4",
+      "b": "Video/on_length/post_office_3d_141f_post_office_3d_141f_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SolAttn[0].morton"
+      ],
+      "picture": {
+        "frames": 141,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 22.95063829787234,
+          "p5": 22.59,
+          "min": 22.39,
+          "argmin_frame": 95
+        },
+        "ssim_luma": {
+          "mean": 0.7281829290780142,
+          "p5": 0.719957,
+          "min": 0.716684,
+          "argmin_frame": 108
+        },
+        "ssim_all": {
+          "mean": 0.8066422978723404,
+          "p5": 0.800412,
+          "min": 0.797898,
+          "argmin_frame": 108
+        }
+      },
+      "sound": {
+        "envelope_frames": 292,
+        "envelope_r_lag0": 0.8334258731276994,
+        "envelope_r_best": 0.8334258731276994,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "chain/meerkat_clean",
+      "a": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+      "b": "Video/reported_clips/meerkat_sage_chain_clean_meerkat_sage_chain_clean_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SageAttention[0].head_chunks",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SageAttention[0].model",
+        "MiniMaxH3SageAttention[0].patch_token_refiner",
+        "MiniMaxH3SolAttn[0].model",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 25.585739130434778,
+          "p5": 20.0,
+          "min": 19.69,
+          "argmin_frame": 45
+        },
+        "ssim_luma": {
+          "mean": 0.8325333768115942,
+          "p5": 0.7356472,
+          "min": 0.717884,
+          "argmin_frame": 39
+        },
+        "ssim_all": {
+          "mean": 0.8745654347826087,
+          "p5": 0.7971844,
+          "min": 0.781616,
+          "argmin_frame": 39
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.921256577663673,
+        "envelope_r_best": 0.921256577663673,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "chain/diner_clean",
+      "a": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+      "b": "Video/sage_chain_panel/diner_sage_chain_plain_diner_sage_chain_plain_00001.mp4",
+      "graph_differences": [
+        "MiniMaxH3SageAttention[0].head_chunks",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SageAttention[0].model",
+        "MiniMaxH3SageAttention[0].patch_token_refiner",
+        "MiniMaxH3SolAttn[0].model",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 19.888579710144928,
+          "p5": 18.282,
+          "min": 14.29,
+          "argmin_frame": 228
+        },
+        "ssim_luma": {
+          "mean": 0.6095388898550724,
+          "p5": 0.5198554,
+          "min": 0.399035,
+          "argmin_frame": 228
+        },
+        "ssim_all": {
+          "mean": 0.6969703739130436,
+          "p5": 0.6198624,
+          "min": 0.551475,
+          "argmin_frame": 228
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.985949269743057,
+        "envelope_r_best": 0.985949269743057,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "chain/kitchen_sage_vs_sage",
+      "a": "Video/block49_kitchen/default_s730451892_00001.mp4",
+      "b": "Video/sage_chain_panel/kitchen_sage_chain_plain_kitchen_sage_chain_plain_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "SageChainAssert[0].exercise",
+        "SageChainAssert[0].model",
+        "SageChainAssert[0].require_absent",
+        "SageChainAssert[0].require_forward_patch",
+        "SageChainAssert[0].require_no_forward_patch",
+        "SageChainAssert[0].require_override",
+        "SageChainAssert[0].warn_only"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.03188405797101449,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 16.092782608695654,
+          "p5": 13.392,
+          "min": 12.44,
+          "argmin_frame": 284
+        },
+        "ssim_luma": {
+          "mean": 0.5955183420289855,
+          "p5": 0.502421,
+          "min": 0.446781,
+          "argmin_frame": 278
+        },
+        "ssim_all": {
+          "mean": 0.7078294985507245,
+          "p5": 0.6395828,
+          "min": 0.60458,
+          "argmin_frame": 278
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.2730291859811458,
+        "envelope_r_best": 0.2730291859811458,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "dense/crowd_churn_long_plain",
+      "a": "Video/reorder_panel/crowd_churn_long_fully_dense_crowd_churn_long_fully_dense_00001.mp4",
+      "b": "Video/reorder_panel/crowd_churn_long_plain_s730451892_crowd_churn_long_plain_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.014492753623188406,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 18.7511884057971,
+          "p5": 16.951999999999998,
+          "min": 15.23,
+          "argmin_frame": 116
+        },
+        "ssim_luma": {
+          "mean": 0.6039720492753623,
+          "p5": 0.541224,
+          "min": 0.495262,
+          "argmin_frame": 116
+        },
+        "ssim_all": {
+          "mean": 0.6936590144927537,
+          "p5": 0.6430693999999999,
+          "min": 0.611199,
+          "argmin_frame": 116
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9541902545507238,
+        "envelope_r_best": 0.9541902545507238,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "dense/crowd_churn_long_3d",
+      "a": "Video/reorder_panel/crowd_churn_long_fully_dense_crowd_churn_long_fully_dense_00001.mp4",
+      "b": "Video/reorder_panel/crowd_churn_long_3d_s730451892_crowd_churn_long_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.011594202898550725,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 19.035275362318842,
+          "p5": 17.266000000000002,
+          "min": 15.05,
+          "argmin_frame": 154
+        },
+        "ssim_luma": {
+          "mean": 0.6032879391304348,
+          "p5": 0.5383206,
+          "min": 0.492865,
+          "argmin_frame": 116
+        },
+        "ssim_all": {
+          "mean": 0.6923406231884057,
+          "p5": 0.6396828,
+          "min": 0.604739,
+          "argmin_frame": 116
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9532719832754366,
+        "envelope_r_best": 0.9532719832754366,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "two_takes",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "dense/meerkat_default_plain",
+      "a": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "b": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 27.806666666666665,
+          "p5": 21.43,
+          "min": 21.12,
+          "argmin_frame": 45
+        },
+        "ssim_luma": {
+          "mean": 0.8638680318840581,
+          "p5": 0.721105,
+          "min": 0.712149,
+          "argmin_frame": 2
+        },
+        "ssim_all": {
+          "mean": 0.8982271971014494,
+          "p5": 0.787375,
+          "min": 0.78104,
+          "argmin_frame": 2
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.8799539339531169,
+        "envelope_r_best": 0.8799539339531169,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "dense/meerkat_default_3d",
+      "a": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "b": "Video/reported_clips/meerkat_default_3d_meerkat_default_3d_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose",
+        "ModelAttentionBackend[0].attention",
+        "ModelAttentionBackend[0].model"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 26.666434782608697,
+          "p5": 21.572,
+          "min": 20.81,
+          "argmin_frame": 50
+        },
+        "ssim_luma": {
+          "mean": 0.8300922840579711,
+          "p5": 0.7274288,
+          "min": 0.715739,
+          "argmin_frame": 27
+        },
+        "ssim_all": {
+          "mean": 0.8751223797101448,
+          "p5": 0.7927696,
+          "min": 0.783339,
+          "argmin_frame": 27
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.8951696276304498,
+        "envelope_r_best": 0.8951696276304498,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "diverged"
+    },
+    {
+      "label": "dense/meerkat_sage_chain_clean",
+      "a": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "b": "Video/reported_clips/meerkat_sage_chain_clean_meerkat_sage_chain_clean_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3SageAttention[0].head_chunks",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SageAttention[0].model",
+        "MiniMaxH3SageAttention[0].patch_token_refiner",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 1.0,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 24.671594202898554,
+          "p5": 19.712,
+          "min": 19.5,
+          "argmin_frame": 73
+        },
+        "ssim_luma": {
+          "mean": 0.8229122463768116,
+          "p5": 0.7192362,
+          "min": 0.711733,
+          "argmin_frame": 2
+        },
+        "ssim_all": {
+          "mean": 0.8677172637681158,
+          "p5": 0.7826172,
+          "min": 0.777162,
+          "argmin_frame": 39
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.924845759406126,
+        "envelope_r_best": 0.924845759406126,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "aligned"
+    },
+    {
+      "label": "dense/meerkat_sage_rotate_graph_as_shipped",
+      "a": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "b": "Video/reported_clips/meerkat_sage_rotate_graph_as_shipped_meerkat_sage_rotate_graph_as_shipped_00001.mp4",
+      "graph_differences": [
+        "BasicGuider[0].model",
+        "BasicScheduler[0].model",
+        "MiniMaxH3ChannelBalance[0].alpha",
+        "MiniMaxH3ChannelBalance[0].balance",
+        "MiniMaxH3ChannelBalance[0].blocks",
+        "MiniMaxH3ChannelBalance[0].loud_share",
+        "MiniMaxH3ChannelBalance[0].model",
+        "MiniMaxH3SageAttention[0].head_chunks",
+        "MiniMaxH3SageAttention[0].mode",
+        "MiniMaxH3SageAttention[0].model",
+        "MiniMaxH3SageAttention[0].patch_token_refiner",
+        "MiniMaxH3SigmaShift[0].model",
+        "MiniMaxH3SolAttn[0].dense_blocks",
+        "MiniMaxH3SolAttn[0].end_percent",
+        "MiniMaxH3SolAttn[0].min_tokens",
+        "MiniMaxH3SolAttn[0].model",
+        "MiniMaxH3SolAttn[0].morton",
+        "MiniMaxH3SolAttn[0].morton_curve",
+        "MiniMaxH3SolAttn[0].pooled_tail",
+        "MiniMaxH3SolAttn[0].qk_balance",
+        "MiniMaxH3SolAttn[0].rotate",
+        "MiniMaxH3SolAttn[0].selection",
+        "MiniMaxH3SolAttn[0].selection.tau",
+        "MiniMaxH3SolAttn[0].sink_conditioning",
+        "MiniMaxH3SolAttn[0].start_percent",
+        "MiniMaxH3SolAttn[0].token_aug_blocks",
+        "MiniMaxH3SolAttn[0].token_routing",
+        "MiniMaxH3SolAttn[0].verbose"
+      ],
+      "picture": {
+        "frames": 345,
+        "size": [
+          1344,
+          768
+        ],
+        "aligned_frame_fraction": 0.8753623188405797,
+        "identical_frames": 0,
+        "psnr_db": {
+          "mean": 23.6891884057971,
+          "p5": 18.224,
+          "min": 17.97,
+          "argmin_frame": 0
+        },
+        "ssim_luma": {
+          "mean": 0.8139140927536233,
+          "p5": 0.6845678000000001,
+          "min": 0.664772,
+          "argmin_frame": 2
+        },
+        "ssim_all": {
+          "mean": 0.8603129971014494,
+          "p5": 0.757268,
+          "min": 0.743437,
+          "argmin_frame": 2
+        }
+      },
+      "sound": {
+        "envelope_frames": 718,
+        "envelope_r_lag0": 0.9629193021298648,
+        "envelope_r_best": 0.9629193021298648,
+        "best_lag_ms": 0,
+        "bit_identical": false
+      },
+      "verdict": "same_take",
+      "sound_verdict": "aligned"
+    }
+  ]
+}
