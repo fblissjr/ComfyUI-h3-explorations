@@ -163,8 +163,10 @@ Placed by the lead session for the capture and research sessions, 2026-09-19. Va
   `SelectCLIPDevice` downstream. `bench/node_id_manifest.json` records the
   appended input. `check_bench_matches_shipped.py` went red on the bench
   file before it was updated, which is what it is for. The smoke
-  (`bench/smoke_h3.py`) is owed and has not run: it renders, and the card
-  was busy.
+  (`bench/smoke_h3.py --length 49`, the length that can exercise Sol) ran on
+  a regenerated `h3_text_to_video_api.json` once the card freed: the render
+  succeeded, the chain order line printed and Sol routed. The sage needle is
+  correctly n/a, the default dense chain carrying no sage node.
 
 ## 0.131.1
 
