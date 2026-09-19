@@ -196,15 +196,21 @@ checkout is at `3c80da7f`; `git reflog` in it dates each pull):
   want if it closes toward the cheaper arm. If it merges, it is a port
   candidate for `MiniMaxH3ReferenceConditioning`; nothing to do before.
 - **15135, masked grouped-query attention falls back to SDPA's math
-  backend.** Superseded in core by `a1c42199` (PR 15190, 2026-07-31):
-  `comfy/ops.py::scaled_dot_product_attention` expands K and V when no fused
-  backend takes native grouped-query attention under a mask, which is H3's
-  encoder case (fp32 activations, a causal float mask, fewer KV heads than
-  query heads). The 2026-08-25 record that found the math backend at every
-  length was taken in the closed calibration lane's transformers harness,
-  not core's path (`docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-gate2a-corrected-floor.md`,
-  "Backend selection, measured"). Which kernel core's own encode dispatches
-  on this card has not been recorded.
+  backend.** Probably covered in core already, by `a1c42199` (PR 15190,
+  2026-07-31), and not yet observed. H3's encoder is that case: fp32
+  activations, a causal float mask, fewer KV heads than query heads. On
+  NVIDIA, `comfy/ops.py::scaled_dot_product_attention` expands K and V only
+  when `SDPAParams` says no fused backend takes native grouped-query
+  attention under the mask; elsewhere it expands unconditionally. The
+  2026-08-25 record found flash, cuDNN and efficient all unavailable for
+  that call at fp32 (torch 2.13, the closed calibration lane's transformers
+  harness, not core's path:
+  `docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-gate2a-corrected-floor.md`,
+  "Backend selection, measured"). If torch 2.14 answers the same, core
+  expands and the efficient kernel runs. What closes it is the dispatched
+  `aten::_scaled_dot_product_*` op under the profiler, on core's call with
+  the encoder's geometry, on a free card; `bench/probe_sdpa_backend_selection.py`
+  is the pattern, though it calls torch directly rather than `comfy.ops`.
 - **15316**, reserve the encoder's memory for image encodes: its body
   describes the stall with `--disable-dynamic-vram`, which this server does
   not pass. **15552**, an INT8 embedding crash under dynamic VRAM: the

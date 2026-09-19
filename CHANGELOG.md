@@ -13,8 +13,9 @@ artifact.
   Qwen3-VL path H3 should take. One port candidate if it merges: 16076,
   per-image text-encoder-only references, where ours is all or nothing per
   node. 15135 (masked grouped-query attention falling to SDPA's math
-  backend) is already covered in core by PR 15190's K/V expansion, merged
-  2026-07-31. The rest are for other cards, other builds, `generate()` or
+  backend) is probably covered in core by PR 15190's K/V expansion, merged
+  2026-07-31; that it fires for H3's encoder on this card is inferred from
+  an older record in another harness, not observed. The rest are for other cards, other builds, `generate()` or
   the DiT. 16374 (encoder on the GPU under dynamic VRAM) is noted as
   expected to change nothing on this card, reasoned and not checked.
 
@@ -33,9 +34,11 @@ artifact.
   `bench/check_h3_encoder_loader.py` gains a case that reads core's option
   list and mapping out of core's own `CLIPLoader` and runs the real rebuild;
   it went red under two in-process mutations (the rebuild dropping the
-  options, the node ignoring the input). Generated graphs are unchanged: an
-  absent `device` means "default", as it does for core's loader, and the
-  running server serves the new input only after a restart.
+  options, the node ignoring the input). Graphs were not regenerated and do
+  not carry `device`; the input is optional (the check asserts it), so an
+  absent key should validate and mean "default". Not yet validated against
+  a live `/object_info`: the running server predates this change and was
+  mid-render, and it serves the new input only after a restart.
 
 ### Changed
 
