@@ -4,6 +4,36 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.133.0
+
+### Added
+
+- **`bench/blind_panel.py`: a blinded panel across scenes, from clips that
+  already exist.** `bench/blind_batch.py` blinds one `run_graph_arms` run
+  file, arms by seed; a panel of two named clips per scene, often rendered on
+  different days, is a shape it cannot express. Same pipeline otherwise:
+  neutral singles with sound, stacks in a seeded order with a seeded slot
+  draw, a manifest of row indices, the key sealed under
+  `internal/blind_keys/`, the same scoring page. Four contest kinds: `real`
+  and `two_seed_decoy` have their embedded graphs diffed and refuse any
+  differing input outside the contest's declared prefixes (the differences
+  are stored in the key); `identical_decoy` is one clip in both halves and is
+  the only kind that accepts that; `low_anchor` carries a note saying what was
+  done to its second half. Each refusal was exercised before the first panel
+  was built. First panel: fully dense attention against the shipped default
+  on six on-length MiniMax H3 scenes, with a two-seed decoy, an identical
+  pair and a post-processed low anchor, design from
+  `docs/research/2026-09-19_evaluation_one_judge.md` section 0. Unscored.
+- **`bench/join_panel_verdicts.py`** (a1a497a, the research session): the
+  panel join over `score_session` with that section's stop rules applied
+  mechanically, validity first, reader-filled defect fields, a self-test;
+  `tally_judge_verdicts` now counts decoys apart from the tie rate.
+- **`bench/measure_dialogue_transcription.py`** (44f56a2, the research
+  session): Whisper against each clip's scripted lines (local cache, CPU),
+  CJK by character, with an other-script control. Record: every arm says its
+  lines, so the check is at its ceiling on these scenes; the meerkat
+  narration overruns its clip in every arm, which is a prompt-length matter.
+
 ## 0.132.0
 
 ### Added
