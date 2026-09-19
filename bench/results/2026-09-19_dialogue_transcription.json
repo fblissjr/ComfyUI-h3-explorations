@@ -80,6 +80,27 @@
       "b": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
       "a_label": "default",
       "b_label": "sagelevers"
+    },
+    {
+      "label": "dense/market",
+      "a": "Video/block49_repro/market_default_s20260915_00001.mp4",
+      "b": "Video/dense_panel/market_dense_market_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "dense/hardware_aisle",
+      "a": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+      "b": "Video/dense_panel/hardware_aisle_dense_hardware_aisle_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "decoy/diner_two_seed_dense",
+      "a": "Video/dense_panel/diner_dense_diner_dense_00001.mp4",
+      "b": "Video/dense_panel/diner_dense_seed2_diner_dense_seed2_00001.mp4",
+      "a_label": "fully_dense_seed1",
+      "b_label": "fully_dense_seed2"
     }
   ],
   "clips": [
@@ -837,6 +858,169 @@
     },
     {
       "clip": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/dense_panel/market_dense_market_dense_00001.mp4",
+        "ref_words": 16,
+        "sub": 15,
+        "del": 0,
+        "ins": 3,
+        "wer": 1.125
+      }
+    },
+    {
+      "clip": "Video/dense_panel/market_dense_market_dense_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Last of the good ones. After this, it is all imports. Then I will take two.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Last of the good ones. After this it is all imports."
+        },
+        {
+          "language": "English",
+          "text": "Then I will take two."
+        }
+      ],
+      "score": {
+        "ref_words": 16,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Last of the good ones. After this it is all imports.",
+          "ref_words": 11,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "last of the good ones after this it is all imports"
+        },
+        {
+          "text": "Then I will take two.",
+          "ref_words": 5,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "then i will take 2"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/dense_panel/hardware_aisle_dense_hardware_aisle_dense_00001.mp4",
+        "ref_words": 26,
+        "sub": 12,
+        "del": 10,
+        "ins": 0,
+        "wer": 0.8461538461538461
+      }
+    },
+    {
+      "clip": "Video/dense_panel/hardware_aisle_dense_hardware_aisle_dense_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Quarter inch or the next size up? The next size up. These will strip on you. Both boxes, then. I will come back for the rest.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Quarter inch, or the next size up?"
+        },
+        {
+          "language": "English",
+          "text": "The next size up. These will strip on you."
+        },
+        {
+          "language": "English",
+          "text": "Both boxes then. I will come back for the rest."
+        }
+      ],
+      "score": {
+        "ref_words": 26,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Quarter inch, or the next size up?",
+          "ref_words": 7,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "quarter inch or the next size up"
+        },
+        {
+          "text": "The next size up. These will strip on you.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "the next size up these will strip on you"
+        },
+        {
+          "text": "Both boxes then. I will come back for the rest.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "both boxes then i will come back for the rest"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/dense_panel/diner_dense_seed2_diner_dense_seed2_00001.mp4",
+        "ref_words": 19,
+        "sub": 17,
+        "del": 0,
+        "ins": 7,
+        "wer": 1.263157894736842
+      }
+    },
+    {
+      "clip": "Video/dense_panel/diner_dense_seed2_diner_dense_seed2_00001.mp4",
       "language_forced": "english",
       "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
       "lines": [

@@ -9,22 +9,22 @@ Table:
 
 ## What was compared
 
-The dialogue scenes among the dense-against-default panel's clips that exist
-at the time of writing (noodle bar at 107 frames and diner, dense against
-their defaults; crowd and meerkat, whose dense renders predate the panel),
-the two true chain pairs of `bench/results/2026-09-19_audio_sage_vs_kitchen.md`
-(meerkat and diner, kitchen against sage), and the `block49_repro` defaults
-against their sage-levers arms. Each clip's scripted lines are read from its
-own embedded prompt (`<d>` spans), so a pair of two takes is scored against
-the same script. The panel's market, hardware aisle and second-seed diner
-dense renders were still rendering; re-run the record's pairs with them added
-(`--pairs` accepts this record).
+Every dialogue scene of the dense-against-default panel (noodle bar at 107
+frames, diner, market and hardware aisle, dense against their defaults; crowd
+and meerkat, whose dense renders predate the panel), the panel's two-seed
+decoy (the diner rendered fully dense at two seeds), the two true chain pairs
+of `bench/results/2026-09-19_audio_sage_vs_kitchen.md` (meerkat and diner,
+kitchen against sage), and the `block49_repro` defaults against their
+sage-levers arms. Each clip's scripted lines are read from its own embedded
+prompt (`<d>` spans), so a pair of two takes is scored against the same
+script.
 
 ## What it found, in direction
 
 - **Every dialogue clip says its lines, in every arm.** On every scene with
   English dialogue except meerkat, the transcript matches the script exactly,
-  dense and default alike, kitchen and sage alike. The Mandarin noodle bar
+  dense and default alike, kitchen and sage alike, and in both seeds of the
+  two-seed decoy. The Mandarin noodle bar
   line matches too, once scored by character. On these scenes this check sits
   at its ceiling: it does not separate the arms at all.
 - **The meerkat narration runs out of clip, in every arm.** The first line
