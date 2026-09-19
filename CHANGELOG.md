@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.135.0
+
+### Changed
+
+Placed by the lead session for the capture session (b3a15bd1, 14f11b8a, 6e5661ad).
+
+- **Captures are taken at Sol's override seam, so the default kitchen chain
+  can be captured at all.** Until now the only hook was the sage node's
+  forward, and every capture-graded number came from the sage chain.
+  `h3_capture.seam_begin` counts the call and copies q/k/v to the host before
+  the kernel runs (core hands the override single-owner containers a backend
+  may consume in place); `seam_end` writes the file after, tagged with the
+  route that ran. `maybe_capture` keeps its behaviour, split into claim,
+  snapshot and write, which the seam reuses; one step counter is shared. The
+  Sol node installs its block-index hook when capture is armed, without which
+  a shipped graph published no `sol_block` and the seam would have captured
+  nothing in Sol's window (found by reading, before any GPU time).
+- **The sage forward no longer captures the calls it hands to Sol**; the seam
+  owns them, so each call is counted once.
+- Acceptance, `bench/results/2026-09-19_sol_seam_capture.md`: a sage-chain
+  re-capture byte-identical to the morning's set with the seam's own route
+  tag on the files inside Sol's window (so the hook is shown to have fired,
+  not merely to have matched); an unarmed kitchen render on the new code
+  md5-identical to the 2026-09-18 clip of the same graph; an armed kitchen
+  render md5-identical to the unarmed one. The first kitchen-chain capture
+  exists, including the default chain's own dense steps, which no capture
+  held before.
+
 ## 0.134.0
 
 ### Added
