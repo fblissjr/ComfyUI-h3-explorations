@@ -1,0 +1,1947 @@
+{
+  "measured": "2026-09-19",
+  "produced_by": "bench/record_capture_inventory.py",
+  "what": "what each H3 capture contained, recorded so the capture itself can be deleted without orphaning the results that cite it",
+  "captures": [
+    {
+      "capture": "2026-09-19_seam_acceptance_kitchen_107f",
+      "existed_at_record_time": true,
+      "n_tensor_files": 36,
+      "kinds": [
+        "qkv"
+      ],
+      "arms": [],
+      "total_bytes": 50963662314,
+      "total_bytes_parsed_only": 50963662314,
+      "blocks": [
+        0,
+        8,
+        16,
+        24,
+        32,
+        40,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49
+      ],
+      "steps": [
+        1,
+        8,
+        15
+      ],
+      "sequence_lengths": [
+        32916
+      ],
+      "renders": [
+        0
+      ],
+      "unparsed_files": [],
+      "files": [
+        {
+          "file": "qkv_L32916_S32916_b0_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 0,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b0_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 0,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657336
+        },
+        {
+          "file": "qkv_L32916_S32916_b0_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 0,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657246
+        },
+        {
+          "file": "qkv_L32916_S32916_b16_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 16,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b16_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 16,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b16_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 16,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b24_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 24,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b24_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 24,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b24_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 24,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b32_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 32,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b32_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 32,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b32_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 32,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b40_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 40,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b40_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 40,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b40_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 40,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b44_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 44,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b44_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 44,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b44_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 44,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b45_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 45,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b45_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 45,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b45_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 45,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b46_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 46,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b46_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 46,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b46_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 46,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b47_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 47,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b47_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 47,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b47_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 47,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b48_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 48,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b48_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 48,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b48_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 48,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b49_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 49,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657264
+        },
+        {
+          "file": "qkv_L32916_S32916_b49_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 49,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657345
+        },
+        {
+          "file": "qkv_L32916_S32916_b49_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 49,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b8_s15_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 8,
+          "step": 15,
+          "render": 0,
+          "bytes": 1415657255
+        },
+        {
+          "file": "qkv_L32916_S32916_b8_s1_koutside_range.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 8,
+          "step": 1,
+          "render": 0,
+          "bytes": 1415657336
+        },
+        {
+          "file": "qkv_L32916_S32916_b8_s8_ksol.pt",
+          "kind": "qkv",
+          "length": 32916,
+          "sequence": 32916,
+          "block": 8,
+          "step": 8,
+          "render": 0,
+          "bytes": 1415657246
+        }
+      ],
+      "manifest": {
+        "schema_version": "1.7.0",
+        "timestamp": "2026-09-19T22:34:29.755659+00:00",
+        "provenance": {
+          "git_commit": "6da46ad5728d425cc729bf568b34db873ad4a901",
+          "gpu_device": "NVIDIA GeForce RTX 4090",
+          "gpu_power_limit_watts": 450.0,
+          "driver_version": "615.71.09",
+          "cuda_version": "13.4",
+          "pytorch_version": "2.14.0+cu132",
+          "comfyui_version": "0.36.0",
+          "comfy_kitchen_version": "0.2.35+sol.8176242",
+          "server": {
+            "argv": [
+              "main.py",
+              "--output-directory",
+              "<outside repo>/output",
+              "--temp-directory",
+              "<outside repo>/comfy_temp",
+              "--input-directory",
+              "<outside repo>/input",
+              "--preview-method",
+              "none",
+              "--preview-size",
+              "512",
+              "--disable-api-nodes",
+              "--port",
+              "8188",
+              "--cuda-malloc",
+              "--supports-fp8-compute",
+              "--mmap-torch-files",
+              "--fast",
+              "fp16_accumulation",
+              "--disable-comfy-compiler"
+            ],
+            "comfy_args": {
+              "assert_graph_breaks": false,
+              "async_offload": null,
+              "auto_launch": false,
+              "base_directory": null,
+              "bf16_text_enc": false,
+              "bf16_unet": false,
+              "bf16_vae": false,
+              "cache_classic": false,
+              "cache_lru": 0,
+              "cache_none": false,
+              "comfy_api_base": "https://api.comfy.org",
+              "cpu": false,
+              "cpu_vae": false,
+              "cuda_device": null,
+              "cuda_malloc": true,
+              "database_url": null,
+              "debug_hang": false,
+              "default_device": null,
+              "default_hashing_function": "sha256",
+              "deterministic": false,
+              "directml": null,
+              "disable_all_custom_nodes": false,
+              "disable_api_nodes": true,
+              "disable_async_offload": false,
+              "disable_auto_launch": false,
+              "disable_comfy_compiler": true,
+              "disable_cuda_graphs": true,
+              "disable_cuda_malloc": false,
+              "disable_dynamic_vram": false,
+              "disable_manager_ui": false,
+              "disable_metadata": false,
+              "disable_mmap": false,
+              "disable_nvml_pressure": false,
+              "disable_pinned_memory": false,
+              "disable_smart_memory": false,
+              "disable_triton_backend": false,
+              "disable_xformers": false,
+              "dont_print_server": false,
+              "dont_upcast_attention": false,
+              "enable_asset_hashing": false,
+              "enable_assets": false,
+              "enable_compress_response_body": false,
+              "enable_cors_header": null,
+              "enable_dynamic_vram": false,
+              "enable_manager": false,
+              "enable_manager_legacy_ui": false,
+              "enable_triton_backend": false,
+              "extra_model_paths_config": null,
+              "fast": [
+                "PerformanceFeature.Fp16Accumulation"
+              ],
+              "fast_disk": false,
+              "force_channels_last": false,
+              "force_fp16": false,
+              "force_fp32": false,
+              "force_non_blocking": false,
+              "force_upcast_attention": false,
+              "fp16_intermediates": false,
+              "fp16_text_enc": false,
+              "fp16_unet": false,
+              "fp16_vae": false,
+              "fp32_text_enc": false,
+              "fp32_unet": false,
+              "fp32_vae": false,
+              "fp64_unet": false,
+              "fp8_e4m3fn_text_enc": false,
+              "fp8_e4m3fn_unet": false,
+              "fp8_e5m2_text_enc": false,
+              "fp8_e5m2_unet": false,
+              "fp8_e8m0fnu_unet": false,
+              "front_end_root": null,
+              "front_end_version": "comfyanonymous/ComfyUI@latest",
+              "gpu_only": false,
+              "high_ram": false,
+              "highvram": false,
+              "input_directory": "<outside repo>/input",
+              "list_feature_flags": false,
+              "listen": "127.0.0.1",
+              "log_stdout": false,
+              "lowvram": false,
+              "max_upload_size": 100,
+              "mmap_torch_files": true,
+              "models_directory": null,
+              "multi_user": false,
+              "novram": false,
+              "oneapi_device_selector": null,
+              "output_directory": "<outside repo>/output",
+              "port": 8188,
+              "preview_size": 512,
+              "quick_test_for_ci": false,
+              "reserve_vram": null,
+              "supports_fp8_compute": true,
+              "temp_directory": "<outside repo>/comfy_temp",
+              "tls_certfile": null,
+              "tls_keyfile": null,
+              "use_ck_attention": false,
+              "use_flash_attention": false,
+              "use_pytorch_cross_attention": false,
+              "use_quad_cross_attention": false,
+              "use_sage_attention": false,
+              "use_split_cross_attention": false,
+              "user_directory": null,
+              "vram_headroom": 0,
+              "windows_standalone_build": false
+            },
+            "comfy_kitchen": "0.2.35+sol.8176242",
+            "cuda": "13.2",
+            "pid": 590536,
+            "sageattention": {
+              "git_head": "a9fc7fb8b7ba",
+              "path": "<outside repo>/sageattention",
+              "version": "2.2.0"
+            },
+            "torch": "2.14.0+cu132"
+          }
+        },
+        "workload": {
+          "workflow_file": "workflow_api.json",
+          "task": "t2va",
+          "render": {
+            "prompt_id": "7b27545d-6af3-4eda-8ba1-f31401bd298b",
+            "prompt_id_source": "record",
+            "outputs": [
+              "kitchen_armed_107f_00001-audio.mp4"
+            ],
+            "source": "server /history"
+          },
+          "workflow_sha256": "839236ba722f985675b179288334130b4c02e187c1d9a78fefe5e51c5aa29c97",
+          "graph_sha256": "8635427eee5a6654d0d9cd72fb0333e532e04e0b9d631fb70a928a4e0aa13fbe",
+          "canvas": {
+            "width": 1344,
+            "height": 768,
+            "aspect": "7:4",
+            "length": 107,
+            "fps": 24.0,
+            "latent_frames": 32
+          },
+          "models": {
+            "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            "video_vae": "minimax_h3_video_vae_fp16.safetensors",
+            "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "weight_quantization": "int8_convrot",
+            "vae_quantization": "fp16",
+            "loras": [],
+            "sha256": {
+              "unet": "e889202c41dafb67b10d67b97f0d8541508036a6090af23425a5c2615d03c47a",
+              "clip": "bc2ced0fbea64757fa9acddccfc0b3f4819d1dcf1da6c124d690d368be283923",
+              "video_vae": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522",
+              "audio_vae": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+            },
+            "weight_quantization_source": "filename",
+            "vae_quantization_source": "filename"
+          },
+          "sampling": {
+            "sampler_name": "er_sde",
+            "scheduler": "simple",
+            "steps": 16,
+            "denoise": 1.0,
+            "seed": 730451892,
+            "cfg": 1.0
+          },
+          "attention": {
+            "sage_mode": "absent",
+            "sol_attn": "wired",
+            "sol_start_percent": 0.2,
+            "sol_end_percent": 1.0,
+            "sol_dense_blocks": "",
+            "sol_tau": 1.0,
+            "head_chunks": 1,
+            "dense_node": {
+              "state": "wired",
+              "class": "ModelAttentionBackend",
+              "setting": "comfy kitchen attention"
+            }
+          },
+          "underived": []
+        },
+        "prompt": {
+          "full_prompt_text": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a late-night beef-noodle counter from the street side, a steel stockpot steaming under a bare bulb and a row of red plastic stools along the tiled front. Above the serving hatch a neon sign reading \"\u8001\u5f20\u725b\u8089\u9762\" glows in red tube script, mounted flush to the tiled lintel and centred over the hatch. A small radio on the shelf behind the counter plays a Cantonese pop song, a bright synth-backed ballad at a steady mid-tempo, thin and tinny through its single speaker. The camera zooms out with small amplitude at slow speed, opening the frame from the sign to the whole counter. A customer in a grey raincoat, on-screen, thirties, with a low, even tenor and a quick delivery (S1), steps up to the hatch, holds up two fingers toward the cook, and says: <d>[Chinese] \u4e24\u7897\u725b\u8089\u9762\uff0c\u4e00\u7897\u4e0d\u8981\u8fa3\u3002</d> He closes his mouth and lowers his hand to the counter edge. The cook in a white apron behind the stockpot nods once, lifts a ladle, and produces no vocal sound.\n\noverall_soundscape: A stockpot simmers steadily under the hum of a neon transformer. A ladle knocks against steel, a coat sleeve brushes the counter edge, and traffic passes wet and distant on the street behind.\n\nnon_diegetic_music: N/A",
+          "sections": {
+            "full": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a late-night beef-noodle counter from the street side, a steel stockpot steaming under a bare bulb and a row of red plastic stools along the tiled front. Above the serving hatch a neon sign reading \"\u8001\u5f20\u725b\u8089\u9762\" glows in red tube script, mounted flush to the tiled lintel and centred over the hatch. A small radio on the shelf behind the counter plays a Cantonese pop song, a bright synth-backed ballad at a steady mid-tempo, thin and tinny through its single speaker. The camera zooms out with small amplitude at slow speed, opening the frame from the sign to the whole counter. A customer in a grey raincoat, on-screen, thirties, with a low, even tenor and a quick delivery (S1), steps up to the hatch, holds up two fingers toward the cook, and says: <d>[Chinese] \u4e24\u7897\u725b\u8089\u9762\uff0c\u4e00\u7897\u4e0d\u8981\u8fa3\u3002</d> He closes his mouth and lowers his hand to the counter edge. The cook in a white apron behind the stockpot nods once, lifts a ladle, and produces no vocal sound.\n\noverall_soundscape: A stockpot simmers steadily under the hum of a neon transformer. A ladle knocks against steel, a coat sleeve brushes the counter edge, and traffic passes wet and distant on the street behind.\n\nnon_diegetic_music: N/A"
+          },
+          "bank_id": "t2va_noodle_bar",
+          "prompt_sha256": "667954291e6e7ad78c867ace703cadc723d2b3a41f6ff744751c014f9accc516"
+        },
+        "references": [],
+        "token_accounting": {
+          "total_sequence_length": 32916,
+          "video_tokens": 32256,
+          "text_tokens": 304,
+          "reference_tokens": 0,
+          "audio_tokens": 356,
+          "method": {
+            "total": "captured tensors' sequence length",
+            "video": "canvas x latent frames",
+            "audio": "core temporal_shape helper, as preflight",
+            "reference": "sum of reference latent rows",
+            "text": "remainder"
+          },
+          "segments_recorded": true
+        },
+        "captured_tensors": [
+          {
+            "filename": "qkv_L32916_S32916_b0_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 0,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "e962d2ddbffeaad683a8ae560d3dbf2ace8c2fea112b8e4eaf80b80e096eac14"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b0_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 0,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657336,
+            "sha256": "d5bf3e9854f587c3de149f8529c03ce279e690884e440f93bd1c989161579788"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b0_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 0,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657246,
+            "sha256": "47f175964ff21b38d856b61ca0cb284090ec88dd7b187090db420ae6e71b8153"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b16_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 16,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "3c9253dda375ab28f05e0a38b971197c7a9f6a889cb3b34ba6fa2ba611b6d3d6"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b16_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 16,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "f9af76646b97a653027e025b4ebfcff37cffaba8610a5b01d9b9a5bef0bb8696"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b16_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 16,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "6bf9c2502a3ff2edba52c2a5e46443baf8b8f61181e8894f0ec1b22a239d84ed"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b24_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 24,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "63c0613ac2acf0bca06136454a776b1553fe7bbbbdea0564fc28bd50a31f2e0a"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b24_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 24,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "e859930c4982e70ababd6de46bc9d7134ab1158deaf7c8938d3fd0706931655b"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b24_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 24,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "a1a3d8ed17ed9fbfe30e630e40f247afecc42863c0ed0925fc084cd9edbb0605"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b32_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 32,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "eae882e6641e998ad8baa8f7f3f5d60801ae98de67cc6e8bb4fdc0a03a7a3bc7"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b32_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 32,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "46c929108db035bd78ecf90ec8b6a12f9b002cffbc10d18fa4811e7c0eee2500"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b32_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 32,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "77f2538e85bbd6b4f545898e77543fba2e7b0e998e49b3be5448222dcaa175ca"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b40_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 40,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "3e4785aa01a03d778dd56f05ab05081379719dcf478d36fe7b5e2e90e99b42e8"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b40_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 40,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "9ab2bac666889d421d5d904b3735b46068b0cf0322b3f5159a91158549ca7000"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b40_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 40,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "561bd7e1f0fea062a4a8e3ee2d5926cf4bef8fba12db5c467295f9a003bb4614"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b44_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 44,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "8844ce6ee9e389098fea992486cc35ee6aacfe5ed6f9ee140639315c1cfa22fe"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b44_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 44,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "740669ea5885dc52b90347a4c7b8c2c3c775e084d1dc5d365fbccdbc6ab8fc6e"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b44_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 44,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "6ebc1613d266961391b3d06d41aab944ef3642d07e5c3988f52988363841a079"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b45_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 45,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "1eb622405d55c34ac9087d7889a6cae9b1fe78a36c1e5d5b21f90a7e5e812842"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b45_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 45,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "a3213e66e1c38cc612b47f73cbd02ab24c0379e896af5dede8fc9ffc11f904ed"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b45_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 45,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "b923b8b679a92c37cf5e6f9d3c21a9c48ff0aa14caa0f4e2aaee259ba4c3dbeb"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b46_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 46,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "9e9eb896ab6b820461855bcbf6a6b58bd3e0ab3ea74ef5b0a2088932da3c84c3"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b46_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 46,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "16470edec43b75c8f75073757e6f28b08834a0d57a9bbd3b008d25a03864b063"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b46_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 46,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "c2e69358390695d01e45851fb42e50155288efe1b33c6274a572f30f2324427c"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b47_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 47,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "3f01c81d48c266a2f5b4c8f6ba33faa85849c49b8d6a663e9884b33fb5df9fda"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b47_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 47,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "c227bb8c95ff50b3f6ed4f79d7bd28c52e5b308b36fa310cdb38ccb49c3ee745"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b47_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 47,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "c55fbb3a2bc2b59b6cefb7c3863aee338f513730d704eb861ee01d2c6f3136d4"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b48_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 48,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "6969fa031a18b41f11641f60793af97e270ddd6f7f0183ca51f193779677eabc"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b48_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 48,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "66c5c064f9d561f87de17bfbffe5bc8f9a369e4462a19eba1ef96c758c9a785a"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b48_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 48,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "ce986a2b1f88209bf644989c1651af0fcd8fe3c802d49e62d64666174dc5955a"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b49_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 49,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657264,
+            "sha256": "bb1bbb830248f516d01b82bc731d06f1f5eacad135f126bd17332bf119ca516e"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b49_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 49,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657345,
+            "sha256": "af7b619bb80ff0aa0245082cc5f9010c79cb19ecbcbe130c592c443ee09d6d56"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b49_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 49,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "6609ab8dca2c6d05c646694f83ada068b8e43ddedac0d5695a9a614f933b50ea"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b8_s15_ksol.pt",
+            "kind": "qkv",
+            "block": 8,
+            "step": 15,
+            "sigma": 0.4465445876121521,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657255,
+            "sha256": "eb9ea021e7fd3ab9916da2f72cbb7d754f53353ab747639966f5cfd641fcc1da"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b8_s1_koutside_range.pt",
+            "kind": "qkv",
+            "block": 8,
+            "step": 1,
+            "sigma": 0.9945220351219177,
+            "kernel": "outside_range",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657336,
+            "sha256": "1d735efce03d85ae5dd8babfca9921323c6db0fa6add33fbfffad8657191a440"
+          },
+          {
+            "filename": "qkv_L32916_S32916_b8_s8_ksol.pt",
+            "kind": "qkv",
+            "block": 8,
+            "step": 8,
+            "sigma": 0.9230769276618958,
+            "kernel": "sol",
+            "render": 0,
+            "segments": [
+              [
+                0,
+                304,
+                "text"
+              ],
+              [
+                304,
+                660,
+                "audio"
+              ],
+              [
+                660,
+                32916,
+                "video"
+              ]
+            ],
+            "server_pid": 590536,
+            "shape": [
+              1,
+              56,
+              32916,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 1415657246,
+            "sha256": "d452b47725a35dc454673a3786075c7a49f6298ceb1bfa71fe66ed25c166f98b"
+          }
+        ]
+      },
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    }
+  ],
+  "already_absent": [],
+  "capture_root": "names only; captures live outside the repo and their location is not recorded here by policy",
+  "total_bytes_recorded": 50963662314
+}
