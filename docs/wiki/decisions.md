@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-19
 
+- **`MiniMaxH3EncoderLoader` takes core's `device` input** (owner: whatever
+  device the user puts the encoder on is respected). Same options, same
+  `model_options` and optional as core's `CLIPLoader` has it
+  (`h3_encoder_loader.DEVICES`); before, the node had no placement input and
+  its rebuild factory would have dropped one. The node's description also
+  told users to use "the AWQ loader instead" for a W4A16 file; that loader
+  was deleted on 2026-09-13, and the sentence is gone.
 - **Upstream survey: three pieces of prose had lost.** `docs/sol_upstream.md`
   described kitchen PR 171 (chunked `key_bias`) as an open draft with a rebase
   hazard for `blk_cnt`, core PR 16239 as an open PR that would rewrite core's

@@ -284,6 +284,86 @@ def an_incomplete_checkpoint_cannot_load_quietly():
     return f"{len(cases)} mutations red, each with its own message"
 
 
+def _core_clip_loader():
+    """Core's own `CLIPLoader`, imported from ComfyUI's `nodes.py` by path.
+
+    By path under its own name, because this repo has a `nodes.py` too
+    (`docs/comfy_notes.md`, the `import nodes` trap).
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_comfy_core_nodes", COMFY / "nodes.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.CLIPLoader
+
+
+def device_is_cores_and_survives_a_rebuild():
+    """The `device` input offers what core's `CLIPLoader` offers, hands core the
+    same `model_options` core's loader builds, and a rebuild keeps them.
+
+    Both of core's halves are read out of core, not typed here: the option
+    list from its `INPUT_TYPES`, the mapping by calling its `load_clip` with
+    `comfy.sd.load_clip` spied. The rebuild is the real one core performs for
+    `clone(disable_dynamic=True)` and for `SelectCLIPDevice` to cpu, through
+    the `cached_patcher_init` this loader registers. This harness runs with
+    `--cpu`, so "default" also lands on the CPU and the devices alone cannot
+    tell the options apart; the recorded `model_options` are the observable.
+    """
+    import comfy.sd
+
+    core = _core_clip_loader()
+    core_devices = tuple(core.INPUT_TYPES()["optional"]["device"][0])
+    assert core_devices == loader.DEVICES, (core_devices, loader.DEVICES)
+    schema = loader.MiniMaxH3EncoderLoader.define_schema()
+    offered = next(i for i in schema.inputs if i.id == "device")
+    assert tuple(offered.options) == core_devices, offered.options
+    # Optional as core's is, so a graph written before the input existed runs.
+    assert offered.optional and offered.default == "default", (
+        offered.optional, offered.default)
+
+    real_load_clip = comfy.sd.load_clip
+    calls = []
+
+    def spying(*args, **kwargs):
+        calls.append(dict(kwargs.get("model_options") or {}))
+        return real_load_clip(*args, **kwargs)
+
+    def refusing(*args, **kwargs):
+        calls.append(dict(kwargs.get("model_options") or {}))
+        raise _Stop
+
+    class _Stop(Exception):
+        pass
+
+    comfy.sd.load_clip = refusing
+    try:
+        for device in core_devices:
+            calls.clear()
+            try:
+                core().load_clip(ENCODER.name, type="minimax", device=device)
+            except _Stop:
+                pass
+            assert calls == [loader.model_options_for(device)], (device, calls)
+
+        comfy.sd.load_clip = spying
+        calls.clear()
+        clip = loader.MiniMaxH3EncoderLoader.execute(ENCODER.name, device="cpu").result[0]
+        cpu = loader.model_options_for("cpu")
+        assert calls == [cpu], calls
+        factory, factory_args = clip.patcher.cached_patcher_init[:2]
+        assert factory is loader.load_guarded_model_patcher, factory
+        rebuilt = factory(*factory_args, disable_dynamic=True)
+        assert calls == [cpu, cpu], calls
+        assert (rebuilt.load_device, rebuilt.offload_device) == (
+            cpu["load_device"], cpu["offload_device"]), (
+            rebuilt.load_device, rebuilt.offload_device)
+        del clip, rebuilt
+    finally:
+        comfy.sd.load_clip = real_load_clip
+    return f"core offers {list(core_devices)}; cpu reached core on load and on rebuild"
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args(argv)
@@ -298,6 +378,8 @@ def main(argv=None) -> int:
         ("native contract stays unstamped",
          stamping_a_native_contract_would_shrink_reference_video),
         ("incomplete checkpoints red", an_incomplete_checkpoint_cannot_load_quietly),
+        ("device is core's and survives a rebuild",
+         device_is_cores_and_survives_a_rebuild),
     ]
     ok = True
     for label, case in cases:

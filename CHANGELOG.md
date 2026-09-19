@@ -4,6 +4,30 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.131.0
+
+### Added
+
+- **`MiniMaxH3EncoderLoader` takes core's `device` input.** The owner asked
+  that the device a user picks for the encoder be respected, as core's
+  `CLIPLoader` does. The options (`h3_encoder_loader.DEVICES`), the
+  `model_options` each builds (`model_options_for`), and the input being
+  optional and advanced are all core's. The factory the loader registers
+  for `clone(disable_dynamic=True)` and multi-GPU copies now carries the
+  options, so a rebuild keeps the placement instead of dropping it. A
+  specific GPU is core's `SelectCLIPDevice`, downstream of this loader.
+  `bench/check_h3_encoder_loader.py` gains a case that reads core's option
+  list and mapping out of core's own `CLIPLoader` and runs the real rebuild;
+  it went red under two in-process mutations (the rebuild dropping the
+  options, the node ignoring the input). Generated graphs are unchanged: an
+  absent `device` means "default", as it does for core's loader, and the
+  running server serves the new input only after a restart.
+
+### Changed
+
+- The loader's description no longer points W4A16 files at the AWQ loader,
+  which was deleted on 2026-09-13 (`docs/wiki/decisions.md`).
+
 ## 0.130.1
 
 ### Changed

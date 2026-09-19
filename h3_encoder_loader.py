@@ -28,6 +28,12 @@ The three things it adds, and what each is for:
    transformer; `reference_report.py` reads it to say which ceiling applies
    to the text encoder's copy of a still.
 
+**Placement is core's too.** The `device` input is core's `CLIPLoader`'s,
+with the same options and the same `model_options` (`DEVICES`,
+`model_options_for`), and the rebuild factory this registers carries them, so
+a clone keeps the choice. A specific GPU is core's `SelectCLIPDevice`
+downstream.
+
 **A trap this makes visible rather than fixes.** Under core, `video_policy`
 `release` fits a video reference to the release's 25,165,824-pixel ceiling and
 then `comfy/text_encoders/minimax.py::process_video_block` clamps it back to
@@ -102,6 +108,30 @@ CONTRACT_SOURCE = "comfyui-native"
 #: the full geometry: `image_mean`/`image_std` are compared separately because
 #: a list needs a different equality than an int.
 _GEOMETRY_INTS = ("patch_size", "temporal_patch_size", "merge_size")
+
+
+#: Where the encoder may be placed, as core's own `CLIPLoader` offers it
+#: (inherited: its `device` widget in ComfyUI's `nodes.py`). A GPU other than
+#: the default is core's `SelectCLIPDevice` downstream, which rebuilds through
+#: `cached_patcher_init` and so through this loader.
+#: `bench/check_h3_encoder_loader.py` goes red if core's list moves.
+DEVICES = ("default", "cpu")
+
+
+def model_options_for(device: str) -> dict:
+    """The `model_options` core's `CLIPLoader.load_clip` builds for `device`.
+
+    "default" leaves placement to `model_management.text_encoder_device()`;
+    "cpu" pins both the load and offload device, as core does.
+    """
+    if device == "default":
+        return {}
+    if device == "cpu":
+        import torch
+
+        cpu = torch.device("cpu")
+        return {"load_device": cpu, "offload_device": cpu}
+    raise ValueError(f"device {device!r} is not one of {DEVICES}")
 
 
 def _signature_defaults(function, names: tuple[str, ...]) -> dict:
@@ -323,16 +353,22 @@ def install_native_contract(clip, name: str = "encoder") -> dict:
     return contract
 
 
-def load_guarded_clip(path: str, embedding_directory,
+def load_guarded_clip(path: str, embedding_directory, model_options=None,
                       disable_dynamic: bool = False):
-    """Core's own H3 load, then the three guards, then the contract."""
+    """Core's own H3 load, then the three guards, then the contract.
+
+    `model_options` is passed to core untouched and kept for the rebuild, so
+    a placement chosen on the node survives a clone (`model_options_for`).
+    """
     import comfy.sd
 
     name = Path(path).name
+    model_options = dict(model_options or {})
     try:
         clip = comfy.sd.load_clip(
             ckpt_paths=[path], embedding_directory=embedding_directory,
             clip_type=comfy.sd.CLIPType.MINIMAX,
+            model_options=model_options,
             disable_dynamic=disable_dynamic,
         )
     except Exception as exc:
@@ -354,9 +390,11 @@ def load_guarded_clip(path: str, embedding_directory,
     # deepclone would rebuild this CLIP through core and silently drop both the
     # guards and the stamp -- and `encoder_contract_from_clip` would start
     # answering `None` mid-session, which is the exact silent substitution the
-    # contract exists to end. Point it at this loader instead.
+    # contract exists to end. Point it at this loader instead, with the same
+    # `model_options`, as core's own registration carries them: dropping them
+    # would put a CPU-placed encoder back on the default device on a rebuild.
     clip.patcher.cached_patcher_init = (
-        load_guarded_model_patcher, (path, embedding_directory))
+        load_guarded_model_patcher, (path, embedding_directory, model_options))
 
     image_lo, image_hi = contract["image_bounds"]
     video_lo, video_hi = contract["video_bounds"]
@@ -391,24 +429,39 @@ class MiniMaxH3EncoderLoader(io.ComfyNode):
                 "level), the tokenizer must realise the released special-token "
                 "ids, and the CLIP is stamped with what core's preprocessing "
                 "will actually do so the reference nodes price against a named "
-                "ceiling. Preprocessing itself is unchanged -- for a "
-                "compressed-tensors W4A16 artifact use the AWQ loader instead."
+                "ceiling. Preprocessing itself is unchanged."
             ),
-            inputs=[io.Combo.Input("encoder_name", options=names)],
+            inputs=[
+                io.Combo.Input("encoder_name", options=names),
+                # Optional and advanced, as core's is: an API graph written
+                # before this input existed still runs, and means "default".
+                io.Combo.Input(
+                    "device", options=list(DEVICES), default="default",
+                    optional=True, advanced=True,
+                    tooltip=(
+                        "Where the encoder runs, as core's Load CLIP offers it. "
+                        "default: ComfyUI's text-encoder device. cpu: load and "
+                        "offload on the CPU. For a specific GPU, follow this "
+                        "node with core's Select CLIP Device."
+                    ),
+                ),
+            ],
             outputs=[io.Clip.Output()],
         )
 
     @classmethod
-    def execute(cls, encoder_name):
+    def execute(cls, encoder_name, device="default"):
         import folder_paths
 
         path = folder_paths.get_full_path_or_raise("text_encoders", encoder_name)
         return io.NodeOutput(
-            load_guarded_clip(path, folder_paths.get_folder_paths("embeddings"))
+            load_guarded_clip(path, folder_paths.get_folder_paths("embeddings"),
+                              model_options=model_options_for(device))
         )
 
 
 def load_guarded_model_patcher(path: str, embedding_directory,
+                               model_options=None,
                                disable_dynamic: bool = False):
     """Rebuild this CLIP's patcher through the guards, for `cached_patcher_init`.
 
@@ -420,4 +473,5 @@ def load_guarded_model_patcher(path: str, embedding_directory,
     model.
     """
     return load_guarded_clip(
-        path, embedding_directory, disable_dynamic=disable_dynamic).patcher
+        path, embedding_directory, model_options=model_options,
+        disable_dynamic=disable_dynamic).patcher

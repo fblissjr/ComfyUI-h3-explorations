@@ -134,7 +134,9 @@ generated graph wires: core's own `CLIPLoader` load of the INT8 file
 unpopulated or the tokenizer did not realise the release's marker ids, and a
 declaration of what core's preprocessing will do, read out of core and
 stamped on the CLIP for the reference report and preflight. It adapts no
-format and touches no weight. The W4A16 adapter that used to stand here
+format and touches no weight. Its `device` input is core's `CLIPLoader`'s
+(`h3_encoder_loader.DEVICES`), kept through a rebuild; for a specific GPU,
+follow it with core's `SelectCLIPDevice`. The W4A16 adapter that used to stand here
 (`MiniMaxH3AWQEncoderLoader`, with its `config/` snapshots and
 `h3_awq_encoder.md`) was deleted on 2026-09-13 with the closed AWQ lane
 (`docs/wiki/decisions.md`); `bench/check_h3_encoder_loader.py` is the
