@@ -89,6 +89,7 @@ Not H3 implementations. Listed so nobody mistakes one for a comparison target.
 | `MiniMax-H3` | the release repository | not a runnable pipeline for our purposes |
 | `MiniMax-Music3` | a different model | not H3 |
 | `transformers`, `vllm`, `llm-compressor` | encoder-side and quantisation infrastructure | say nothing about the DiT |
+| `Model-Optimizer` | NVIDIA's PTQ/QAT toolkit and its recipe catalogue (`modelopt_recipes/ptq.md`), read 2026-09-19 at `b311c054d`. It ships a `model_type/qwen3_vl/ptq` pair that puts FP8 on the Qwen3-VL **vision** branch's Linear layers, including the deepstack mergers, and deliberately leaves the patch embedding and the vision attention BMM operands high precision. Two things it is useful for: a scope precedent for the vision tower our encoder keeps entirely in BF16 (the header of `h3_config.ENCODER_INT8`), and its named calibration levers (MSE weight search, local Hessian, NVFP4 activation headroom, SmoothQuant alpha — its Gemma override picks the same 0.5 our `channel_balance.py` defaults to) | not something to run: it exports TensorRT-LLM checkpoints, which ComfyUI does not load, its NVFP4 schemes need Blackwell, and calibrating our own encoder is a closed lane (`docs/roadmap.md`, "Closed lanes", 2026-08-27) |
 | `triton`, `flashinfer`, `nanobind` | kernel infrastructure | |
 | `Sana`, `h3-turbo-eval` | adjacent research | |
 
