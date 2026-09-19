@@ -518,6 +518,14 @@ length every arm above rendered on this card without it.
 
 ## Now
 
+*2026-09-19, two corrections to the paragraph below.* (1) The "sage's audio more natural" lead is WITHDRAWN as a lead
+about chains: the pair the owner heard was sage against sage (the 2026-09-15 kitchen-scene "default" clip predates the chain
+move and is sage `auto`); on the true chain pairs every measured audio difference is inside the floor
+(`bench/results/2026-09-19_audio_sage_vs_kitchen.md`), while Sol's token reorder moves the audio MORE than the chain does.
+(2) For the same reason the reorder panel has five valid pairs, not six: plain order better on two, `3d` on one, two ties.
+`bench/diff_clip_graphs.py` now shows what actually differs between two clips before a stack is built. Also since then: the
+sage node's `auto` is the rotated mode and the sage chain names it (0.129.0); 362 frames is legal, 345 is the default length.
+
 *End of 2026-09-18, where things stand.* The reorder works under core's memory compiler and stays OFF by default: six
 full-length pairs scored blind showed no benefit (`bench/results/2026-09-18_sol_reorder_panel.md`), while the noodle bar at
 its declared 107 frames showed plain order ghosting a figure in and the reorder not

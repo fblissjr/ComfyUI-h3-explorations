@@ -1,5 +1,7 @@
 # Reorder panel: plain token order against the `3d` reorder, seven scenes, 2026-09-18
 
+> **2026-09-19, read first: the KITCHEN-SCENE pair in this record is INVALID.** Its plain-order clip, `Video/block49_kitchen/default_s730451892_*` (2026-09-15, 13:32), was rendered BEFORE the default chain moved that evening: its embedded graph says sage `auto` with Sol `qk_balance` off, not the kitchen chain the batch record of that day called it. Found by a subagent measuring audio, confirmed from the clip's metadata, and now checkable for any pair with `bench/diff_clip_graphs.py`. The diner, market and hardware aisle pairs were checked the same way and differ only in `morton` (plus a removed assert node and a logging flag).
+
 > **2026-09-18, read first:** the noodle bar prompt is written for 107 frames and post office for 141; both were rendered here at 345, past the end of their scripts, where the model improvises. What this record measured stands; what it is evidence of changed. See `2026-09-18_off_length_prompts.md`.
 
 Model: MiniMax H3, text to video with audio, `workflows/h3_text_to_video_api.json`
@@ -55,7 +57,7 @@ goes back to the singles (`*-audio.mp4`).
 
 Owner's verdicts, 2026-09-18, all six on-length pairs (post office is off-length and was skipped):
 
-- plain order better: diner, kitchen, market (slightly)
+- plain order better: diner, market (slightly). *(The kitchen scene was listed here until 2026-09-19; that pair compared sage `auto` in plain order against the kitchen chain with `3d`, so its verdict, including the line cook rendered as a man, says nothing about token order.)*
 - `3d` better: cafe_kids, twice: clearly on the first prompt (whose two wording faults drove most of that), and slightly on the fixed prompt (`cafe_kids_v2_*`: "really close", dialogue a little more natural)
 - no difference: crowd_churn_long, hardware_aisle_short
 
@@ -69,7 +71,7 @@ true overall. `morton` still stays off until the short-clip panel is scored.
 
 **Conclusion.** On no scene did the reorder remove a defect plain order had. Where the owner saw a difference it was the
 difference between two takes (staging, which character speaks, a figure the prompt did not ask for, the sex of a character),
-and it went to plain order three times and to `3d` once (the cafe scene, on both versions of its prompt, the second time narrowly). `morton` stays OFF by default. The capture metrics had said the
+and it went to plain order twice and to `3d` once (the cafe scene, on both versions of its prompt, the second time narrowly); one pair is invalid. `morton` stays OFF by default. The capture metrics had said the
 reorder lowers Sol's error on most cells and raises it on one block of one scene; the eye does not see the former as a
 benefit on scenes rendered at the length their prompts were written for. What is left for the reorder is an untested use:
 letting tau rise for speed (`3d` at a higher tau against plain order at tau 1.0, same six scenes).

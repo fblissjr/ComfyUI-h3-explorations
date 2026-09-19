@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.129.1
+
+### Added
+
+- **`bench/diff_clip_graphs.py`**: what actually differs between two rendered
+  clips, read from the API graphs embedded in them, with `--expect` to fail
+  when a pair differs in anything but the intended field. Written because a
+  pair is only a comparison of one thing if its graphs differ in one thing, and
+  nothing checked.
+- **Audio, sage chain against kitchen chain, measured**
+  (`bench/results/2026-09-19_audio_sage_vs_kitchen.md`): loudness, band
+  energies per second, centroid, harmonic-to-noise ratio, hum, on the true
+  same-prompt same-seed chain pairs, against the spread a token reorder
+  produces on one chain. Nothing clears that floor and the two scenes disagree
+  in sign; the token reorder moves the audio more, and more systematically,
+  than the chain does. The instruments read zero on a clip against itself and
+  move as they should on degraded copies. `bench/analyze_audio_spectral_tilt.py`
+  cannot read a muxed `-audio.mp4` (it probes the first stream, which is
+  video); noted, not fixed.
+
+### Fixed
+
+- **Two records of 2026-09-18 rested on a clip that was not what a batch record
+  called it.** `Video/block49_kitchen/default_s730451892_*` (2026-09-15) is
+  sage `auto` with Sol `qk_balance` off; it was rendered hours before the
+  default chain moved to kitchen. The reorder panel's kitchen-scene pair
+  therefore differed in chain as well as token order and is struck (five valid
+  pairs remain, and the conclusion holds), and the "sage against kitchen"
+  kitchen-scene pair was sage against sage, so the owner's one audio
+  preference was not about chains. Both records open with the correction.
+- `h3_capture` flushes its status prints (h3guy, commit `9ad93db`): core's log
+  interceptor block-buffers stdout on a pipe, so the ARMED line reached the
+  server log only at the first later logging call, and the documented "wait
+  for ARMED before submitting" could never succeed. That, not a race, is what
+  emptied the unattended capture chain of 2026-09-18.
+
 ## 0.129.0
 
 ### Changed

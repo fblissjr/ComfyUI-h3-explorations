@@ -1,5 +1,7 @@
 # Sage chain against kitchen chain, same prompt and seed, 2026-09-18
 
+> **2026-09-19, read first: the kitchen-scene pair here was NOT sage against kitchen.** Both clips are the sage chain: `Video/block49_kitchen/default_s730451892_*` is sage `auto` with Sol `qk_balance` off (rendered 2026-09-15 before the default chain moved), against sage `fp8++ balanced` with Sol `qk_balance` on. So the owner's one audio preference ("just more natural") was for balanced sage plus balanced Sol over plain sage, not for a chain, and the mechanism sketched below does not apply to it. The DINER pair is a true chain pair (checked with `bench/diff_clip_graphs.py`) and is unscored. Measured audio differences between the chains on the true pairs are within the floor on every metric: `2026-09-19_audio_sage_vs_kitchen.md`.
+
 Model: MiniMax H3, base 16 steps, 345 frames at the trained canvas, plain token
 order, seed 730451892. Kitchen chain (the default): core's attention backend on
 kitchen int8 dense for the steps below Sol's window, Sol with `qk_balance`
