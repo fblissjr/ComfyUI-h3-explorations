@@ -1,0 +1,101 @@
+{
+  "question": "does kitchen's apply_rope_split_half (core 6cff1e97 / PR 16326) reproduce core's old torch apply_rope on the Qwen3-VL encoder's q and k",
+  "device": "cpu",
+  "gpu": null,
+  "torch": "2.14.0+cu132",
+  "comfy_kitchen": null,
+  "python": "3.14.7",
+  "config": "Qwen3VL_32BConfig",
+  "heads_q_kv_dim": [
+    64,
+    8,
+    128
+  ],
+  "positions": {
+    "text_before": 96,
+    "vision_grid_thw": [
+      2,
+      16,
+      16
+    ],
+    "text_after": 160,
+    "total": 768
+  },
+  "seed": 0,
+  "rows": [
+    {
+      "arm": "old",
+      "q_max_abs_vs_fp64": 0.015608449466526508,
+      "q_rel_l2_vs_fp64": 0.0014094153163923548,
+      "k_max_abs_vs_fp64": 0.015232192650728393,
+      "k_rel_l2_vs_fp64": 0.0014121273082180119,
+      "scale": 1.0
+    },
+    {
+      "arm": "new",
+      "q_max_abs_vs_fp64": 0.015608449466526508,
+      "q_rel_l2_vs_fp64": 0.0014094153163923548,
+      "q_bit_identical_to_old": true,
+      "q_elements_differing_from_old": 0,
+      "q_max_abs_vs_old": 0.0,
+      "k_max_abs_vs_fp64": 0.015232192650728393,
+      "k_rel_l2_vs_fp64": 0.0014121273082180119,
+      "k_bit_identical_to_old": true,
+      "k_elements_differing_from_old": 0,
+      "k_max_abs_vs_old": 0.0,
+      "scale": 1.0
+    },
+    {
+      "arm": "control_mutated",
+      "q_max_abs_vs_fp64": 9.271803810144775,
+      "q_rel_l2_vs_fp64": 0.8902315458494262,
+      "q_bit_identical_to_old": false,
+      "q_elements_differing_from_old": 4332349,
+      "q_max_abs_vs_old": 9.28125,
+      "k_max_abs_vs_fp64": 8.876956024207175,
+      "k_rel_l2_vs_fp64": 0.8900868405928024,
+      "k_bit_identical_to_old": false,
+      "k_elements_differing_from_old": 541483,
+      "k_max_abs_vs_old": 8.875,
+      "scale": 1.0
+    },
+    {
+      "arm": "old",
+      "q_max_abs_vs_fp64": 0.49462742591276765,
+      "q_rel_l2_vs_fp64": 0.0014101100926182802,
+      "k_max_abs_vs_fp64": 0.4996064156293869,
+      "k_rel_l2_vs_fp64": 0.0014110605763329787,
+      "scale": 32.0
+    },
+    {
+      "arm": "new",
+      "q_max_abs_vs_fp64": 0.49462742591276765,
+      "q_rel_l2_vs_fp64": 0.0014101100926182802,
+      "q_bit_identical_to_old": true,
+      "q_elements_differing_from_old": 0,
+      "q_max_abs_vs_old": 0.0,
+      "k_max_abs_vs_fp64": 0.4996064156293869,
+      "k_rel_l2_vs_fp64": 0.0014110605763329787,
+      "k_bit_identical_to_old": true,
+      "k_elements_differing_from_old": 0,
+      "k_max_abs_vs_old": 0.0,
+      "scale": 32.0
+    },
+    {
+      "arm": "control_mutated",
+      "q_max_abs_vs_fp64": 301.8413716801442,
+      "q_rel_l2_vs_fp64": 0.8901046820487696,
+      "q_bit_identical_to_old": false,
+      "q_elements_differing_from_old": 4332994,
+      "q_max_abs_vs_old": 302.0,
+      "k_max_abs_vs_fp64": 285.79341246944387,
+      "k_rel_l2_vs_fp64": 0.8888927791517663,
+      "k_bit_identical_to_old": false,
+      "k_elements_differing_from_old": 541426,
+      "k_max_abs_vs_old": 286.0,
+      "scale": 32.0
+    }
+  ],
+  "new_bit_identical_to_old": true,
+  "control_fired": true
+}
