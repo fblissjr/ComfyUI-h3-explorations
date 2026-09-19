@@ -4,6 +4,47 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.134.0
+
+### Added
+
+- **`bench/analyze_sol_block_grouping.py`: arms at equal executed cost, a
+  frozen-route recall test, and a latent-frame residue check** (`--arms`,
+  `--losa`, `--frames`), on the same MiniMax H3 captures as 0.130.0; values
+  in `bench/results/2026-09-19_sol_block_grouping`, sections F to H. Cost is
+  exact query-key pairs per head with forced pairs included, and every arm is
+  tuned to Sol's cost, so the arms are comparable where 0.130.0's were at
+  equal tau. Direction of the results: a max or log-sum-exp key-block score
+  is a small consistent gain confined to the route kernel; a query-side split
+  is the best arm at ideal cost and mostly loses to Sol once the union its
+  64-row tile must walk is priced; the kernel's existing token stage helps
+  the diffuse block and hurts the last block, reproducing
+  `docs/research/2026-09-04_sol_token_aug_grade.md` from an independent
+  emulation, and is limited by its shared query centroid rather than its
+  budget; restricting the token pass to the top-ranked unrouted blocks is a
+  loss; a route frozen at an early step gives Sol nothing at matched size
+  (a sample of query blocks, CPU; the full run is owed); Sol does not
+  under-route the every-fifth latent frames, with a residue control that
+  separates. Output error and missed mass disagree systematically on late
+  blocks; the record says which decides. All of it is a capture proxy: the
+  most a row can do is nominate one candidate for a blind render panel.
+- **The record can no longer say its controls passed for code that fails
+  them.** `--summarize` re-runs the controls on the current source and
+  refuses to write on red, and every measurement group carries a fingerprint
+  of the functions on the measurement path, refused when stale; both refusals
+  were exercised on scratch copies.
+
+### Fixed
+
+- **A control in that tool perturbed its own oracle.** It graded the new
+  output arithmetic against a reference that re-decides the routing in a
+  different float32 reduction order, so one block pair within rounding of the
+  threshold flipped with the BLAS path: green where it was written, red on
+  the reviewer's run of the same file. It now compares against the proven
+  same-mask reference, with a mutation that must move it; the old end-to-end
+  number is still printed, marked non-gating, with the margin that explains
+  it. No reported number changed (re-run in full and diffed).
+
 ## 0.133.0
 
 ### Added

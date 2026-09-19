@@ -12,6 +12,33 @@ The same groupings painted on the latent grid, for the captures `qkv_L104361_S10
 That directory is gitignored, so the pictures are local to the box that ran
 this; `--figures DIR` rebuilds them from the capture.
 
+## Instrument
+
+The controls below were RE-RUN against this file when this record was
+generated, not read out of the data file, and the record refuses to write
+if they fail or if a stored measurement carries a different measurement-path
+fingerprint. Current fingerprint: `2542b6170387d796`.
+
+| control | value |
+|---|---|
+| topk_rows_with_underflowed_zeros | 4 |
+| topk_kept_exactly_the_count | True |
+| topk_threshold_spelling_would_have_kept | 500.0 |
+| routed_counts_vs_sweep_worst_block_difference | 0 |
+| mask_rebuilt_sol_vs_vendored_oracle_worst_rel_l2 | 0.0 |
+| mutation_one_routed_pair_dropped_rel_l2 | 0.013809516094624996 |
+| route_scores_threshold_equals_route_mask | True |
+| sol_style_output_vs_same_mask_reference_worst_rel_l2 | 4.5721648689323047e-07 |
+| sol_style_output_tail_scaled_mutation_rel_l2 | 0.000228250544751063 |
+| passed | True |
+
+Reported, deliberately NOT gating:
+
+- `sol_style_output_vs_chunked_reference_worst_rel_l2`: 4.5899005840510654e-07
+- `tightest_discretionary_threshold_margin`: 1.3150274753570557e-06
+
+the chunked reference re-decides the routing in a different float32 reduction order, so a pair within fp32 noise of the threshold flips with the BLAS path and this number jumps by a whole block's worth. It is a tie, not a divergence; control 5 removes the tie by fixing the mask on both sides.
+
 ## What this is and is not
 
 The Sol ALGORITHM in fp32 and the exact attention it approximates, on captured
@@ -254,6 +281,166 @@ are identical by construction. Chance floors in brackets.
 | B | 49 | 12-13 | 3d_b64 | 0.211/0.212 | 0.933 (0.118) | 0.927 (0.109) |
 | B | 49 | 12-13 | 3d_b16 | 0.205/0.205 | 0.923 (0.114) | 0.916 (0.105) |
 
+## F. Arms at equal executed cost
+
+COST is the count of (query token, key token) pairs attended EXACTLY per
+head, forced diagonal and sinks included, and every arm is tuned until its
+mean cost over the sampled queries equals Sol's at tau 1.0 on that cell. So
+a row that wins has won at Sol's price. `oracle` is the per-query ceiling:
+the best block set for that query at that count, which no per-block rule
+can beat.
+
+The arms. `max4` and `lse4` keep Sol's 64-row query block and 64-token key
+block and only change the RANKING, scoring a key block by the max or the
+log-sum-exp over four 16-key sub-means instead of by its single mean.
+`split2` and `split4` keep the key side and split the QUERY block into 32-
+or 16-row sub-blocks that route separately with Sol's own rule.
+`split4_union` is `split4` tuned so that the UNION of the four sub-blocks'
+sets -- what a CTA actually walks -- costs what Sol costs, which is the
+kernel's real price. `token_aug` is kitchen's own token stage, emulated
+from the kernel's geometry (one centroid per 2 query blocks, candidates
+the blocks neither member routed, budget 64 per group, and the leftover
+candidates becoming a per-token tail), with the block stage loosened until
+block cost plus budget lands on Sol's. `token_aug_hisa` adds HISA's cut.
+
+**`rel_l2` is the output error** of Sol's own arithmetic under each route,
+against exact attention on the same query rows. It is the number that
+decides, and it is not missed mass: the two disagree on sign in this table.
+
+### Output error under each route, raster order
+
+| cell | sol | max4 | lse4 | split2 | split4 | split4_union | split4_lse4 | token_aug | token_aug_hisa | oracle |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A b0_s15 | 0.1238 | 0.1216 | 0.1227 | 0.1242 | 0.1231 | 0.1338 | 0.1218 | 0.0449 | 0.1122 | 0.1109 |
+| A b24_s15 | 0.0882 | 0.0847 | 0.0851 | 0.0881 | 0.0850 | 0.1155 | 0.0747 | 0.0801 | 0.0845 | 0.0169 |
+| A b40_s15 | 0.2609 | 0.2614 | 0.2589 | 0.2499 | 0.2435 | 0.3063 | 0.2307 | 0.2441 | 0.2578 | 0.0247 |
+| B b0_s13 | 0.1312 | 0.1312 | 0.1309 | 0.1314 | 0.1301 | 0.1433 | 0.1296 | 0.0466 | 0.1183 | 0.1242 |
+| B b49_s13 | 0.0143 | 0.0129 | 0.0128 | 0.0145 | 0.0119 | 0.0190 | 0.0105 | 0.0214 | 0.0139 | 0.0126 |
+| A b49_s15 | 0.0329 | 0.0292 | 0.0296 | 0.0194 | 0.0176 | 0.0262 | 0.0127 | 0.0368 | 0.0328 | 0.0140 |
+
+### Output error under each route, 3d order
+
+| cell | sol | max4 | lse4 | split2 | split4 | split4_union | split4_lse4 | token_aug | token_aug_hisa | oracle |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A b0_s15 | 0.1078 | 0.1034 | 0.1053 | 0.1064 | 0.1060 | 0.1227 | 0.1033 | 0.0288 | 0.0979 | 0.0935 |
+| A b24_s15 | 0.0653 | 0.0611 | 0.0613 | 0.0588 | 0.0554 | 0.0783 | 0.0516 | 0.0527 | 0.0622 | 0.0117 |
+| A b40_s15 | 0.1972 | 0.1898 | 0.1930 | 0.1919 | 0.1915 | 0.2275 | 0.1832 | 0.1664 | 0.1922 | 0.0213 |
+| B b0_s13 | 0.1125 | 0.1112 | 0.1117 | 0.1112 | 0.1107 | 0.1288 | 0.1097 | 0.0290 | 0.1021 | 0.1044 |
+| B b49_s13 | 0.0116 | 0.0146 | 0.0145 | 0.0129 | 0.0056 | 0.0079 | 0.0054 | 0.0216 | 0.0209 | 0.0243 |
+| A b49_s15 | 0.0097 | 0.0113 | 0.0107 | 0.0090 | 0.0085 | 0.0108 | 0.0074 | 0.0167 | 0.0160 | 0.0204 |
+
+### Missed mass under each route, plain order
+
+The same arms by the share of exact mass they route through the pooled
+branch. Compare it with the table above: on several cells the arm with the
+least missed mass is not the arm with the least error.
+
+| cell | sol | max4 | lse4 | split2 | split4 | split4_union | split4_lse4 | token_aug | token_aug_hisa | oracle |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A b0_s15 | 0.3375 | 0.3377 | 0.3357 | 0.3365 | 0.3346 | 0.3775 | 0.3327 | 0.3312 | 0.3333 | 0.3120 |
+| A b24_s15 | 0.1469 | 0.1443 | 0.1433 | 0.1421 | 0.1391 | 0.1927 | 0.1324 | 0.1021 | 0.1386 | 0.0368 |
+| A b40_s15 | 0.2387 | 0.2263 | 0.2281 | 0.2370 | 0.2366 | 0.3074 | 0.2223 | 0.1257 | 0.2283 | 0.0312 |
+| B b0_s13 | 0.3578 | 0.3576 | 0.3556 | 0.3570 | 0.3543 | 0.4046 | 0.3524 | 0.3524 | 0.3541 | 0.3295 |
+| B b49_s13 | 0.0479 | 0.0455 | 0.0450 | 0.0453 | 0.0437 | 0.0674 | 0.0402 | 0.0464 | 0.0473 | 0.0334 |
+| A b49_s15 | 0.0439 | 0.0399 | 0.0395 | 0.0394 | 0.0375 | 0.0552 | 0.0320 | 0.0424 | 0.0432 | 0.0234 |
+
+### Union inflation: what a query split really costs
+
+A 64-row CTA walks the UNION of its sub-blocks' routed sets, so a query
+split that matches Sol's cost per sub-block makes the CTA load more tiles.
+`inflation` is that union over the per-sub-block cost at the tuned tau.
+
+| cell | split2 inflation (plain / 3d) | split4 inflation (plain / 3d) |
+|---|---|---|
+| A b0_s15 | 1.061 / 1.246 | 1.202 / 1.316 |
+| A b24_s15 | 1.165 / 1.176 | 1.419 / 1.431 |
+| A b40_s15 | 1.162 / 1.155 | 1.476 / 1.403 |
+| B b0_s13 | 1.065 / 1.240 | 1.227 / 1.311 |
+| B b49_s13 | 1.179 / 1.078 | 1.384 / 1.262 |
+| A b49_s15 | 1.158 / 1.086 | 1.368 / 1.254 |
+
+### What the token stage can buy, and what limits it
+
+At Sol's OWN routing, the individual key tokens needed to recover half of
+Sol's missed mass, ranked two ways: by the score of the centroid kitchen's
+token stage shares across 128 query rows, and by the query's own exact mass
+over the SAME candidates. The gap between them is the price of the shared
+centroid rather than of the budget, which the kernel caps at 256.
+
+| cell | centroid rank, tokens for half | per-query rank, tokens for half | share reaching ninety (centroid / per-query) |
+|---|---|---|---|
+| A b0_s15 | 4096 | 4096 | 0.04 / 0.05 |
+| A b24_s15 | 4096 | 138 | 0.10 / 0.26 |
+| A b40_s15 | 215 | 8 | 0.22 / 0.55 |
+| B b0_s13 | 4096 | 3935 | 0.01 / 0.03 |
+| B b49_s13 | 4096 | 1464 | 0.07 / 0.17 |
+| A b49_s15 | 4096 | 880 | 0.08 / 0.19 |
+
+Capped at 4096 tokens; a row at the cap did not get there.
+
+## G. LoSA's frozen pattern, on a sample
+
+A per-(head, query block) set of key blocks built at the EARLIEST captured
+step and frozen, then measured at each later step of the same DiT block.
+`theta` keeps the shortest prefix reaching the mass target; `matched` keeps
+as many blocks as Sol itself routed at the build step. `sol_at_t` is Sol's
+own set REBUILT at step t and it is the arm that decides: if Sol matches or
+beats the frozen set at equal cardinality, freezing buys nothing here.
+`oracle_at_t` is the best set of that size at that step, so oracle minus
+frozen is the drift cost. `floor` is sinks plus a widening diagonal band at
+the same size, the structure a routed set gets for free.
+
+**These rows are a SAMPLE**: exact block masses need a full softmax row per
+query row, so a fixed-seed sample of query blocks per cell was measured on
+CPU. The count is in every row, and the full run belongs on the card.
+
+| set | block | steps | kind | coverage | frozen (p5) | sol at t | oracle | floor |
+|---|---|---|---|---|---|---|---|---|
+| A | 32 | 4-8 | theta | 0.565 | 0.9761 (0.9425) | 0.7971 | 0.9919 | 0.9245 |
+| A | 32 | 4-12 | theta | 0.565 | 0.9734 (0.9270) | 0.8163 | 0.9933 | 0.9301 |
+| A | 32 | 4-15 | theta | 0.565 | 0.9685 (0.8882) | 0.8351 | 0.9950 | 0.9382 |
+| A | 32 | 4-8 | matched | 0.213 | 0.8126 (0.3519) | 0.7971 | 0.8802 | 0.6967 |
+| A | 32 | 4-12 | matched | 0.213 | 0.7972 (0.3732) | 0.8163 | 0.8926 | 0.7073 |
+| A | 32 | 4-15 | matched | 0.213 | 0.8005 (0.3972) | 0.8351 | 0.9099 | 0.7291 |
+| A | 49 | 4-8 | theta | 0.276 | 0.9796 (0.9269) | 0.9381 | 0.9859 | 0.6059 |
+| A | 49 | 4-12 | theta | 0.276 | 0.9738 (0.8952) | 0.9480 | 0.9819 | 0.6361 |
+| A | 49 | 4-15 | theta | 0.276 | 0.9634 (0.8615) | 0.9567 | 0.9755 | 0.6851 |
+| A | 49 | 4-8 | matched | 0.233 | 0.9540 (0.8182) | 0.9381 | 0.9613 | 0.7766 |
+| A | 49 | 4-12 | matched | 0.233 | 0.9564 (0.8169) | 0.9480 | 0.9736 | 0.8230 |
+| A | 49 | 4-15 | matched | 0.233 | 0.9393 (0.6715) | 0.9567 | 0.9785 | 0.8749 |
+| B | 49 | 5-6 | theta | 0.286 | 0.9895 (0.9835) | 0.9355 | 0.9901 | 0.5899 |
+| B | 49 | 5-12 | theta | 0.286 | 0.9854 (0.9630) | 0.9494 | 0.9908 | 0.6225 |
+| B | 49 | 5-13 | theta | 0.286 | 0.9842 (0.9572) | 0.9524 | 0.9904 | 0.6298 |
+| B | 49 | 5-6 | matched | 0.231 | 0.9489 (0.7596) | 0.9355 | 0.9498 | 0.7734 |
+| B | 49 | 5-12 | matched | 0.231 | 0.9547 (0.7768) | 0.9494 | 0.9679 | 0.8270 |
+| B | 49 | 5-13 | matched | 0.231 | 0.9530 (0.7561) | 0.9524 | 0.9717 | 0.8417 |
+
+Sampled query blocks per cell: 100. Heads: 8. Plain token order.
+
+## H. Does Sol under-route the one-pixel-frame latents?
+
+`bench/map_attention_mass_on_capture.py` found that latent frames whose
+index is 0 mod 5 -- the ones whose RoPE time span is one pixel frame where
+the rest span four -- draw more exact attention mass than their share of
+keys. That says where the mass is. This asks whether Sol's routing keeps up
+with it: for the shipped `sol` arm, each residue class's share of the
+MISSED mass against its share of the true mass. Above 1 means Sol misses
+that class more than its mass warrants. **Residues 1 to 4 are the control**;
+an effect of the one-pixel-frame latents lifts residue 0 alone.
+
+| cell | mass/keys, residue 0 | missed/mass by residue 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|---|
+| A b0_s15 | 1.076 | 1.006 | 1.025 | 1.020 | 0.998 | 0.972 |
+| A b24_s15 | 1.145 | 1.104 | 0.921 | 1.344 | 0.863 | 0.852 |
+| A b32_s15 | 1.235 | 0.687 | 1.220 | 1.723 | 0.912 | 0.891 |
+| A b40_s15 | 1.313 | 0.977 | 1.316 | 1.650 | 1.009 | 0.797 |
+| B b0_s13 | 1.034 | 1.000 | 0.995 | 1.011 | 1.007 | 1.005 |
+| B b49_s13 | 1.233 | 0.862 | 1.212 | 0.956 | 1.451 | 1.134 |
+| A b49_s15 | 1.131 | 0.888 | 1.134 | 1.020 | 1.393 | 1.286 |
+
+Plain token order, tau 1.0, the same sampled video queries as F.
+`conditioning` is carried in the JSON as a sixth class and is always exact.
+
 ## What this says
 
 **There are two regimes and they want different things.** On DiT block 0 the
@@ -312,6 +499,83 @@ mean is worth designing, and that E is what would pay for a summary too
 expensive to rebuild every step. Finer blocks remain the option that needs a
 kernel rewrite and buys the least of the three, and their routing cost, which
 grows with the square of the block count, is in none of these numbers.
+
+## The arms, the frozen pattern and the frame residue
+
+**Output error and missed mass disagree, and the disagreement is systematic.**
+The per-query oracle has the least missed mass in every cell by construction,
+and on the late blocks it does NOT have the least error. It optimises the mass
+routed exactly, not the output, so it is free to drop blocks the pooled tail
+happens to approximate well and keep ones it approximates badly. Read the F
+tables in that order: `rel_l2` decides, missed mass explains.
+
+**Both levers together are the best cheap arm, and the kernel's price undoes
+most of it.** `split4_lse4` -- a 16-row query sub-block routing with a key
+score taken as the log-sum-exp over four sub-means -- has the lowest error of
+every implementable arm on every cell measured, at Sol's cost per sub-block.
+But a 64-row CTA walks the UNION of its four sub-blocks' sets, and the
+inflation table shows that union is materially larger than the per-sub-block
+cost. Tuned so the UNION costs what Sol costs, a pure query split loses to Sol
+on most cells. So a query split is an accuracy lever at a fixed union, not a
+free win, and the union is the number any kernel proposal has to quote.
+
+**Changing only the key-side RANKING is the cheapest thing on the table.**
+`max4` and `lse4` touch neither the exact stage nor the tile layout: they swap
+one mean for a max or a log-sum-exp over four sub-means in the route kernel.
+They are a small, consistent gain on nearly every cell, and they are the only
+arm here with no layout consequence at all.
+
+**The token stage that already exists reproduces this pack's own grade of it,
+from an independent emulation.** At equal cost `token_aug` is a large win on
+DiT block 0 and a loss on block 49, which is the shape
+`docs/research/2026-09-04_sol_token_aug_grade.md` recorded on the kernel. The
+emulation adds the mechanism: most of the win is not the admitted tokens but
+the per-token tail the kernel builds from the candidates that miss the cut,
+which replaces one block-pooled term per unrouted block with one term per
+token at the group centroid's own score. That is why it helps exactly where
+the attention is diffuse.
+
+**HISA's cut is a loss here, not a saving.** Restricting the token pass to the
+top unrouted blocks by the route's own block score is worse than the full scan
+on every cell, and much worse on block 0. The candidate mass this model needs
+is not concentrated in the blocks the centroid ranks highest.
+
+**What limits the token stage is the shared centroid, not the budget.** Ranking
+the SAME candidate tokens by the query's own exact mass instead of by the
+centroid shared across 128 query rows collapses the tokens needed to recover
+half of Sol's missed mass by one to two orders of magnitude on the mid blocks.
+The kernel's budget ceiling is not what is binding.
+
+**LoSA's premise holds and gives Sol nothing.** A frozen key-block set keeps a
+high share of the later steps' mass, close to the paper's own curve, and its
+cost is the problem: reaching the mass target needs far more block coverage
+than Sol routes, so it is not a speed candidate at its own operating point. At
+MATCHED cardinality, Sol rebuilt at each step matches or beats the frozen set
+at the far steps on every DiT block measured. The research file names that
+outcome in advance as the clean negative, and it is what the sample shows. The
+frozen set's fifth percentile decays faster than its mean, so the heads that
+drift are not the average ones.
+
+**The one-pixel-frame latents are already routed, so there is no prior to
+add.** The residue-0 frames do draw more mass than their share of keys on every
+cell but block 0, reproducing the mass record. Sol's MISSED mass on them is at
+or below their share of the true mass on every cell: Sol misses them LESS than
+their mass warrants, and the classes it misses disproportionately are residues
+1 to 3. The residue control separates them cleanly, so this is an informative
+negative rather than an absent effect, and a routing prior favouring residue 0
+would be pushing on a door Sol already has open.
+
+**What follows is inference.** The one arm worth a kernel conversation is the
+key-side ranking, because it is confined to the route kernel and costs a fixed
+multiple of a scorer that is already a tiny fraction of the call. A query split
+needs its union priced before it is worth designing, and this record prices it
+for `split4` only. `token_aug` is already in the kernel and already has a
+per-block profile in the shipped config; what this adds is a reason for the
+shape of that profile and a warning that HISA's cut would remove the benefit.
+And every one of these is a capture proxy: the research file's own caution is
+that an estimator which won on two offline proxies lost in pixels on every
+prompt sglang tried, so the most any row here can do is nominate one candidate
+for a blind render panel.
 
 ## Limits
 

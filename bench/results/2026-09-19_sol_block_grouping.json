@@ -93,14 +93,21 @@
           "disagreements": []
         }
       }
-    }
+    },
+    "route_scores_threshold_equals_route_mask": true,
+    "sol_style_output_vs_chunked_reference_worst_rel_l2": 4.5899005840510654e-7,
+    "sol_style_output_vs_same_mask_reference_worst_rel_l2": 4.5721648689323047e-7,
+    "sol_style_output_tail_scaled_mutation_rel_l2": 0.000228250544751063,
+    "reported_not_gating": {
+      "sol_style_output_vs_chunked_reference_worst_rel_l2": 4.5899005840510654e-7,
+      "tightest_discretionary_threshold_margin": 1.3150274753570557e-6,
+      "why_not_gating": "the chunked reference re-decides the routing in a different float32 reduction order, so a pair within fp32 noise of the threshold flips with the BLAS path and this number jumps by a whole block's worth. It is a tie, not a divergence; control 5 removes the tie by fixing the mask on both sides."
+    },
+    "measurement_fingerprint": "2542b6170387d796"
   },
   "how_to_read": "cells are at equal tau, NOT equal cost: every B and D row carries its density. Jaccard has a chance floor that differs per cell and sits beside each value. Discretionary numbers exclude the forced blocks, which agree by construction.",
   "cells": {
     "2026-09-03_base16_t2v_1344x768/b0_s15": {
-      "tokens": 104361,
-      "heads": 8,
-      "sample_queries": 2040,
       "video_start": 1545,
       "audio_span": [
         395,
@@ -597,12 +604,532 @@
           "mean_discretionary_routed_blocks": 1250.7
         }
       },
-      "seconds": 64.3
-    },
-    "2026-09-03_base16_t2v_1344x768/b24_s15": {
+      "seconds": 64.3,
+      "sample_queries": 2040,
       "tokens": 104361,
       "heads": 8,
-      "sample_queries": 2040,
+      "F_tokens": 104361,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9984,
+            "sub_rows": 32,
+            "union_inflation": 1.061,
+            "walk_cost_over_sol": 1.061,
+            "tau_union_cost": 1.0531
+          },
+          "split2_union": {
+            "tau": 1.0531,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9958,
+            "sub_rows": 16,
+            "union_inflation": 1.2017,
+            "walk_cost_over_sol": 1.2017,
+            "tau_union_cost": 1.1681
+          },
+          "split4_union": {
+            "tau": 1.1681,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9946,
+            "sub_rows": 32,
+            "union_inflation": 1.2458,
+            "walk_cost_over_sol": 1.2458,
+            "tau_union_cost": 1.1957
+          },
+          "split2_union": {
+            "tau": 1.1957,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9948,
+            "sub_rows": 16,
+            "union_inflation": 1.3164,
+            "walk_cost_over_sol": 1.3164,
+            "tau_union_cost": 1.2464
+          },
+          "split4_union": {
+            "tau": 1.2464,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.337474,
+              "p10": 0.003416,
+              "median": 0.33504,
+              "p90": 0.81212
+            },
+            "cost_mean": 21149.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.123848
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.337749,
+              "p10": 0.003209,
+              "median": 0.335573,
+              "p90": 0.816507
+            },
+            "cost_mean": 21150.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.12159
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.335731,
+              "p10": 0.0032,
+              "median": 0.333602,
+              "p90": 0.810988
+            },
+            "cost_mean": 21150.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.122695
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.336489,
+              "p10": 0.003301,
+              "median": 0.332095,
+              "p90": 0.816199
+            },
+            "cost_mean": 21149.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.12421
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.349635,
+              "p10": 0.003768,
+              "median": 0.347274,
+              "p90": 0.836107
+            },
+            "cost_mean": 19916.4,
+            "cost_over_sol": 0.9417,
+            "rel_l2_vs_exact": 0.127802
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.334637,
+              "p10": 0.003234,
+              "median": 0.330223,
+              "p90": 0.813882
+            },
+            "cost_mean": 21149.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.123093
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.377546,
+              "p10": 0.005026,
+              "median": 0.38124,
+              "p90": 0.879476
+            },
+            "cost_mean": 17325.5,
+            "cost_over_sol": 0.8192,
+            "rel_l2_vs_exact": 0.133796
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.332729,
+              "p10": 0.003013,
+              "median": 0.329198,
+              "p90": 0.81264
+            },
+            "cost_mean": 21150.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.121805
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.331231,
+              "p10": 0.003227,
+              "median": 0.331954,
+              "p90": 0.803856
+            },
+            "cost_mean": 21149.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.044885
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.333298,
+              "p10": 0.003325,
+              "median": 0.333059,
+              "p90": 0.807065
+            },
+            "cost_mean": 21149.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.112175
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.31201,
+              "p10": 0.002903,
+              "median": 0.317264,
+              "p90": 0.793026
+            },
+            "cost_mean": 21151.4,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.110906
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3561.21167,
+                "p10": 495.300018,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4062.184082,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.2059,
+              "share_reaching_ninety": 0.0392
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 3122.439941,
+                "p10": 417.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4048.604736,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.474,
+              "share_reaching_ninety": 0.0484
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4075.921631,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.326262,
+              "p10": 0.009063,
+              "median": 0.292932,
+              "p90": 0.753412
+            },
+            "cost_mean": 21840.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.107758
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.320911,
+              "p10": 0.009378,
+              "median": 0.290438,
+              "p90": 0.755951
+            },
+            "cost_mean": 21841.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.103357
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.319595,
+              "p10": 0.009172,
+              "median": 0.28736,
+              "p90": 0.75119
+            },
+            "cost_mean": 21841.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.105289
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.314285,
+              "p10": 0.007538,
+              "median": 0.284714,
+              "p90": 0.749375
+            },
+            "cost_mean": 21840.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.106429
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.371485,
+              "p10": 0.011396,
+              "median": 0.357474,
+              "p90": 0.830965
+            },
+            "cost_mean": 17360.8,
+            "cost_over_sol": 0.7949,
+            "rel_l2_vs_exact": 0.11986
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.313209,
+              "p10": 0.007363,
+              "median": 0.283828,
+              "p90": 0.74531
+            },
+            "cost_mean": 21840.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.105978
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.385724,
+              "p10": 0.011996,
+              "median": 0.378158,
+              "p90": 0.838856
+            },
+            "cost_mean": 16336.5,
+            "cost_over_sol": 0.748,
+            "rel_l2_vs_exact": 0.122656
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.297907,
+              "p10": 0.005995,
+              "median": 0.265709,
+              "p90": 0.741474
+            },
+            "cost_mean": 21841.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.103333
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.320374,
+              "p10": 0.009031,
+              "median": 0.285459,
+              "p90": 0.746599
+            },
+            "cost_mean": 21840.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.028829
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.32288,
+              "p10": 0.009,
+              "median": 0.288349,
+              "p90": 0.748939
+            },
+            "cost_mean": 21840.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.097941
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.251386,
+              "p10": 0.00345,
+              "median": 0.193233,
+              "p90": 0.731457
+            },
+            "cost_mean": 21842.6,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.093482
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3765.41626,
+                "p10": 2334.600098,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4091.613281,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.1602,
+              "share_reaching_ninety": 0.0052
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 3096.251465,
+                "p10": 443.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4000.925293,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.3661,
+              "share_reaching_ninety": 0.0748
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4096.0,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 264.2,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.337474,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.21832,
+            "share_of_missed_mass": 0.21961,
+            "true_mass_over_keys": 1.0764,
+            "missed_over_true_mass": 1.0059,
+            "missed_over_keys": 1.0827
+          },
+          "residue_1": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.20732,
+            "share_of_missed_mass": 0.21242,
+            "true_mass_over_keys": 1.0221,
+            "missed_over_true_mass": 1.0246,
+            "missed_over_keys": 1.0472
+          },
+          "residue_2": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.19019,
+            "share_of_missed_mass": 0.19398,
+            "true_mass_over_keys": 0.9845,
+            "missed_over_true_mass": 1.02,
+            "missed_over_keys": 1.0042
+          },
+          "residue_3": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.18908,
+            "share_of_missed_mass": 0.18865,
+            "true_mass_over_keys": 0.9788,
+            "missed_over_true_mass": 0.9977,
+            "missed_over_keys": 0.9766
+          },
+          "residue_4": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.19071,
+            "share_of_missed_mass": 0.18535,
+            "true_mass_over_keys": 0.9872,
+            "missed_over_true_mass": 0.9719,
+            "missed_over_keys": 0.9595
+          },
+          "conditioning": {
+            "share_of_keys": 0.0148,
+            "share_of_true_mass": 0.00438,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 0.296,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 5.9,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
+    },
+    "2026-09-03_base16_t2v_1344x768/b24_s15": {
       "video_start": 1545,
       "audio_span": [
         395,
@@ -1099,7 +1626,530 @@
           "mean_discretionary_routed_blocks": 1277.1
         }
       },
-      "seconds": 64.7
+      "seconds": 64.7,
+      "sample_queries": 2040,
+      "tokens": 104361,
+      "heads": 8,
+      "F_tokens": 104361,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9982,
+            "sub_rows": 32,
+            "union_inflation": 1.1654,
+            "walk_cost_over_sol": 1.1654,
+            "tau_union_cost": 1.1687
+          },
+          "split2_union": {
+            "tau": 1.1687,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9976,
+            "sub_rows": 16,
+            "union_inflation": 1.419,
+            "walk_cost_over_sol": 1.419,
+            "tau_union_cost": 1.3919
+          },
+          "split4_union": {
+            "tau": 1.3919,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0033,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0033,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9954,
+            "sub_rows": 32,
+            "union_inflation": 1.1764,
+            "walk_cost_over_sol": 1.1764,
+            "tau_union_cost": 1.1736
+          },
+          "split2_union": {
+            "tau": 1.1736,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9903,
+            "sub_rows": 16,
+            "union_inflation": 1.4305,
+            "walk_cost_over_sol": 1.4305,
+            "tau_union_cost": 1.3867
+          },
+          "split4_union": {
+            "tau": 1.3867,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0031,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0031,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.146893,
+              "p10": 0.001997,
+              "median": 0.07349,
+              "p90": 0.409625
+            },
+            "cost_mean": 21466.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.088214
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.144334,
+              "p10": 0.001841,
+              "median": 0.069281,
+              "p90": 0.40411
+            },
+            "cost_mean": 21466.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.084746
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.143326,
+              "p10": 0.00183,
+              "median": 0.068871,
+              "p90": 0.404397
+            },
+            "cost_mean": 21466.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.085063
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.142132,
+              "p10": 0.001833,
+              "median": 0.070331,
+              "p90": 0.397384
+            },
+            "cost_mean": 21466.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.088113
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.164329,
+              "p10": 0.002619,
+              "median": 0.086975,
+              "p90": 0.44803
+            },
+            "cost_mean": 18310.4,
+            "cost_over_sol": 0.853,
+            "rel_l2_vs_exact": 0.100531
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.139148,
+              "p10": 0.001644,
+              "median": 0.066605,
+              "p90": 0.39543
+            },
+            "cost_mean": 21466.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.085004
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.192726,
+              "p10": 0.003954,
+              "median": 0.111512,
+              "p90": 0.514313
+            },
+            "cost_mean": 14694.8,
+            "cost_over_sol": 0.6846,
+            "rel_l2_vs_exact": 0.115532
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.132366,
+              "p10": 0.001453,
+              "median": 0.058634,
+              "p90": 0.381231
+            },
+            "cost_mean": 21466.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.074683
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.102139,
+              "p10": 0.0018,
+              "median": 0.037279,
+              "p90": 0.304262
+            },
+            "cost_mean": 21465.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.080126
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.138633,
+              "p10": 0.001902,
+              "median": 0.068038,
+              "p90": 0.387271
+            },
+            "cost_mean": 21465.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.084491
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.036812,
+              "p10": 0.000344,
+              "median": 0.006035,
+              "p90": 0.131042
+            },
+            "cost_mean": 21467.7,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.016893
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 2734.199219,
+                "p10": 19.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3735.743164,
+                "p10": 3299.500244,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.4556,
+              "share_reaching_ninety": 0.1048
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 704.394897,
+                "p10": 7.0,
+                "median": 138.5,
+                "p90": 4083.996826
+              },
+              "tokens_for_ninety": {
+                "mean": 3257.308594,
+                "p10": 159.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.8998,
+              "share_reaching_ninety": 0.2619
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4075.921631,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.117879,
+              "p10": 0.000993,
+              "median": 0.04103,
+              "p90": 0.350488
+            },
+            "cost_mean": 22439.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.065294
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.113851,
+              "p10": 0.000863,
+              "median": 0.037561,
+              "p90": 0.347257
+            },
+            "cost_mean": 22440.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.061145
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.11353,
+              "p10": 0.00084,
+              "median": 0.037718,
+              "p90": 0.344188
+            },
+            "cost_mean": 22440.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.061342
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.113617,
+              "p10": 0.000907,
+              "median": 0.037723,
+              "p90": 0.34719
+            },
+            "cost_mean": 22439.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.058795
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.132326,
+              "p10": 0.001328,
+              "median": 0.05006,
+              "p90": 0.399106
+            },
+            "cost_mean": 18944.7,
+            "cost_over_sol": 0.8443,
+            "rel_l2_vs_exact": 0.067351
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.108561,
+              "p10": 0.000775,
+              "median": 0.033755,
+              "p90": 0.329319
+            },
+            "cost_mean": 22439.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.055352
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.153207,
+              "p10": 0.001816,
+              "median": 0.062345,
+              "p90": 0.451116
+            },
+            "cost_mean": 15199.7,
+            "cost_over_sol": 0.6774,
+            "rel_l2_vs_exact": 0.078333
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.103411,
+              "p10": 0.000634,
+              "median": 0.030881,
+              "p90": 0.317621
+            },
+            "cost_mean": 22440.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.051613
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.075945,
+              "p10": 0.000914,
+              "median": 0.025089,
+              "p90": 0.235594
+            },
+            "cost_mean": 22439.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.0527
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.111387,
+              "p10": 0.000945,
+              "median": 0.037871,
+              "p90": 0.33441
+            },
+            "cost_mean": 22439.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.062191
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.02543,
+              "p10": 0.000157,
+              "median": 0.002987,
+              "p90": 0.091464
+            },
+            "cost_mean": 22440.7,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.011687
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 2764.315674,
+                "p10": 20.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3860.358154,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.439,
+              "share_reaching_ninety": 0.0653
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 909.651978,
+                "p10": 9.0,
+                "median": 250.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3651.610352,
+                "p10": 1383.100098,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.8673,
+              "share_reaching_ninety": 0.1458
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4096.0,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 254.9,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.146892,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.23215,
+            "share_of_missed_mass": 0.25633,
+            "true_mass_over_keys": 1.1445,
+            "missed_over_true_mass": 1.1041,
+            "missed_over_keys": 1.2637
+          },
+          "residue_1": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.17593,
+            "share_of_missed_mass": 0.16207,
+            "true_mass_over_keys": 0.8674,
+            "missed_over_true_mass": 0.9212,
+            "missed_over_keys": 0.799
+          },
+          "residue_2": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.2106,
+            "share_of_missed_mass": 0.28303,
+            "true_mass_over_keys": 1.0902,
+            "missed_over_true_mass": 1.3439,
+            "missed_over_keys": 1.4652
+          },
+          "residue_3": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.16709,
+            "share_of_missed_mass": 0.14419,
+            "true_mass_over_keys": 0.865,
+            "missed_over_true_mass": 0.8629,
+            "missed_over_keys": 0.7464
+          },
+          "residue_4": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.18112,
+            "share_of_missed_mass": 0.15438,
+            "true_mass_over_keys": 0.9376,
+            "missed_over_true_mass": 0.8523,
+            "missed_over_keys": 0.7991
+          },
+          "conditioning": {
+            "share_of_keys": 0.0148,
+            "share_of_true_mass": 0.0331,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 2.2361,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 6.3,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     },
     "2026-09-03_base16_t2v_1344x768/b32_s15": {
       "tokens": 104361,
@@ -1601,12 +2651,70 @@
           "mean_discretionary_routed_blocks": 1387.6
         }
       },
-      "seconds": 65.5
+      "seconds": 65.5,
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.165709,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.25056,
+            "share_of_missed_mass": 0.17222,
+            "true_mass_over_keys": 1.2353,
+            "missed_over_true_mass": 0.6873,
+            "missed_over_keys": 0.849
+          },
+          "residue_1": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.17332,
+            "share_of_missed_mass": 0.21149,
+            "true_mass_over_keys": 0.8545,
+            "missed_over_true_mass": 1.2203,
+            "missed_over_keys": 1.0427
+          },
+          "residue_2": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.20046,
+            "share_of_missed_mass": 0.34545,
+            "true_mass_over_keys": 1.0377,
+            "missed_over_true_mass": 1.7232,
+            "missed_over_keys": 1.7882
+          },
+          "residue_3": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.14987,
+            "share_of_missed_mass": 0.13673,
+            "true_mass_over_keys": 0.7758,
+            "missed_over_true_mass": 0.9123,
+            "missed_over_keys": 0.7078
+          },
+          "residue_4": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.15047,
+            "share_of_missed_mass": 0.13411,
+            "true_mass_over_keys": 0.7789,
+            "missed_over_true_mass": 0.8913,
+            "missed_over_keys": 0.6943
+          },
+          "conditioning": {
+            "share_of_keys": 0.0148,
+            "share_of_true_mass": 0.07532,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 5.0874,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 6.0,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     },
     "2026-09-03_base16_t2v_1344x768/b40_s15": {
-      "tokens": 104361,
-      "heads": 8,
-      "sample_queries": 2040,
       "video_start": 1545,
       "audio_span": [
         395,
@@ -2103,7 +3211,530 @@
           "mean_discretionary_routed_blocks": 1129.9
         }
       },
-      "seconds": 64.4
+      "seconds": 64.4,
+      "sample_queries": 2040,
+      "tokens": 104361,
+      "heads": 8,
+      "F_tokens": 104361,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 1.0055,
+            "sub_rows": 32,
+            "union_inflation": 1.1623,
+            "walk_cost_over_sol": 1.1623,
+            "tau_union_cost": 1.1416
+          },
+          "split2_union": {
+            "tau": 1.1416,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 1.016,
+            "sub_rows": 16,
+            "union_inflation": 1.476,
+            "walk_cost_over_sol": 1.476,
+            "tau_union_cost": 1.3867
+          },
+          "split4_union": {
+            "tau": 1.3867,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 1.0029,
+            "sub_rows": 32,
+            "union_inflation": 1.1548,
+            "walk_cost_over_sol": 1.1548,
+            "tau_union_cost": 1.1305
+          },
+          "split2_union": {
+            "tau": 1.1305,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 1.0131,
+            "sub_rows": 16,
+            "union_inflation": 1.4033,
+            "walk_cost_over_sol": 1.4033,
+            "tau_union_cost": 1.3223
+          },
+          "split4_union": {
+            "tau": 1.3223,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.238669,
+              "p10": 0.046126,
+              "median": 0.203394,
+              "p90": 0.475399
+            },
+            "cost_mean": 20232.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.260943
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.226268,
+              "p10": 0.04409,
+              "median": 0.196676,
+              "p90": 0.440236
+            },
+            "cost_mean": 20235.3,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.261421
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.228145,
+              "p10": 0.043323,
+              "median": 0.195973,
+              "p90": 0.449733
+            },
+            "cost_mean": 20234.1,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.258944
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.236995,
+              "p10": 0.045188,
+              "median": 0.199886,
+              "p90": 0.476134
+            },
+            "cost_mean": 20232.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.249856
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.262085,
+              "p10": 0.052932,
+              "median": 0.228211,
+              "p90": 0.512751
+            },
+            "cost_mean": 17326.4,
+            "cost_over_sol": 0.8564,
+            "rel_l2_vs_exact": 0.269312
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.236616,
+              "p10": 0.042809,
+              "median": 0.199327,
+              "p90": 0.480097
+            },
+            "cost_mean": 20232.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.24352
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.307351,
+              "p10": 0.063146,
+              "median": 0.277926,
+              "p90": 0.590001
+            },
+            "cost_mean": 13342.8,
+            "cost_over_sol": 0.6595,
+            "rel_l2_vs_exact": 0.306342
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.222306,
+              "p10": 0.039386,
+              "median": 0.186238,
+              "p90": 0.446693
+            },
+            "cost_mean": 20234.0,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.230655
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.125721,
+              "p10": 0.013022,
+              "median": 0.066063,
+              "p90": 0.314443
+            },
+            "cost_mean": 20232.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.244073
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.228309,
+              "p10": 0.043482,
+              "median": 0.194702,
+              "p90": 0.456351
+            },
+            "cost_mean": 20232.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.25781
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.031198,
+              "p10": 0.004887,
+              "median": 0.019931,
+              "p90": 0.068518
+            },
+            "cost_mean": 20236.2,
+            "cost_over_sol": 1.0002,
+            "rel_l2_vs_exact": 0.024694
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 1448.543823,
+                "p10": 3.0,
+                "median": 215.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3376.448486,
+                "p10": 9.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.7454,
+              "share_reaching_ninety": 0.22
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 217.159927,
+                "p10": 2.0,
+                "median": 8.0,
+                "p90": 215.399841
+              },
+              "tokens_for_ninety": {
+                "mean": 2330.27124,
+                "p10": 8.0,
+                "median": 2761.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.962,
+              "share_reaching_ninety": 0.5545
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4075.921631,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.250892,
+              "p10": 0.031028,
+              "median": 0.154661,
+              "p90": 0.592369
+            },
+            "cost_mean": 19737.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.197152
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.230675,
+              "p10": 0.029544,
+              "median": 0.147648,
+              "p90": 0.539056
+            },
+            "cost_mean": 19738.2,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.189755
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.241486,
+              "p10": 0.029443,
+              "median": 0.149919,
+              "p90": 0.570197
+            },
+            "cost_mean": 19737.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.192977
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.248615,
+              "p10": 0.03007,
+              "median": 0.150798,
+              "p90": 0.591565
+            },
+            "cost_mean": 19737.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.191864
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.266195,
+              "p10": 0.035259,
+              "median": 0.17001,
+              "p90": 0.618699
+            },
+            "cost_mean": 17037.0,
+            "cost_over_sol": 0.8632,
+            "rel_l2_vs_exact": 0.208353
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.245411,
+              "p10": 0.029791,
+              "median": 0.148209,
+              "p90": 0.586358
+            },
+            "cost_mean": 19737.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.191502
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.28649,
+              "p10": 0.041685,
+              "median": 0.191769,
+              "p90": 0.650478
+            },
+            "cost_mean": 13800.2,
+            "cost_over_sol": 0.6992,
+            "rel_l2_vs_exact": 0.227473
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.235983,
+              "p10": 0.028368,
+              "median": 0.14221,
+              "p90": 0.568448
+            },
+            "cost_mean": 19737.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.183195
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.091878,
+              "p10": 0.009873,
+              "median": 0.045039,
+              "p90": 0.209623
+            },
+            "cost_mean": 19737.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.166391
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.240411,
+              "p10": 0.029052,
+              "median": 0.148024,
+              "p90": 0.568287
+            },
+            "cost_mean": 19737.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.192174
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.024684,
+              "p10": 0.003605,
+              "median": 0.014682,
+              "p90": 0.054634
+            },
+            "cost_mean": 19739.5,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.021333
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 990.305786,
+                "p10": 3.0,
+                "median": 37.5,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3179.929199,
+                "p10": 9.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.8434,
+              "share_reaching_ninety": 0.2653
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 227.056366,
+                "p10": 3.0,
+                "median": 8.0,
+                "p90": 245.0
+              },
+              "tokens_for_ninety": {
+                "mean": 2513.684082,
+                "p10": 8.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.9617,
+              "share_reaching_ninety": 0.4666
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4096.0,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 254.8,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.238666,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.26636,
+            "share_of_missed_mass": 0.26032,
+            "true_mass_over_keys": 1.3132,
+            "missed_over_true_mass": 0.9773,
+            "missed_over_keys": 1.2834
+          },
+          "residue_1": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.16062,
+            "share_of_missed_mass": 0.21139,
+            "true_mass_over_keys": 0.7919,
+            "missed_over_true_mass": 1.3161,
+            "missed_over_keys": 1.0422
+          },
+          "residue_2": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.18198,
+            "share_of_missed_mass": 0.30029,
+            "true_mass_over_keys": 0.942,
+            "missed_over_true_mass": 1.6501,
+            "missed_over_keys": 1.5545
+          },
+          "residue_3": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.13383,
+            "share_of_missed_mass": 0.13503,
+            "true_mass_over_keys": 0.6928,
+            "missed_over_true_mass": 1.009,
+            "missed_over_keys": 0.699
+          },
+          "residue_4": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.11659,
+            "share_of_missed_mass": 0.09297,
+            "true_mass_over_keys": 0.6035,
+            "missed_over_true_mass": 0.7974,
+            "missed_over_keys": 0.4813
+          },
+          "conditioning": {
+            "share_of_keys": 0.0148,
+            "share_of_true_mass": 0.14063,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 9.4989,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 6.7,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     },
     "2026-09-03_base16_t2v_1344x768/b32_s4": {
       "tokens": 104361,
@@ -2608,9 +4239,6 @@
       "seconds": 63.8
     },
     "2026-09-10_sol_impl_courtroom/b0_s13": {
-      "tokens": 104486,
-      "heads": 8,
-      "sample_queries": 2040,
       "video_start": 1670,
       "audio_span": [
         520,
@@ -3107,7 +4735,530 @@
           "mean_discretionary_routed_blocks": 1285.6
         }
       },
-      "seconds": 67.1
+      "seconds": 67.1,
+      "sample_queries": 2040,
+      "tokens": 104486,
+      "heads": 8,
+      "F_tokens": 104486,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9975,
+            "sub_rows": 32,
+            "union_inflation": 1.0645,
+            "walk_cost_over_sol": 1.0645,
+            "tau_union_cost": 1.0521
+          },
+          "split2_union": {
+            "tau": 1.0521,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9965,
+            "sub_rows": 16,
+            "union_inflation": 1.2271,
+            "walk_cost_over_sol": 1.2271,
+            "tau_union_cost": 1.1799
+          },
+          "split4_union": {
+            "tau": 1.1799,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0026,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0026,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9912,
+            "sub_rows": 32,
+            "union_inflation": 1.2399,
+            "walk_cost_over_sol": 1.2399,
+            "tau_union_cost": 1.1859
+          },
+          "split2_union": {
+            "tau": 1.1859,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9911,
+            "sub_rows": 16,
+            "union_inflation": 1.3107,
+            "walk_cost_over_sol": 1.3107,
+            "tau_union_cost": 1.2366
+          },
+          "split4_union": {
+            "tau": 1.2366,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.35783,
+              "p10": 0.002764,
+              "median": 0.349021,
+              "p90": 0.788997
+            },
+            "cost_mean": 21798.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.131228
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.357579,
+              "p10": 0.002628,
+              "median": 0.350353,
+              "p90": 0.797071
+            },
+            "cost_mean": 21799.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.131174
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.355646,
+              "p10": 0.002611,
+              "median": 0.348471,
+              "p90": 0.789078
+            },
+            "cost_mean": 21799.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.130866
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.35705,
+              "p10": 0.002697,
+              "median": 0.347669,
+              "p90": 0.789423
+            },
+            "cost_mean": 21798.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.131415
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.371404,
+              "p10": 0.003143,
+              "median": 0.362718,
+              "p90": 0.816604
+            },
+            "cost_mean": 20440.2,
+            "cost_over_sol": 0.9377,
+            "rel_l2_vs_exact": 0.135694
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.354266,
+              "p10": 0.002699,
+              "median": 0.346082,
+              "p90": 0.791095
+            },
+            "cost_mean": 21798.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.130123
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.404618,
+              "p10": 0.004312,
+              "median": 0.399318,
+              "p90": 0.878635
+            },
+            "cost_mean": 17401.5,
+            "cost_over_sol": 0.7983,
+            "rel_l2_vs_exact": 0.143267
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.352381,
+              "p10": 0.002467,
+              "median": 0.345239,
+              "p90": 0.79181
+            },
+            "cost_mean": 21799.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.129631
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.352434,
+              "p10": 0.002627,
+              "median": 0.346112,
+              "p90": 0.782918
+            },
+            "cost_mean": 21798.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.046596
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.354054,
+              "p10": 0.002705,
+              "median": 0.347245,
+              "p90": 0.784724
+            },
+            "cost_mean": 21798.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.118314
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.329522,
+              "p10": 0.002308,
+              "median": 0.326518,
+              "p90": 0.773566
+            },
+            "cost_mean": 21800.7,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.124191
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3575.563965,
+                "p10": 668.299988,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4087.845947,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.2089,
+              "share_reaching_ninety": 0.0138
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 3068.996338,
+                "p10": 524.900024,
+                "median": 3935.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4076.630615,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.5208,
+              "share_reaching_ninety": 0.0267
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4075.921631,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.322857,
+              "p10": 0.010533,
+              "median": 0.275163,
+              "p90": 0.732669
+            },
+            "cost_mean": 22609.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.112495
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.31898,
+              "p10": 0.010846,
+              "median": 0.273656,
+              "p90": 0.735891
+            },
+            "cost_mean": 22610.6,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.111157
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.317439,
+              "p10": 0.010562,
+              "median": 0.272135,
+              "p90": 0.731607
+            },
+            "cost_mean": 22610.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.111698
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.311276,
+              "p10": 0.008212,
+              "median": 0.271428,
+              "p90": 0.722998
+            },
+            "cost_mean": 22609.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.111237
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.37043,
+              "p10": 0.011573,
+              "median": 0.349646,
+              "p90": 0.800235
+            },
+            "cost_mean": 18074.6,
+            "cost_over_sol": 0.7994,
+            "rel_l2_vs_exact": 0.125786
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.310267,
+              "p10": 0.007992,
+              "median": 0.27066,
+              "p90": 0.72104
+            },
+            "cost_mean": 22609.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.110684
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.385397,
+              "p10": 0.01258,
+              "median": 0.372561,
+              "p90": 0.817811
+            },
+            "cost_mean": 17016.3,
+            "cost_over_sol": 0.7526,
+            "rel_l2_vs_exact": 0.128833
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.297918,
+              "p10": 0.006535,
+              "median": 0.258883,
+              "p90": 0.720798
+            },
+            "cost_mean": 22610.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.109708
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.318372,
+              "p10": 0.010491,
+              "median": 0.269787,
+              "p90": 0.727032
+            },
+            "cost_mean": 22609.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.028971
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.319976,
+              "p10": 0.01048,
+              "median": 0.271695,
+              "p90": 0.729521
+            },
+            "cost_mean": 22609.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.102141
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.249379,
+              "p10": 0.004006,
+              "median": 0.184176,
+              "p90": 0.715492
+            },
+            "cost_mean": 22611.6,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.104449
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3851.32666,
+                "p10": 3030.300049,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4095.916992,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.1351,
+              "share_reaching_ninety": 0.0006
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 3140.771729,
+                "p10": 574.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 4053.026611,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.375,
+              "share_reaching_ninety": 0.0423
+            },
+            "admissible_tokens_in_window": {
+              "mean": 4096.0,
+              "p10": 4096.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 260.0,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.357831,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20259,
+            "share_of_true_mass": 0.20941,
+            "share_of_missed_mass": 0.2093,
+            "true_mass_over_keys": 1.0336,
+            "missed_over_true_mass": 0.9995,
+            "missed_over_keys": 1.0331
+          },
+          "residue_1": {
+            "share_of_keys": 0.20259,
+            "share_of_true_mass": 0.20851,
+            "share_of_missed_mass": 0.20746,
+            "true_mass_over_keys": 1.0292,
+            "missed_over_true_mass": 0.995,
+            "missed_over_keys": 1.024
+          },
+          "residue_2": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.19386,
+            "share_of_missed_mass": 0.19595,
+            "true_mass_over_keys": 1.0047,
+            "missed_over_true_mass": 1.0108,
+            "missed_over_keys": 1.0156
+          },
+          "residue_3": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.19223,
+            "share_of_missed_mass": 0.19363,
+            "true_mass_over_keys": 0.9963,
+            "missed_over_true_mass": 1.0072,
+            "missed_over_keys": 1.0035
+          },
+          "residue_4": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.19266,
+            "share_of_missed_mass": 0.19367,
+            "true_mass_over_keys": 0.9985,
+            "missed_over_true_mass": 1.0052,
+            "missed_over_keys": 1.0038
+          },
+          "conditioning": {
+            "share_of_keys": 0.01598,
+            "share_of_true_mass": 0.00332,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 0.208,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 5.7,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     },
     "2026-09-10_sol_impl_courtroom/b24_s13": {
       "tokens": 104486,
@@ -3612,9 +5763,6 @@
       "seconds": 65.9
     },
     "2026-09-10_sol_impl_courtroom/b49_s13": {
-      "tokens": 104486,
-      "heads": 8,
-      "sample_queries": 2040,
       "video_start": 1670,
       "audio_span": [
         520,
@@ -4111,12 +6259,532 @@
           "mean_discretionary_routed_blocks": 1226.8
         }
       },
-      "seconds": 72.3
+      "seconds": 72.3,
+      "sample_queries": 2040,
+      "tokens": 104486,
+      "heads": 8,
+      "F_tokens": 104486,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9978,
+            "sub_rows": 32,
+            "union_inflation": 1.1786,
+            "walk_cost_over_sol": 1.1786,
+            "tau_union_cost": 1.1555
+          },
+          "split2_union": {
+            "tau": 1.1555,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9974,
+            "sub_rows": 16,
+            "union_inflation": 1.3838,
+            "walk_cost_over_sol": 1.3838,
+            "tau_union_cost": 1.3162
+          },
+          "split4_union": {
+            "tau": 1.3162,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 1.0007,
+            "sub_rows": 32,
+            "union_inflation": 1.0782,
+            "walk_cost_over_sol": 1.0782,
+            "tau_union_cost": 1.0718
+          },
+          "split2_union": {
+            "tau": 1.0718,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9857,
+            "sub_rows": 16,
+            "union_inflation": 1.2616,
+            "walk_cost_over_sol": 1.2616,
+            "tau_union_cost": 1.2048
+          },
+          "split4_union": {
+            "tau": 1.2048,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0028,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.047928,
+              "p10": 0.0,
+              "median": 0.012798,
+              "p90": 0.149561
+            },
+            "cost_mean": 21905.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.014274
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.04553,
+              "p10": 0.0,
+              "median": 0.011349,
+              "p90": 0.14603
+            },
+            "cost_mean": 21906.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.012884
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.044972,
+              "p10": 0.0,
+              "median": 0.011125,
+              "p90": 0.144583
+            },
+            "cost_mean": 21906.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.012824
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.045334,
+              "p10": 0.0,
+              "median": 0.011337,
+              "p90": 0.144274
+            },
+            "cost_mean": 21905.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.014505
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.056117,
+              "p10": 0.0,
+              "median": 0.014801,
+              "p90": 0.178245
+            },
+            "cost_mean": 18447.7,
+            "cost_over_sol": 0.8421,
+            "rel_l2_vs_exact": 0.018039
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.043696,
+              "p10": 0.0,
+              "median": 0.010648,
+              "p90": 0.141517
+            },
+            "cost_mean": 21905.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.011875
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.067402,
+              "p10": 0.0,
+              "median": 0.01859,
+              "p90": 0.216865
+            },
+            "cost_mean": 15312.0,
+            "cost_over_sol": 0.699,
+            "rel_l2_vs_exact": 0.019028
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.040166,
+              "p10": 0.0,
+              "median": 0.008913,
+              "p90": 0.133623
+            },
+            "cost_mean": 21906.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.010515
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.046417,
+              "p10": 0.0,
+              "median": 0.012309,
+              "p90": 0.146124
+            },
+            "cost_mean": 21905.4,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.021436
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.047301,
+              "p10": 0.0,
+              "median": 0.012527,
+              "p90": 0.148111
+            },
+            "cost_mean": 21905.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.013935
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.033384,
+              "p10": 0.0,
+              "median": 0.004393,
+              "p90": 0.121813
+            },
+            "cost_mean": 21907.0,
+            "cost_over_sol": 1.0001,
+            "rel_l2_vs_exact": 0.012569
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3609.080566,
+                "p10": 1062.200073,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3863.493652,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.1651,
+              "share_reaching_ninety": 0.0674
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 1949.569214,
+                "p10": 2.0,
+                "median": 1463.5,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3473.004639,
+                "p10": 16.300005,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.6642,
+              "share_reaching_ninety": 0.1694
+            },
+            "admissible_tokens_in_window": {
+              "mean": 3943.068848,
+              "p10": 4033.600098,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.028006,
+              "p10": 0.0,
+              "median": 0.00386,
+              "p90": 0.110249
+            },
+            "cost_mean": 22178.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.011647
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.028258,
+              "p10": 0.0,
+              "median": 0.003696,
+              "p90": 0.112843
+            },
+            "cost_mean": 22178.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.014565
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.027649,
+              "p10": 0.0,
+              "median": 0.003603,
+              "p90": 0.10993
+            },
+            "cost_mean": 22178.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.014518
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.027481,
+              "p10": 0.0,
+              "median": 0.003759,
+              "p90": 0.108987
+            },
+            "cost_mean": 22178.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.012878
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.030786,
+              "p10": 0.0,
+              "median": 0.00437,
+              "p90": 0.121822
+            },
+            "cost_mean": 20533.2,
+            "cost_over_sol": 0.9258,
+            "rel_l2_vs_exact": 0.015973
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.025762,
+              "p10": 0.0,
+              "median": 0.00334,
+              "p90": 0.102628
+            },
+            "cost_mean": 22178.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.00562
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.036175,
+              "p10": 0.0,
+              "median": 0.005114,
+              "p90": 0.146575
+            },
+            "cost_mean": 17285.2,
+            "cost_over_sol": 0.7794,
+            "rel_l2_vs_exact": 0.007895
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.025301,
+              "p10": 0.0,
+              "median": 0.002952,
+              "p90": 0.102229
+            },
+            "cost_mean": 22179.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.005398
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.027467,
+              "p10": 0.0,
+              "median": 0.003718,
+              "p90": 0.108489
+            },
+            "cost_mean": 22178.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.021575
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.0276,
+              "p10": 0.0,
+              "median": 0.003763,
+              "p90": 0.108765
+            },
+            "cost_mean": 22178.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.020896
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.022285,
+              "p10": 0.0,
+              "median": 0.001751,
+              "p90": 0.096061
+            },
+            "cost_mean": 22179.0,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.024331
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3607.030029,
+                "p10": 1263.800049,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3899.196289,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.1945,
+              "share_reaching_ninety": 0.0628
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 2029.237793,
+                "p10": 4.0,
+                "median": 1576.5,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3425.209473,
+                "p10": 42.300003,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.6474,
+              "share_reaching_ninety": 0.1829
+            },
+            "admissible_tokens_in_window": {
+              "mean": 3766.92749,
+              "p10": 1939.0,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 274.3,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.047928,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20259,
+            "share_of_true_mass": 0.24971,
+            "share_of_missed_mass": 0.21515,
+            "true_mass_over_keys": 1.2326,
+            "missed_over_true_mass": 0.8616,
+            "missed_over_keys": 1.062
+          },
+          "residue_1": {
+            "share_of_keys": 0.20259,
+            "share_of_true_mass": 0.17126,
+            "share_of_missed_mass": 0.20751,
+            "true_mass_over_keys": 0.8453,
+            "missed_over_true_mass": 1.2117,
+            "missed_over_keys": 1.0243
+          },
+          "residue_2": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.19413,
+            "share_of_missed_mass": 0.18562,
+            "true_mass_over_keys": 1.0062,
+            "missed_over_true_mass": 0.9561,
+            "missed_over_keys": 0.962
+          },
+          "residue_3": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.13962,
+            "share_of_missed_mass": 0.20263,
+            "true_mass_over_keys": 0.7236,
+            "missed_over_true_mass": 1.4513,
+            "missed_over_keys": 1.0502
+          },
+          "residue_4": {
+            "share_of_keys": 0.19294,
+            "share_of_true_mass": 0.16677,
+            "share_of_missed_mass": 0.18909,
+            "true_mass_over_keys": 0.8644,
+            "missed_over_true_mass": 1.1338,
+            "missed_over_keys": 0.98
+          },
+          "conditioning": {
+            "share_of_keys": 0.01598,
+            "share_of_true_mass": 0.0785,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 4.9115,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 6.0,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     },
     "2026-09-03_base16_t2v_1344x768/b49_s15": {
-      "tokens": 104361,
-      "heads": 8,
-      "sample_queries": 2040,
       "video_start": 1545,
       "audio_span": [
         395,
@@ -4613,7 +7281,530 @@
           "mean_discretionary_routed_blocks": 1274.3
         }
       },
-      "seconds": 68.6
+      "seconds": 68.6,
+      "sample_queries": 2040,
+      "tokens": 104361,
+      "heads": 8,
+      "F_tokens": 104361,
+      "F_heads": 8,
+      "F_sample_queries": 816,
+      "F_token_group_query_blocks": 2,
+      "F_token_budget": 64,
+      "F_hisa_pool_blocks": 64,
+      "F_key_submeans": 4,
+      "arms_setting": {
+        "raster": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9971,
+            "sub_rows": 32,
+            "union_inflation": 1.1579,
+            "walk_cost_over_sol": 1.1579,
+            "tau_union_cost": 1.1342
+          },
+          "split2_union": {
+            "tau": 1.1342,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9986,
+            "sub_rows": 16,
+            "union_inflation": 1.3683,
+            "walk_cost_over_sol": 1.3683,
+            "tau_union_cost": 1.2988
+          },
+          "split4_union": {
+            "tau": 1.2988,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0026,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0026,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        },
+        "3d": {
+          "sol": {
+            "tau": 1.0
+          },
+          "max4": {
+            "rule": "max over 4 key sub-means, Sol's own block count"
+          },
+          "lse4": {
+            "rule": "lse over 4 key sub-means, Sol's own block count"
+          },
+          "split2": {
+            "tau_ideal_cost": 0.9996,
+            "sub_rows": 32,
+            "union_inflation": 1.0862,
+            "walk_cost_over_sol": 1.0862,
+            "tau_union_cost": 1.0811
+          },
+          "split2_union": {
+            "tau": 1.0811,
+            "sub_rows": 32,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4": {
+            "tau_ideal_cost": 0.9924,
+            "sub_rows": 16,
+            "union_inflation": 1.2543,
+            "walk_cost_over_sol": 1.2543,
+            "tau_union_cost": 1.2151
+          },
+          "split4_union": {
+            "tau": 1.2151,
+            "sub_rows": 16,
+            "walk_cost_over_sol": 1.0,
+            "note": "tuned so the CTA's UNION walk costs what Sol costs; its own cost row is the MMA work, which is lower"
+          },
+          "split4_lse4": {
+            "sub_rows": 16,
+            "rule": "split4's count, lse4's ranking"
+          },
+          "token_aug": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": null
+          },
+          "token_aug_hisa": {
+            "tau_block": 1.0027,
+            "budget": 64,
+            "tok_group_query_blocks": 2,
+            "hisa_pool_blocks": 64
+          }
+        }
+      },
+      "arms": {
+        "raster": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.043858,
+              "p10": 0.0,
+              "median": 0.013997,
+              "p90": 0.117367
+            },
+            "cost_mean": 22335.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.03289
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.039927,
+              "p10": 0.0,
+              "median": 0.010558,
+              "p90": 0.108357
+            },
+            "cost_mean": 22335.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.029204
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.03954,
+              "p10": 0.0,
+              "median": 0.01054,
+              "p90": 0.10653
+            },
+            "cost_mean": 22335.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.029637
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.039383,
+              "p10": 0.0,
+              "median": 0.012652,
+              "p90": 0.109163
+            },
+            "cost_mean": 22335.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.019434
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.047059,
+              "p10": 0.0,
+              "median": 0.016515,
+              "p90": 0.129006
+            },
+            "cost_mean": 19154.0,
+            "cost_over_sol": 0.8576,
+            "rel_l2_vs_exact": 0.023795
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.037465,
+              "p10": 0.0,
+              "median": 0.012029,
+              "p90": 0.103462
+            },
+            "cost_mean": 22335.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.017574
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.055195,
+              "p10": 0.0,
+              "median": 0.021423,
+              "p90": 0.152503
+            },
+            "cost_mean": 15819.7,
+            "cost_over_sol": 0.7083,
+            "rel_l2_vs_exact": 0.026176
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.031975,
+              "p10": 0.0,
+              "median": 0.00868,
+              "p90": 0.091909
+            },
+            "cost_mean": 22335.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.012747
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.042394,
+              "p10": 0.0,
+              "median": 0.012485,
+              "p90": 0.114135
+            },
+            "cost_mean": 22334.9,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.036826
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.043228,
+              "p10": 0.0,
+              "median": 0.013614,
+              "p90": 0.115172
+            },
+            "cost_mean": 22334.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.032757
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.023423,
+              "p10": 0.0,
+              "median": 0.005425,
+              "p90": 0.072747
+            },
+            "cost_mean": 22336.1,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.013971
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3438.141602,
+                "p10": 255.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3841.580078,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.2289,
+              "share_reaching_ninety": 0.0766
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 1489.21936,
+                "p10": 2.0,
+                "median": 879.5,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3408.619141,
+                "p10": 18.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.814,
+              "share_reaching_ninety": 0.1912
+            },
+            "admissible_tokens_in_window": {
+              "mean": 3927.348633,
+              "p10": 3682.800049,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        },
+        "3d": {
+          "sol": {
+            "missed_mass": {
+              "mean": 0.019165,
+              "p10": 0.0,
+              "median": 0.003791,
+              "p90": 0.055103
+            },
+            "cost_mean": 23132.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.009685
+          },
+          "max4": {
+            "missed_mass": {
+              "mean": 0.018431,
+              "p10": 0.0,
+              "median": 0.003435,
+              "p90": 0.053354
+            },
+            "cost_mean": 23132.6,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.011301
+          },
+          "lse4": {
+            "missed_mass": {
+              "mean": 0.018238,
+              "p10": 0.0,
+              "median": 0.003389,
+              "p90": 0.053059
+            },
+            "cost_mean": 23132.5,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.010653
+          },
+          "split2": {
+            "missed_mass": {
+              "mean": 0.018522,
+              "p10": 0.0,
+              "median": 0.003607,
+              "p90": 0.054441
+            },
+            "cost_mean": 23132.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.009017
+          },
+          "split2_union": {
+            "missed_mass": {
+              "mean": 0.020953,
+              "p10": 0.0,
+              "median": 0.004287,
+              "p90": 0.06126
+            },
+            "cost_mean": 21230.5,
+            "cost_over_sol": 0.9178,
+            "rel_l2_vs_exact": 0.01234
+          },
+          "split4": {
+            "missed_mass": {
+              "mean": 0.016714,
+              "p10": 0.0,
+              "median": 0.003399,
+              "p90": 0.048469
+            },
+            "cost_mean": 23132.3,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.008482
+          },
+          "split4_union": {
+            "missed_mass": {
+              "mean": 0.023517,
+              "p10": 0.0,
+              "median": 0.005707,
+              "p90": 0.067277
+            },
+            "cost_mean": 18075.0,
+            "cost_over_sol": 0.7814,
+            "rel_l2_vs_exact": 0.0108
+          },
+          "split4_lse4": {
+            "missed_mass": {
+              "mean": 0.015449,
+              "p10": 0.0,
+              "median": 0.002704,
+              "p90": 0.045828
+            },
+            "cost_mean": 23132.7,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.007389
+          },
+          "token_aug": {
+            "missed_mass": {
+              "mean": 0.018718,
+              "p10": 0.0,
+              "median": 0.003614,
+              "p90": 0.054003
+            },
+            "cost_mean": 23132.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.016652
+          },
+          "token_aug_hisa": {
+            "missed_mass": {
+              "mean": 0.018869,
+              "p10": 0.0,
+              "median": 0.003659,
+              "p90": 0.05446
+            },
+            "cost_mean": 23132.2,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.016001
+          },
+          "oracle": {
+            "missed_mass": {
+              "mean": 0.011301,
+              "p10": 0.0,
+              "median": 0.001579,
+              "p90": 0.034434
+            },
+            "cost_mean": 23131.8,
+            "cost_over_sol": 1.0,
+            "rel_l2_vs_exact": 0.020413
+          },
+          "_token_recovery": {
+            "what": "individual key tokens from the blocks Sol left unrouted, needed to recover half and ninety percent of Sol's missed mass at Sol's own tau. `centroid` ranks them the way kitchen's token stage does, by the score of the centroid shared by TOK_GROUP query blocks; `per_query` ranks the SAME candidates by the query's own exact mass, which is the ceiling a finer scorer could reach over the same scan. The gap between them is the price of the shared centroid, not of the budget.",
+            "cap": 4096,
+            "centroid": {
+              "tokens_for_half": {
+                "mean": 3572.854492,
+                "p10": 1148.300049,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3886.371582,
+                "p10": 4096.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.2031,
+              "share_reaching_ninety": 0.064
+            },
+            "per_query": {
+              "tokens_for_half": {
+                "mean": 1911.954102,
+                "p10": 2.0,
+                "median": 1497.5,
+                "p90": 4096.0
+              },
+              "tokens_for_ninety": {
+                "mean": 3359.560059,
+                "p10": 16.0,
+                "median": 4096.0,
+                "p90": 4096.0
+              },
+              "share_reaching_half": 0.7086,
+              "share_reaching_ninety": 0.1939
+            },
+            "admissible_tokens_in_window": {
+              "mean": 3780.078369,
+              "p10": 2260.300049,
+              "median": 4096.0,
+              "p90": 4096.0
+            },
+            "token_budget_the_kernel_offers": [
+              64,
+              128,
+              256
+            ]
+          }
+        }
+      },
+      "F_seconds": 269.6,
+      "F_measurement_fingerprint": "2542b6170387d796",
+      "frame_residue": {
+        "ordering": "raster",
+        "tau": 1.0,
+        "sampled_queries": 816,
+        "heads": 8,
+        "video_frames": 102,
+        "frame_tokens": 1008,
+        "missed_mass_share_of_total": 0.043857,
+        "classes": {
+          "residue_0": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.22932,
+            "share_of_missed_mass": 0.20375,
+            "true_mass_over_keys": 1.1306,
+            "missed_over_true_mass": 0.8885,
+            "missed_over_keys": 1.0045
+          },
+          "residue_1": {
+            "share_of_keys": 0.20283,
+            "share_of_true_mass": 0.17138,
+            "share_of_missed_mass": 0.19434,
+            "true_mass_over_keys": 0.8449,
+            "missed_over_true_mass": 1.134,
+            "missed_over_keys": 0.9581
+          },
+          "residue_2": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.19462,
+            "share_of_missed_mass": 0.19845,
+            "true_mass_over_keys": 1.0075,
+            "missed_over_true_mass": 1.0197,
+            "missed_over_keys": 1.0273
+          },
+          "residue_3": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.14568,
+            "share_of_missed_mass": 0.20299,
+            "true_mass_over_keys": 0.7542,
+            "missed_over_true_mass": 1.3934,
+            "missed_over_keys": 1.0508
+          },
+          "residue_4": {
+            "share_of_keys": 0.19318,
+            "share_of_true_mass": 0.15593,
+            "share_of_missed_mass": 0.20046,
+            "true_mass_over_keys": 0.8072,
+            "missed_over_true_mass": 1.2856,
+            "missed_over_keys": 1.0377
+          },
+          "conditioning": {
+            "share_of_keys": 0.0148,
+            "share_of_true_mass": 0.10307,
+            "share_of_missed_mass": 0.0,
+            "true_mass_over_keys": 6.962,
+            "missed_over_true_mass": 0.0,
+            "missed_over_keys": 0.0
+          }
+        },
+        "seconds": 4.6,
+        "measurement_fingerprint": "2542b6170387d796"
+      }
     }
   },
   "figures": {
@@ -6654,6 +9845,728 @@
       "density_second": 0.20476,
       "jaccard_chance_all": 0.1142,
       "jaccard_chance_discretionary": 0.1055
+    }
+  ],
+  "losa": [
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 8,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 921.8,
+      "coverage_mean": 0.56516,
+      "sol_cardinality_mean": 362.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.97611,
+          "p5": 0.94248,
+          "min": 0.83262
+        },
+        "sol_at_t": {
+          "mean": 0.79714,
+          "p5": 0.43167,
+          "min": 0.2551
+        },
+        "oracle_at_t": {
+          "mean": 0.99186,
+          "p5": 0.98479,
+          "min": 0.94795
+        },
+        "floor": {
+          "mean": 0.92448,
+          "p5": 0.79491,
+          "min": 0.53259
+        }
+      },
+      "drift_cost_mean": 0.01575,
+      "frozen_minus_sol_mean": 0.17897,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 12,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 921.8,
+      "coverage_mean": 0.56516,
+      "sol_cardinality_mean": 365.4,
+      "recall": {
+        "frozen": {
+          "mean": 0.97341,
+          "p5": 0.92699,
+          "min": 0.76234
+        },
+        "sol_at_t": {
+          "mean": 0.81627,
+          "p5": 0.51203,
+          "min": 0.31412
+        },
+        "oracle_at_t": {
+          "mean": 0.99329,
+          "p5": 0.98493,
+          "min": 0.9599
+        },
+        "floor": {
+          "mean": 0.93012,
+          "p5": 0.7866,
+          "min": 0.63493
+        }
+      },
+      "drift_cost_mean": 0.01988,
+      "frozen_minus_sol_mean": 0.15714,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 15,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 921.8,
+      "coverage_mean": 0.56516,
+      "sol_cardinality_mean": 354.6,
+      "recall": {
+        "frozen": {
+          "mean": 0.96845,
+          "p5": 0.88818,
+          "min": 0.7755
+        },
+        "sol_at_t": {
+          "mean": 0.83508,
+          "p5": 0.54668,
+          "min": 0.3368
+        },
+        "oracle_at_t": {
+          "mean": 0.99504,
+          "p5": 0.98731,
+          "min": 0.96555
+        },
+        "floor": {
+          "mean": 0.93823,
+          "p5": 0.82605,
+          "min": 0.5461
+        }
+      },
+      "drift_cost_mean": 0.02659,
+      "frozen_minus_sol_mean": 0.13337,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 8,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 346.7,
+      "coverage_mean": 0.21258,
+      "sol_cardinality_mean": 362.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.81265,
+          "p5": 0.35193,
+          "min": 0.2518
+        },
+        "sol_at_t": {
+          "mean": 0.79714,
+          "p5": 0.43167,
+          "min": 0.2551
+        },
+        "oracle_at_t": {
+          "mean": 0.88025,
+          "p5": 0.42557,
+          "min": 0.34741
+        },
+        "floor": {
+          "mean": 0.69674,
+          "p5": 0.2771,
+          "min": 0.22314
+        }
+      },
+      "drift_cost_mean": 0.0676,
+      "frozen_minus_sol_mean": 0.01551,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 12,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 346.7,
+      "coverage_mean": 0.21258,
+      "sol_cardinality_mean": 365.4,
+      "recall": {
+        "frozen": {
+          "mean": 0.79723,
+          "p5": 0.37316,
+          "min": 0.24492
+        },
+        "sol_at_t": {
+          "mean": 0.81627,
+          "p5": 0.51203,
+          "min": 0.31412
+        },
+        "oracle_at_t": {
+          "mean": 0.89259,
+          "p5": 0.48206,
+          "min": 0.35736
+        },
+        "floor": {
+          "mean": 0.70727,
+          "p5": 0.31562,
+          "min": 0.22937
+        }
+      },
+      "drift_cost_mean": 0.09536,
+      "frozen_minus_sol_mean": -0.01904,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "build_step": 4,
+      "step": 15,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 346.7,
+      "coverage_mean": 0.21258,
+      "sol_cardinality_mean": 354.6,
+      "recall": {
+        "frozen": {
+          "mean": 0.80049,
+          "p5": 0.39715,
+          "min": 0.23109
+        },
+        "sol_at_t": {
+          "mean": 0.83508,
+          "p5": 0.54668,
+          "min": 0.3368
+        },
+        "oracle_at_t": {
+          "mean": 0.90991,
+          "p5": 0.55795,
+          "min": 0.37782
+        },
+        "floor": {
+          "mean": 0.72909,
+          "p5": 0.364,
+          "min": 0.24683
+        }
+      },
+      "drift_cost_mean": 0.10943,
+      "frozen_minus_sol_mean": -0.03459,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 8,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 450.9,
+      "coverage_mean": 0.27646,
+      "sol_cardinality_mean": 382.5,
+      "recall": {
+        "frozen": {
+          "mean": 0.97964,
+          "p5": 0.92693,
+          "min": 0.85155
+        },
+        "sol_at_t": {
+          "mean": 0.93811,
+          "p5": 0.79788,
+          "min": 0.55289
+        },
+        "oracle_at_t": {
+          "mean": 0.98593,
+          "p5": 0.9524,
+          "min": 0.89285
+        },
+        "floor": {
+          "mean": 0.60591,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.0063,
+      "frozen_minus_sol_mean": 0.04153,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 12,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 450.9,
+      "coverage_mean": 0.27646,
+      "sol_cardinality_mean": 366.0,
+      "recall": {
+        "frozen": {
+          "mean": 0.97381,
+          "p5": 0.8952,
+          "min": 0.81788
+        },
+        "sol_at_t": {
+          "mean": 0.94804,
+          "p5": 0.83236,
+          "min": 0.53754
+        },
+        "oracle_at_t": {
+          "mean": 0.98189,
+          "p5": 0.92277,
+          "min": 0.836
+        },
+        "floor": {
+          "mean": 0.63614,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.00808,
+      "frozen_minus_sol_mean": 0.02578,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 15,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 450.9,
+      "coverage_mean": 0.27646,
+      "sol_cardinality_mean": 351.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.96336,
+          "p5": 0.86151,
+          "min": 0.73047
+        },
+        "sol_at_t": {
+          "mean": 0.95666,
+          "p5": 0.85187,
+          "min": 0.44143
+        },
+        "oracle_at_t": {
+          "mean": 0.97547,
+          "p5": 0.88041,
+          "min": 0.77471
+        },
+        "floor": {
+          "mean": 0.68509,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.0121,
+      "frozen_minus_sol_mean": 0.0067,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 8,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 380.8,
+      "coverage_mean": 0.23349,
+      "sol_cardinality_mean": 382.5,
+      "recall": {
+        "frozen": {
+          "mean": 0.95396,
+          "p5": 0.81815,
+          "min": 0.6908
+        },
+        "sol_at_t": {
+          "mean": 0.93811,
+          "p5": 0.79788,
+          "min": 0.55289
+        },
+        "oracle_at_t": {
+          "mean": 0.96132,
+          "p5": 0.83907,
+          "min": 0.70587
+        },
+        "floor": {
+          "mean": 0.7766,
+          "p5": 0.47472,
+          "min": 0.23498
+        }
+      },
+      "drift_cost_mean": 0.00736,
+      "frozen_minus_sol_mean": 0.01585,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 12,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 380.8,
+      "coverage_mean": 0.23349,
+      "sol_cardinality_mean": 366.0,
+      "recall": {
+        "frozen": {
+          "mean": 0.95642,
+          "p5": 0.81688,
+          "min": 0.6688
+        },
+        "sol_at_t": {
+          "mean": 0.94804,
+          "p5": 0.83236,
+          "min": 0.53754
+        },
+        "oracle_at_t": {
+          "mean": 0.97362,
+          "p5": 0.90397,
+          "min": 0.80721
+        },
+        "floor": {
+          "mean": 0.82296,
+          "p5": 0.50385,
+          "min": 0.33442
+        }
+      },
+      "drift_cost_mean": 0.0172,
+      "frozen_minus_sol_mean": 0.00839,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 49,
+      "build_step": 4,
+      "step": 15,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 380.8,
+      "coverage_mean": 0.23349,
+      "sol_cardinality_mean": 351.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.93928,
+          "p5": 0.67154,
+          "min": 0.47298
+        },
+        "sol_at_t": {
+          "mean": 0.95666,
+          "p5": 0.85187,
+          "min": 0.44143
+        },
+        "oracle_at_t": {
+          "mean": 0.97846,
+          "p5": 0.91924,
+          "min": 0.83399
+        },
+        "floor": {
+          "mean": 0.87487,
+          "p5": 0.59557,
+          "min": 0.45435
+        }
+      },
+      "drift_cost_mean": 0.03918,
+      "frozen_minus_sol_mean": -0.01738,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 6,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 466.9,
+      "coverage_mean": 0.28593,
+      "sol_cardinality_mean": 372.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.98945,
+          "p5": 0.9835,
+          "min": 0.97773
+        },
+        "sol_at_t": {
+          "mean": 0.93554,
+          "p5": 0.74136,
+          "min": 0.50152
+        },
+        "oracle_at_t": {
+          "mean": 0.99014,
+          "p5": 0.9856,
+          "min": 0.97898
+        },
+        "floor": {
+          "mean": 0.58987,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.00069,
+      "frozen_minus_sol_mean": 0.05391,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 12,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 466.9,
+      "coverage_mean": 0.28593,
+      "sol_cardinality_mean": 347.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.98543,
+          "p5": 0.96298,
+          "min": 0.91089
+        },
+        "sol_at_t": {
+          "mean": 0.94939,
+          "p5": 0.7834,
+          "min": 0.6793
+        },
+        "oracle_at_t": {
+          "mean": 0.99083,
+          "p5": 0.97399,
+          "min": 0.95431
+        },
+        "floor": {
+          "mean": 0.62254,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.0054,
+      "frozen_minus_sol_mean": 0.03604,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 13,
+      "frozen_kind": "theta",
+      "theta": 0.99,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 466.9,
+      "coverage_mean": 0.28593,
+      "sol_cardinality_mean": 342.5,
+      "recall": {
+        "frozen": {
+          "mean": 0.98418,
+          "p5": 0.95723,
+          "min": 0.92698
+        },
+        "sol_at_t": {
+          "mean": 0.9524,
+          "p5": 0.80373,
+          "min": 0.66108
+        },
+        "oracle_at_t": {
+          "mean": 0.99037,
+          "p5": 0.9695,
+          "min": 0.94655
+        },
+        "floor": {
+          "mean": 0.62977,
+          "p5": 0.0,
+          "min": 0.0
+        }
+      },
+      "drift_cost_mean": 0.00619,
+      "frozen_minus_sol_mean": 0.03179,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 6,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 377.0,
+      "coverage_mean": 0.23089,
+      "sol_cardinality_mean": 372.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.94886,
+          "p5": 0.75964,
+          "min": 0.51021
+        },
+        "sol_at_t": {
+          "mean": 0.93554,
+          "p5": 0.74136,
+          "min": 0.50152
+        },
+        "oracle_at_t": {
+          "mean": 0.94979,
+          "p5": 0.76185,
+          "min": 0.51379
+        },
+        "floor": {
+          "mean": 0.77343,
+          "p5": 0.46214,
+          "min": 0.28949
+        }
+      },
+      "drift_cost_mean": 0.00093,
+      "frozen_minus_sol_mean": 0.01332,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 12,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 377.0,
+      "coverage_mean": 0.23089,
+      "sol_cardinality_mean": 347.9,
+      "recall": {
+        "frozen": {
+          "mean": 0.95474,
+          "p5": 0.77678,
+          "min": 0.64256
+        },
+        "sol_at_t": {
+          "mean": 0.94939,
+          "p5": 0.7834,
+          "min": 0.6793
+        },
+        "oracle_at_t": {
+          "mean": 0.96787,
+          "p5": 0.84976,
+          "min": 0.76128
+        },
+        "floor": {
+          "mean": 0.82699,
+          "p5": 0.58241,
+          "min": 0.37885
+        }
+      },
+      "drift_cost_mean": 0.01313,
+      "frozen_minus_sol_mean": 0.00535,
+      "measurement_fingerprint": "2542b6170387d796"
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "build_step": 5,
+      "step": 13,
+      "frozen_kind": "matched",
+      "theta": null,
+      "ordering": "raster",
+      "sampled": true,
+      "query_blocks_sampled": 100,
+      "heads": 8,
+      "cardinality_mean": 377.0,
+      "coverage_mean": 0.23089,
+      "sol_cardinality_mean": 342.5,
+      "recall": {
+        "frozen": {
+          "mean": 0.95297,
+          "p5": 0.7561,
+          "min": 0.59504
+        },
+        "sol_at_t": {
+          "mean": 0.9524,
+          "p5": 0.80373,
+          "min": 0.66108
+        },
+        "oracle_at_t": {
+          "mean": 0.97173,
+          "p5": 0.87112,
+          "min": 0.77389
+        },
+        "floor": {
+          "mean": 0.84173,
+          "p5": 0.60103,
+          "min": 0.40048
+        }
+      },
+      "drift_cost_mean": 0.01876,
+      "frozen_minus_sol_mean": 0.00058,
+      "measurement_fingerprint": "2542b6170387d796"
     }
   ]
 }
