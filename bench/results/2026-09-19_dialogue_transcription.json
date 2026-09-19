@@ -1,0 +1,889 @@
+{
+  "tool": "bench/measure_dialogue_transcription.py",
+  "model": "openai/whisper-medium",
+  "decoding": "greedy, task transcribe, English forced when every scripted line is tagged English",
+  "normaliser": "the model's own English text normaliser (WhisperTokenizer.normalize)",
+  "pairs": [
+    {
+      "label": "dense/noodle_bar_107f",
+      "a": "Video/on_length/noodle_bar_plain_107f_noodle_bar_plain_107f_00001.mp4",
+      "b": "Video/dense_panel/noodle_bar_107f_dense_noodle_bar_107f_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "dense/diner",
+      "a": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+      "b": "Video/dense_panel/diner_dense_diner_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "dense/crowd",
+      "a": "Video/reorder_panel/crowd_churn_long_plain_s730451892_crowd_churn_long_plain_00001.mp4",
+      "b": "Video/reorder_panel/crowd_churn_long_fully_dense_crowd_churn_long_fully_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "dense/meerkat",
+      "a": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+      "b": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "a_label": "default",
+      "b_label": "fully_dense"
+    },
+    {
+      "label": "chain/meerkat",
+      "a": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+      "b": "Video/reported_clips/meerkat_sage_chain_clean_meerkat_sage_chain_clean_00001.mp4",
+      "a_label": "kitchen",
+      "b_label": "sage"
+    },
+    {
+      "label": "chain/diner",
+      "a": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+      "b": "Video/sage_chain_panel/diner_sage_chain_plain_diner_sage_chain_plain_00001.mp4",
+      "a_label": "kitchen",
+      "b_label": "sage"
+    },
+    {
+      "label": "block49/market_default_vs_sagelevers",
+      "a": "Video/block49_repro/market_default_s20260915_00001.mp4",
+      "b": "Video/block49_repro/market_sagelevers_s20260915_00001.mp4",
+      "a_label": "default",
+      "b_label": "sagelevers"
+    },
+    {
+      "label": "block49/hardware_default_vs_sagelevers",
+      "a": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+      "b": "Video/block49_repro/hardware_aisle_short_sagelevers_s730451892_00001.mp4",
+      "a_label": "default",
+      "b_label": "sagelevers"
+    },
+    {
+      "label": "block49/post_office_default_vs_sagelevers",
+      "a": "Video/block49_repro/post_office_default_s730451892_00001.mp4",
+      "b": "Video/block49_repro/post_office_sagelevers_s730451892_00001.mp4",
+      "a_label": "default",
+      "b_label": "sagelevers"
+    },
+    {
+      "label": "block49/noodle_bar_default_vs_sagelevers",
+      "a": "Video/block49_repro/noodle_bar_default_s730451892_00001.mp4",
+      "b": "Video/block49_repro/noodle_bar_sagelevers_s730451892_00001.mp4",
+      "a_label": "default",
+      "b_label": "sagelevers"
+    },
+    {
+      "label": "block49/diner_default_vs_sagelevers",
+      "a": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+      "b": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
+      "a_label": "default",
+      "b_label": "sagelevers"
+    }
+  ],
+  "clips": [
+    {
+      "clip": "Video/on_length/noodle_bar_plain_107f_noodle_bar_plain_107f_00001.mp4",
+      "language_forced": null,
+      "transcript": "两碗牛肉面 一碗不要辣",
+      "lines": [
+        {
+          "language": "Chinese",
+          "text": "两碗牛肉面，一碗不要辣。"
+        }
+      ],
+      "score": {
+        "ref_words": 10,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "两碗牛肉面，一碗不要辣。",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "两 碗 牛 肉 面 一 碗 不 要 辣"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+        "ref_words": 19,
+        "sub": 10,
+        "del": 9,
+        "ins": 0,
+        "wer": 1.0
+      }
+    },
+    {
+      "clip": "Video/dense_panel/noodle_bar_107f_dense_noodle_bar_107f_dense_00001.mp4",
+      "language_forced": null,
+      "transcript": "两碗牛肉面 一碗不要辣",
+      "lines": [
+        {
+          "language": "Chinese",
+          "text": "两碗牛肉面，一碗不要辣。"
+        }
+      ],
+      "score": {
+        "ref_words": 10,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "两碗牛肉面，一碗不要辣。",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "两 碗 牛 肉 面 一 碗 不 要 辣"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+        "ref_words": 19,
+        "sub": 10,
+        "del": 9,
+        "ins": 0,
+        "wer": 1.0
+      }
+    },
+    {
+      "clip": "Video/block49_repro/diner_default_s730451892_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+        "ref_words": 42,
+        "sub": 16,
+        "del": 23,
+        "ins": 0,
+        "wer": 0.9285714285714286
+      }
+    },
+    {
+      "clip": "Video/dense_panel/diner_dense_diner_dense_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+        "ref_words": 42,
+        "sub": 16,
+        "del": 23,
+        "ins": 0,
+        "wer": 0.9285714285714286
+      }
+    },
+    {
+      "clip": "Video/reorder_panel/crowd_churn_long_plain_s730451892_crowd_churn_long_plain_00001.mp4",
+      "language_forced": null,
+      "transcript": "小麦粉",
+      "lines": [],
+      "score": null
+    },
+    {
+      "clip": "Video/reorder_panel/crowd_churn_long_fully_dense_crowd_churn_long_fully_dense_00001.mp4",
+      "language_forced": null,
+      "transcript": "2. クリームチーズ",
+      "lines": [],
+      "score": null
+    },
+    {
+      "clip": "Video/reported_clips/meerkat_default_plain_meerkat_default_plain_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Now, here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims, not all agents perform magic. And so, without a human to guide it with continuous feedback,",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic."
+        },
+        {
+          "language": "English",
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall."
+        }
+      ],
+      "score": {
+        "ref_words": 42,
+        "sub": 0,
+        "del": 9,
+        "ins": 0,
+        "wer": 0.21428571428571427
+      },
+      "per_line": [
+        {
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic.",
+          "ref_words": 22,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "now here on the digital savanna we encounter a truly curious creature for contrary to vendor claims not all agents perform magic"
+        },
+        {
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall.",
+          "ref_words": 20,
+          "sub": 0,
+          "del": 9,
+          "ins": 0,
+          "wer": 0.45,
+          "window": "and so without a human to guide it with continuous feedback"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+        "ref_words": 19,
+        "sub": 16,
+        "del": 0,
+        "ins": 14,
+        "wer": 1.5789473684210527
+      }
+    },
+    {
+      "clip": "Video/reported_clips/meerkat_fully_dense_meerkat_fully_dense_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Now, here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims, not all agents perform magic. And so, without a human to guide it with continuous feedback,",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic."
+        },
+        {
+          "language": "English",
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall."
+        }
+      ],
+      "score": {
+        "ref_words": 42,
+        "sub": 0,
+        "del": 9,
+        "ins": 0,
+        "wer": 0.21428571428571427
+      },
+      "per_line": [
+        {
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic.",
+          "ref_words": 22,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "now here on the digital savanna we encounter a truly curious creature for contrary to vendor claims not all agents perform magic"
+        },
+        {
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall.",
+          "ref_words": 20,
+          "sub": 0,
+          "del": 9,
+          "ins": 0,
+          "wer": 0.45,
+          "window": "and so without a human to guide it with continuous feedback"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+        "ref_words": 19,
+        "sub": 16,
+        "del": 0,
+        "ins": 14,
+        "wer": 1.5789473684210527
+      }
+    },
+    {
+      "clip": "Video/reported_clips/meerkat_sage_chain_clean_meerkat_sage_chain_clean_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Now, here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims, not all agents perform magic. And so, without a human to guide it with continuous feedback,",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic."
+        },
+        {
+          "language": "English",
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall."
+        }
+      ],
+      "score": {
+        "ref_words": 42,
+        "sub": 0,
+        "del": 9,
+        "ins": 0,
+        "wer": 0.21428571428571427
+      },
+      "per_line": [
+        {
+          "text": "Now... here on the digital savanna, we encounter a truly curious creature. For contrary to vendor claims... not all agents perform magic.",
+          "ref_words": 22,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "now here on the digital savanna we encounter a truly curious creature for contrary to vendor claims not all agents perform magic"
+        },
+        {
+          "text": "And so, without a human to guide it with continuous feedback... it will remain perched here, entirely motionless, until nightfall.",
+          "ref_words": 20,
+          "sub": 0,
+          "del": 9,
+          "ins": 0,
+          "wer": 0.45,
+          "window": "and so without a human to guide it with continuous feedback"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+        "ref_words": 19,
+        "sub": 16,
+        "del": 0,
+        "ins": 14,
+        "wer": 1.5789473684210527
+      }
+    },
+    {
+      "clip": "Video/reorder_panel/diner_plain_k0235_s730451892_diner_plain_k0235_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/market_default_s20260915_00001.mp4",
+        "ref_words": 16,
+        "sub": 15,
+        "del": 0,
+        "ins": 3,
+        "wer": 1.125
+      }
+    },
+    {
+      "clip": "Video/sage_chain_panel/diner_sage_chain_plain_diner_sage_chain_plain_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/market_default_s20260915_00001.mp4",
+        "ref_words": 16,
+        "sub": 15,
+        "del": 0,
+        "ins": 3,
+        "wer": 1.125
+      }
+    },
+    {
+      "clip": "Video/block49_repro/market_default_s20260915_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Last of the good ones. After this, it is all imports. Then I will take two.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Last of the good ones. After this it is all imports."
+        },
+        {
+          "language": "English",
+          "text": "Then I will take two."
+        }
+      ],
+      "score": {
+        "ref_words": 16,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Last of the good ones. After this it is all imports.",
+          "ref_words": 11,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "last of the good ones after this it is all imports"
+        },
+        {
+          "text": "Then I will take two.",
+          "ref_words": 5,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "then i will take 2"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+        "ref_words": 26,
+        "sub": 12,
+        "del": 10,
+        "ins": 0,
+        "wer": 0.8461538461538461
+      }
+    },
+    {
+      "clip": "Video/block49_repro/market_sagelevers_s20260915_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Last of the good ones. After this, it is all imports. Then I will take two.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Last of the good ones. After this it is all imports."
+        },
+        {
+          "language": "English",
+          "text": "Then I will take two."
+        }
+      ],
+      "score": {
+        "ref_words": 16,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Last of the good ones. After this it is all imports.",
+          "ref_words": 11,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "last of the good ones after this it is all imports"
+        },
+        {
+          "text": "Then I will take two.",
+          "ref_words": 5,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "then i will take 2"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+        "ref_words": 26,
+        "sub": 12,
+        "del": 10,
+        "ins": 0,
+        "wer": 0.8461538461538461
+      }
+    },
+    {
+      "clip": "Video/block49_repro/hardware_aisle_short_default_s730451892_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Quarter inch or the next size up? The next size up. These will strip on you. Both boxes then. I will come back for the rest.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Quarter inch, or the next size up?"
+        },
+        {
+          "language": "English",
+          "text": "The next size up. These will strip on you."
+        },
+        {
+          "language": "English",
+          "text": "Both boxes then. I will come back for the rest."
+        }
+      ],
+      "score": {
+        "ref_words": 26,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Quarter inch, or the next size up?",
+          "ref_words": 7,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "quarter inch or the next size up"
+        },
+        {
+          "text": "The next size up. These will strip on you.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "the next size up these will strip on you"
+        },
+        {
+          "text": "Both boxes then. I will come back for the rest.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "both boxes then i will come back for the rest"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/noodle_bar_default_s730451892_00001.mp4",
+        "ref_words": 10,
+        "sub": 10,
+        "del": 0,
+        "ins": 16,
+        "wer": 2.6
+      }
+    },
+    {
+      "clip": "Video/block49_repro/hardware_aisle_short_sagelevers_s730451892_00001.mp4",
+      "language_forced": "english",
+      "transcript": "Quarter inch or the next size up? The next size up. These will strip on you. Both boxes then. I will come back for the rest.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "Quarter inch, or the next size up?"
+        },
+        {
+          "language": "English",
+          "text": "The next size up. These will strip on you."
+        },
+        {
+          "language": "English",
+          "text": "Both boxes then. I will come back for the rest."
+        }
+      ],
+      "score": {
+        "ref_words": 26,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "Quarter inch, or the next size up?",
+          "ref_words": 7,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "quarter inch or the next size up"
+        },
+        {
+          "text": "The next size up. These will strip on you.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "the next size up these will strip on you"
+        },
+        {
+          "text": "Both boxes then. I will come back for the rest.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "both boxes then i will come back for the rest"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/noodle_bar_default_s730451892_00001.mp4",
+        "ref_words": 10,
+        "sub": 10,
+        "del": 0,
+        "ins": 16,
+        "wer": 2.6
+      }
+    },
+    {
+      "clip": "Video/block49_repro/post_office_default_s730451892_00001.mp4",
+      "language_forced": null,
+      "transcript": "1.5kg of pork belly",
+      "lines": [],
+      "score": null
+    },
+    {
+      "clip": "Video/block49_repro/post_office_sagelevers_s730451892_00001.mp4",
+      "language_forced": null,
+      "transcript": "I'm sorry.",
+      "lines": [],
+      "score": null
+    },
+    {
+      "clip": "Video/block49_repro/noodle_bar_default_s730451892_00001.mp4",
+      "language_forced": null,
+      "transcript": "两碗牛肉面 一碗不要辣",
+      "lines": [
+        {
+          "language": "Chinese",
+          "text": "两碗牛肉面，一碗不要辣。"
+        }
+      ],
+      "score": {
+        "ref_words": 10,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "两碗牛肉面，一碗不要辣。",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "两 碗 牛 肉 面 一 碗 不 要 辣"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
+        "ref_words": 19,
+        "sub": 10,
+        "del": 9,
+        "ins": 0,
+        "wer": 1.0
+      }
+    },
+    {
+      "clip": "Video/block49_repro/noodle_bar_sagelevers_s730451892_00001.mp4",
+      "language_forced": null,
+      "transcript": "两碗牛肉面一碗不要辣",
+      "lines": [
+        {
+          "language": "Chinese",
+          "text": "两碗牛肉面，一碗不要辣。"
+        }
+      ],
+      "score": {
+        "ref_words": 10,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "两碗牛肉面，一碗不要辣。",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "两 碗 牛 肉 面 一 碗 不 要 辣"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
+        "ref_words": 19,
+        "sub": 10,
+        "del": 9,
+        "ins": 0,
+        "wer": 1.0
+      }
+    },
+    {
+      "clip": "Video/block49_repro/diner_sagelevers_s730451892_00001.mp4",
+      "language_forced": "english",
+      "transcript": "I took the job in Chicago. Bus leaves at midnight. You always wanted a reason to leave this valley.",
+      "lines": [
+        {
+          "language": "English",
+          "text": "I took the job in Chicago. Bus leaves at midnight."
+        },
+        {
+          "language": "English",
+          "text": "You always wanted a reason to leave this valley."
+        }
+      ],
+      "score": {
+        "ref_words": 19,
+        "sub": 0,
+        "del": 0,
+        "ins": 0,
+        "wer": 0.0
+      },
+      "per_line": [
+        {
+          "text": "I took the job in Chicago. Bus leaves at midnight.",
+          "ref_words": 10,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "i took the job in chicago bus leaves at midnight"
+        },
+        {
+          "text": "You always wanted a reason to leave this valley.",
+          "ref_words": 9,
+          "sub": 0,
+          "del": 0,
+          "ins": 0,
+          "wer": 0.0,
+          "window": "you always wanted a reason to leave this valley"
+        }
+      ],
+      "control_other_script": {
+        "script_of": "Video/on_length/noodle_bar_plain_107f_noodle_bar_plain_107f_00001.mp4",
+        "ref_words": 10,
+        "sub": 10,
+        "del": 0,
+        "ins": 9,
+        "wer": 1.9
+      }
+    }
+  ]
+}
