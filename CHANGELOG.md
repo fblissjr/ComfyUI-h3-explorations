@@ -4,6 +4,20 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.131.1
+
+### Changed
+
+- **`docs/sol_upstream.md`: the open core PRs on H3's text encoder, read
+  2026-09-19 from titles and bodies.** The owner asked what else in core's
+  Qwen3-VL path H3 should take. One port candidate if it merges: 16076,
+  per-image text-encoder-only references, where ours is all or nothing per
+  node. 15135 (masked grouped-query attention falling to SDPA's math
+  backend) is already covered in core by PR 15190's K/V expansion, merged
+  2026-07-31. The rest are for other cards, other builds, `generate()` or
+  the DiT. 16374 (encoder on the GPU under dynamic VRAM) is noted as
+  expected to change nothing on this card, reasoned and not checked.
+
 ## 0.131.0
 
 ### Added

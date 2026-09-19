@@ -185,6 +185,40 @@ checkout is at `3c80da7f`; `git reflog` in it dates each pull):
   encoder fallback), 16301 (startup guard): title and body only, none reaches
   a shipped graph on this card.
 
+**Open core PRs on H3's text encoder, 2026-09-19, title and body only via
+`gh` (no diffs read), against core at `3c80da7f`:**
+
+- **16076, per-image text-encoder-only references.** A marker node that
+  sends one still to Qwen3-VL alone while its neighbours keep their DiT
+  rows. Ours is all or nothing per node: leave the VAE unwired and every
+  reference goes encoder-only (`docs/h3_references.md`, "Encoder-only
+  references"). Per-image mixing is the capability open experiment 26 would
+  want if it closes toward the cheaper arm. If it merges, it is a port
+  candidate for `MiniMaxH3ReferenceConditioning`; nothing to do before.
+- **15135, masked grouped-query attention falls back to SDPA's math
+  backend.** Superseded in core by `a1c42199` (PR 15190, 2026-07-31):
+  `comfy/ops.py::scaled_dot_product_attention` expands K and V when no fused
+  backend takes native grouped-query attention under a mask, which is H3's
+  encoder case (fp32 activations, a causal float mask, fewer KV heads than
+  query heads). The 2026-08-25 record that found the math backend at every
+  length was taken in the closed calibration lane's transformers harness,
+  not core's path (`docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-gate2a-corrected-floor.md`,
+  "Backend selection, measured"). Which kernel core's own encode dispatches
+  on this card has not been recorded.
+- **15316**, reserve the encoder's memory for image encodes: its body
+  describes the stall with `--disable-dynamic-vram`, which this server does
+  not pass. **15552**, an INT8 embedding crash under dynamic VRAM: the
+  encoder this install loads keeps `model.embed_tokens.weight` in BF16 (the
+  header of `h3_config.ENCODER_INT8`). **16277, 15638, 16262**: `generate()`
+  only; H3's encoder has no `lm_head` and is never asked to generate.
+  **15983** is the DiT's memory estimate, not the encoder's.
+
+**Merged, on the encoder's placement:** 16374 (`d39cdfdb`) makes
+`text_encoder_device()` the GPU whenever dynamic VRAM is on. Before, that
+branch still asked `should_use_fp16`, which this card answers yes, so no
+change is expected here (reasoned, not checked). A `device` of cpu on
+`MiniMaxH3EncoderLoader` overrides it either way (CHANGELOG 0.131.0).
+
 ---
 
 ## comfy-kitchen, 2026-09-15: the pin moved to v0.2.34, and what was and was not carried
