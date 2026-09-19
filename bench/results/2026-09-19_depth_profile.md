@@ -98,6 +98,15 @@ SDPA sits flat at the floor on every block, so its correlation is noise.
 
 ## What it does not say
 
+- **What "Sol's error" is here, exactly.** Capture-side output error: the
+  relative L2 of the real CUDA kernel's output against fp32 dense attention,
+  over every row of the first eight heads, on captured inputs, at tau 1.0 with
+  the shipped recipe as the sweep reads it from
+  `h3_config.SOL_RECOMMENDED_CUDA` (`qk_balance` ON, rotation off, the
+  `exact_kv_and_rows` sink, pooled tail; the json's `conditions` carry it). So
+  "block 49 is Sol's best block" holds WITH `qk_balance` on. With it off,
+  block 49's quantization term is the one `qk_balance` was built to cut
+  (`docs/h3_block49_quant_error.md`), and the ranking there is unmeasured.
 - **Nothing about what the owner will see.** Capture error and the eye have
   disagreed in this pack (the reorder won most capture cells and no panel,
   `2026-09-18_sol_reorder_panel.md`). This nominates candidates for a render
