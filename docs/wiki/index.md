@@ -88,4 +88,12 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | [`bench/preflight_graph.py`](../../bench/preflight_graph.py) | run before queueing a reference render: grades the prompt and prices the sequence, statically |
 | `bench/bench_*.py`, `bench/smoke_h3.py` | need a GPU and a live server |
 | `bench/run_graph_arms.py` -> `bench/blind_batch.py` -> `score.html` -> `bench/score_session.py` | the path for anything judged by a person. A comparison that skipped a step is two samples, not a result |
+| [`bench/blind_panel.py`](../../bench/blind_panel.py) -> `score.html` -> [`bench/join_panel_verdicts.py`](../../bench/join_panel_verdicts.py) | the same path for a panel ACROSS SCENES: contests of two named clips with decoy and anchor kinds, and a join that applies the stop rules of `docs/research/2026-09-19_evaluation_one_judge.md` section 0.3 and refuses a conclusion until a reader has marked which verdicts name a defect |
+| [`bench/diff_clip_graphs.py`](../../bench/diff_clip_graphs.py) | what two clips actually differ in, from the graphs embedded in them. Run it before building any pair: two verdicts of 2026-09-18 were about something else |
+| [`bench/measure_pair_alignment.py`](../../bench/measure_pair_alignment.py) | whether a pair is the same take, picture and sound judged apart. A reference metric against another render reads only on a `same_take` pair |
+| [`bench/tally_judge_verdicts.py`](../../bench/tally_judge_verdicts.py) | the judge's tie rate and slot split over the structured verdict files; decoy verdicts counted apart, where a picked winner is a false positive |
+| [`bench/measure_dialogue_transcription.py`](../../bench/measure_dialogue_transcription.py) | whether a clip says its scripted lines: Whisper from the local cache against the prompt's `<d>` spans, CJK scored by character |
+| [`bench/map_attention_mass_on_capture.py`](../../bench/map_attention_mass_on_capture.py) | where exact attention mass goes on a capture, per head: by segment, by latent frame, and the heaviest keys |
+| [`bench/compare_sol_orderings.py`](../../bench/compare_sol_orderings.py), [`bench/depth_profile_tables.py`](../../bench/depth_profile_tables.py) | Sol's error by token ordering, and the depth profile's tables |
+| [`bench/probe_encoder_rope_kitchen.py`](../../bench/probe_encoder_rope_kitchen.py) | whether core's move of the text encoder's RoPE onto comfy-kitchen changed its numbers; the CUDA run is the one that counts |
 | `internal/` | gitignored: prompt research, session logs, postmortems (start with the newest). Not shipped |

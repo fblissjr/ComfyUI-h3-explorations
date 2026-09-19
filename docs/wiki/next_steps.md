@@ -13,6 +13,49 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-19 (the research and instrument session):**
+
+- **The blind panel is built and unscored.** Six real contests (noodle bar at
+  107 frames, diner, market, hardware aisle, crowd, meerkat: the default
+  against a fully dense render at one seed), a two-seed decoy, an identical
+  pair and a low anchor, one session
+  (`bench/blind_panel.py`, key sealed under `internal/blind_keys/`). **The
+  profiler and the `dense_blocks` contest are held on its result**: if the
+  owner cannot separate the default from fully dense, the levers inside Sol
+  are invisible a fortiori and the remaining question is seconds. Score it,
+  then `bench/join_panel_verdicts.py`, which applies the stop rules of
+  [`../research/2026-09-19_evaluation_one_judge.md`](../research/2026-09-19_evaluation_one_judge.md)
+  section 0.3 and refuses a conclusion until a reader marks which verdicts
+  name a defect.
+- **Most full-length pairs are two takes, not one take with a difference.**
+  Picture and sound are judged apart, and they come apart in both directions
+  (`bench/results/2026-09-19_pair_alignment.md`). Only a few scenes stay
+  pixel-aligned; on the rest a reference metric against another render
+  measures the performance, not the knob. **Consequence for the largest speed
+  lever:** a `start_percent` ladder cannot be scored by distance to a dense
+  render, because removing the dense warm-up moves the sample into another
+  basin; it needs the blind panel
+  ([`../research/2026-09-19_where_approximation_is_tolerated.md`](../research/2026-09-19_where_approximation_is_tolerated.md)
+  section 1.1).
+- **The judge's tie rate is on file, and the panel supplies the first
+  decoys.** Ties are about as common as decisive verdicts across the
+  structured verdict files, and the slot split is within chance
+  (`bench/results/2026-09-19_judge_tie_rate.md`). The tally now counts decoy
+  verdicts apart, where a picked winner is the false positive nothing has
+  measured yet.
+- **Every fifth latent frame draws more attention mass, and Sol keeps up with
+  it: CLOSED.** The one-pixel-frame latents draw more exact mass than their
+  share of keys at every depth but block 0, with a residue control
+  (`bench/results/2026-09-19_attention_mass_covered_market_depth.md`), but
+  Sol does not miss them more than their mass warrants
+  (`bench/results/2026-09-19_sol_block_grouping.md`, section H). No routing
+  prior is needed.
+- **The text encoder's RoPE moved onto comfy-kitchen on 2026-09-15 and is not
+  bit-identical.** A rounding-order difference of equal accuracy
+  (`bench/results/2026-09-19_encoder_rope_kitchen.md`), so a same-seed clip
+  rendered before that morning's core pull is not guaranteed to reproduce
+  after it. Say so in any record that pairs clips across it.
+
 **2026-09-15:**
 
 - **TaoMate-H3: the whole-clip arms lost; the streaming runtime is being
