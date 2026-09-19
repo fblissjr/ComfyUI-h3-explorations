@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.129.2
+
+### Changed
+
+- **Upstream survey, 2026-09-19** (15c4eb1, 8c01e68): every coderef clone and the comfy-kitchen and ComfyUI PRs
+  read against their last recorded revisions; kitchen PR 171 and core PR 16239 closed, kitchen PR 176 carried since
+  v0.2.35, the kitchen VAE kernels live since the 2026-09-15 core pull, the sglang comparison's dense-chain cell
+  corrected. No default changed.
+- Noted from that survey, for anyone comparing clips across dates: core `6cff1e97` (pulled on the morning of
+  2026-09-15) moved H3's text-encoder RoPE onto kitchen's split-half kernel, and the kitchen VAE kernels went live
+  with the same pull. The reference clips this week's verdicts reused are on the near side of it: the 2026-09-15
+  diner, market and sage-rotate clips re-rendered bit for bit on 2026-09-17 and 2026-09-18
+  (`bench/results/2026-09-17_sol_options_noodlebar_batch.md`, `bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`).
+  The 2026-09-03 and 2026-09-10 capture sets are on the far side; the old-against-new sweep on the 2026-09-19
+  capture is what tests whether that matters to attention inputs.
+
 ## 0.129.1
 
 ### Added
