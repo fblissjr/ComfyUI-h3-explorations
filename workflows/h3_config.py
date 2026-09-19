@@ -941,9 +941,17 @@ DENSE_BACKEND_NODE = dict(attention="comfy kitchen attention")
 #:
 #:   "kitchen"  core's Model Attention Backend node (kitchen's rotated int8
 #:              attention). Needs nothing else: the kernel rotates q/k itself.
-#:   "sage"     the sage node in its balanced mode, which rebalances q/k per
-#:              head inside its own quantizer. No MiniMaxH3ChannelBalance node:
-#:              graded 2026-09-17, the weights fold adds nothing under that mode
+#:   "sage"     the sage node in its ROTATED mode (since 2026-09-19, the owner;
+#:              balanced until then), which rotates q/k by a fixed Hadamard
+#:              matrix inside its own quantizer: the most accurate INT8 arm on
+#:              every captured H3 block for about one percent of the call
+#:              (bench/results/2026-09-17_sage_qk_rotate_kernel.json), and the
+#:              same matrix kitchen's dense kernel uses, so the two chains now
+#:              treat the loud channels the same way. Named explicitly rather
+#:              than as `auto`, so a graph and its records say what ran. No
+#:              MiniMaxH3ChannelBalance node and no balanced mode on top:
+#:              under rotation the balance factor finds nothing to do, and the
+#:              weights fold re-rounds q/k for nothing
 #:              (bench/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
 #:
 #: `DEFAULT_DENSE_CHAIN` is what the shipped tree is generated on. The other
@@ -953,7 +961,7 @@ DENSE_BACKEND_NODE = dict(attention="comfy kitchen attention")
 #:   python workflows/build_workflows.py --chain sage --out <some dir>
 DENSE_CHAINS = {
     "kitchen": dict(dense_attn="ck"),
-    "sage": dict(dense_attn="sage_sol", sage_mode="fp8++ balanced"),
+    "sage": dict(dense_attn="sage_sol", sage_mode="fp8++ rotated"),
 }
 DEFAULT_DENSE_CHAIN = "kitchen"
 

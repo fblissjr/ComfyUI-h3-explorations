@@ -108,8 +108,23 @@ def _sage():
 #
 # This is also the sm89 DEFAULT, which `auto` already resolves to. It is the
 # baseline every arm here is measured against, not a knob left unturned.
+#
+# `auto` IS THE ROTATED MODE since 2026-09-19 (the owner: "auto = fp8++
+# rotated"). Until then it passed nothing and let sage's dispatcher pick, which
+# on Ada is plain fp8++. The reasoning: `auto` is what someone picks when they
+# want the best this node can do, and on H3 captures the rotated quantizer is
+# the most accurate INT8 arm on every captured block for about one percent of
+# the call (bench/results/2026-09-17_sage_qk_rotate_kernel.json). What it
+# costs: a graph on `auto` renders a DIFFERENT SAMPLE from the same graph
+# before that date, and a record that says `sage_mode: auto` means plain fp8++
+# before it and rotated after. `auto (dispatcher)` keeps the old meaning for
+# reproducing those. `auto` never raises on an older sage: it drops the
+# rotation and says so (see `_resolve_mode`). No clip has been judged with
+# rotation against without at the length its prompt was written for; that pair
+# is owed.
 MODES = {
-    "auto": (None, {}),
+    "auto": (None, {"pv_accum_dtype": "fp32+fp16", "qk_rotate": True}),
+    "auto (dispatcher)": (None, {}),
     "fp8++ (fastest)": (None, {"pv_accum_dtype": "fp32+fp16"}),
     # fp8++ with the fork's per-head q/k channel rebalancing inside the INT8
     # quantizer (sage fork v0.7.19, `qk_balance`): exact for the attention
@@ -202,6 +217,13 @@ def build_kernel(mode):
         if keyword in extra:
             import inspect
             params = inspect.signature(sa.sageattn_qk_int8_pv_fp8_cuda).parameters
+            if keyword not in params and mode == "auto":
+                # `auto` must run everywhere: fall back to what it meant before
+                # 2026-09-19 and say so once, rather than refuse a render.
+                logging.warning(f"[h3-sage] mode 'auto' wants {keyword} (sage fork {since} or later) and the "
+                                "installed sageattention has none; running plain fp8++ instead")
+                extra = {k: v for k, v in extra.items() if k != keyword}
+                continue
             if keyword not in params:
                 raise RuntimeError(
                     f"mode {mode!r} needs a sageattention with {keyword} on "

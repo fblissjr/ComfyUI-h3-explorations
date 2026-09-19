@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.129.0
+
+### Changed
+
+- **The sage node's `auto` mode is the rotated mode, and the generator's sage
+  chain names it (the owner, 2026-09-19).** `auto` used to pass nothing and
+  let sage's dispatcher pick, which on Ada is plain fp8++; it now asks for the
+  fork's Hadamard rotation of q/k inside the INT8 quantizer (`qk_rotate`, sage
+  v0.7.20), the most accurate INT8 arm on every captured H3 block for about one
+  percent of the call (`bench/results/2026-09-17_sage_qk_rotate_kernel.json`).
+  `auto (dispatcher)` keeps the old meaning. `auto` never refuses a render: on
+  a sage without the keyword it runs plain fp8++ and logs that once.
+  `h3_config.DENSE_CHAINS["sage"]` moves from `fp8++ balanced` to
+  `fp8++ rotated`, named explicitly so graphs and records say what ran.
+  **What this costs:** every graph on sage `auto` (the sage probes, the PDD and
+  turbo sage graphs, the two capture reference graphs) renders a different
+  sample from before this date although its JSON did not change, and a record
+  that says `sage_mode: auto` means plain fp8++ before 2026-09-19 and rotated
+  after. Not yet judged by eye: no pair has compared rotation against none at
+  the length its prompt was written for.
+- Verified while doing it, no change needed: the rotation reaches the kernel in
+  the full workflow with Sol on (the 2026-09-17 sage-chain clips in balanced and
+  rotated mode, same prompt and seed, are different renders, and renders here
+  repeat bit for bit), nothing rotates twice (one kernel per attention call),
+  and `smooth_k` stays off so smoothing and rotation cannot disagree. The graph
+  named `h3_probe_t2v_sage_rotate` is NOT sage's rotation: it is sage balanced,
+  the channel-balance fold and SOL's `rotate`; it stays as the record it is.
+
 ## 0.128.1
 
 ### Fixed
