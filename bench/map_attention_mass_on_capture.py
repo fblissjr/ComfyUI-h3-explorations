@@ -3,6 +3,7 @@
 
     H3_CAPTURE_ROOT=... python bench/map_attention_mass_on_capture.py <capture-name> \\
         [--cells b49_s15 ...] [--heads N] [--threads 4] --out bench/results/<date>_attention_mass_<name>.json
+    python bench/map_attention_mass_on_capture.py --summarize bench/results/<date>_attention_mass_<name>.json
 
 Reads `qkv_*.pt` cells under `$H3_CAPTURE_ROOT/<capture-name>/` and that
 directory's `manifest.json` (token accounting). CPU only; the capture is read,
@@ -42,8 +43,8 @@ row over every key, and from it:
   neighbours, which Sol also always attends exactly;
 - `frame_mass`: mean mass on each latent frame's keys, per query segment;
 - `top_keys`: the keys with the most mass summed over all sampled queries,
-  with segment, latent frame, whether inside the forced prefix, and the value
-  norm;
+  as columns (index, mass, value norm); `key_facts` turns an index into its
+  segment, latent frame and forced-prefix membership;
 - `sink_summary`: frame 0's mass against the mean over frames; the mean over
   frames whose index is a multiple of 5 against the others; and, as that
   hypothesis's control, the mean for each residue of the frame index mod 5
@@ -119,6 +120,11 @@ def sample_rows(lay: dict) -> dict[str, np.ndarray]:
     return {"text": pick(*lay["text"], SAMPLE_TEXT), "audio": pick(*lay["audio"], SAMPLE_AUDIO), "video": video}
 
 
+def key_facts(i: int, lay: dict) -> dict:
+    """What a key index is, from the layout: segment, latent frame, inside the forced prefix."""
+    return {"segment": segment_of(i, lay), "frame": frame_of(i, lay), "in_forced_prefix": i < lay["forced_prefix_end"]}
+
+
 def segment_of(i: int, lay: dict) -> str:
     return "text" if i < lay["text"][1] else "audio" if i < lay["audio"][1] else "video"
 
@@ -161,10 +167,11 @@ def head_pass(q_h: torch.Tensor, k_h: torch.Tensor, v_h: torch.Tensor, rows: dic
                     "diagonal_band_mass": band_sum / m,
                     "frame_mass": (frame_sum / m).tolist()}
     top = torch.topk(key_in, TOP_KEYS)
-    out["top_keys"] = [{"index": int(i), "segment": segment_of(int(i), lay), "frame": frame_of(int(i), lay),
-                        "in_forced_prefix": int(i) < lay["forced_prefix_end"],
-                        "incoming_mass": float(w), "v_norm": float(v_h[int(i)].norm())}
-                       for w, i in zip(top.values, top.indices)]
+    # Columns, not one object per key: segment, frame and prefix membership follow
+    # from the index and the record's layout (`key_facts`), so they are not stored.
+    out["top_keys"] = {"index": [int(i) for i in top.indices],
+                       "incoming_mass": [float(w) for w in top.values],
+                       "v_norm": [float(v_h[int(i)].norm()) for i in top.indices]}
     fm = np.asarray(out["video"]["frame_mass"])
     mult5 = np.arange(frames) % 5 == 0
     # The control for the period-5 hypothesis: the same ratio for every residue
@@ -178,7 +185,48 @@ def head_pass(q_h: torch.Tensor, k_h: torch.Tensor, v_h: torch.Tensor, rows: dic
     return out
 
 
+def rounded(obj):
+    """Floats to six decimals: masses are shares of one, so this keeps every digit a reader can use
+    and keeps a full-capture record to a size the repo can carry."""
+    if isinstance(obj, float):
+        return round(obj, 6)
+    if isinstance(obj, dict):
+        return {k: rounded(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [rounded(v) for v in obj]
+    return obj
+
+
+def summarize(path: Path) -> int:
+    """Print the per-cell tables a record reads, from a finished JSON. Means are over heads."""
+    import collections
+    d = orjson.loads(path.read_bytes())
+    print("cell      vq>text vq>audio aq>audio aq>video band prefix discretionary(min/med/max)  "
+          "residue ratios j=0..4       argmax heads j=0..4   top keys in prefix / on mult-5 frames")
+    for c in sorted(d["cells"], key=lambda c: (c["step"], c["block"])):
+        heads = c["heads"]
+        vq = [h["video"] for h in heads]
+        aq = [h["audio"] for h in heads]
+        mean = lambda xs: float(np.mean(xs))  # noqa: E731
+        disc = np.array([1 - x["diagonal_band_mass"] - x["forced_prefix_mass"] for x in vq])
+        res = np.array([h["sink_summary"]["residue_over_mean"] for h in heads])
+        am = collections.Counter(res.argmax(1).tolist())
+        tk = [key_facts(i, d["layout"]) for h in heads for i in h["top_keys"]["index"]]
+        frames = [k["frame"] for k in tk if k["frame"] is not None]
+        print(f"b{c['block']:02d}_s{c['step']:02d}  "
+              f"{mean([x['segment_mass']['text'] for x in vq]):7.3f} {mean([x['segment_mass']['audio'] for x in vq]):8.3f} "
+              f"{mean([x['segment_mass']['audio'] for x in aq]):8.3f} {mean([x['segment_mass']['video'] for x in aq]):8.3f} "
+              f"{mean([x['diagonal_band_mass'] for x in vq]):5.3f} {mean([x['forced_prefix_mass'] for x in vq]):6.3f} "
+              f"{disc.min():6.2f}/{np.median(disc):.2f}/{disc.max():.2f}             "
+              f"{' '.join(f'{x:.2f}' for x in res.mean(0))}   {' '.join(f'{am.get(j, 0):2d}' for j in range(5))}        "
+              f"{np.mean([k['in_forced_prefix'] for k in tk]):.2f} / "
+              f"{(np.mean([f % 5 == 0 for f in frames]) if frames else float('nan')):.2f}")
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "--summarize":
+        return summarize(Path(sys.argv[2]))
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("capture")
     ap.add_argument("--cells", nargs="*", help="e.g. b49_s15; default every qkv cell")
@@ -228,7 +276,7 @@ def main() -> int:
                   f"{' '.join(f'{x:.2f}' for x in res['sink_summary']['residue_over_mean'])}", flush=True)
         record["cells"].append({"block": block, "step": step, "file": f.name, "heads": heads})
         del data, q, k, v
-        args.out.write_bytes(orjson.dumps(record, option=orjson.OPT_SERIALIZE_NUMPY))   # partial runs stay usable
+        args.out.write_bytes(orjson.dumps(rounded(record), option=orjson.OPT_SERIALIZE_NUMPY))   # partial runs stay usable
     return 0
 
 
