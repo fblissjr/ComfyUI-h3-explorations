@@ -114,6 +114,7 @@ from comfy_api.latest import io
 
 from .block_spec import parse_blocks
 from . import sol_observe
+from . import h3_capture as _capture
 from . import sol_block_probe as _probe
 from . import sol_call_timer as _timer
 
@@ -966,6 +967,29 @@ def make_override(tau=1.0, min_tokens=4096,
 
     def override(func, q, k, v, heads, mask=None, attn_precision=None,
                  skip_reshape=False, skip_output_reshape=False, **kwargs):
+        # **The capture seam** (`h3_capture.seam_begin`/`seam_end`, 2026-09-19):
+        # this override receives every DiT attention call on BOTH chains, since
+        # Sol chains onto whichever dense node came first, so it is the one place
+        # a capture works on the default kitchen chain too. The host copy is
+        # taken before the call and the file written after it, tagged with the
+        # route that ran. Unarmed this is one attribute read.
+        ticket = None
+        if _capture.enabled:
+            options = kwargs.get("transformer_options")
+            ticket = _capture.seam_begin(
+                (options or {}).get("sol_block"), q, k, v, heads, skip_reshape,
+                transformer_options=options)
+        out = _decide_and_run(func, q, k, v, heads, mask=mask, attn_precision=attn_precision,
+                              skip_reshape=skip_reshape,
+                              skip_output_reshape=skip_output_reshape, **kwargs)
+        if ticket is not None:
+            options = kwargs.get("transformer_options")
+            _capture.seam_end(ticket, options.get("h3_attn_route", "unknown")
+                              if isinstance(options, dict) else "unknown")
+        return out
+
+    def _decide_and_run(func, q, k, v, heads, mask=None, attn_precision=None,
+                        skip_reshape=False, skip_output_reshape=False, **kwargs):
 
         # Read once per call, never cached across calls: the server reads the
         # environment at import, and a test may arm and disarm the module.
@@ -1314,7 +1338,12 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                     "owner's fork (h3-build) with vendor/rebuild_kernel.sh, or turn "
                     "one of the two off.")
     observing = sol_observe.enabled()
-    if (dense or profile or aug or observing or _timer.enabled()) and not _install_block_index(diffusion_model):
+    # `_capture.enabled`: the capture seam in the override files each call under
+    # `sol_block`, so an armed capture needs the index published even on a graph
+    # with no depth gate. Output-neutral: the hooks set and clear one options
+    # key, which nothing else reads unless a depth gate is set.
+    if (dense or profile or aug or observing or _capture.enabled or _timer.enabled()) \
+            and not _install_block_index(diffusion_model):
         logging.warning(
             f"[h3-sol] dense_blocks/tau_profile/token_aug_blocks ignored: "
             f"{type(diffusion_model).__name__} has no .blocks list to index")

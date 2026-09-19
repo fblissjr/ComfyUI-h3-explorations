@@ -178,7 +178,6 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
     _sync_spec()
     if not enabled:
         return
-    import torch
 
     with _lock:
         # Block index, render boundary and step counter live in `_block_step`
@@ -200,6 +199,12 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
         _written.add((_render, block, step))
         render = _render
 
+    _write_record(render, block, step, _snapshot(q, k, v), length_hint, kernel,
+                  transformer_options)
+
+
+def _snapshot(q, k, v):
+    """Host copies of `[1, S, H, D]` q/k/v as `[B, H, S, D]`, contiguous."""
     # [1, S, H, D] -> [B, H, S, D]. contiguous() because the consumer slices
     # heads and expects them to be the outer stride.
     #
@@ -213,7 +218,17 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
     # Saved bytes are identical either way; only where the intermediate lives
     # changes. Changed 2026-08-16 -- captures before that date used the old
     # order, which is why they are all 124f.
-    qh, kh, vh = (t.cpu().transpose(1, 2).contiguous() for t in (q, k, v))
+    return tuple(t.cpu().transpose(1, 2).contiguous() for t in (q, k, v))
+
+
+def _write_record(render, block, step, qkv_host, length_hint, kernel,
+                  transformer_options):
+    """Write one capture file from host tensors `_snapshot` made. Shared by
+    the sage node's hook (`maybe_capture`) and the Sol seam (`seam_end`), so
+    the two write the same names, fields and checks."""
+    import torch
+
+    qh, kh, vh = qkv_host
     seq = qh.shape[2]
     # `_r{n}` appears only from the SECOND render onward, so first-render
     # filenames are unchanged and every existing glob and capture directory
@@ -359,8 +374,15 @@ def _block_step(module, advance):
         _block_of[key] = tagged
     elif key not in _block_of:
         _block_of[key] = len(_block_of)
-    block = _block_of[key]
+    return _step_at(_block_of[key], advance)
 
+
+def _step_at(block, advance):
+    """(block, step) for a call to `block`, advancing its counter when asked.
+    Call with `_lock` held. Split out of `_block_step` on 2026-09-19 so the Sol
+    seam (`seam_begin`), which knows the block from `sol_block` and has no
+    module, counts on the SAME counters as the sage node's hook."""
+    global _render
     # Render boundary. `cycle` is DECLARED, never guessed, and the default
     # is no reset at all.
     #
@@ -388,6 +410,80 @@ def _block_step(module, advance):
     if advance:
         _calls[block] = step + 1
     return block, step
+
+
+def seam_begin(block, q, k, v, heads, skip_reshape, transformer_options=None):
+    """Count this call and, when its (block, step) is requested, take the host
+    copy NOW, before the attention kernel runs. Returns a ticket for
+    `seam_end`, or None.
+
+    Called by Sol's override (`sol_attn_h3.py`, `make_override`) for EVERY
+    call it receives, on both chains, since 2026-09-19. Before that the only
+    hook was the sage node's forward (`attention.py`), so the default kitchen
+    chain, which has no sage node, could not be captured at all; and on the
+    sage chain the calls Sol receives were captured by the sage forward after
+    `optimized_attention` returned. That delegate-path capture is removed in
+    the same change, so each call is counted exactly once: the sage forward
+    counts the calls that never reach the override, the seam counts the rest.
+
+    Why the copy is taken BEFORE the call: core hands the override
+    single-owner `AttentionTensorContainer` inputs that a backend may consume
+    in place, so the tensors after the call are not guaranteed to be what the
+    kernel received. The copy costs what it always cost; only its moment moves.
+
+    `block` is the `sol_block` label the Sol node's block pre-hook publishes.
+    The token-refiner calls carry none and are neither counted nor captured
+    here, the same as a refiner call the sage hook never labels as a DiT block.
+
+    **The memory compiler must be off for a capture run**
+    (`--disable-comfy-compiler`): the host copy allocates inside the block's
+    recorded scope, as the sage hook's always did.
+    """
+    _sync_spec()
+    if not enabled or block is None:
+        return None
+    with _lock:
+        block, step = _step_at(int(block), advance=True)
+        if block not in _config["blocks"] or step not in _config["steps"]:
+            return None
+        if _config.get("pre") == "only":
+            return None
+        if (_render, block, step) in _written:
+            return None
+        _written.add((_render, block, step))
+        render = _render
+    # The override receives [B, H, S, D] with `skip_reshape` (core's H3
+    # forward and the sage delegate both pass it), or [B, S, H*D] without.
+    # `_snapshot` takes [1, S, H, D], the layout the sage hook holds.
+    if skip_reshape:
+        views = tuple(t.transpose(1, 2) for t in (q, k, v))
+    else:
+        views = tuple(t.reshape(t.shape[0], t.shape[1], heads, -1) for t in (q, k, v))
+    return {"render": render, "block": block, "step": step,
+            "host": _snapshot(*views), "length_hint": int(views[0].shape[1]),
+            "options": transformer_options}
+
+
+def seam_end(ticket, kernel):
+    """Write the file `seam_begin` staged, tagged with the route that RAN.
+    `kernel` is the override's published `h3_attn_route`, read after the call:
+    a call declined inside the override (outside the window, `dense_blocks`,
+    ineligible, a kernel error that fell back) carries the fallback's route,
+    not the one attempted.
+
+    **A route is not a kernel.** `sol` names one; `outside_range`,
+    `dense_block`, `ineligible`, `kernel_error` and `masked` name a REASON the
+    call went to the chain's dense fallback, and which kernel that is lives in
+    the graph, not here: the dense node in the set's `workflow_api.json`
+    (core's `ModelAttentionBackend` and its `attention` value on the default
+    chain, `MiniMaxH3SageAttention` and its `mode` on the sage chain). Not
+    resolved by introspecting the chained override, whose name on the default
+    chain is core's generic wrapper: a guessed kernel name would be worse than
+    none."""
+    if ticket is None:
+        return
+    _write_record(ticket["render"], ticket["block"], ticket["step"], ticket["host"],
+                  ticket["length_hint"], kernel, ticket["options"])
 
 
 def _chunk_check(module, x, qkv):
