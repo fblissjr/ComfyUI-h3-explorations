@@ -368,6 +368,37 @@ def _scalar(value, cast, missing=None, unknown=None):
         return unknown
 
 
+def _dense_node(wf: dict, sage_state: str, sage_nodes: list) -> dict:
+    """Which node supplies the chain's DENSE attention, read from the graph
+    (schema 1.7.0, 2026-09-19).
+
+    Sol takes the calls inside its window and hands every other call to the
+    dense node it chained onto, so a capture file tagged with a route reason
+    (`_koutside_range`, `_kdense_block`, ...) was computed by THIS node's
+    kernel, and until 1.7.0 no field said which. `sage_mode` covered the sage
+    chain only; the default kitchen chain's `ModelAttentionBackend` appeared
+    nowhere. Read by reachability like every other node here.
+
+    `state`: `wired` (one of the two classes is wired), `both_wired` (both are,
+    and which one takes a call depends on patch order, which this file does not
+    guess; both settings are recorded), or `none_wired` (core's own attention
+    for the server's launch flags, which `provenance.server` carries).
+    """
+    backend_state, backend_nodes = _class_state(wf, "ModelAttentionBackend")
+    sage = (str(_scalar(sage_nodes[0][1].get("mode"), str, missing="auto"))
+            if sage_state == "wired" else None)
+    backend = (_scalar(backend_nodes[0][1].get("attention"), str, unknown="linked")
+               if backend_state == "wired" else None)
+    if sage is not None and backend is not None:
+        return {"state": "both_wired", "class": None, "setting": None,
+                "sage_mode": sage, "backend_attention": backend}
+    if sage is not None:
+        return {"state": "wired", "class": "MiniMaxH3SageAttention", "setting": sage}
+    if backend is not None:
+        return {"state": "wired", "class": "ModelAttentionBackend", "setting": backend}
+    return {"state": "none_wired", "class": None, "setting": None}
+
+
 def extract_from_workflow(wf: dict, input_base: Path):
     """Extract canvas, models, sampling, prompt, and references dynamically from ComfyUI API graph."""
     canvas = {"width": 1024, "height": 768, "aspect": "4:3", "length": 362, "fps": 24.0, "latent_frames": 107}
@@ -424,6 +455,7 @@ def extract_from_workflow(wf: dict, input_base: Path):
         "sol_tau": _scalar(_sol_cfg.get("selection.tau"), float),
         "head_chunks": (_scalar(_sage_nodes[0][1].get("head_chunks"), int, missing=1)
                         if _sage_state == "wired" else 1),
+        "dense_node": _dense_node(wf, _sage_state, _sage_nodes),
     }
     # LoRAs, by REACHABILITY and across every loader class. Two defects fixed
     # together on 2026-08-26:
@@ -801,7 +833,7 @@ def main():
     models["sha256"] = hash_model_files(models)
 
     manifest = {
-        "schema_version": "1.6.0",
+        "schema_version": "1.7.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provenance": {
             "git_commit": get_git_commit(),

@@ -111,7 +111,18 @@ def assert_substrate(block: dict, keys: set, where: str) -> None:
 #: shape [S, 3*H*D], sequence on axis 0); absent or `qkv` for the post-RoPE
 #: [B, H, S, D] records (sequence on axis 2). Older manifests carry no kind and
 #: read as `qkv`, which is what they hold.
-SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0")
+#: 1.7.0 (2026-09-19) adds `workload.attention.dense_node`: the node that
+#: supplies the chain's dense attention, read from the graph, so a file tagged
+#: with a route reason says which kernel ran. Required from 1.7.0; older
+#: manifests lack it and are not back-filled.
+SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0")
+DENSE_NODE_SINCE = "1.7.0"
+DENSE_NODE_STATES = ("wired", "both_wired", "none_wired")
+
+
+def dense_node_expected(schema_version: str) -> bool:
+    return tuple(int(x) for x in schema_version.split(".")) >= \
+        tuple(int(x) for x in DENSE_NODE_SINCE.split("."))
 
 #: Model-file hashes were added in 1.2.0, gated the same way and for the same
 #: reason as the substrate keys above: a 1.1.0 manifest that never carried them
@@ -255,6 +266,17 @@ def check_manifest(manifest_path: Path):
     attn = workload["attention"]
     for k in REQUIRED_ATTENTION_KEYS:
         assert k in attn, f"Missing required attention key {k!r}"
+    if dense_node_expected(data["schema_version"]):
+        dn = attn.get("dense_node")
+        assert isinstance(dn, dict), "attention.dense_node is required from schema 1.7.0"
+        assert dn.get("state") in DENSE_NODE_STATES, f"attention.dense_node.state {dn.get('state')!r}"
+        if dn["state"] == "wired":
+            assert dn.get("class") in ("MiniMaxH3SageAttention", "ModelAttentionBackend"), (
+                f"attention.dense_node.class {dn.get('class')!r}")
+            # A projection of `sage_mode` on the sage chain: the two must agree.
+            if dn["class"] == "MiniMaxH3SageAttention":
+                assert dn.get("setting") == attn["sage_mode"], (
+                    f"dense_node says sage {dn.get('setting')!r} but sage_mode is {attn['sage_mode']!r}")
 
     # Prompt
     prompt_obj = data["prompt"]

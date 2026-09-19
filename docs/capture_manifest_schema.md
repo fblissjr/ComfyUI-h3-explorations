@@ -327,6 +327,27 @@ And one assertion that inherited a third case: `references` may be empty,
 but only when `token_accounting.reference_tokens` is zero. A text-to-video
 capture has no references and that is a state, not a defect.
 
+### Which node supplied the dense attention (1.7.0)
+
+`workload.attention.dense_node`, read from the graph by reachability
+(`bench/generate_capture_manifest.py::_dense_node`): `{state, class,
+setting}`. `state` is `wired` (one of `MiniMaxH3SageAttention`, with its
+`mode` as `setting`, or core's `ModelAttentionBackend`, with its `attention`
+value), `both_wired` (both are; which takes a call depends on patch order,
+which the generator does not guess, so both settings are recorded under
+`sage_mode` and `backend_attention`), or `none_wired` (core's own attention for
+the launch flags `provenance.server` records).
+
+Why it exists: since 2026-09-19 captures are taken at Sol's override on both
+chains (`h3_capture.seam_begin`), and a file tagged with a route REASON
+(`_koutside_range`, `_kdense_block`, `_kineligible`, `_kkernel_error`,
+`_kmasked`) was computed by the chain's dense node, which no field named: the
+default kitchen chain's backend node appeared nowhere, and `sage_mode` covers
+the sage chain only. The checker requires the key from 1.7.0, and on the sage
+chain requires `setting` to equal `sage_mode`, of which it is a projection.
+Older manifests lack it and are not back-filled: nothing here guesses a graph's
+dense node after the fact.
+
 ### `vae_quantization` is deliberately not required
 
 It is singular, and a reference graph loads two VAEs at different quantizations --
