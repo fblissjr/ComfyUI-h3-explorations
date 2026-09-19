@@ -1,0 +1,6659 @@
+{
+  "measured": "2026-09-19",
+  "produced_by": "bench/analyze_sol_block_grouping.py",
+  "what": "where Sol-Attn's 64-token block grouping loses accuracy: within-block spread, missed mass under pooling, query-side disagreement inside a block, a Quest-style routing rule at the same granularity, and route stability across denoising steps",
+  "model": "MiniMax H3, int8 convrot checkpoint, base 16-step text to video at the trained canvas",
+  "conditions": {
+    "device": "cpu",
+    "dtype": "float32",
+    "heads": 8,
+    "tau": 1.0,
+    "layouts": {
+      "2026-09-03_base16_t2v_1344x768": {
+        "video_start": 1545,
+        "grid_thw": [
+          102,
+          24,
+          42
+        ],
+        "audio_span": [
+          395,
+          1545
+        ],
+        "tokens": 104361
+      },
+      "2026-09-10_sol_impl_courtroom": {
+        "video_start": 1670,
+        "grid_thw": [
+          102,
+          24,
+          42
+        ],
+        "audio_span": [
+          520,
+          1670
+        ],
+        "tokens": 104486
+      }
+    },
+    "sink_conditioning": "exact_kv_and_rows",
+    "pooled_tail": true,
+    "block_sizes": [
+      64,
+      16
+    ],
+    "orderings": [
+      "raster",
+      "3d"
+    ],
+    "queries_per_latent_frame": 20,
+    "c_blocks": 200,
+    "c_queries_per_block": 16,
+    "top_fraction_of_block": 8,
+    "mass_covered": 0.9,
+    "seed": 20260919,
+    "capture_sets": [
+      "2026-09-03_base16_t2v_1344x768",
+      "2026-09-10_sol_impl_courtroom"
+    ]
+  },
+  "instrument": {
+    "topk_rows_with_underflowed_zeros": 4,
+    "topk_kept_exactly_the_count": true,
+    "topk_threshold_spelling_would_have_kept": 500.0,
+    "routed_counts_vs_sweep_worst_block_difference": 0,
+    "mask_rebuilt_sol_vs_vendored_oracle_worst_rel_l2": 0.0,
+    "mutation_one_routed_pair_dropped_rel_l2": 0.013809516094624996,
+    "passed": true,
+    "missed_mass_vs_rel_l2_ordering": {
+      "prior_records": [
+        "2026-09-18_sol_block_size.json",
+        "2026-09-18_sol_block_size_courtroom.json"
+      ],
+      "by_block_size": {
+        "64": {
+          "cells": 9,
+          "same_ordering": 7,
+          "disagreements": [
+            {
+              "cell": "2026-09-03_base16_t2v_1344x768/b40_s15",
+              "rel_l2_3d_over_raster": 0.803,
+              "missed_3d_over_raster": 1.056
+            },
+            {
+              "cell": "2026-09-10_sol_impl_courtroom/b49_s13",
+              "rel_l2_3d_over_raster": 1.378,
+              "missed_3d_over_raster": 0.578
+            }
+          ]
+        },
+        "16": {
+          "cells": 9,
+          "same_ordering": 9,
+          "disagreements": []
+        }
+      }
+    }
+  },
+  "how_to_read": "cells are at equal tau, NOT equal cost: every B and D row carries its density. Jaccard has a chance floor that differs per cell and sits beside each value. Discretionary numbers exclude the forced blocks, which agree by construction.",
+  "cells": {
+    "2026-09-03_base16_t2v_1344x768/b0_s15": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.258632,
+            "p10": 0.127163,
+            "median": 0.212586,
+            "p90": 0.446408
+          },
+          "query": {
+            "mean": 0.245923,
+            "p10": 0.045199,
+            "median": 0.17491,
+            "p90": 0.595371
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.21105,
+            "p10": 0.075246,
+            "median": 0.17859,
+            "p90": 0.408682
+          },
+          "query": {
+            "mean": 0.166932,
+            "p10": 0.03457,
+            "median": 0.081507,
+            "p90": 0.42347
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.314064,
+            "p10": 0.179534,
+            "median": 0.242281,
+            "p90": 0.554826
+          },
+          "query": {
+            "mean": 0.194595,
+            "p10": 0.050585,
+            "median": 0.188807,
+            "p90": 0.310477
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.229014,
+            "p10": 0.12811,
+            "median": 0.195538,
+            "p90": 0.404896
+          },
+          "query": {
+            "mean": 0.123624,
+            "p10": 0.036561,
+            "median": 0.131742,
+            "p90": 0.170993
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.21183,
+        "raster_b16": 0.21524,
+        "3d_b64": 0.21771,
+        "3d_b16": 0.21636
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.21183,
+          "missed_mass": {
+            "mean": 0.337281,
+            "p10": 0.003423,
+            "median": 0.332202,
+            "p90": 0.812687
+          },
+          "pooled_block_top_fraction_share": 0.555304,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 21143.818359,
+            "p10": 11136.0,
+            "median": 21952.0,
+            "p90": 27008.0
+          },
+          "routed_blocks": {
+            "mean": 330.430695,
+            "p10": 174.0,
+            "median": 343.0,
+            "p90": 422.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 23772.757812,
+            "p10": 402.0,
+            "median": 25141.5,
+            "p90": 49062.796875
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.926846,
+            "p10": 0.220664,
+            "median": 1.073263,
+            "p90": 50.909416
+          }
+        },
+        "raster_b16": {
+          "density": 0.21524,
+          "missed_mass": {
+            "mean": 0.307793,
+            "p10": 0.002517,
+            "median": 0.284919,
+            "p90": 0.741751
+          },
+          "pooled_block_top_fraction_share": 0.484235,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21525.666016,
+            "p10": 14078.400391,
+            "median": 21712.0,
+            "p90": 28560.0
+          },
+          "routed_blocks": {
+            "mean": 1345.456665,
+            "p10": 879.900024,
+            "median": 1357.0,
+            "p90": 1785.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 23772.757812,
+            "p10": 402.0,
+            "median": 25141.5,
+            "p90": 49062.796875
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.995026,
+            "p10": 0.279376,
+            "median": 1.188772,
+            "p90": 50.954651
+          }
+        },
+        "3d_b64": {
+          "density": 0.21771,
+          "missed_mass": {
+            "mean": 0.327505,
+            "p10": 0.009226,
+            "median": 0.295437,
+            "p90": 0.752885
+          },
+          "pooled_block_top_fraction_share": 0.521947,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 21807.125,
+            "p10": 12921.601562,
+            "median": 22569.0,
+            "p90": 27968.0
+          },
+          "routed_blocks": {
+            "mean": 340.817657,
+            "p10": 201.900024,
+            "median": 353.0,
+            "p90": 437.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 23772.757812,
+            "p10": 402.0,
+            "median": 25141.5,
+            "p90": 49062.796875
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 9.70083,
+            "p10": 0.256507,
+            "median": 1.069131,
+            "p90": 55.041801
+          }
+        },
+        "3d_b16": {
+          "density": 0.21636,
+          "missed_mass": {
+            "mean": 0.268827,
+            "p10": 0.004336,
+            "median": 0.236808,
+            "p90": 0.699642
+          },
+          "pooled_block_top_fraction_share": 0.436415,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21656.794922,
+            "p10": 14480.0,
+            "median": 21968.0,
+            "p90": 27200.0
+          },
+          "routed_blocks": {
+            "mean": 1353.638062,
+            "p10": 905.0,
+            "median": 1373.0,
+            "p90": 1700.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 23772.757812,
+            "p10": 402.0,
+            "median": 25141.5,
+            "p90": 49062.796875
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 9.197819,
+            "p10": 0.29148,
+            "median": 1.052087,
+            "p90": 51.211689
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.21183,
+          "missed_mass_sol": {
+            "mean": 0.337281,
+            "p10": 0.003423,
+            "median": 0.332202,
+            "p90": 0.812687
+          },
+          "missed_mass_quest": {
+            "mean": 0.378858,
+            "p10": 0.003842,
+            "median": 0.393356,
+            "p90": 0.838453
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.333502,
+            "p10": 0.003193,
+            "median": 0.342333,
+            "p90": 0.822802
+          },
+          "missed_mass_oracle": {
+            "mean": 0.312142,
+            "p10": 0.002893,
+            "median": 0.315614,
+            "p90": 0.793731
+          },
+          "quest_over_sol_mean": 1.1233,
+          "blockmax_over_sol_mean": 0.9888,
+          "oracle_over_sol_mean": 0.9255,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.21524,
+          "missed_mass_sol": {
+            "mean": 0.307793,
+            "p10": 0.002517,
+            "median": 0.284919,
+            "p90": 0.741751
+          },
+          "missed_mass_quest": {
+            "mean": 0.341875,
+            "p10": 0.002531,
+            "median": 0.338783,
+            "p90": 0.762215
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.293878,
+            "p10": 0.00235,
+            "median": 0.285661,
+            "p90": 0.738742
+          },
+          "missed_mass_oracle": {
+            "mean": 0.250935,
+            "p10": 0.001713,
+            "median": 0.230752,
+            "p90": 0.700133
+          },
+          "quest_over_sol_mean": 1.1107,
+          "blockmax_over_sol_mean": 0.9548,
+          "oracle_over_sol_mean": 0.8153,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.21771,
+          "missed_mass_sol": {
+            "mean": 0.327505,
+            "p10": 0.009226,
+            "median": 0.295437,
+            "p90": 0.752885
+          },
+          "missed_mass_quest": {
+            "mean": 0.364123,
+            "p10": 0.011008,
+            "median": 0.339284,
+            "p90": 0.786801
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.314355,
+            "p10": 0.009194,
+            "median": 0.273295,
+            "p90": 0.756181
+          },
+          "missed_mass_oracle": {
+            "mean": 0.252078,
+            "p10": 0.003444,
+            "median": 0.195033,
+            "p90": 0.731359
+          },
+          "quest_over_sol_mean": 1.1118,
+          "blockmax_over_sol_mean": 0.9598,
+          "oracle_over_sol_mean": 0.7697,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.21636,
+          "missed_mass_sol": {
+            "mean": 0.268827,
+            "p10": 0.004336,
+            "median": 0.236808,
+            "p90": 0.699642
+          },
+          "missed_mass_quest": {
+            "mean": 0.303061,
+            "p10": 0.004086,
+            "median": 0.275132,
+            "p90": 0.733494
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.252994,
+            "p10": 0.003557,
+            "median": 0.207218,
+            "p90": 0.699844
+          },
+          "missed_mass_oracle": {
+            "mean": 0.220042,
+            "p10": 0.002102,
+            "median": 0.156233,
+            "p90": 0.672206
+          },
+          "quest_over_sol_mean": 1.1273,
+          "blockmax_over_sol_mean": 0.9411,
+          "oracle_over_sol_mean": 0.8185,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.645958,
+              "p10": 0.39428,
+              "median": 0.684472,
+              "p90": 0.824635
+            },
+            "discretionary": {
+              "mean": 0.685133,
+              "p10": 0.419508,
+              "median": 0.71875,
+              "p90": 0.894444
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.701236,
+              "p10": 0.467391,
+              "median": 0.733333,
+              "p90": 0.890244
+            },
+            "discretionary": {
+              "mean": 0.68863,
+              "p10": 0.442308,
+              "median": 0.722389,
+              "p90": 0.887906
+            }
+          },
+          "jaccard_chance_all": 0.1128,
+          "jaccard_chance_discretionary": 0.1043,
+          "mean_routed_blocks": 330.8,
+          "mean_discretionary_routed_blocks": 302.8
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.587434,
+              "p10": 0.312911,
+              "median": 0.619598,
+              "p90": 0.812988
+            },
+            "discretionary": {
+              "mean": 0.620975,
+              "p10": 0.332155,
+              "median": 0.643232,
+              "p90": 0.877757
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.648143,
+              "p10": 0.347985,
+              "median": 0.690962,
+              "p90": 0.882801
+            },
+            "discretionary": {
+              "mean": 0.639531,
+              "p10": 0.334513,
+              "median": 0.681258,
+              "p90": 0.88
+            }
+          },
+          "jaccard_chance_all": 0.1142,
+          "jaccard_chance_discretionary": 0.1063,
+          "mean_routed_blocks": 1337.1,
+          "mean_discretionary_routed_blocks": 1234.1
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.560038,
+              "p10": 0.317073,
+              "median": 0.578159,
+              "p90": 0.775284
+            },
+            "discretionary": {
+              "mean": 0.589706,
+              "p10": 0.32379,
+              "median": 0.607537,
+              "p90": 0.824488
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.594336,
+              "p10": 0.292517,
+              "median": 0.625,
+              "p90": 0.858896
+            },
+            "discretionary": {
+              "mean": 0.583287,
+              "p10": 0.279693,
+              "median": 0.613333,
+              "p90": 0.854305
+            }
+          },
+          "jaccard_chance_all": 0.1152,
+          "jaccard_chance_discretionary": 0.1067,
+          "mean_routed_blocks": 337.0,
+          "mean_discretionary_routed_blocks": 309.0
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.6081,
+              "p10": 0.420358,
+              "median": 0.634545,
+              "p90": 0.780663
+            },
+            "discretionary": {
+              "mean": 0.640215,
+              "p10": 0.437252,
+              "median": 0.668647,
+              "p90": 0.827506
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.668445,
+              "p10": 0.424532,
+              "median": 0.69442,
+              "p90": 0.876576
+            },
+            "discretionary": {
+              "mean": 0.658556,
+              "p10": 0.408152,
+              "median": 0.684776,
+              "p90": 0.872697
+            }
+          },
+          "jaccard_chance_all": 0.1158,
+          "jaccard_chance_discretionary": 0.1079,
+          "mean_routed_blocks": 1353.7,
+          "mean_discretionary_routed_blocks": 1250.7
+        }
+      },
+      "seconds": 64.3
+    },
+    "2026-09-03_base16_t2v_1344x768/b24_s15": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.468505,
+            "p10": 0.364021,
+            "median": 0.446323,
+            "p90": 0.632152
+          },
+          "query": {
+            "mean": 0.508625,
+            "p10": 0.379161,
+            "median": 0.508707,
+            "p90": 0.638177
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.391887,
+            "p10": 0.280264,
+            "median": 0.374163,
+            "p90": 0.551461
+          },
+          "query": {
+            "mean": 0.425416,
+            "p10": 0.285649,
+            "median": 0.424347,
+            "p90": 0.565706
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.414265,
+            "p10": 0.336195,
+            "median": 0.398329,
+            "p90": 0.531733
+          },
+          "query": {
+            "mean": 0.448146,
+            "p10": 0.330932,
+            "median": 0.443227,
+            "p90": 0.576175
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.32158,
+            "p10": 0.234439,
+            "median": 0.30824,
+            "p90": 0.437904
+          },
+          "query": {
+            "mean": 0.35435,
+            "p10": 0.243934,
+            "median": 0.345892,
+            "p90": 0.481191
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.21476,
+        "raster_b16": 0.21651,
+        "3d_b64": 0.22404,
+        "3d_b16": 0.22067
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.21476,
+          "missed_mass": {
+            "mean": 0.147204,
+            "p10": 0.001997,
+            "median": 0.072801,
+            "p90": 0.410277
+          },
+          "pooled_block_top_fraction_share": 0.939493,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 21438.095703,
+            "p10": 17920.0,
+            "median": 20992.0,
+            "p90": 25664.0
+          },
+          "routed_blocks": {
+            "mean": 335.042023,
+            "p10": 280.0,
+            "median": 328.0,
+            "p90": 401.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1316.409546,
+            "p10": 32.0,
+            "median": 263.0,
+            "p90": 4755.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 271.610596,
+            "p10": 4.380706,
+            "median": 81.806602,
+            "p90": 698.019165
+          }
+        },
+        "raster_b16": {
+          "density": 0.21651,
+          "missed_mass": {
+            "mean": 0.104686,
+            "p10": 0.00098,
+            "median": 0.045128,
+            "p90": 0.301618
+          },
+          "pooled_block_top_fraction_share": 0.893747,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21630.792969,
+            "p10": 18400.0,
+            "median": 21024.0,
+            "p90": 25760.0
+          },
+          "routed_blocks": {
+            "mean": 1351.999512,
+            "p10": 1150.0,
+            "median": 1314.0,
+            "p90": 1610.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1316.409546,
+            "p10": 32.0,
+            "median": 263.0,
+            "p90": 4755.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 269.064056,
+            "p10": 4.475622,
+            "median": 82.248856,
+            "p90": 689.089478
+          }
+        },
+        "3d_b64": {
+          "density": 0.22404,
+          "missed_mass": {
+            "mean": 0.117707,
+            "p10": 0.001008,
+            "median": 0.039349,
+            "p90": 0.351092
+          },
+          "pooled_block_top_fraction_share": 0.922243,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22446.910156,
+            "p10": 18857.0,
+            "median": 21824.0,
+            "p90": 26729.0
+          },
+          "routed_blocks": {
+            "mean": 350.808197,
+            "p10": 295.0,
+            "median": 341.0,
+            "p90": 418.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1316.409546,
+            "p10": 32.0,
+            "median": 263.0,
+            "p90": 4755.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 279.040192,
+            "p10": 4.763522,
+            "median": 85.150215,
+            "p90": 726.077454
+          }
+        },
+        "3d_b16": {
+          "density": 0.22067,
+          "missed_mass": {
+            "mean": 0.082401,
+            "p10": 0.000435,
+            "median": 0.022591,
+            "p90": 0.252054
+          },
+          "pooled_block_top_fraction_share": 0.869549,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22101.5625,
+            "p10": 18768.0,
+            "median": 21344.0,
+            "p90": 26361.0
+          },
+          "routed_blocks": {
+            "mean": 1381.448486,
+            "p10": 1173.0,
+            "median": 1334.0,
+            "p90": 1648.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1316.409546,
+            "p10": 32.0,
+            "median": 263.0,
+            "p90": 4755.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 272.658813,
+            "p10": 4.618089,
+            "median": 84.865616,
+            "p90": 715.023132
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.21476,
+          "missed_mass_sol": {
+            "mean": 0.147204,
+            "p10": 0.001997,
+            "median": 0.072801,
+            "p90": 0.410277
+          },
+          "missed_mass_quest": {
+            "mean": 0.1968,
+            "p10": 0.005398,
+            "median": 0.120048,
+            "p90": 0.502696
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.110724,
+            "p10": 0.001265,
+            "median": 0.03192,
+            "p90": 0.344713
+          },
+          "missed_mass_oracle": {
+            "mean": 0.036759,
+            "p10": 0.000344,
+            "median": 0.006041,
+            "p90": 0.129282
+          },
+          "quest_over_sol_mean": 1.3369,
+          "blockmax_over_sol_mean": 0.7522,
+          "oracle_over_sol_mean": 0.2497,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.21651,
+          "missed_mass_sol": {
+            "mean": 0.104686,
+            "p10": 0.00098,
+            "median": 0.045128,
+            "p90": 0.301618
+          },
+          "missed_mass_quest": {
+            "mean": 0.119575,
+            "p10": 0.002532,
+            "median": 0.04989,
+            "p90": 0.349343
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.061797,
+            "p10": 0.000476,
+            "median": 0.011784,
+            "p90": 0.204231
+          },
+          "missed_mass_oracle": {
+            "mean": 0.019891,
+            "p10": 0.000124,
+            "median": 0.002292,
+            "p90": 0.072407
+          },
+          "quest_over_sol_mean": 1.1422,
+          "blockmax_over_sol_mean": 0.5903,
+          "oracle_over_sol_mean": 0.19,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.22404,
+          "missed_mass_sol": {
+            "mean": 0.117707,
+            "p10": 0.001008,
+            "median": 0.039349,
+            "p90": 0.351092
+          },
+          "missed_mass_quest": {
+            "mean": 0.114644,
+            "p10": 0.002054,
+            "median": 0.050434,
+            "p90": 0.339473
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.070713,
+            "p10": 0.000628,
+            "median": 0.013175,
+            "p90": 0.236363
+          },
+          "missed_mass_oracle": {
+            "mean": 0.025319,
+            "p10": 0.000158,
+            "median": 0.002981,
+            "p90": 0.090021
+          },
+          "quest_over_sol_mean": 0.974,
+          "blockmax_over_sol_mean": 0.6008,
+          "oracle_over_sol_mean": 0.2151,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.22067,
+          "missed_mass_sol": {
+            "mean": 0.082401,
+            "p10": 0.000435,
+            "median": 0.022591,
+            "p90": 0.252054
+          },
+          "missed_mass_quest": {
+            "mean": 0.075081,
+            "p10": 0.000887,
+            "median": 0.018985,
+            "p90": 0.247763
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.042787,
+            "p10": 0.000228,
+            "median": 0.005019,
+            "p90": 0.149396
+          },
+          "missed_mass_oracle": {
+            "mean": 0.015694,
+            "p10": 0.000071,
+            "median": 0.001362,
+            "p90": 0.056543
+          },
+          "quest_over_sol_mean": 0.9112,
+          "blockmax_over_sol_mean": 0.5193,
+          "oracle_over_sol_mean": 0.1905,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.470642,
+              "p10": 0.306927,
+              "median": 0.473053,
+              "p90": 0.631313
+            },
+            "discretionary": {
+              "mean": 0.472225,
+              "p10": 0.291735,
+              "median": 0.473441,
+              "p90": 0.652174
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.420585,
+              "p10": 0.227891,
+              "median": 0.417166,
+              "p90": 0.617977
+            },
+            "discretionary": {
+              "mean": 0.411206,
+              "p10": 0.217054,
+              "median": 0.407407,
+              "p90": 0.610465
+            }
+          },
+          "jaccard_chance_all": 0.1137,
+          "jaccard_chance_discretionary": 0.1051,
+          "mean_routed_blocks": 333.0,
+          "mean_discretionary_routed_blocks": 305.0
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.477866,
+              "p10": 0.335493,
+              "median": 0.480969,
+              "p90": 0.614918
+            },
+            "discretionary": {
+              "mean": 0.47917,
+              "p10": 0.327306,
+              "median": 0.480687,
+              "p90": 0.629889
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.413859,
+              "p10": 0.227066,
+              "median": 0.406272,
+              "p90": 0.612204
+            },
+            "discretionary": {
+              "mean": 0.405234,
+              "p10": 0.216991,
+              "median": 0.396898,
+              "p90": 0.606893
+            }
+          },
+          "jaccard_chance_all": 0.1151,
+          "jaccard_chance_discretionary": 0.1072,
+          "mean_routed_blocks": 1346.1,
+          "mean_discretionary_routed_blocks": 1243.1
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.483847,
+              "p10": 0.340245,
+              "median": 0.487288,
+              "p90": 0.623342
+            },
+            "discretionary": {
+              "mean": 0.482077,
+              "p10": 0.324501,
+              "median": 0.486542,
+              "p90": 0.633803
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.435907,
+              "p10": 0.247012,
+              "median": 0.432967,
+              "p90": 0.629821
+            },
+            "discretionary": {
+              "mean": 0.425983,
+              "p10": 0.236036,
+              "median": 0.423077,
+              "p90": 0.62069
+            }
+          },
+          "jaccard_chance_all": 0.1198,
+          "jaccard_chance_discretionary": 0.1113,
+          "mean_routed_blocks": 349.0,
+          "mean_discretionary_routed_blocks": 321.0
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.526056,
+              "p10": 0.386579,
+              "median": 0.534829,
+              "p90": 0.65351
+            },
+            "discretionary": {
+              "mean": 0.527614,
+              "p10": 0.382279,
+              "median": 0.534583,
+              "p90": 0.666239
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.462103,
+              "p10": 0.272254,
+              "median": 0.466381,
+              "p90": 0.645915
+            },
+            "discretionary": {
+              "mean": 0.453608,
+              "p10": 0.262518,
+              "median": 0.456821,
+              "p90": 0.639566
+            }
+          },
+          "jaccard_chance_all": 0.1183,
+          "jaccard_chance_discretionary": 0.1104,
+          "mean_routed_blocks": 1380.1,
+          "mean_discretionary_routed_blocks": 1277.1
+        }
+      },
+      "seconds": 64.7
+    },
+    "2026-09-03_base16_t2v_1344x768/b32_s15": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.427174,
+            "p10": 0.309194,
+            "median": 0.417354,
+            "p90": 0.597802
+          },
+          "query": {
+            "mean": 0.399038,
+            "p10": 0.296951,
+            "median": 0.396793,
+            "p90": 0.504784
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.356401,
+            "p10": 0.22006,
+            "median": 0.351104,
+            "p90": 0.51597
+          },
+          "query": {
+            "mean": 0.337248,
+            "p10": 0.233942,
+            "median": 0.328242,
+            "p90": 0.456053
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.355864,
+            "p10": 0.206776,
+            "median": 0.35571,
+            "p90": 0.521908
+          },
+          "query": {
+            "mean": 0.338402,
+            "p10": 0.240553,
+            "median": 0.323198,
+            "p90": 0.45681
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.292538,
+            "p10": 0.14771,
+            "median": 0.293245,
+            "p90": 0.442799
+          },
+          "query": {
+            "mean": 0.28323,
+            "p10": 0.172501,
+            "median": 0.272776,
+            "p90": 0.412758
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.22654,
+        "raster_b16": 0.22876,
+        "3d_b64": 0.23644,
+        "3d_b16": 0.23519
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.22654,
+          "missed_mass": {
+            "mean": 0.165365,
+            "p10": 0.00253,
+            "median": 0.076353,
+            "p90": 0.446893
+          },
+          "pooled_block_top_fraction_share": 0.949894,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22691.632812,
+            "p10": 16105.0,
+            "median": 21824.0,
+            "p90": 30848.0
+          },
+          "routed_blocks": {
+            "mean": 354.612793,
+            "p10": 252.0,
+            "median": 341.0,
+            "p90": 482.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1485.55835,
+            "p10": 16.0,
+            "median": 303.0,
+            "p90": 4781.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 333.649384,
+            "p10": 5.864676,
+            "median": 71.181541,
+            "p90": 1084.663574
+          }
+        },
+        "raster_b16": {
+          "density": 0.22876,
+          "missed_mass": {
+            "mean": 0.127652,
+            "p10": 0.001384,
+            "median": 0.051291,
+            "p90": 0.364576
+          },
+          "pooled_block_top_fraction_share": 0.906031,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22946.367188,
+            "p10": 15936.0,
+            "median": 22080.0,
+            "p90": 30832.0
+          },
+          "routed_blocks": {
+            "mean": 1434.229126,
+            "p10": 996.0,
+            "median": 1380.0,
+            "p90": 1927.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1485.55835,
+            "p10": 16.0,
+            "median": 303.0,
+            "p90": 4781.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 329.540222,
+            "p10": 5.916479,
+            "median": 72.758667,
+            "p90": 1061.364624
+          }
+        },
+        "3d_b64": {
+          "density": 0.23644,
+          "missed_mass": {
+            "mean": 0.159347,
+            "p10": 0.000757,
+            "median": 0.049066,
+            "p90": 0.465287
+          },
+          "pooled_block_top_fraction_share": 0.940724,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 23783.816406,
+            "p10": 16317.700195,
+            "median": 23721.0,
+            "p90": 30976.0
+          },
+          "routed_blocks": {
+            "mean": 371.686768,
+            "p10": 255.0,
+            "median": 371.0,
+            "p90": 484.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1485.55835,
+            "p10": 16.0,
+            "median": 303.0,
+            "p90": 4781.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 339.98465,
+            "p10": 5.817379,
+            "median": 76.66333,
+            "p90": 1084.800049
+          }
+        },
+        "3d_b16": {
+          "density": 0.23519,
+          "missed_mass": {
+            "mean": 0.107603,
+            "p10": 0.000486,
+            "median": 0.034897,
+            "p90": 0.315307
+          },
+          "pooled_block_top_fraction_share": 0.893137,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 23664.605469,
+            "p10": 16288.0,
+            "median": 23132.5,
+            "p90": 31593.0
+          },
+          "routed_blocks": {
+            "mean": 1479.127808,
+            "p10": 1018.0,
+            "median": 1446.0,
+            "p90": 1975.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1485.55835,
+            "p10": 16.0,
+            "median": 303.0,
+            "p90": 4781.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 337.105743,
+            "p10": 6.003406,
+            "median": 75.886215,
+            "p90": 1084.616577
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.22654,
+          "missed_mass_sol": {
+            "mean": 0.165365,
+            "p10": 0.00253,
+            "median": 0.076353,
+            "p90": 0.446893
+          },
+          "missed_mass_quest": {
+            "mean": 0.217204,
+            "p10": 0.008284,
+            "median": 0.169049,
+            "p90": 0.495257
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.13388,
+            "p10": 0.002625,
+            "median": 0.038033,
+            "p90": 0.399992
+          },
+          "missed_mass_oracle": {
+            "mean": 0.039186,
+            "p10": 0.000769,
+            "median": 0.008234,
+            "p90": 0.12813
+          },
+          "quest_over_sol_mean": 1.3135,
+          "blockmax_over_sol_mean": 0.8096,
+          "oracle_over_sol_mean": 0.237,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.22876,
+          "missed_mass_sol": {
+            "mean": 0.127652,
+            "p10": 0.001384,
+            "median": 0.051291,
+            "p90": 0.364576
+          },
+          "missed_mass_quest": {
+            "mean": 0.14246,
+            "p10": 0.003556,
+            "median": 0.073476,
+            "p90": 0.408865
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.07588,
+            "p10": 0.000826,
+            "median": 0.013071,
+            "p90": 0.264472
+          },
+          "missed_mass_oracle": {
+            "mean": 0.021271,
+            "p10": 0.000202,
+            "median": 0.003127,
+            "p90": 0.067463
+          },
+          "quest_over_sol_mean": 1.116,
+          "blockmax_over_sol_mean": 0.5944,
+          "oracle_over_sol_mean": 0.1666,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.23644,
+          "missed_mass_sol": {
+            "mean": 0.159347,
+            "p10": 0.000757,
+            "median": 0.049066,
+            "p90": 0.465287
+          },
+          "missed_mass_quest": {
+            "mean": 0.186576,
+            "p10": 0.002397,
+            "median": 0.107464,
+            "p90": 0.500176
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.086051,
+            "p10": 0.000515,
+            "median": 0.012623,
+            "p90": 0.291304
+          },
+          "missed_mass_oracle": {
+            "mean": 0.028517,
+            "p10": 0.000152,
+            "median": 0.003967,
+            "p90": 0.094252
+          },
+          "quest_over_sol_mean": 1.1709,
+          "blockmax_over_sol_mean": 0.54,
+          "oracle_over_sol_mean": 0.179,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.23519,
+          "missed_mass_sol": {
+            "mean": 0.107603,
+            "p10": 0.000486,
+            "median": 0.034897,
+            "p90": 0.315307
+          },
+          "missed_mass_quest": {
+            "mean": 0.108586,
+            "p10": 0.001123,
+            "median": 0.028076,
+            "p90": 0.365331
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.05596,
+            "p10": 0.000209,
+            "median": 0.006065,
+            "p90": 0.18698
+          },
+          "missed_mass_oracle": {
+            "mean": 0.016307,
+            "p10": 0.000077,
+            "median": 0.002017,
+            "p90": 0.051058
+          },
+          "quest_over_sol_mean": 1.0091,
+          "blockmax_over_sol_mean": 0.5201,
+          "oracle_over_sol_mean": 0.1515,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.477535,
+              "p10": 0.279141,
+              "median": 0.483289,
+              "p90": 0.672139
+            },
+            "discretionary": {
+              "mean": 0.472095,
+              "p10": 0.247059,
+              "median": 0.474194,
+              "p90": 0.7
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.473903,
+              "p10": 0.258599,
+              "median": 0.475827,
+              "p90": 0.686957
+            },
+            "discretionary": {
+              "mean": 0.459401,
+              "p10": 0.239024,
+              "median": 0.459119,
+              "p90": 0.681818
+            }
+          },
+          "jaccard_chance_all": 0.1214,
+          "jaccard_chance_discretionary": 0.1129,
+          "mean_routed_blocks": 353.3,
+          "mean_discretionary_routed_blocks": 325.3
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.462118,
+              "p10": 0.29674,
+              "median": 0.466127,
+              "p90": 0.627526
+            },
+            "discretionary": {
+              "mean": 0.454451,
+              "p10": 0.270597,
+              "median": 0.458813,
+              "p90": 0.637691
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.43225,
+              "p10": 0.223529,
+              "median": 0.414925,
+              "p90": 0.672199
+            },
+            "discretionary": {
+              "mean": 0.416837,
+              "p10": 0.203394,
+              "median": 0.398058,
+              "p90": 0.664575
+            }
+          },
+          "jaccard_chance_all": 0.123,
+          "jaccard_chance_discretionary": 0.1152,
+          "mean_routed_blocks": 1429.0,
+          "mean_discretionary_routed_blocks": 1326.0
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.481516,
+              "p10": 0.273148,
+              "median": 0.492958,
+              "p90": 0.677111
+            },
+            "discretionary": {
+              "mean": 0.469668,
+              "p10": 0.237178,
+              "median": 0.481481,
+              "p90": 0.690722
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.503712,
+              "p10": 0.267606,
+              "median": 0.510309,
+              "p90": 0.731707
+            },
+            "discretionary": {
+              "mean": 0.487429,
+              "p10": 0.246267,
+              "median": 0.492468,
+              "p90": 0.723958
+            }
+          },
+          "jaccard_chance_all": 0.1276,
+          "jaccard_chance_discretionary": 0.1191,
+          "mean_routed_blocks": 369.2,
+          "mean_discretionary_routed_blocks": 341.2
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.522771,
+              "p10": 0.334866,
+              "median": 0.5332,
+              "p90": 0.705472
+            },
+            "discretionary": {
+              "mean": 0.515519,
+              "p10": 0.307074,
+              "median": 0.525291,
+              "p90": 0.71899
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.512633,
+              "p10": 0.260163,
+              "median": 0.522249,
+              "p90": 0.752911
+            },
+            "discretionary": {
+              "mean": 0.497527,
+              "p10": 0.237551,
+              "median": 0.506304,
+              "p90": 0.748128
+            }
+          },
+          "jaccard_chance_all": 0.129,
+          "jaccard_chance_discretionary": 0.1212,
+          "mean_routed_blocks": 1490.6,
+          "mean_discretionary_routed_blocks": 1387.6
+        }
+      },
+      "seconds": 65.5
+    },
+    "2026-09-03_base16_t2v_1344x768/b40_s15": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.484854,
+            "p10": 0.316965,
+            "median": 0.475684,
+            "p90": 0.673388
+          },
+          "query": {
+            "mean": 0.366856,
+            "p10": 0.275567,
+            "median": 0.364371,
+            "p90": 0.468435
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.418186,
+            "p10": 0.268726,
+            "median": 0.401201,
+            "p90": 0.590478
+          },
+          "query": {
+            "mean": 0.322977,
+            "p10": 0.226021,
+            "median": 0.319921,
+            "p90": 0.42849
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.431597,
+            "p10": 0.286222,
+            "median": 0.416582,
+            "p90": 0.592875
+          },
+          "query": {
+            "mean": 0.339865,
+            "p10": 0.258151,
+            "median": 0.335358,
+            "p90": 0.431056
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.371311,
+            "p10": 0.229769,
+            "median": 0.355393,
+            "p90": 0.530137
+          },
+          "query": {
+            "mean": 0.296859,
+            "p10": 0.199962,
+            "median": 0.29423,
+            "p90": 0.398319
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.20229,
+        "raster_b16": 0.19498,
+        "3d_b64": 0.19815,
+        "3d_b16": 0.19672
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.20229,
+          "missed_mass": {
+            "mean": 0.238782,
+            "p10": 0.046285,
+            "median": 0.201569,
+            "p90": 0.477209
+          },
+          "pooled_block_top_fraction_share": 0.975252,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 20222.484375,
+            "p10": 13353.0,
+            "median": 19072.0,
+            "p90": 29097.0
+          },
+          "routed_blocks": {
+            "mean": 316.083282,
+            "p10": 209.0,
+            "median": 298.0,
+            "p90": 455.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 710.27948,
+            "p10": 13.0,
+            "median": 234.0,
+            "p90": 1858.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 384.734833,
+            "p10": 11.438322,
+            "median": 84.560921,
+            "p90": 1198.129395
+          }
+        },
+        "raster_b16": {
+          "density": 0.19498,
+          "missed_mass": {
+            "mean": 0.204458,
+            "p10": 0.036659,
+            "median": 0.161927,
+            "p90": 0.408555
+          },
+          "pooled_block_top_fraction_share": 0.959274,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 19391.037109,
+            "p10": 13264.0,
+            "median": 17929.0,
+            "p90": 27488.0
+          },
+          "routed_blocks": {
+            "mean": 1212.085083,
+            "p10": 829.0,
+            "median": 1121.0,
+            "p90": 1718.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 710.27948,
+            "p10": 13.0,
+            "median": 234.0,
+            "p90": 1858.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 372.978546,
+            "p10": 11.386728,
+            "median": 80.258163,
+            "p90": 1163.00769
+          }
+        },
+        "3d_b64": {
+          "density": 0.19815,
+          "missed_mass": {
+            "mean": 0.252265,
+            "p10": 0.031159,
+            "median": 0.154375,
+            "p90": 0.595732
+          },
+          "pooled_block_top_fraction_share": 0.973984,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 19727.515625,
+            "p10": 13184.0,
+            "median": 18688.0,
+            "p90": 27753.0
+          },
+          "routed_blocks": {
+            "mean": 308.308777,
+            "p10": 206.0,
+            "median": 292.0,
+            "p90": 434.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 710.27948,
+            "p10": 13.0,
+            "median": 234.0,
+            "p90": 1858.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 372.56955,
+            "p10": 11.872752,
+            "median": 82.246147,
+            "p90": 1156.297119
+          }
+        },
+        "3d_b16": {
+          "density": 0.19672,
+          "missed_mass": {
+            "mean": 0.180187,
+            "p10": 0.025639,
+            "median": 0.125673,
+            "p90": 0.405916
+          },
+          "pooled_block_top_fraction_share": 0.953685,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 19562.828125,
+            "p10": 13728.0,
+            "median": 18169.0,
+            "p90": 27568.0
+          },
+          "routed_blocks": {
+            "mean": 1222.792114,
+            "p10": 858.0,
+            "median": 1136.0,
+            "p90": 1723.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 710.27948,
+            "p10": 13.0,
+            "median": 234.0,
+            "p90": 1858.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 378.536987,
+            "p10": 11.736945,
+            "median": 80.753738,
+            "p90": 1182.778076
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.20229,
+          "missed_mass_sol": {
+            "mean": 0.238782,
+            "p10": 0.046285,
+            "median": 0.201569,
+            "p90": 0.477209
+          },
+          "missed_mass_quest": {
+            "mean": 0.344439,
+            "p10": 0.093794,
+            "median": 0.325887,
+            "p90": 0.60948
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.216798,
+            "p10": 0.013632,
+            "median": 0.110091,
+            "p90": 0.62062
+          },
+          "missed_mass_oracle": {
+            "mean": 0.031189,
+            "p10": 0.005009,
+            "median": 0.020027,
+            "p90": 0.068579
+          },
+          "quest_over_sol_mean": 1.4425,
+          "blockmax_over_sol_mean": 0.9079,
+          "oracle_over_sol_mean": 0.1306,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.19498,
+          "missed_mass_sol": {
+            "mean": 0.204458,
+            "p10": 0.036659,
+            "median": 0.161927,
+            "p90": 0.408555
+          },
+          "missed_mass_quest": {
+            "mean": 0.244448,
+            "p10": 0.059646,
+            "median": 0.193862,
+            "p90": 0.506038
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.121338,
+            "p10": 0.007788,
+            "median": 0.043053,
+            "p90": 0.370199
+          },
+          "missed_mass_oracle": {
+            "mean": 0.019049,
+            "p10": 0.002369,
+            "median": 0.010479,
+            "p90": 0.043148
+          },
+          "quest_over_sol_mean": 1.1956,
+          "blockmax_over_sol_mean": 0.5935,
+          "oracle_over_sol_mean": 0.0932,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.19815,
+          "missed_mass_sol": {
+            "mean": 0.252265,
+            "p10": 0.031159,
+            "median": 0.154375,
+            "p90": 0.595732
+          },
+          "missed_mass_quest": {
+            "mean": 0.326698,
+            "p10": 0.070727,
+            "median": 0.303421,
+            "p90": 0.615971
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.141308,
+            "p10": 0.010098,
+            "median": 0.051328,
+            "p90": 0.449736
+          },
+          "missed_mass_oracle": {
+            "mean": 0.024676,
+            "p10": 0.003709,
+            "median": 0.014574,
+            "p90": 0.055056
+          },
+          "quest_over_sol_mean": 1.2951,
+          "blockmax_over_sol_mean": 0.5602,
+          "oracle_over_sol_mean": 0.0978,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.19672,
+          "missed_mass_sol": {
+            "mean": 0.180187,
+            "p10": 0.025639,
+            "median": 0.125673,
+            "p90": 0.405916
+          },
+          "missed_mass_quest": {
+            "mean": 0.192902,
+            "p10": 0.027862,
+            "median": 0.129822,
+            "p90": 0.449494
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.078574,
+            "p10": 0.005272,
+            "median": 0.02504,
+            "p90": 0.196606
+          },
+          "missed_mass_oracle": {
+            "mean": 0.016197,
+            "p10": 0.001804,
+            "median": 0.008218,
+            "p90": 0.03701
+          },
+          "quest_over_sol_mean": 1.0706,
+          "blockmax_over_sol_mean": 0.4361,
+          "oracle_over_sol_mean": 0.0899,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.398876,
+              "p10": 0.212121,
+              "median": 0.379157,
+              "p90": 0.624191
+            },
+            "discretionary": {
+              "mean": 0.384902,
+              "p10": 0.186916,
+              "median": 0.359682,
+              "p90": 0.625551
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.381345,
+              "p10": 0.178218,
+              "median": 0.348837,
+              "p90": 0.638336
+            },
+            "discretionary": {
+              "mean": 0.359995,
+              "p10": 0.152882,
+              "median": 0.32043,
+              "p90": 0.631031
+            }
+          },
+          "jaccard_chance_all": 0.1062,
+          "jaccard_chance_discretionary": 0.0976,
+          "mean_routed_blocks": 313.1,
+          "mean_discretionary_routed_blocks": 285.1
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.376322,
+              "p10": 0.221484,
+              "median": 0.353408,
+              "p90": 0.576237
+            },
+            "discretionary": {
+              "mean": 0.363447,
+              "p10": 0.199486,
+              "median": 0.335314,
+              "p90": 0.576644
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.34158,
+              "p10": 0.16269,
+              "median": 0.299289,
+              "p90": 0.598937
+            },
+            "discretionary": {
+              "mean": 0.321766,
+              "p10": 0.135606,
+              "median": 0.274336,
+              "p90": 0.592793
+            }
+          },
+          "jaccard_chance_all": 0.1002,
+          "jaccard_chance_discretionary": 0.0923,
+          "mean_routed_blocks": 1188.5,
+          "mean_discretionary_routed_blocks": 1085.5
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.398417,
+              "p10": 0.220992,
+              "median": 0.379501,
+              "p90": 0.608554
+            },
+            "discretionary": {
+              "mean": 0.382118,
+              "p10": 0.196581,
+              "median": 0.358567,
+              "p90": 0.604446
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.40356,
+              "p10": 0.189319,
+              "median": 0.367713,
+              "p90": 0.685333
+            },
+            "discretionary": {
+              "mean": 0.381714,
+              "p10": 0.162393,
+              "median": 0.338656,
+              "p90": 0.678261
+            }
+          },
+          "jaccard_chance_all": 0.1033,
+          "jaccard_chance_discretionary": 0.0947,
+          "mean_routed_blocks": 305.3,
+          "mean_discretionary_routed_blocks": 277.3
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.418424,
+              "p10": 0.254345,
+              "median": 0.39224,
+              "p90": 0.631608
+            },
+            "discretionary": {
+              "mean": 0.405675,
+              "p10": 0.235846,
+              "median": 0.373267,
+              "p90": 0.629363
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.401923,
+              "p10": 0.189189,
+              "median": 0.353999,
+              "p90": 0.702737
+            },
+            "discretionary": {
+              "mean": 0.382869,
+              "p10": 0.164544,
+              "median": 0.328,
+              "p90": 0.697893
+            }
+          },
+          "jaccard_chance_all": 0.1044,
+          "jaccard_chance_discretionary": 0.0965,
+          "mean_routed_blocks": 1232.9,
+          "mean_discretionary_routed_blocks": 1129.9
+        }
+      },
+      "seconds": 64.4
+    },
+    "2026-09-03_base16_t2v_1344x768/b32_s4": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.374747,
+            "p10": 0.289692,
+            "median": 0.363299,
+            "p90": 0.483382
+          },
+          "query": {
+            "mean": 0.390853,
+            "p10": 0.275358,
+            "median": 0.40023,
+            "p90": 0.481543
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.315756,
+            "p10": 0.22662,
+            "median": 0.302808,
+            "p90": 0.42493
+          },
+          "query": {
+            "mean": 0.333268,
+            "p10": 0.229559,
+            "median": 0.335706,
+            "p90": 0.428071
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.315107,
+            "p10": 0.218247,
+            "median": 0.300412,
+            "p90": 0.434866
+          },
+          "query": {
+            "mean": 0.327731,
+            "p10": 0.232242,
+            "median": 0.328643,
+            "p90": 0.420132
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.271925,
+            "p10": 0.170667,
+            "median": 0.263885,
+            "p90": 0.386231
+          },
+          "query": {
+            "mean": 0.288402,
+            "p10": 0.196243,
+            "median": 0.282294,
+            "p90": 0.390548
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.22237,
+        "raster_b16": 0.2252,
+        "3d_b64": 0.22604,
+        "3d_b16": 0.2278
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.22237,
+          "missed_mass": {
+            "mean": 0.211113,
+            "p10": 0.007328,
+            "median": 0.097421,
+            "p90": 0.608477
+          },
+          "pooled_block_top_fraction_share": 0.888649,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22250.011719,
+            "p10": 16064.0,
+            "median": 22016.0,
+            "p90": 28740.083984
+          },
+          "routed_blocks": {
+            "mean": 347.719849,
+            "p10": 251.0,
+            "median": 344.0,
+            "p90": 449.099609
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3515.036377,
+            "p10": 67.0,
+            "median": 972.5,
+            "p90": 13325.697266
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 140.338425,
+            "p10": 1.397368,
+            "median": 23.738016,
+            "p90": 303.617371
+          }
+        },
+        "raster_b16": {
+          "density": 0.2252,
+          "missed_mass": {
+            "mean": 0.177643,
+            "p10": 0.004474,
+            "median": 0.074849,
+            "p90": 0.5447
+          },
+          "pooled_block_top_fraction_share": 0.848043,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22586.285156,
+            "p10": 16288.0,
+            "median": 22624.0,
+            "p90": 28784.0
+          },
+          "routed_blocks": {
+            "mean": 1411.703369,
+            "p10": 1018.0,
+            "median": 1414.0,
+            "p90": 1799.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3515.036377,
+            "p10": 67.0,
+            "median": 972.5,
+            "p90": 13325.697266
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 135.150345,
+            "p10": 1.538621,
+            "median": 24.402111,
+            "p90": 302.036255
+          }
+        },
+        "3d_b64": {
+          "density": 0.22604,
+          "missed_mass": {
+            "mean": 0.198694,
+            "p10": 0.001901,
+            "median": 0.069672,
+            "p90": 0.600164
+          },
+          "pooled_block_top_fraction_share": 0.881176,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22647.041016,
+            "p10": 15168.0,
+            "median": 23488.0,
+            "p90": 28288.0
+          },
+          "routed_blocks": {
+            "mean": 353.922363,
+            "p10": 237.0,
+            "median": 367.0,
+            "p90": 442.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3515.036377,
+            "p10": 67.0,
+            "median": 972.5,
+            "p90": 13325.697266
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 130.453354,
+            "p10": 1.543605,
+            "median": 24.714945,
+            "p90": 301.916595
+          }
+        },
+        "3d_b16": {
+          "density": 0.2278,
+          "missed_mass": {
+            "mean": 0.163285,
+            "p10": 0.001371,
+            "median": 0.055521,
+            "p90": 0.523545
+          },
+          "pooled_block_top_fraction_share": 0.841796,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22847.412109,
+            "p10": 16176.0,
+            "median": 23328.0,
+            "p90": 28352.0
+          },
+          "routed_blocks": {
+            "mean": 1428.032593,
+            "p10": 1011.0,
+            "median": 1458.0,
+            "p90": 1772.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3515.036377,
+            "p10": 67.0,
+            "median": 972.5,
+            "p90": 13325.697266
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 133.115189,
+            "p10": 1.669312,
+            "median": 24.737129,
+            "p90": 309.233063
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.22237,
+          "missed_mass_sol": {
+            "mean": 0.211113,
+            "p10": 0.007328,
+            "median": 0.097421,
+            "p90": 0.608477
+          },
+          "missed_mass_quest": {
+            "mean": 0.271307,
+            "p10": 0.017159,
+            "median": 0.17539,
+            "p90": 0.680272
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.174886,
+            "p10": 0.006561,
+            "median": 0.063212,
+            "p90": 0.579391
+          },
+          "missed_mass_oracle": {
+            "mean": 0.091027,
+            "p10": 0.002254,
+            "median": 0.019907,
+            "p90": 0.393276
+          },
+          "quest_over_sol_mean": 1.2851,
+          "blockmax_over_sol_mean": 0.8284,
+          "oracle_over_sol_mean": 0.4312,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.2252,
+          "missed_mass_sol": {
+            "mean": 0.177643,
+            "p10": 0.004474,
+            "median": 0.074849,
+            "p90": 0.5447
+          },
+          "missed_mass_quest": {
+            "mean": 0.19767,
+            "p10": 0.009119,
+            "median": 0.106657,
+            "p90": 0.587679
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.117417,
+            "p10": 0.002286,
+            "median": 0.025205,
+            "p90": 0.467812
+          },
+          "missed_mass_oracle": {
+            "mean": 0.061727,
+            "p10": 0.000677,
+            "median": 0.008228,
+            "p90": 0.275868
+          },
+          "quest_over_sol_mean": 1.1127,
+          "blockmax_over_sol_mean": 0.661,
+          "oracle_over_sol_mean": 0.3475,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.22604,
+          "missed_mass_sol": {
+            "mean": 0.198694,
+            "p10": 0.001901,
+            "median": 0.069672,
+            "p90": 0.600164
+          },
+          "missed_mass_quest": {
+            "mean": 0.218215,
+            "p10": 0.003719,
+            "median": 0.100965,
+            "p90": 0.633111
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.136102,
+            "p10": 0.001527,
+            "median": 0.026282,
+            "p90": 0.534468
+          },
+          "missed_mass_oracle": {
+            "mean": 0.080032,
+            "p10": 0.000494,
+            "median": 0.01064,
+            "p90": 0.334667
+          },
+          "quest_over_sol_mean": 1.0982,
+          "blockmax_over_sol_mean": 0.685,
+          "oracle_over_sol_mean": 0.4028,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.2278,
+          "missed_mass_sol": {
+            "mean": 0.163285,
+            "p10": 0.001371,
+            "median": 0.055521,
+            "p90": 0.523545
+          },
+          "missed_mass_quest": {
+            "mean": 0.162465,
+            "p10": 0.002301,
+            "median": 0.058833,
+            "p90": 0.554207
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.103264,
+            "p10": 0.000693,
+            "median": 0.014031,
+            "p90": 0.430794
+          },
+          "missed_mass_oracle": {
+            "mean": 0.057483,
+            "p10": 0.000273,
+            "median": 0.006008,
+            "p90": 0.237232
+          },
+          "quest_over_sol_mean": 0.995,
+          "blockmax_over_sol_mean": 0.6324,
+          "oracle_over_sol_mean": 0.352,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.477182,
+              "p10": 0.243092,
+              "median": 0.503268,
+              "p90": 0.67366
+            },
+            "discretionary": {
+              "mean": 0.472672,
+              "p10": 0.214891,
+              "median": 0.495455,
+              "p90": 0.696703
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.462017,
+              "p10": 0.223199,
+              "median": 0.471459,
+              "p90": 0.682451
+            },
+            "discretionary": {
+              "mean": 0.449848,
+              "p10": 0.204819,
+              "median": 0.458937,
+              "p90": 0.677019
+            }
+          },
+          "jaccard_chance_all": 0.1183,
+          "jaccard_chance_discretionary": 0.1097,
+          "mean_routed_blocks": 345.0,
+          "mean_discretionary_routed_blocks": 317.0
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.46482,
+              "p10": 0.26276,
+              "median": 0.484447,
+              "p90": 0.644992
+            },
+            "discretionary": {
+              "mean": 0.460222,
+              "p10": 0.241152,
+              "median": 0.479415,
+              "p90": 0.658148
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.425163,
+              "p10": 0.200834,
+              "median": 0.416026,
+              "p90": 0.664539
+            },
+            "discretionary": {
+              "mean": 0.412799,
+              "p10": 0.184646,
+              "median": 0.402532,
+              "p90": 0.658177
+            }
+          },
+          "jaccard_chance_all": 0.1208,
+          "jaccard_chance_discretionary": 0.113,
+          "mean_routed_blocks": 1406.2,
+          "mean_discretionary_routed_blocks": 1303.2
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.490208,
+              "p10": 0.248619,
+              "median": 0.514143,
+              "p90": 0.696003
+            },
+            "discretionary": {
+              "mean": 0.481667,
+              "p10": 0.220843,
+              "median": 0.503283,
+              "p90": 0.712121
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.486775,
+              "p10": 0.232759,
+              "median": 0.5,
+              "p90": 0.718593
+            },
+            "discretionary": {
+              "mean": 0.47289,
+              "p10": 0.213287,
+              "median": 0.485471,
+              "p90": 0.711009
+            }
+          },
+          "jaccard_chance_all": 0.1212,
+          "jaccard_chance_discretionary": 0.1127,
+          "mean_routed_blocks": 352.6,
+          "mean_discretionary_routed_blocks": 324.6
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.51858,
+              "p10": 0.283659,
+              "median": 0.549706,
+              "p90": 0.712995
+            },
+            "discretionary": {
+              "mean": 0.514941,
+              "p10": 0.265139,
+              "median": 0.544323,
+              "p90": 0.729426
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.487809,
+              "p10": 0.223292,
+              "median": 0.503411,
+              "p90": 0.73039
+            },
+            "discretionary": {
+              "mean": 0.475497,
+              "p10": 0.206656,
+              "median": 0.489861,
+              "p90": 0.724539
+            }
+          },
+          "jaccard_chance_all": 0.1237,
+          "jaccard_chance_discretionary": 0.1158,
+          "mean_routed_blocks": 1435.8,
+          "mean_discretionary_routed_blocks": 1332.8
+        }
+      },
+      "seconds": 63.8
+    },
+    "2026-09-10_sol_impl_courtroom/b0_s13": {
+      "tokens": 104486,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1670,
+      "audio_span": [
+        520,
+        1670
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.295004,
+            "p10": 0.129237,
+            "median": 0.236016,
+            "p90": 0.517759
+          },
+          "query": {
+            "mean": 0.260996,
+            "p10": 0.070398,
+            "median": 0.176684,
+            "p90": 0.595968
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.246673,
+            "p10": 0.09227,
+            "median": 0.203325,
+            "p90": 0.478199
+          },
+          "query": {
+            "mean": 0.185477,
+            "p10": 0.056487,
+            "median": 0.088786,
+            "p90": 0.429274
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.33602,
+            "p10": 0.200191,
+            "median": 0.270713,
+            "p90": 0.592937
+          },
+          "query": {
+            "mean": 0.217496,
+            "p10": 0.059828,
+            "median": 0.210684,
+            "p90": 0.33954
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.258016,
+            "p10": 0.154156,
+            "median": 0.225767,
+            "p90": 0.475497
+          },
+          "query": {
+            "mean": 0.147448,
+            "p10": 0.04885,
+            "median": 0.157784,
+            "p90": 0.192803
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.2175,
+        "raster_b16": 0.22173,
+        "3d_b64": 0.22465,
+        "3d_b16": 0.22275
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.2175,
+          "missed_mass": {
+            "mean": 0.357834,
+            "p10": 0.002823,
+            "median": 0.347437,
+            "p90": 0.79241
+          },
+          "pooled_block_top_fraction_share": 0.561703,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 21787.072266,
+            "p10": 12736.0,
+            "median": 22784.0,
+            "p90": 27712.0
+          },
+          "routed_blocks": {
+            "mean": 340.486877,
+            "p10": 199.0,
+            "median": 356.0,
+            "p90": 433.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 24451.400391,
+            "p10": 457.0,
+            "median": 22680.0,
+            "p90": 53579.5
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.048961,
+            "p10": 0.231653,
+            "median": 1.152847,
+            "p90": 45.942711
+          }
+        },
+        "raster_b16": {
+          "density": 0.22173,
+          "missed_mass": {
+            "mean": 0.322317,
+            "p10": 0.002117,
+            "median": 0.285494,
+            "p90": 0.745302
+          },
+          "pooled_block_top_fraction_share": 0.48828,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22266.808594,
+            "p10": 14704.0,
+            "median": 22403.0,
+            "p90": 29824.597656
+          },
+          "routed_blocks": {
+            "mean": 1391.825928,
+            "p10": 919.0,
+            "median": 1400.5,
+            "p90": 1864.099609
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 24451.400391,
+            "p10": 457.0,
+            "median": 22680.0,
+            "p90": 53579.5
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.005582,
+            "p10": 0.272523,
+            "median": 1.332211,
+            "p90": 46.133038
+          }
+        },
+        "3d_b64": {
+          "density": 0.22465,
+          "missed_mass": {
+            "mean": 0.32367,
+            "p10": 0.010533,
+            "median": 0.275496,
+            "p90": 0.731027
+          },
+          "pooled_block_top_fraction_share": 0.507605,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22591.121094,
+            "p10": 14178.201172,
+            "median": 22912.0,
+            "p90": 28966.0
+          },
+          "routed_blocks": {
+            "mean": 353.073334,
+            "p10": 221.900024,
+            "median": 358.0,
+            "p90": 453.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 24451.400391,
+            "p10": 457.0,
+            "median": 22680.0,
+            "p90": 53579.5
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.41221,
+            "p10": 0.268056,
+            "median": 1.206698,
+            "p90": 47.861107
+          }
+        },
+        "3d_b16": {
+          "density": 0.22275,
+          "missed_mass": {
+            "mean": 0.27354,
+            "p10": 0.004974,
+            "median": 0.233334,
+            "p90": 0.699061
+          },
+          "pooled_block_top_fraction_share": 0.42866,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22377.345703,
+            "p10": 15184.0,
+            "median": 22576.0,
+            "p90": 28448.0
+          },
+          "routed_blocks": {
+            "mean": 1398.727173,
+            "p10": 949.0,
+            "median": 1411.0,
+            "p90": 1778.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 24451.400391,
+            "p10": 457.0,
+            "median": 22680.0,
+            "p90": 53579.5
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 8.094796,
+            "p10": 0.280579,
+            "median": 1.190408,
+            "p90": 45.356052
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.2175,
+          "missed_mass_sol": {
+            "mean": 0.357834,
+            "p10": 0.002823,
+            "median": 0.347437,
+            "p90": 0.79241
+          },
+          "missed_mass_quest": {
+            "mean": 0.387208,
+            "p10": 0.003155,
+            "median": 0.388972,
+            "p90": 0.818468
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.355133,
+            "p10": 0.00261,
+            "median": 0.356197,
+            "p90": 0.804975
+          },
+          "missed_mass_oracle": {
+            "mean": 0.329825,
+            "p10": 0.002308,
+            "median": 0.324714,
+            "p90": 0.776941
+          },
+          "quest_over_sol_mean": 1.0821,
+          "blockmax_over_sol_mean": 0.9925,
+          "oracle_over_sol_mean": 0.9217,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.22173,
+          "missed_mass_sol": {
+            "mean": 0.322317,
+            "p10": 0.002117,
+            "median": 0.285494,
+            "p90": 0.745302
+          },
+          "missed_mass_quest": {
+            "mean": 0.35016,
+            "p10": 0.002155,
+            "median": 0.328553,
+            "p90": 0.762135
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.309913,
+            "p10": 0.002006,
+            "median": 0.287689,
+            "p90": 0.744626
+          },
+          "missed_mass_oracle": {
+            "mean": 0.257162,
+            "p10": 0.001501,
+            "median": 0.221455,
+            "p90": 0.699413
+          },
+          "quest_over_sol_mean": 1.0864,
+          "blockmax_over_sol_mean": 0.9615,
+          "oracle_over_sol_mean": 0.7979,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.22465,
+          "missed_mass_sol": {
+            "mean": 0.32367,
+            "p10": 0.010533,
+            "median": 0.275496,
+            "p90": 0.731027
+          },
+          "missed_mass_quest": {
+            "mean": 0.350238,
+            "p10": 0.012088,
+            "median": 0.309053,
+            "p90": 0.759898
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.309541,
+            "p10": 0.01026,
+            "median": 0.256395,
+            "p90": 0.736464
+          },
+          "missed_mass_oracle": {
+            "mean": 0.249976,
+            "p10": 0.003997,
+            "median": 0.185558,
+            "p90": 0.712291
+          },
+          "quest_over_sol_mean": 1.0821,
+          "blockmax_over_sol_mean": 0.9563,
+          "oracle_over_sol_mean": 0.7723,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.22275,
+          "missed_mass_sol": {
+            "mean": 0.27354,
+            "p10": 0.004974,
+            "median": 0.233334,
+            "p90": 0.699061
+          },
+          "missed_mass_quest": {
+            "mean": 0.29725,
+            "p10": 0.004604,
+            "median": 0.252481,
+            "p90": 0.732091
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.257265,
+            "p10": 0.003865,
+            "median": 0.203641,
+            "p90": 0.703562
+          },
+          "missed_mass_oracle": {
+            "mean": 0.223051,
+            "p10": 0.002191,
+            "median": 0.144485,
+            "p90": 0.677484
+          },
+          "quest_over_sol_mean": 1.0867,
+          "blockmax_over_sol_mean": 0.9405,
+          "oracle_over_sol_mean": 0.8154,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.620082,
+              "p10": 0.382659,
+              "median": 0.656716,
+              "p90": 0.810626
+            },
+            "discretionary": {
+              "mean": 0.660717,
+              "p10": 0.407724,
+              "median": 0.68597,
+              "p90": 0.880503
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.644568,
+              "p10": 0.365019,
+              "median": 0.675418,
+              "p90": 0.867725
+            },
+            "discretionary": {
+              "mean": 0.627775,
+              "p10": 0.336427,
+              "median": 0.662468,
+              "p90": 0.860058
+            }
+          },
+          "jaccard_chance_all": 0.116,
+          "jaccard_chance_discretionary": 0.1069,
+          "mean_routed_blocks": 339.6,
+          "mean_discretionary_routed_blocks": 309.6
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.576885,
+              "p10": 0.295129,
+              "median": 0.607203,
+              "p90": 0.792565
+            },
+            "discretionary": {
+              "mean": 0.612389,
+              "p10": 0.321997,
+              "median": 0.630618,
+              "p90": 0.85929
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.610994,
+              "p10": 0.301468,
+              "median": 0.650832,
+              "p90": 0.851499
+            },
+            "discretionary": {
+              "mean": 0.598748,
+              "p10": 0.284905,
+              "median": 0.638607,
+              "p90": 0.843621
+            }
+          },
+          "jaccard_chance_all": 0.1181,
+          "jaccard_chance_discretionary": 0.1096,
+          "mean_routed_blocks": 1379.5,
+          "mean_discretionary_routed_blocks": 1268.5
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.566677,
+              "p10": 0.321763,
+              "median": 0.582766,
+              "p90": 0.779909
+            },
+            "discretionary": {
+              "mean": 0.600196,
+              "p10": 0.330577,
+              "median": 0.616438,
+              "p90": 0.831579
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.584375,
+              "p10": 0.285714,
+              "median": 0.610136,
+              "p90": 0.851064
+            },
+            "discretionary": {
+              "mean": 0.571983,
+              "p10": 0.27027,
+              "median": 0.597561,
+              "p90": 0.846154
+            }
+          },
+          "jaccard_chance_all": 0.1199,
+          "jaccard_chance_discretionary": 0.1107,
+          "mean_routed_blocks": 349.6,
+          "mean_discretionary_routed_blocks": 319.6
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.604652,
+              "p10": 0.427536,
+              "median": 0.619606,
+              "p90": 0.778367
+            },
+            "discretionary": {
+              "mean": 0.639125,
+              "p10": 0.4453,
+              "median": 0.654216,
+              "p90": 0.828611
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.644986,
+              "p10": 0.41266,
+              "median": 0.666471,
+              "p90": 0.858657
+            },
+            "discretionary": {
+              "mean": 0.632879,
+              "p10": 0.391196,
+              "median": 0.653941,
+              "p90": 0.852049
+            }
+          },
+          "jaccard_chance_all": 0.1197,
+          "jaccard_chance_discretionary": 0.1113,
+          "mean_routed_blocks": 1396.6,
+          "mean_discretionary_routed_blocks": 1285.6
+        }
+      },
+      "seconds": 67.1
+    },
+    "2026-09-10_sol_impl_courtroom/b24_s13": {
+      "tokens": 104486,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1670,
+      "audio_span": [
+        520,
+        1670
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.486082,
+            "p10": 0.393138,
+            "median": 0.467209,
+            "p90": 0.643941
+          },
+          "query": {
+            "mean": 0.524857,
+            "p10": 0.41517,
+            "median": 0.516212,
+            "p90": 0.66561
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.408897,
+            "p10": 0.303336,
+            "median": 0.394501,
+            "p90": 0.554915
+          },
+          "query": {
+            "mean": 0.442301,
+            "p10": 0.319704,
+            "median": 0.436876,
+            "p90": 0.582616
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.42381,
+            "p10": 0.348476,
+            "median": 0.412098,
+            "p90": 0.530487
+          },
+          "query": {
+            "mean": 0.465263,
+            "p10": 0.366191,
+            "median": 0.463405,
+            "p90": 0.565481
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.341332,
+            "p10": 0.248562,
+            "median": 0.330844,
+            "p90": 0.45444
+          },
+          "query": {
+            "mean": 0.381956,
+            "p10": 0.276374,
+            "median": 0.376256,
+            "p90": 0.494982
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.22012,
+        "raster_b16": 0.22014,
+        "3d_b64": 0.22162,
+        "3d_b16": 0.21855
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.22012,
+          "missed_mass": {
+            "mean": 0.182133,
+            "p10": 0.003073,
+            "median": 0.103104,
+            "p90": 0.499627
+          },
+          "pooled_block_top_fraction_share": 0.960841,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22056.257812,
+            "p10": 17792.0,
+            "median": 21440.0,
+            "p90": 27366.0
+          },
+          "routed_blocks": {
+            "mean": 344.713654,
+            "p10": 278.0,
+            "median": 335.0,
+            "p90": 428.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1110.048462,
+            "p10": 49.0,
+            "median": 345.0,
+            "p90": 3384.199219
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 174.032822,
+            "p10": 6.416966,
+            "median": 64.0,
+            "p90": 444.193878
+          }
+        },
+        "raster_b16": {
+          "density": 0.22014,
+          "missed_mass": {
+            "mean": 0.130956,
+            "p10": 0.001547,
+            "median": 0.064287,
+            "p90": 0.372469
+          },
+          "pooled_block_top_fraction_share": 0.927924,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 22058.830078,
+            "p10": 18373.400391,
+            "median": 21456.0,
+            "p90": 26848.0
+          },
+          "routed_blocks": {
+            "mean": 1378.806641,
+            "p10": 1148.900024,
+            "median": 1341.0,
+            "p90": 1678.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1110.048462,
+            "p10": 49.0,
+            "median": 345.0,
+            "p90": 3384.199219
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 172.055298,
+            "p10": 6.494792,
+            "median": 64.195251,
+            "p90": 436.689697
+          }
+        },
+        "3d_b64": {
+          "density": 0.22162,
+          "missed_mass": {
+            "mean": 0.140274,
+            "p10": 0.00132,
+            "median": 0.056938,
+            "p90": 0.419537
+          },
+          "pooled_block_top_fraction_share": 0.946262,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22239.117188,
+            "p10": 18816.0,
+            "median": 21798.0,
+            "p90": 26368.0
+          },
+          "routed_blocks": {
+            "mean": 347.564392,
+            "p10": 294.0,
+            "median": 341.0,
+            "p90": 412.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1110.048462,
+            "p10": 49.0,
+            "median": 345.0,
+            "p90": 3384.199219
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 172.674622,
+            "p10": 6.611234,
+            "median": 64.332947,
+            "p90": 437.468719
+          }
+        },
+        "3d_b16": {
+          "density": 0.21855,
+          "missed_mass": {
+            "mean": 0.109809,
+            "p10": 0.000635,
+            "median": 0.038647,
+            "p90": 0.332036
+          },
+          "pooled_block_top_fraction_share": 0.914873,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21907.146484,
+            "p10": 18768.0,
+            "median": 21302.0,
+            "p90": 26080.0
+          },
+          "routed_blocks": {
+            "mean": 1369.313721,
+            "p10": 1173.0,
+            "median": 1332.0,
+            "p90": 1630.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1110.048462,
+            "p10": 49.0,
+            "median": 345.0,
+            "p90": 3384.199219
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 170.709091,
+            "p10": 6.397339,
+            "median": 63.793213,
+            "p90": 430.838989
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.22012,
+          "missed_mass_sol": {
+            "mean": 0.182133,
+            "p10": 0.003073,
+            "median": 0.103104,
+            "p90": 0.499627
+          },
+          "missed_mass_quest": {
+            "mean": 0.213078,
+            "p10": 0.009007,
+            "median": 0.152203,
+            "p90": 0.516239
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.148299,
+            "p10": 0.002343,
+            "median": 0.052607,
+            "p90": 0.464708
+          },
+          "missed_mass_oracle": {
+            "mean": 0.035802,
+            "p10": 0.000487,
+            "median": 0.008847,
+            "p90": 0.114925
+          },
+          "quest_over_sol_mean": 1.1699,
+          "blockmax_over_sol_mean": 0.8142,
+          "oracle_over_sol_mean": 0.1966,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.22014,
+          "missed_mass_sol": {
+            "mean": 0.130956,
+            "p10": 0.001547,
+            "median": 0.064287,
+            "p90": 0.372469
+          },
+          "missed_mass_quest": {
+            "mean": 0.118094,
+            "p10": 0.003875,
+            "median": 0.059342,
+            "p90": 0.326474
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.06984,
+            "p10": 0.000573,
+            "median": 0.017278,
+            "p90": 0.220015
+          },
+          "missed_mass_oracle": {
+            "mean": 0.016951,
+            "p10": 0.000135,
+            "median": 0.002865,
+            "p90": 0.056296
+          },
+          "quest_over_sol_mean": 0.9018,
+          "blockmax_over_sol_mean": 0.5333,
+          "oracle_over_sol_mean": 0.1294,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.22162,
+          "missed_mass_sol": {
+            "mean": 0.140274,
+            "p10": 0.00132,
+            "median": 0.056938,
+            "p90": 0.419537
+          },
+          "missed_mass_quest": {
+            "mean": 0.137476,
+            "p10": 0.003095,
+            "median": 0.083188,
+            "p90": 0.365739
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.084214,
+            "p10": 0.000927,
+            "median": 0.024648,
+            "p90": 0.262555
+          },
+          "missed_mass_oracle": {
+            "mean": 0.022861,
+            "p10": 0.0002,
+            "median": 0.005005,
+            "p90": 0.072929
+          },
+          "quest_over_sol_mean": 0.9801,
+          "blockmax_over_sol_mean": 0.6004,
+          "oracle_over_sol_mean": 0.163,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.21855,
+          "missed_mass_sol": {
+            "mean": 0.109809,
+            "p10": 0.000635,
+            "median": 0.038647,
+            "p90": 0.332036
+          },
+          "missed_mass_quest": {
+            "mean": 0.084512,
+            "p10": 0.001699,
+            "median": 0.035911,
+            "p90": 0.246982
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.04536,
+            "p10": 0.000286,
+            "median": 0.008647,
+            "p90": 0.143353
+          },
+          "missed_mass_oracle": {
+            "mean": 0.013337,
+            "p10": 0.00008,
+            "median": 0.002021,
+            "p90": 0.043352
+          },
+          "quest_over_sol_mean": 0.7696,
+          "blockmax_over_sol_mean": 0.4131,
+          "oracle_over_sol_mean": 0.1215,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.441356,
+              "p10": 0.238866,
+              "median": 0.451903,
+              "p90": 0.622829
+            },
+            "discretionary": {
+              "mean": 0.440181,
+              "p10": 0.215678,
+              "median": 0.451726,
+              "p90": 0.642178
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.421069,
+              "p10": 0.217742,
+              "median": 0.413919,
+              "p90": 0.631746
+            },
+            "discretionary": {
+              "mean": 0.41144,
+              "p10": 0.205882,
+              "median": 0.404082,
+              "p90": 0.625
+            }
+          },
+          "jaccard_chance_all": 0.117,
+          "jaccard_chance_discretionary": 0.1078,
+          "mean_routed_blocks": 342.0,
+          "mean_discretionary_routed_blocks": 312.0
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.463773,
+              "p10": 0.31822,
+              "median": 0.468396,
+              "p90": 0.602336
+            },
+            "discretionary": {
+              "mean": 0.461836,
+              "p10": 0.303355,
+              "median": 0.46517,
+              "p90": 0.614013
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.412948,
+              "p10": 0.227915,
+              "median": 0.410018,
+              "p90": 0.601604
+            },
+            "discretionary": {
+              "mean": 0.402818,
+              "p10": 0.217164,
+              "median": 0.399177,
+              "p90": 0.592822
+            }
+          },
+          "jaccard_chance_all": 0.1184,
+          "jaccard_chance_discretionary": 0.11,
+          "mean_routed_blocks": 1383.1,
+          "mean_discretionary_routed_blocks": 1272.1
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.452943,
+              "p10": 0.272695,
+              "median": 0.465438,
+              "p90": 0.607143
+            },
+            "discretionary": {
+              "mean": 0.44865,
+              "p10": 0.24206,
+              "median": 0.465995,
+              "p90": 0.617391
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.428082,
+              "p10": 0.231495,
+              "median": 0.419231,
+              "p90": 0.636364
+            },
+            "discretionary": {
+              "mean": 0.417433,
+              "p10": 0.220044,
+              "median": 0.408867,
+              "p90": 0.626866
+            }
+          },
+          "jaccard_chance_all": 0.1186,
+          "jaccard_chance_discretionary": 0.1094,
+          "mean_routed_blocks": 346.2,
+          "mean_discretionary_routed_blocks": 316.2
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.493861,
+              "p10": 0.358068,
+              "median": 0.496982,
+              "p90": 0.627337
+            },
+            "discretionary": {
+              "mean": 0.491911,
+              "p10": 0.343482,
+              "median": 0.495021,
+              "p90": 0.637994
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.44343,
+              "p10": 0.258586,
+              "median": 0.442724,
+              "p90": 0.628571
+            },
+            "discretionary": {
+              "mean": 0.433248,
+              "p10": 0.248365,
+              "median": 0.432349,
+              "p90": 0.61831
+            }
+          },
+          "jaccard_chance_all": 0.1173,
+          "jaccard_chance_discretionary": 0.1088,
+          "mean_routed_blocks": 1371.0,
+          "mean_discretionary_routed_blocks": 1260.0
+        }
+      },
+      "seconds": 65.9
+    },
+    "2026-09-10_sol_impl_courtroom/b49_s13": {
+      "tokens": 104486,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1670,
+      "audio_span": [
+        520,
+        1670
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.199533,
+            "p10": 0.086037,
+            "median": 0.203406,
+            "p90": 0.305828
+          },
+          "query": {
+            "mean": 0.198654,
+            "p10": 0.085308,
+            "median": 0.203558,
+            "p90": 0.328995
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.139475,
+            "p10": 0.054301,
+            "median": 0.125817,
+            "p90": 0.23781
+          },
+          "query": {
+            "mean": 0.151617,
+            "p10": 0.053342,
+            "median": 0.155176,
+            "p90": 0.236907
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.130524,
+            "p10": 0.040267,
+            "median": 0.133021,
+            "p90": 0.235481
+          },
+          "query": {
+            "mean": 0.160674,
+            "p10": 0.061913,
+            "median": 0.159806,
+            "p90": 0.246333
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.089627,
+            "p10": 0.027003,
+            "median": 0.077481,
+            "p90": 0.175378
+          },
+          "query": {
+            "mean": 0.120859,
+            "p10": 0.038409,
+            "median": 0.122585,
+            "p90": 0.190089
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.21885,
+        "raster_b16": 0.21466,
+        "3d_b64": 0.22128,
+        "3d_b16": 0.21357
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.21885,
+          "missed_mass": {
+            "mean": 0.048294,
+            "p10": 0.0,
+            "median": 0.012924,
+            "p90": 0.149182
+          },
+          "pooled_block_top_fraction_share": 0.668327,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 21885.181641,
+            "p10": 17472.0,
+            "median": 21670.0,
+            "p90": 26560.0
+          },
+          "routed_blocks": {
+            "mean": 342.013855,
+            "p10": 273.0,
+            "median": 339.0,
+            "p90": 415.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3238.501465,
+            "p10": 5.0,
+            "median": 161.0,
+            "p90": 15609.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 1274.232788,
+            "p10": 1.658737,
+            "median": 140.712921,
+            "p90": 4134.824707
+          }
+        },
+        "raster_b16": {
+          "density": 0.21466,
+          "missed_mass": {
+            "mean": 0.034997,
+            "p10": 0.0,
+            "median": 0.006342,
+            "p90": 0.121208
+          },
+          "pooled_block_top_fraction_share": 0.516977,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21460.267578,
+            "p10": 17840.0,
+            "median": 21062.0,
+            "p90": 25712.0
+          },
+          "routed_blocks": {
+            "mean": 1341.362061,
+            "p10": 1115.0,
+            "median": 1317.0,
+            "p90": 1607.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3238.501465,
+            "p10": 5.0,
+            "median": 161.0,
+            "p90": 15609.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 1249.686157,
+            "p10": 1.614974,
+            "median": 134.162048,
+            "p90": 3961.600098
+          }
+        },
+        "3d_b64": {
+          "density": 0.22128,
+          "missed_mass": {
+            "mean": 0.027927,
+            "p10": 0.0,
+            "median": 0.003911,
+            "p90": 0.108972
+          },
+          "pooled_block_top_fraction_share": 0.52443,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22192.693359,
+            "p10": 18816.0,
+            "median": 22144.0,
+            "p90": 25728.0
+          },
+          "routed_blocks": {
+            "mean": 346.815002,
+            "p10": 294.0,
+            "median": 346.0,
+            "p90": 402.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3238.501465,
+            "p10": 5.0,
+            "median": 161.0,
+            "p90": 15609.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 1277.505127,
+            "p10": 1.583123,
+            "median": 135.62738,
+            "p90": 3993.600098
+          }
+        },
+        "3d_b16": {
+          "density": 0.21357,
+          "missed_mass": {
+            "mean": 0.021771,
+            "p10": 0.0,
+            "median": 0.002485,
+            "p90": 0.088033
+          },
+          "pooled_block_top_fraction_share": 0.403415,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21357.808594,
+            "p10": 17855.0,
+            "median": 21296.0,
+            "p90": 25184.0
+          },
+          "routed_blocks": {
+            "mean": 1334.95874,
+            "p10": 1116.0,
+            "median": 1331.0,
+            "p90": 1574.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 3238.501465,
+            "p10": 5.0,
+            "median": 161.0,
+            "p90": 15609.0
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 1227.629761,
+            "p10": 1.584489,
+            "median": 130.187439,
+            "p90": 3835.197998
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.21885,
+          "missed_mass_sol": {
+            "mean": 0.048294,
+            "p10": 0.0,
+            "median": 0.012924,
+            "p90": 0.149182
+          },
+          "missed_mass_quest": {
+            "mean": 0.169091,
+            "p10": 0.0,
+            "median": 0.04734,
+            "p90": 0.584692
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.047479,
+            "p10": 0.0,
+            "median": 0.01263,
+            "p90": 0.150095
+          },
+          "missed_mass_oracle": {
+            "mean": 0.033421,
+            "p10": 0.0,
+            "median": 0.004455,
+            "p90": 0.120921
+          },
+          "quest_over_sol_mean": 3.5013,
+          "blockmax_over_sol_mean": 0.9831,
+          "oracle_over_sol_mean": 0.692,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.21466,
+          "missed_mass_sol": {
+            "mean": 0.034997,
+            "p10": 0.0,
+            "median": 0.006342,
+            "p90": 0.121208
+          },
+          "missed_mass_quest": {
+            "mean": 0.104215,
+            "p10": 0.0,
+            "median": 0.021369,
+            "p90": 0.385561
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.033474,
+            "p10": 0.0,
+            "median": 0.005618,
+            "p90": 0.115793
+          },
+          "missed_mass_oracle": {
+            "mean": 0.022147,
+            "p10": 0.0,
+            "median": 0.002017,
+            "p90": 0.085163
+          },
+          "quest_over_sol_mean": 2.9778,
+          "blockmax_over_sol_mean": 0.9565,
+          "oracle_over_sol_mean": 0.6328,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.22128,
+          "missed_mass_sol": {
+            "mean": 0.027927,
+            "p10": 0.0,
+            "median": 0.003911,
+            "p90": 0.108972
+          },
+          "missed_mass_quest": {
+            "mean": 0.079671,
+            "p10": 0.0,
+            "median": 0.01705,
+            "p90": 0.270755
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.027948,
+            "p10": 0.0,
+            "median": 0.003805,
+            "p90": 0.109561
+          },
+          "missed_mass_oracle": {
+            "mean": 0.022237,
+            "p10": 0.0,
+            "median": 0.001755,
+            "p90": 0.094771
+          },
+          "quest_over_sol_mean": 2.8528,
+          "blockmax_over_sol_mean": 1.0007,
+          "oracle_over_sol_mean": 0.7962,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.21357,
+          "missed_mass_sol": {
+            "mean": 0.021771,
+            "p10": 0.0,
+            "median": 0.002485,
+            "p90": 0.088033
+          },
+          "missed_mass_quest": {
+            "mean": 0.045008,
+            "p10": 0.0,
+            "median": 0.007588,
+            "p90": 0.181277
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.021489,
+            "p10": 0.0,
+            "median": 0.002291,
+            "p90": 0.08696
+          },
+          "missed_mass_oracle": {
+            "mean": 0.017955,
+            "p10": 0.0,
+            "median": 0.00122,
+            "p90": 0.077744
+          },
+          "quest_over_sol_mean": 2.0673,
+          "blockmax_over_sol_mean": 0.987,
+          "oracle_over_sol_mean": 0.8247,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.631927,
+              "p10": 0.464286,
+              "median": 0.642418,
+              "p90": 0.785933
+            },
+            "discretionary": {
+              "mean": 0.648003,
+              "p10": 0.453966,
+              "median": 0.653179,
+              "p90": 0.833708
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.618381,
+              "p10": 0.395225,
+              "median": 0.620482,
+              "p90": 0.844875
+            },
+            "discretionary": {
+              "mean": 0.602446,
+              "p10": 0.368732,
+              "median": 0.603774,
+              "p90": 0.840256
+            }
+          },
+          "jaccard_chance_all": 0.1161,
+          "jaccard_chance_discretionary": 0.1069,
+          "mean_routed_blocks": 339.7,
+          "mean_discretionary_routed_blocks": 309.7
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.584971,
+              "p10": 0.450934,
+              "median": 0.586298,
+              "p90": 0.722561
+            },
+            "discretionary": {
+              "mean": 0.599271,
+              "p10": 0.451978,
+              "median": 0.593594,
+              "p90": 0.764712
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.556944,
+              "p10": 0.332636,
+              "median": 0.54902,
+              "p90": 0.806401
+            },
+            "discretionary": {
+              "mean": 0.542834,
+              "p10": 0.312584,
+              "median": 0.532531,
+              "p90": 0.801559
+            }
+          },
+          "jaccard_chance_all": 0.1143,
+          "jaccard_chance_discretionary": 0.1058,
+          "mean_routed_blocks": 1339.4,
+          "mean_discretionary_routed_blocks": 1228.4
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.635774,
+              "p10": 0.483441,
+              "median": 0.633571,
+              "p90": 0.795624
+            },
+            "discretionary": {
+              "mean": 0.64949,
+              "p10": 0.470317,
+              "median": 0.644699,
+              "p90": 0.840399
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.619453,
+              "p10": 0.407895,
+              "median": 0.610329,
+              "p90": 0.852196
+            },
+            "discretionary": {
+              "mean": 0.603654,
+              "p10": 0.38342,
+              "median": 0.593909,
+              "p90": 0.846154
+            }
+          },
+          "jaccard_chance_all": 0.1183,
+          "jaccard_chance_discretionary": 0.1091,
+          "mean_routed_blocks": 345.4,
+          "mean_discretionary_routed_blocks": 315.4
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.65839,
+              "p10": 0.517868,
+              "median": 0.657593,
+              "p90": 0.80031
+            },
+            "discretionary": {
+              "mean": 0.676457,
+              "p10": 0.508703,
+              "median": 0.669774,
+              "p90": 0.853006
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.643834,
+              "p10": 0.423748,
+              "median": 0.642902,
+              "p90": 0.87037
+            },
+            "discretionary": {
+              "mean": 0.631188,
+              "p10": 0.400551,
+              "median": 0.629837,
+              "p90": 0.867667
+            }
+          },
+          "jaccard_chance_all": 0.1141,
+          "jaccard_chance_discretionary": 0.1056,
+          "mean_routed_blocks": 1337.8,
+          "mean_discretionary_routed_blocks": 1226.8
+        }
+      },
+      "seconds": 72.3
+    },
+    "2026-09-03_base16_t2v_1344x768/b49_s15": {
+      "tokens": 104361,
+      "heads": 8,
+      "sample_queries": 2040,
+      "video_start": 1545,
+      "audio_span": [
+        395,
+        1545
+      ],
+      "grid_thw": [
+        102,
+        24,
+        42
+      ],
+      "A_spread": {
+        "raster_b64": {
+          "key": {
+            "mean": 0.206124,
+            "p10": 0.11061,
+            "median": 0.203353,
+            "p90": 0.308259
+          },
+          "query": {
+            "mean": 0.210206,
+            "p10": 0.101084,
+            "median": 0.210922,
+            "p90": 0.316931
+          },
+          "video_blocks": 1605
+        },
+        "raster_b16": {
+          "key": {
+            "mean": 0.143673,
+            "p10": 0.065884,
+            "median": 0.13522,
+            "p90": 0.243036
+          },
+          "query": {
+            "mean": 0.162565,
+            "p10": 0.064091,
+            "median": 0.170115,
+            "p90": 0.239679
+          },
+          "video_blocks": 6425
+        },
+        "3d_b64": {
+          "key": {
+            "mean": 0.13625,
+            "p10": 0.045107,
+            "median": 0.130205,
+            "p90": 0.240083
+          },
+          "query": {
+            "mean": 0.180514,
+            "p10": 0.082719,
+            "median": 0.179197,
+            "p90": 0.2651
+          },
+          "video_blocks": 1605
+        },
+        "3d_b16": {
+          "key": {
+            "mean": 0.095493,
+            "p10": 0.028069,
+            "median": 0.08066,
+            "p90": 0.190671
+          },
+          "query": {
+            "mean": 0.136764,
+            "p10": 0.046962,
+            "median": 0.139384,
+            "p90": 0.209829
+          },
+          "video_blocks": 6425
+        }
+      },
+      "density": {
+        "raster_b64": 0.22338,
+        "raster_b16": 0.2169,
+        "3d_b64": 0.23057,
+        "3d_b16": 0.2195
+      },
+      "B": {
+        "raster_b64": {
+          "density": 0.22338,
+          "missed_mass": {
+            "mean": 0.043713,
+            "p10": 0.0,
+            "median": 0.014372,
+            "p90": 0.117232
+          },
+          "pooled_block_top_fraction_share": 0.811892,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 22358.455078,
+            "p10": 16829.701172,
+            "median": 22400.0,
+            "p90": 27776.0
+          },
+          "routed_blocks": {
+            "mean": 349.398956,
+            "p10": 263.0,
+            "median": 350.0,
+            "p90": 434.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1475.908813,
+            "p10": 3.0,
+            "median": 324.0,
+            "p90": 5558.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 2264.177734,
+            "p10": 4.000625,
+            "median": 67.208992,
+            "p90": 7381.333496
+          }
+        },
+        "raster_b16": {
+          "density": 0.2169,
+          "missed_mass": {
+            "mean": 0.028941,
+            "p10": 0.0,
+            "median": 0.006845,
+            "p90": 0.083317
+          },
+          "pooled_block_top_fraction_share": 0.678071,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21711.248047,
+            "p10": 16864.0,
+            "median": 21824.0,
+            "p90": 26432.0
+          },
+          "routed_blocks": {
+            "mean": 1357.019043,
+            "p10": 1054.0,
+            "median": 1364.0,
+            "p90": 1652.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1475.908813,
+            "p10": 3.0,
+            "median": 324.0,
+            "p90": 5558.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 2141.86084,
+            "p10": 4.062835,
+            "median": 66.202499,
+            "p90": 6917.864746
+          }
+        },
+        "3d_b64": {
+          "density": 0.23057,
+          "missed_mass": {
+            "mean": 0.019077,
+            "p10": 0.0,
+            "median": 0.003828,
+            "p90": 0.055089
+          },
+          "pooled_block_top_fraction_share": 0.702488,
+          "top_tokens_per_block": 8,
+          "routed_tokens": {
+            "mean": 23165.417969,
+            "p10": 18468.900391,
+            "median": 23040.0,
+            "p90": 27776.0
+          },
+          "routed_blocks": {
+            "mean": 362.031006,
+            "p10": 288.900024,
+            "median": 360.0,
+            "p90": 434.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1475.908813,
+            "p10": 3.0,
+            "median": 324.0,
+            "p90": 5558.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 2254.363525,
+            "p10": 4.248792,
+            "median": 68.845238,
+            "p90": 7289.097168
+          }
+        },
+        "3d_b16": {
+          "density": 0.2195,
+          "missed_mass": {
+            "mean": 0.0142,
+            "p10": 0.0,
+            "median": 0.002469,
+            "p90": 0.042402
+          },
+          "pooled_block_top_fraction_share": 0.592586,
+          "top_tokens_per_block": 2,
+          "routed_tokens": {
+            "mean": 21985.251953,
+            "p10": 17513.0,
+            "median": 22160.0,
+            "p90": 26112.0
+          },
+          "routed_blocks": {
+            "mean": 1374.153076,
+            "p10": 1095.0,
+            "median": 1385.0,
+            "p90": 1632.0
+          },
+          "tokens_for_90pc_mass": {
+            "mean": 1475.908813,
+            "p10": 3.0,
+            "median": 324.0,
+            "p90": 5558.099609
+          },
+          "routed_tokens_over_tokens_for_90pc": {
+            "mean": 2134.258545,
+            "p10": 4.160606,
+            "median": 66.506042,
+            "p90": 7024.53125
+          }
+        }
+      },
+      "D": {
+        "raster_b64": {
+          "density": 0.22338,
+          "missed_mass_sol": {
+            "mean": 0.043713,
+            "p10": 0.0,
+            "median": 0.014372,
+            "p90": 0.117232
+          },
+          "missed_mass_quest": {
+            "mean": 0.212062,
+            "p10": 0.0,
+            "median": 0.050224,
+            "p90": 0.645705
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.041582,
+            "p10": 0.0,
+            "median": 0.011111,
+            "p90": 0.11494
+          },
+          "missed_mass_oracle": {
+            "mean": 0.023288,
+            "p10": 0.0,
+            "median": 0.005413,
+            "p90": 0.072912
+          },
+          "quest_over_sol_mean": 4.8513,
+          "blockmax_over_sol_mean": 0.9513,
+          "oracle_over_sol_mean": 0.5328,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "raster_b16": {
+          "density": 0.2169,
+          "missed_mass_sol": {
+            "mean": 0.028941,
+            "p10": 0.0,
+            "median": 0.006845,
+            "p90": 0.083317
+          },
+          "missed_mass_quest": {
+            "mean": 0.118141,
+            "p10": 0.0,
+            "median": 0.022949,
+            "p90": 0.387084
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.026521,
+            "p10": 0.0,
+            "median": 0.005349,
+            "p90": 0.077634
+          },
+          "missed_mass_oracle": {
+            "mean": 0.013562,
+            "p10": 0.0,
+            "median": 0.002246,
+            "p90": 0.043366
+          },
+          "quest_over_sol_mean": 4.0822,
+          "blockmax_over_sol_mean": 0.9164,
+          "oracle_over_sol_mean": 0.4686,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b64": {
+          "density": 0.23057,
+          "missed_mass_sol": {
+            "mean": 0.019077,
+            "p10": 0.0,
+            "median": 0.003828,
+            "p90": 0.055089
+          },
+          "missed_mass_quest": {
+            "mean": 0.070799,
+            "p10": 0.0,
+            "median": 0.012658,
+            "p90": 0.229452
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.018622,
+            "p10": 0.0,
+            "median": 0.003329,
+            "p90": 0.055308
+          },
+          "missed_mass_oracle": {
+            "mean": 0.011064,
+            "p10": 0.0,
+            "median": 0.001598,
+            "p90": 0.034068
+          },
+          "quest_over_sol_mean": 3.7111,
+          "blockmax_over_sol_mean": 0.9761,
+          "oracle_over_sol_mean": 0.5799,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        },
+        "3d_b16": {
+          "density": 0.2195,
+          "missed_mass_sol": {
+            "mean": 0.0142,
+            "p10": 0.0,
+            "median": 0.002469,
+            "p90": 0.042402
+          },
+          "missed_mass_quest": {
+            "mean": 0.037087,
+            "p10": 0.0,
+            "median": 0.006874,
+            "p90": 0.106523
+          },
+          "missed_mass_blockmax": {
+            "mean": 0.01396,
+            "p10": 0.0,
+            "median": 0.00209,
+            "p90": 0.042216
+          },
+          "missed_mass_oracle": {
+            "mean": 0.008933,
+            "p10": 0.0,
+            "median": 0.001141,
+            "p90": 0.028312
+          },
+          "quest_over_sol_mean": 2.6118,
+          "blockmax_over_sol_mean": 0.9831,
+          "oracle_over_sol_mean": 0.6291,
+          "blocks_kept_over_sol": 0.0,
+          "quest_bound_dominates_true_max": 1.0
+        }
+      },
+      "C": {
+        "raster_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.620155,
+              "p10": 0.44,
+              "median": 0.639216,
+              "p90": 0.77458
+            },
+            "discretionary": {
+              "mean": 0.638617,
+              "p10": 0.433406,
+              "median": 0.652252,
+              "p90": 0.824645
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.614443,
+              "p10": 0.379876,
+              "median": 0.623438,
+              "p90": 0.838926
+            },
+            "discretionary": {
+              "mean": 0.601992,
+              "p10": 0.357721,
+              "median": 0.61039,
+              "p90": 0.835366
+            }
+          },
+          "jaccard_chance_all": 0.1196,
+          "jaccard_chance_discretionary": 0.1111,
+          "mean_routed_blocks": 348.5,
+          "mean_discretionary_routed_blocks": 320.5
+        },
+        "raster_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.571231,
+              "p10": 0.418082,
+              "median": 0.581788,
+              "p90": 0.714441
+            },
+            "discretionary": {
+              "mean": 0.587174,
+              "p10": 0.419898,
+              "median": 0.593059,
+              "p90": 0.755707
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.542842,
+              "p10": 0.311943,
+              "median": 0.536938,
+              "p90": 0.798089
+            },
+            "discretionary": {
+              "mean": 0.530596,
+              "p10": 0.294573,
+              "median": 0.522793,
+              "p90": 0.793839
+            }
+          },
+          "jaccard_chance_all": 0.116,
+          "jaccard_chance_discretionary": 0.1081,
+          "mean_routed_blocks": 1355.6,
+          "mean_discretionary_routed_blocks": 1252.6
+        },
+        "3d_b64": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.641089,
+              "p10": 0.479381,
+              "median": 0.64399,
+              "p90": 0.801802
+            },
+            "discretionary": {
+              "mean": 0.657022,
+              "p10": 0.476636,
+              "median": 0.657564,
+              "p90": 0.843972
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.623513,
+              "p10": 0.420765,
+              "median": 0.619048,
+              "p90": 0.846154
+            },
+            "discretionary": {
+              "mean": 0.610164,
+              "p10": 0.4,
+              "median": 0.605128,
+              "p90": 0.840909
+            }
+          },
+          "jaccard_chance_all": 0.1243,
+          "jaccard_chance_discretionary": 0.1158,
+          "mean_routed_blocks": 360.7,
+          "mean_discretionary_routed_blocks": 332.7
+        },
+        "3d_b16": {
+          "blocks": 200,
+          "queries_per_block": 16,
+          "query_vs_block": {
+            "all": {
+              "mean": 0.66275,
+              "p10": 0.510436,
+              "median": 0.662475,
+              "p90": 0.820619
+            },
+            "discretionary": {
+              "mean": 0.68409,
+              "p10": 0.510201,
+              "median": 0.677465,
+              "p90": 0.871201
+            }
+          },
+          "query_vs_query": {
+            "all": {
+              "mean": 0.640877,
+              "p10": 0.426802,
+              "median": 0.63866,
+              "p90": 0.873258
+            },
+            "discretionary": {
+              "mean": 0.630053,
+              "p10": 0.407697,
+              "median": 0.627652,
+              "p90": 0.870801
+            }
+          },
+          "jaccard_chance_all": 0.118,
+          "jaccard_chance_discretionary": 0.1102,
+          "mean_routed_blocks": 1377.3,
+          "mean_discretionary_routed_blocks": 1274.3
+        }
+      },
+      "seconds": 68.6
+    }
+  },
+  "figures": {
+    "qkv_L104361_S104361_b49_s15.pt": [
+      "blocks_3d_frame10.png",
+      "blocks_3d_frame40.png",
+      "blocks_3d_frame80.png",
+      "blocks_compare_frame10.png",
+      "blocks_compare_frame40.png",
+      "blocks_compare_frame80.png",
+      "blocks_raster_frame10.png",
+      "blocks_raster_frame40.png",
+      "blocks_raster_frame80.png",
+      "bricks_3d_centre.png",
+      "missed_3d_frame10.png",
+      "missed_3d_frame40.png",
+      "missed_3d_frame80.png",
+      "missed_raster_frame10.png",
+      "missed_raster_frame40.png",
+      "missed_raster_frame80.png",
+      "routed_3d_frame10.png",
+      "routed_3d_frame40.png",
+      "routed_3d_frame80.png",
+      "routed_raster_frame10.png",
+      "routed_raster_frame40.png",
+      "routed_raster_frame80.png",
+      "spread_3d_frame10.png",
+      "spread_3d_frame40.png",
+      "spread_3d_frame80.png",
+      "spread_raster_frame10.png",
+      "spread_raster_frame40.png",
+      "spread_raster_frame80.png"
+    ],
+    "qkv_L104361_S104361_b24_s15.pt": [
+      "blocks_3d_frame10.png",
+      "blocks_3d_frame40.png",
+      "blocks_3d_frame80.png",
+      "blocks_compare_frame10.png",
+      "blocks_compare_frame40.png",
+      "blocks_compare_frame80.png",
+      "blocks_raster_frame10.png",
+      "blocks_raster_frame40.png",
+      "blocks_raster_frame80.png",
+      "bricks_3d_centre.png",
+      "missed_3d_frame10.png",
+      "missed_3d_frame40.png",
+      "missed_3d_frame80.png",
+      "missed_raster_frame10.png",
+      "missed_raster_frame40.png",
+      "missed_raster_frame80.png",
+      "routed_3d_frame10.png",
+      "routed_3d_frame40.png",
+      "routed_3d_frame80.png",
+      "routed_raster_frame10.png",
+      "routed_raster_frame40.png",
+      "routed_raster_frame80.png",
+      "spread_3d_frame10.png",
+      "spread_3d_frame40.png",
+      "spread_3d_frame80.png",
+      "spread_raster_frame10.png",
+      "spread_raster_frame40.png",
+      "spread_raster_frame80.png"
+    ]
+  },
+  "step_pairs": [
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "steps": [
+        4,
+        15
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.527277,
+        "p10": 0.271549,
+        "median": 0.546193,
+        "p90": 0.735139
+      },
+      "jaccard_discretionary": {
+        "mean": 0.495893,
+        "p10": 0.223974,
+        "median": 0.516923,
+        "p90": 0.714946
+      },
+      "intersection_over_first": 0.6861,
+      "density_first": 0.21346,
+      "density_second": 0.2175,
+      "jaccard_chance_all": 0.1207,
+      "jaccard_chance_discretionary": 0.1122
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "steps": [
+        4,
+        15
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.482993,
+        "p10": 0.230568,
+        "median": 0.498225,
+        "p90": 0.720502
+      },
+      "jaccard_discretionary": {
+        "mean": 0.452556,
+        "p10": 0.183468,
+        "median": 0.468676,
+        "p90": 0.701425
+      },
+      "intersection_over_first": 0.6381,
+      "density_first": 0.2166,
+      "density_second": 0.22007,
+      "jaccard_chance_all": 0.1225,
+      "jaccard_chance_discretionary": 0.1145
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "steps": [
+        4,
+        15
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.538454,
+        "p10": 0.250815,
+        "median": 0.568491,
+        "p90": 0.803922
+      },
+      "jaccard_discretionary": {
+        "mean": 0.508503,
+        "p10": 0.2,
+        "median": 0.541201,
+        "p90": 0.789611
+      },
+      "intersection_over_first": 0.6959,
+      "density_first": 0.21715,
+      "density_second": 0.22751,
+      "jaccard_chance_all": 0.125,
+      "jaccard_chance_discretionary": 0.1165
+    },
+    {
+      "capture_set": "2026-09-03_base16_t2v_1344x768",
+      "dit_block": 32,
+      "steps": [
+        4,
+        15
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.491227,
+        "p10": 0.224888,
+        "median": 0.511534,
+        "p90": 0.765984
+      },
+      "jaccard_discretionary": {
+        "mean": 0.461864,
+        "p10": 0.178193,
+        "median": 0.483716,
+        "p90": 0.750146
+      },
+      "intersection_over_first": 0.646,
+      "density_first": 0.21925,
+      "density_second": 0.22658,
+      "jaccard_chance_all": 0.1254,
+      "jaccard_chance_discretionary": 0.1173
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.920769,
+        "p10": 0.833772,
+        "median": 0.94219,
+        "p90": 0.982024
+      },
+      "jaccard_discretionary": {
+        "mean": 0.908042,
+        "p10": 0.817849,
+        "median": 0.937444,
+        "p90": 0.980447
+      },
+      "intersection_over_first": 0.9524,
+      "density_first": 0.21923,
+      "density_second": 0.21797,
+      "jaccard_chance_all": 0.1227,
+      "jaccard_chance_discretionary": 0.1136
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.887919,
+        "p10": 0.770217,
+        "median": 0.921331,
+        "p90": 0.968086
+      },
+      "jaccard_discretionary": {
+        "mean": 0.87614,
+        "p10": 0.748998,
+        "median": 0.915936,
+        "p90": 0.965327
+      },
+      "intersection_over_first": 0.9359,
+      "density_first": 0.22212,
+      "density_second": 0.22116,
+      "jaccard_chance_all": 0.1246,
+      "jaccard_chance_discretionary": 0.116
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.933928,
+        "p10": 0.838527,
+        "median": 0.955,
+        "p90": 0.983333
+      },
+      "jaccard_discretionary": {
+        "mean": 0.926796,
+        "p10": 0.820505,
+        "median": 0.951157,
+        "p90": 0.982143
+      },
+      "intersection_over_first": 0.9636,
+      "density_first": 0.2225,
+      "density_second": 0.22205,
+      "jaccard_chance_all": 0.125,
+      "jaccard_chance_discretionary": 0.1159
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.896451,
+        "p10": 0.77551,
+        "median": 0.925126,
+        "p90": 0.968802
+      },
+      "jaccard_discretionary": {
+        "mean": 0.886156,
+        "p10": 0.754562,
+        "median": 0.919534,
+        "p90": 0.966361
+      },
+      "intersection_over_first": 0.9421,
+      "density_first": 0.22183,
+      "density_second": 0.22116,
+      "jaccard_chance_all": 0.1245,
+      "jaccard_chance_discretionary": 0.1159
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.77898,
+        "p10": 0.558476,
+        "median": 0.819861,
+        "p90": 0.894236
+      },
+      "jaccard_discretionary": {
+        "mean": 0.748101,
+        "p10": 0.515819,
+        "median": 0.806033,
+        "p90": 0.885799
+      },
+      "intersection_over_first": 0.8484,
+      "density_first": 0.21923,
+      "density_second": 0.21059,
+      "jaccard_chance_all": 0.1203,
+      "jaccard_chance_discretionary": 0.1112
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.743095,
+        "p10": 0.516109,
+        "median": 0.798796,
+        "p90": 0.876592
+      },
+      "jaccard_discretionary": {
+        "mean": 0.719352,
+        "p10": 0.474898,
+        "median": 0.784958,
+        "p90": 0.867944
+      },
+      "intersection_over_first": 0.83,
+      "density_first": 0.22212,
+      "density_second": 0.21494,
+      "jaccard_chance_all": 0.1226,
+      "jaccard_chance_discretionary": 0.1139
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.79056,
+        "p10": 0.638201,
+        "median": 0.820823,
+        "p90": 0.937127
+      },
+      "jaccard_discretionary": {
+        "mean": 0.769505,
+        "p10": 0.605838,
+        "median": 0.806452,
+        "p90": 0.931977
+      },
+      "intersection_over_first": 0.866,
+      "density_first": 0.2225,
+      "density_second": 0.21744,
+      "jaccard_chance_all": 0.1236,
+      "jaccard_chance_discretionary": 0.1144
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.753781,
+        "p10": 0.571248,
+        "median": 0.798415,
+        "p90": 0.888128
+      },
+      "jaccard_discretionary": {
+        "mean": 0.732149,
+        "p10": 0.533183,
+        "median": 0.783523,
+        "p90": 0.879934
+      },
+      "intersection_over_first": 0.8413,
+      "density_first": 0.22183,
+      "density_second": 0.21578,
+      "jaccard_chance_all": 0.1228,
+      "jaccard_chance_discretionary": 0.1141
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.747813,
+        "p10": 0.496829,
+        "median": 0.792837,
+        "p90": 0.875
+      },
+      "jaccard_discretionary": {
+        "mean": 0.714625,
+        "p10": 0.438335,
+        "median": 0.776978,
+        "p90": 0.865389
+      },
+      "intersection_over_first": 0.8246,
+      "density_first": 0.21923,
+      "density_second": 0.20849,
+      "jaccard_chance_all": 0.1197,
+      "jaccard_chance_discretionary": 0.1105
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.714627,
+        "p10": 0.473474,
+        "median": 0.769815,
+        "p90": 0.858564
+      },
+      "jaccard_discretionary": {
+        "mean": 0.688898,
+        "p10": 0.42823,
+        "median": 0.754068,
+        "p90": 0.848871
+      },
+      "intersection_over_first": 0.8071,
+      "density_first": 0.22212,
+      "density_second": 0.21314,
+      "jaccard_chance_all": 0.122,
+      "jaccard_chance_discretionary": 0.1134
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.757261,
+        "p10": 0.58648,
+        "median": 0.792308,
+        "p90": 0.926022
+      },
+      "jaccard_discretionary": {
+        "mean": 0.733537,
+        "p10": 0.547293,
+        "median": 0.775956,
+        "p90": 0.920273
+      },
+      "intersection_over_first": 0.8406,
+      "density_first": 0.2225,
+      "density_second": 0.21578,
+      "jaccard_chance_all": 0.123,
+      "jaccard_chance_discretionary": 0.1139
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.725425,
+        "p10": 0.52144,
+        "median": 0.772081,
+        "p90": 0.87358
+      },
+      "jaccard_discretionary": {
+        "mean": 0.70184,
+        "p10": 0.47764,
+        "median": 0.755689,
+        "p90": 0.864487
+      },
+      "intersection_over_first": 0.8189,
+      "density_first": 0.22183,
+      "density_second": 0.21418,
+      "jaccard_chance_all": 0.1223,
+      "jaccard_chance_discretionary": 0.1136
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.800919,
+        "p10": 0.592583,
+        "median": 0.840173,
+        "p90": 0.906982
+      },
+      "jaccard_discretionary": {
+        "mean": 0.769448,
+        "p10": 0.547748,
+        "median": 0.827586,
+        "p90": 0.899687
+      },
+      "intersection_over_first": 0.865,
+      "density_first": 0.21797,
+      "density_second": 0.21059,
+      "jaccard_chance_all": 0.12,
+      "jaccard_chance_discretionary": 0.1108
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.76622,
+        "p10": 0.548069,
+        "median": 0.819704,
+        "p90": 0.889995
+      },
+      "jaccard_discretionary": {
+        "mean": 0.743656,
+        "p10": 0.508339,
+        "median": 0.807136,
+        "p90": 0.882176
+      },
+      "intersection_over_first": 0.8474,
+      "density_first": 0.22116,
+      "density_second": 0.21494,
+      "jaccard_chance_all": 0.1223,
+      "jaccard_chance_discretionary": 0.1137
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.810271,
+        "p10": 0.665011,
+        "median": 0.840749,
+        "p90": 0.945708
+      },
+      "jaccard_discretionary": {
+        "mean": 0.790444,
+        "p10": 0.633315,
+        "median": 0.827763,
+        "p90": 0.941951
+      },
+      "intersection_over_first": 0.8792,
+      "density_first": 0.22205,
+      "density_second": 0.21744,
+      "jaccard_chance_all": 0.1234,
+      "jaccard_chance_discretionary": 0.1143
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.775954,
+        "p10": 0.601954,
+        "median": 0.819909,
+        "p90": 0.901241
+      },
+      "jaccard_discretionary": {
+        "mean": 0.755638,
+        "p10": 0.56554,
+        "median": 0.806605,
+        "p90": 0.893901
+      },
+      "intersection_over_first": 0.8572,
+      "density_first": 0.22116,
+      "density_second": 0.21578,
+      "jaccard_chance_all": 0.1226,
+      "jaccard_chance_discretionary": 0.1139
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.767482,
+        "p10": 0.529378,
+        "median": 0.810979,
+        "p90": 0.886882
+      },
+      "jaccard_discretionary": {
+        "mean": 0.733425,
+        "p10": 0.466667,
+        "median": 0.795973,
+        "p90": 0.878055
+      },
+      "intersection_over_first": 0.84,
+      "density_first": 0.21797,
+      "density_second": 0.20849,
+      "jaccard_chance_all": 0.1193,
+      "jaccard_chance_discretionary": 0.1101
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.735272,
+        "p10": 0.502336,
+        "median": 0.788602,
+        "p90": 0.871456
+      },
+      "jaccard_discretionary": {
+        "mean": 0.710463,
+        "p10": 0.457956,
+        "median": 0.773918,
+        "p90": 0.862456
+      },
+      "intersection_over_first": 0.8232,
+      "density_first": 0.22116,
+      "density_second": 0.21314,
+      "jaccard_chance_all": 0.1218,
+      "jaccard_chance_discretionary": 0.1131
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.774999,
+        "p10": 0.60525,
+        "median": 0.810511,
+        "p90": 0.933666
+      },
+      "jaccard_discretionary": {
+        "mean": 0.752228,
+        "p10": 0.567281,
+        "median": 0.795135,
+        "p90": 0.928898
+      },
+      "intersection_over_first": 0.8528,
+      "density_first": 0.22205,
+      "density_second": 0.21578,
+      "jaccard_chance_all": 0.1229,
+      "jaccard_chance_discretionary": 0.1137
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.745334,
+        "p10": 0.549573,
+        "median": 0.791931,
+        "p90": 0.885656
+      },
+      "jaccard_discretionary": {
+        "mean": 0.722833,
+        "p10": 0.507976,
+        "median": 0.776938,
+        "p90": 0.877156
+      },
+      "intersection_over_first": 0.8336,
+      "density_first": 0.22116,
+      "density_second": 0.21418,
+      "jaccard_chance_all": 0.1221,
+      "jaccard_chance_discretionary": 0.1134
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.929583,
+        "p10": 0.860465,
+        "median": 0.949134,
+        "p90": 0.977444
+      },
+      "jaccard_discretionary": {
+        "mean": 0.907361,
+        "p10": 0.780559,
+        "median": 0.944591,
+        "p90": 0.975379
+      },
+      "intersection_over_first": 0.9568,
+      "density_first": 0.21059,
+      "density_second": 0.20849,
+      "jaccard_chance_all": 0.117,
+      "jaccard_chance_discretionary": 0.1079
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.911404,
+        "p10": 0.796656,
+        "median": 0.937606,
+        "p90": 0.971212
+      },
+      "jaccard_discretionary": {
+        "mean": 0.899374,
+        "p10": 0.770386,
+        "median": 0.932986,
+        "p90": 0.96875
+      },
+      "intersection_over_first": 0.9476,
+      "density_first": 0.21494,
+      "density_second": 0.21314,
+      "jaccard_chance_all": 0.1198,
+      "jaccard_chance_discretionary": 0.1112
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.932024,
+        "p10": 0.851524,
+        "median": 0.954907,
+        "p90": 0.984816
+      },
+      "jaccard_discretionary": {
+        "mean": 0.92207,
+        "p10": 0.830904,
+        "median": 0.951111,
+        "p90": 0.98361
+      },
+      "intersection_over_first": 0.9589,
+      "density_first": 0.21744,
+      "density_second": 0.21578,
+      "jaccard_chance_all": 0.1215,
+      "jaccard_chance_discretionary": 0.1123
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 0,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.916565,
+        "p10": 0.818685,
+        "median": 0.942788,
+        "p90": 0.973601
+      },
+      "jaccard_discretionary": {
+        "mean": 0.906659,
+        "p10": 0.796211,
+        "median": 0.938374,
+        "p90": 0.97154
+      },
+      "intersection_over_first": 0.9512,
+      "density_first": 0.21578,
+      "density_second": 0.21418,
+      "jaccard_chance_all": 0.1204,
+      "jaccard_chance_discretionary": 0.1117
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.866026,
+        "p10": 0.787647,
+        "median": 0.874332,
+        "p90": 0.933719
+      },
+      "jaccard_discretionary": {
+        "mean": 0.8538,
+        "p10": 0.768107,
+        "median": 0.862886,
+        "p90": 0.927586
+      },
+      "intersection_over_first": 0.9289,
+      "density_first": 0.21225,
+      "density_second": 0.21301,
+      "jaccard_chance_all": 0.119,
+      "jaccard_chance_discretionary": 0.1098
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.806857,
+        "p10": 0.718803,
+        "median": 0.811429,
+        "p90": 0.88808
+      },
+      "jaccard_discretionary": {
+        "mean": 0.791196,
+        "p10": 0.697305,
+        "median": 0.796201,
+        "p90": 0.878593
+      },
+      "intersection_over_first": 0.8927,
+      "density_first": 0.21381,
+      "density_second": 0.21432,
+      "jaccard_chance_all": 0.1199,
+      "jaccard_chance_discretionary": 0.1112
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.828784,
+        "p10": 0.738946,
+        "median": 0.838903,
+        "p90": 0.90333
+      },
+      "jaccard_discretionary": {
+        "mean": 0.81432,
+        "p10": 0.718832,
+        "median": 0.824479,
+        "p90": 0.894737
+      },
+      "intersection_over_first": 0.9053,
+      "density_first": 0.21632,
+      "density_second": 0.21644,
+      "jaccard_chance_all": 0.1213,
+      "jaccard_chance_discretionary": 0.1122
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.784015,
+        "p10": 0.690786,
+        "median": 0.79096,
+        "p90": 0.865782
+      },
+      "jaccard_discretionary": {
+        "mean": 0.767016,
+        "p10": 0.66923,
+        "median": 0.774194,
+        "p90": 0.854401
+      },
+      "intersection_over_first": 0.8775,
+      "density_first": 0.21399,
+      "density_second": 0.21404,
+      "jaccard_chance_all": 0.1198,
+      "jaccard_chance_discretionary": 0.1111
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.63429,
+        "p10": 0.473449,
+        "median": 0.646111,
+        "p90": 0.772884
+      },
+      "jaccard_discretionary": {
+        "mean": 0.605965,
+        "p10": 0.435635,
+        "median": 0.617577,
+        "p90": 0.754511
+      },
+      "intersection_over_first": 0.7723,
+      "density_first": 0.21225,
+      "density_second": 0.21178,
+      "jaccard_chance_all": 0.1186,
+      "jaccard_chance_discretionary": 0.1094
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.578676,
+        "p10": 0.432931,
+        "median": 0.586094,
+        "p90": 0.711796
+      },
+      "jaccard_discretionary": {
+        "mean": 0.549641,
+        "p10": 0.397058,
+        "median": 0.557377,
+        "p90": 0.690122
+      },
+      "intersection_over_first": 0.7262,
+      "density_first": 0.21381,
+      "density_second": 0.21214,
+      "jaccard_chance_all": 0.1192,
+      "jaccard_chance_discretionary": 0.1105
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.60436,
+        "p10": 0.453187,
+        "median": 0.617755,
+        "p90": 0.732676
+      },
+      "jaccard_discretionary": {
+        "mean": 0.57527,
+        "p10": 0.41777,
+        "median": 0.588235,
+        "p90": 0.710676
+      },
+      "intersection_over_first": 0.7444,
+      "density_first": 0.21632,
+      "density_second": 0.21334,
+      "jaccard_chance_all": 0.1203,
+      "jaccard_chance_discretionary": 0.1112
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.55384,
+        "p10": 0.412317,
+        "median": 0.561919,
+        "p90": 0.679827
+      },
+      "jaccard_discretionary": {
+        "mean": 0.523757,
+        "p10": 0.377342,
+        "median": 0.53156,
+        "p90": 0.655728
+      },
+      "intersection_over_first": 0.7031,
+      "density_first": 0.21399,
+      "density_second": 0.21062,
+      "jaccard_chance_all": 0.1187,
+      "jaccard_chance_discretionary": 0.1101
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.604569,
+        "p10": 0.441927,
+        "median": 0.616474,
+        "p90": 0.745617
+      },
+      "jaccard_discretionary": {
+        "mean": 0.574571,
+        "p10": 0.402587,
+        "median": 0.586298,
+        "p90": 0.724521
+      },
+      "intersection_over_first": 0.7486,
+      "density_first": 0.21225,
+      "density_second": 0.21123,
+      "jaccard_chance_all": 0.1184,
+      "jaccard_chance_discretionary": 0.1093
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.553146,
+        "p10": 0.406211,
+        "median": 0.560617,
+        "p90": 0.686717
+      },
+      "jaccard_discretionary": {
+        "mean": 0.522881,
+        "p10": 0.369228,
+        "median": 0.530457,
+        "p90": 0.663699
+      },
+      "intersection_over_first": 0.7044,
+      "density_first": 0.21381,
+      "density_second": 0.21154,
+      "jaccard_chance_all": 0.119,
+      "jaccard_chance_discretionary": 0.1103
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.581533,
+        "p10": 0.432836,
+        "median": 0.594173,
+        "p90": 0.710187
+      },
+      "jaccard_discretionary": {
+        "mean": 0.55117,
+        "p10": 0.39633,
+        "median": 0.563354,
+        "p90": 0.686813
+      },
+      "intersection_over_first": 0.7257,
+      "density_first": 0.21632,
+      "density_second": 0.2127,
+      "jaccard_chance_all": 0.1201,
+      "jaccard_chance_discretionary": 0.111
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.53197,
+        "p10": 0.392681,
+        "median": 0.539469,
+        "p90": 0.657954
+      },
+      "jaccard_discretionary": {
+        "mean": 0.500835,
+        "p10": 0.357451,
+        "median": 0.508064,
+        "p90": 0.632561
+      },
+      "intersection_over_first": 0.6838,
+      "density_first": 0.21399,
+      "density_second": 0.20989,
+      "jaccard_chance_all": 0.1185,
+      "jaccard_chance_discretionary": 0.1098
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.675133,
+        "p10": 0.527507,
+        "median": 0.687683,
+        "p90": 0.802033
+      },
+      "jaccard_discretionary": {
+        "mean": 0.649276,
+        "p10": 0.491047,
+        "median": 0.662484,
+        "p90": 0.785103
+      },
+      "intersection_over_first": 0.8018,
+      "density_first": 0.21301,
+      "density_second": 0.21178,
+      "jaccard_chance_all": 0.1188,
+      "jaccard_chance_discretionary": 0.1097
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.620515,
+        "p10": 0.481546,
+        "median": 0.629214,
+        "p90": 0.744605
+      },
+      "jaccard_discretionary": {
+        "mean": 0.593583,
+        "p10": 0.447035,
+        "median": 0.602902,
+        "p90": 0.724888
+      },
+      "intersection_over_first": 0.7588,
+      "density_first": 0.21432,
+      "density_second": 0.21214,
+      "jaccard_chance_all": 0.1193,
+      "jaccard_chance_discretionary": 0.1106
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.646137,
+        "p10": 0.508651,
+        "median": 0.658792,
+        "p90": 0.763022
+      },
+      "jaccard_discretionary": {
+        "mean": 0.619331,
+        "p10": 0.474817,
+        "median": 0.631424,
+        "p90": 0.743517
+      },
+      "intersection_over_first": 0.7768,
+      "density_first": 0.21644,
+      "density_second": 0.21334,
+      "jaccard_chance_all": 0.1204,
+      "jaccard_chance_discretionary": 0.1112
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.59595,
+        "p10": 0.464047,
+        "median": 0.60455,
+        "p90": 0.714634
+      },
+      "jaccard_discretionary": {
+        "mean": 0.567848,
+        "p10": 0.43067,
+        "median": 0.576128,
+        "p90": 0.692364
+      },
+      "intersection_over_first": 0.7377,
+      "density_first": 0.21404,
+      "density_second": 0.21062,
+      "jaccard_chance_all": 0.1188,
+      "jaccard_chance_discretionary": 0.1101
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.640821,
+        "p10": 0.486148,
+        "median": 0.654593,
+        "p90": 0.773276
+      },
+      "jaccard_discretionary": {
+        "mean": 0.612908,
+        "p10": 0.448495,
+        "median": 0.627198,
+        "p90": 0.754336
+      },
+      "intersection_over_first": 0.7755,
+      "density_first": 0.21301,
+      "density_second": 0.21123,
+      "jaccard_chance_all": 0.1186,
+      "jaccard_chance_discretionary": 0.1095
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.590277,
+        "p10": 0.447793,
+        "median": 0.599444,
+        "p90": 0.716842
+      },
+      "jaccard_discretionary": {
+        "mean": 0.561796,
+        "p10": 0.412209,
+        "median": 0.571429,
+        "p90": 0.695173
+      },
+      "intersection_over_first": 0.7343,
+      "density_first": 0.21432,
+      "density_second": 0.21154,
+      "jaccard_chance_all": 0.1191,
+      "jaccard_chance_discretionary": 0.1105
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.618994,
+        "p10": 0.481683,
+        "median": 0.630819,
+        "p90": 0.73842
+      },
+      "jaccard_discretionary": {
+        "mean": 0.590589,
+        "p10": 0.447053,
+        "median": 0.601685,
+        "p90": 0.71675
+      },
+      "intersection_over_first": 0.7556,
+      "density_first": 0.21644,
+      "density_second": 0.2127,
+      "jaccard_chance_all": 0.1202,
+      "jaccard_chance_discretionary": 0.111
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.569324,
+        "p10": 0.437002,
+        "median": 0.57673,
+        "p90": 0.688902
+      },
+      "jaccard_discretionary": {
+        "mean": 0.539867,
+        "p10": 0.402728,
+        "median": 0.547062,
+        "p90": 0.665269
+      },
+      "intersection_over_first": 0.7154,
+      "density_first": 0.21404,
+      "density_second": 0.20989,
+      "jaccard_chance_all": 0.1185,
+      "jaccard_chance_discretionary": 0.1098
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.916984,
+        "p10": 0.871342,
+        "median": 0.923339,
+        "p90": 0.956633
+      },
+      "jaccard_discretionary": {
+        "mean": 0.909141,
+        "p10": 0.859008,
+        "median": 0.916418,
+        "p90": 0.952381
+      },
+      "intersection_over_first": 0.9555,
+      "density_first": 0.21178,
+      "density_second": 0.21123,
+      "jaccard_chance_all": 0.1183,
+      "jaccard_chance_discretionary": 0.1091
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.891041,
+        "p10": 0.842025,
+        "median": 0.894526,
+        "p90": 0.937199
+      },
+      "jaccard_discretionary": {
+        "mean": 0.881431,
+        "p10": 0.828711,
+        "median": 0.885824,
+        "p90": 0.931499
+      },
+      "intersection_over_first": 0.941,
+      "density_first": 0.21214,
+      "density_second": 0.21154,
+      "jaccard_chance_all": 0.1185,
+      "jaccard_chance_discretionary": 0.1098
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.912447,
+        "p10": 0.872723,
+        "median": 0.915167,
+        "p90": 0.948424
+      },
+      "jaccard_discretionary": {
+        "mean": 0.90445,
+        "p10": 0.861199,
+        "median": 0.907407,
+        "p90": 0.943578
+      },
+      "intersection_over_first": 0.9529,
+      "density_first": 0.21334,
+      "density_second": 0.2127,
+      "jaccard_chance_all": 0.1192,
+      "jaccard_chance_discretionary": 0.1101
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 24,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.886908,
+        "p10": 0.843505,
+        "median": 0.888108,
+        "p90": 0.9298
+      },
+      "jaccard_discretionary": {
+        "mean": 0.876973,
+        "p10": 0.830684,
+        "median": 0.878621,
+        "p90": 0.92354
+      },
+      "intersection_over_first": 0.9384,
+      "density_first": 0.21062,
+      "density_second": 0.20989,
+      "jaccard_chance_all": 0.1175,
+      "jaccard_chance_discretionary": 0.1088
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.922428,
+        "p10": 0.863848,
+        "median": 0.927007,
+        "p90": 0.979596
+      },
+      "jaccard_discretionary": {
+        "mean": 0.915657,
+        "p10": 0.852345,
+        "median": 0.920939,
+        "p90": 0.977707
+      },
+      "intersection_over_first": 0.9551,
+      "density_first": 0.23032,
+      "density_second": 0.22818,
+      "jaccard_chance_all": 0.1295,
+      "jaccard_chance_discretionary": 0.1203
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.892813,
+        "p10": 0.810493,
+        "median": 0.900391,
+        "p90": 0.976494
+      },
+      "jaccard_discretionary": {
+        "mean": 0.88371,
+        "p10": 0.795264,
+        "median": 0.893024,
+        "p90": 0.974314
+      },
+      "intersection_over_first": 0.9388,
+      "density_first": 0.22164,
+      "density_second": 0.21976,
+      "jaccard_chance_all": 0.124,
+      "jaccard_chance_discretionary": 0.1154
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.89376,
+        "p10": 0.820331,
+        "median": 0.893443,
+        "p90": 0.979412
+      },
+      "jaccard_discretionary": {
+        "mean": 0.883887,
+        "p10": 0.803419,
+        "median": 0.883721,
+        "p90": 0.977419
+      },
+      "intersection_over_first": 0.9413,
+      "density_first": 0.2084,
+      "density_second": 0.20742,
+      "jaccard_chance_all": 0.116,
+      "jaccard_chance_discretionary": 0.1069
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        6
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.879293,
+        "p10": 0.805447,
+        "median": 0.870221,
+        "p90": 0.975628
+      },
+      "jaccard_discretionary": {
+        "mean": 0.868815,
+        "p10": 0.789141,
+        "median": 0.859649,
+        "p90": 0.973357
+      },
+      "intersection_over_first": 0.9317,
+      "density_first": 0.21003,
+      "density_second": 0.20858,
+      "jaccard_chance_all": 0.1169,
+      "jaccard_chance_discretionary": 0.1082
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.742271,
+        "p10": 0.588656,
+        "median": 0.742778,
+        "p90": 0.930422
+      },
+      "jaccard_discretionary": {
+        "mean": 0.722247,
+        "p10": 0.559259,
+        "median": 0.722095,
+        "p90": 0.92402
+      },
+      "intersection_over_first": 0.8214,
+      "density_first": 0.23032,
+      "density_second": 0.21285,
+      "jaccard_chance_all": 0.1244,
+      "jaccard_chance_discretionary": 0.1152
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.723328,
+        "p10": 0.57912,
+        "median": 0.714586,
+        "p90": 0.93439
+      },
+      "jaccard_discretionary": {
+        "mean": 0.702842,
+        "p10": 0.551757,
+        "median": 0.693333,
+        "p90": 0.928356
+      },
+      "intersection_over_first": 0.8148,
+      "density_first": 0.22164,
+      "density_second": 0.20812,
+      "jaccard_chance_all": 0.1202,
+      "jaccard_chance_discretionary": 0.1115
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.709182,
+        "p10": 0.523389,
+        "median": 0.714286,
+        "p90": 0.952646
+      },
+      "jaccard_discretionary": {
+        "mean": 0.686188,
+        "p10": 0.488034,
+        "median": 0.691158,
+        "p90": 0.948176
+      },
+      "intersection_over_first": 0.8291,
+      "density_first": 0.2084,
+      "density_second": 0.21129,
+      "jaccard_chance_all": 0.1172,
+      "jaccard_chance_discretionary": 0.1081
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.701232,
+        "p10": 0.521403,
+        "median": 0.688757,
+        "p90": 0.94542
+      },
+      "jaccard_discretionary": {
+        "mean": 0.679026,
+        "p10": 0.490683,
+        "median": 0.665034,
+        "p90": 0.940513
+      },
+      "intersection_over_first": 0.8098,
+      "density_first": 0.21003,
+      "density_second": 0.20527,
+      "jaccard_chance_all": 0.1158,
+      "jaccard_chance_discretionary": 0.1071
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.707709,
+        "p10": 0.527148,
+        "median": 0.712732,
+        "p90": 0.92244
+      },
+      "jaccard_discretionary": {
+        "mean": 0.685506,
+        "p10": 0.497073,
+        "median": 0.689441,
+        "p90": 0.915532
+      },
+      "intersection_over_first": 0.7932,
+      "density_first": 0.23032,
+      "density_second": 0.20977,
+      "jaccard_chance_all": 0.1233,
+      "jaccard_chance_discretionary": 0.1142
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.691107,
+        "p10": 0.524365,
+        "median": 0.685523,
+        "p90": 0.924836
+      },
+      "jaccard_discretionary": {
+        "mean": 0.668756,
+        "p10": 0.495483,
+        "median": 0.662586,
+        "p90": 0.918006
+      },
+      "intersection_over_first": 0.7888,
+      "density_first": 0.22164,
+      "density_second": 0.20585,
+      "jaccard_chance_all": 0.1195,
+      "jaccard_chance_discretionary": 0.1108
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.680573,
+        "p10": 0.480645,
+        "median": 0.687192,
+        "p90": 0.948127
+      },
+      "jaccard_discretionary": {
+        "mean": 0.655987,
+        "p10": 0.443786,
+        "median": 0.66205,
+        "p90": 0.943284
+      },
+      "intersection_over_first": 0.8089,
+      "density_first": 0.2084,
+      "density_second": 0.21223,
+      "jaccard_chance_all": 0.1175,
+      "jaccard_chance_discretionary": 0.1084
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        5,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.672673,
+        "p10": 0.468638,
+        "median": 0.663375,
+        "p90": 0.938451
+      },
+      "jaccard_discretionary": {
+        "mean": 0.648911,
+        "p10": 0.437302,
+        "median": 0.638081,
+        "p90": 0.932891
+      },
+      "intersection_over_first": 0.7873,
+      "density_first": 0.21003,
+      "density_second": 0.20476,
+      "jaccard_chance_all": 0.1157,
+      "jaccard_chance_discretionary": 0.107
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.770082,
+        "p10": 0.62122,
+        "median": 0.774194,
+        "p90": 0.942949
+      },
+      "jaccard_discretionary": {
+        "mean": 0.751859,
+        "p10": 0.595315,
+        "median": 0.755814,
+        "p90": 0.937687
+      },
+      "intersection_over_first": 0.8426,
+      "density_first": 0.22818,
+      "density_second": 0.21285,
+      "jaccard_chance_all": 0.1238,
+      "jaccard_chance_discretionary": 0.1146
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.750335,
+        "p10": 0.610522,
+        "median": 0.744091,
+        "p90": 0.944287
+      },
+      "jaccard_discretionary": {
+        "mean": 0.731428,
+        "p10": 0.584541,
+        "median": 0.724776,
+        "p90": 0.939307
+      },
+      "intersection_over_first": 0.8357,
+      "density_first": 0.21976,
+      "density_second": 0.20812,
+      "jaccard_chance_all": 0.1197,
+      "jaccard_chance_discretionary": 0.111
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.739361,
+        "p10": 0.569617,
+        "median": 0.745636,
+        "p90": 0.961311
+      },
+      "jaccard_discretionary": {
+        "mean": 0.718242,
+        "p10": 0.536691,
+        "median": 0.72434,
+        "p90": 0.957655
+      },
+      "intersection_over_first": 0.8529,
+      "density_first": 0.20742,
+      "density_second": 0.21129,
+      "jaccard_chance_all": 0.1169,
+      "jaccard_chance_discretionary": 0.1077
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        12
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.729747,
+        "p10": 0.557906,
+        "median": 0.719875,
+        "p90": 0.954221
+      },
+      "jaccard_discretionary": {
+        "mean": 0.709146,
+        "p10": 0.529406,
+        "median": 0.69798,
+        "p90": 0.95004
+      },
+      "intersection_over_first": 0.8328,
+      "density_first": 0.20858,
+      "density_second": 0.20527,
+      "jaccard_chance_all": 0.1154,
+      "jaccard_chance_discretionary": 0.1067
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.732781,
+        "p10": 0.554994,
+        "median": 0.74092,
+        "p90": 0.933551
+      },
+      "jaccard_discretionary": {
+        "mean": 0.712107,
+        "p10": 0.524629,
+        "median": 0.719752,
+        "p90": 0.92755
+      },
+      "intersection_over_first": 0.8131,
+      "density_first": 0.22818,
+      "density_second": 0.20977,
+      "jaccard_chance_all": 0.1227,
+      "jaccard_chance_discretionary": 0.1135
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.715162,
+        "p10": 0.550958,
+        "median": 0.711633,
+        "p90": 0.934067
+      },
+      "jaccard_discretionary": {
+        "mean": 0.694131,
+        "p10": 0.523099,
+        "median": 0.690201,
+        "p90": 0.928145
+      },
+      "intersection_over_first": 0.8082,
+      "density_first": 0.21976,
+      "density_second": 0.20585,
+      "jaccard_chance_all": 0.1189,
+      "jaccard_chance_discretionary": 0.1102
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.706904,
+        "p10": 0.519518,
+        "median": 0.713497,
+        "p90": 0.955684
+      },
+      "jaccard_discretionary": {
+        "mean": 0.68384,
+        "p10": 0.485185,
+        "median": 0.690081,
+        "p90": 0.951515
+      },
+      "intersection_over_first": 0.8309,
+      "density_first": 0.20742,
+      "density_second": 0.21223,
+      "jaccard_chance_all": 0.1172,
+      "jaccard_chance_discretionary": 0.108
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        6,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.697428,
+        "p10": 0.497574,
+        "median": 0.689139,
+        "p90": 0.946916
+      },
+      "jaccard_discretionary": {
+        "mean": 0.674964,
+        "p10": 0.467892,
+        "median": 0.665262,
+        "p90": 0.942065
+      },
+      "intersection_over_first": 0.8084,
+      "density_first": 0.20858,
+      "density_second": 0.20476,
+      "jaccard_chance_all": 0.1152,
+      "jaccard_chance_discretionary": 0.1065
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b64",
+      "jaccard_all": {
+        "mean": 0.93422,
+        "p10": 0.87903,
+        "median": 0.940024,
+        "p90": 0.985795
+      },
+      "jaccard_discretionary": {
+        "mean": 0.928153,
+        "p10": 0.868734,
+        "median": 0.934256,
+        "p90": 0.984472
+      },
+      "intersection_over_first": 0.9592,
+      "density_first": 0.21285,
+      "density_second": 0.20977,
+      "jaccard_chance_all": 0.1181,
+      "jaccard_chance_discretionary": 0.109
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "raster_b16",
+      "jaccard_all": {
+        "mean": 0.92349,
+        "p10": 0.868786,
+        "median": 0.927896,
+        "p90": 0.984628
+      },
+      "jaccard_discretionary": {
+        "mean": 0.916371,
+        "p10": 0.857947,
+        "median": 0.921402,
+        "p90": 0.983186
+      },
+      "intersection_over_first": 0.955,
+      "density_first": 0.20812,
+      "density_second": 0.20585,
+      "jaccard_chance_all": 0.1154,
+      "jaccard_chance_discretionary": 0.1067
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b64",
+      "jaccard_all": {
+        "mean": 0.933029,
+        "p10": 0.885868,
+        "median": 0.93365,
+        "p90": 0.988858
+      },
+      "jaccard_discretionary": {
+        "mean": 0.926834,
+        "p10": 0.875388,
+        "median": 0.927536,
+        "p90": 0.987842
+      },
+      "intersection_over_first": 0.9673,
+      "density_first": 0.21129,
+      "density_second": 0.21223,
+      "jaccard_chance_all": 0.1184,
+      "jaccard_chance_discretionary": 0.1093
+    },
+    {
+      "capture_set": "2026-09-10_sol_impl_courtroom",
+      "dit_block": 49,
+      "steps": [
+        12,
+        13
+      ],
+      "cell": "3d_b16",
+      "jaccard_all": {
+        "mean": 0.923051,
+        "p10": 0.870728,
+        "median": 0.921599,
+        "p90": 0.987198
+      },
+      "jaccard_discretionary": {
+        "mean": 0.915846,
+        "p10": 0.859744,
+        "median": 0.914645,
+        "p90": 0.986008
+      },
+      "intersection_over_first": 0.9585,
+      "density_first": 0.20527,
+      "density_second": 0.20476,
+      "jaccard_chance_all": 0.1142,
+      "jaccard_chance_discretionary": 0.1055
+    }
+  ]
+}

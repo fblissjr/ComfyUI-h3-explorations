@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.130.0
+
+### Added
+
+- **`bench/analyze_sol_block_grouping.py`, and its first record
+  (`bench/results/2026-09-19_sol_block_grouping.md`, generated from the JSON
+  beside it by `--summarize`).** The owner asked how to go finer than a
+  64-token block, how to find the right tokens to group, and for a way to SEE
+  the groupings. CPU only, on captures, for plain and `3d` order at block sizes
+  64 and 16: how unlike the tokens sharing a block are; how much of a query's
+  exact attention mass lands in key blocks Sol pooled, and how top-heavy those
+  pooled blocks are; how much the 64 queries of one block disagree about which
+  key blocks they want; four ways to rank key blocks at the same count (Sol's
+  centroid, a Quest-style per-channel bound, the exact block maximum, a
+  per-query oracle); and how stable the route is from step to step. With
+  pictures of the token grid painted by block, spread, routed count and missed
+  mass (gitignored, under `internal/`). Its route mask is checked four ways,
+  including four mutations that must move it, and the record says plainly that
+  missed mass is not output error: it agrees with the 2026-09-18 block-size
+  record's ranking on most cells and names the two where it does not. What it
+  shows, in the record's own terms: attention on the mid and late blocks is
+  concentrated on a few hundred tokens while Sol attends tens of thousands, the
+  pooled blocks there are top-heavy, a max-flavoured block score beats the
+  centroid on the mid blocks while the Quest-style bound is WORSE than the
+  centroid nearly everywhere (too loose at this head size), the ceiling for
+  finer query-side routing is large, the route is stable between adjacent steps
+  and not across the whole trajectory, and block 0 is diffuse and outside all
+  of it.
+
 ## 0.129.2
 
 ### Changed
