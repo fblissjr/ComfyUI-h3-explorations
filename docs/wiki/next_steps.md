@@ -29,7 +29,10 @@ own below the rule.
   **Why it is more than tidiness:** a rule table is consulted only while it is
   trusted, and an index that names missing files is one people re-derive
   around instead of reading. The sister project landed its own citation
-  resolution on 2026-09-20 and found the same class.
+  resolution on 2026-09-20 and found the same class. **What separates this
+  from a speculative check:** the list above is one hand pass's catch, and
+  one of the six had already been found and repaired by hand in `9e7d7377`
+  long after it rotted. The other five are still there as you read this.
 
 **2026-09-19 (the research and instrument session):**
 
