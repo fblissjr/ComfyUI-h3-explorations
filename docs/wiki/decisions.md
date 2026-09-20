@@ -70,7 +70,7 @@ Older history lives elsewhere and is not copied here:
   prompt and not as a ref2va one (`docs/prompting.md` §12.13). Agentless actions
   and contradicted counts are in neither guide and stay HOUSE, tagged as such in
   §15.3 items 6 and 7.
-- **`preflight_graph.py::speaker_id_rules` is the check**, FAIL on ref2va and a
+- **`bench/preflight_graph.py::speaker_id_rules` is the check**, FAIL on ref2va and a
   note on the base modes, because that is where the guides put the rule. Shown
   red on the bank as it stood at `4bd7b429^` and green on the same entries now;
   the whole bank passes `build_prompt_bank.py --check` with it in.

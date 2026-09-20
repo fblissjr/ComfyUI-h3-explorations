@@ -422,7 +422,7 @@ stable id and to keep it across shots, and says nothing about repeating that id
 at each vocal event; its two worked examples carry one per line, but an example
 is not a rule. So the reuse rule binds ref2va and the base modes are silent,
 which is the guides' asymmetry and not ours (§12.13).
-`preflight_graph.py::speaker_id_rules` FAILs the ref2va case and reports the
+`bench/preflight_graph.py::speaker_id_rules` FAILs the ref2va case and reports the
 base one. [GUIDE ref §5.4, *stated*]
 
 ### 5.2 Where identity goes
@@ -1448,7 +1448,7 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | style and initial composition open `[Shot 1]` (base) | GUIDE base §4.1 | nothing |
 | style stated in one or two sentences **before** `[Shot 1]` (ref2va) | GUIDE ref §5.2 | nothing |
 | speaker ids `(S1)`, `(S2)`, stable across shots, unconditional | GUIDE base §4.4 | nothing |
-| **ref2va: the id is reused at every vocal event** | GUIDE ref §5.4, *stated* | `preflight_graph.py::speaker_id_rules` (FAIL), and through it `build_prompt_bank.py --check` and `grade_prompt_text.py`. `bench/check_speaker_id_control.py` is its control: red on the bank at `4bd7b429^`, green on the same entries now, green on the soundtrack exemption, and a note and never a FAIL in the base modes |
+| **ref2va: the id is reused at every vocal event** | GUIDE ref §5.4, *stated* | `bench/preflight_graph.py::speaker_id_rules` (FAIL), and through it `build_prompt_bank.py --check` and `grade_prompt_text.py`. `bench/check_speaker_id_control.py` is its control: red on the bank at `4bd7b429^`, green on the same entries now, green on the soundtrack exemption, and a note and never a FAIL in the base modes |
 | **a verbal cue inside a reused soundtrack takes `<Audio N>` and no new `(Sx)`** | GUIDE ref §5.4, *stated* as a prohibition | same rule, as its exemption; `ref2va_soundtrack_fully_copy` is the entry that exercises it |
 | the base modes reuse the id per vocal event | **NOT A RULE** in base_en — it states the id and its stability only; ref states the reuse. §12.13 | `speaker_id_rules` reports it as a note and grades nothing |
 | non-vocalising characters get no id | GUIDE base §4.4 | nothing |
