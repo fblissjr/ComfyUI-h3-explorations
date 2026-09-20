@@ -3349,5 +3349,13 @@
       }
     }
   },
-  "refusals": []
+  "refusals": [],
+  "annotations_2026_09_20": {
+    "added_by_hand": "summarize_h3_holdout_captures.py would drop these on a regeneration; they are annotations, not produced fields",
+    "what_this_compares": "layer-50 conditioning fidelity against a BF16 reference. The arms differ in quantization method, bit width, group size AND load path: the two w4a16 arms carry no comfy_quant tensors and reached the tap through the since-deleted compressed-tensors adapter, while int8_convrot and nvfp4_awq went through core's native path. Nothing here separates those.",
+    "vision_tower": "ALL FOUR arms hold the vision tower at BF16. Read from the file headers: int8_convrot and nvfp4_awq carry .comfy_quant markers on language-decoder linears only (350 and 351), and both w4a16 arms carry none at all. This record is SILENT on tower precision; a session concluded otherwise on 2026-09-20 and retracted. Re-derive with bench/check_model_contents.py --report.",
+    "what_it_is_not_evidence_for": "that quantising our own encoder is unpromising (owner, 2026-09-20). The two w4a16 candidates were badly executed; we controlled the calibration, the group size and everything else, and priorities then shifted. The lane closed after a poor first attempt, not on a refutation of the approach.",
+    "also_not_a_speed_reference": "qwen3vl_32b_minimax_h3_nvfp4_awq carries full_precision_matrix_mult: true on all 350 nvfp4 layers, so it is storage-only by construction and has never run a quantized kernel on any path.",
+    "see": "docs/wiki/decisions.md, 2026-09-20"
+  }
 }

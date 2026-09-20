@@ -172,7 +172,12 @@ for each, as it stood when it was written, is in `docs/rules_history.md`.
   deleted on 2026-09-13 (`docs/wiki/decisions.md`); the loader every graph
   wires is `MiniMaxH3EncoderLoader`. A different question from the first row:
   that one is about the released weights, this one about which local artifact
-  is wired.
+  is wired. **Closed is not refuted** (owner, 2026-09-20): the artifacts were
+  badly executed, we controlled the calibration and every other knob, and
+  priorities shifted -- so the holdout is not evidence that quantising our own
+  encoder is unpromising. All four of its arms hold the vision tower at BF16,
+  which the record does not say, so it is silent on tower precision.
+  `docs/wiki/decisions.md`.
 - **Reference sizing: `docs/h3_references.md` is the authority.** `size_policy=max`
   with the vendor short edge matches the vendor; `dit_short_edge` targets the
   shorter side and only shrinks unless `allow_upscale`; both live on

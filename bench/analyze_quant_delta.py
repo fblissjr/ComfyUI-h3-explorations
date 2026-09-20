@@ -13,7 +13,12 @@ carries a `comfy_quant` marker whose JSON this script records verbatim:
 
   - fp8: `{"format": "float8_e4m3fn"}`, a SCALAR `weight_scale`, and for most
     tensors an `input_scale` -- the activations are quantized too. `mlp.fc2`
-    instead carries `"full_precision_matrix_mult": true` and no `input_scale`.
+    instead carries `"full_precision_matrix_mult": true` and no `input_scale`,
+    so on the fp8 arm fc2 is storage-only and never runs a quantized matmul.
+    That last claim is no longer prose: the inventory decodes every marker in
+    both files and derives `inventory.<arm>.storage_only_kinds` from the flag
+    core actually reads. It is not universal -- the int8 arm flags nothing --
+    and `check_model_contents.py --report` shows which other checkpoints do.
   - int8: `{"format": "int8_tensorwise", "convrot": true,
     "convrot_groupsize": N}`, a per-output-row `weight_scale` [out, 1], and a
     stored weight that is NOT the weight: it is `W @ H^T` in a Hadamard basis
@@ -439,21 +444,35 @@ def main() -> int:
     for tag, (p, h, b) in files.items():
         q = sorted({k[:-len(".comfy_quant")] for k in h if k.endswith(".comfy_quant")})
         markers: dict[str, int] = {}
+        kinds: dict[str, set] = {}
         for m in q:
-            markers[json.dumps(marker(p, h, b, m), sort_keys=True)] = \
-                markers.get(json.dumps(marker(p, h, b, m), sort_keys=True), 0) + 1
+            conf = json.dumps(marker(p, h, b, m), sort_keys=True)
+            markers[conf] = markers.get(conf, 0) + 1
+            kinds.setdefault(conf, set()).add(m.split(".", 2)[-1])
+        # A layer whose config carries `full_precision_matrix_mult` is storage-only
+        # on every path, `CLIP.generate` included: `can_use_quantized_matmul`
+        # (`comfy/ops.py:1340`) requires `not self._full_precision_mm_config`, and
+        # `comfy/ops.py:1197` reads that flag from this JSON. Derived here rather
+        # than stated, because the docstring used to state it.
+        storage_only = sorted({k for conf, ks in kinds.items()
+                               if json.loads(conf).get("full_precision_matrix_mult")
+                               for k in ks})
         inv[tag] = {
             "n_tensors": len(h),
             "n_quantized": len(q),
             "n_input_scale": sum(1 for k in h if k.endswith(".input_scale")),
             "weight_scale_shape": h[q[0] + ".weight_scale"]["shape"],
             "markers": markers,
+            "marker_kinds": {c: sorted(v) for c, v in kinds.items()},
+            "storage_only_kinds": storage_only,
         }
         print(f"   {tag}: {len(h)} tensors, {len(q)} quantized, "
               f"{inv[tag]['n_input_scale']} input_scale, "
               f"weight_scale shape {inv[tag]['weight_scale_shape']}")
         for mk, n in markers.items():
             print(f"      {n:>4} x {mk}")
+        print("      storage-only (never a quantized matmul, any path): "
+              + (", ".join(storage_only) if storage_only else "none"))
     rec["inventory"] = inv
 
     print("== shared (unquantized) tensors, byte-compared")

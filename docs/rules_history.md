@@ -6,6 +6,12 @@ the dated instances that earned them live here and nowhere else. This is a
 record: nothing regenerates it, nothing checks its claims against the tree,
 and every "currently", "now" and "since" in it is as of that date.
 
+One inference below has since been annotated rather than corrected, because the
+text is frozen: where this file says the v2 AWQ lane "was closed rather than
+adopted", that closure followed a badly executed attempt and is not evidence
+against quantising our own encoder (owner, 2026-09-20,
+`docs/wiki/decisions.md`).
+
 ---
 
 # ComfyUI-h3-explorations

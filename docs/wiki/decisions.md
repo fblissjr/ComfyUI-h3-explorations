@@ -17,6 +17,46 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-20
 
+- **The AWQ encoder comparison is about two badly executed artifacts, not about
+  the method, and it must not be read as evidence against quantising our own
+  encoder** (owner, 2026-09-20, in their words: "we poorly quantized that - it
+  should NOT be proof of US quantizing being a bad thing... We control the
+  calibration if quantize, and group size, and everything else! We just did it
+  super poorly when we did it with AWQ, and then priorities shifted"). Every
+  record of the four-encoder holdout stands as measured; what changes is the
+  inference drawn from it. The lane closed because a poor first attempt
+  coincided with attention moving elsewhere, not because the approach was shown
+  to be unpromising, and nothing in `bench/results/` ever established the
+  latter. **Calibration data is the untapped area**, and the part our own
+  programme did worst; the recipe is where the effort went and not where it was
+  lost. Annotated in place at `workflows/h3_config.py::ENCODER_INT8`,
+  `docs/evidence.md`, `docs/roadmap.md` "Closed lanes", `docs/rules_history.md`,
+  `bench/results/archive/v2_encoder/README.md`,
+  `docs/research/awq_quantization_suite/README.md` and its report, and inside
+  `bench/results/2026-08-25_four_encoders_holdout_layer50.json` itself.
+- **All four arms of that holdout hold the vision tower at BF16**, which the
+  record did not say and a reader could not infer from it. Read from the file
+  headers: `int8_convrot` and `nvfp4_awq` carry `.comfy_quant` markers on
+  language-decoder linears only, and both W4A16 arms carry none at all. So the
+  holdout compares decoder treatment and load path, and is **silent on tower
+  precision**. A session reading it on 2026-09-20 concluded the opposite and
+  had to retract. **The owner's position is that the vision tower needs to be
+  BF16, for several reasons** (owner, 2026-09-20); that is a standing position,
+  not a measurement, and no record here measures it.
+- **The owner primarily runs the BF16 Qwen3-VL encoder**, although
+  `h3_config.MODELS["clip"]` ships `ENCODER_INT8` on every graph (owner,
+  2026-09-20). The shipped default is not the owner's working configuration, so
+  a default here is not an endorsement: `ENCODER_INT8` won a holdout against
+  two artifacts the owner calls badly executed.
+- **`bench/check_model_contents.py` asserts what is inside every model
+  `h3_config` names**, against a committed fingerprint baseline.
+  `check_model_files.py` resolves names through `/object_info` and never opens
+  a file, so a reship or a rebuild under an unchanged name was invisible to
+  every check. `--report` prints the census, including matched-shape controls
+  and their absence. The two text encoders are the only files here carrying no
+  control, which is why neither can settle a role-versus-shape question about
+  the tower.
+
 - **The prompt rules of 0.128.0 are written down, and four of the six turn out
   to be the vendor guides' own** (the owner: "the rules should be what's in
   `vendor_guides/`"). `4bd7b429` fixed six wording classes across the bank and

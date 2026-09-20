@@ -8,6 +8,49 @@ artifact.
 
 ### Added
 
+- **`bench/check_model_contents.py`: what is inside a named model file, against
+  a committed fingerprint baseline.** `check_model_files.py` resolves names
+  through `/object_info` and never opens a file, so a reship under an unchanged
+  name, a local rebuild, or a conversion between the two on-disk quantization
+  mechanisms passed every check -- and `comfy/utils.py::convert_old_quants`
+  makes that last one identical at load while the headers share nothing. The
+  fingerprint is the distinct `comfy_quant` configs, how many layers hold each,
+  which module roles those are, and how many 2-D weights carry none.
+  `--update-baseline` moves the baseline and prints what moved; the script
+  reports a difference and a person decides whether it was intended. Every blob
+  is decoded rather than sampled by byte length, because `convrot_groupsize` 64
+  and 16 are the same width and a flagged nvfp4 config is the same 72 bytes as
+  the shipped int8 g256 one -- both collisions are real files, and a peer
+  session's audit was wrong by the sampling shortcut before this was written.
+  `--report` prints the census: configs, module roles with `in=`/`out=`, the
+  unquantized 2-D weights, and matched-shape controls **including their
+  absence**, since a file whose every treatment class is uniquely
+  shape-identified cannot answer a role question at all. The two text encoders
+  are the only files here carrying no control.
+
+### Changed
+
+- **`analyze_quant_delta.py` derives its own `full_precision_matrix_mult`
+  claim.** The docstring stated that `mlp.fc2` carries the flag and no code
+  read it; the inventory already decoded every marker, so it now also derives
+  `storage_only_kinds` from the flag core actually reads
+  (`comfy/ops.py:1340` requires `not self._full_precision_mm_config`, set at
+  `comfy/ops.py:1197` from this JSON) and prints it per arm. fp8 reports
+  `mlp.fc2`, int8 reports none.
+- **The AWQ encoder record is annotated with the context it was missing**
+  (owner, 2026-09-20): the two W4A16 candidates were badly executed, every knob
+  was ours, priorities then shifted, and the holdout is **not** evidence that
+  quantising our own encoder is unpromising. Annotated in place at
+  `h3_config.py::ENCODER_INT8`, `docs/evidence.md`, `docs/roadmap.md`,
+  `docs/rules_history.md`'s header, `bench/results/archive/v2_encoder/README.md`,
+  the AWQ suite README and its report, and inside the holdout record.
+  `docs/wiki/decisions.md` carries the decision.
+- **The four-encoder holdout record now says all four arms hold the vision
+  tower at BF16**, read from the file headers, so it is silent on tower
+  precision. It also records the load-path confound and that
+  `qwen3vl_32b_minimax_h3_nvfp4_awq` is storage-only by construction and has
+  never run a quantized kernel on any path.
+
 - **`preflight_graph.py::speaker_id_rules`: is every vocal event attributed to
   a speaker id?** FAIL on ref2va, where ref §5.4 *states* it ("Reuse the
   corresponding ID at every actual vocal event in `detailed_description`"), and

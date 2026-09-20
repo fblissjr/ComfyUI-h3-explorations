@@ -26,6 +26,15 @@ from pathlib import Path
 #: AWQ artifact it replaced
 #: (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
 #:
+#: **That comparison is about two badly executed artifacts, not about the
+#: method** (owner, 2026-09-20): we controlled the calibration, the group size
+#: and everything else, did it poorly, and then priorities shifted. It is not
+#: evidence that quantising our own encoder is unpromising, and nothing in
+#: `bench/results/` establishes that. All four holdout arms also hold the
+#: vision tower at BF16, so the record is silent on tower precision. The owner
+#: primarily runs the BF16 encoder, so this default is not their working
+#: configuration. `docs/wiki/decisions.md`, 2026-09-20.
+#:
 #: It loads through `MiniMaxH3EncoderLoader`, which is core's own `CLIPLoader`
 #: plus two guards (`h3_encoder_loader.py`). Preprocessing is core's: the
 #: still-image bounds are `process_qwen2vl_images`' own defaults, read out of

@@ -5,6 +5,13 @@ was closed rather than adopted. What ships instead is `ENCODER_INT8` -- read
 `h3_config.MODELS["clip"]` for the artifact of record, never this directory and
 never a doc sentence.
 
+**Rejected is not refuted** (owner, 2026-09-20). These artifacts were badly
+executed -- we controlled the calibration, the group size and everything else --
+and then priorities shifted. Nothing in this directory is evidence that
+quantising our own encoder is unpromising, and calibration data is the part the
+programme did worst. Read any gate measurement here as a fact about these two
+candidates. `docs/wiki/decisions.md`.
+
 These are the gate measurements, the calibration-pool selection and its
 near-duplicate adjudication, the layer-49/50 cross-stack comparisons against
 transformers, the kernel- and storage-axis sweeps, the GPTQ host-budget probes,
