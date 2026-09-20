@@ -33,6 +33,22 @@ own below the rule.
   from a speculative check:** the list above is one hand pass's catch, and
   one of the six had already been found and repaired by hand in `9e7d7377`
   long after it rotted. The other five are still there as you read this.
+  *Corrected 2026-09-20, same session:* the item above said
+  `check_skill_routes.py` "is the right shape", and a scan of every tracked
+  doc for backticked paths says that is too simple. A skill file's paths are
+  repo-relative by convention, which is the whole reason that check is cheap.
+  These documents legitimately cite four roots -- this repo, a `coderef/`
+  checkout, ComfyUI core, and the model release -- so a bare
+  `backends/eager/sol_attn.py` is correct prose and unresolvable without
+  knowing which root it hangs from. A resolver that does not model the roots
+  reports hundreds of them, which is the false-positive twin of the
+  empty-search trap and worse than no check. Two further findings from the
+  scan: the tracked docs cite paths that exist on disk but are untracked,
+  concentrated in `coderef/` and `internal/`, which are followable by whoever
+  wrote them and by nobody else -- the sister project separates that from rot
+  with a per-document allowlist that GRANTS, and our equivalent is prose
+  disclosure applied uncertainly. And the oracle matters: ask the filesystem
+  and those read as fine, ask `git ls-files` and they do not.
 
 **2026-09-19 (the research and instrument session):**
 
