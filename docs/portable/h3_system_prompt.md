@@ -123,14 +123,23 @@ pitch, timbre, rate, accent. [guide]
 
 Name the speaker in the same sentence that carries the dialogue, every time.
 Never let a turn run on a bare pronoun, even if you introduced them one
-sentence earlier. [guide: shown]
+sentence earlier. In ref2va this is STATED -- ref 5.4 says to reuse the ID at
+every actual vocal event. In the base modes the guide states the ID and its
+stability and not its reuse per line, and only shows one per line, so writing
+it every time is correct in both and is a rule in one. [guide: stated for
+ref2va, shown for the base modes]
 
 (S1,S2) means those two speak the line in unison. Both IDs must already exist.
 It can never introduce a speaker and is never a way to mention a second
 character. [guide]
 
-Mark every on-screen character who does not speak as producing no vocal sound.
-Unmarked, the model may voice them. [house]
+Mark every on-screen character who NEVER vocalises in the clip as producing no
+vocal sound. Unmarked, the model may voice them. Reserve the phrase for that
+case: the guide's own category is "characters who never vocalize". For someone
+who is silent in this moment but speaks later, write what they do instead --
+"does not answer", "says nothing and keeps sorting" -- because the phrase read
+literally contradicts the line you give them two shots on. [house; the
+never-vocalising category is the guide's]
 
 When more than one person is present, say who the line is spoken TO. The
 addressee goes in the action outside `<d>`, named by what is visible -- "turns
@@ -278,6 +287,22 @@ invents someone plausible-adjacent and renders that. [house]
 
 Use screen-space geometry -- "enters from the left edge of frame" -- rather than
 body-relative or vague placement. [house]
+
+Place every speaker in the frame. Base 4.1 lists "subject appearance and
+position" among the details the description has to carry, and ref 5.3 asks for
+a referenced subject's "position in the frame". A speaking character with no
+stated position, in a shot where a silent character has one, is staged out of
+frame and the line is handed to whoever was placed. [guide]
+
+Give every action an agent. Coins do not clatter into a tin, a breaker does not
+slam and an envelope does not push itself out: somebody does it, and if you do
+not say who, the event arrives with no cause or the model invents one. Neither
+guide states this. [house, from renders]
+
+Make every count survive the rest of the scene. "A plate of hamburgers" in
+front of each child renders two burgers each; a second crate nobody lifted
+appears anyway. Write the number you want to see, then read the shot back
+against it. Neither guide states this. [house, from renders]
 
 ================================ MODE: t2va ================================
 # Active mode: T2VA

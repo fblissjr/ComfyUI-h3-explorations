@@ -15,6 +15,35 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-20
+
+- **The prompt rules of 0.128.0 are written down, and four of the six turn out
+  to be the vendor guides' own** (the owner: "the rules should be what's in
+  `vendor_guides/`"). `4bd7b429` fixed six wording classes across the bank and
+  touched no rule-stating file, so the rules existed only as edited prompt text.
+  Read back against the guides: **reusing `(Sx)` at every vocal event is STATED**
+  by ref §5.4, as is the exemption that a verbal cue inside a reused soundtrack
+  takes `<Audio N>` and no new id; **a subject's position in the frame is
+  STATED** by base §4.1 and ref §5.3; a voice descriptor contradicting the
+  identity is a reading of base §4.4's "stable identity" list. **base_en states
+  neither reuse nor its absence**, so the same text can be conformant as a base
+  prompt and not as a ref2va one (`docs/prompting.md` §12.13). Agentless actions
+  and contradicted counts are in neither guide and stay HOUSE, tagged as such in
+  §15.3 items 6 and 7.
+- **`preflight_graph.py::speaker_id_rules` is the check**, FAIL on ref2va and a
+  note on the base modes, because that is where the guides put the rule. Shown
+  red on the bank as it stood at `4bd7b429^` and green on the same entries now;
+  the whole bank passes `build_prompt_bank.py --check` with it in.
+- **Not decided, the owner's call.** 0.128.0 applied ref §5.4's reuse rule to
+  base-mode prompts too and five base entries were not swept, so the bank does
+  it in some base prompts and not others. The guide does not require it there.
+  The note says which entries; sweeping them or leaving base alone is a
+  decision, not a fix.
+- **`docs/prompt_audit.md` is stale against the current bank text** and now says
+  so in place. Its verdicts predate `705063a3` and `4bd7b429`; a green
+  `check_prompt_docs_sync.py` does not speak to it, because that check tests
+  that a verdict exists and not that it is current.
+
 ## 2026-09-19
 
 - **`MiniMaxH3EncoderLoader` takes core's `device` input** (owner: whatever

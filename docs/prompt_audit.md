@@ -26,6 +26,17 @@ reading.
 
 **Everything below is a source read.** No claim here rests on a render.
 
+> **2026-09-20: the verdicts below were written against prompt text that has
+> since changed.** `4bd7b429` (0.128.0) made one-clause wording fixes across
+> `prompt_bank/` — unplaced speakers, agentless actions, contradicted counts,
+> voice descriptors contradicting the character, silence markers on characters
+> who speak later, missing speaker ids — and `705063a3` removed every
+> shot-header timestamp before it. No verdict here has been re-derived against
+> the current text. `check_prompt_docs_sync.py` stays green because it checks
+> that every catalogue scene *has* a verdict, not that the verdict is current,
+> so its green is not evidence about this note. Re-reading the table is owed;
+> the scenes `4bd7b429` touched are its `git show --stat`.
+
 ---
 
 ## Verdicts

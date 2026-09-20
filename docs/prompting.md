@@ -1,6 +1,6 @@
 # How to write an H3 prompt
 
-last updated: 2026-09-14
+last updated: 2026-09-20
 
 **The single source of truth for writing an H3 prompt, in any mode.** Everything
 needed is restated here: the closed vocabularies in full, the exact Part One
@@ -405,6 +405,26 @@ unison**; because both must be *already-numbered*, you cannot introduce a speake
 with one, and it is never a way to mention a second character. [the "already
 numbered" wording is GUIDE; the unison reading is HOUSE]
 
+**In ref2va the id is reused at every vocal event, and ref §5.4 states it.**
+
+> Assign `(Sx)` once according to the order of actual vocal events in the target
+> video. Reuse the corresponding ID at every actual vocal event in
+> `detailed_description`.
+
+The same paragraph states the one exemption, and states it as a prohibition:
+verbal content that is "only a cue within a directly reused BGM or complete
+soundtrack", produced by no person, character, narrator or other independent
+vocal source, takes `<Audio N>` as its audible source and you **do not invent an
+additional `(Sx)`**. A voice a concrete source physically produces takes one.
+
+**base_en states neither.** Its §4.4 requires a vocalising subject to *have* a
+stable id and to keep it across shots, and says nothing about repeating that id
+at each vocal event; its two worked examples carry one per line, but an example
+is not a rule. So the reuse rule binds ref2va and the base modes are silent,
+which is the guides' asymmetry and not ours (§12.13).
+`preflight_graph.py::speaker_id_rules` FAILs the ref2va case and reports the
+base one. [GUIDE ref §5.4, *stated*]
+
 ### 5.2 Where identity goes
 
 base §4.4, *stated*: **when a speaker first appears**, provide enough information
@@ -415,6 +435,25 @@ accent.
 Note "first **appears**", not "first speaks". Introducing `(S2)` in one shot and
 describing them in the next is a violation, and it is a live defect in a shipped
 house prompt.
+
+**A speaker is placed in the frame, and base §4.1 states it** in the sentence
+that governs the whole description: every detail corresponds to something
+visible or audible, among them "subject appearance **and position**". ref §5.3
+states it again for a referenced subject — describe "its referenced
+characteristics, **position in the frame**, and current action". The failure is
+specific and has rendered: a speaking character with no stated position, in a
+shot where a silent character has one, gets staged out of frame and the model
+gives the line to whoever it did place. Saying where each speaker is costs a
+clause. [GUIDE base §4.1 and ref §5.3, *stated*; the render is
+`bench/results/2026-09-18_sol_reorder_panel.md`, the cafe pair]
+
+**The voice has to fit the identity the same sentence establishes.** §4.4's list
+names "character type, age, gender ... pitch, timbre" together as what makes the
+identity *stable*, so a descriptor pulling against another element of it is not
+a stable identity: four women in the bank were given a baritone. Which way to
+resolve it is ours, and the resolution is to move the range, not the character.
+[GUIDE base §4.4 for the stable-identity requirement; HOUSE that a baritone
+contradicts the rest of the description]
 
 ### 5.3 The `<d>` block
 
@@ -1409,7 +1448,15 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | style and initial composition open `[Shot 1]` (base) | GUIDE base §4.1 | nothing |
 | style stated in one or two sentences **before** `[Shot 1]` (ref2va) | GUIDE ref §5.2 | nothing |
 | speaker ids `(S1)`, `(S2)`, stable across shots, unconditional | GUIDE base §4.4 | nothing |
+| **ref2va: the id is reused at every vocal event** | GUIDE ref §5.4, *stated* | `preflight_graph.py::speaker_id_rules` (FAIL), and through it `build_prompt_bank.py --check` and `grade_prompt_text.py`. Shown red on the bank as it stood at `4bd7b429^` and green on the same entries after |
+| **a verbal cue inside a reused soundtrack takes `<Audio N>` and no new `(Sx)`** | GUIDE ref §5.4, *stated* as a prohibition | same rule, as its exemption; `ref2va_soundtrack_fully_copy` is the entry that exercises it |
+| the base modes reuse the id per vocal event | **NOT A RULE** in base_en — it states the id and its stability only; ref states the reuse. §12.13 | `speaker_id_rules` reports it as a note and grades nothing |
 | non-vocalising characters get no id | GUIDE base §4.4 | nothing |
+| a speaker has a stated position in the frame | GUIDE base §4.1 ("subject appearance and position"), ref §5.3 ("position in the frame"), *stated* | nothing — and not mechanizable. An unplaced speaker beside a placed silent one was staged out of frame and lost its line |
+| the voice descriptor does not contradict the identity the same sentence establishes | GUIDE base §4.4 for "stable identity"; HOUSE for resolving it by moving the range | nothing |
+| every action has a stated agent | HOUSE, observed — neither guide states it | nothing |
+| a count is consistent with what the shot shows | HOUSE, observed — neither guide states it | nothing |
+| "produces no vocal sound" is reserved for a character who never vocalises | HOUSE — the phrase is in neither guide; the category is base §4.4's | nothing |
 | compound `(S1,S2)` only for already-numbered speakers | GUIDE base §4.4 | nothing |
 | identity established where the speaker first **appears** | GUIDE base §4.4 | **nothing**, and not mechanizable |
 | the addressee is named outside `<d>`, and a listener takes no id | GUIDE base §4.4 (*stated*: the slot, and no id for a non-vocaliser); ref §5.4 (*shown*: naming the addressee); HOUSE that it is done whenever a second person is present | nothing |
@@ -1457,7 +1504,7 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | speech budget `2.5 x (shot_seconds - 1.0)` | OPEN — functional form assumed, one anchor, an alternative fits it exactly | nothing |
 | turn cap | OPEN — house material states both a cap and no cap | nothing |
 | lips close and jaw stops at the end of every line | HOUSE, from a vendor example | nothing |
-| explicit "produces no vocal sound" for silent on-screen characters | HOUSE | nothing |
+| explicit "produces no vocal sound" for silent on-screen characters | HOUSE | nothing. *Narrowed 2026-09-20*: reserved for a character who never vocalises in the clip; the row above carries it, and §15.3 item 5 says what to write for someone silent only for now |
 | L2VA closed-mouth endpoint rule | HOUSE | nothing |
 | "only" as a strict exclusion; wardrobe as preserve/add/replace/modify | HOUSE | nothing |
 | cast sheet: same noun phrase verbatim on every mention | HOUSE | nothing |
@@ -1518,6 +1565,19 @@ Stated so nobody mistakes a house reading for the vendor's.
     sentence behind it. `internal/PROMPTING.md` §4.3 read it as a rule ("one
     speaking turn per shot") and contradicted itself elsewhere; §14 records where
     our shipped prompts land.
+13. **base_en and ref_en disagree on whether the speaker id is repeated.** ref
+    §5.4 *states* the reuse — "Reuse the corresponding ID at every actual vocal
+    event in `detailed_description`" — and states the soundtrack-cue exemption
+    beside it. base_en's §4.4 states that a vocalising subject takes a stable id
+    and keeps it across shots, and says nothing about repeating it per line; its
+    two dialogue examples show one per line, which is *shown*, not stated. So the
+    same prompt text can be conformant as a base prompt and non-conformant as a
+    ref2va one. We enforce it where it is stated and report it where it is not
+    (§5.1); the bank currently repeats the id in every ref2va entry and in some
+    base entries but not all, which is a house inconsistency and not a guide
+    violation. **Do not resolve it by reading base_en's examples as a rule** —
+    that is how the two retracted rules in §13 were invented. *Added
+    2026-09-20.*
 
 ## 13. Known gaps in this repo
 
@@ -1834,10 +1894,12 @@ runs after — so one soundtracked video plus one standalone clip gives
 `comfy_extras/nodes_minimax_h3.py:335,346` and this pack's
 `reference_conditioning.py:655-696`.
 
-### 15.3 The five ways prompts go wrong here
+### 15.3 The seven ways prompts go wrong here
 
 Carried forward from `internal/PROMPTING.md` §3. These are diagnoses from
-observed outputs, not measurements.
+observed outputs, not measurements. Items 6 and 7 were added on 2026-09-20 from
+the bank read of 0.128.0; **neither vendor guide states them**, which is why
+both carry a HOUSE tag and an arm that rendered the defect.
 
 1. **The writer does not know what H3 is**, so it writes for a generic
    text-to-video model: it hedges, writes instructions rather than descriptions,
@@ -1860,6 +1922,24 @@ observed outputs, not measurements.
    instructs two characters to say the line in unison; and simply too many
    speakers for the runtime. Every on-screen character not given an explicit
    "produces no vocal sound" is a candidate for the model to voice anyway.
+   **Reserve that phrase for a character who never vocalises in the clip**, the
+   category base §4.4 names when it says characters who never vocalize receive
+   no id. Someone silent in this moment who speaks later is written as what they
+   do instead — "does not answer". [HOUSE; the phrase appears in neither guide]
+6. **An action with no agent renders with no cause, or the model invents one.**
+   The covered market prompt had coins clattering into a tin with nobody
+   dropping them, and arms rendered them arriving from nowhere and out of a
+   crate; a breaker slammed itself, an envelope pushed itself out. Name who does
+   it. The guides require every detail to correspond to something visible or
+   audible (base §4.1) and an uncaused sound does correspond to something
+   audible, so this is a reading of renders, not of the guide. [HOUSE, observed;
+   `bench/results/2026-09-18_sol_reorder_panel.md` and CHANGELOG 0.127.0]
+7. **A count is a promise the rest of the scene has to keep.** "A plate of
+   hamburgers" in front of each child rendered two burgers each; a second crate
+   nobody had lifted appeared anyway; plates "in a row" on a two-cover ticket.
+   Write the number you want to see, then check it against what the shot
+   actually shows. Neither guide states anything about quantities. [HOUSE,
+   observed; CHANGELOG 0.126.1 and 0.128.0]
 
 ### 15.4 The speech budget, and why its shape is unsettled
 

@@ -279,6 +279,68 @@ def marker_rules(prompt: str, main_body: str) -> list[tuple[str, str]]:
     return out
 
 
+def speaker_id_rules(main_body: str, guide: str) -> list[tuple[str, str]]:
+    """Is every vocal event attributed to a speaker id?
+
+    ref-en.txt:278 (ref 5.4) STATES it: "Assign `(Sx)` once according to the
+    order of actual vocal events in the target video. Reuse the corresponding
+    ID at every actual vocal event in `detailed_description`." The same
+    paragraph states the one exemption, and states it as a prohibition: verbal
+    content that is "only a cue within a directly reused BGM or complete
+    soundtrack", produced by no person, character or narrator, takes
+    `<Audio N>` as its audible source and you "do not invent an additional
+    `(Sx)`".
+
+    base-en STATES NEITHER. Its 4.4 requires a vocalising subject to HAVE a
+    stable id and to keep it across shots, and says nothing about repeating
+    that id at each vocal event; its two worked examples carry one per line,
+    but an example is not a rule (prompting.md, "Four layers"). So this is a
+    FAIL on ref2va and a note on the base modes. The asymmetry is the guides',
+    not ours, and prompting.md section 12 records it.
+
+    Scoped per shot, not per `<d>`: an id earlier in the same shot satisfies
+    the rule. That is what makes a sung passage of consecutive `<d>` lines
+    under one attribution pass, and it is deliberately conservative -- two
+    speakers alternating inside one shot where only the first is attributed
+    reads clean here. It catches the case that shipped: a vocal event whose
+    shot names no speaker at all.
+    """
+    out = []
+    if not main_body:
+        return out
+    bounds = [m.start() for m in re.finditer(r"\[Shot \d+\]", main_body)]
+    segments = ([main_body] if not bounds else
+                [main_body[a:b] for a, b in
+                 zip([0] + bounds, bounds + [len(main_body)])])
+    for seg in segments:
+        prev_end = 0
+        for d in re.finditer(r"<d>", seg):
+            before = seg[:d.start()]
+            if re.search(r"\(S\d+(?:,S\d+)*\)", before):
+                prev_end = d.end()
+                continue
+            # the guide's exemption, scoped to this line's own attribution
+            # window so a soundtrack cue elsewhere in the shot cannot excuse
+            # an unattributed speaker
+            if re.search(r"<Audio \d+>", seg[prev_end:d.start()]):
+                prev_end = d.end()
+                continue
+            head = " ".join(before.split())[-60:]
+            if guide == "ref":
+                out.append(("FAIL", f"a <d> block has no (Sx) earlier in its "
+                                    f"shot, and cites no <Audio N> as its "
+                                    f"source: reuse the id at every vocal "
+                                    f"event (ref-en.txt:278) ...{head}"))
+            else:
+                out.append(("note", f"a <d> block has no (Sx) earlier in its "
+                                    f"shot. base-en states the id and its "
+                                    f"stability, not its reuse per line, so "
+                                    f"this is reported and not graded "
+                                    f"...{head}"))
+            prev_end = d.end()
+    return out
+
+
 def guide_for(inputs: dict) -> str:
     """"ref" when the node wires reference labels, else "base"."""
     return "ref" if ("references" in inputs or
@@ -1175,6 +1237,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
         if s != main_field and "<d>" in body:
             out.append(("FAIL", f"<d> appears in {s}; it belongs only in "
                                 f"{main_field}"))
+    out.extend(speaker_id_rules(dd, guide))
     out.extend(marker_rules(prompt, dd))
     out.extend(embedding_notes(prompt))
 

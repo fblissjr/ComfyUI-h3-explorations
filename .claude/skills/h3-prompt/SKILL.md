@@ -24,7 +24,11 @@ of. Fix the frame count before writing: a prompt is only correct at a
 duration, for the reason section 2 gives. Fit scene beats and shot counts to the narrative. Shot headers carry NO
 timestamps (the owner's house rule, 2026-09-18: `[Shot 2] The shot cuts to ...`);
 a time is used only to split action inside one shot. Fit dialogue to the shot's speaking time
-so actors neither rush nor sit in dead air (section 5.10). For character likeness in T2VA, introduce
+so actors neither rush nor sit in dead air (section 5.10). In ref2va the speaker
+id is reused at every vocal event and a soundtrack cue takes `<Audio N>` instead
+(section 5.1, stated by ref 5.4; base_en states neither, section 12.13). Place
+every speaker in the frame (section 5.2); give every action an agent and keep
+every count consistent with the shot (section 15.3 items 6 and 7, house). For character likeness in T2VA, introduce
 subjects as `[Name] (played by [Actor] in [Show])` once in Shot 1, keeping vocal
 timbre in narrative prose outside `<d>`.
 

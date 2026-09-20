@@ -4,6 +4,71 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.136.0
+
+### Added
+
+- **`preflight_graph.py::speaker_id_rules`: is every vocal event attributed to
+  a speaker id?** FAIL on ref2va, where ref §5.4 *states* it ("Reuse the
+  corresponding ID at every actual vocal event in `detailed_description`"), and
+  a note on the base modes, where base_en states the id and its stability and
+  not its reuse per line. The exemption is the guide's too, and stated as a
+  prohibition: a verbal cue inside a directly reused soundtrack takes
+  `<Audio N>` as its audible source and no new `(Sx)`. Scoped per shot, so a
+  sung passage of consecutive `<d>` lines under one attribution passes; two
+  speakers alternating inside one shot with only the first attributed reads
+  clean, which the docstring states. It reaches `build_prompt_bank.py --check`
+  and `grade_prompt_text.py` through preflight rather than as a new check.
+  - **Shown red before being trusted.** The four ref2va vocal events that
+    `4bd7b429` fixed go FAIL on the bank as it stood at `4bd7b429^`
+    (`ref2va_scene_kitchen`, `ref2va_scene_subway`) and clean on the same
+    entries now; `ref2va_soundtrack_fully_copy`, which the first draft of the
+    rule failed, is clean under the guide's own exemption. The whole bank
+    passes `--check` with the rule in.
+
+### Changed
+
+- **The prompt rules of `4bd7b429` (0.128.0) are written down, and four of the
+  six are the vendor guides' own** (the owner: the rules should be what is in
+  `vendor_guides/`). That commit fixed six wording classes across the bank and
+  touched no rule-stating file: not `docs/prompting.md`, not the portable
+  writer prompt, not the wiki, not the skill, not a checker. Read back against
+  the guides, the six split three ways, and each now carries its layer:
+  - **STATED**: the id reused at every vocal event and the soundtrack-cue
+    exemption (ref §5.4, `docs/prompting.md` §5.1); a subject's position in the
+    frame (base §4.1 "subject appearance and position", ref §5.3 "position in
+    the frame", §5.2).
+  - **A reading of a stated sentence**: a voice descriptor contradicting the
+    identity, because base §4.4 names gender and pitch together as what makes
+    an identity *stable*. Which way to resolve it is HOUSE (§5.2).
+  - **HOUSE, in neither guide**: an action with no agent, a count the scene
+    contradicts, and the "produces no vocal sound" phrase itself, whose scope
+    is now the guide's own "characters who never vocalize" category (§15.3
+    items 5-7, each tagged and carrying the arm that rendered it).
+- **`docs/prompting.md` §11 carries a row per rule** with what checks it, §12
+  gains item 13 for the base/ref asymmetry, and the older "produces no vocal
+  sound" row is narrowed in place rather than duplicated.
+- `docs/portable/h3_system_prompt.md` already carried ref §5.4's two rules
+  correctly, which is why the defect was in the bank and not in anything this
+  file wrote; three things in it were wrong or missing and are fixed: the reuse
+  rule was tagged `[guide: shown]` when ref states it, "produces no vocal
+  sound" was written for every non-speaking character rather than the
+  never-vocalising ones, and speaker position, agency and counts were absent.
+- `docs/wiki/prompting.md` gains three traps; the skill names the new rules and
+  `docs/prompt_audit.md` says in place that its verdicts predate the bank edits.
+- Stale dates: `docs/prompting.md` said 2026-09-14 and `docs/wiki/prompting.md`
+  said 2026-09-03; both were edited on 2026-09-18.
+
+### Known, the owner's call
+
+- `4bd7b429` applied ref §5.4's reuse rule to base-mode prompts as well, and
+  five base entries were not swept, so the bank repeats the id in some base
+  prompts and not others. base_en does not require it. The new rule reports
+  them as notes and grades nothing; sweeping them or leaving base alone is a
+  decision.
+- `docs/prompt_audit.md`'s per-scene verdicts have not been re-derived against
+  the text `705063a3` and `4bd7b429` changed.
+
 ## 0.135.0
 
 ### Changed
