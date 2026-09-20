@@ -13,6 +13,24 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-20 (the prompt-rules session):**
+
+- **Documented pointers to scripts are unchecked, and six have rotted.**
+  `docs/checks.md` and `docs/prompting.md` section 11 name `.py` files that no
+  longer exist: `check_portable_standard.py` (renamed 2026-09-01),
+  `check_workflow_schema.py`, `check_mono_ref_audio.py` and
+  `check_uncontrolled_claims.py` (each deleted with a reason), and
+  `show_red_preflight_guide_split.py` and `show_red_reference_runtime.py`
+  (left with `bench/red/` in `0a764a33`). One of the six was corrected by hand
+  in `9e7d7377`; the rest stand. `bench/check_skill_routes.py` already does
+  exactly this for `.claude/skills/`, both directions, so the instrument
+  exists and is pointed at one directory. Done when it also reads the two rule
+  tables, or when the owner decides documented pointers are not worth gating.
+  **Why it is more than tidiness:** a rule table is consulted only while it is
+  trusted, and an index that names missing files is one people re-derive
+  around instead of reading. The sister project landed its own citation
+  resolution on 2026-09-20 and found the same class.
+
 **2026-09-19 (the research and instrument session):**
 
 - **The blind panel is built and unscored.** Six real contests (noodle bar at
