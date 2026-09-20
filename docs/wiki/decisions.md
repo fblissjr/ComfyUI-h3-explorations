@@ -32,7 +32,7 @@ Older history lives elsewhere and is not copied here:
   lost. Annotated in place at `workflows/h3_config.py::ENCODER_INT8`,
   `docs/evidence.md`, `docs/roadmap.md` "Closed lanes", `docs/rules_history.md`,
   `bench/results/archive/v2_encoder/README.md`,
-  `docs/research/awq_quantization_suite/README.md` and its report, and inside
+  `docs/research/archive/awq_quantization_suite/README.md` and its report, and inside
   `bench/results/2026-08-25_four_encoders_holdout_layer50.json` itself.
 - **All four arms of that holdout hold the vision tower at BF16**, which the
   record did not say and a reader could not infer from it. Read from the file
