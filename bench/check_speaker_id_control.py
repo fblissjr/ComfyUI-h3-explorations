@@ -24,7 +24,17 @@ Cases, all offline and in seconds -- no GPU, no server, no fixture files:
   kitchen_now    the same entry at HEAD              -> clean
   subway_now     the same entry at HEAD              -> clean
   soundtrack     ref2va_soundtrack_fully_copy        -> clean (the exemption)
+  reused_speech  ref2va_video_swap                   -> clean (both clauses)
   base_is_noted  a base-mode entry with the same shape -> note, never FAIL
+
+`reused_speech` is the quiet artifact, and it is the case the other five do
+not reach. A rule only ever run against violations is unverified in the
+direction that removes rules: what a FAIL costs is the conformant prompt it
+wrongly rejects. `ref2va_video_swap` reuses source dialogue -- it carries the
+guide's own `[unclear]` marker -- AND attributes it to a speaker id, so ref
+5.4's reuse paragraph and its reuse-the-id paragraph both apply to the same
+text. If the rule ever starts reading the reuse clause as governing the id
+clause, this is the case that goes red.
 
 `base_is_noted` is the case that keeps the rule inside the guide. base-en
 states the id and its stability and says nothing about repeating it per vocal
@@ -89,7 +99,7 @@ def main() -> int:
                        f"on the input it was built against")
 
     for stem in ("ref2va_scene_kitchen", "ref2va_scene_subway",
-                 "ref2va_soundtrack_fully_copy"):
+                 "ref2va_soundtrack_fully_copy", "ref2va_video_swap"):
         text = (REPO / "prompt_bank" / f"{stem}.txt").read_text()
         n = _count(_rows(text, "ref"), "FAIL")
         cases.append((stem, "clean expected", n, 0))
