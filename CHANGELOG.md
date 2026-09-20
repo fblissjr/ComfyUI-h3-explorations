@@ -37,6 +37,17 @@ artifact.
   (`comfy/ops.py:1340` requires `not self._full_precision_mm_config`, set at
   `comfy/ops.py:1197` from this JSON) and prints it per arm. fp8 reports
   `mlp.fc2`, int8 reports none.
+- **The AWQ quantization suite is tracked, and its config snapshots are gone.**
+  The owner un-ignored it and moved it to `docs/research/archive/`. Its
+  `config/` directory held about 16 MB of stock Qwen3-VL tokenizer and
+  processor snapshots, byte-identical to the Hub's
+  (`bench/check_released_encoder_is_stock.py` is what establishes that), so it
+  was removed rather than committed; `recipe.yaml` was the one file worth
+  keeping and is inlined in the suite README as text. The move also broke two
+  pointers inside the report that were valid at the old depth, and a third was
+  already dead before it -- `h3_awq_encoder.py`, deleted 2026-09-13 with the
+  lane -- which is marked as deleted rather than repointed at nothing.
+
 - **The AWQ encoder record is annotated with the context it was missing**
   (owner, 2026-09-20): the two W4A16 candidates were badly executed, every knob
   was ours, priorities then shifted, and the holdout is **not** evidence that
