@@ -19,12 +19,18 @@ artifact.
   speakers alternating inside one shot with only the first attributed reads
   clean, which the docstring states. It reaches `build_prompt_bank.py --check`
   and `grade_prompt_text.py` through preflight rather than as a new check.
-  - **Shown red before being trusted.** The four ref2va vocal events that
-    `4bd7b429` fixed go FAIL on the bank as it stood at `4bd7b429^`
-    (`ref2va_scene_kitchen`, `ref2va_scene_subway`) and clean on the same
-    entries now; `ref2va_soundtrack_fully_copy`, which the first draft of the
-    rule failed, is clean under the guide's own exemption. The whole bank
-    passes `--check` with the rule in.
+  - **`bench/check_speaker_id_control.py` is the control, and the claim lives
+    there rather than in this entry.** Six cases: both composed reference
+    scenes red at `4bd7b429^`, both clean now, `ref2va_soundtrack_fully_copy`
+    clean under the guide's exemption (the first draft of the rule failed it),
+    and a base-mode entry that must note and never FAIL. It reads the pre-fix
+    text out of git rather than from a fixture, so it cannot drift from the
+    commit it cites. Shown red by disabling the rule.
+  - Every shipped graph was walked through `preflight_graph.grade` as well, not
+    only the bank through a donor: zero FAIL across `graph_paths(include_bench=True)`,
+    with the base note on the four graphs carrying the un-swept entries. The
+    mode a prompt grades under comes from the graph's sockets, so bank-only
+    evidence would not have covered it.
 
 ### Changed
 
