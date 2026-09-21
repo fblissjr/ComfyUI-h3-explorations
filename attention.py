@@ -340,16 +340,17 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
                           skip_reshape=skip_reshape,
                           skip_output_reshape=skip_output_reshape, **kwargs)
 
-        # Declining a mask here is load-bearing for CORRECTNESS, not just
-        # scoping -- do not relax it on the grounds that sage supports masks
-        # now. It does have a path: `sageattn()` routes masked sm89 calls to
-        # the fp8++ kernel's MaskMode::kGeneral, added in the fork's v0.5.5.
-        # That path applies the mask to the last 128 key columns only and
-        # silently ignores the rest (measured 2026-09-20; the fork's
-        # tests/repros/repro_fp8_mask_window.py is the gate, and
-        # docs/cuda_mask_kernel_scoping.md owns it). The one correct masked
-        # entry point is sageattn_qk_int8_pv_fp16_triton -- note fp16 *cuda*
-        # is not it.
+        # Declining a mask here is deliberate, and the reason changed on
+        # 2026-09-20 -- do not relax it without reading which one applies.
+        # Until that date the fp8++ kernel's MaskMode::kGeneral applied the
+        # mask to its last two K blocks only and silently ignored the rest,
+        # so declining was a correctness guard. That is fixed (the sage fork's
+        # tests/repros/repro_fp8_mask_window.py is the gate). What stands now:
+        # sageattn_qk_int8_pv_fp16_triton skips a fully masked K block and the
+        # CUDA kernel has no equivalent, so Triton is faster AND more accurate
+        # on masks, and the other CUDA kernels (fp8 fp32+fp32, fp16_cuda,
+        # sm80) still drop a mask whole. If this ever routes masked calls to
+        # sage, fp16 *triton* is the one -- fp16 *cuda* is not.
         #
         # H3 itself cannot reach this: its single attention call site passes
         # mask=None as a literal, references included. The guard matters

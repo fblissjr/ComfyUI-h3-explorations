@@ -25,6 +25,14 @@ Older history lives elsewhere and is not copied here:
   that path applies `attn_mask` to the last 128 key columns only and silently
   ignores everything before it. It has never been correct -- not a regression.
 
+  *(Updated later the same day: the kernel was fixed -- `apply_general_mask`
+  sat at `apply_causal_mask`'s call sites, which is a diagonal-bound
+  optimisation that does not generalise, so the main loop masked nothing. The
+  unmasked and causal paths are bit-identical across the fix, so nothing below
+  about H3 changes. This pack still declines masked calls, now because Triton
+  skips fully masked K blocks and the CUDA kernel does not, making it faster
+  and more accurate on masks rather than the only correct one.)*
+
   **H3 is unaffected, by construction rather than by luck.** Its single
   attention call site passes `mask=None` as a literal, not a variable
   (`comfy/ldm/minimax/model.py`, `Attention.forward`), so no code path reaches
