@@ -17,6 +17,41 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-20
 
+- **The sage fork's masked CUDA path is wrong, and this pack's refusal to use
+  it is now a correctness guard rather than a scoping choice** (found while
+  building a sage override for ComfyUI's Qwen-Image 2.1, which is the first
+  target either repo has that passes a mask). `sageattn()` routes masked sm89
+  calls to the fp8++ kernel's `MaskMode::kGeneral`, added in the fork's v0.5.5;
+  that path applies `attn_mask` to the last 128 key columns only and silently
+  ignores everything before it. It has never been correct -- not a regression.
+
+  **H3 is unaffected, by construction rather than by luck.** Its single
+  attention call site passes `mask=None` as a literal, not a variable
+  (`comfy/ldm/minimax/model.py`, `Attention.forward`), so no code path reaches
+  the defect. `denoise_mask` and `audio_denoise_mask` are per-row velocity and
+  sigma scaling applied to the output; they never touch attention. **Multiple
+  references lengthen the packed sequence and do not introduce a mask** --
+  checked specifically, because it is the obvious place a mask would appear.
+  Nothing rendered by this pack needs re-checking.
+
+  What changed here: the comment in `attention.py` above the mask decline used
+  to say "Sage has no mask support on this path", which is now false in detail
+  and right in effect, and read as an invitation to relax the guard once sage
+  gained masks. It now says why the guard stays. No behaviour change; the
+  override already declined masked calls.
+
+  The one correct masked entry point is `sageattn_qk_int8_pv_fp16_triton`. Note
+  the naming trap: fp16 *triton* is correct, fp16 *cuda* silently drops masks
+  whole, and the mode names do nothing to warn about it. If this pack ever
+  grows a masked path, that is the only one to use.
+
+  Lives in the sage fork: `docs/cuda_mask_kernel_scoping.md` (owner),
+  `CHANGELOG.md` "Known kernel bugs" (record),
+  `tests/repros/repro_fp8_mask_window.py` (the gate, exits non-zero while
+  present), `tests/bench/masked_kernel_survey/` (every entry point against a
+  causal, a prefix and a suffix mask).
+
+
 - **The AWQ encoder comparison is about two badly executed artifacts, not about
   the method, and it must not be read as evidence against quantising our own
   encoder** (owner, 2026-09-20, in their words: "we poorly quantized that - it

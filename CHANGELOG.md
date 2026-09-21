@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.136.1
+
+### Changed
+
+- **`attention.py`: the comment above the mask decline now says why the guard
+  stays, because the old one was false in detail and invited removing it.** It
+  said "Sage has no mask support on this path". Sage does have one --
+  `sageattn()` routes masked sm89 calls to the fp8++ kernel's
+  `MaskMode::kGeneral`, added in the fork's v0.5.5 -- and it applies
+  `attn_mask` to the last 128 key columns only, silently ignoring the rest.
+  Never correct, not a regression. So declining masked calls here is a
+  correctness guard now, not scoping, and the comment says that.
+
+  **No behaviour change.** The override already declined masked calls, and H3
+  cannot reach the defect regardless: its single attention call site passes
+  `mask=None` as a literal, references included. Checked rather than assumed,
+  including the multi-reference case. Nothing this pack has rendered needs
+  re-checking.
+
+  Full record in the sage fork: `docs/cuda_mask_kernel_scoping.md` owns it,
+  `tests/repros/repro_fp8_mask_window.py` is the gate. Dated entry with the
+  H3-specific reasoning: `docs/wiki/decisions.md`.
+
 ## 0.136.0
 
 ### Added

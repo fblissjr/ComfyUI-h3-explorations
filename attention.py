@@ -340,9 +340,24 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
                           skip_reshape=skip_reshape,
                           skip_output_reshape=skip_output_reshape, **kwargs)
 
-        # Sage has no mask support on this path, and a custom softmax scale
-        # is not plumbed through here. Both are rare on H3 (its self-attn
-        # passes neither) but wrong silently if assumed.
+        # Declining a mask here is load-bearing for CORRECTNESS, not just
+        # scoping -- do not relax it on the grounds that sage supports masks
+        # now. It does have a path: `sageattn()` routes masked sm89 calls to
+        # the fp8++ kernel's MaskMode::kGeneral, added in the fork's v0.5.5.
+        # That path applies the mask to the last 128 key columns only and
+        # silently ignores the rest (measured 2026-09-20; the fork's
+        # tests/repros/repro_fp8_mask_window.py is the gate, and
+        # docs/cuda_mask_kernel_scoping.md owns it). The one correct masked
+        # entry point is sageattn_qk_int8_pv_fp16_triton -- note fp16 *cuda*
+        # is not it.
+        #
+        # H3 itself cannot reach this: its single attention call site passes
+        # mask=None as a literal, references included. The guard matters
+        # because this override exists to catch calls another patch handed
+        # back, and that caller is not H3 and may well mask.
+        #
+        # A custom softmax scale is not plumbed through here either, and is
+        # wrong silently if assumed.
         if mask is not None or kwargs.get("scale") is not None:
             return fallback()
 
