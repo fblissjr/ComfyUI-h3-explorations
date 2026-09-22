@@ -1,6 +1,7 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-09-19 (section "comfy-kitchen and core, 2026-09-19", with
+Last updated: 2026-09-22 (section "comfy-kitchen, 2026-09-22": kitchen only,
+core not re-read); 2026-09-19 (section "comfy-kitchen and core, 2026-09-19", with
 dated notes on the PRs it found closed or merged); 2026-09-15 (the
 comfy-kitchen section); before that 2026-09-11, when sglang's own Sol-Attn backend was added, the
 comfy-kitchen snapshot moved forward, an
@@ -35,12 +36,42 @@ disagree about our configuration, they are right.
 | xmarre's ComfyUI-Sol-H3 | its README and the body of its PR 9, via `gh` | 2026-09-11 |
 | Comfy-Org/ComfyUI PR 16239 (closed unmerged 2026-09-16) | its diff via `gh`: `nodes_sparse_attention.py` and two helpers in its new module | 2026-09-11 |
 | Comfy-Org/ComfyUI PRs touching H3 or core's sparse node, and kitchen's open PRs | `gh`: lists, bodies and threads; diffs for 16388, 16344, 16404, 16245, 16362, 16378 | 2026-09-19 |
-| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19 |
+| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19, 2026-09-22 |
 
 Every `coderef/Sana/...` pointer below resolves against a checkout at
 `757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
 
 ---
+
+## comfy-kitchen, 2026-09-22
+
+Read with `upstream` and `origin` fetched in the clone, `gh` PR lists and
+bodies, and kijai's fork through the GitHub API (the clone no longer has a
+`kijai` remote). Core was not re-read.
+
+**Still current, nothing to carry.** `vendor/rebuild_kernel.sh --check` is the
+observable: ComfyUI's pin has not moved from the tag the 2026-09-19 read
+found, upstream `main` has nothing past it, and the venv holds the `h3-build`
+tip. The clone's local `main` and the fork's `origin/main` mirror lag
+upstream; neither is built.
+
+**Kitchen PRs new or changed since 2026-09-19:**
+
+- **187, Triton `rms_rope` grid overflow at 65,536 or more rows** (issue
+  169). H3's packed sequence is past that, but the kernel is kitchen's Triton
+  backend, which core disables unless `--enable-triton-backend` is passed
+  (`comfy/quant_ops.py`), and this install's launcher does not pass it. The
+  failure is also loud (a CUDA invalid-argument error), not silent. Not this
+  card, the same reasoning as 172.
+- **189, CUDA `dequantize_mxfp8`** (issue 190), replacing an eager fallback.
+  No model in `workflows/h3_config.py::MODELS` is MXFP8. Not this card.
+- 185 (HIP arch support), and 184 updated (HIP Sol exact): not this card.
+- **168 (ours)**: open, still no activity since 2026-09-11. Its last comment
+  names PR 171's `*, key_bias` as the thing it folds with; 171 closed
+  unmerged on 2026-09-16, so that note no longer binds anything.
+
+**kijai's fork:** no branch has moved since the last read; the newest head
+is still `zero-pad-mode` at `16651db`.
 
 ## comfy-kitchen and core, 2026-09-19
 
