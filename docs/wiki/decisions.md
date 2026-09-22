@@ -33,6 +33,17 @@ Older history lives elsewhere and is not copied here:
   skips fully masked K blocks and the CUDA kernel does not, making it faster
   and more accurate on masks rather than the only correct one.)*
 
+  *(Corrected 2026-09-22: the reason in the note above named the wrong
+  mechanism. The fork's own backlog entry "Route masked sm89 calls to Triton
+  rather than fp8++" puts Triton's accuracy edge on PV quantized to fp16
+  rather than fp8. It also finds Triton winning on a dense mask, where
+  skipping blocks buys little, so the speed gap is not isolated. The
+  conclusion, that Triton is the masked path to use and this pack keeps
+  declining, is unchanged; `attention.py` now states the reason without
+  claiming a mechanism. Also, "last 128 key columns" was a fixed-shape
+  reading: the fork's `docs/cuda_mask_kernel_scoping.md` finds the window
+  tile-aligned, the last two K blocks, so its width varies with kv_len.)*
+
   **H3 is unaffected, by construction rather than by luck.** Its single
   attention call site passes `mask=None` as a literal, not a variable
   (`comfy/ldm/minimax/model.py`, `Attention.forward`), so no code path reaches

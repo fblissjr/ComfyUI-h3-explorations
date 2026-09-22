@@ -346,9 +346,13 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
         # mask to its last two K blocks only and silently ignored the rest,
         # so declining was a correctness guard. That is fixed (the sage fork's
         # tests/repros/repro_fp8_mask_window.py is the gate). What stands now:
-        # sageattn_qk_int8_pv_fp16_triton skips a fully masked K block and the
-        # CUDA kernel has no equivalent, so Triton is faster AND more accurate
-        # on masks, and the other CUDA kernels (fp8 fp32+fp32, fp16_cuda,
+        # sageattn_qk_int8_pv_fp16_triton is both faster and closer to SDPA
+        # than the fixed fp8++ path at every masked shape the fork surveyed
+        # (its tests/bench/masked_kernel_survey/, synthetic and isolated).
+        # The accuracy half is PV quantized to fp16 rather than fp8; the
+        # speed half is not isolated -- Triton also wins on a dense mask, so
+        # it is not only Triton skipping fully masked K blocks. And the other
+        # CUDA kernels (fp8 with any accumulator but fp32+fp16, fp16_cuda,
         # sm80) still drop a mask whole. If this ever routes masked calls to
         # sage, fp16 *triton* is the one -- fp16 *cuda* is not.
         #

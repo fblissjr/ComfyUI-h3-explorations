@@ -4,7 +4,27 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.136.2
+
+### Changed
+
+- **`attention.py`: the mask-decline comment no longer says the fork's kernel
+  is broken, and no longer names a mechanism the fork has not isolated.**
+  0.136.1 said sage's fp8++ masked path ignored most of a mask. The fork fixed
+  it the same day (`tests/repros/repro_fp8_mask_window.py` now reports every
+  key block honoured against the installed build). Its reason then became
+  "Triton skips fully masked K blocks, so it is faster and more accurate",
+  which the fork's own backlog entry contradicts: the accuracy edge comes from
+  fp16 rather than fp8 PV quantization, and Triton wins on dense masks too.
+  The comment now says Triton is the masked path to prefer and points at the
+  fork's survey for the evidence. **No behaviour change**: the override still
+  declines masked calls, and H3 still passes `mask=None` as a literal.
+  Correction logged in `docs/wiki/decisions.md` under 2026-09-20.
+
 ## 0.136.1
+
+*(Superseded by 0.136.2: the kernel defect described below was fixed in the
+sage fork the same day.)*
 
 ### Changed
 
