@@ -4,7 +4,7 @@
     "ffmpeg": "ffmpeg version n9.0.2-3-ga5923073bf-20260923 Copyright (c) 2000-2026 the FFmpeg developers",
     "opencv": "5.0.0",
     "vhs_commit": "bedf00b",
-    "h3_commit": "8ff77b43",
+    "h3_commit": "6c8d607a",
     "widgets": {
       "force_rate": 24.0,
       "frame_load_cap": 345,
