@@ -455,10 +455,9 @@ def main() -> int:
         `build_workflows.py::_plain_model_chain` states this as a must -- both
         halves read sigmas from ONE `BasicScheduler`, so two different shifts
         would have the halves integrating different curves and the handoff
-        would be meaningless -- and nothing asserted it. Three shipped graphs
-        carry two nodes (`h3_probe_split_base_first`, `..._last`, and
-        `h3_probe_ref2v_split_turbo_pack`). They agree today, which is exactly
-        why this needs stating: without it, the grid case grades whichever node
+        would be meaningless -- and nothing asserted it. The split graphs
+        carry two nodes (`h3_probe_split_base_first`, `..._last`). They agree
+        today, which is exactly why this needs stating: without it, the grid case grades whichever node
         the reader happened to see last and passes for a reason it never checks.
         """
         assert not split_disagree, "; ".join(split_disagree)

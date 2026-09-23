@@ -240,10 +240,12 @@ There is no `TrimAudioDuration` widget left to drift when a bench patches
 remains exposed; preflight reports its trim and channel state separately.
 
 **On the video-soundtrack path the trim overlaps a mechanism VHS already had,
-and this was found after wiring it.** `VHS_LoadVideo` asks ffmpeg for
+and this was found after wiring it.** Both VHS upload loaders, the cv2
+`VHS_LoadVideo` and the `h3_config.REF_VIDEO_LOADER` the graphs use, go
+through one `load_video`, which asks ffmpeg for
 `frame_load_cap * (1 / force_rate)` seconds of audio
-(`custom_nodes/comfyui-videohelpersuite/videohelpersuite/load_video_nodes.py:402`
-into `custom_nodes/comfyui-videohelpersuite/videohelpersuite/utils.py:224-233`,
+(`custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/load_video_nodes.py::load_video`
+into `custom_nodes/ComfyUI-VideoHelperSuite/videohelpersuite/utils.py::get_audio`,
 paths relative to the ComfyUI root), so with
 `frame_load_cap` set to the generated length the soundtrack arrives already
 capped before the typed compiler sees it. Measured 2026-08-22 by

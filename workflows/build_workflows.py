@@ -91,7 +91,7 @@ from prompts import text as _bank_prompt  # noqa: E402
 from h3_config import (  # noqa: E402
     CORE_LOADED_ENCODERS, IMAGE_VAE, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
-    VSA_KEEP_PERCENT,
+    VSA_KEEP_PERCENT, REF_VIDEO_LOADER,
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
@@ -101,8 +101,6 @@ from h3_config import (  # noqa: E402
     TURBO_HOME_CANVAS, TURBO_SAMPLER, DISTILL_SAMPLING, SPLIT_AT,
     REF_VIDEO_BUDGET,
     CAPTURE_REF_IMAGES,
-    TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
-    TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM, TURBO_PACK_RUNG_STEPS,
     DIALOGUE_REF_IMAGES, REFVIEW2_SCENES,
     PDD_MANUAL_EVALS,
     PDD_MANUAL_SIGMAS,
@@ -522,9 +520,9 @@ VIDEO_FORMAT = "video/h264-mp4"
 # Placeholder input filenames. These are whatever the local install happens
 # to have; swap them for your own before running an i2v or r2v graph.
 # A reference VIDEO is an IMAGE batch, not a VIDEO: `ref_videos.ref_video_0`
-# takes frames. VHS_LoadVideo is the loader because it is the one that exposes
-# `force_rate`, and force_rate=24 is not optional here. ComfyUI's node has no
-# fps input at all and assumes 24 twice over -- for the DiT's temporal clock
+# takes frames. A VHS loader (`h3_config.REF_VIDEO_LOADER` says which) because
+# VHS's loaders expose `force_rate`, and force_rate=24 is not optional here.
+# ComfyUI's node has no fps input at all and assumes 24 twice over -- for the DiT's temporal clock
 # and for the `<T.T seconds>` labels the conditioner reads -- while the
 # reference pipeline resamples onto 24 from the rate the container reports.
 # A 30 fps source left at force_rate=0 is conditioned at the wrong speed,
@@ -549,7 +547,7 @@ VIDEO_FORMAT = "video/h264-mp4"
 # problem was the length, so only the length changed.
 #
 # The 19.56s original stays in the input root, referenced by nothing.
-# In the input ROOT, not `h3_refs/`: VHS_LoadVideo's `video` widget is a combo
+# In the input ROOT, not `h3_refs/`: the VHS loader's `video` widget is a combo
 # of root filenames and lists no subfolder paths, so a graph naming one fails
 # the served-schema validation. Found by that validation, which is what it is
 # for. The `h3ref_` prefix keeps it grouped with the fps probe clips instead.
@@ -1419,7 +1417,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
-              turbo_pack: bool = False,
               pdd: bool = False,
               pdd_heads: bool = True,
               # 0 everywhere, and it should stay that way: the node reads
@@ -1553,16 +1550,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                          else MODELS["video_vae"]}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
-        # The turbo pack ships its own SAMPLER source rather than a name for
-        # KSamplerSelect. On a recent ComfyUI it self-reports as bit-for-bit
-        # the stock result -- it exists to keep older builds stepping the
-        # audio stream on its own clock, which is precisely the thing that
-        # breaks first at low step counts, and every reference arm here
-        # carries audio.
-        "7": ({"class_type": "MiniMaxH3TurboSampler", "inputs": {}}
-              if turbo_pack else
-              {"class_type": "KSamplerSelect",
-               "inputs": {"sampler_name": sampler_name or _distill(lora, pdd, "sampler")}}),
+        "7": {"class_type": "KSamplerSelect",
+              "inputs": {"sampler_name": sampler_name or _distill(lora, pdd, "sampler")}},
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None,
                          "scheduler": scheduler_name or _distill(lora, pdd, "scheduler"),
@@ -1721,13 +1710,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # The typed append owns both media streams and the loader metadata.
             # The compiler emits its soundtrack immediately before its video,
             # preserving legacy labels while making ownership structural.
-            g["28"] = {"class_type": "VHS_LoadVideo",
+            # `start_time` 0 is the ffmpeg loader's form of the cv2 one's
+            # skip_first_frames 0 / select_every_nth 1; it has no nth input.
+            g["28"] = {"class_type": REF_VIDEO_LOADER,
                        "inputs": {"video": PLACEHOLDER_VIDEO,
                                   "force_rate": REF_VIDEO_FORCE_RATE,
                                   "custom_width": 0, "custom_height": 0,
                                   "frame_load_cap": length,
-                                  "skip_first_frames": 0,
-                                  "select_every_nth": 1, "format": "AnimateDiff"}}
+                                  "start_time": 0.0, "format": "AnimateDiff"}}
             g["28"]["inputs"]["video"] = (PLACEHOLDER_VIDEO if ref_video_audio
                                           else PLACEHOLDER_VIDEO_SILENT)
             append_id = next(append_ids)
@@ -1879,14 +1869,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 g["61"] = {"class_type": "PrimitiveInt",
                            "inputs": {"value": _resolved_steps}}
         else:
-            g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
-                        "inputs": {"model": model_src, "lora_name": lora[0],
-                                   "strength": lora[1],
-                                   "low_vram": TURBO_PACK_LOW_VRAM}}
-                       if turbo_pack else
-                       {"class_type": "LoraLoaderModelOnly",
-                        "inputs": {"model": model_src, "lora_name": lora[0],
-                                   "strength_model": lora[1]}})
+            g["18"] = {"class_type": "LoraLoaderModelOnly",
+                       "inputs": {"model": model_src, "lora_name": lora[0],
+                                  "strength_model": lora[1]}}
         model_src = ["18", 0]
     # At the base checkpoint's own 12/3, so it changes nothing by default. It
     # is here to be edited: the turbo LoRAs carry their own training shifts
@@ -4675,18 +4660,12 @@ def main():
         # the shipped graph. These two are the missing rungs. Their prompts
         # are patched per scene from the bank by bench/pdd_ladder_arms.json.
         # **The turbo rung, 2026-09-05** (docs/roadmap.md, "Owner decisions,
-        # 2026-09-05 evening"; bench/turbo_rung_arms.json): two step-reduction
-        # distills that are NOT PDD, each under sage alone with Sol absent so
-        # the pair against the sage floor differs in the distill and its step
-        # count only. The prompts are patched per scene from the bank by the
+        # 2026-09-05 evening"; bench/turbo_rung_arms.json): a step-reduction
+        # distill that is NOT PDD, under sage alone with Sol absent so the
+        # pair against the sage floor differs in the distill and its step
+        # count only. The rung's other arm, the larryvrh pack, went with the
+        # pack on 2026-09-23. The prompts are patched per scene from the bank by the
         # manifest; the seed comes from the runner.
-        ("h3_probe_t2v_turbo_v4_sage.json", "t2v-turbo-v4-sage", "t2v", LONG_T2V_PROMPT,
-         dict(turbo_pack=True, dense_attn="sage",
-              lora=(TURBO_PACK_LORA, TURBO_PACK_STRENGTH),
-              steps=TURBO_PACK_RUNG_STEPS, scheduler_name=TURBO_PACK_SCHEDULER,
-              out_prefix="Video/h3_probe_t2v_turbo_v4_sage"),
-         "text -> video + audio at six steps via the larryvrh v4 turbo pack, sage alone"),
-
         ("h3_probe_t2v_turbo_lx12_sage.json", "t2v-turbo-lx12-sage", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sage",
               lora=(TURBO_768P_V12_LORA, TURBO_LORA_STRENGTH),
@@ -4851,36 +4830,6 @@ def main():
          dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=192, out_prefix="Video/h3_probe_r2v_pdd_8s"),
          "PDD ref2va at exactly eight seconds"),
-
-        ("h3_probe_ref2v_turbo_pack.json", "r2v-turbo-pack", "r2v",
-         _ref_prompt(images=True, video=True, video_audio=True,
-                     video_role="swap", audio_role="copy"),
-         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
-              turbo_pack=True,
-              lora=(TURBO_PACK_LORA, TURBO_PACK_STRENGTH),
-              steps=TURBO_PACK_STEPS, scheduler_name=TURBO_PACK_SCHEDULER,
-              out_prefix="Video/h3_probe_r2v_turbo_pack"),
-         "character swap on ref2va with the adaln-touching turbo LoRA"),
-
-        # The variant with the better prior. If ref2va's divergence really is
-        # in the conditioning-modulation path, it binds hardest in the EARLY
-        # steps, where composition and identity are still being decided. So
-        # run those on the undistilled base and hand the tail to the distill:
-        # the references get established by the model that understands them,
-        # and the cheap steps go where the work is mostly refinement.
-        #
-        # `split_base_last=False` puts base FIRST. Its twin is the arm above,
-        # which is the same LoRA with no split at all.
-        ("h3_probe_ref2v_split_turbo_pack.json", "r2v-split-turbo-pack", "r2v",
-         _ref_prompt(images=True, video=True, video_audio=True,
-                     video_role="swap", audio_role="copy"),
-         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
-              turbo_pack=True,
-              lora=(TURBO_PACK_LORA, TURBO_PACK_STRENGTH),
-              steps=TURBO_PACK_STEPS, scheduler_name=TURBO_PACK_SCHEDULER,
-              split_at=SPLIT_AT, split_base_last=False,
-              out_prefix="Video/h3_probe_r2v_split_turbo_pack"),
-         "base establishes the references, the distill finishes the clip"),
 
         # INVERTED TWICE with the default. 2026-08-28 the default went off
         # and this arm turned upscaling on; 2026-09-13 the default went back

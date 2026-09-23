@@ -1272,77 +1272,6 @@ TURBO_SAMPLER = "euler"
 #: graph is, not one a person retypes per graph.
 DISTILL_SAMPLING = dict(sampler=TURBO_SAMPLER, scheduler="simple")
 
-# A third-party turbo LoRA that is NOT interchangeable with the two above, and
-# cannot be loaded by `LoraLoaderModelOnly` at all on our checkpoint.
-#
-# Measured from the safetensors headers 2026-08-13 (see
-# docs/h3_ref2v_distillation.md): the official fl2v LoRAs touch 208 modules,
-# all `qkv_proj` / `out_proj` / `fc1` / `fc2`. This one touches 259 -- the same
-# 208 plus **51 `adaln_proj.linear`**, at a separate rank 16 against 64 for
-# everything else. Those 51 are the 50 per-block `adaln_proj` and
-# `final_layer.adaln_proj`. (An earlier version of this comment said that is
-# "exactly where fl2va and ref2va diverge most", citing a relative delta of
-# 1.92 on `final_layer.adaln_proj`. Withdrawn 2026-08-20: that figure compared
-# the curve-form coefficient matrices directly, and the two checkpoints'
-# `adaln_t_table` bases carry opposite signs on half their columns, so the
-# coefficients are not comparable. At the modulation output the two
-# checkpoints differ by a few percent there, the same order as the linears.
-# `bench/analyze_checkpoint_delta.py` and `docs/evidence.md` carry it.)
-#
-# It needs `ComfyUI-MiniMax-H3-Turbo`'s own two nodes rather than the stock
-# loader, for TWO independent reasons. Both measured 2026-08-16 from the
-# safetensors headers; neither is the int8.
-#
-# 1. Key names, and this one is about the file, not our base. Its keys are
-#    bare (`blocks.0.adaln_proj.linear.lora_A.weight`), while
-#    `comfy/lora.py:192-196` builds its key map from `model.state_dict()`,
-#    where every key carries a `diffusion_model.` prefix. Nothing matches, so
-#    zero keys load. The stock loader does not "apply the weights and skip the
-#    time conditioning" -- it applies nothing at all.
-#
-# 2. Our base is curve-form, which is what PRUNED means here. Such a
-#    checkpoint ships an `adaln_t_table` and has no `time_embedder` module at
-#    all (`comfy/ldm/minimax/model.py:440-452`, consumed at :629-636), and its
-#    adaln takes an 8-wide curve coordinate: `blocks.0.adaln_proj.linear.weight`
-#    is [96768, 8]. This LoRA's adaln half was trained full-width, lora_A being
-#    [16, 2688], so `lora_B @ lora_A` is [96768, 2688] and cannot be added to a
-#    [96768, 8] weight at any strength or by any loader. Its attn/mlp half
-#    would fit ([64, 5376] against a [21504, 5376] weight); only the 51 adaln
-#    modules are impossible. The `fp8_scaled` build carries the same [96768, 8]
-#    and the same table, so swapping quantization changes nothing.
-#
-# Hence the pack shipping its own `silu(t_emb)` grid: on a curve-form base the
-# table must be regenerated, not patched. The official `_comfyui_` turbo LoRAs
-# load here precisely because they carry no adaln keys at all.
-#
-# Settings are the pack's own, not ours to tune here. README: 4 steps is the
-# minimum, 4-8 the useful range, 6-8 noticeably better, past 8 no benefit and
-# it starts over-sharpening. Its shipped example uses 6; we take 8 because
-# every reference arm carries audio and audio is the axis its README calls
-# still-weak at low step counts. Strength is tuned for 1.0. Scheduler stays
-# `simple`.
-#
-# Shift stays at the base 12/3 -- the pack's `generate.py` hardcodes
-# SHIFT_VIDEO 12 / SHIFT_AUDIO 3 and its example graph carries no
-# ModelSamplingMiniMaxH3 node at all.
-#
-# `low_vram` merges the LoRA instead of applying it at run time. It is the
-# cheaper peak, and it is the WRONG default here: the README says merging is
-# softer on quantized bases, and ours is int8 *and* pruned, so we would be
-# paying that penalty twice. Off unless something OOMs.
-TURBO_PACK_LORA = "h3/minimax_h3_turbo_v4_step600_ema.safetensors"
-TURBO_PACK_STEPS = 8
-TURBO_PACK_STRENGTH = 1.0
-TURBO_PACK_SCHEDULER = "simple"
-TURBO_PACK_LOW_VRAM = False
-# The turbo rung's count for the pack (docs/roadmap.md, "Owner decisions,
-# 2026-09-05 evening"): six, the count the acceleration arena's winning entry
-# ran at and the low end of the README's "6-8 noticeably better" band
-# (`internal/refs/SCR-20260905-*.png` for the arena tabs). TURBO_PACK_STEPS
-# above stays eight for the ref2va probes, which chose it for audio; the rung
-# tests the arena's configuration, not ours.
-TURBO_PACK_RUNG_STEPS = 6
-
 # Parallel Decoding Distillation (alibaba-pai), the acceleration LoRA that is
 # not a step distillation. The trajectory stays a 32-point grid; what changes
 # is that the final output head is replicated per interval and each sampling
@@ -1917,6 +1846,19 @@ REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # t2v, keyframe and turbo graphs still render 362; only the graphs wired to
 # this clip move, because only they have a clip to match.
 REF_VIDEO_LENGTH = 345
+
+# The VHS loader every generated reference-video graph uses: the ffmpeg one,
+# not the cv2 `VHS_LoadVideo`. Owner's choice (2026-09-23), for decode
+# accuracy. The two are not interchangeable, and each difference was measured
+# rather than assumed, in `bench/results/2026-09-23_vhs_loader_comparison.json`
+# (`bench/compare_vhs_loaders.py` re-derives it). At `force_rate` 24 on a 25 or
+# 30 fps source they keep different frames: cv2's run late against the 24 fps
+# grid and ffmpeg's land on the nearest frame, so renders from before the
+# switch are not substrate-comparable with renders after it. cv2's decode is
+# also biased dark against an accurate bt709 reference, and ffmpeg's is not.
+# Output slot 1 is a MASK here, where cv2's is an INT frame count; no
+# generated graph wires slot 1.
+REF_VIDEO_LOADER = "VHS_LoadVideoFFmpeg"
 
 REF_VIDEO_BUDGET = dict(length=REF_VIDEO_LENGTH, **REF_VIDEO_CANVAS,
                         ref_upscale=False)

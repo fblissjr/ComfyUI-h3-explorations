@@ -253,10 +253,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("VHS_VideoCombine", "format"):
         ("HOUSE", "h264-mp4 so clips play in the blind-scoring app",
          "video/h264-mp4"),
-    ("VHS_LoadVideo", "force_rate"):
+    (h3_config.REF_VIDEO_LOADER, "force_rate"):
         ("HOUSE", "h3_config.FPS, so a reference video is resampled to the "
                   "rate the model works at", 24.0),
-    ("VHS_LoadVideo", "frame_load_cap"):
+    (h3_config.REF_VIDEO_LOADER, "frame_load_cap"):
         ("ARM", "the arm's frame count; h3_config.REF_VIDEO_LENGTH"),
     ("SplitSigmas", "step"):
         ("HOUSE", "h3_config.SPLIT_AT, the two-pass split point", 2),

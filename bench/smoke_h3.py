@@ -89,6 +89,8 @@ import uuid
 from pathlib import Path
 
 WF = Path(__file__).resolve().parent.parent / "workflows"
+sys.path.insert(0, str(WF.parent))
+from reference_order import VIDEO_SOURCE_CLASSES  # noqa: E402
 
 # (label, needle, gate). The needles are matched against the ComfyUI log
 # written during THIS run, so they must be the strings the code actually emits
@@ -156,7 +158,7 @@ def main() -> int:
             # node. Patching the downstream link would destroy the graph;
             # patch its owning widget instead.
             n["inputs"]["length"] = args.length
-        if ct == "VHS_LoadVideo":
+        if ct in VIDEO_SOURCE_CLASSES:
             # Do not decode hundreds of reference frames for a short smoke.
             # The typed compiler would cap them later, but the loader cost is
             # paid first and can hide the behaviour the smoke means to test.

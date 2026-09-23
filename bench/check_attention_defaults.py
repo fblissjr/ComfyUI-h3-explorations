@@ -203,15 +203,10 @@ SOL_EXEMPT_STEMS = {
         "the checkpoint and sidecar swapped for the bake, sage on every step "
         "and Sol absent so the pair differs in the weights alone. Its twin "
         "with Sol as shipped is h3_candidate_t2v_pdd8_baked, not exempt",
-    "h3_probe_t2v_turbo_v4_sage":
-        "the turbo rung's pack arm (bench/turbo_rung_arms.json): the larryvrh "
-        "v4 step-600 EMA at six steps under sage alone, Sol absent, so the "
-        "pair against the sage floor differs in the distill alone; the same "
-        "footing as h3_probe_t2v_pdd8_sage",
     "h3_probe_t2v_turbo_lx12_sage":
         "the turbo rung's lightx2v arm (bench/turbo_rung_arms.json): the v1.2 "
         "768p 4-step file at the vendor's count and strength under sage "
-        "alone, Sol absent, same footing as the pack arm beside it",
+        "alone, Sol absent, the same footing as h3_probe_t2v_pdd8_sage",
     "h3_probe_t2v_pdd8_sage":
         "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json): "
         "PDD8 with sage on every step and Sol absent, so that the shipped "
@@ -235,11 +230,9 @@ SOL_EXEMPT_STEMS = {
 #: derived, not listed, by the same mechanism as their Sol exemption.
 FLOOR_STEMS = {
     # Rungs and controls that were rendered as sage alone, so their pair holds.
-    "h3_probe_t2v_turbo_v4_sage":
-        ("sage", "the turbo rung's pack arm, sage alone by construction "
-                 "(bench/turbo_rung_arms.json)"),
     "h3_probe_t2v_turbo_lx12_sage":
-        ("sage", "the turbo rung's lightx2v arm, sage alone by construction"),
+        ("sage", "the turbo rung's lightx2v arm, sage alone by construction "
+                 "(bench/turbo_rung_arms.json)"),
     "h3_probe_t2v_pdd8_sage":
         ("sage", "the sage-alone rung of the PDD ladder (bench/pdd_ladder_arms.json)"),
     "h3_probe_t2v_pdd8_baked_sage":

@@ -15,6 +15,30 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-23
+
+- **Reference-video graphs load through VHS's ffmpeg loader** (owner's
+  request, relayed by the dotfiles session). `h3_config.REF_VIDEO_LOADER`;
+  0.137.0. The loaders keep different frames on 25 and 30 fps sources, so
+  renders from before and after are not substrate-comparable; the record is
+  `bench/results/2026-09-23_vhs_loader_comparison.json`. Prose that named
+  `VHS_LoadVideo` as the reason for the choice ("the one that exposes
+  `force_rate`": both do) was corrected in `build_workflows.py`,
+  `docs/h3_references.md` and `docs/comfyui_vendor_gaps.md`.
+- **The larryvrh turbo pack is gone** (owner removed it from the install and
+  said to remove the graphs that use it). Three probe graphs, the generator's
+  `turbo_pack` path and the `TURBO_PACK_*` constants; 0.137.0. The finding
+  that lived beside those constants in `h3_config.py`: the v4 LoRA cannot be
+  loaded by `LoraLoaderModelOnly` on our checkpoint, for two independent
+  reasons. Its keys are bare where `comfy/lora.py` expects a
+  `diffusion_model.` prefix, so nothing loads. And its 51 `adaln_proj` modules
+  were trained full-width against a curve-form base whose adaln input is
+  8 wide, so no loader can add them as a weight patch. That is why the pack
+  shipped its own `silu(t_emb)` grid. The full comment is in git at
+  `workflows/h3_config.py` as of 0.136.2. `docs/h3_ref2v_distillation.md`
+  now says the ref2va-with-v4 question was graphed, never judged, and closed
+  with the pack.
+
 ## 2026-09-20
 
 - **The sage fork's masked CUDA path is wrong, and this pack's refusal to use

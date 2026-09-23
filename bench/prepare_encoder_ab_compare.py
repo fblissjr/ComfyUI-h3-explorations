@@ -2,7 +2,7 @@
 """Stage two generated clips and build the requested side-by-side API graph.
 
 The graph is the executable form of the standalone comparison workflow:
-two ``VHS_LoadVideo`` upload nodes feed KJNodes ``ImageConcatMulti`` (right,
+two ``VHS_LoadVideoFFmpeg`` upload nodes feed KJNodes ``ImageConcatMulti`` (right,
 match size), which feeds ``VHS_VideoCombine`` at 24 fps. Audio is intentionally
 not connected so one clip cannot silently become the comparison clock.
 
@@ -30,15 +30,14 @@ def _sha256(path: Path) -> str:
 
 def _loader(filename: str) -> dict:
     return {
-        "class_type": "VHS_LoadVideo",
+        "class_type": "VHS_LoadVideoFFmpeg",
         "inputs": {
             "video": filename,
             "force_rate": 0.0,
             "custom_width": 0,
             "custom_height": 0,
             "frame_load_cap": 0,
-            "skip_first_frames": 0,
-            "select_every_nth": 1,
+            "start_time": 0.0,
             "format": "AnimateDiff",
         },
     }

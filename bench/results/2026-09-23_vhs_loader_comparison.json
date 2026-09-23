@@ -1,0 +1,517 @@
+{
+  "question": "do VHS_LoadVideo and VHS_LoadVideoFFmpeg hand H3 the same reference frames under the shipped widgets",
+  "conditions": {
+    "ffmpeg": "ffmpeg version n9.0.2-3-ga5923073bf-20260923 Copyright (c) 2000-2026 the FFmpeg developers",
+    "opencv": "5.0.0",
+    "vhs_commit": "bedf00b",
+    "h3_commit": "8ff77b43",
+    "widgets": {
+      "force_rate": 24.0,
+      "frame_load_cap": 345,
+      "cv": {
+        "skip_first_frames": 0,
+        "select_every_nth": 1
+      },
+      "ff": {
+        "start_time": 0.0
+      }
+    },
+    "note": "the h3 commit is the one checked out when this ran; a dirty tree is not recorded"
+  },
+  "synthetic": [
+    {
+      "source_fps": 24,
+      "source_frames": 359,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "frames_where_selection_differs": 0,
+      "first_differing": [],
+      "max_index_gap": 0,
+      "cv_duplicates": 0,
+      "ff_duplicates": 0,
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 0.0,
+        "mean_signed_ms": 0.0
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 0.0,
+        "mean_signed_ms": 0.0
+      },
+      "video_info_differs": [
+        "source_duration",
+        "source_frame_count"
+      ],
+      "video_info_cv": {
+        "source_fps": 24.0,
+        "source_frame_count": 359,
+        "source_duration": 14.958333333333334,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 24.0,
+        "source_frame_count": 359.04,
+        "source_duration": 14.96,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        1,
+        690000
+      ]
+    },
+    {
+      "source_fps": 25,
+      "source_frames": 374,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "frames_where_selection_differs": 162,
+      "first_differing": [
+        {
+          "k": 1,
+          "cv_source_index": 2,
+          "ff_source_index": 1
+        },
+        {
+          "k": 2,
+          "cv_source_index": 3,
+          "ff_source_index": 2
+        },
+        {
+          "k": 3,
+          "cv_source_index": 4,
+          "ff_source_index": 3
+        },
+        {
+          "k": 4,
+          "cv_source_index": 5,
+          "ff_source_index": 4
+        },
+        {
+          "k": 5,
+          "cv_source_index": 6,
+          "ff_source_index": 5
+        },
+        {
+          "k": 6,
+          "cv_source_index": 7,
+          "ff_source_index": 6
+        }
+      ],
+      "max_index_gap": 1,
+      "cv_duplicates": 0,
+      "ff_duplicates": 0,
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 38.33,
+        "mean_signed_ms": 19.42
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 20.0,
+        "mean_signed_ms": 0.64
+      },
+      "video_info_differs": [],
+      "video_info_cv": {
+        "source_fps": 25.0,
+        "source_frame_count": 374,
+        "source_duration": 14.96,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 25.0,
+        "source_frame_count": 374.0,
+        "source_duration": 14.96,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        1,
+        690000
+      ]
+    },
+    {
+      "source_fps": 30,
+      "source_frames": 449,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "frames_where_selection_differs": 86,
+      "first_differing": [
+        {
+          "k": 1,
+          "cv_source_index": 2,
+          "ff_source_index": 1
+        },
+        {
+          "k": 5,
+          "cv_source_index": 7,
+          "ff_source_index": 6
+        },
+        {
+          "k": 9,
+          "cv_source_index": 12,
+          "ff_source_index": 11
+        },
+        {
+          "k": 13,
+          "cv_source_index": 17,
+          "ff_source_index": 16
+        },
+        {
+          "k": 17,
+          "cv_source_index": 22,
+          "ff_source_index": 21
+        },
+        {
+          "k": 21,
+          "cv_source_index": 27,
+          "ff_source_index": 26
+        }
+      ],
+      "max_index_gap": 1,
+      "cv_duplicates": 0,
+      "ff_duplicates": 0,
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 25.0,
+        "mean_signed_ms": 12.46
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 16.67,
+        "mean_signed_ms": 4.15
+      },
+      "video_info_differs": [
+        "source_duration",
+        "source_frame_count"
+      ],
+      "video_info_cv": {
+        "source_fps": 30.0,
+        "source_frame_count": 449,
+        "source_duration": 14.966666666666667,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 30.0,
+        "source_frame_count": 449.1,
+        "source_duration": 14.97,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        1,
+        690000
+      ]
+    },
+    {
+      "source_fps": 23.976,
+      "source_frames": 359,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "frames_where_selection_differs": 0,
+      "first_differing": [],
+      "max_index_gap": 0,
+      "cv_duplicates": 0,
+      "ff_duplicates": 0,
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 14.35,
+        "mean_signed_ms": 7.17
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 14.35,
+        "mean_signed_ms": 7.17
+      },
+      "video_info_differs": [
+        "source_duration",
+        "source_fps",
+        "source_frame_count"
+      ],
+      "video_info_cv": {
+        "source_fps": 23.976,
+        "source_frame_count": 359,
+        "source_duration": 14.973306639973307,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 23.98,
+        "source_frame_count": 358.98060000000004,
+        "source_duration": 14.97,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        1,
+        690000
+      ]
+    },
+    {
+      "source_fps": 29.97,
+      "source_frames": 449,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "frames_where_selection_differs": 122,
+      "first_differing": [
+        {
+          "k": 1,
+          "cv_source_index": 2,
+          "ff_source_index": 1
+        },
+        {
+          "k": 5,
+          "cv_source_index": 7,
+          "ff_source_index": 6
+        },
+        {
+          "k": 9,
+          "cv_source_index": 12,
+          "ff_source_index": 11
+        },
+        {
+          "k": 13,
+          "cv_source_index": 17,
+          "ff_source_index": 16
+        },
+        {
+          "k": 17,
+          "cv_source_index": 22,
+          "ff_source_index": 21
+        },
+        {
+          "k": 21,
+          "cv_source_index": 27,
+          "ff_source_index": 26
+        }
+      ],
+      "max_index_gap": 1,
+      "cv_duplicates": 0,
+      "ff_duplicates": 0,
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 33.24,
+        "mean_signed_ms": 16.17
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 20.81,
+        "mean_signed_ms": 4.37
+      },
+      "video_info_differs": [
+        "source_duration",
+        "source_frame_count"
+      ],
+      "video_info_cv": {
+        "source_fps": 29.97,
+        "source_frame_count": 449,
+        "source_duration": 14.98164831498165,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 29.97,
+        "source_frame_count": 448.9506,
+        "source_duration": 14.98,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        1,
+        690000
+      ]
+    }
+  ],
+  "real_clips": [
+    {
+      "clip": "h3ref_diner_monologue_25fps_14s.mp4",
+      "source_fps": 25.0,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "cv_match_worst_mean_abs": 0.0,
+      "ff_match_worst_mean_abs": 0.0,
+      "cv_ambiguous_matches": 0,
+      "ff_ambiguous_matches": 0,
+      "frames_where_selection_differs": 162,
+      "cv_first_last_source_index": [
+        0,
+        359
+      ],
+      "ff_first_last_source_index": [
+        0,
+        358
+      ],
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 38.33,
+        "mean_signed_ms": 19.42
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 20.0,
+        "mean_signed_ms": 0.64
+      },
+      "video_info_differs": [],
+      "video_info_cv": {
+        "source_fps": 25.0,
+        "source_frame_count": 360,
+        "source_duration": 14.4,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "video_info_ff": {
+        "source_fps": 25.0,
+        "source_frame_count": 360.0,
+        "source_duration": 14.4,
+        "source_width": 960,
+        "source_height": 544,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 960,
+        "loaded_height": 544
+      },
+      "audio_identical": true,
+      "audio_shape": [
+        1,
+        2,
+        690000
+      ]
+    },
+    {
+      "clip": "LTX-2_00065.mp4",
+      "source_fps": 25.0,
+      "cv_frames": 345,
+      "ff_frames": 345,
+      "cv_match_worst_mean_abs": 0.0,
+      "ff_match_worst_mean_abs": 0.0,
+      "cv_ambiguous_matches": 0,
+      "ff_ambiguous_matches": 0,
+      "frames_where_selection_differs": 162,
+      "cv_first_last_source_index": [
+        0,
+        359
+      ],
+      "ff_first_last_source_index": [
+        0,
+        358
+      ],
+      "cv_offset_from_24fps_grid": {
+        "max_abs_ms": 38.33,
+        "mean_signed_ms": 19.42
+      },
+      "ff_offset_from_24fps_grid": {
+        "max_abs_ms": 20.0,
+        "mean_signed_ms": 0.64
+      },
+      "video_info_differs": [],
+      "video_info_cv": {
+        "source_fps": 25.0,
+        "source_frame_count": 4520,
+        "source_duration": 180.8,
+        "source_width": 832,
+        "source_height": 480,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 832,
+        "loaded_height": 480
+      },
+      "video_info_ff": {
+        "source_fps": 25.0,
+        "source_frame_count": 4520.0,
+        "source_duration": 180.8,
+        "source_width": 832,
+        "source_height": 480,
+        "loaded_fps": 24.0,
+        "loaded_frame_count": 345,
+        "loaded_duration": 14.375,
+        "loaded_width": 832,
+        "loaded_height": 480
+      },
+      "audio_identical": null,
+      "audio_error_cv": "Exception",
+      "audio_error_ff": "Exception"
+    }
+  ],
+  "colour": {
+    "clip": "h3ref_24fps_6s.mp4",
+    "reference": "ffmpeg rgb48le, bt709 tv, accurate_rnd+full_chroma_int+full_chroma_inp",
+    "units": "8-bit levels",
+    "cv": {
+      "mean_abs": 0.984,
+      "p99_abs": 2.704,
+      "bias_rgb": [
+        -0.688,
+        -1.202,
+        -0.775
+      ]
+    },
+    "ff": {
+      "mean_abs": 0.205,
+      "p99_abs": 1.607,
+      "bias_rgb": [
+        0.001,
+        -0.0,
+        0.001
+      ]
+    }
+  }
+}

@@ -8,14 +8,13 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 42 | 290 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 41 | 290 | 3 | 2 | `<d>` |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 13 | 173 | 1 | 0 | — |
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 11 | 135 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 5 | 264 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 3 | 582 | 3 | 2 | `<d>` |
 | [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
-| [`ref2va_video_character_swap`](#ref2va-video-character-swap) | `ref2va_video_character_swap` | 3 | 303 | 1 | 0 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 375 | 3 | 2 | `<d>` |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 2 | 621 | 3 | 2 | `<d>` |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
@@ -38,6 +37,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`ref2va_stairwell_dialogue_backstage`](#ref2va-stairwell-dialogue-backstage) | `ref2va_stairwell_dialogue_backstage` | 1 | 698 | 3 | 2 | `<d>` |
 | [`ref2va_stairwell_dialogue_circus`](#ref2va-stairwell-dialogue-circus) | `ref2va_stairwell_dialogue_circus` | 1 | 713 | 3 | 2 | `<d>` |
 | [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | `ref2va_studio_dancer_close_refs` | 1 | 568 | 2 | 0 | — |
+| [`ref2va_video_character_swap`](#ref2va-video-character-swap) | `ref2va_video_character_swap` | 1 | 303 | 1 | 0 | — |
 | [`ref2va_video_continuation`](#ref2va-video-continuation) | `ref2va_video_continuation` | 1 | 181 | 1 | 0 | — |
 | [`ref2va_video_garment_edit`](#ref2va-video-garment-edit) | `ref2va_video_garment_edit` | 1 | 240 | 1 | 0 | — |
 | [`ref2va_video_image_edit`](#ref2va-video-image-edit) | `ref2va_video_image_edit` | 1 | 284 | 1 | 0 | — |
@@ -48,7 +48,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **42** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **41** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -78,7 +78,6 @@ Carried by **42** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_probe_t2v_sage_rotate_api`
 - `h3_probe_t2v_sol_nosage_api`
 - `h3_probe_t2v_turbo_lx12_sage_api`
-- `h3_probe_t2v_turbo_v4_sage_api`
 - `h3_probe_taomate_3step_api`
 - `h3_probe_taomate_3step_audio_freeze_api`
 - `h3_probe_turbo_768p_owner_api`
@@ -317,44 +316,6 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuo
 overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
 
 non_diegetic_music: N/A
-```
-
-## ref2va_video_character_swap
-
-Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
-
-<details><summary>graphs</summary>
-
-- `h3_probe_ref2v_split_turbo_pack_api`
-- `h3_probe_ref2v_turbo_pack_api`
-- `h3_ref_video_swap_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.
-<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.
-<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
-<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.
-
-summary:
-[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.
-<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.
-<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.
-
-detailed_description:
-The target video is in a cinematic live-action style.
-[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.
-
-overall_soundscape:
-The ambience of <Audio 1> continues under the shot.
-
-non_diegetic_music:
-N/A
 ```
 
 ## BENCH_T2V_PROMPT
@@ -980,6 +941,42 @@ Photorealistic live-action, 16:9, cinematic, evenly lit by high fluorescent pane
 
 overall_soundscape:
 Bare feet squeak and slap on the sprung floor, fabric rustles with each turn, and her breath comes in short controlled bursts between hits, under the dry room tone of an empty studio and the small speaker's drum-machine pulse.
+
+non_diegetic_music:
+N/A
+```
+
+## ref2va_video_character_swap
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref_video_swap_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.
+<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.
+
+summary:
+[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.
+<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.
+<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.
+
+overall_soundscape:
+The ambience of <Audio 1> continues under the shot.
 
 non_diegetic_music:
 N/A

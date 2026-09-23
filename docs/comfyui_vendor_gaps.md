@@ -598,7 +598,7 @@ to drift. Core remains exposed in a hand-built socket graph; preflight warns
 there. This closes the gap for this repo's workflows, not in native ComfyUI.
 
 **Where the gap actually bit is narrower than it looked, found the same day.**
-`VHS_LoadVideo` already asks ffmpeg for `frame_load_cap / force_rate` seconds
+VHS's video loaders already ask ffmpeg for `frame_load_cap / force_rate` seconds
 of audio, so a soundtrack was only ever untrimmed because `frame_load_cap` was
 0 -- which it was, on every graph here, until that day. The gap is real for
 **standalone** `ref_audio_*` on any loader, and for any graph that leaves the

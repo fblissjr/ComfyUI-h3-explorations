@@ -52,7 +52,7 @@ Claims, i.e. what breaks if a case is deleted:
                         house that appeared on a lake. **The render behind it
                         is not in `bench/results/`** -- treat it as a
                         regression guard on text, not as a measured mechanism
-  force_rate is 24      every VHS_LoadVideo feeding a reference socket resamples
+  force_rate is 24      every VHS video loader feeding a reference socket resamples
                         onto 24. ComfyUI's node has no fps input and assumes 24
                         twice -- the DiT's temporal clock and the
                         "<T.T seconds>" labels -- so a source at another rate is
@@ -90,6 +90,7 @@ WORKFLOWS = REPO / "workflows"
 sys.path.insert(0, str(REPO / "workflows"))
 sys.path.insert(0, str(REPO))
 from h3_config import GRAPH_DIRS, graph_paths  # noqa: E402
+from reference_order import VIDEO_SOURCE_CLASSES  # noqa: E402
 
 REF_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3ReferenceConditioning")
 #: Nodes that compile a `references` chain themselves and carry the prompt
@@ -288,7 +289,7 @@ def main():
                         feeding.add(str(val[0]))
             for nid in feeding:
                 loader = doc.get(nid, {})
-                if loader.get("class_type") != "VHS_LoadVideo":
+                if loader.get("class_type") not in VIDEO_SOURCE_CLASSES:
                     continue
                 rate = loader.get("inputs", {}).get("force_rate")
                 if rate != 24 and rate != 24.0:

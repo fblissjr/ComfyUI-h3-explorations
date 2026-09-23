@@ -4,6 +4,49 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.137.0
+
+### Changed
+
+- **Reference-video graphs load through VHS's ffmpeg loader, not its cv2
+  one** (owner's request). `h3_config.REF_VIDEO_LOADER` names the class, and
+  the generator, `check_widget_deviations` and the A/B builder
+  (`bench/prepare_encoder_ab_compare.py`) read it or follow it.
+  `start_time` 0 replaces `skip_first_frames` 0 / `select_every_nth` 1. **This
+  is not an equivalent swap, and renders from before and after it are not
+  substrate-comparable.** On a 25 or 30 fps source at `force_rate` 24 the two
+  loaders keep different frames, never more than one source frame apart. The
+  shipped placeholders are 25 fps. cv2's selection runs late against the 24 fps
+  grid, and ffmpeg's lands on the nearest source frame. At 24 fps they are
+  identical. The ffmpeg decode also loses cv2's dark, green-down bias against
+  an accurate bt709 reference. Frame count, every `loaded_*` key of
+  `VHS_VIDEOINFO` and the audio are identical. Slot 1 becomes a MASK where it
+  was an INT frame count; no generated graph wires it. Record:
+  `bench/results/2026-09-23_vhs_loader_comparison.json`, re-derived by the new
+  `bench/compare_vhs_loaders.py` (no GPU, no server).
+- **`check_ref_prompt_labels` and `smoke_h3` match any VHS video loader**
+  (`reference_order.VIDEO_SOURCE_CLASSES`) rather than the cv2 class by name.
+  Under a name match both would have skipped every migrated loader and
+  passed. Separately, `force_rate_is_24` examines no loader in any shipped
+  graph, and it examined none before this change either: it only looks at a
+  video wired into `MiniMaxH3ReferenceToVideo`'s sockets, and no graph does
+  that. Setting every loader to 25 fps in a copy of the tree left it green.
+- VHS citations in `docs/h3_references.md` point at the fork's checkout
+  (`ComfyUI-VideoHelperSuite`) by symbol rather than line.
+
+### Removed
+
+- **The three graphs that needed the larryvrh turbo pack**
+  (`h3_probe_t2v_turbo_v4_sage`, `h3_probe_ref2v_turbo_pack`,
+  `h3_probe_ref2v_split_turbo_pack`), the generator's `turbo_pack` path
+  (`MiniMaxH3TurboSampler`, `MiniMaxH3TurboLoRA`) and the `TURBO_PACK_*`
+  constants. The owner removed the pack from this install, and the live
+  server no longer serves its nodes, so the rebuild could not validate them.
+  The turbo rung's 2026-09-05 manifests and verdicts stay as records.
+  `h3_config.LORA_LOADER_CLASSES` keeps the pack's loader, so a graph that
+  still wires it is still read as carrying a LoRA. Why the stock loader cannot load that LoRA on this
+  base is in `docs/wiki/decisions.md` under 2026-09-23.
+
 ## 0.136.2
 
 ### Changed

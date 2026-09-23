@@ -613,26 +613,6 @@ def main():
         # Catch a triple being added to the config without being added here.
         declared = {n for n in dir(h3_config)
                     if n.endswith("_LORA") and "TURBO" in n}
-        # TURBO_PACK_LORA is graded, but by classify_pack against a step range
-        # rather than by a vendor row, so it is asserted here directly instead
-        # of joining `triples`.
-        if hasattr(h3_config, "TURBO_PACK_LORA"):
-            assert classify_pack(h3_config.TURBO_PACK_LORA), (
-                f"TURBO_PACK_LORA {h3_config.TURBO_PACK_LORA!r} does not parse "
-                "as the pack's turbo_v<n>_step<ckpt> family")
-            lo, hi = PACK_STEPS
-            assert lo <= h3_config.TURBO_PACK_STEPS <= hi, (
-                f"TURBO_PACK_STEPS {h3_config.TURBO_PACK_STEPS} outside the "
-                f"documented {lo}-{hi}")
-            assert h3_config.TURBO_PACK_SCHEDULER == "simple", (
-                "the pack documents `simple` and nothing else")
-            assert h3_config.TURBO_PACK_STRENGTH == 1.0, (
-                "the pack tunes for strength 1.0 across its whole step range")
-            if hasattr(h3_config, "TURBO_PACK_RUNG_STEPS"):
-                assert lo <= h3_config.TURBO_PACK_RUNG_STEPS <= hi, (
-                    f"TURBO_PACK_RUNG_STEPS {h3_config.TURBO_PACK_RUNG_STEPS} "
-                    f"outside the documented {lo}-{hi}")
-
         # NOT intersected with `declared`. It used to be
         # `{...} & declared`, which made `graded` a subset of `declared` by
         # construction, so the assert below could only ever catch a constant
@@ -641,7 +621,7 @@ def main():
         # fewer -- coverage narrowing with no signal, which is worse than a
         # red. Comparing the literal set catches both directions.
         graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_768P_V12_LORA",
-                  "TURBO_SLA_LORA", "TURBO_PACK_LORA", "TURBO_REF2VA_LORA"}
+                  "TURBO_SLA_LORA", "TURBO_REF2VA_LORA"}
         assert declared == graded, (
             f"turbo LoRA constants and this check disagree. Declared in "
             f"h3_config but not graded here: {sorted(declared - graded)}. "

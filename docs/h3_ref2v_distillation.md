@@ -205,9 +205,9 @@ update cannot land as a weight patch, and `ComfyUI-MiniMax-H3-Turbo`'s
 `MiniMaxH3TurboLoRA` re-injects it every forward from a `silu(t_emb)` grid the
 pack ships (`_inject_adaln_egrid`, `_make_adaln_forward`). The stock loader
 applies the backbone modules, skips the rest with a log line, and renders: a
-wrong render, not an error. `workflows/build_workflows.py::build_api` wires
-`MiniMaxH3TurboLoRA` and the pack's `MiniMaxH3TurboSampler` whenever
-`turbo_pack` is set.
+wrong render, not an error. No graph here can run it now: the owner removed
+the pack from this install on 2026-09-23, and its graphs and the generator's
+`turbo_pack` path went with it (`docs/wiki/decisions.md`, 2026-09-23).
 
 **This narrows the thesis of this document.** The claim was never that
 distilling ref2va is impossible -- it is that the *official* turbo LoRAs are
@@ -219,12 +219,10 @@ exactly this split in practice -- lightx2v failing to blend references on
 ref2va while the v4 family holds prompt adherence -- and the header
 difference above is a mechanism that would produce that result.
 
-**Graphed, not judged.** `workflows/h3_probe_ref2v_turbo_pack_api.json` runs
-ref2va with v4 (`h3_config.TURBO_PACK_LORA`) through the pack's loader, and
-`workflows/h3_probe_ref2v_split_turbo_pack_api.json` is the same LoRA with the
-base checkpoint running the opening steps. No judged render of either is
-recorded in `bench/results/`. (Until 2026-09-14 this paragraph said nothing
-here had rendered ref2va with v4 and that the v4 twin was missing.) The weight
+**Graphed, never judged, and retired.** Two probes ran ref2va with v4
+through the pack's loader, one of them with the base checkpoint running the
+opening steps. No judged render of either is recorded in `bench/results/`, and
+both were removed with the pack on 2026-09-23, so the question stays open. The weight
 analysis says only that v4 *touches* the right modules, not that it touches
 them *well*. `h3_probe_ref2v_turbo` runs ref2va with an fl2v distill, which is
 the arm the community reports as the failing one.
