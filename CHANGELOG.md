@@ -4,6 +4,16 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.138.1
+
+### Changed
+
+- **The song node's joined track is AAC at 256k, up from 192k** (owner's
+  choice). `loop_output.AAC_BITRATE`, inherited from the owner's VHS fork,
+  which measured it on music. A test join with a noise track, which forces the
+  encoder to spend the full budget, reads back above the fork's own 200k floor.
+  Takes effect in a running server after a restart.
+
 ## 0.138.0
 
 ### Changed

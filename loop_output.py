@@ -52,6 +52,10 @@ def window_dir(full_out: str, filename: str) -> str:
 # inherited from the owner's VHS fork: `-map_metadata -1` copies no metadata
 # from any input, `-fflags +bitexact` drops the versioned encoder strings.
 CLEAN_OUTPUT_ARGS = ["-map_metadata", "-1", "-fflags", "+bitexact"]
+# AAC bitrate for the joined track. Inherited from the owner's VHS fork
+# (`AAC_BITRATE` in its `videohelpersuite/nodes.py`), which measured it on
+# music; the song node's track is music. Owner's choice, 2026-09-23.
+AAC_BITRATE = "256k"
 
 
 def join_and_mux(files: list[str], waveform, rate: int, out_path: str, scratch_dir: str, stem: str) -> None:
@@ -70,7 +74,7 @@ def join_and_mux(files: list[str], waveform, rate: int, out_path: str, scratch_d
         _write_wav(wav_path, waveform, rate)
         cmd = [_ffmpeg(), "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", list_path,
                "-i", wav_path, "-map", "0:v:0", "-map", "1:a:0",
-               "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest",
+               "-c:v", "copy", "-c:a", "aac", "-b:a", AAC_BITRATE, "-shortest",
                *CLEAN_OUTPUT_ARGS, out_path]
         proc = subprocess.run(cmd, capture_output=True)
         if proc.returncode != 0:
