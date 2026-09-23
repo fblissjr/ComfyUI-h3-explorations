@@ -45,8 +45,8 @@ Older history lives elsewhere and is not copied here:
   8 wide, so no loader can add them as a weight patch. That is why the pack
   shipped its own `silu(t_emb)` grid. The full comment is in git at
   `workflows/h3_config.py` as of 0.136.2. `docs/h3_ref2v_distillation.md`
-  now says the ref2va-with-v4 question was graphed, never judged, and closed
-  with the pack.
+  now says the ref2va-with-v4 probes were retired with the pack before any
+  render of them was judged, so that question is unanswered, not closed.
 
 ## 2026-09-20
 

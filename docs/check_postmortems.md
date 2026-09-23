@@ -273,6 +273,23 @@ than no measurement at all.
 
 ---
 
+## A note on `check_ref_prompt_labels.py`: a loader filter by class name, and a case with no input (2026-09-23)
+
+When the reference-video graphs moved to `h3_config.REF_VIDEO_LOADER`
+(0.137.0), `force_rate_is_24` still filtered loaders with
+`class_type != "VHS_LoadVideo"`. After the swap it would have skipped every
+loader and stayed green. `smoke_h3.py` had the same name match on its
+`frame_load_cap` patch. Both now match `reference_order.VIDEO_SOURCE_CLASSES`.
+
+The larger finding came from testing the fix. Every loader in a scratch copy of
+the tree was set to `force_rate` 25, and the case stayed green. It reads
+only loaders wired into `MiniMaxH3ReferenceToVideo`'s `ref_videos.*` sockets.
+It skips the typed `MiniMaxH3ReferenceConditioning` on purpose, because that
+path derives `loaded_fps` from `VHS_VIDEOINFO` and resamples by itself. And no
+shipped graph wires a video into the socket node: the two native-pathway
+probes wire images only. So the case examined no loader before the swap either,
+and was left as it is. Whether to retire it or give it a fixture is open.
+
 ## Controls whose input could not fail
 
 **Moved 2026-08-17 to the red-harness README (removed 2026-09-11; git history has it).** The four
