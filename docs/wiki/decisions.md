@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-23
 
+- **Video files carry no metadata; the graph lives in the first-frame PNG**
+  (owner's policy, "metadata saved in png files - that's it"; the VHS fork
+  follows it). `loop_output.py` stopped embedding a `comment` tag and
+  `creation_time`; 0.138.0. Prose that said the mp4 carries the graph was
+  corrected in `loop_output.py`, `audio_freeze_song.py` (docstring and the
+  `save_metadata_png` tooltip), `bench/diff_clip_graphs.py`,
+  `bench/verify_vsa_render.py` and `docs/eval_comparison.md`; dated notes were
+  added in place in `docs/h3_pdd.md` and `docs/research/vsa/vsa_node.md`,
+  whose two-mechanism findings still describe every older clip.
 - **Reference-video graphs load through VHS's ffmpeg loader** (owner's
   request, relayed by the dotfiles session). `h3_config.REF_VIDEO_LOADER`;
   0.137.0. The loaders keep different frames on 25 and 30 fps sources, so

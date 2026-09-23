@@ -183,10 +183,13 @@ nothing concluded from a matching hash is withdrawn.
 one `_smoketest` prefix, so every session rendering on this box shares one
 output counter and consecutive files may belong to different sessions -- a peer
 session went looking for its own pair, found a consecutive one, and it was
-this session's. Arm identity lives only in the embedded comment tag, which is
+this session's. Arm identity lives only in the embedded graph, which is
 the same trap wearing a different hat. So the verifier identifies the arms from
-the graph inside each file and fails on a mismatched pair; without that case, a
-wrong pair passes the pixel comparison and reads as a result.
+the graph each file was rendered from and fails on a mismatched pair; without
+that case, a wrong pair passes the pixel comparison and reads as a result.
+(2026-09-23: videos carry no container tags any more, and the graph is read
+from the first-frame PNG beside each clip; `bench/diff_clip_graphs.py::graph_of`
+says how.)
 
 **What it does not establish, and the list is longer than what it does.** No
 quality claim: a rendered pair cannot A/B a numerical change, and this pair

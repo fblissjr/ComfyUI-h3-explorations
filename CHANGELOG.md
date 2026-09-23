@@ -4,6 +4,32 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.138.0
+
+### Changed
+
+- **The song node writes no metadata into video files.** This is the owner's
+  PNG-only policy, which the owner's VHS fork now follows. `join_and_mux` no
+  longer embeds the prompt and workflow as an mp4 `comment` tag or stamps
+  `creation_time`. It and the window encoder
+  (`audio_freeze_song.py::_write_frames_mp4`) pass
+  `loop_output.CLEAN_OUTPUT_ARGS`, the fork's `-map_metadata -1 -fflags
+  +bitexact`. The first-frame PNG (`save_metadata_png`, on by default) is now
+  the only copy of the graph, and its tooltip says so. Checked by driving both
+  writers on two short windows under the fork's own assertions: no marker, only
+  the tags a container needs to play, no versioned encoder string. The PNG
+  control keeps the marker. Takes effect in a running server after a restart.
+- **Clip graphs are read from the sidecar PNG.** `bench/diff_clip_graphs.py::graph_of`
+  reads `<prefix>_NNNNN.png` beside the clip (the `-audio` sibling maps to the
+  same PNG), and falls back to the container's `prompt` or `comment` tag for
+  older clips. `verify_vsa_render.embedded_graph` delegates to it, so
+  `blind_panel`, `compare_clip_pixels`, `measure_pair_alignment` and
+  `measure_dialogue_transcription` follow. On a clip with the PNG withheld, the
+  PNG and the old `comment` tag gave the same graph. **`verify_vsa_render` now
+  FAILS its arm-identity case when no graph can be read**, where it printed
+  SKIP and trusted the filenames. Its own docstring argues against that, and
+  with no graph in any container that SKIP would have been every run.
+
 ## 0.137.0
 
 ### Changed

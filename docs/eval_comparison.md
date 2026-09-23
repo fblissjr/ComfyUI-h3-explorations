@@ -222,8 +222,9 @@ and what was asked.
   had passed it stripped; the two defaults of "the same scene and seed" were as
   far apart as two unrelated arms, and several stacks had been built with the
   older clip on top as the reference. Rows of a stack must share the prompt
-  byte for byte, and the embedded `prompt` in each clip's metadata is how to
-  check (`VHS_VideoCombine` writes it to the mp4 `comment` tag and the png).
+  byte for byte, and the `prompt` in each clip's first-frame PNG is how to
+  check (`bench/diff_clip_graphs.py` reads it; clips from before 2026-09-23
+  also carry it in the mp4's own tags).
   Renders on this stack repeat bit for bit, so a PSNR of infinity between two
   clips is a usable identity test, and anything less is a different input.
 - *An option that improves a capture metric does not thereby fix what the eye

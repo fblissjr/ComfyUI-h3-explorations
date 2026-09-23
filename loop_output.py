@@ -12,12 +12,14 @@ counter parses the digits after the prefix up to the next `_` or `.`, so a lone
 the next run would overwrite the last (tested against
 `folder_paths.py::get_save_image_path`, 2026-09-14).
 
-**Metadata** rides in the mp4 as a `comment` tag holding the prompt graph and
-the workflow, in VHS's own shape and escaping
-(`comfyui-videohelpersuite/videohelpersuite/nodes.py::ffmpeg_process`), so what
-reads a VHS file reads these. `write_metadata_png` adds `<prefix>_NNNNN.png`,
-the first frame carrying the same chunks, which is what a drag into the
-frontend reads.
+**Metadata** lives in the PNG only, the owner's policy since 2026-09-23 and the
+one the VHS fork follows (`CLEAN_OUTPUT_ARGS` in its
+`videohelpersuite/nodes.py`). The mp4 carries nothing but what it needs to
+play: `CLEAN_OUTPUT_ARGS` below copies no metadata from any input and drops
+ffmpeg's versioned encoder strings. `write_metadata_png` adds
+`<prefix>_NNNNN.png`, the first frame carrying the prompt and workflow, which
+is what a drag into the frontend reads and what `bench/diff_clip_graphs.py`
+reads.
 
 **Window files** live in `<prefix>_windows/`, one video and one latent per
 window slot (`loop_resume.window_paths`), overwritten in place by the next run
@@ -46,53 +48,36 @@ def window_dir(full_out: str, filename: str) -> str:
     return os.path.join(full_out, f"{filename}_windows")
 
 
-def _metadata_payload(prompt, extra_pnginfo) -> dict:
-    # VHS's `video_metadata`: the prompt graph as a JSON string, every
-    # extra_pnginfo entry (the workflow) as its own value
-    payload = {}
-    if prompt is not None:
-        payload["prompt"] = json.dumps(prompt)
-    for key, value in (extra_pnginfo or {}).items():
-        payload[key] = value
-    return payload
+# Output options for every video file this pack writes through ffmpeg,
+# inherited from the owner's VHS fork: `-map_metadata -1` copies no metadata
+# from any input, `-fflags +bitexact` drops the versioned encoder strings.
+CLEAN_OUTPUT_ARGS = ["-map_metadata", "-1", "-fflags", "+bitexact"]
 
 
-def _write_ffmetadata(path: str, payload: dict) -> None:
-    # ffmpeg's metadata file format escapes = ; # \ and newline (VHS's order)
-    text = json.dumps(payload)
-    for old, new in (("\\", "\\\\"), (";", "\\;"), ("#", "\\#"), ("=", "\\="), ("\n", "\\\n")):
-        text = text.replace(old, new)
-    with open(path, "w") as f:
-        f.write(";FFMETADATA1\ncomment=" + text)
-
-
-def join_and_mux(files: list[str], waveform, rate: int, out_path: str, scratch_dir: str, stem: str,
-                 prompt=None, extra_pnginfo=None) -> None:
-    """Concatenate `files` without re-encoding, mux the track cut to the video, embed the metadata.
+def join_and_mux(files: list[str], waveform, rate: int, out_path: str, scratch_dir: str, stem: str) -> None:
+    """Concatenate `files` without re-encoding and mux the track cut to the video. No metadata.
 
     The windows must share every muxer setting or the stream copy fails. The
-    concat list, the track and the metadata file are written to `scratch_dir`
-    and removed whether or not ffmpeg succeeds.
+    concat list and the track are written to `scratch_dir` and removed whether
+    or not ffmpeg succeeds.
     """
     list_path = os.path.join(scratch_dir, stem + "_concat.txt")
     wav_path = os.path.join(scratch_dir, stem + "_track.wav")
-    meta_path = os.path.join(scratch_dir, stem + "_metadata.txt")
     try:
         with open(list_path, "w") as f:
             for p in files:
                 f.write("file '" + p.replace("'", "'\\''") + "'\n")
         _write_wav(wav_path, waveform, rate)
-        _write_ffmetadata(meta_path, _metadata_payload(prompt, extra_pnginfo))
         cmd = [_ffmpeg(), "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", list_path,
-               "-i", wav_path, "-i", meta_path, "-map", "0:v:0", "-map", "1:a:0", "-map_metadata", "2",
+               "-i", wav_path, "-map", "0:v:0", "-map", "1:a:0",
                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest",
-               "-metadata", "creation_time=now", out_path]
+               *CLEAN_OUTPUT_ARGS, out_path]
         proc = subprocess.run(cmd, capture_output=True)
         if proc.returncode != 0:
             raise RuntimeError(f"ffmpeg failed joining into {out_path}: "
                                f"{proc.stderr.decode(errors='replace')[-400:]}")
     finally:
-        for p in (list_path, wav_path, meta_path):
+        for p in (list_path, wav_path):
             with contextlib.suppress(FileNotFoundError):
                 os.remove(p)
 

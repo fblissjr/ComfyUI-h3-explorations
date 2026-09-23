@@ -20,22 +20,28 @@ produce different mp4 bytes. Comparing `md5sum` on the files therefore reports
 a difference for any two runs, including two runs of the same arm -- which
 reads as "the arms differ" and is not.
 
-**Two container tags do it, and only one explains the same-arm case.** Named
+**Two container tags did it, and only one explained the same-arm case.** Named
 rather than waved at, because "encoder metadata" is not checkable and a field
 name is, in one `ffprobe -show_entries format_tags`:
 
   `format.tags.comment`        the whole API prompt, under VHS's
-                               `save_metadata: true`. So any two ARMS differ by
-                               construction -- the thing that makes them
-                               different arms is serialised into the file.
-  `format.tags.creation_time`  a wall-clock timestamp. So any two RUNS differ,
-                               including two runs of one arm.
+                               `save_metadata: true`. So any two ARMS differed
+                               by construction -- the thing that makes them
+                               different arms was serialised into the file.
+  `format.tags.creation_time`  a wall-clock timestamp. So any two RUNS
+                               differed, including two runs of one arm.
 
-Only the second explains two runs of one graph, whose comment tags are
+Only the second explained two runs of one graph, whose comment tags were
 identical. The muxer and the codec are NOT the cause and that was checked
 rather than assumed: remuxing one file twice, and re-encoding it twice at the
 same settings, each produce identical bytes. Credit to a peer session for
 pinning the field and for running that control.
+
+**Since 2026-09-23 neither tag is written.** The owner's VHS fork writes no
+metadata into video files, and the graph lives only in the first-frame PNG
+beside each clip. So a same-arm pair from after that date may well hash equal
+as files. Nothing here relies on that: the pixel comparison below never looked
+at the container, and it is still the comparison that decides.
 
 Caught here rather than in review: the two VSA runs hashed differently, which
 would have been reported as non-determinism, and the tell was that their file
@@ -68,14 +74,18 @@ control", and it is the only part that makes the name true.
 `bench/smoke_h3.py` hard-codes one `_smoketest` prefix, so every session
 rendering on this box shares a single output counter. Renders from different
 sessions interleave, and the FILENAME carries no arm information whatsoever --
-only the embedded `comment` tag does, which is this same trap wearing a
+only the embedded graph does, which is this same trap wearing a
 different hat. A peer session went looking for its own two arms, found a
 consecutive pair, and they were this session's.
 
-So the arms are identified from the graph embedded in each file: the VSA file
-must wire `MiniMaxH3VSAAttention` and the control must not, and both must carry
-the same seed. Passing the wrong pair is otherwise indistinguishable from a
-result.
+So the arms are identified from the graph each file was rendered from: the VSA
+file must wire `MiniMaxH3VSAAttention` and the control must not, and both must
+carry the same seed. Passing the wrong pair is otherwise indistinguishable from
+a result. The graph comes from the clip's sidecar PNG
+(`diff_clip_graphs.graph_of` says how it is found, and why finding it by name
+does not reintroduce the filename trap: one save writes both files under one
+counter, so the PNG names the render and not just a slot). A clip with no
+graph to read FAILS the identity case rather than falling back to its name.
 
     python bench/verify_vsa_render.py <vsa.mp4> <dense.mp4> [<vsa-repeat.mp4>]
 
@@ -86,26 +96,23 @@ Needs ffmpeg. Exit 0 if the arms differ (and, when given, the repeat matches),
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from diff_clip_graphs import graph_of  # noqa: E402
+
 
 def embedded_graph(path):
-    """The API prompt VHS serialises into `format.tags.comment`, or None.
+    """The API graph `path` was rendered from, or None when there is none to read.
 
-    Nested: the tag is `{"prompt": "<the graph, as an escaped JSON string>"}`.
+    `diff_clip_graphs.graph_of` owns where it is looked for: the sidecar PNG
+    first, then the container tags older clips carry.
     """
-    proc = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format_tags=comment",
-         "-of", "json", str(path)], capture_output=True, text=True)
-    if proc.returncode != 0:
-        return None
     try:
-        tags = json.loads(proc.stdout)["format"]["tags"]
-        return json.loads(json.loads(tags["comment"])["prompt"])
-    except (KeyError, ValueError, TypeError):
+        return graph_of(str(path))
+    except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
         return None
 
 
@@ -160,8 +167,11 @@ def main(argv):
     matched = len(set(v for v in seeds.values() if v is not None)) <= 1
 
     if arms["vsa"] is None or arms["dense control"] is None:
-        print("  SKIP  the arms are what they are labelled   no embedded graph "
-              "(save_metadata off?); falling back to trusting the filenames")
+        print("  FAIL  the arms are what they are labelled   no graph to read: "
+              "each clip needs its first-frame PNG beside it (or, for an older "
+              "clip, the graph in its container). A filename says nothing "
+              "about the arm.")
+        ok = False
     else:
         right = vsa_wired and not control_wired and matched
         print(f"  {'ok  ' if right else 'FAIL'} the arms are what they are "

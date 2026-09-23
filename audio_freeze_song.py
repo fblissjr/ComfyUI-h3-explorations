@@ -54,8 +54,9 @@ inputs have not changed, in order, and renders from the first that has
 (`reuse_windows`); `loop_resume.py` says what a window's key covers and what it
 cannot see. The seed holds after each queue so a re-queue can reuse.
 `keep_windows` off removes this run's window files after the join. The
-finished `<prefix>_NNNNN.mp4` carries the prompt and workflow;
-`save_metadata_png` adds the first frame as a PNG with the same.
+finished `<prefix>_NNNNN.mp4` carries no metadata (`loop_output.py` says why);
+`save_metadata_png` writes the first frame as a PNG carrying the prompt and
+workflow, the only place the graph is kept.
 
 First run: `bench/results/2026-09-12_audio_freeze_song_smoke.jsonl`, one short
 window; `bench/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`, two
@@ -85,7 +86,7 @@ from .audio_freeze import MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffm
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume
 from .prompt_lists import H3PromptLists, fill_windows
-from .loop_output import join_and_mux, saved_outputs, window_dir, write_metadata_png
+from .loop_output import CLEAN_OUTPUT_ARGS, join_and_mux, saved_outputs, window_dir, write_metadata_png
 from .reference_conditioning import H3References, MiniMaxH3ReferenceConditioning
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,8 @@ def _write_frames_mp4(path: str, images: torch.Tensor, crf: int) -> int:
     t, h, w, _ = images.shape
     cmd = [_ffmpeg(), "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
            "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
-           "-c:v", "libx264", "-preset", "medium", "-crf", str(int(crf)), "-pix_fmt", "yuv420p", path]
+           "-c:v", "libx264", "-preset", "medium", "-crf", str(int(crf)), "-pix_fmt", "yuv420p",
+           *CLEAN_OUTPUT_ARGS, path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert proc.stdin is not None and proc.stderr is not None
     try:
@@ -189,7 +191,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 io.Int.Input("crf", default=19, min=0, max=51),
                 io.Boolean.Input("save_metadata_png", default=True,
                                  tooltip=("Also write <prefix>_NNNNN.png, the first frame carrying the prompt and "
-                                          "workflow, beside the video. The video carries both either way.")),
+                                          "workflow, beside the video. The video carries neither, so off keeps "
+                                          "no record of the graph.")),
                 io.Boolean.Input("keep_windows", default=True,
                                  tooltip=("Keep this run's window files (the videos and the latents resume reads) "
                                           "in <prefix>_windows/ after the join. Off removes them, so the next run "
@@ -382,7 +385,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
 
         # join, and mux the whole track cut to the video
         out_path = os.path.join(full_out, stem + ".mp4")
-        join_and_mux(files, waveform, rate, out_path, work_dir, stem, prompt=graph, extra_pnginfo=extra)
+        join_and_mux(files, waveform, rate, out_path, work_dir, stem)
         png_path = (write_metadata_png(os.path.join(full_out, stem + ".png"), out_path, graph, extra)
                     if save_metadata_png else None)
         if not keep_windows:

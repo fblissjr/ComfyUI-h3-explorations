@@ -1677,6 +1677,12 @@ the rows are kept as the record of what was done. Compare decoded frames
 2026-08-30, after a second session hit this independently** -- which is the
 signal that this note was not reachable from where people look.
 
+(2026-09-23: neither tag is written any more. The owner's VHS fork and
+`loop_output.py` put no metadata in video files; the graph lives in the
+first-frame PNG beside each clip. The two mechanisms below still describe
+every clip rendered before that date, and decoded frames remain the only
+comparison that answers the question either way.)
+
 - `format.tags.comment` carries the whole API prompt under
   `save_metadata: true`, so **any two ARMS differ in the container by
   construction**: the thing that makes them different arms is serialised into
