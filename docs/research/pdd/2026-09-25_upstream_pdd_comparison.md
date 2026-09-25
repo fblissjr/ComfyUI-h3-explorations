@@ -83,7 +83,9 @@ at our floor.
 - **Core never engages for our files.** Our converted and stripped files
   carry no enlarged bank, and the baked checkpoint's heads are single, so core
   takes its one-head branch and our object patches run the head in every
-  shipped graph that patches heads. Deferring would mean a new file format.
+  shipped graph that patches heads. Deferring means switching to Kijai's current
+  delta-encoded file, which sits at our precision under core, or re-encoding ours
+  to match.
 - **Core has no partition fingerprint and no shift guard.** It raises only
   when `sample_sigmas` is missing.
 - **Core picks blocks the audio never visits on masked rows.** On the three
@@ -109,8 +111,8 @@ Each needs a render or a capture; none has been run.
 1. **Selector rule for mask-pinned audio rows** (no upstream has this).
    - Keep a shared grid index taken from video.
    - Use the audio row's own clock only when a mask pins it.
-   - Stop the off-schedule warning from firing on such rows. Today it fires
-     every step of the three song graphs.
+   - Stop the off-schedule warning from firing on such rows. On the three
+     song graphs it would fire once per render (inferred from the probe; no retained server log covers a song-graph run).
    - Instrument: a capture of the audio head's output on one song-graph
      window, against the fp64 mean head over the row's actual span.
    - Reach: the song graphs only.
@@ -128,7 +130,13 @@ Each needs a render or a capture; none has been run.
 
 **Not arms:**
 - precision (we are at the floor);
-- a carry correction or a dual-clock sampler (a proven no-op under Euler);
+- a dual-clock sampler (equivalent to core's carry under Euler, so a no-op).
+  Re-applying the carry at the block's mean sigma is different. It is not a
+  correction, but it does add audio energy
+  (`../../../bench/results/2026-08-28_audio_carry_ablation.json`). That makes it
+  an untrained gain knob, measured and never judged by ear. If louder PDD audio
+  is the goal, arm 2 is the principled route, and this knob is a cheaper one to
+  put beside it in the same pair;
 - an off-grid refusal (every shipped schedule is exact);
 - partition arms, which the owner ruled out on 2026-09-05
   (`../../roadmap.md`, "Owner decisions, 2026-09-05 evening").

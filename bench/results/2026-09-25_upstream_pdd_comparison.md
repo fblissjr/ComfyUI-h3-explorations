@@ -74,7 +74,9 @@ synthetic ones. Full output: `2026-09-25_pdd_head_selection.json`.
   - The three song graphs run `audio_mask` 0.25 through
     `MiniMaxH3AudioFreezeSong`. They disagree on 7 of 8 calls.
   - The masked audio row sits at `1 − 0.25·σa` for the whole render, so ours
-    picks the final audio block every step, and our warning fires.
+    picks the final audio block every step. Our off-schedule warning would
+    fire, once per render (`pdd_lora.py` guards it with `warned`). That is
+    inferred from the probe; no retained server log covers a song-graph run.
   - Core would give the audio the video's block, spans the row never visits.
   - Video agrees.
   - The three candidate freeze graphs run `audio_mask` 0.0. Their heads also

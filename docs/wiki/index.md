@@ -1,6 +1,6 @@
 # The wiki: where to start, and who owns each answer
 
-last updated: 2026-09-25 (the pdd_implementations row: sglang now implements PDD)
+last updated: 2026-09-25 (the pdd_implementations row routes the new PDD comparison and the continuation note)
 
 Written by hand, and the only copy of these routes: `CLAUDE.md` points here
 instead of carrying them. This is a router, not an authority. It states no
@@ -50,7 +50,7 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | [`docs/h3_resolutions.md`](../../docs/h3_resolutions.md) | every legal canvas and what each costs |
 | [`docs/h3_geometry_and_nodes.md`](../../docs/h3_geometry_and_nodes.md) | the frame grid, the token maths, and which node to use |
 | [`docs/h3_pdd.md`](../../docs/h3_pdd.md) | Parallel Decoding Distillation: what the Acc LoRAs are, the converter and node contract, the two silent traps |
-| [`docs/research/pdd/pdd_implementations.md`](../../docs/research/pdd/pdd_implementations.md) | our PDD against the four other implementations; of the serving engines, only sglang implements it (since 2026-09-23; `../research/sglang_comparison.md`, "Seventh read") |
+| [`docs/research/pdd/pdd_implementations.md`](../../docs/research/pdd/pdd_implementations.md) | our PDD against the four other implementations, as of 2026-08-28. The 2026-09-25 comparison of seven, which answers "can PDD do better than core's and ours", is [`docs/research/pdd/2026-09-25_upstream_pdd_comparison.md`](../../docs/research/pdd/2026-09-25_upstream_pdd_comparison.md); guide-row continuation is [`docs/research/2026-09-25_continuation_guide_rows.md`](../../docs/research/2026-09-25_continuation_guide_rows.md) |
 | [`docs/h3_ref2v_distillation.md`](../../docs/h3_ref2v_distillation.md) | why ref2v resists step distillation |
 | [`docs/h3_image_editing.md`](../../docs/h3_image_editing.md) | the single-frame path, parked 2026-08-27, in the past tense |
 | [`docs/eval_comparison.md`](../../docs/eval_comparison.md) | the A/B process: matched seeds, blinded, scored before unblinding, recorded as a distribution. The `h3-ab-session` skill routes here |

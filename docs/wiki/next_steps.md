@@ -29,7 +29,8 @@ mapped to the owner decision it feeds. None of the decisions is made here.
   the precision floor and agree with core on every shipped schedule. Three arms
   are left, each needing a render go:
   - head selection for mask-pinned audio rows (the song graphs, where our
-    off-schedule warning fires every step);
+    off-schedule warning would fire once per render; inferred from the probe,
+    not seen in a log);
   - audio refine on the base model after PDD;
   - PDD on the unpruned base.
 - **Report upstream?** All outward-facing; the owner's call:
@@ -50,6 +51,11 @@ mapped to the owner decision it feeds. None of the decisions is made here.
   - A already has a positive verdict.
 
   Worth one pair only if seams are a live complaint.
+- **`bench/check_sol_observe.py` has failed since 0.123.0.** Its
+  `stale_block_label_is_cleared` case builds a stub model without
+  `video_patch_proj`, which `install_h3_morton` has required since `a1bd97f1`
+  (2026-09-18). The failure is in the check's stub, not the node. Found while
+  re-running the Sol checks against 0.139.0, which passes all the others.
 - **INT8 video VAE:** nothing new bears on it. The tile-seam change is inside
   the overlap bands and fidelity-neutral
   (`../../bench/results/2026-09-25_vae_tile_seam_blend.md`); it only means

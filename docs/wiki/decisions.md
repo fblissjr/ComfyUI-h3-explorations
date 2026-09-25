@@ -26,8 +26,8 @@ Older history lives elsewhere and is not copied here:
   survey's buckets 3 and 5), framed as evidence for the owner's open decisions.
 - **The PDD audio change-of-variable mechanism is refuted, and prose resting on it
   is corrected** (`../research/pdd/2026-09-25_upstream_pdd_comparison.md`; numbers in
-  `bench/results/2026-09-25_upstream_pdd_comparison.md`, section 3; the commit that
-  adds that record). Each has a dated note in place.
+  `bench/results/2026-09-25_upstream_pdd_comparison.md`, section 3; commit
+  `aa9f2420`). Each has a dated note in place.
   - `audio_under_pdd.md` section 1 and "vary the TRANSFORM" said the block-start
     carry is an audio-only error growing with width. Core's carry equals the
     vendor's two-schedule audio Euler step exactly, so the loss is PDD's own.
