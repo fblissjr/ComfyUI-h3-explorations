@@ -120,7 +120,8 @@ follow-ups.
   torchaudio. `comfy.audio.resample` returned tensors `torch.equal` to
   `torchaudio.functional.resample` on CPU in fp32 (`bench/results/2026-09-25_upstream_survey_checks.md` check 1,
   with the conditions it did not cover). That makes it a drop-in
-  replacement there. The swap has not been made.
+  replacement there. *Made the same day in 0.139.0 (`audio_resample.py`),
+  after the check was extended to CUDA, fp16 and bf16.*
 - `95539f56` (#16471) Fun-ControlNet Union 2.0 for H3; nothing here wires a
   ControlNet. ComfyUI `v0.37.0` was tagged 2026-09-20. The rest is other
   models, assets, partner nodes and NPU/ROCm.
@@ -157,7 +158,9 @@ under an unrelated title can be missed.
   bf16-only"), so every Sol graph would run dense, and the reason would show
   only in the route record. This pack's own attention forwards also lack the
   PR's fp16 `out_proj` rescale. The dtype choice was run; the Sol fallback
-  and the rescale are reasoned from the code, with no render under the PR. It is the one open PR here worth watching.
+  and the rescale are reasoned from the code, with no render under the PR.
+  *Since 0.139.0 the Sol node refuses a non-bf16 H3 model at patch time
+  (`sol_attn_h3.py::_require_bf16_compute`), so this would now fail loudly.* It is the one open PR here worth watching.
 - **16460 (packed-row memory estimate) and 16542 (dynamic-VRAM headroom)**
   would together change what gets paged out when sampling is admitted: the
   first changes the estimate, and the second makes `free_memory` partially

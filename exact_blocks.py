@@ -111,8 +111,24 @@ def _exact_forward(self, x, rope_freqs=None, transformer_options={}):
         transformer_options = {**(transformer_options or {}),
                                "optimized_attention_override": _capturing}
 
-    return Attention.forward(self, x, rope_freqs=rope_freqs,
-                             transformer_options=transformer_options)
+    # A checkpoint can name a block's kernel since Comfy-Org/ComfyUI#16419: a
+    # `comfy_attention.config` tensor loads into `self.comfy_attention` and
+    # routes the call to kitchen INT8 attention whenever no override is set.
+    # Stripping the override above is exactly that case, so a block this node
+    # was asked to keep exact would run INT8. The preference is set aside for
+    # this call only and restored after. No file in `h3_config.MODELS` carries
+    # the key (`bench/results/2026-09-25_upstream_survey_checks.md`, check 2);
+    # this is for a community file that does.
+    preferred = getattr(self, "comfy_attention", None)
+    held = getattr(preferred, "function", None)
+    if preferred is not None and held is not None:
+        preferred.function = None
+    try:
+        return Attention.forward(self, x, rope_freqs=rope_freqs,
+                                 transformer_options=transformer_options)
+    finally:
+        if preferred is not None and held is not None:
+            preferred.function = held
 
 
 # Tells Sol-Attn's compose sites to leave this forward alone. See the module

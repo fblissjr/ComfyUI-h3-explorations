@@ -146,6 +146,8 @@ def check_forward(problems):
         @staticmethod
         def forward(self, x, rope_freqs=None, transformer_options=None):
             seen["options"] = transformer_options
+            pref = getattr(self, "comfy_attention", None)
+            seen["preferred_during"] = getattr(pref, "function", "absent")
             return "out"
 
     import types
@@ -182,6 +184,30 @@ def check_forward(problems):
             "two-block change.")
     else:
         print("  ok    no mutation   the caller's transformer_options is intact")
+
+    # A checkpoint-named kernel (Comfy-Org/ComfyUI#16419) is reached exactly
+    # when no override is set, which is the state this forward creates. It
+    # must be set aside for the call and restored after, or a block asked to
+    # stay exact runs kitchen INT8 on such a file.
+    block = types.SimpleNamespace(comfy_attention=types.SimpleNamespace(function="INT8"))
+    sys.modules["comfy.ldm.minimax.model"] = fake_comfy
+    try:
+        fwd(block, "X", rope_freqs=None, transformer_options={})
+    finally:
+        if saved is None:
+            del sys.modules["comfy.ldm.minimax.model"]
+        else:
+            sys.modules["comfy.ldm.minimax.model"] = saved
+    if seen.get("preferred_during") is not None:
+        problems.append(
+            "_exact_forward left a checkpoint's preferred attention in place, so "
+            "a block this node keeps exact runs the file's kernel instead")
+    elif block.comfy_attention.function != "INT8":
+        problems.append(
+            "_exact_forward did not restore the checkpoint's preferred attention "
+            "after the call, so every later use of that block loses it")
+    else:
+        print("  ok    preference    a checkpoint-named kernel is set aside, then restored")
 
     dropped = [k for k in ("sigmas", "sol_block") if k not in passed]
     for key in dropped:

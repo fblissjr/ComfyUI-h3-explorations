@@ -822,6 +822,32 @@ def _require_kernel():
             "without H3_SOL_OBSERVE.")
 
 
+def _require_bf16_compute(model):
+    """Refuse an H3 model that will not compute in bf16, before sampling.
+
+    The kernel is bf16-only, and `_ineligible` hands any other dtype back to
+    dense attention one call at a time. A whole render in another dtype would
+    therefore be a dense render that shows up only in the route record. Core
+    chooses the dtype at load (`comfy.model_management.unet_dtype` and
+    `unet_manual_cast`), and today bf16 is all H3 offers there. Open core PR
+    Comfy-Org/ComfyUI#16508 adds fp16, and under `--fast fp16_accumulation`,
+    which this box's launcher passes, core would then pick fp16 for the INT8
+    DiT (measured in-process: `bench/results/2026-09-25_upstream_survey_checks.md`,
+    check 4). Called from `_apply_patch` for the same reason as `_require_kernel`.
+    """
+    base = getattr(model, "model", None)
+    get = getattr(base, "get_dtype_inference", None)
+    if get is None:
+        return                      # not a core BaseModel; the call path decides
+    dtype = get()
+    if dtype != torch.bfloat16:
+        raise RuntimeError(
+            f"MiniMax-H3 is loaded to compute in {dtype}, and Sol-Attn's kernel is "
+            f"bf16-only, so every call would fall back to dense attention. Load the "
+            f"DiT in bf16: start ComfyUI with --bf16-unet, or without --fast "
+            f"fp16_accumulation. Or remove this node to render dense on purpose.")
+
+
 def _bthd(q, k, v, heads, skip_reshape):
     """(qs, ks, vs, b, dim_head): the BTHD views the kernel wants, from either
     layout `optimized_attention` hands over. Views only, no copy."""
@@ -1294,6 +1320,8 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
             "vendor/rebuild_kernel.sh, or turn the widget off.")
     diffusion_model = model.get_model_object("diffusion_model")
     is_h3 = hasattr(diffusion_model, "rope_freqs") and hasattr(diffusion_model, "_forward")
+    if is_h3:
+        _require_bf16_compute(model)
 
     # H3 publishes its segment layout from the same hooks Morton uses, so the
     # conditioning sink needs them installed even when reordering is off.

@@ -259,8 +259,9 @@ def _encode_ref_audio_aligned(audio_vae, audio):
     Padding here, at the VAE's own rate and to the VAE's own ratio -- the same
     `spacial_compression_encode()` the crop reads -- makes the crop a no-op, so
     no sample is dropped and the last partial hop becomes one more latent step,
-    as the release encodes it. Resampling first is the same torchaudio call
-    core makes; core then sees the VAE's rate and does not resample again.
+    as the release encodes it. Resampling first is the same call core makes
+    (`audio_resample.py`); core then sees the VAE's rate and does not
+    resample again.
     Core's own H3 nodes still take the crop until Comfy-Org/ComfyUI#15972 or an
     equivalent lands; this is our reference path only.
     """
@@ -268,8 +269,8 @@ def _encode_ref_audio_aligned(audio_vae, audio):
     sample_rate = audio["sample_rate"]
     vae_rate = getattr(audio_vae, "audio_sample_rate", 32000)  # core's fallback
     if sample_rate != vae_rate:
-        import torchaudio
-        waveform = torchaudio.functional.resample(waveform, sample_rate, vae_rate)
+        from .audio_resample import resample
+        waveform = resample(waveform, sample_rate, vae_rate)
     hop = int(audio_vae.spacial_compression_encode())
     right = -int(waveform.shape[-1]) % hop
     if right:

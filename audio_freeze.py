@@ -67,6 +67,8 @@ from collections.abc import Mapping
 import torch
 from comfy_api.latest import io
 
+from .audio_resample import RESAMPLER, resample
+
 import comfy.nested_tensor
 from comfy.ldm.minimax.model import FRAME_PER_TOKEN
 from comfy_extras.nodes_minimax_h3 import AUDIO_LATENT_FPS, FPS, video_latent_t
@@ -203,8 +205,7 @@ def slice_window(waveform: torch.Tensor, rate: int, audio_vae, start_seconds: fl
     """
     vae_rate, hop = audio_grid(audio_vae)
     if rate != vae_rate:
-        import torchaudio
-        waveform = torchaudio.functional.resample(waveform, rate, vae_rate)
+        waveform = resample(waveform, rate, vae_rate)
     start_step = int(round(float(start_seconds) * AUDIO_LATENT_FPS))
     if start_step < 0:
         raise ValueError(f"start_seconds {start_seconds} is before the song starts")
@@ -342,7 +343,7 @@ class MiniMaxH3FreezeAudio(io.ComfyNode):
                if padded_steps else "")
             + f"video mask {'kept from input' if latent.get('noise_mask') is not None else 'all ones'}; "
             + f"source {rate} Hz {in_channels} ch -> {vae_rate} Hz stereo "
-            + ("(resampled, torchaudio sinc at its defaults, the vendor's resampler)" if rate != vae_rate else "(no resample)")
+            + ("(resampled, " + RESAMPLER + ")" if rate != vae_rate else "(no resample)")
             + ("; " + "; ".join(fixes) if fixes else "")
             + f"; peak {peak:.3f} rms {rms:.4f};" + level_note
         )
@@ -530,8 +531,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
         vae_rate2, hop = audio_grid(audio_vae)
         full = waveform
         if rate != vae_rate2:
-            import torchaudio
-            full = torchaudio.functional.resample(full, rate, vae_rate2)
+            full = resample(full, rate, vae_rate2)
         end = (start_step + audio_t) * hop
         span = full[..., :end]
         if span.shape[-1] < end:
@@ -585,8 +585,7 @@ class MiniMaxH3EncodeTrack(io.ComfyNode):
         waveform, rate, fixes = _stereo(audio)
         vae_rate, hop = audio_grid(audio_vae)
         if rate != vae_rate:
-            import torchaudio
-            waveform = torchaudio.functional.resample(waveform, rate, vae_rate)
+            waveform = resample(waveform, rate, vae_rate)
         waveform, level_fixes = condition_level(waveform, level)
         fixes += level_fixes
         right = -int(waveform.shape[-1]) % hop

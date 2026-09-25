@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.139.0
+
+### Changed
+
+- **Audio is resampled with core's resampler, not torchaudio.** Core dropped
+  torchaudio from its requirements (Comfy-Org/ComfyUI#16457), and this pack
+  declares no dependency, so an install without torchaudio failed on any clip
+  whose sample rate was not the audio VAE's. The four resample sites in
+  `audio_freeze.py` and `reference_conditioning.py` now go through
+  `audio_resample.py`. It calls `comfy.audio.resample`, and falls back to
+  torchaudio on a core older than #16457. The output is unchanged: the two
+  were `torch.equal` on CPU and CUDA in fp32, fp16 and bf16
+  (`bench/results/2026-09-25_upstream_survey_checks.md`, check 1). The freeze
+  node's report names whichever resampler ran.
+
+### Added
+
+- **`MiniMaxH3SolAttn` refuses an H3 model that will not compute in bf16**
+  (`sol_attn_h3.py::_require_bf16_compute`, at patch time). The kernel is
+  bf16-only, so any other dtype fell back to dense attention call by call,
+  visible only in the route record. That is reachable if Comfy-Org/ComfyUI#16508
+  merges: under this launcher's `--fast fp16_accumulation`, core would pick
+  fp16 for the INT8 DiT (the same record, check 4). The error names
+  `--bf16-unet` as the fix. Nothing that renders today changes.
+- **`MiniMaxH3ExactBlocks` keeps a checkpoint's own kernel choice out of its
+  exact blocks.** Since Comfy-Org/ComfyUI#16419 a model file can route a block
+  to kitchen INT8 attention whenever no override is set, which is the state
+  the node creates. It now sets that preference aside for the call and
+  restores it after. `bench/check_exact_blocks.py` asserts it, red against the
+  previous forward. No shipped model file carries the key.
+
 ## 0.138.1
 
 ### Changed

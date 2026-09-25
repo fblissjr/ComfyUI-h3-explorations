@@ -18,22 +18,11 @@ own below the rule.
 2026-09-25", and [`references.md`](references.md), "What moved by
 2026-09-25". Most urgent first; none of it is done.
 
-- **torchaudio left core's requirements** (#16457). The resample sites
-  in `audio_freeze.py` and `reference_conditioning.py` still import it, and
-  `pyproject.toml` declares nothing, so a community install without
-  torchaudio breaks on any clip whose rate is not the audio VAE's.
-  `comfy.audio.resample` returned tensors `torch.equal` to torchaudio's
-  (`../../bench/results/2026-09-25_upstream_survey_checks.md` check 1). Done when the sites call it, keeping
-  torchaudio only as a fallback on an older core. The provenance string in
-  `audio_freeze.py` that names torchaudio's sinc as the resampler changes
-  with them. Waiting on the owner's go.
-- **Watch core PR 16508 (fp16 H3).** If it merges as written, `start.sh`'s
-  `--fast fp16_accumulation` puts the DiT in fp16, and every Sol graph runs
-  dense without saying so beyond the route record
-  (`sol_attn_h3.py::_ineligible`). The fp16 choice was run in-process
-  (`../../bench/results/2026-09-25_upstream_survey_checks.md` check 4); the dense fallback is reasoned. Cheap
-  insurance whether or not it merges: a preflight or Sol-node refusal when
-  the DiT's compute dtype is not bf16. Owner's call.
+- *Done 2026-09-25 in 0.139.0:* the torchaudio resample sites call
+  `comfy.audio.resample` through `audio_resample.py`, and the Sol node refuses
+  an H3 model that will not compute in bf16, which is what core PR 16508 would
+  cause on this launcher. Still worth watching 16508; if it merges, the
+  refusal is what users will see, and `--bf16-unet` is the fix it names.
 - **The PDD head-half question is live.** Core's head bank merged 2026-08-29
   (`../h3_pdd.md`, "Core is learning this"): should `MiniMaxH3PDDLoRA` keep
   its own head swap, or narrow to conversion plus the partition guard? sglang
