@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-25
 
+- **PDD reopened for research** (owner: "dig into the upstream stuff's PDD
+  (not only comfy) to see if we can do better than comfy native AND our
+  current"). `docs/roadmap.md` "Closed lanes" had PDD quality work parked
+  since 2026-09-05. The reopen covers reading and CPU work; a render in this
+  lane still waits on the owner's go. Also reopened for research: continuation
+  by guide rows, the tile-seam question and the upstream digs (the upstream
+  survey's buckets 3 and 5), framed as evidence for the owner's open decisions.
 - **Prose corrected by the 2026-09-25 upstream survey**
   ([`references.md`](references.md), "What moved by 2026-09-25";
   [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
