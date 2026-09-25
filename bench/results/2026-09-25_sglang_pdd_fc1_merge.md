@@ -17,7 +17,7 @@ it. Whether to report it upstream is the owner's call.
   `coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_pdd_weights.py::_target_of`
   maps `.ff.net.0.proj` to `.mlp.fc1`. The file imports only torch and
   safetensors, and nothing in it swaps halves. sglang's own runtime LoRA path
-  does swap (`runtime/pipelines_core/lora/pipeline.py::_swap_peft_swiglu_fc1_lora_b`),
+  does swap (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/lora/pipeline.py::_swap_peft_swiglu_fc1_lora_b`),
   and the builder's only test merges `attn.to_out.0`.
 - Layouts, from the release on disk (`MiniMaxAI/MiniMax-H3`: `transformer/`
   is diffusers, `FL2VA/transformer/` is native):

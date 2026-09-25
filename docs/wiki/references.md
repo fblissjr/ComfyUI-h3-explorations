@@ -364,10 +364,14 @@ decision; `sol_upstream.md` has it.
     arm of [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 5 idea 5,
     taken from the latent tail.** Core can express the guide half: its packed
     layout already reads a latent from `minimax_keyframes`. It has no temporal
-    offset, so the global clock would need a core change. The docstring credits
-    the algorithm to two third-party ComfyUI packs,
-    `ttulttul/ComfyUI-Minimax-H3-Continuation` and
-    `vizart-vj/ComfyUI-MiniMax-H3-LongMedia`. Neither is cloned or read.
+    offset in its layout, but a pack can add one without editing core (see
+    below). The module docstring credits the guide/discard/append algorithm to
+    `ttulttul/ComfyUI-Minimax-H3-Continuation`. The recipe credits
+    `vizart-vj/ComfyUI-MiniMax-H3-LongMedia` for the global-offset convention
+    only. *Corrected 2026-09-25, same day: this bullet first said the
+    docstring credited both packs for the algorithm, and that the offset
+    needed a core change. All three packs are now cloned and compared in
+    [`../research/2026-09-25_continuation_guide_rows.md`](../research/2026-09-25_continuation_guide_rows.md).*
     (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/continuation.py::diffuse_continuation`,
     `::resolve_continuation`;
     `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/packed_sequence.py`;
@@ -479,9 +483,11 @@ decision; `sol_upstream.md` has it.
   API).
 - **Not read:** the infrastructure clones past a commit-message search for
   H3, MiniMax and Qwen3-VL. That found only MiniMax-M3 work in `vllm`.
-  Also not read: the three third-party continuation packs vllm-omni names
-  (the third is `T8mars/comfyui-minimax-h3-audio-T8`, from its recipe), and
-  the line-number citations into the sglang files these commits touched,
+  Also not read at first: the three third-party continuation packs that
+  vllm-omni names (the third is `T8mars/comfyui-minimax-h3-audio-T8`, which
+  its recipe cites for a different route). They were cloned and read later
+  the same day, in the continuation note linked above. Still not read: the
+  line-number citations into the sglang files these commits touched,
   beyond the one corrected in `sol_upstream.md`.
 
 ---

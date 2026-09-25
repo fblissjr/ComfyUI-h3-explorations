@@ -314,8 +314,12 @@ judgement on 2026-09-12, not a measurement.
    tail with no decode, and adds a global temporal offset per window
    ([`wiki/references.md`](wiki/references.md), "What moved by 2026-09-25").
    Core can place a latent tail as `minimax_keyframes` rows, so the guide
-   half is buildable as a pack node. The offset is not, without a core
-   change.*
+   half is buildable as a pack node, and `ttulttul`'s pack already ships one.
+   *Corrected the same day:* this note said the offset needed a core change.
+   It does not: LongMedia adds it with a per-clone model wrapper. It is worth
+   little, since RoPE sees only position differences and the offset moves
+   media only against text and stills. The comparison and a design:
+   [`research/2026-09-25_continuation_guide_rows.md`](research/2026-09-25_continuation_guide_rows.md).*
 6. **Guide audio on fl2va.** Core's audio anchor puts the song in
    conditioning rows and lets the target audio generate. Expected to lose to
    the freeze, but it is one graph edit and it says whether H3 copies audio it
