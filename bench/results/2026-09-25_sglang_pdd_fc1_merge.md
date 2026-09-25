@@ -1,6 +1,6 @@
 # sglang's PDD builder merges the fc1 LoRA delta with gate and value swapped, 2026-09-25
 
-**Result: shown, one block's MLP at a time, on CPU.** sglang's offline PDD
+**Result: shown, one block's MLP at a time, on CPU, and confirmed by running sglang's own tools (section below).** sglang's offline PDD
 builder maps the diffusers LoRA module `ff.net.0.proj` onto the native
 checkpoint's `mlp.fc1` as a plain rename. The two layouts pack the SwiGLU
 halves in opposite orders. So the fc1 half of alibaba-pai's adapter lands on the
@@ -50,6 +50,34 @@ Blocks 0, 7, 25 and 49 of FL2VA:
 Values are relative L2 of the MLP output. The swapped merge reproduces the
 reference exactly, and the plain rename does not. Its error is the same order
 as everything the adapter contributes to that MLP.
+
+## Run with sglang's own tools
+
+The same day, sglang's `build_minimax_h3_pdd_weights.py` and
+`fuse_minimax_h3_pdd_heads.py` were run **unmodified**, copied from
+`coderef/sglang` at `2f5c9ac43d` and still unfixed on sglang `origin/main` that
+day. The inputs, all CPU:
+- a base directory holding only block 7's native `mlp.fc1` and `mlp.fc2`;
+- the alibaba-pai adapter trimmed to `transformer_blocks.7.ff.net.*` and the
+  four head tensors, with its metadata kept.
+
+The builder reported `merged 2/2 tensors`. Graded against references built
+from the vendor's files:
+
+| block 7 MLP output, relative L2 | value |
+|---|---|
+| the adapter's whole effect (diffusers base + delta vs base) | 7.29e-3 |
+| **sglang's merged weights vs that reference** | **9.03e-3** |
+| a correct merge (fc1 delta halves swapped), stored bf16 like the tool | 2.45e-3 |
+
+- **Weights:** the tool's `fc2` equals the correct merge bit for bit, and its
+  `fc1` does not.
+- **Fused heads:** the tool stores them as BF16. Against an fp64 fusion of the
+  vendor stack, the worst block is off by 0.325 (video) and 0.406 (audio) of
+  the distilled correction, matching the reimplementation in
+  `2026-09-25_upstream_pdd_comparison.md` section 1.
+- **The grader** is kept with the unposted upstream draft, under the gitignored
+  `internal/upstream_reports/`.
 
 ## What this does not establish
 
