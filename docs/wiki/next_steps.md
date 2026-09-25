@@ -13,6 +13,33 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-25, evening (the distill and audio-recovery throwaway run).** Wired
+and rendered at 0.141.0 (`../../bench/results/2026-09-25_distill_audio_s1.md`):
+PDD8, PDD8 plus the audio-only refine pass, FastH3 8-step V2, and FlashGen
+4-step with and without the refine pass, on the diner and subway scenes, one
+seed.
+
+- **Owner: listen to the throwaway clips** (the record lists them). A wiring
+  run, not a verdict. The refine pass raised loudness on every pair, and
+  FastH3 was the loudest arm on both scenes. Loudness is not quality.
+- **Then the quoted session** through `h3-ab-session`: the same arms plus the
+  dense baseline, a second seed, and blinded pairs. The throwaway timings put
+  it at a few hours of GPU with the baseline included.
+- **Open, a cheap probe:** do LoRA'd layers stay on the int8 path at run time?
+  That decides whether the PDD, FlashGen and Turbo arms run the base graphs'
+  numerics (`../research/2026-09-25_temporal_offset_and_adaln_rounding.md`,
+  last section).
+- **Open, a cheap control:** the refine arms' video is about 46 dB from their
+  base arms, not bit-identical. A same-seed repeat of one graph after a cache
+  clear says whether that is decode nondeterminism or the masked blend.
+- **Step caching (owner question):** worth reopening only if the 16-step base
+  graphs are still rendered. Then build a DPCache-style node
+  (`../research/2026-09-25_step_caching_survey.md`). At distilled step counts,
+  nothing can be skipped.
+- **Temporal offset and AdaLN rounding: nothing to do.** The offset weakens
+  the prompt and does nothing for seams. The rounding is real but below the
+  int8 noise (`../research/2026-09-25_temporal_offset_and_adaln_rounding.md`).
+
 **2026-09-25, later (the PDD, continuation and upstream digs).** Each result is
 mapped to the owner decision it feeds. None of the decisions is made here.
 

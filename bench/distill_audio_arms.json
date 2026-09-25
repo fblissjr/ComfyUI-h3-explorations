@@ -1,0 +1,51 @@
+{
+ "what": "The 2026-09-25 distill and audio-recovery session, THROWAWAY FIRST RUN (docs/wiki/next_steps.md, the 2026-09-25 blocks). Five arms on two bank scenes at one seed, to catch wiring errors before a quoted session spends GPU. Arms: pdd8 = the shipped PDD8 t2v graph (h3_text_to_video_pdd); pdd8_refine = the same plus an audio-only refine pass on the undistilled model (h3_probe_t2v_pdd8_audio_refine, h3_config.AUDIO_REFINE); fasth3 = FastVideo's FastH3 8-step V2 as ComfyUI's own template runs it (h3_probe_t2v_fasth3_8step, h3_config.FASTH3_*); flashgen = Beidouqixing's FlashGen 4-step LoRA as kijai converted it, on its own sigmas (h3_probe_t2v_flashgen_4step, h3_config.FLASHGEN_*); flashgen_refine = flashgen plus the refine pass. 1344x768, 345 frames.",
+ "why": "The owner's 2026-09-25 questions: can audio lost to a distill be recovered with a few undistilled audio-only steps (C1), and do FastH3 V2 (DMD2, a full checkpoint trained WITH VSA) and FlashGen (VSD, a LoRA) do better than PDD8 and than the LightX2V Turbo LoRAs the owner found disappointing. All three distills are distribution-matching; PDD is the different mechanism.",
+ "scenes": {
+  "diner": "t2va_diner_breakup -- close-up two-person dialogue over scored music: the audio-judgeable one",
+  "subway": "t2va_subway_chase -- fast tracking shot: the motion one"
+ },
+ "prompts": "named by bank id through the runner's @bank: value; the text lives only in prompt_bank/",
+ "arms": {
+  "diner_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+  "diner_pdd8_refine": "workflows/h3_probe_t2v_pdd8_audio_refine_api.json",
+  "diner_fasth3": "workflows/h3_probe_t2v_fasth3_8step_api.json",
+  "diner_flashgen": "workflows/h3_probe_t2v_flashgen_4step_api.json",
+  "diner_flashgen_refine": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_api.json",
+  "subway_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+  "subway_pdd8_refine": "workflows/h3_probe_t2v_pdd8_audio_refine_api.json",
+  "subway_fasth3": "workflows/h3_probe_t2v_fasth3_8step_api.json",
+  "subway_flashgen": "workflows/h3_probe_t2v_flashgen_4step_api.json",
+  "subway_flashgen_refine": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_api.json"
+ },
+ "patches": [
+  "diner_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "diner_pdd8_refine:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "diner_fasth3:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "diner_flashgen:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "diner_flashgen_refine:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "subway_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_pdd8_refine:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_fasth3:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_flashgen:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_flashgen_refine:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase"
+ ],
+ "seeds": {
+  "first": 730451892,
+  "note": "the ladder's seed. Every arm here shares canvas and length, so a matched seed matches the audio noise too (docs/eval_comparison.md, 'What a matched seed does not match'). The refine arms' second pass reuses the graph seed."
+ },
+ "pairs_that_are_controlled": {
+  "pdd8 vs pdd8_refine": "identical first pass (same graph, seed, prompt); only the refine pass differs, so video should be bit-identical and the pair judges AUDIO",
+  "flashgen vs flashgen_refine": "the same, for FlashGen",
+  "fasth3 vs pdd8, flashgen vs pdd8": "different models: two samples, judged on adherence and quality as distributions, not as a controlled edit"
+ },
+ "run": "run_graph_arms.py --manifest bench/distill_audio_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --warmup diner_flashgen --out bench/results/2026-09-25_distill_audio_s1.jsonl",
+ "cost": "reasoned, not measured: from rows in other regimes, PDD8 near five minutes per render at this canvas and length, FlashGen four steps, FastH3 eight steps under VSA, and a refine pass adds six near-full undistilled steps. Ten renders plus one warmup; roughly an hour. The dense baseline (workflows/bench/h3_text_to_video_dense_stamped_api.json) is left out of this throwaway run for cost and joins the quoted session.",
+ "requires": "a ComfyUI server started after 0.140.0 (MiniMaxH3AudioRefineMask in /object_info), graphs regenerated and validated against it; the FlashGen LoRA under models/loras/h3 and the FastH3 checkpoint under models/diffusion_models; the server unarmed.",
+ "known_confounds": [
+  "FlashGen was trained at 5.2 s and renders here at 345 frames; FastH3 V2's trained length is not stated on its card. Both render at the owner's length, per CLAUDE.md.",
+  "FastH3 V2 runs core's VSA at the TEMPLATE's keep 10%, while its card says it was trained at 80% sparsity (keep 20%).",
+  "FastH3 V2 runs no Sol; the other arms run Sol at their recipes."
+ ],
+ "predictions": "none registered: a throwaway first run exists to find wiring errors, and nothing from it is quoted."
+}

@@ -24,6 +24,13 @@ Older history lives elsewhere and is not copied here:
   the case went red, and its docstring said to retire rather than repair it.
   `comfyui_vendor_gaps.md` gap 2b, `custom_node_gaps.md` ("Core holds four")
   and `checks.md` described the gap as live and are corrected.
+- **Continuation note corrected: LongMedia's temporal offset is partial.** It
+  leaves a keyframe's audio and a reference video's frames unshifted, which
+  desyncs both. The note had the first second-hand and missed the second
+  (`../research/2026-09-25_temporal_offset_and_adaln_rounding.md`).
+- **The FastH3 V2 symlink was repointed** from a relative target, which did not
+  resolve inside `models/diffusion_models/`, to the file on the Storage share.
+  The owner had placed it; the file is complete.
 - **The stale Kijai PDD symlinks were removed** (owner). The four
   `MiniMax-H3-*-Acc-8Step*_comfy.safetensors` links in the ComfyUI checkout's
   `models/loras/h3/` pointed at the pre-2026-08-27 upload, which merged core

@@ -156,6 +156,14 @@ docstring.
   variable. Run the first pair on the lane's fl2va chain; a ref2va pair is
   the follow-up if B looks weak.
 
+*2026-09-25, later: LongMedia's offset is not uniform, so its "global
+clock" is partial.* It shifts `cond`, `ref_audio`, `audio` and `video`, and
+leaves out `cond_audio` (a keyframe's audio slides against its video) and
+`ref_img` (a reference video's frames slide against its own soundtrack). Also,
+the offset measurably weakens the prompt's hold on the media
+([`2026-09-25_temporal_offset_and_adaln_rounding.md`](2026-09-25_temporal_offset_and_adaln_rounding.md)).
+That strengthens "not recommended".
+
 **Needs a core change:** a per-keyframe strength or timestep, a guide on a
 different canvas, or a distinct modality tag for guide rows. **Buildable
 here but not recommended:** the global offset, and a negative-index guide.
