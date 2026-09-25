@@ -40,9 +40,6 @@ mapped to the owner decision it feeds. None of the decisions is made here.
     correction (the PDD record, section 1, has the figures);
   - UtilsCollection's four-argument `final_layer` patch against merged core's
     seven.
-- **Stale Kijai PDD files** symlinked into `models/loras/h3/` decode to a
-  doubled head under merged core. No shipped graph names them. Re-fetch or
-  unlink them: the owner's call, not done.
 - **Build guide-row continuation (arm B)?** The evidence is mixed
   (`../research/2026-09-25_continuation_guide_rows.md`):
   - core expresses it without a patch, and a matched-pair plan is written;
@@ -51,11 +48,11 @@ mapped to the owner decision it feeds. None of the decisions is made here.
   - A already has a positive verdict.
 
   Worth one pair only if seams are a live complaint.
-- **`bench/check_sol_observe.py` has failed since 0.123.0.** Its
-  `stale_block_label_is_cleared` case builds a stub model without
-  `video_patch_proj`, which `install_h3_morton` has required since `a1bd97f1`
-  (2026-09-18). The failure is in the check's stub, not the node. Found while
-  re-running the Sol checks against 0.139.0, which passes all the others.
+- *Done 2026-09-25:* `bench/check_sol_observe.py` had failed since 0.123.0
+  because its stub model lacked the modules `install_h3_morton` hooks. The
+  stub now carries them, and the check passes.
+- *Done 2026-09-25:* the four stale Kijai PDD symlinks were removed from
+  `models/loras/h3/` (owner's call). The files remain in the Storage share.
 - **INT8 video VAE:** nothing new bears on it. The tile-seam change is inside
   the overlap bands and fidelity-neutral
   (`../../bench/results/2026-09-25_vae_tile_seam_blend.md`); it only means

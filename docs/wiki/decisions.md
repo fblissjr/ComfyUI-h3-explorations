@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-25
 
+- **The stale Kijai PDD symlinks were removed** (owner). The four
+  `MiniMax-H3-*-Acc-8Step*_comfy.safetensors` links in the ComfyUI checkout's
+  `models/loras/h3/` pointed at the pre-2026-08-27 upload, which merged core
+  decodes to a doubled head. No graph named them. The files are still in the
+  Storage share.
+- **Upstream reports are drafted, not posted** (owner: save them internally).
+  The sglang PDD builder's fc1 swap and bf16 heads were confirmed by running
+  sglang's own tools; the drafts are in the gitignored
+  `internal/upstream_reports/`.
 - **PDD reopened for research** (owner: "dig into the upstream stuff's PDD
   (not only comfy) to see if we can do better than comfy native AND our
   current"). `docs/roadmap.md` "Closed lanes" had PDD quality work parked

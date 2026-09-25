@@ -478,6 +478,10 @@ def main() -> int:
             def __init__(self):
                 super().__init__()
                 self.blocks = torch.nn.ModuleList([Blk()])
+                # `install_h3_morton` hooks both since 0.123.0 (a1bd97f1); the
+                # case never runs them, so identities stand in.
+                self.video_patch_proj = torch.nn.Identity()
+                self.final_layer = torch.nn.Identity()
 
             def rope_freqs(self, position_ids, device):
                 return None
