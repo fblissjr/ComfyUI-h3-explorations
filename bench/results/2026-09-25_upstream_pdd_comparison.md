@@ -45,6 +45,13 @@ Reading it:
   `c0efad0058…` (Ref2VA pruned) do not match upstream's current LFS oids,
   `71347e2725…` and `6f18e1c2ec…` (HF API, 2026-09-25). No shipped graph names
   any `Acc-8Step` file.
+- **All four current upstream Kijai files are delta-encoded**, which is
+  what merged core expects: FL2VA and Ref2VA, pruned and not. Their bank
+  rows equal the vendor's head-0 deltas to about 1e-10, and their distance
+  from absolute heads is about 1. Classified by range fetch with
+  `bench/classify_kijai_pdd_banks.py`; the output is
+  `2026-09-25_kijai_pdd_bank_encoding.json`. The local copies were removed
+  from `models/loras/h3/` the same day, at the owner's call.
 
 **Inputs.**
 - The vendor stack is under
@@ -122,9 +129,16 @@ does see a transform error when there is one.
   along that path. So one Euler step lands where the vendor's audio step
   lands, at any block width.
 
-**Scope.** Euler at eta 0, the model evaluated at the scheduled sigmas,
-unmasked audio. Core multiplies the velocity by `audio_denoise_mask` before
-the transform, and that case is not simulated.
+**Under a uniform audio mask** (added the same day): core multiplies the
+audio velocity by the mask before the transform, so a masked row moves at
+`m·v` in its own time. The transform is still the chain rule for that
+motion. The probe's masked cases (`end_to_end_masked`: masks 0, 0.25, 0.5;
+u8, u4, tail6) are all at machine precision.
+
+**Scope.** Euler at eta 0, the model evaluated at the scheduled sigmas.
+Not simulated: the sampler's inpaint blend
+(`comfy/samplers.py`, `KSamplerX0Inpaint`). That is ComfyUI's own masking
+mechanism, with no vendor counterpart to compare against.
 
 **What this bounds.** `bench/results/2026-08-28_audio_carry_ablation.json`
 re-applied the transform at the block's mean sigma and measured audio energy

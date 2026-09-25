@@ -28,8 +28,10 @@ else.
    core's single-schedule carry lands exactly where the vendor's two-schedule
    audio step lands, at every partition tried. The algebra: the carry factor
    is affine in σv, so the carried audio is a straight flow path, and the
-   velocity transform at the block start is the chain rule along it. Scope:
-   Euler, scheduled sigmas, unmasked audio. What this means:
+   velocity transform at the block start is the chain rule along it. It
+   also holds under a uniform audio mask, which covers the song graphs.
+   Scope: Euler at the scheduled sigmas; the sampler's inpaint blend is
+   ComfyUI's own mechanism and is not compared. What this means:
    - PDD's audio energy loss at coarse partitions is PDD's own, and the vendor
      has it too.
    - "Vary the transform at fixed partition" has no mechanism left to find.
@@ -40,8 +42,9 @@ else.
 2. **The Kijai PDD files symlinked into this install are stale, and merged
    core decodes them to a roughly doubled head.** They predate Kijai's
    2026-08-27 re-upload, which moved the banks to deltas to match core's
-   merged formula. No shipped graph names them. Re-fetch or unlink them: the
-   owner's call.
+   merged formula. No shipped graph named them. They were unlinked on
+   2026-09-25 at the owner's call. All four current upstream files are
+   delta-encoded (`bench/classify_kijai_pdd_banks.py`).
 
 ## The seven implementations
 

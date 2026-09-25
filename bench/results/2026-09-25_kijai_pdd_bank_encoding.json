@@ -1,0 +1,46 @@
+{
+ "MiniMax-H3-FL2VA-Acc-8Step_comfy.safetensors": {
+  "header_metadata_conversion": "qkv block-diag fused; mlp.fc1 swiglu halves swapped; alpha/rank folded into lora_B; PDD head banks as base-relative pad-and-add reshape_weight LoRA (strength in",
+  "video": {
+   "rows1_31_vs_delta_from_head0_rel": 1.9198021636747885e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9990717707470124
+  },
+  "audio": {
+   "rows1_31_vs_delta_from_head0_rel": 1.144543044677395e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9994826652758473
+  }
+ },
+ "MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors": {
+  "header_metadata_conversion": "qkv block-diag fused; mlp.fc1 swiglu halves swapped; alpha/rank folded into lora_B; PDD head banks as base-relative pad-and-add reshape_weight LoRA (strength in",
+  "video": {
+   "rows1_31_vs_delta_from_head0_rel": 1.9198021636747885e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9990717707470124
+  },
+  "audio": {
+   "rows1_31_vs_delta_from_head0_rel": 1.144543044677395e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9994826652758473
+  }
+ },
+ "MiniMax-H3-Ref2VA-Acc-8Step_comfy.safetensors": {
+  "header_metadata_conversion": "qkv block-diag fused; mlp.fc1 swiglu halves swapped; alpha/rank folded into lora_B; PDD head banks as base-relative pad-and-add reshape_weight LoRA (strength in",
+  "video": {
+   "rows1_31_vs_delta_from_head0_rel": 1.3130957520023298e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9961331115128327
+  },
+  "audio": {
+   "rows1_31_vs_delta_from_head0_rel": 4.7312727268720446e-11,
+   "rows1_31_vs_absolute_heads_rel": 1.000588698897764
+  }
+ },
+ "MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors": {
+  "header_metadata_conversion": "qkv block-diag fused; mlp.fc1 swiglu halves swapped; alpha/rank folded into lora_B; PDD head banks as base-relative pad-and-add reshape_weight LoRA (strength in",
+  "video": {
+   "rows1_31_vs_delta_from_head0_rel": 1.3130957520023298e-10,
+   "rows1_31_vs_absolute_heads_rel": 0.9961331115128327
+  },
+  "audio": {
+   "rows1_31_vs_delta_from_head0_rel": 4.7312727268720446e-11,
+   "rows1_31_vs_absolute_heads_rel": 1.000588698897764
+  }
+ }
+}

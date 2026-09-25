@@ -6,7 +6,8 @@ last updated: 2026-09-25 (dated notes: the change-of-variable mechanism is refut
 > Given the same velocity, core's single-schedule carry lands exactly where the vendor's
 > two-schedule audio Euler step lands, at every partition. The carry factor is affine in
 > sigma_v, so the carried audio is a straight flow path and the block-start transform is
-> the chain rule along it. Scope: Euler, scheduled sigmas, unmasked audio.
+> the chain rule along it. Scope: Euler at the scheduled sigmas, with or without
+> a uniform audio mask.
 > `bench/compare_pdd_audio_carry.py`, record `../../../bench/results/2026-09-25_upstream_pdd_comparison.md` section 3;
 > the comparison: [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md).
 > What stands: coarseness governs quality in both streams, and the audio energy loss is

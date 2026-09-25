@@ -24,7 +24,10 @@ SV, SA = 12.0, 3.0; s = SV/SA
 def shifted(sh, b): return sh*b/(1+(sh-1)*b)
 def tss(sig, f, t):  # core time_shift_sigma
     b = sig/(f + sig*(1-f)); return t*b/(1+(t-1)*b)
-def run(knots, N=32, D=4096):
+def run(knots, N=32, D=4096, m=1.0):
+    # m: a uniform audio noise mask. Core multiplies the audio velocity by the mask
+    # BEFORE the carry transform (MiniMaxH3Model.forward), so the row moves at m*v
+    # in its own time; the reference integrates exactly that.
     g = torch.linspace(1,0,N+1)
     sv = shifted(SV, g[knots]); sa = shifted(SA, g[knots])
     x0 = torch.randn(D); eps = torch.randn(D)
@@ -40,9 +43,9 @@ def run(knots, N=32, D=4096):
         xa_seen_comfy = y*carry
         worst = max(worst, float((xa_seen_vendor-xa_seen_comfy).abs().max()))
         v = torch.tanh(xa_seen_vendor*0.7) + 0.3*torch.randn(D)   # same v fed to both
-        xa = xa + (sa[i+1]-sa[i])*v
+        xa = xa + (sa[i+1]-sa[i])*(m*v)
         sa_i = tss(sv[i], SV, SA)
-        out = (1-s)*(y*carry) + (1+(s-1)*sa_i)*v
+        out = (1-s)*(y*carry) + (1+(s-1)*sa_i)*(m*v)
         y = y + (sv[i+1]-sv[i])*out
     final_comfy = y/s     # at sigma 0 the carry sigma_v/sigma_a -> 1/s ... y = s*x0-form, x_a = y/s
     return worst, float((final_comfy-xa).abs().max()), float(xa.abs().max())
@@ -72,6 +75,17 @@ for name, kn in [('u8', list(range(0, 33, 4))), ('u4', list(range(0, 33, 8))), (
     rec["end_to_end"][name] = {"max_input_diff": w, "max_final_audio_diff": e, "max_abs_x_a": mag}
 
 print(json.dumps(rec["identities"], indent=1))
+
+# ---- under a uniform audio mask (the song graphs run 0.25, the candidate freeze graphs 0.0)
+rec["end_to_end_masked"] = {}
+for m in (0.0, 0.25, 0.5):
+    for name, kn in [('u8', list(range(0, 33, 4))), ('u4', list(range(0, 33, 8))), ('tail6', [0, 8, 16, 20, 24, 28, 32])]:
+        w, e, mag = run(kn, m=m)
+        rec["end_to_end_masked"][f"mask{m}_{name}"] = {"max_input_diff": w, "max_final_audio_diff": e}
+        print(f"mask {m:4.2f} {name:6s} max|final audio diff| {e:.2e}")
+rec["scope_masked"] = ("the carry transform stays the chain rule for a row whose velocity core scales by a uniform "
+                       "mask; the sampler's inpaint blend (comfy/samplers.py KSamplerX0Inpaint) is a separate ComfyUI "
+                       "mechanism with no vendor counterpart and is not simulated")
 
 # ---- negative control: B evaluated away from the block start
 

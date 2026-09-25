@@ -43,6 +43,45 @@
   }
  },
  "scope": "euler/eta0, model evaluated at the scheduled sigmas, unmasked audio; final unscale is comfy/model_base.py::MiniMaxH3.process_latent_out (divides audio by audio_scale)",
+ "end_to_end_masked": {
+  "mask0.0_u8": {
+   "max_input_diff": 1.7763568394002505e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15
+  },
+  "mask0.0_u4": {
+   "max_input_diff": 8.881784197001252e-16,
+   "max_final_audio_diff": 8.881784197001252e-16
+  },
+  "mask0.0_tail6": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 8.881784197001252e-16
+  },
+  "mask0.25_u8": {
+   "max_input_diff": 2.220446049250313e-15,
+   "max_final_audio_diff": 2.220446049250313e-15
+  },
+  "mask0.25_u4": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15
+  },
+  "mask0.25_tail6": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15
+  },
+  "mask0.5_u8": {
+   "max_input_diff": 1.7763568394002505e-15,
+   "max_final_audio_diff": 1.5543122344752192e-15
+  },
+  "mask0.5_u4": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15
+  },
+  "mask0.5_tail6": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15
+  }
+ },
+ "scope_masked": "the carry transform stays the chain rule for a row whose velocity core scales by a uniform mask; the sampler's inpaint blend (comfy/samplers.py KSamplerX0Inpaint) is a separate ComfyUI mechanism with no vendor counterpart and is not simulated",
  "negative_control_final_audio_diff": {
   "core": {
    "u8": 1.3322676295501878e-15,
