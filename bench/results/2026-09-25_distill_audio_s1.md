@@ -75,6 +75,25 @@ On the output share under `Video/`, each with a `-audio.mp4` companion:
 
 The `_00001` FlashGen clips are the warmups, at a different seed.
 
+## The owner's first listen, 2026-09-25 (unblinded, one seed, not a verdict)
+
+In the owner's words, relayed in session:
+- **PDD8 against PDD8 plus refine, diner:** "sounds different with the music at
+  the end... pdd refine almost sounds like it has more fidelity going on".
+- **FlashGen against PDD8:** "sound very similar". **FlashGen plus refine** "has
+  the music fidelity at the end like pdd refined has. both are good".
+- **Overall:** "refine seems best for both pdd and flashgen for audio". The
+  refined clips are also a few dB louder (the table above), and loudness alone
+  can read as fidelity. A loudness-matched listen would separate the two.
+- **FastH3, diner:** "sounds better than both PDDs but looks pretty washed out
+  and shitty". Later: "i cant actually tell if fasth3 is better audio or just
+  different volumes". Two causes are named by FastVideo's own example, and
+  neither has been tested:
+  - it renders FastH3 at 124 frames (about 5 s), and this run used 345;
+  - it trained at VSA sparsity 0.8 (keep 20%), and ComfyUI's template, which
+    `h3_config.FASTH3_CORE_VSA` copies, keeps 10%.
+- **FlashGen:** "looks pretty damn good for 4 steps".
+
 ## Next
 
 A quoted session follows the `h3-ab-session` process. It adds the dense
