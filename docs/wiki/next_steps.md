@@ -13,11 +13,22 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-25, late night (0.143.0, the frozen-video cache).**
+`MiniMaxH3FrozenVideoCache` ran live on the FlashGen refine arm
+(`../../bench/results/2026-09-25_frozen_cache_s1.md`). It roughly halves the
+refine pass, and the finished audio stays close to the uncached pass.
+- **Owner listen:** `refine` against `refine_cached` (clips named in the record).
+  Blind, if it is to be quoted.
+- **Noise floor:** a same-graph repeat of the uncached refine after a cache
+  clear. The earlier session's clip is a different graph.
+- **If the listen holds:** turn `refine_cache` on in the shipped refine probes,
+  then try a VRAM store or K/V contents to shorten the cached steps.
+
 **2026-09-25, night (0.142.0).** Sol now defaults to `dense_blocks = 45,48,49`,
 and `token_routing` is one dropdown with `off` as its default.
-- **Restart the server when the card is free.** Then validate
-  (`workflows/build_workflows.py`) and run `bench/check_widget_deviations.py`
-  and the two Sol kernel checks, which need the GPU.
+- *Done 2026-09-25:* the server was restarted at 0.143.0, all graphs validate
+  against it, and `bench/check_widget_deviations.py` passes. **Still owed:** the
+  Sol kernel checks run with the GPU visible.
 - **The tail default is unscored.** `h3_probe_t2v_no_dense_tail` against
   `h3_text_to_video` is the pair that scores it.
 
