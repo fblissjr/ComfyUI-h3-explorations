@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Render the audio-carry ablation and grade it on ENERGY, not on rel L2.
 
+## 2026-09-25
+
+The mechanism this run tested is refuted: core's block-start carry is exact
+under Euler (`bench/results/2026-09-25_upstream_pdd_comparison.md` section 3).
+Its measured energy changes stand as departures from the exact path.
+
 ## The question
 
 `docs/research/pdd/audio_under_pdd.md` blames PDD's audio penalty on ComfyUI

@@ -1,0 +1,711 @@
+{
+ "checks": {
+  "our_bank_bitwise_equals_vendor_stack": true,
+  "vendor_dtype": "torch.bfloat16",
+  "our_base_video_out_equals_ckpt": true
+ },
+ "bank_encoding": {
+  "video": {
+   "kijai_local_2026-08-27_1fd13b89": {
+    "row0_vs_head0_rel": 2.0403404405261019e-10,
+    "rows1_31_vs_absolute_heads_rel": 0.0,
+    "rows1_31_vs_delta_from_head0_rel": 32.07403956265731,
+    "row_norm_min_over_row0": 0.9898210247116175
+   },
+   "kijai_upstream_f94b1bcc94": {
+    "row0_vs_head0_rel": 2.0403404405261019e-10,
+    "rows1_31_vs_absolute_heads_rel": 0.9990717707470124,
+    "rows1_31_vs_delta_from_head0_rel": 1.9198021636747885e-10,
+    "row_norm_min_over_row0": 0.02590242477100222
+   },
+   "kijai_upstream_row0_vs_head0_with_strength1": 2.0403404405261019e-10
+  },
+  "audio": {
+   "kijai_local_2026-08-27_1fd13b89": {
+    "row0_vs_head0_rel": 1.0883862299752148e-10,
+    "rows1_31_vs_absolute_heads_rel": 0.0,
+    "rows1_31_vs_delta_from_head0_rel": 44.26453405740582,
+    "row_norm_min_over_row0": 0.9922631855275929
+   },
+   "kijai_upstream_f94b1bcc94": {
+    "row0_vs_head0_rel": 1.0883862299752148e-10,
+    "rows1_31_vs_absolute_heads_rel": 0.9994826652758473,
+    "rows1_31_vs_delta_from_head0_rel": 1.144543044677395e-10,
+    "row_norm_min_over_row0": 0.012685954853374624
+   },
+   "kijai_upstream_row0_vs_head0_with_strength1": 1.0883862299752148e-10
+  }
+ },
+ "fidelity": {
+  "u8 [4]x8": {
+   "video": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 2.235952044028996e-08,
+     "rel_corr": 4.787552217475214e-06,
+     "maxabs_w": 5.68880793583304e-08,
+     "rel_b_corr": 3.536569793168648e-06,
+     "rel_out": 5.796482764978534e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 3.5921991602779307e-08,
+     "rel_corr": 7.691507114979154e-06,
+     "maxabs_w": 1.1920928977282585e-07,
+     "rel_b_corr": 5.75424006916228e-06,
+     "rel_out": 5.8178974323422e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 2.2359325132263738e-08,
+     "rel_corr": 4.7875103987172244e-06,
+     "maxabs_w": 5.68880793583304e-08,
+     "rel_b_corr": 3.536569793168648e-06,
+     "rel_out": 5.7968547031975176e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 2.2382885874529515e-08,
+     "rel_corr": 4.792555152882732e-06,
+     "maxabs_w": 5.68880793583304e-08,
+     "rel_b_corr": 3.5426091444313218e-06,
+     "rel_out": 5.794930496228332e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 2.8595077594331554e-05,
+     "rel_corr": 0.006122690668219112,
+     "maxabs_w": 1.9874652093214732e-05,
+     "rel_b_corr": 3.5426091444313218e-06,
+     "rel_out": 0.006096382608531698,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 2.2383857723203945e-08,
+     "rel_corr": 4.7927632421522994e-06,
+     "maxabs_w": 5.68880793583304e-08,
+     "rel_b_corr": 3.5426091444313218e-06,
+     "rel_out": 5.794774071235173e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 1.0006002218019832,
+     "rel_corr": 228.09000133139958,
+     "maxabs_w": 2.40625,
+     "rel_b_corr": 160.98241964906725,
+     "rel_out": 225.38238526911752,
+     "block": [
+      4,
+      8
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "rel_w": 0.0014584277424799863,
+     "rel_corr": 0.32483931863499965,
+     "maxabs_w": 0.004219890510948954,
+     "rel_b_corr": 0.2698628320425367,
+     "rel_out": 0.325739384412,
+     "block": [
+      8,
+      12
+     ]
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "rel_w": 0.0009754658585183622,
+     "rel_corr": 0.21726799045524742,
+     "maxabs_w": 0.002349853515625,
+     "rel_b_corr": 0.13479735907945609,
+     "rel_out": 0.21747253474027234,
+     "block": [
+      8,
+      12
+     ]
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "rel_w": 0.0013205699782592852,
+     "rel_corr": 0.2941339083540295,
+     "maxabs_w": 0.0037486702788096515,
+     "rel_b_corr": 0.22331913922579516,
+     "rel_out": 0.29444167902368734,
+     "block": [
+      8,
+      12
+     ]
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "rel_w": 0.0014584277424799863,
+     "rel_corr": 0.32483931863499965,
+     "maxabs_w": 0.004219890510948954,
+     "rel_b_corr": 0.2698628320425367,
+     "rel_out": 0.6155354615376636,
+     "block": [
+      8,
+      12
+     ]
+    }
+   },
+   "audio": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 2.3567831533909813e-08,
+     "rel_corr": 6.782755294178974e-06,
+     "maxabs_w": 5.563100202721216e-08,
+     "rel_b_corr": 1.980993750278918e-06,
+     "rel_out": 8.815828696896562e-05,
+     "block": [
+      16,
+      20
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 4.907590747196404e-08,
+     "rel_corr": 1.143526427190131e-05,
+     "maxabs_w": 1.1920928977282585e-07,
+     "rel_b_corr": 2.6314850823709043e-06,
+     "rel_out": 7.17442874725339e-05,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 2.3567784475010194e-08,
+     "rel_corr": 6.7827417507606884e-06,
+     "maxabs_w": 5.563100202721216e-08,
+     "rel_b_corr": 1.980985302691413e-06,
+     "rel_out": 8.816072802677464e-05,
+     "block": [
+      16,
+      20
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 2.3575155398333847e-08,
+     "rel_corr": 6.784863081657194e-06,
+     "maxabs_w": 5.563100202721216e-08,
+     "rel_b_corr": 2.0630441734564225e-06,
+     "rel_out": 8.820641182490567e-05,
+     "block": [
+      16,
+      20
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 1.1725606564167031e-05,
+     "rel_corr": 0.0038778509523029613,
+     "maxabs_w": 8.671744381532134e-06,
+     "rel_b_corr": 0.0006152519491137273,
+     "rel_out": 0.0038807273482734596,
+     "block": [
+      12,
+      16
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 2.35754169131485e-08,
+     "rel_corr": 6.784938344881602e-06,
+     "maxabs_w": 5.563100202721216e-08,
+     "rel_b_corr": 2.0630441734564225e-06,
+     "rel_out": 8.821560151749133e-05,
+     "block": [
+      16,
+      20
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 1.0003282165492573,
+     "rel_corr": 330.82499450523113,
+     "maxabs_w": 2.1875,
+     "rel_b_corr": 102.55957159876597,
+     "rel_out": 330.29714201239534,
+     "block": [
+      12,
+      16
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "rel_w": 0.0015212993866651995,
+     "rel_corr": 0.4063134748347748,
+     "maxabs_w": 0.005341880341880323,
+     "rel_b_corr": 0.15964481263352265,
+     "rel_out": 0.404052988422579,
+     "block": [
+      20,
+      24
+     ]
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "rel_w": 0.0019530726658890287,
+     "rel_corr": 0.45508892707540277,
+     "maxabs_w": 0.0042724609375,
+     "rel_b_corr": 0.11060401044622765,
+     "rel_out": 0.4494185990245958,
+     "block": [
+      0,
+      4
+     ]
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "rel_w": 0.0012667988760423038,
+     "rel_corr": 0.3383406696625536,
+     "maxabs_w": 0.0036057692307691624,
+     "rel_b_corr": 0.13484267182623064,
+     "rel_out": 0.3367233124922328,
+     "block": [
+      20,
+      24
+     ]
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "rel_w": 0.0015212993866651995,
+     "rel_corr": 0.4063134748347748,
+     "maxabs_w": 0.005341880341880323,
+     "rel_b_corr": 0.15964481263352265,
+     "rel_out": 0.746649360391052,
+     "block": [
+      20,
+      24
+     ]
+    }
+   }
+  },
+  "u4 [8]x4": {
+   "video": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 2.0927230065537596e-08,
+     "rel_corr": 6.536159754041793e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.383316533513758e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 4.0917741497548275e-08,
+     "rel_corr": 1.2779756057777656e-05,
+     "maxabs_w": 2.384185791015625e-07,
+     "rel_b_corr": 1.0174833754842962e-05,
+     "rel_out": 8.461871984835941e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 2.092715960592683e-08,
+     "rel_corr": 6.536137747533013e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.382867839626664e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 2.096108351363413e-08,
+     "rel_corr": 6.546733133523509e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.388699136505244e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 1.8173272382541835e-05,
+     "rel_corr": 0.005676021679601951,
+     "maxabs_w": 1.4643901632797884e-05,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 0.005627219282201807,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 2.096208571549409e-08,
+     "rel_corr": 6.547046149218467e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.389910676807183e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 0.9014567619287576,
+     "rel_corr": 281.55018073942216,
+     "maxabs_w": 2.167560577392578,
+     "rel_b_corr": 217.82686641758323,
+     "rel_out": 279.99890316372216,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "rel_w": 0.001183960514544014,
+     "rel_corr": 0.36978401065513405,
+     "maxabs_w": 0.0036867311276822523,
+     "rel_b_corr": 0.41652559593303434,
+     "rel_out": 0.3686317956302417,
+     "block": [
+      0,
+      8
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "rel_w": 0.0004888770955742504,
+     "rel_corr": 0.15269000181860298,
+     "maxabs_w": 0.0011749267578125,
+     "rel_b_corr": 0.11679624116753047,
+     "rel_out": 0.151848356232997,
+     "block": [
+      0,
+      8
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "rel_w": 0.001148682627478619,
+     "rel_corr": 0.358765739009897,
+     "maxabs_w": 0.0036867311276822523,
+     "rel_b_corr": 0.3996474303405334,
+     "rel_out": 0.35689136561826335,
+     "block": [
+      0,
+      8
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "note": "not reachable: T8 refuses anything but the official 8-step schedule"
+    }
+   },
+   "audio": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 2.3665871828326228e-08,
+     "rel_corr": 7.84244047935583e-06,
+     "maxabs_w": 5.307120831687939e-08,
+     "rel_b_corr": 1.5403170298231533e-06,
+     "rel_out": 0.00010218946774827332,
+     "block": [
+      16,
+      24
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 4.3795877883437405e-08,
+     "rel_corr": 1.668685769636921e-05,
+     "maxabs_w": 2.384185791015625e-07,
+     "rel_b_corr": 4.643936811690321e-06,
+     "rel_out": 0.00011829841722343231,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 2.366584432165542e-08,
+     "rel_corr": 7.842431364144264e-06,
+     "maxabs_w": 5.307120831687939e-08,
+     "rel_b_corr": 1.540243589125012e-06,
+     "rel_out": 0.00010218850388091173,
+     "block": [
+      16,
+      24
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 2.367692426872308e-08,
+     "rel_corr": 7.846103057544063e-06,
+     "maxabs_w": 5.307120831687939e-08,
+     "rel_b_corr": 1.541204810308795e-06,
+     "rel_out": 0.00010232391884301676,
+     "block": [
+      16,
+      24
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 9.407264820639152e-06,
+     "rel_corr": 0.0034416374125386283,
+     "maxabs_w": 8.571870669055594e-06,
+     "rel_b_corr": 0.0013543730989083018,
+     "rel_out": 0.00344210752722598,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 2.3677191973100774e-08,
+     "rel_corr": 7.846191769917026e-06,
+     "maxabs_w": 5.307120831687939e-08,
+     "rel_b_corr": 1.541204810308795e-06,
+     "rel_out": 0.00010232204207652014,
+     "block": [
+      16,
+      24
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 1.0002093538742087,
+     "rel_corr": 381.0941111649282,
+     "maxabs_w": 2.1875,
+     "rel_b_corr": 97.96450398189832,
+     "rel_out": 379.56671214669797,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "rel_w": 0.0011726699808396023,
+     "rel_corr": 0.3886015522003423,
+     "maxabs_w": 0.0024414485604002945,
+     "rel_b_corr": 0.14090774618266824,
+     "rel_out": 0.3865919915186204,
+     "block": [
+      16,
+      24
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "rel_w": 0.0004893122459768,
+     "rel_corr": 0.16214919918140935,
+     "maxabs_w": 0.001068115234375,
+     "rel_b_corr": 0.03910828587047957,
+     "rel_out": 0.1619933577308081,
+     "block": [
+      16,
+      24
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "rel_w": 0.0011271537176375354,
+     "rel_corr": 0.37351828852029256,
+     "maxabs_w": 0.0024414485604002945,
+     "rel_b_corr": 0.1288189840330833,
+     "rel_out": 0.37231730434843024,
+     "block": [
+      16,
+      24
+     ],
+     "note": "computed, but sglang's builder writes block_size from the file (4), so u4 needs a hand-edited pdd_config"
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "note": "not reachable: T8 refuses anything but the official 8-step schedule"
+    }
+   }
+  },
+  "tail6 [8,8,4,4,4,4]": {
+   "video": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 2.0927230065537596e-08,
+     "rel_corr": 6.536159754041793e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.383316533513758e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 4.0917741497548275e-08,
+     "rel_corr": 1.2779756057777656e-05,
+     "maxabs_w": 2.384185791015625e-07,
+     "rel_b_corr": 1.0174833754842962e-05,
+     "rel_out": 8.461871984835941e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 2.092715960592683e-08,
+     "rel_corr": 6.536137747533013e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.382867839626664e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 2.096108351363413e-08,
+     "rel_corr": 6.546733133523509e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.388699136505244e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 1.8173272382541835e-05,
+     "rel_corr": 0.005676021679601951,
+     "maxabs_w": 1.4643901632797884e-05,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 0.005627219282201807,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 2.096208571549409e-08,
+     "rel_corr": 6.547046149218467e-06,
+     "maxabs_w": 5.4570254759411796e-08,
+     "rel_b_corr": 5.053363939204287e-06,
+     "rel_out": 8.389910676807183e-05,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 0.9014567619287576,
+     "rel_corr": 281.55018073942216,
+     "maxabs_w": 2.167560577392578,
+     "rel_b_corr": 217.82686641758323,
+     "rel_out": 279.99890316372216,
+     "block": [
+      0,
+      8
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "note": "not reachable: T8 refuses anything but the official 8-step schedule"
+    }
+   },
+   "audio": {
+    "ours (fp64 fuse, fp32 master, base+1*(w-base))": {
+     "rel_w": 1.8023694655453952e-08,
+     "rel_corr": 6.867286201656675e-06,
+     "maxabs_w": 4.6182621948887004e-08,
+     "rel_b_corr": 2.263425977939629e-06,
+     "rel_out": 0.00011737835216407595,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "vendor as run (fp32 params, fp32 plan)": {
+     "rel_w": 4.3795877883437405e-08,
+     "rel_corr": 1.668685769636921e-05,
+     "maxabs_w": 2.384185791015625e-07,
+     "rel_b_corr": 4.643936811690321e-06,
+     "rel_out": 0.00011829841722343231,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "UtilsCollection (fp64 -> fp32)": {
+     "rel_w": 1.802365953611523e-08,
+     "rel_corr": 6.867272820684857e-06,
+     "maxabs_w": 4.6182621948887004e-08,
+     "rel_b_corr": 2.263425977939629e-06,
+     "rel_out": 0.00011738432923625675,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "core _pdd_head on exact fp32 deltas (formula control)": {
+     "rel_w": 1.803832322068027e-08,
+     "rel_corr": 6.872859894844953e-06,
+     "maxabs_w": 4.6182621948887004e-08,
+     "rel_b_corr": 2.4274350140865765e-06,
+     "rel_out": 0.00011737095667999936,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "core _pdd_head on T8 encoding (bf16 deltas) = T8 native-core route": {
+     "rel_w": 2.5416033751417783e-05,
+     "rel_corr": 0.0034605704779614925,
+     "maxabs_w": 1.8969655875018115e-05,
+     "rel_b_corr": 0.0003116709760438958,
+     "rel_out": 0.003440888600280647,
+     "block": [
+      28,
+      32
+     ]
+    },
+    "core _pdd_head on Kijai UPSTREAM file (f94b1bcc94), strength 1": {
+     "rel_w": 1.8038651803456217e-08,
+     "rel_corr": 6.872985089595892e-06,
+     "maxabs_w": 4.6182621948887004e-08,
+     "rel_b_corr": 2.4274350140865765e-06,
+     "rel_out": 0.00011738037070659227,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "core _pdd_head on Kijai LOCAL copy (1fd13b89, stale)": {
+     "rel_w": 1.0002093538742087,
+     "rel_corr": 381.0941111649282,
+     "maxabs_w": 2.1875,
+     "rel_b_corr": 97.96450398189832,
+     "rel_out": 379.56671214669797,
+     "block": [
+      8,
+      16
+     ]
+    },
+    "sglang as shipped (plan bf16, fp32 sum, store bf16)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "sglang plan-rounding only (store fp32)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "sglang storage only (fp64 plan, store bf16)": {
+     "note": "not expressible: sglang fuse() builds uniform blocks only"
+    },
+    "T8 fallback (bf16 plan, bf16 einsum, bf16 hidden)": {
+     "note": "not reachable: T8 refuses anything but the official 8-step schedule"
+    }
+   }
+  }
+ }
+}

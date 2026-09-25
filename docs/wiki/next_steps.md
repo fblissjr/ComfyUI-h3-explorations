@@ -13,6 +13,48 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-25, later (the PDD, continuation and upstream digs).** Each result is
+mapped to the owner decision it feeds. None of the decisions is made here.
+
+- **Does our PDD node keep its head half?** The evidence favours keeping it
+  (`../research/pdd/2026-09-25_upstream_pdd_comparison.md`, "Evidence for the
+  open decision"):
+  - core never engages for our files;
+  - core has no fingerprint or shift guard;
+  - on the song graphs' masked audio, core would pick blocks the row never
+    visits.
+
+  Precision is equal either way. Owner decision.
+- **Can PDD do better than core's and ours?** Not from any upstream: we are at
+  the precision floor and agree with core on every shipped schedule. Three arms
+  are left, each needing a render go:
+  - head selection for mask-pinned audio rows (the song graphs, where our
+    off-schedule warning fires every step);
+  - audio refine on the base model after PDD;
+  - PDD on the unpruned base.
+- **Report upstream?** All outward-facing; the owner's call:
+  - sglang's fc1 half-swap in its PDD builder, shown on one block's MLP at a
+    time (`../../bench/results/2026-09-25_sglang_pdd_fc1_merge.md`);
+  - sglang's bf16 plan and storage, which cost a large share of the distilled
+    correction (the PDD record, section 1, has the figures);
+  - UtilsCollection's four-argument `final_layer` patch against merged core's
+    seven.
+- **Stale Kijai PDD files** symlinked into `models/loras/h3/` decode to a
+  doubled head under merged core. No shipped graph names them. Re-fetch or
+  unlink them: the owner's call, not done.
+- **Build guide-row continuation (arm B)?** The evidence is mixed
+  (`../research/2026-09-25_continuation_guide_rows.md`):
+  - core expresses it without a patch, and a matched-pair plan is written;
+  - under a hard audio freeze, A and B differ only in video;
+  - LongMedia reports B's guide span repeating as a motion motif;
+  - A already has a positive verdict.
+
+  Worth one pair only if seams are a live complaint.
+- **INT8 video VAE:** nothing new bears on it. The tile-seam change is inside
+  the overlap bands and fidelity-neutral
+  (`../../bench/results/2026-09-25_vae_tile_seam_blend.md`); it only means
+  pre-2026-09-22 renders are not bit-comparable.
+
 **2026-09-25 (the upstream survey session).** Found by the read in
 [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
 2026-09-25", and [`references.md`](references.md), "What moved by

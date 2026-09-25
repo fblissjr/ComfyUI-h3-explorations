@@ -1,0 +1,60 @@
+{
+ "claim": "comfy's single-schedule audio carry + one Euler step per block == two-schedule audio Euler (vendor/sglang/T8 dual-clock) for any partition",
+ "identities": {
+  "carry c = sigma_v/sigma_a is affine in sigma_v: max|c - (s + (1-s) sigma_v)|": 1.3322676295501878e-15,
+  "c * dsigma_a/dsigma_v == 1 + (s-1) sigma_a (core's B), max err (finite diff)": 6.076142256006278e-09,
+  "so y = c*x_a = s(1-sigma_v) x0 + sigma_v eps is a straight flow path in sigma_v": true
+ },
+ "end_to_end": {
+  "u8": {
+   "max_input_diff": 1.7763568394002505e-15,
+   "max_final_audio_diff": 1.3322676295501878e-15,
+   "max_abs_x_a": 2.7907151907019685
+  },
+  "u4": {
+   "max_input_diff": 1.1102230246251565e-15,
+   "max_final_audio_diff": 8.881784197001252e-16,
+   "max_abs_x_a": 2.754693937224395
+  },
+  "tail6": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 1.1102230246251565e-15,
+   "max_abs_x_a": 2.6536836268808286
+  },
+  "opt4": {
+   "max_input_diff": 1.3322676295501878e-15,
+   "max_final_audio_diff": 8.881784197001252e-16,
+   "max_abs_x_a": 3.085049567043071
+  },
+  "u2": {
+   "max_input_diff": 4.440892098500626e-16,
+   "max_final_audio_diff": 6.661338147750939e-16,
+   "max_abs_x_a": 2.7174865616966453
+  },
+  "u1": {
+   "max_input_diff": 0.0,
+   "max_final_audio_diff": 4.440892098500626e-16,
+   "max_abs_x_a": 2.694258946551934
+  },
+  "u32": {
+   "max_input_diff": 3.1086244689504383e-15,
+   "max_final_audio_diff": 2.6645352591003757e-15,
+   "max_abs_x_a": 3.0417901428199725
+  }
+ },
+ "scope": "euler/eta0, model evaluated at the scheduled sigmas, unmasked audio; final unscale is comfy/model_base.py::MiniMaxH3.process_latent_out (divides audio by audio_scale)",
+ "negative_control_final_audio_diff": {
+  "core": {
+   "u8": 1.3322676295501878e-15,
+   "u4": 1.3322676295501878e-15
+  },
+  "B_at_block_end": {
+   "u8": 0.36409507515008155,
+   "u4": 0.6168669404844942
+  },
+  "B_mean": {
+   "u8": 0.16360637805207245,
+   "u4": 0.27863596417138925
+  }
+ }
+}

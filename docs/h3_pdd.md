@@ -1125,6 +1125,12 @@ published bf16 and stays exact.
 
 ### His head bank changed encoding on 2026-08-27
 
+*2026-09-25: confirmed. Kijai re-uploaded all four files at 2026-08-27T21:25Z (HF commit
+`f94b1bcc94`) with delta-encoded banks, which is what merged core's formula expects. The
+copies symlinked into this install predate that upload, and their hashes differ from
+upstream's, so merged core decodes them to a roughly doubled head
+(`../bench/results/2026-09-25_upstream_pdd_comparison.md` section 1). No shipped graph names them.*
+
 Not the weights -- the packaging, and it is the more interesting change.
 
 | | until 2026-08-27 | now |
@@ -1775,6 +1781,11 @@ first, hash second; the note's advice was right and reaching for a different
 file format did not escape it.
 
 ## Why audio suffers more than video, and why it worsens with block width
+
+*2026-09-25: the mechanism this section derives is refuted. Core's carry reproduces the
+vendor's two-schedule audio Euler step exactly at every block width, so it is not an error
+source; the audio loss at coarse partitions is PDD's own.
+[`research/pdd/2026-09-25_upstream_pdd_comparison.md`](research/pdd/2026-09-25_upstream_pdd_comparison.md), finding 1.*
 
 The owner's question was why audio is always the thing that is off in these
 distilled arms, and whether it is a latent ComfyUI bug. **No bug was found. What

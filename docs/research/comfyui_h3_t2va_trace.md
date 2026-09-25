@@ -1868,7 +1868,7 @@ block [28,32): rel diff                 = 1.0016
 written for is Kijai's, and this repo's own converter docstring records that
 `Comfy-Org/ComfyUI#15908` changed its head formula after `bd016b75ff9b` and the
 HF repo's `lastModified` sits two minutes after that commit — i.e. the artifact
-was re-uploaded as deltas to match. The finding is narrower and still worth
+was re-uploaded as deltas to match. *Confirmed 2026-09-25 from the HF API: Kijai's upload `f94b1bcc94`, 2026-08-27T21:25Z.* The finding is narrower and still worth
 having: **nothing in core checks which encoding the resident bank uses, and the
 two encodings have identical shapes, dtypes and key names.** A verbatim-encoded
 enlarged head loads clean and renders wrong. Same discriminator the repo's

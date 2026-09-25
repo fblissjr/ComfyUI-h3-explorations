@@ -56,7 +56,7 @@ it naively returns numbers that mean nothing.
 
 **Audio under PDD**, opened 2026-08-28 and handed to the `audioclaude` session:
 [`audio_under_pdd.md`](audio_under_pdd.md) is the finding and the reasoning —
-why a fused head's block-MEAN velocity meets an instantaneous change of variable
+*(2026-09-25: refuted, see 2026-09-25_upstream_pdd_comparison.md)* why a fused head's block-MEAN velocity meets an instantaneous change of variable
 that only audio has, and why that predicts an audio-only error growing with
 block width. [`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the
 execution plan: state, three experiments in order, what each outcome means, and

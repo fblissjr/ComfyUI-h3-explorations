@@ -208,9 +208,11 @@ logger = logging.getLogger(__name__)
 #   fused heads, baked adaln diffs   fp32 on disk. `final_layer`'s two output
 #       projections are the checkpoint's fp32 island -- `comfy/ldm/minimax/
 #       model.py` builds them with an explicit `dtype=torch.float32` while the
-#       rest of the block is model dtype -- and the vendor's own fusion loses
-#       ~1.7e-3 by casting its plan to bf16 before the einsum. Storing fp32
-#       keeps the precision the island exists for.
+#       rest of the block is model dtype -- and the vendor keeps them fp32 too
+#       (diffusers' `_keep_in_fp32_modules`); sglang's bf16 plan and storage lose
+#       about a thousandth of the weight. Storing fp32 keeps the precision the
+#       island exists for. (Corrected 2026-09-25: this said the vendor casts
+#       its plan to bf16; `bench/results/2026-09-25_upstream_pdd_comparison.md`.)
 #   backbone / adaln LoRA pairs      bf16, as published. `calculate_weight`
 #       casts them itself, so nothing is gained by widening on disk.
 #   curve table and time grid        fp32, and compared in fp32. The step

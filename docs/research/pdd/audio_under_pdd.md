@@ -1,5 +1,20 @@
 # The sigma schedule is what governs PDD quality
 
+last updated: 2026-09-25 (dated notes: the change-of-variable mechanism is refuted analytically)
+
+> **2026-09-25: the audio change-of-variable mechanism below is refuted, not merely unidentified.**
+> Given the same velocity, core's single-schedule carry lands exactly where the vendor's
+> two-schedule audio Euler step lands, at every partition. The carry factor is affine in
+> sigma_v, so the carried audio is a straight flow path and the block-start transform is
+> the chain rule along it. Scope: Euler, scheduled sigmas, unmasked audio.
+> `bench/compare_pdd_audio_carry.py`, record `../../../bench/results/2026-09-25_upstream_pdd_comparison.md` section 3;
+> the comparison: [`2026-09-25_upstream_pdd_comparison.md`](2026-09-25_upstream_pdd_comparison.md).
+> What stands: coarseness governs quality in both streams, and the audio energy loss is
+> real. It is PDD's own, and the vendor's integrator has it too. What falls: section 1's
+> mechanism, "vary the transform at fixed partition", and reading the 2026-08-28
+> mean-sigma ablation as a fix. Its energy gain is a departure from the exact path, not
+> the repair of an error.
+
 **[`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the execution
 plan** — state, experiments in order, what each outcome means, and the traps.
 This file is the finding; that one is what to do about it. The link was
@@ -293,6 +308,10 @@ coarseness from evaluation count and widest block, which is a real result — bu
 **it cannot attribute anything to the audio transform, because the video-derived
 measure predicts the identical outcome.**
 
+*2026-09-25: moot. The transform introduces no error under Euler (the note at the top),
+so there is nothing for this experiment to identify, and a `shift_audio` sweep would also
+move the audio fusion weights and `t_emb`.*
+
 **To identify the transform you must vary the TRANSFORM at fixed partition.**
 Fix the partition (u4 is cheapest at 4 evaluations) and sweep `shift_audio` for
 s = 4, 2, 1 plus the 16-step control. Coarseness has no reason to respond to
@@ -311,6 +330,8 @@ makes no clean sign prediction** without knowing the magnitude of `x_a` against
 
 
 ## 1. The mechanism
+
+*Refuted 2026-09-25; see the note at the top of this file. Kept as the record of the reasoning.*
 
 ### Confirmed from source
 

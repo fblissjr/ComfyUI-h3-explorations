@@ -17,6 +17,15 @@ narrows.
 Video has no such transform, because video is the reference stream the carry is
 defined against. So if this is real, the error is audio-only and grows with L.
 
+## 2026-09-25: what this measures is not an error of core's
+
+Its "exact" side is a block mean of the transform, not the vendor's
+integrator. Against the vendor's two-schedule audio Euler step, core's carry at
+the block start is exact at every width (`bench/compare_pdd_audio_carry.py`,
+`bench/results/2026-09-25_upstream_pdd_comparison.md` section 3). The gap
+reported here is between two quantities, neither of which is what a render
+integrates.
+
 ## Why this can REFUTE rather than merely agree
 
 It compares:

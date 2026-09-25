@@ -20,6 +20,17 @@ transform strength, the audio schedule, the head fusion plan
 (`pdd_math.fuse_block` weights by `pdd_time_grid(shift_a, ...)`) and the audio
 adaln grid together, taking the heads off the schedule they were distilled on.
 
+
+## 2026-09-25: the premise above is refuted
+
+Core's transform at the block's start is exact under Euler: given the same
+velocity it lands where the vendor's two-schedule audio step lands, at every
+partition (`bench/compare_pdd_audio_carry.py`,
+`bench/results/2026-09-25_upstream_pdd_comparison.md` section 3). So this node's
+re-applied modes MOVE audio off the exact path rather than correcting it. The
+energy they added in `bench/results/2026-08-28_audio_carry_ablation.json` is
+real, and it is a gain-like departure, not the repair of an error.
+
 **This node changes exactly one thing.** The transform is invertible, so the
 wrapper recovers the model's raw audio velocity and re-applies the transform
 with sigma taken at the block's average instead of its start. Heads, schedule,

@@ -24,6 +24,25 @@ Older history lives elsewhere and is not copied here:
   lane still waits on the owner's go. Also reopened for research: continuation
   by guide rows, the tile-seam question and the upstream digs (the upstream
   survey's buckets 3 and 5), framed as evidence for the owner's open decisions.
+- **The PDD audio change-of-variable mechanism is refuted, and prose resting on it
+  is corrected** (`../research/pdd/2026-09-25_upstream_pdd_comparison.md`; numbers in
+  `bench/results/2026-09-25_upstream_pdd_comparison.md`, section 3; the commit that
+  adds that record). Each has a dated note in place.
+  - `audio_under_pdd.md` section 1 and "vary the TRANSFORM" said the block-start
+    carry is an audio-only error growing with width. Core's carry equals the
+    vendor's two-schedule audio Euler step exactly, so the loss is PDD's own.
+  - `h3_pdd.md` "Why audio suffers more than video" derived the same mechanism.
+  - `evidence.md`'s PDD bullet ended "vary the transform at fixed partition";
+    withdrawn, and a do-not-rely row added.
+  - `audio_carry_probe.py`, `bench/measure_pdd_audio_carry.py` and
+    `bench/run_audio_carry_arms.py` described their premise as a correction.
+    Their measured effects stand as departures from the exact path.
+  - `pdd_math.py::fuse_heads` and `pdd_lora.py` said the vendor fuses in bf16;
+    diffusers keeps the heads fp32.
+  - `pdd_implementations.md` section 4.1 called the stale copies the vendor's;
+    they are Kijai's conversions, re-uploaded upstream 2026-08-27T21:25Z. The
+    "reported, not verified" notes in `2026-08-28_handoff.md` and
+    `comfyui_h3_t2va_trace.md` are now verified.
 - **Prose corrected by the 2026-09-25 upstream survey**
   ([`references.md`](references.md), "What moved by 2026-09-25";
   [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,

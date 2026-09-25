@@ -1,6 +1,6 @@
 # PDD: five implementations, and how this lane got where it is
 
-last updated: 2026-09-25 (a dated correction under section 1); otherwise 2026-08-28
+last updated: 2026-09-25 (dated corrections under sections 1 and 4; the title now undercounts: seven implementations are compared in [2026-09-25_upstream_pdd_comparison.md](2026-09-25_upstream_pdd_comparison.md)); otherwise 2026-08-28
 
 Two things nobody had written down: **how our PDD implementation compares to
 every other one available**, and **how the lane arrived at its current shape**
@@ -181,7 +181,10 @@ pixel-identical, and the same at a second step count.
 Four, in descending order of consequence. All are proposed corrections to
 [`../../h3_pdd.md`](../../h3_pdd.md), not applied here.
 
-1. **The core PR adopted our head semantics, and our local copies of the vendor
+1. *Corrected 2026-09-25: the stale copies are Kijai's conversions, not alibaba-pai's
+   artifacts. alibaba-pai's weights have not changed since 2026-08-26; Kijai re-uploaded
+   their four files at 2026-08-27T21:25Z (`../../../bench/results/2026-09-25_upstream_pdd_comparison.md` section 1).*
+   **The core PR adopted our head semantics, and our local copies of the vendor
    artifacts are stale** (*measured*). A PR commit changed its head formula to
    one that is correct only if the stored rows are deltas from the first head.
    On the copies on this box they are **not** deltas — they are verbatim heads,

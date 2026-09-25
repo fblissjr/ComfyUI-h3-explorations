@@ -207,10 +207,13 @@ def fuse_heads(stack: torch.Tensor, shift: float, num_steps: int,
     approximation -- there are only `nfe` distinct fusions a run can ever ask
     for.
 
-    Computed in float64. The vendor casts its plan to the weight dtype (bf16)
-    before the einsum, which moves the fused head by ~1.7e-3 relative; our
-    output heads are ComfyUI's fp32 island, so we keep the precision and are
-    deliberately NOT bit-identical to the reference.
+    Computed in float64. The vendor's own pipeline keeps `proj_out` and
+    `audio_proj_out` in fp32 (diffusers' `_keep_in_fp32_modules`), so it fuses
+    in fp32; the bf16 paths are sglang's and T8's fallback, which cast the plan
+    and lose about a thousandth of the weight. Ours matches the vendor to the
+    fp32 floor, and is not bit-identical only because it fuses in fp64
+    (`bench/results/2026-09-25_upstream_pdd_comparison.md` section 1).
+    Corrected 2026-09-25: this said the vendor casts its plan to bf16.
 
     The uniform case, kept because the converter and three checks want the
     whole stack at once. A render goes through `fuse_block` per block instead,
