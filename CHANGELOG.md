@@ -4,6 +4,16 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.139.1
+
+### Removed
+
+- **`bench/check_reference_contracts.py` case 5c.** It recorded a core gap
+  (forced CLIP hooks dropped `minimax_token_tags`) and was built to go red
+  when core fixed it. Core `6bfaacc6` did, and the check had failed since.
+  Retired with its hooked harness branch. The check passes again, and
+  `docs/comfyui_vendor_gaps.md` gap 2b now reads as fixed.
+
 ## 0.139.0
 
 ### Changed

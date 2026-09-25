@@ -393,32 +393,18 @@ upscale.
 
 ---
 
-## 2b. Token tags vanish under forced CLIP scheduling
+## 2b. Token tags under forced CLIP scheduling -- fixed in core
 
 Owner: [`research/conditioning_nodes.md`](research/conditioning_nodes.md).
 
-`CLIP.encode_from_tokens_scheduled` has two branches. The one shipped graphs
-take asks `encode_from_tokens(..., return_dict=True)` and merges the encoder's
-third return value, so `minimax_token_tags` reaches conditioning. **The
-forced-hook branch does not**: `comfy/sd.py:379-381` reads `o[:2]` and builds
-its `pooled_dict` from scratch, so the tags are dropped and the DiT tags every
-row as text.
-
-**Measured 2026-08-22, not read**: driven with a stub patcher carrying
-`forced_hooks`, the conditioning extras come back as `clip_start_percent`,
-`clip_end_percent`, `pooled_output` and nothing else. Found by codex reviewing
-the seam rather than by anything here noticing.
-
-*Impact: none on this repo today* -- no shipped graph wires a CLIP hook, so
-the branch is unreachable from `workflows/`. It is recorded because the
-condition is silent, and because anyone wiring hooks onto an H3 graph would
-get a quietly worse render with no error.
-
-**Recorded, not fixed, and not failed on.**
-`bench/check_reference_contracts.py`'s case 5c asserts the CURRENT state --
-green while core still drops them. If it flips, upstream fixed it and the case
-and this entry should be retired rather than repaired, the same retirement
-contract as gap 7's mono gate.
+`CLIP.encode_from_tokens_scheduled` has two branches, and both now merge the
+encoder's third return value, so `minimax_token_tags` reaches conditioning
+either way. The forced-hook branch read only `o[:2]` until core `6bfaacc6`
+(#16400, 2026-09-20) added `if len(o) > 2: pooled_dict.update(o[2])`. No
+shipped graph here wires a CLIP hook, so nothing rendered changes.
+`bench/check_reference_contracts.py`'s case 5c watched the old state and
+flipped, and was retired under its own contract;
+[`wiki/decisions.md`](wiki/decisions.md) 2026-09-25 has what it recorded.
 
 ---
 

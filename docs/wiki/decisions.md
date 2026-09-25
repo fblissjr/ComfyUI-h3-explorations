@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-25
 
+- **Reference-contract case 5c retired** (owner). It asserted that core's
+  forced-CLIP-schedule branch drops `minimax_token_tags`: `comfy/sd.py` read
+  only `o[:2]` there, so a graph wiring CLIP hooks would tag every row as
+  text. Core `6bfaacc6` (#16400, 2026-09-20) merges `o[2]` on that branch too,
+  the case went red, and its docstring said to retire rather than repair it.
+  `comfyui_vendor_gaps.md` gap 2b, `custom_node_gaps.md` ("Core holds four")
+  and `checks.md` described the gap as live and are corrected.
 - **The stale Kijai PDD symlinks were removed** (owner). The four
   `MiniMax-H3-*-Acc-8Step*_comfy.safetensors` links in the ComfyUI checkout's
   `models/loras/h3/` pointed at the pre-2026-08-27 upload, which merged core

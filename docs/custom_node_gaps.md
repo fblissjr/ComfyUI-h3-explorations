@@ -261,10 +261,9 @@ plainly because it is easy to get backwards: `optimized_attention_for_device` is
 
 **The five reference contracts.** These belong to core's
 `MiniMaxH3ReferenceToVideo`, and [`research/conditioning_nodes.md`](research/conditioning_nodes.md)
-owns them. Core holds four. The fifth it holds only on the branch we take —
-forced hooks drop the token tags where the merge path keeps them — and **ours
-inherits that seam exactly.** It is the one contract our replacement does not
-improve.
+owns them. Core holds all five, the fifth on both branches of
+`CLIP.encode_from_tokens_scheduled` since core `6bfaacc6` (2026-09-20), and
+ours inherits that seam exactly.
 
 ---
 
