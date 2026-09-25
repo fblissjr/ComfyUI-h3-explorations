@@ -1418,6 +1418,13 @@ PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
                     video_mask=0.0, audio_mask=1.0)
 
+#: The refine pass's frozen-video cache (`frozen_video_cache.py`), at the
+#: node's API inputs. **Inherited**: int4 and no refresh are
+#: ComfyUI-H3-AudioRefine's node defaults; `verify` is off because it costs a
+#: full step per cached step. Not yet run on the card.
+FROZEN_VIDEO_CACHE = dict(precision="int4", refresh=False, refresh_every=2, verify=False)
+FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
+
 # ---- FastH3 8-step V2 ------------------------------------------------------------
 #: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
 #: `templates/video_fastvideo_fasth3_t2v.json` (read 2026-09-25): 8 `simple`

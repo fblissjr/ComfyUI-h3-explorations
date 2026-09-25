@@ -109,7 +109,7 @@ from h3_config import (  # noqa: E402
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
     TAOMATE_LORA,
-    AUDIO_REFINE, FLASHGEN_LORA, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
+    AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, FLASHGEN_LORA, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
     FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
     refine_scheduler_ids,
@@ -1486,6 +1486,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # its audio reopened, then a partial-denoise pass on the model
               # from BEFORE the LoRA, on its own copy of the base chain.
               audio_refine: bool = False,
+              # The refine pass's frozen-video cache (frozen_video_cache.py,
+              # h3_config.FROZEN_VIDEO_CACHE) on the refine model, node 88.
+              refine_cache: bool = False,
               # Core's BlockSparseAttention at these API inputs, in Sol's slot
               # (node 21). For a checkpoint trained with VSA whose upstream
               # recipe is core's node (FastH3, h3_config.FASTH3_CORE_VSA).
@@ -2272,6 +2275,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     elif freeze_song_refs or freeze_song_lists:
         raise SystemExit("freeze_song_refs and freeze_song_lists need freeze_song")
 
+    if refine_cache and not audio_refine:
+        raise SystemExit("refine_cache needs audio_refine")
     if audio_refine:
         # ComfyUI-H3-AudioRefine's design (coderef/ComfyUI-H3-AudioRefine,
         # MIT): pass 1 runs the distill, pass 2 runs a few undistilled steps on
@@ -2295,6 +2300,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"model": rsrc,
                                   **sol_api_inputs(sol_for_graph(False, SAMPLING["steps"]))}}
             rsrc = ["82", 0]
+        if refine_cache:
+            g["88"] = {"class_type": FROZEN_VIDEO_CACHE_NODE,
+                       "inputs": {"model": rsrc, **FROZEN_VIDEO_CACHE}}
+            rsrc = ["88", 0]
         g["83"] = {"class_type": "MiniMaxH3AudioRefineMask",
                    "inputs": {"latent": ["10", 0],
                               "video_mask": AUDIO_REFINE["video_mask"],
@@ -4175,6 +4184,17 @@ def main():
               audio_refine=True,
               out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine"),
          "the FlashGen arm plus 6 undistilled audio-only steps"),
+
+        # The same arm with the refine pass's frozen video cached
+        # (frozen_video_cache.py): the first refine step runs stock, the rest
+        # compute the text and audio rows only.
+        ("h3_probe_t2v_flashgen_4step_audio_refine_cached.json",
+         "t2v-flashgen-4step-audio-refine-cached", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              audio_refine=True, refine_cache=True,
+              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine_cached"),
+         "the FlashGen refine arm with the frozen video cached"),
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.

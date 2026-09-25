@@ -218,6 +218,19 @@
       "new_audio"
     ]
   },
+  "MiniMaxH3FrozenVideoCache": {
+    "inputs": [
+      "model",
+      "precision",
+      "refresh",
+      "refresh_every",
+      "verify"
+    ],
+    "node_id": "MiniMaxH3FrozenVideoCache",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3KeyframeCanvas": {
     "inputs": [
       "first_frame",

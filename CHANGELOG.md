@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.143.0
+
+### Added
+
+- **`MiniMaxH3FrozenVideoCache`** (`frozen_video_cache.py`), a cache for the
+  audio-refine pass, ported from ComfyUI-H3-AudioRefine's frozen-video cache
+  (MIT, notice in the module). The first refine step runs stock and keeps
+  each block's attention input in RAM (int4 by default). Later steps compute
+  only the text and audio rows, attending against the kept rows. It is active
+  only on calls with the video frozen and the audio open; every other call
+  runs stock.
+  - **Differences from the original:** the build runs the stock block through
+    `original_block`; text rows stay live, since core gives them the stepping
+    video timestep; the store lasts one sampling run; a foreign `dit` replace
+    or an object-patched attention forward is refused; RAM and hidden
+    contents only.
+  - **`verify`** runs each cached step stock as well and logs the audio
+    velocity's cosine against it.
+- **`bench/check_frozen_video_cache.py`**: the node on core's real model at
+  three blocks on CPU, with the path each call took counted, and a control
+  showing the check can see the approximation (`docs/checks.md`).
+- **`h3_config.FROZEN_VIDEO_CACHE`**, the generator's `refine_cache` option
+  (node 88), and `h3_probe_t2v_flashgen_4step_audio_refine_cached`.
+
+### Not yet established
+
+- Nothing about the cache has run on the card: the kitchen backend with a
+  query shorter than its keys, memory, wall time and the audio cost are open.
+
 ## 0.139.1
 
 ### Removed
