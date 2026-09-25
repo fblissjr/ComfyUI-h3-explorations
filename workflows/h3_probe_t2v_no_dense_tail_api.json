@@ -126,7 +126,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_probe_t2v_ck_dense_tail",
+      "filename_prefix": "Video/h3_probe_t2v_no_dense_tail",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -209,11 +209,11 @@
       "morton_curve": "3d",
       "pooled_tail": true,
       "verbose": true,
-      "dense_blocks": "45,48,49",
+      "dense_blocks": "",
       "token_aug_blocks": "",
       "qk_balance": true,
       "rotate": false,
-      "token_routing": "text field"
+      "token_routing": "off"
     }
   },
   "26": {

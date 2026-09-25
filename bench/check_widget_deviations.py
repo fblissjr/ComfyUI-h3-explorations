@@ -314,9 +314,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "Hadamard rotation of q/k before INT8 (2026-09-15, "
                 "docs/h3_quant_policy.md); off everywhere else"),
     ("MiniMaxH3SolAttn", "dense_blocks"):
-        ("ARM", "'45,48,49' on h3_probe_t2v_ck_dense_tail, the three lopsided "
-                "blocks handed to the dense backend (2026-09-15, "
-                "docs/h3_quant_policy.md)"),
+        ("ARM", "'' (every block on Sol) on h3_probe_t2v_no_dense_tail, the control "
+                "for the 2026-09-25 dense-tail default, and on h3_probe_t2v_ck and "
+                "h3_probe_t2v_exact_tail, which keep the chain as most people run "
+                "it and the arm as it rendered. The node default is "
+                "sol_attn_h3.SOL_DENSE_TAIL."),
     ("MiniMaxH3SageAttention", "mode"):
         ("ARM", "'fp8++ balanced' on the block-49 sage-chain arms "
                 "h3_probe_t2v_levers and h3_probe_t2v_policy: the fork's per-head "

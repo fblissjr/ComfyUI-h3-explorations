@@ -247,11 +247,11 @@
       "morton_curve": "3d",
       "pooled_tail": true,
       "verbose": true,
-      "dense_blocks": "",
+      "dense_blocks": "45,48,49",
       "token_aug_blocks": "",
       "qk_balance": true,
       "rotate": false,
-      "token_routing": "text field"
+      "token_routing": "off"
     }
   },
   "26": {

@@ -143,17 +143,18 @@ DEVIATIONS = {
                             "Tier 0/1), kept on the sage chain while its pair is scored: "
                             "sage in 'fp8++ balanced' plus the balance node and exact "
                             "tail blocks; the mode IS the arm"),
-    "h3_probe_t2v_ck": (("qk_balance",),
+    "h3_probe_t2v_ck": (("qk_balance", "dense_blocks"),
                         "community-chain control (2026-09-15): kitchen int8 dense + Sol "
-                        "with qk_balance OFF, the chain as most people run it; the "
-                        "switch IS the arm"),
+                        "with qk_balance OFF and no dense tail, the chain as most people "
+                        "run it; the switch and the empty list ARE the arm"),
     "h3_probe_t2v_rotate": (("rotate",),
                             "Tier 2 witness (2026-09-15): the default chain with Sol's "
                             "Hadamard rotation on; the switch IS the arm"),
-    "h3_probe_t2v_ck_dense_tail": (("dense_blocks",),
-                                   "community-chain probe (2026-09-15): blocks 45/48/49 handed to "
-                                   "the kitchen dense kernel; the list IS the arm"),
-    "h3_probe_t2v_exact_tail": (("qk_balance",),
+    "h3_probe_t2v_no_dense_tail": (("dense_blocks",),
+                                   "the control for the 2026-09-25 dense-tail default: blocks "
+                                   "45/48/49 back on Sol, as every graph ran before; the empty "
+                                   "list IS the arm"),
+    "h3_probe_t2v_exact_tail": (("qk_balance", "dense_blocks"),
                                 "the scored ceiling arm of the sage chain (2026-09-15, "
                                 "bench/results/2026-09-15_block49_*): kept as it rendered, "
                                 "so Sol's qk_balance stays off; the switch predates the "
@@ -169,6 +170,22 @@ DEVIATIONS = {
 
 #: Graphs that legitimately ship without live Sol, by MECHANISM. The
 #: single-frame class is not listed here -- it is derived from GRAPH_DIRS below.
+def _dense_tail_constants_agree() -> list[str]:
+    """The node's `dense_blocks` default and the recipe's are one value held in
+    two places (the node must not import the generator's config)."""
+    sys.path.insert(0, str(_REPO.parent)); sys.path.insert(0, str(_REPO.parents[1]))
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
+    try:
+        node = __import__(f"{_REPO.name}.sol_attn_h3", fromlist=["SOL_DENSE_TAIL"])
+    except Exception as exc:                       # pragma: no cover
+        return [f"cannot import sol_attn_h3 to compare SOL_DENSE_TAIL: {exc!r}"]
+    if node.SOL_DENSE_TAIL != h3_config.SOL_DENSE_TAIL:
+        return [f"sol_attn_h3.SOL_DENSE_TAIL {node.SOL_DENSE_TAIL!r} != "
+                f"h3_config.SOL_DENSE_TAIL {h3_config.SOL_DENSE_TAIL!r}"]
+    return []
+
+
 SOL_EXEMPT_STEMS = {
     "h3_probe_t2v_fasth3_8step":
         "FastVideo's FastH3 V2 was trained with VSA and runs core's "
@@ -398,6 +415,7 @@ def main() -> int:
     img_dirs = single_frame_dirs()
     problems, checked = [], {"sol": 0, "sage": 0, "backend": 0, "graphs": 0,
                              "single_frame": 0}
+    problems += _dense_tail_constants_agree()
     exempt_seen = {k: False for k in SOL_EXEMPT_STEMS}
     dev_seen = {k: False for k in DEVIATIONS}
     floor_seen = {k: False for k in FLOOR_STEMS}

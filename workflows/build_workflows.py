@@ -5068,7 +5068,7 @@ def main():
         # rendered. `balanced` (the balance node plus sage's qk_balance) stood
         # here until the flip: scored, and superseded by `levers`.
         ("h3_probe_t2v_exact_tail.json", "t2v-exact-tail", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="sage_sol", sol_overrides={"qk_balance": False},
+         dict(dense_attn="sage_sol", sol_overrides={"qk_balance": False, "dense_blocks": ""},
               exact_blocks="45,48,49", out_prefix="Video/h3_probe_t2v_exact_tail"),
          "text -> video + audio, the sage chain with blocks 45/48/49 on exact bf16 attention"),
         # docs/h3_quant_policy.md. `levers` is Tier 1's witness: every free
@@ -5080,20 +5080,24 @@ def main():
         # The community chain (2026-09-15): kitchen's rotated INT8 kernel on
         # the dense steps, Sol on the routed ones, no sage. The default since
         # that evening, so `ck` is now the arm that departs from it: Sol's
-        # qk_balance off, the chain as most people run it. `ck_dense_tail`
-        # hands the three lopsided blocks to the dense backend (the "leave
-        # 47-49 dense" recipe, corrected to the blocks the weights name).
+        # qk_balance off and no dense tail, the chain as most people run it.
         # `ck_balanced` stood here until the flip made it the default.
+        # `h3_probe_t2v_ck_dense_tail` (blocks 45/48/49 on the dense kernel)
+        # stood here until 2026-09-25, when the owner made that tail the
+        # recipe's `dense_blocks`; its pair survives inverted as
+        # `h3_probe_t2v_no_dense_tail`, the default with the tail back on Sol.
         ("h3_probe_t2v_ck.json", "t2v-ck", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_overrides={"qk_balance": False}, out_prefix="Video/h3_probe_t2v_ck"),
-         "text -> video + audio, community chain as most run it: kitchen int8 attention dense + Sol, qk_balance off"),
-        ("h3_probe_t2v_ck_dense_tail.json", "t2v-ck-dense-tail", "t2v", LONG_T2V_PROMPT,
-         dict(dense_attn="ck", sol_overrides={"dense_blocks": "45,48,49"}, out_prefix="Video/h3_probe_t2v_ck_dense_tail"),
-         "text -> video + audio, the default chain with blocks 45/48/49 on the kitchen dense kernel"),
+         dict(dense_attn="ck", sol_overrides={"qk_balance": False, "dense_blocks": ""},
+              out_prefix="Video/h3_probe_t2v_ck"),
+         "text -> video + audio, community chain as most run it: kitchen int8 attention dense + Sol, qk_balance off, no dense tail"),
+        ("h3_probe_t2v_no_dense_tail.json", "t2v-no-dense-tail", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="ck", sol_overrides={"dense_blocks": ""},
+              out_prefix="Video/h3_probe_t2v_no_dense_tail"),
+         "text -> video + audio, the default chain with blocks 45/48/49 back on Sol (the pre-2026-09-25 default)"),
         # Tier 2 witness (2026-09-15 night): the default chain with Sol's
         # Hadamard rotation on (docs/h3_quant_policy.md). Same seed as every
         # other market arm today, so it sits beside h3_text_to_video (the
-        # default, rotate off) and h3_probe_t2v_ck_dense_tail.
+        # default, rotate off) and h3_probe_t2v_no_dense_tail.
         # Fully dense control (2026-09-15 night): neither Sol nor any INT8
         # kernel, ComfyUI's own attention on every step. The ceiling for the
         # whole chain and the arm that says whether a flaw every INT8 arm

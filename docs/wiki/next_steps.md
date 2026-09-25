@@ -13,6 +13,14 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-25, night (0.142.0).** Sol now defaults to `dense_blocks = 45,48,49`,
+and `token_routing` is one dropdown with `off` as its default.
+- **Restart the server when the card is free.** Then validate
+  (`workflows/build_workflows.py`) and run `bench/check_widget_deviations.py`
+  and the two Sol kernel checks, which need the GPU.
+- **The tail default is unscored.** `h3_probe_t2v_no_dense_tail` against
+  `h3_text_to_video` is the pair that scores it.
+
 **2026-09-25, evening (the distill and audio-recovery throwaway run).** Wired
 and rendered at 0.141.0 (`../../bench/results/2026-09-25_distill_audio_s1.md`):
 PDD8, PDD8 plus the audio-only refine pass, FastH3 8-step V2, and FlashGen

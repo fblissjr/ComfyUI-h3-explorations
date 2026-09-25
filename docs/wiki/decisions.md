@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-25
 
+- **Sol's default `dense_blocks` is `45,48,49`** (owner: "why wouldnt we set
+  dense blocks to 45,48,49 by default?", then "do both"). A practical default
+  in a tinkering repo, overriding `h3_config`'s earlier condition that the
+  shared default stay empty until all 50 blocks are measured and a set
+  validated; that condition is kept with a dated note. The kitchen-chain
+  render of the tail is unscored. `h3_probe_t2v_no_dense_tail` is the control.
+  0.142.0.
+- **`token_routing` reworked into one dropdown** (owner: "that token routing
+  field UX is confusing"). `off` replaces "text field" as the default, and the
+  list is read only under `custom`. The old default meant off by an empty list,
+  which is the no-sentinel rule's shape. 0.142.0.
 - **Reference-contract case 5c retired** (owner). It asserted that core's
   forced-CLIP-schedule branch drops `minimax_token_tags`: `comfy/sd.py` read
   only `o[:2]` there, so a graph wiring CLIP hooks would tag every row as

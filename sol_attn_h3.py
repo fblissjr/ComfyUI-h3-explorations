@@ -208,20 +208,37 @@ def parse_token_aug_profile(spec, count):
     return _parse_block_profile(spec, count, "token_aug_blocks", _budget, "0,24,32=64")
 
 
-# `token_routing`: named fills for `token_aug_blocks`, so the common choices
-# need no syntax. "text field" is the default BECAUSE it is what every saved
-# graph already means: the text as typed, empty for off. Each other name
-# states how far its blocks were measured, since that is the one thing the
-# text field cannot say. Budget 64 throughout; `parse_token_aug_profile` says
-# why. The blocks of the last two are counted from the model's end so the
-# five blocks left out are the last five at any depth.
-TOKEN_ROUTING_TEXT = "text field"
+# `token_routing`: one dropdown for the whole setting (reworked 2026-09-25, the
+# owner: "that token routing field UX is confusing"). `off` is the default and
+# means off. Three presets need no syntax, and each name states how far its
+# blocks were measured, the one thing a list cannot say. `custom` is the only
+# option that reads the `token_aug_blocks` list. Budget 64 throughout;
+# `parse_token_aug_profile` says why. The blocks of the early-and-middle preset
+# are counted from the model's end, so the five left out are the last five at
+# any depth.
+#
+# Until 2026-09-25 the default was "text field", which read the list and meant
+# off only when the list was empty: off-by-emptiness, the shape the owner's
+# no-sentinel rule refuses. A graph still holding "text field" now fails
+# validation loudly instead of taking a new meaning. Pick `off`, or `custom`
+# with the list it had.
+#: The node's `dense_blocks` default (2026-09-25, the owner): the three blocks
+#: whose K-norm is lopsided on the released checkpoint, where Sol's routed INT8
+#: error is largest. On the block-49 capture, kitchen's dense INT8 kernel sits
+#: well below Sol's routed error on the same heads
+#: (`bench/results/2026-09-15_ck_int8_attention_block49.json`), at a small cost
+#: measured once (`bench/results/2026-09-15_block49_community_chain.md`).
+#: Chosen as a practical default, not a scored result: the kitchen-chain render
+#: of it is unscored. `workflows/h3_config.py::SOL_DENSE_TAIL` carries the same
+#: value, and `bench/check_attention_defaults.py` holds the two together.
+SOL_DENSE_TAIL = "45,48,49"
 TOKEN_ROUTING_OFF = "off"
 TOKEN_ROUTING_MEASURED = "measured blocks (0, 24, 32, 40)"
 TOKEN_ROUTING_EARLY_MIDDLE = "early and middle (all but the last five)"
 TOKEN_ROUTING_ALL = "all blocks (needs qk_balance and rotate)"
-TOKEN_ROUTING_MODES = (TOKEN_ROUTING_TEXT, TOKEN_ROUTING_OFF, TOKEN_ROUTING_MEASURED,
-                       TOKEN_ROUTING_EARLY_MIDDLE, TOKEN_ROUTING_ALL)
+TOKEN_ROUTING_CUSTOM = "custom (the token_aug_blocks list)"
+TOKEN_ROUTING_MODES = (TOKEN_ROUTING_OFF, TOKEN_ROUTING_MEASURED,
+                       TOKEN_ROUTING_EARLY_MIDDLE, TOKEN_ROUTING_ALL, TOKEN_ROUTING_CUSTOM)
 TOKEN_ROUTING_BUDGET = 64
 # The four captured blocks where the grade improved; block 49 is the fifth
 # and the one it hurt (docs/research/2026-09-04_sol_token_aug_grade.md).
@@ -230,25 +247,39 @@ TOKEN_ROUTING_TAIL = 5
 
 
 def resolve_token_routing(mode, spec, count, *, qk_balance=False, rotate=False):
-    """{block: budget} for the node's `token_routing` choice and text field.
+    """{block: budget} for the node's `token_routing` choice and its list.
 
-    A preset with text also typed is refused rather than resolved by
-    precedence: whichever won, the other widget would be showing a setting
-    the render did not use. "off" is the exception and the reason it exists,
-    an A/B that leaves the typed profile in place.
+    `custom` reads the list and refuses an empty one. A preset with text also
+    typed is refused rather than resolved by precedence: whichever won, the
+    other widget would be showing a setting the render did not use. `off` is
+    the exception, and the reason it ignores the text: an A/B that leaves a
+    typed list in place.
+
+    `mode` None is an API graph saved before the widget existed
+    (2026-09-17). There the list alone decided, so it keeps that meaning:
+    routing on the list if one is typed, off if not.
     """
-    mode = mode or TOKEN_ROUTING_TEXT
+    if mode is None:
+        mode = TOKEN_ROUTING_CUSTOM if str(spec or "").strip() else TOKEN_ROUTING_OFF
     if mode not in TOKEN_ROUTING_MODES:
-        raise ValueError(f"token_routing={mode!r} is not one of {list(TOKEN_ROUTING_MODES)}")
-    if mode == TOKEN_ROUTING_TEXT:
-        return parse_token_aug_profile(spec or "", count)
+        raise ValueError(
+            f"token_routing={mode!r} is not one of {list(TOKEN_ROUTING_MODES)}. A graph "
+            f"saved before 2026-09-25 may hold 'text field': choose "
+            f"{TOKEN_ROUTING_OFF!r}, or {TOKEN_ROUTING_CUSTOM!r} to keep its list.")
     if mode == TOKEN_ROUTING_OFF:
         return {}
+    if mode == TOKEN_ROUTING_CUSTOM:
+        if not str(spec or "").strip():
+            raise ValueError(
+                f"token_routing is {TOKEN_ROUTING_CUSTOM!r} but token_aug_blocks is "
+                f"empty. Type the blocks (e.g. '0,24,32,40=64'), or choose "
+                f"{TOKEN_ROUTING_OFF!r}.")
+        return parse_token_aug_profile(spec, count)
     if str(spec or "").strip():
         raise ValueError(
             f"token_routing is {mode!r} and token_aug_blocks also has text "
-            f"({str(spec).strip()!r}). Clear the text, or set token_routing to "
-            f"{TOKEN_ROUTING_TEXT!r} to use it.")
+            f"({str(spec).strip()!r}). Clear the text, or choose "
+            f"{TOKEN_ROUTING_CUSTOM!r} to use it.")
     if mode == TOKEN_ROUTING_MEASURED:
         missing = [b for b in TOKEN_ROUTING_MEASURED_BLOCKS if b >= count]
         if missing:
@@ -1300,7 +1331,7 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                  sink_conditioning, morton, morton_curve, dense_blocks,
                  verbose, tau_profile, token_aug_blocks="",
                  topk_ratio=0.0, tail=True, qk_balance=False, rotate=False,
-                 token_routing=TOKEN_ROUTING_TEXT):
+                 token_routing=None):
     # Before anything else: fail here if the installed kernel cannot take what
     # this node passes. Patch time is the only place that can be said -- see
     # `_require_kernel`.
@@ -1420,7 +1451,7 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
         "dense_blocks": sorted(int(b) for b in dense),
         "tau_profile": {str(k): float(v) for k, v in sorted(profile.items())},
         "token_aug_blocks": {str(k): int(v) for k, v in sorted(aug.items())},
-        "token_routing": str(token_routing or TOKEN_ROUTING_TEXT),
+        "token_routing": str(token_routing) if token_routing else "unset (pre-widget graph: the list decides)",
         "morton": bool(reorder), "morton_curve": morton_curve if reorder else None,
         "n_blocks": count, "chained_previous": previous is not None,
     }
@@ -1531,8 +1562,10 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                        "fraction, so a lower value covers a "
                                        "different share of steps at different "
                                        "step counts."),
-                io.String.Input("token_aug_blocks", optional=True, default="",
+                io.String.Input("token_aug_blocks", optional=True, default="", advanced=True,
                                 tooltip=(
+                                    "Read ONLY when token_routing is 'custom'; the "
+                                    "presets there fill it for you.\n\n"
                                     "Recovers detail that Sol's speed-up smooths "
                                     "over, on the layers you name.\n\n"
                                     "Sol makes H3 renders much faster by "
@@ -1543,10 +1576,9 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                     "averaged away with the chunk they sat in. "
                                     "This reaches back and computes those "
                                     "properly, and costs render time to do it.\n\n"
-                                    "Off by default, and a list rather than a "
-                                    "switch because it does not help everywhere: "
-                                    "on the layers we measured it helped four and "
-                                    "hurt one.\n\n"
+                                    "A list rather than a switch because it does "
+                                    "not help everywhere: on the layers we "
+                                    "measured it helped four and hurt one.\n\n"
                                     "Format 'layers=budget'. '0,24,32=64' turns it "
                                     "on for DiT layers 0, 24 and 32 and leaves the "
                                     "rest alone. The budget is how many tokens each "
@@ -1629,12 +1661,16 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                                          "2026-09-17: a render where Sol silently stayed dense "
                                          "looks exactly like one where it ran, and these lines "
                                          "are the cheap way to tell."),
-                io.String.Input("dense_blocks", default="",
+                io.String.Input("dense_blocks", default=SOL_DENSE_TAIL,
                                 tooltip="Transformer blocks kept off Sol, e.g. '0-2,32'. "
-                                        "Negative indices count from the end. NOTE these "
-                                        "run on the fallback backend, which on these "
-                                        "graphs is sage, not exact attention -- use "
-                                        "MiniMaxH3ExactBlocks for that."),
+                                        "Negative indices count from the end. Default "
+                                        f"'{SOL_DENSE_TAIL}': the blocks whose K-norm is "
+                                        "lopsided, where Sol's INT8 error is largest. "
+                                        "They run on the dense fallback, which on the "
+                                        "default chain is kitchen's rotated INT8 "
+                                        "attention, not exact attention -- use "
+                                        "MiniMaxH3ExactBlocks for bf16. Empty keeps "
+                                        "every block on Sol."),
                 # Declared LAST on purpose (2026-09-15): bench/check_node_ids.py
                 # matches widgets_values by index against the declared order,
                 # and the first placement (after token_aug_blocks, mid-list)
@@ -1673,25 +1709,24 @@ class MiniMaxH3SolAttn(io.ComfyNode):
                 # Last again, for the reason above qk_balance gives.
                 io.Combo.Input("token_routing", optional=True,
                                options=list(TOKEN_ROUTING_MODES),
-                               default=TOKEN_ROUTING_TEXT,
+                               default=TOKEN_ROUTING_OFF,
                                tooltip=(
-                                   "Fills token_aug_blocks for you, at budget "
-                                   f"{TOKEN_ROUTING_BUDGET}.\n\n"
-                                   "text field: use token_aug_blocks as typed; empty "
-                                   "means off. This is what every saved graph does.\n\n"
-                                   "off: ignore the text, for an A/B without deleting it.\n\n"
+                                   "Recovers detail Sol's speed-up smooths over, on "
+                                   f"chosen layers, at budget {TOKEN_ROUTING_BUDGET}. "
+                                   "Costs render time.\n\n"
+                                   "off: no token routing (the default).\n\n"
                                    "measured blocks: the four captured layers where "
-                                   "token routing lowered the error. The cautious choice.\n\n"
+                                   "it lowered the error. The cautious choice.\n\n"
                                    "early and middle: every layer but the last five. "
-                                   "An extrapolation from those four; the last five "
-                                   "are left out because the last layer measured "
-                                   "WORSE with it.\n\n"
+                                   "An extrapolation from those four; the last layer "
+                                   "measured WORSE with it.\n\n"
                                    "all blocks: every layer. Only lowered the last "
                                    "layer's error with qk_balance and rotate both on, "
                                    "so the node refuses it without them.\n\n"
-                                   "A preset and typed text together are refused: "
-                                   "clear one. No render has been judged by eye with "
-                                   "token routing on; it costs render time."),
+                                   "custom: use the token_aug_blocks list (under "
+                                   "advanced inputs), e.g. '0,24,32,40=64'.\n\n"
+                                   "No render has been judged by eye with token "
+                                   "routing on."),
                                ),
             ],
             outputs=[io.Model.Output()],
@@ -1701,7 +1736,7 @@ class MiniMaxH3SolAttn(io.ComfyNode):
     def execute(cls, model, selection, start_percent, end_percent, min_tokens,
                 sink_conditioning, pooled_tail, morton, morton_curve, verbose,
                 dense_blocks, token_aug_blocks="", qk_balance=False, rotate=False,
-                token_routing=TOKEN_ROUTING_TEXT) -> io.NodeOutput:
+                token_routing=None) -> io.NodeOutput:
         topk = selection["selection"] == "top-k (SLA)"
         return _apply_patch(
             model, tau=selection.get("tau", 1.0),

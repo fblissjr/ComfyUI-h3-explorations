@@ -549,6 +549,12 @@ SOL_CORE_DEFAULTS = {
     "verbose": False,
 }
 
+#: The Sol node's `dense_blocks` default, 2026-09-25 (owner): the blocks whose
+#: K-norm is lopsided on the released checkpoint. Mirrors
+#: `sol_attn_h3.py::SOL_DENSE_TAIL`; `bench/check_attention_defaults.py` holds
+#: the two together, and the node's docstring near it says why these three.
+SOL_DENSE_TAIL = "45,48,49"
+
 SOL_RECOMMENDED_CUDA = dict(
     # "adaptive tau" since the v3 node (2026-08-22). It is the threshold
     # selection every Sol number here was measured under, so it is the
@@ -695,7 +701,15 @@ SOL_RECOMMENDED_CUDA = dict(
     # set-level, multi-scene validation. The 2026-09-02 production-geometry
     # route capture deliberately runs with this empty so blocks 0-2 and 32 are
     # observable instead of bypassed.
-    dense_blocks="",
+    #
+    # **Overridden by the owner, 2026-09-25**, as a practical default rather than
+    # the validated set the paragraph above asked for: the three lopsided-K-norm
+    # tail blocks go to the dense kernel (`SOL_DENSE_TAIL`, below). On the
+    # block-49 capture, kitchen's dense INT8 error is well below Sol's routed
+    # error on the same heads (`bench/results/2026-09-15_ck_int8_attention_block49.json`),
+    # at a small cost measured once (`bench/results/2026-09-15_block49_community_chain.md`).
+    # The kitchen-chain render of it is unscored. `docs/wiki/decisions.md`.
+    dense_blocks=SOL_DENSE_TAIL,
     # **Token routing OFF everywhere, and empty is how the node spells that.**
     # Comfy-Org/comfy-kitchen #156, released in 0.2.33, kept the same tree as
     # the head this repo graded, so the 2026-09-04 grade transferred without
@@ -739,10 +753,10 @@ SOL_RECOMMENDED_CUDA = dict(
     # block-49 quantization term (bench/results/2026-09-15_sol_rotate_*.json);
     # an experiment until a witness render says otherwise.
     rotate=False,
-    # The node's named fills for `token_aug_blocks` (2026-09-17). "text field"
-    # is the node default and means the text above as typed, which is empty:
-    # token routing off, as before the widget existed.
-    token_routing="text field",
+    # One dropdown since 2026-09-25 (`sol_attn_h3.py::TOKEN_ROUTING_MODES`):
+    # "off" is the node default and the recipe's. The list above is read only
+    # under "custom".
+    token_routing="off",
 )
 
 
@@ -848,14 +862,14 @@ SOL_CUDA_DEFAULTS = dict(
     start_percent=0.2, end_percent=1.0, min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
     morton_curve="3d", pooled_tail=True,
-    verbose=True, dense_blocks="",
+    verbose=True, dense_blocks=SOL_DENSE_TAIL,
     # Token routing off everywhere. `SOL_RECOMMENDED_CUDA` above owns why.
     token_aug_blocks="",
     # Pinned so an ad-hoc bench spec can flip them (`shipped[qk_balance=0]`);
     # the values follow SOL_RECOMMENDED_CUDA.
     qk_balance=True,
     rotate=False,
-    token_routing="text field",
+    token_routing="off",
 )
 
 # Our own node. `auto`, which resolves to fp8_cuda++ on sm89.

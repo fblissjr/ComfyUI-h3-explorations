@@ -58,13 +58,21 @@ def main() -> int:
     r = m.resolve_token_routing
     n = H3_BLOCKS
 
-    # 1. the default is the text field, unchanged
-    for spec in ("", "0,24,32=64", "0-10=128; 40=64"):
+    # 1. off is the default and means off; custom reads the list; a pre-widget
+    #    graph (mode None) keeps the meaning it had: the list decides
+    for spec in ("", "0,24,32=64"):
+        if r(m.TOKEN_ROUTING_OFF, spec, n) != {}:
+            problems.append(f"'off' did not resolve to off with list {spec!r}")
+    for spec in ("0,24,32=64", "0-10=128; 40=64"):
         want = m.parse_token_aug_profile(spec, n)
-        if r(m.TOKEN_ROUTING_TEXT, spec, n) != want or r(None, spec, n) != want:
-            problems.append(f"default mode does not reproduce the text field for {spec!r}")
-    if r(m.TOKEN_ROUTING_OFF, "0-44=64", n) != {}:
-        problems.append("'off' did not ignore the typed profile")
+        if r(m.TOKEN_ROUTING_CUSTOM, spec, n) != want:
+            problems.append(f"'custom' does not read the list {spec!r}")
+        if r(None, spec, n) != want:
+            problems.append(f"a pre-widget graph (mode None) lost its list {spec!r}")
+    if r(None, "", n) != {}:
+        problems.append("a pre-widget graph with no list did not resolve to off")
+    _raises(problems, "custom with an empty list", lambda: r(m.TOKEN_ROUTING_CUSTOM, "", n))
+    _raises(problems, "the retired 'text field' value", lambda: r("text field", "", n))
 
     # 2. where each preset reaches
     got = r(m.TOKEN_ROUTING_MEASURED, "", n)
@@ -88,13 +96,13 @@ def main() -> int:
         _raises(problems, f"{mode!r} with text typed", lambda mode=mode: r(mode, "0=64", n))
     _raises(problems, "an unknown mode", lambda: r("everything", "", n))
 
-    # the widget: last, optional, defaulting to the text field
+    # the widget: last, optional, defaulting to off
     schema = m.MiniMaxH3SolAttn.define_schema()
     last = schema.inputs[-1]
     if last.id != "token_routing":
         problems.append(f"token_routing is not the last declared input (last is {last.id!r}); "
                         "saved graphs match widget values by index")
-    elif last.default != m.TOKEN_ROUTING_TEXT or list(last.options) != list(m.TOKEN_ROUTING_MODES):
+    elif last.default != m.TOKEN_ROUTING_OFF or list(last.options) != list(m.TOKEN_ROUTING_MODES):
         problems.append("token_routing's default or options differ from the module's table")
 
     if problems:

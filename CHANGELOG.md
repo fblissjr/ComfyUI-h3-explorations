@@ -14,6 +14,48 @@ artifact.
   Retired with its hooked harness branch. The check passes again, and
   `docs/comfyui_vendor_gaps.md` gap 2b now reads as fixed.
 
+## 0.142.0
+
+### Changed
+
+- **Sol keeps blocks 45, 48 and 49 dense by default** (owner, 2026-09-25):
+  `dense_blocks = "45,48,49"` in the node's schema, in
+  `h3_config.SOL_RECOMMENDED_CUDA` (so PDD graphs inherit it through
+  `SOL_PDD_CUDA`) and in every regenerated graph that carries Sol.
+  - These are the blocks whose K-norm is lopsided on the released
+    checkpoint. On the block-49 capture, the kitchen dense kernel sits well
+    below Sol's routed INT8 error, at a small cost measured once.
+  - A practical default, not a scored one: the kitchen-chain render of it is
+    unscored. It overrides the config's earlier condition (validate all 50
+    blocks first), which stays in place with a dated note.
+  - Renders from before this version are not bit-comparable with renders
+    after it.
+  - One constant, `SOL_DENSE_TAIL`, sits in the node and in `h3_config`.
+    `check_attention_defaults` holds the two equal.
+- **`token_routing` is one dropdown:**
+  - `off` (the new default), the three presets, and `custom (the
+    token_aug_blocks list)`.
+  - The list moves under the node's advanced inputs and is read only
+    under `custom`. `custom` with an empty list is refused.
+  - "text field" is gone. A graph still holding it fails validation loudly
+    rather than taking a new meaning, and the error names the two
+    replacements.
+  - An API graph with no `token_routing` key (saved before 2026-09-17) keeps
+    its list.
+  - Input names and positions are unchanged, so saved UI graphs stay aligned.
+  - `bench/check_token_routing.py` asserts the new table.
+- **Probes:**
+  - `h3_probe_t2v_ck_dense_tail` is retired, since the tail is now the
+    default.
+  - Its pair survives as `h3_probe_t2v_no_dense_tail` (the tail back on Sol).
+  - `h3_probe_t2v_ck` and `h3_probe_t2v_exact_tail` pin `dense_blocks` empty,
+    as they rendered.
+- The `dense_blocks` tooltip no longer says the fallback is sage. On the
+  default chain it is kitchen.
+- **Takes effect in a running server after a restart.** The graphs were
+  rebuilt with `--no-validate`, because the running server predates this
+  schema. Validate after the restart.
+
 ## 0.141.0
 
 ### Added
