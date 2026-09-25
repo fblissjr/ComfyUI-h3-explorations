@@ -1,0 +1,68 @@
+{
+ "source": "minimax_h3_4step_lora_flashgen_v1.0_768p_bf16.safetensors",
+ "checks": {
+  "layout_median_row_cosine": {
+   "blocks.0.attn.qkv_proj": {
+    "permuted": 0.9999626278877258,
+    "as_stored": 0.0003897985443472862
+   },
+   "blocks.49.attn.qkv_proj": {
+    "permuted": 0.999962329864502,
+    "as_stored": 0.0003166436217725277
+   },
+   "token_refiner.blocks.0.attn.qkv_proj": {
+    "permuted": 1.0000011920928955,
+    "as_stored": 0.0005167988128960133
+   },
+   "blocks.0.mlp.fc1": {
+    "as_stored": 0.9999625086784363
+   }
+  },
+  "adaln_worst_relative_fit": 9.396392040660372e-06,
+  "reconstruction_relative": {
+   "blocks.7.attn.qkv_proj": 0.0,
+   "blocks.7.mlp.fc1": 0.0,
+   "blocks.7.attn.out_proj": 0.0,
+   "blocks.7.mlp.fc2": 0.0
+  },
+  "vs_kijai_resize": {
+   "blocks.0.attn.qkv_proj": {
+    "cosine": 0.9605401858319264,
+    "norm_ratio_kijai_over_full": 0.9605912630676307,
+    "kijai_rank": 3
+   },
+   "blocks.24.mlp.fc1": {
+    "cosine": 0.9530663751757859,
+    "norm_ratio_kijai_over_full": 0.9530377456168314,
+    "kijai_rank": 18
+   },
+   "blocks.49.mlp.fc2": {
+    "cosine": 0.9970344868917994,
+    "norm_ratio_kijai_over_full": 0.9956362294125722,
+    "kijai_rank": 3
+   },
+   "blocks.49.attn.out_proj": {
+    "cosine": 0.9832176913031176,
+    "norm_ratio_kijai_over_full": 0.9826167108513099,
+    "kijai_rank": 4
+   },
+   "blocks.24.adaln_proj.linear": {
+    "cosine": 0.99807346073911,
+    "norm_ratio_kijai_over_full": 1.0002641658815887,
+    "kijai_rank": 2
+   }
+  }
+ },
+ "out": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+ "rank": 64,
+ "modules": 259,
+ "metadata": {
+  "format": "pt",
+  "source": "Beidouqixing/minimax-h3-4step-lora-flashgen minimax_h3_4step_lora_flashgen_v1.0_768p_bf16.safetensors",
+  "conversion": "bench/convert_flashgen_lora.py: full rank; qkv lora_B rows [head,qkv,dim]->[qkv,head,dim]; adaln lora_A projected onto the pruned fl2va adaln_t_table basis with the mean in diff_b; alpha = rank (publisher scale 1.0)",
+  "adaln_curve_basis": "fl2va",
+  "sampler_steps": "4",
+  "manual_sigmas_shift12": "1.0, 0.965517, 0.888889, 0.679245, 0.0",
+  "base_schedule": "1.0,0.7,0.4,0.15,0.0"
+ }
+}

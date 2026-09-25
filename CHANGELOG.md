@@ -14,6 +14,26 @@ artifact.
   Retired with its hooked harness branch. The check passes again, and
   `docs/comfyui_vendor_gaps.md` gap 2b now reads as fixed.
 
+## 0.142.1
+
+### Added
+
+- **`bench/convert_flashgen_lora.py`** converts Beidouqixing's FlashGen 4-step
+  LoRA (`Beidouqixing/minimax-h3-4step-lora-flashgen`, Apache-2.0) at its full
+  rank 64 for the pruned fl2va checkpoint.
+  - **qkv:** `lora_B` rows are permuted from the release's per-head interleave
+    to ComfyUI's q|k|v bands. This is checked on the weights: the release's
+    `qkv_proj`, permuted the same way, matches the pruned checkpoint row for
+    row, and unpermuted does not.
+  - **AdaLN:** `lora_A` is projected onto the pruned checkpoint's time basis,
+    with the mean carried in `diff_b` (`bench/convert_pdd_lora.py`'s method).
+  - **Scale:** `alpha` = rank, which is the publisher's merge scale of 1.0.
+  - **Checks:** the emitted delta reproduces the source exactly, and the
+    comparison with kijai's resized conversion puts it at 95-99.8% of the full
+    delta per module. Record: `bench/results/2026-09-25_flashgen_lora_conversion.json`.
+  - **Output:** `models/loras/h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors`.
+    No shipped graph loads it yet.
+
 ## 0.142.0
 
 ### Changed
