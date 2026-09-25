@@ -1,5 +1,7 @@
 # Parallel Decoding Distillation on MiniMax H3
 
+last updated: 2026-09-25 (a dated note: core's PDD PR merged 2026-08-29)
+
 **The acceleration LoRA that is not a step distillation, and the three
 mechanisms it needs that a LoRA loader does not have.**
 
@@ -1194,6 +1196,12 @@ The sha256 rows added on 2026-08-27 are what makes the next instance visible
 instead of silent.
 
 ## Core is learning this, and what that costs us
+
+*2026-09-25: #15908 merged on 2026-08-29 (`2504e68d` in core), so the
+widened `FinalLayer.forward` and its head-bank path are in every core since.
+The section below is the 2026-08-27 read of the open PR, and its closing
+question, whether this node should keep the head half, has been live since
+the merge and is still undecided.*
 
 Comfy-Org/ComfyUI#15908, "MiniMax-H3: Support PDD LoRA", by the same author as
 the converted files above. Read 2026-08-27: **open**, and its diff is

@@ -1246,6 +1246,12 @@ coefficients", with no fitting procedure — while a neighbouring model's entry
 in the same file documents its calibration explicitly. Treat them as a
 starting point, not a measurement. **[V]**
 
+*2026-09-25: the LightX2V half of E.5 is stale. `8652c6f1` (#1557) makes
+`MiniMaxH3Model._init_infer_class` accept DPCache and ships it combined with
+Sol (`coderef/LightX2V/configs/minimax_h3/decache/`), so LightX2V now does
+both at once. [`../wiki/references.md`](../wiki/references.md), "What moved by
+2026-09-25".*
+
 **E.5 A cross-repo contradiction worth knowing.** LightX2V **refuses** to run
 any feature cache on H3
 (`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py:500-501` raises

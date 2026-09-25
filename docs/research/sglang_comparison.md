@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-09-19 (closing section "Sixth read" added, and a dated
+last updated: 2026-09-25 (closing section "Seventh read" added); 2026-09-19 (closing section "Sixth read" added, and a dated
 note under the Sol-Attn defaults table); 2026-09-11 (subsection "Sol-Attn
 defaults: sglang against core's and ours" added under "What we do that they
 do not", and closing section "Fifth read" added; "Fourth read" added 2026-09-10; one subsection under "What
@@ -662,3 +662,81 @@ cookbook numbers.
 **Everything else is serving, other models or docs**: out-of-tree platform
 support, CFG and tracing docs, DSV4 and Qwen work, ROCm and XPU. Read at the
 title, priced, no action.
+
+## Seventh read, 2026-09-25
+
+What landed in `coderef/sglang` between `993d1fccba` and `2f5c9ac43d`. Four
+commits touch H3 paths. One of them is news.
+
+**sglang now implements PDD (`973fb44471`, #40568).** Until this commit no
+engine did ([`pdd/pdd_implementations.md`](pdd/pdd_implementations.md), section
+1, corrected in place). How it works:
+
+- Two offline tools, then an environment variable at serve time. The first
+  merges the alibaba-pai adapter into the release's unpruned native
+  transformer and copies the raw head stacks out
+  (`coderef/sglang/python/sglang/multimodal_gen/tools/build_minimax_h3_pdd_weights.py`).
+  The second fuses each block of heads into one head per step with weights
+  proportional to each sub-interval's `dsigma` on the shifted grid, computing
+  in fp32 and storing bf16
+  (`coderef/sglang/python/sglang/multimodal_gen/tools/fuse_minimax_h3_pdd_heads.py::fuse`).
+  `SGLANG_DIFFUSION_MINIMAX_H3_PDD_HEADS` points the final layer at the fused
+  file (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py::MiniMaxH3FinalLayer.load_pdd_fused_heads`).
+- The step index is the denoise loop's counter, set per step, not recovered
+  from `t` or sigma. The timestep stage raises unless the request's sigma grid
+  equals the grid the heads were fused for
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/timestep_preparation.py`,
+  `_apply_pdd_schedule`).
+- The cookbook recipe
+  (`coderef/sglang/docs/cookbook/diffusion/MiniMax/MiniMax-H3.mdx`, "PDD
+  acceleration LoRAs") counts sigma points, so its step count is eight
+  evaluations. It uses the shifts the fusion tool defaults to and the default
+  attention backend, which is not Sol. The fl2va adapter serves t2va and
+  fl2va; ref2va has its own.
+
+**Where it agrees with ours:** the fusion formula (`pdd_math.fusion_plan`),
+the shifts, the evaluation count, Euler at eta 0, reading alibaba-pai's raw
+head stack as absolute heads rather than deltas, and failing closed on an
+off-grid request. **Where it differs:** one uniform partition fixed when the
+heads are fused, where ours fuses lazily from the sampler's sigmas and takes
+any schedule. Also a loop counter for the step index where ours matches
+`t_emb`, no strength or head-off control, the backbone merged offline into
+unpruned BF16 weights where ours patches the pruned INT8 checkpoint or uses
+the bake, and dense attention where our PDD graphs run Sol. That last one is
+one upstream alone, so the adopt rule does not fire.
+
+**A probable defect in its offline builder: the fc1 merge does not swap gate
+and value.** The builder maps diffusers `ff.net.0.proj` onto native
+`mlp.fc1` as a plain rename. The reader compared the two layouts in the
+local release. Native `fc1` equals the diffusers weight with its halves
+swapped, and does not equal it in the same order. sglang's own runtime LoRA
+path swaps (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/lora/pipeline.py::_swap_peft_swiglu_fc1_lora_b`),
+and so do its checkpoint loader and our converter. The builder's only test
+merges `to_out` alone. The layouts were measured; the merge was not run. So
+the fc1 delta landing swapped is an inference, not an observation.
+
+**The other three:**
+
+- `abef3efb64` (#40378) fuses SwiGLU for quantized H3 MLPs with a kernel that
+  rounds SiLU to bf16 before the multiply, the same rounding as its eager path
+  and as core's eager `comfy/ops.py::_swiglu_eager`. It is a fusion, not a new
+  convention. Whether kitchen's fused INT8 SwiGLU rounds SiLU internally is
+  not established here: its CUDA source is not in the wheel.
+- `2a0cb2f04e` (#40116) extends SubBlock's `sage_fp8` to SM120; the note is
+  under "sglang's SubBlock router" in
+  [`../sol_upstream.md`](../sol_upstream.md). No SM89 path.
+- `e6931ca889`, reverted by `f702a0be29`, re-landed as `ce06a14444`: each
+  model's pipeline config now registers from its own file
+  (`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::register`).
+  Every `coderef/sglang/...` path and `::symbol` cited under `docs/` still
+  resolves. The FastH3 sentence in
+  [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) that says "Registered under
+  `registry.py`" is half stale and has a dated note.
+
+**Sol-Attn defaults have not moved**: no new commit touches `sol_attn.py`,
+and it is still opt-in, so the table under "Sol-Attn defaults: sglang against
+core's and ours" holds. `50ec9702d0` adds a "Run in ComfyUI" section to the H3
+cookbook naming a server-mode node, which agrees with
+[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) that sglang has no in-process
+ComfyUI path for H3. The rest is serving, MiniMax-M3, HiSparse, ROCm and XPU,
+read at the title.

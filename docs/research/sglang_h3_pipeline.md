@@ -1,5 +1,7 @@
 # sglang's MiniMax-H3 pipeline, end to end
 
+last updated: 2026-09-25 (one dated note on FastH3's registration)
+
 Written 2026-08-25 from a source read of `coderef/sglang` at commit
 `6569125e3a` (2026-08-25). Nothing was run: no server, no GPU, no model
 load. Five scoped readers each took one slice (admission and media; the
@@ -1020,7 +1022,10 @@ breakable CUDA graph. The FastVideo repository's flat Diffusers layout is
 materialised into the base-H3 layout through a model overlay
 (`runtime/utils/model_overlay.py`), and the `-LoRA` sibling is rejected by
 `--lora-path` because it carries full-rank `.diff` and `.set_weight` tensors.
-Registered under `registry.py` by repository id.
+Registered under `registry.py` by repository id. *2026-09-25: half stale.
+Since `ce06a14444` the config registers from
+`coderef/sglang/python/sglang/multimodal_gen/configs/pipeline_configs/minimax_h3.py::register`; `registry.py` keeps the
+repository-id alias.*
 
 **Quality is now three cumulative tiers**
 (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/sampling_params.py::QUALITY_LEVELS`): `lossless`,

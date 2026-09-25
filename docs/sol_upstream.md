@@ -1,6 +1,8 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-09-22 (section "comfy-kitchen, 2026-09-22": kitchen only,
+Last updated: 2026-09-25 (section "comfy-kitchen and core, 2026-09-25", with
+ComfyUI's workflow templates; a dated note under sglang's SubBlock router);
+2026-09-22 (section "comfy-kitchen, 2026-09-22": kitchen only,
 core not re-read); 2026-09-19 (section "comfy-kitchen and core, 2026-09-19", with
 dated notes on the PRs it found closed or merged); 2026-09-15 (the
 comfy-kitchen section); before that 2026-09-11, when sglang's own Sol-Attn backend was added, the
@@ -30,18 +32,150 @@ disagree about our configuration, they are right.
 | Sol-H3, Sol-H3-Spark, `super_acceleration`, `RTX4090` | source at `757d902`: added by `9791888` (RTX4090, 2026-08-17), `2936c47` (Sol-H3, 2026-09-08), `8249b28` (its MXFP8, 2026-09-09), `757d902` (Spark) | 2026-09-10 |
 | [`Efficient-Large-Model/H3-to-LTX-Latent-Adapter`](https://huggingface.co/Efficient-Large-Model/H3-to-LTX-Latent-Adapter) | the Hugging Face model card only | 2026-09-10 |
 | ComfyUI core's `BlockSparseAttention` | source in the ComfyUI checkout at `1f641fd9` | 2026-09-10 |
-| sglang's SubBlock router | source at `ffe98a4279` | 2026-09-10 |
+| sglang's SubBlock router | source at `ffe98a4279`; `sage_fp8`'s arch set re-read at `2f5c9ac43d` | 2026-09-10, 2026-09-25 |
 | sglang's Sol-Attn backend | source at `593c7a900d`, with its attention-backend doc and H3 cookbook page | 2026-09-11 |
 | two third-party ComfyUI packs | their READMEs only | 2026-08-16 |
+| Comfy-Org/workflow_templates | `gh api`: commits since 2026-09-19 touching H3, and the diff of `fc427f00` | 2026-09-25 |
 | xmarre's ComfyUI-Sol-H3 | its README and the body of its PR 9, via `gh` | 2026-09-11 |
 | Comfy-Org/ComfyUI PR 16239 (closed unmerged 2026-09-16) | its diff via `gh`: `nodes_sparse_attention.py` and two helpers in its new module | 2026-09-11 |
-| Comfy-Org/ComfyUI PRs touching H3 or core's sparse node, and kitchen's open PRs | `gh`: lists, bodies and threads; diffs for 16388, 16344, 16404, 16245, 16362, 16378 | 2026-09-19 |
-| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19, 2026-09-22 |
+| Comfy-Org/ComfyUI PRs touching H3 or core's sparse node, and kitchen's open PRs | `gh`: lists, bodies and threads; diffs for 16388, 16344, 16404, 16245, 16362, 16378 (2026-09-19); diffs for 16460, 16508, 16497, 16548, 16476, 16542, 16156, 16483, 16391 (2026-09-25) | 2026-09-19, 2026-09-25 |
+| Comfy-Org/comfy-kitchen | fetch and `gh`; dated sections below | 2026-09-04, 2026-09-08, 2026-09-10, 2026-09-11, 2026-09-15, 2026-09-19, 2026-09-22, 2026-09-25 |
 
 Every `coderef/Sana/...` pointer below resolves against a checkout at
 `757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
 
 ---
+
+## comfy-kitchen and core, 2026-09-25
+
+Read with the kitchen clone's `upstream` and kijai's fork fetched, `gh` PR
+lists, bodies and diffs, and the ComfyUI checkout at `88ab4a06` (pulled
+2026-09-25; `git reflog` in it dates each pull). Core commits are read against
+`3c80da7f`, the 2026-09-19 read. No ComfyUI server was running at the time of
+the read, so the next start runs this checkout.
+
+**Kitchen: still current, nothing to rebuild.** `vendor/rebuild_kernel.sh
+--check` reports the source current against ComfyUI's pin and the venv
+holding the `h3-build` tip. Upstream `main` is past `v0.2.35` and untagged,
+so by policy it is not built. What it holds, for the next rebase:
+
+- **`ef40891` (#192, kijai) will reach H3's video VAE encode on the next
+  tag.** Its `zero_pad` and `out=` work is for the SeedVR2 VAE, which closes
+  the 2026-09-19 note that the fork commit named no model. The same PR also
+  raises the depth gate on `fp16_conv3d`'s fp16 accumulation. Core's H3 VAE
+  calls that kernel when fp16 accumulation is on (`comfy/ldm/minimax/vae.py`,
+  the `fp16_conv3d` helper, gated on `comfy/ops.py::_fp16_linear_wanted`).
+  This install's launcher turns fp16 accumulation on (`start.sh`,
+  `--fast fp16_accumulation`). The reader counted the encoder's 512-channel
+  3x3x3 convolutions that fall between the old gate and the new one; the
+  decoder has none. So after that rebase, reference and keyframe encodes on
+  those stages move to fp16 accumulation. The PR body reports the fidelity
+  cost for SeedVR2's decoder. Nothing here has measured it for H3. The
+  rebuild record for that tag should say so.
+- `f61028a` makes kitchen's `is_available` functions return False on a CPU
+  device, a semantics change to carry through the next rebase. #186 adds head
+  dim 256 to the Flash kernel, which is not H3's. #191 and #193 add W6A8 (no
+  model in `workflows/h3_config.py::MODELS` uses it: every DiT and encoder
+  header is `int8_tensorwise`). #194 is HIP INT8 attention; the rest is
+  Ascend.
+- **Open:** 187 and 189 unchanged; 195, 197, 199, 200, 201 and 202 are HIP,
+  Ascend, or Triton INT8 dequantisation. **168 (ours)** is still open with no
+  activity since 2026-09-11.
+
+**kijai's fork.** `zero-pad-mode` moved to `624fdaf` (2026-09-25), which adds
+an `fp32_accumulate` option to `fp16_conv3d`. A `w6a8` branch holds #191's
+follow-ups.
+
+**Core, merged since 2026-09-19 and in this checkout:**
+
+- **`fc584aaa` (#16436, kijai) changes every H3 video decode's pixels at tile
+  seams.** Tiles now blend against their neighbours as already blended.
+  Tiling is on by default in core's H3 VAE (`MiniMaxH3VideoVAE.__init__`,
+  `tiling=True`), so every decode at a trained canvas takes that path. It
+  reached this checkout in the 2026-09-22 pull. **A clip rendered before that
+  pull is not bit-comparable with one rendered after it**, which bears on any
+  record that grades a rebuild by a bit-identical render against an older
+  reference clip, such as `bench/results/2026-09-18_kitchen_0.2.35_rebuild.md`.
+- `912fca4f` (#16485) moves the VAE's `qk_norm_scale` to the query's device
+  before kitchen's fused `rms_rope`, for offloaded VAEs. It supersedes open
+  16391.
+- **`c194dd00` (#16419): a model file can name a block's attention.** A
+  `<module>.comfy_attention.config` tensor holding JSON selects kitchen INT8
+  attention for that block, and only that method is supported. An
+  `optimized_attention_override` keeps priority, so Sol's override still
+  wins. **No file in `workflows/h3_config.py::MODELS` carries the key**
+  (every file scanned with `safe_open`, 2026-09-25), so no shipped graph
+  moves. Two copies of core's forward in this pack would react differently
+  to a file that did carry it. `exact_blocks.py::_exact_forward` strips the
+  override and calls core's `Attention.forward`, so its "exact" blocks would
+  run kitchen INT8. The sage node's forward
+  (`attention.py::make_minimax_attn_forward`) does not pass
+  `preferred_attention`. Both are inert today.
+- **`b16023b0` (#16457) removes torchaudio from core's requirements.** Core's
+  H3 reference-audio resample now calls `comfy/audio.py::resample`. This pack
+  still imports torchaudio lazily at three resample sites
+  (`audio_freeze.py`, `reference_conditioning.py`), and `pyproject.toml`
+  declares no dependency. So a fresh install without torchaudio fails only
+  when a clip's sample rate differs from the audio VAE's. This box still has
+  torchaudio. `comfy.audio.resample` returned tensors `torch.equal` to
+  `torchaudio.functional.resample` on CPU fp32 at four common source rates
+  into the VAE's rate, checked in the 2026-09-25 session. That makes it a
+  drop-in replacement; it is not yet made.
+- `95539f56` (#16471) Fun-ControlNet Union 2.0 for H3; nothing here wires a
+  ControlNet. ComfyUI `v0.37.0` was tagged 2026-09-20. The rest is other
+  models, assets, partner nodes and NPU/ROCm.
+
+**ComfyUI's workflow templates switched H3's video VAE to INT8.**
+Comfy-Org/workflow_templates `fc427f00` (#1280, 2026-09-22) points every H3
+template, the FastH3 ones included, at
+`minimax_h3_video_vae_int8_convrot.safetensors`. That is the file the owner
+removed from this repo on 2026-08-21 (the comment at
+`workflows/h3_config.py::MODELS`, `video_vae`), and
+`bench/check_model_files.py` goes red on any graph naming it. **It does not
+trigger the adopt-upstream rule.** Templates are not one of the rule's three
+upstreams. sglang runs the VAE more precisely, not less
+([`wiki/references.md`](wiki/references.md), "What the 2026-08-28 pass
+established"). The owner's decision stands unless the owner reopens it. The
+core decoder has an INT8 attention branch for such a file
+(`comfy/ldm/minimax/vae.py`, `Attention.forward`, the `QuantizedTensor`
+test).
+
+**Open core PRs, new or moved since 2026-09-19.** Found by keyword search
+(`gh pr list --search`) on H3, MiniMax, sparse attention, Qwen3, kitchen and
+the new attention key, with no file filter, so a PR that touches an H3 path
+under an unrelated title can be missed.
+
+- **16508 (fp16 inference for H3) would move this install's DiT to fp16 if
+  it merged.** It adds `torch.float16` to H3's `supported_inference_dtypes`.
+  `start.sh`'s `--fast fp16_accumulation` sets `PRIORITIZE_FP16`
+  (`comfy/model_management.py`), which `unet_dtype()` consults before its
+  dtype loop. The quantized-checkpoint exemption in the PR body covers
+  fp16-stored weights, not that branch, and every shipped graph loads the DiT
+  with `weight_dtype` at default. With fp16 activations, Sol's eligibility
+  gate refuses the call (`sol_attn_h3.py::_ineligible`, "kernel is
+  bf16-only"), so every Sol graph would run dense, and the reason would show
+  only in the route record. This pack's own attention forwards also lack the
+  PR's fp16 `out_proj` rescale. All of this is reasoned from the code, not
+  run. It is the one open PR here worth watching.
+- **16460 (packed-row memory estimate) and 16542 (dynamic-VRAM headroom)**
+  would together change what gets paged out when sampling is admitted: the
+  first changes the estimate, and the second makes `free_memory` partially
+  unload dynamic models to meet it. On long runs that means the text encoder
+  and the DiT's own resident pages. Neither is measured here.
+- **16156 (`percent_to_sigma` rounding and half-open windows)** reaches
+  `sol_attn_h3.py`, `pdd_lora.py` and `audio_freeze.py`, which all call
+  `percent_to_sigma`. The reader simulated the schedulers, step counts and
+  windows our graphs use, and none puts a step exactly on a boundary, so no
+  shipped graph's step set changes. That was simulated, not rendered. A
+  window whose percent times the step count is a whole number would move by
+  one step.
+- 16497 (save and load nested conditioning), 16548 (RGBA into Qwen VL
+  preprocessing), 16476 (a stale KV cache in `generate()`) and 16483 (W6A8):
+  no reach. We save no conditioning, every image path here is already RGB,
+  H3 conditioning never calls `generate()`, and no model here is W6A8.
+- Unchanged and still open from the 2026-09-19 list: 16388, 16344, 16404,
+  16245, 16116, 15735, 16283, 16221, 16228, 16301, 16076, 15135, 16401,
+  16402, 16362. 16391 is superseded by 16485 above.
 
 ## comfy-kitchen, 2026-09-22
 
@@ -687,6 +821,11 @@ owns SubBlock. Two things in the source it does not yet record:
   added by `ffe98a4279` (2026-09-09) and not the default
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse_attn.py:106`;
   the cutoff defaults and their stated sweep are at `:76-85` of the same file).
+  *2026-09-25: `2a0cb2f04e` (#40116) extends `sage_fp8` to SM120 through a
+  FlashInfer CuTe-DSL kernel and makes its default key sub-block count per
+  arch. `DEFAULT_COMPUTE_MODE` is still `bf16`, and it now sits at `:105`.
+  SubBlock still accepts only SM90, SM100 and SM120, so none of it runs on
+  this card.*
 
 ---
 

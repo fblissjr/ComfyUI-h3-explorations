@@ -13,6 +13,46 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-25 (the upstream survey session).** Found by the read in
+[`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
+2026-09-25", and [`references.md`](references.md), "What moved by
+2026-09-25". Most urgent first; none of it is done.
+
+- **torchaudio left core's requirements** (#16457). The three resample sites
+  in `audio_freeze.py` and `reference_conditioning.py` still import it, and
+  `pyproject.toml` declares nothing, so a community install without
+  torchaudio breaks on any clip whose rate is not the audio VAE's.
+  `comfy.audio.resample` returned tensors `torch.equal` to torchaudio's in
+  this session. Done when the sites call it, keeping torchaudio only as a
+  fallback on an older core. Waiting on the owner's go.
+- **Watch core PR 16508 (fp16 H3).** If it merges as written, `start.sh`'s
+  `--fast fp16_accumulation` puts the DiT in fp16, and every Sol graph runs
+  dense without saying so beyond the route record
+  (`sol_attn_h3.py::_ineligible`). Reasoned from the code, not run. Cheap
+  insurance whether or not it merges: a preflight or Sol-node refusal when
+  the DiT's compute dtype is not bf16. Owner's call.
+- **The PDD head-half question is live.** Core's head bank merged 2026-08-29
+  (`../h3_pdd.md`, "Core is learning this"): should `MiniMaxH3PDDLoRA` keep
+  its own head swap, or narrow to conversion plus the partition guard? sglang
+  now fuses PDD heads with the same formula as ours, which corroborates the
+  math, not the choice. Owner decision.
+- **Core's VAE tile blending changed in the 2026-09-22 pull** (#16436). Any
+  bit-identity check against a clip rendered before it will fail for that
+  reason alone. The next rebuild record re-renders its reference clip first.
+- **Continuation has a third design worth one pair.** vllm-omni feeds the
+  previous window's latent tail as guide rows and regenerates the overlap.
+  That is `../h3_audio_freeze.md` section 5 idea 5, and core can express the
+  guide half as `minimax_keyframes` latent rows. Whenever the continuation lane
+  resumes: one matched pair against `MiniMaxH3FreezeAudioWindow`, through
+  [`../eval_comparison.md`](../eval_comparison.md).
+- **On the next kitchen tag,** #192's fp16-accumulate depth gate reaches H3's
+  video VAE encode on this launcher, so the rebuild record for that tag says
+  so and checks an encode.
+- **Not proposed:** ComfyUI's templates moved to the INT8 video VAE the owner
+  removed on 2026-08-21. That decision stands unless reopened. sglang's
+  probable fc1 swap in its PDD builder is theirs to hear about; reporting it
+  upstream is outward-facing and the owner's call.
+
 **2026-09-20 (the prompt-rules session):**
 
 - **Documented pointers to scripts are unchecked, and six have rotted.**

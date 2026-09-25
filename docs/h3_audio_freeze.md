@@ -1,6 +1,6 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-09-15
+last updated: 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
 
 **The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
 length, keep it exactly, and have the picture move to it, the way the owner's
@@ -127,6 +127,10 @@ yet map them.
   rules (`h3_rules.py`), the generator and `h3_config`. No shipped graph
   writes a `noise_mask` (verified 2026-08-30, and `custom_node_gaps.md`
   section 8 excluded the looping packs from its read).
+  *Stale since the freeze nodes shipped; noted 2026-09-25. A walk of
+  `h3_config.graph_paths` finds shipped graphs wiring `MiniMaxH3FreezeAudio`,
+  `MiniMaxH3FreezeAudioWindow` and `MiniMaxH3AudioFreezeSong`, each of which
+  writes one.*
 
 ---
 
@@ -306,6 +310,12 @@ judgement on 2026-09-12, not a measurement.
    clip's tail fed as a guide clip through `MiniMaxH3AddGuide`, which is how
    the pack's older continuation worked. Same information, different position
    in the sequence, seams uncompared. Medium confidence either wins.
+   *2026-09-25: vllm-omni ships the guide arm, taken from the sampled latent
+   tail with no decode, and adds a global temporal offset per window
+   ([`wiki/references.md`](wiki/references.md), "What moved by 2026-09-25").
+   Core can place a latent tail as `minimax_keyframes` rows, so the guide
+   half is buildable as a pack node. The offset is not, without a core
+   change.*
 6. **Guide audio on fl2va.** Core's audio anchor puts the song in
    conditioning rows and lets the target audio generate. Expected to lose to
    the freeze, but it is one graph edit and it says whether H3 copies audio it

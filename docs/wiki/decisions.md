@@ -15,6 +15,29 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-25
+
+- **Prose corrected by the 2026-09-25 upstream survey**
+  ([`references.md`](references.md), "What moved by 2026-09-25";
+  [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
+  2026-09-25"; [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
+  "Seventh read"). Each has a dated note in place.
+  - "No engine implements PDD" (`references.md`, `pdd_implementations.md`
+    section 1, the `index.md` row): sglang has implemented it since
+    `973fb44471` (2026-09-23).
+  - `h3_pdd.md` "Core is learning this" read Comfy-Org/ComfyUI#15908 as open.
+    It merged 2026-08-29. The question it said would go live on merge, whether
+    our node keeps the head half, has been live since then and is undecided.
+  - `references.md`'s vllm-omni #7693 bullet named a function #7913 deleted,
+    and called the rounding SM90-only; vllm-omni now keeps fp32 on every arch.
+  - `h3_audio_freeze.md` section 3, "No shipped graph writes a `noise_mask`":
+    stale since the freeze nodes shipped.
+  - The rotation survey's E.5, "LightX2V refuses any feature cache on H3" and
+    ships Sol and caching "never combined": `8652c6f1` ships DPCache with Sol.
+  - `sglang_h3_pipeline.md`, FastH3 "Registered under `registry.py`": its
+    config now registers from its own pipeline-config file.
+  - `sol_upstream.md`, SubBlock's `sage_fp8` as SM90 only: now SM90 and SM120.
+
 ## 2026-09-23
 
 - **Video files carry no metadata; the graph lives in the first-frame PNG**

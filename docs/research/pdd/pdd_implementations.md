@@ -1,6 +1,6 @@
 # PDD: five implementations, and how this lane got where it is
 
-last updated: 2026-08-28
+last updated: 2026-09-25 (a dated correction under section 1); otherwise 2026-08-28
 
 Two things nobody had written down: **how our PDD implementation compares to
 every other one available**, and **how the lane arrived at its current shape**
@@ -42,6 +42,13 @@ sglang has no distilled H3 entry — its `parallel_decode` is VAE sharding, and
 its speculative-decoding machinery is for language models. Searched for
 parallel decoding, PDD, multi-token prediction, replicated heads and step
 distillation.
+
+*Corrected 2026-09-25: sglang now implements PDD* (`973fb44471`, #40568,
+2026-09-23), so the paragraph above holds for the other three engines only.
+sglang fuses offline over one uniform partition, merges the backbone into the
+unpruned weights, and selects the head by the loop's step counter.
+[`../sglang_comparison.md`](../sglang_comparison.md), "Seventh read", has the
+comparison with ours and a probable defect in its fc1 merge.
 
 ---
 

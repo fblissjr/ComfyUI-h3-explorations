@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -61,8 +61,12 @@ Recorded here because it is a property of the *references*, not of our code:
 - **Neither model library is independent evidence about the seven markers.**
   Both inherit the release tokenizer without touching the ids in code. Two more
   implementations is not two more votes.
-- **No engine implements PDD.** diffusers, LightX2V, DiffSynth and sglang were
+- **No engine implemented PDD as of 2026-08-28.** diffusers, LightX2V, DiffSynth and sglang were
   each searched. See [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md).
+  *Corrected 2026-09-25: sglang has implemented it since `973fb44471`
+  (#40568, 2026-09-23). This line used to say "No engine implements PDD".
+  [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
+  "Seventh read", has the comparison.*
 
 ---
 
@@ -247,9 +251,13 @@ it, and none of the three moved a default this repo differs on.
     video tiles where ours keeps a fraction (`h3_config.VSA_KEEP_PERCENT`).
   - `5d3e6dc1b` (#7693) rounds the DiT's AdaLN RMSNorm output to bf16 before
     scale and shift, on SM90 only
-    (`coderef/vllm-omni/vllm_omni/diffusion/layers/indexed_modulation.py::_use_hopper_bf16_affine_semantics`).
+    (`coderef/vllm-omni/vllm_omni/diffusion/layers/indexed_modulation.py`,
+    function `_use_hopper_bf16_affine_semantics` as of `fa506e0fe`).
     Core already applies scale and shift in the input dtype
     (`comfy/ldm/minimax/model.py`, `_mod_scale_shift`).
+    *Superseded 2026-09-25: `84977d954` (#7913) deleted that function and
+    now keeps the norm and the affine in fp32 on every arch, so the pointer
+    no longer resolves. See "What moved by 2026-09-25".*
   - `3d952d133` (#7281) gives a reference video's soundtrack and a
     standalone reference audio separate duration budgets. Core has no
     reference-audio budget to conflate. `43b8de9b0` (#7167) fuses q/k
@@ -317,6 +325,163 @@ it, and none of the three moved a default this repo differs on.
   Qwen3-VL since 2026-09-10, which found test fixes and a CPU and
   pipeline-parallel fix to vllm's Qwen3-VL; and the bodies of the multi-GPU
   and XPU commits named above.
+
+---
+
+## What moved by 2026-09-25
+
+Read on 2026-09-25 by fetch, from each clone's upstream branch, against the
+revision the 2026-09-19 section recorded. The commit list for a clone is
+`git log <recorded>..origin/main` inside it (Sana: `origin/sol-engine`).
+Diffs were read for the commits named below and titles for the rest. Core,
+comfy-kitchen, kijai's fork and ComfyUI's workflow templates live in
+[`../sol_upstream.md`](../sol_upstream.md), section "comfy-kitchen and core,
+2026-09-25". sglang's seventh read lives in
+[`../research/sglang_comparison.md`](../research/sglang_comparison.md).
+
+**Nothing below changes what runs on this card, and nothing triggers the
+adopt-upstream rule.** sglang moved no default this repo differs on. The one
+upstream default that did move, ComfyUI's templates loading an INT8 video
+VAE, belongs to none of the rule's three upstreams and contradicts an owner
+decision; `sol_upstream.md` has it.
+
+- **`sglang`** (`993d1fccba` to `2f5c9ac43d`) **now implements PDD**
+  (`973fb44471`, #40568). It uses the same dt-weighted head fusion, the same
+  shifts and the same eight evaluations as ours, over a fixed uniform
+  partition fused offline. The seventh read has the comparison, and a probable
+  gate/value swap in its offline fc1 merge.
+- **`vllm-omni`** (`fa506e0fe` to `3bd5ac968`).
+  - **Continuation from the latent tail, as guide rows** (`139a47a57`,
+    #7838). The previous window's sampled video and audio tail goes in as
+    extra conditioning rows (a `latent_guide` ref block) sharing the new
+    window's time origin. The overlap is regenerated and discarded, every
+    window's temporal positions are offset onto one global clock, and audio
+    boundaries are rounded on the cumulative timeline so no error accumulates.
+    Nothing is decoded. `audio_mode=lock_source` pins one encoded track in the
+    target audio rows at timestep 1.0 every step, sliced per window, which is
+    our mask freeze at `audio_mask` 0 with `track_latent`. **This is the guide
+    arm of [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 5 idea 5,
+    taken from the latent tail.** Core can express the guide half: its packed
+    layout already reads a latent from `minimax_keyframes`. It has no temporal
+    offset, so the global clock would need a core change. The docstring credits
+    the algorithm to two third-party ComfyUI packs,
+    `ttulttul/ComfyUI-Minimax-H3-Continuation` and
+    `vizart-vj/ComfyUI-MiniMax-H3-LongMedia`. Neither is cloned or read.
+    (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/continuation.py::diffuse_continuation`,
+    `::resolve_continuation`;
+    `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/packed_sequence.py`;
+    `coderef/vllm-omni/recipes/MiniMaxAI/MiniMax-H3.md`, "Long video and
+    driving audio".)
+  - **#7693 reversed** (`84977d954`, #7913). The fused RMSNorm and AdaLN
+    kernels keep the norm and the affine in fp32 on every arch
+    (`coderef/vllm-omni/vllm_omni/diffusion/layers/indexed_modulation.py`).
+    sglang still rounds the norm to bf16 before its fp32 affine, as core does
+    at the norm, so the removed path was the vendor-compatible one. Core
+    rounds at more points than sglang's fused kernel, because
+    `comfy/ldm/minimax/model.py::_mod_scale_shift` is two in-place bf16 ops.
+    By the vendor reference that is not a defect, and only a capture could
+    size it. The same commit turns TF32 off for the keyframe encode on SM90
+    only, so [`../open_experiments.md`](../open_experiments.md) #30's
+    `allow_tf32=True` quote is now arch-conditional; #30 stays closed.
+  - **Steps now count evaluations** (`67aa30c96`, #7219), the convention
+    LightX2V and ComfyUI's `steps` already use. Turbo files are validated
+    against their declared evaluation count.
+    `bench/check_distill_settings.py` reads LightX2V that way already.
+    vllm-omni's own client templates still describe sigma-point counts, which
+    its server now rejects for the Turbo files it validates. That was read,
+    not run.
+  - **Exact AdaLN projection cache** (`535bd35b4`, #7987), on by default. It
+    reuses the bytes of an identical earlier call, keyed on a digest of the
+    whole `t_emb` plus the numeric settings, so hits come across requests with
+    the same schedule, not across steps. It is the second engine to do this,
+    after LightX2V's `95e9b86b` (2026-09-10 section). Core recomputes.
+  - **Latent-mask editing** (`5a93ec1b4`, #7465; client graphs `fa1d03ab8`,
+    #7898). Server-side video and audio inpainting whose token pooling and
+    mask quantisation match core's
+    (`comfy/ldm/minimax/model.py::mask_row_values`), which it cites. Core had
+    it first.
+  - **Portable prompt skills** (`f8a00b149`, #7923): prompt format only, no
+    sampler default. They differ from [`../prompting.md`](../prompting.md) in
+    two places: they keep shot-header timestamps, which the house rule forbids,
+    and they bind `<Picture 1>`/`<Picture 2>` for FL2VA where the vendor
+    guide's alignment line is bare. The vendor guides win.
+  - `dbd6a35dd` (#8008) refuses a LoRA whose modules do not all bind; core's
+    `comfy/lora.py` still warns and continues. The rest is VAE memory
+    (#7241), request cancellation, tests, and first- and last-frame inputs on
+    its ComfyUI client pack (#7449), which still runs no H3 weights in ComfyUI.
+- **`LightX2V`** (`52161985` to `a4b8ce30`). Under `configs/minimax_h3` there
+  are only additions (`git diff --name-status`), so nothing
+  `bench/check_distill_settings.py` reads moved.
+  - **The "latent cache" is DPCache** (`8652c6f1`, #1557). On unselected steps
+    it skips the whole block stack and extrapolates its output with a Taylor
+    series. The step set is chosen by a dynamic program over a calibration
+    run keyed on the Sol settings. Skipped steps are predictions, not reuse.
+    It ships combined with Sol, on ref2av at the base step count, multi-GPU
+    (`coderef/LightX2V/configs/minimax_h3/decache/`). **That reverses** the
+    rotation survey's E.5 claim that LightX2V refuses feature caching on H3
+    and never combines it with Sol; a dated note is in place there. A MagCache
+    class landed too but cannot be selected
+    (`coderef/LightX2V/lightx2v/models/networks/minimax_h3/model.py::MiniMaxH3Model._init_infer_class`).
+  - **Causal streaming RefA2V** (`d43f15f7`, #1539; `40744764`, #1542). A
+    second KV-cached causal H3 runtime beside TaoMate, and different on every
+    axis:
+    - it loads its own full checkpoint, whose provenance the checkout does
+      not give;
+    - it keeps a rolling K/V cache per denoising step, filled by the noisy
+      forward;
+    - it caches text through a prefill;
+    - it re-ropes cached keys into bounded slots;
+    - it puts the driving audio clean in the target rows at timestep 1.0.
+
+    That last point implies a weight set trained with clean audio in the
+    target rows, which touches `h3_audio_freeze.md` section 5 item 8. That is
+    reasoned from the code. It needs tensor parallelism across several GPUs
+    and FlashAttention-3
+    (`coderef/LightX2V/lightx2v/models/networks/minimax_h3_causal/streaming.py::MiniMaxH3StreamingPlan`,
+    `coderef/LightX2V/lightx2v/common/kvcache/rolling.py::StepRollingKVCachePool`).
+- **`ComfyUI-UtilsCollection`** (`1d5b202` to `fc6104c`). Not installed here,
+  and no shipped graph wires a `UC_*` node.
+  - **A loop sampler** (`UC_H3LoopSampler`, `plan_h3_schedule`) windows one
+    whole-clip latent. It carries the previous window's sampled tail through
+    `noise_mask`, takes a prompt per window and restarts positions per window.
+    That is the same arm as ours, and its decode-and-re-encode path (the
+    2026-09-19 note) stays beside it. Its seams are not held to the audio
+    grid, where ours require `39+51k`. The reader found several defects in it
+    by reading, none run: accepted inputs that are never used, a
+    `preserve_input` mode that yields silent audio when no source is wired,
+    and an audio mask handed to the video stream as a plain tensor
+    (`coderef/ComfyUI-UtilsCollection/helpers/sampling_helpers.py::start_sampling_loop`).
+  - `7605f6b` and `e940d37` send standalone reference audio to
+    `minimax_refs` only, which matches core's
+    `comfy_extras/nodes_minimax_h3.py::MiniMaxH3ReferenceToVideo` (verified).
+    `84c0182` installs object patches on the patcher clone, including its own
+    copy of core's H3 `_forward`. It edits no core file.
+  - Zero-sentinel inputs (`749d8d6`'s megapixels 0 and others) are noted, not
+    port candidates (this pack refuses the pattern:
+    `bench/check_literal_widgets.py`).
+    Qwen reference collections, fusion images, a prompt builder with a timed
+    `Timeline:` block, and a VLM preset that puts ref2va sections into T2VA:
+    none contradicts [`../evidence.md`](../evidence.md) "Settled about H3",
+    and each departs from the vendor's prompt structure.
+- **`flashinfer`** (`dc04f50c` to `bf82326b`): H3 kernels for SM100, SM103 and
+  SM120 only. **`Sana`** (`ca26dbd` to `6c2f582`): a HyperFlow doc.
+  **`TaoMate-H3`** (`b933d8e` to `6b2f998`): prompt text only.
+  **`DiffSynth-Studio`** (`c458cb4` to `7686e54`): Qwen-Image-2.1.
+  **`diffusers`** (`a3e0b8ec2` to `bdc2bea37`): no H3 path; `80c7ed262`
+  fixes flash and sage varlen prep under `torch.compile`.
+  **`Model-Optimizer`** (`b311c054d` to `ed7e87953`): one commit touches the
+  `qwen3_vl` recipe files, a recipe-format change read at the title.
+- **Unmoved:** `Minimax-H3-Turbo` (`02e26d5`), `MiniMax-H3` (`d21241f`),
+  `TurboDiffusion` (`e3d6136`), `TaoMate-LTX` (`136d890`),
+  `comfyui_dagthomas`. `alibaba-pai_MiniMax-H3-Acc-LoRAs` is a Hugging Face
+  download, not a clone, and its repository's newest commit is 2026-08-27 (HF
+  API).
+- **Not read:** the infrastructure clones past a commit-message search for
+  H3, MiniMax and Qwen3-VL. That found only MiniMax-M3 work in `vllm`.
+  Also not read: the three third-party continuation packs vllm-omni names
+  (the third is `T8mars/comfyui-minimax-h3-audio-T8`, from its recipe), and
+  the line-number citations into the sglang files these commits touched,
+  beyond the one corrected in `sol_upstream.md`.
 
 ---
 
