@@ -14,6 +14,45 @@ artifact.
   Retired with its hooked harness branch. The check passes again, and
   `docs/comfyui_vendor_gaps.md` gap 2b now reads as fixed.
 
+## 0.140.0
+
+### Added
+
+- **`MiniMaxH3AudioRefineMask`** (`audio_refine.py`) writes a per-stream
+  noise mask onto a sampled H3 latent: video kept, audio reopened. It follows
+  Adudeguyman's ComfyUI-H3-AudioRefine (MIT). The mask feeds a second,
+  partial-denoise pass on the model from before the distill LoRA, so the extra
+  audio steps run undistilled. `h3_config.AUDIO_REFINE` holds that pack's own
+  defaults, inherited: 6 Euler steps, simple scheduler, denoise 0.5.
+- **Three probe graphs for the 2026-09-25 distill and audio-recovery session:**
+  - `h3_probe_t2v_pdd8_audio_refine` is the shipped PDD8 graph plus the
+    refine pass.
+  - `h3_probe_t2v_flashgen_4step` runs FlashGen, Beidouqixing's 4-step VSD
+    LoRA as converted by kijai, on its own four sigmas. They are read from the
+    file's header (`h3_config.FLASHGEN_*`).
+  - `h3_probe_t2v_flashgen_4step_audio_refine` is the FlashGen graph plus the
+    refine pass.
+
+  Each refine pass has its own copy of the base chain, including Sol, so every
+  sampling path carries the declared attention. None of these has been
+  rendered. The running server predates the new node, so it needs a restart
+  before the refine graphs load.
+- **`h3_config.refine_scheduler_ids`** identifies a refine pass's scheduler.
+  Before it, the step readers (`graph_schedule`, `check_widget_deviations`,
+  `check_pdd_sigmas`) took the refine pass's 6 steps for the graph's own
+  count.
+
+### Changed
+
+- **`bench/check_distill_settings.py` grades FlashGen and the refine pass.**
+  - FlashGen had no row, so its graph fell through to the base branch and
+    passed on the base shift it happens to share. It now has a row: one LoRA
+    on `unet_fl2va`, the base shift, Euler, and ManualSigmas equal to both the
+    constant and the file's own header.
+  - A new case requires every refine pass to reach the `UNETLoader` with no
+    LoRA loader on the way.
+  - Both fail against a deliberately broken copy of the graph.
+
 ## 0.139.0
 
 ### Changed

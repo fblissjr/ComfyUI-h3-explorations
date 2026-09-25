@@ -89,7 +89,7 @@ sys.path.insert(0, str(HERE.parent))              # this repo
 sys.path.insert(0, str(HERE.parent / "workflows"))
 
 import pdd_math as M                              # noqa: E402
-from h3_config import graph_paths, resolve_widget  # noqa: E402
+from h3_config import graph_paths, refine_scheduler_ids, resolve_widget  # noqa: E402
 
 WORKFLOWS = HERE.parent / "workflows"
 
@@ -401,16 +401,22 @@ def case_graphs_consume_it():
         elif NUM_STEPS % steps:
             problems.append(f"{path.name}: steps={steps} does not tile the "
                             f"{NUM_STEPS}-point grid")
+        # An audio-only refine pass is a second sampler on its own schedule,
+        # by design (`refine_scheduler_ids`); the rule here is about
+        # the pass the PDD node drives.
+        refine = refine_scheduler_ids(g)
         sampler = [n for n in g.values()
                    if isinstance(n, dict)
-                   and n.get("class_type") == "SamplerCustomAdvanced"]
+                   and n.get("class_type") == "SamplerCustomAdvanced"
+                   and not (isinstance(n["inputs"].get("sigmas"), list)
+                            and str(n["inputs"]["sigmas"][0]) in refine)]
         for s in sampler:
             src = s["inputs"].get("sigmas")
             if not (isinstance(src, list) and src[0] == nid and src[1] == 1):
                 problems.append(f"{path.name}: sampler reads sigmas from "
                                 f"{src!r}, not the PDD node's SIGMAS output")
-        leftover = [n.get("class_type") for n in g.values()
-                    if isinstance(n, dict)
+        leftover = [n.get("class_type") for k, n in g.items()
+                    if isinstance(n, dict) and k not in refine
                     and n.get("class_type") == "BasicScheduler"]
         if leftover:
             problems.append(f"{path.name}: still carries a BasicScheduler, so "

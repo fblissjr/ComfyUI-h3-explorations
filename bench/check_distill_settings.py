@@ -356,6 +356,26 @@ def is_turbo(lora_name):
     return "turbo" in lora_name.lower()
 
 
+def classify_flashgen(lora_name):
+    """The FlashGen 4-step LoRA (h3_config.FLASHGEN_*). Before 2026-09-25 this
+    file had no row for it, so a FlashGen graph fell through to the base branch
+    and passed on the base shift it happens to share -- graded on nothing that
+    belongs to it."""
+    return "flashgen" in lora_name.lower()
+
+
+def _flashgen_header_sigmas():
+    """`manual_sigmas_shift12` from the FlashGen file's header, or None if the
+    file is not on this box (a missing file is `check_model_files.py`'s)."""
+    import h3_config as cfg
+    path = lora_path(cfg.FLASHGEN_LORA)
+    if path is None:
+        return None
+    from safetensors import safe_open
+    with safe_open(str(path), "pt") as f:
+        return (f.metadata() or {}).get("manual_sigmas_shift12")
+
+
 def classify_taomate(lora_name):
     """Any file carrying the TaoMate-H3 adapter: the full-rank conversion,
     kijai's resize or the swapped control. One set of weights, so one sampling
@@ -706,6 +726,46 @@ def main():
                     f"{path.name}: TaoMate strength {got_strength}, the runtime "
                     f"applies {tm.STRENGTH}")
                 continue
+            flashgen = [l for l in found.loras if classify_flashgen(l)]
+            if flashgen:
+                nodes = [n for n in doc.values() if isinstance(n, dict)]
+                assert found.loras == [cfg.FLASHGEN_LORA], (
+                    f"{path.name}: FlashGen must load exactly "
+                    f"h3_config.FLASHGEN_LORA and nothing beside it, has {found.loras}")
+                unets = {n["inputs"].get("unet_name") for n in nodes
+                         if n.get("class_type") == "UNETLoader"}
+                assert unets == {cfg.MODELS["unet_fl2va"]}, (
+                    f"{path.name}: kijai projected FlashGen's adaln onto the pruned "
+                    f"fl2va curve basis, so it loads on MODELS['unet_fl2va'] only, "
+                    f"has {sorted(map(str, unets))}")
+                effective = BASE_SHIFT if found.shift is None else found.shift
+                assert effective == BASE_SHIFT, (
+                    f"{path.name}: FlashGen's sigmas are its base_schedule at shift "
+                    f"12, so the model samples at the base {BASE_SHIFT}, has {effective}")
+                assert (found.scheduler, found.steps) == ("manual", cfg.FLASHGEN_STEPS), (
+                    f"{path.name}: FlashGen runs its own {cfg.FLASHGEN_STEPS} sigmas "
+                    f"through ManualSigmas; graph has {found.scheduler!r}/{found.steps}")
+                # The vector is graded against the FILE, not only the constant:
+                # the constant is a copy of the header, and a re-download that
+                # moved the schedule should not leave the graphs on the old one.
+                header = _flashgen_header_sigmas()
+                manual = [n["inputs"].get("sigmas") for n in nodes
+                          if n.get("class_type") == "ManualSigmas"]
+                assert manual == [cfg.FLASHGEN_MANUAL_SIGMAS] and (
+                        header is None or header == cfg.FLASHGEN_MANUAL_SIGMAS), (
+                    f"{path.name}: ManualSigmas {manual}, constant "
+                    f"{cfg.FLASHGEN_MANUAL_SIGMAS!r}, file header {header!r}")
+                main_samplers = {doc[str(n["inputs"]["sampler"][0])]["inputs"].get("sampler_name")
+                                 for n in nodes if n.get("class_type") == "SamplerCustomAdvanced"
+                                 and doc.get(str(n["inputs"].get("latent_image", [None])[0]), {})
+                                 .get("class_type") != cfg.AUDIO_REFINE_MASK_NODE}
+                assert main_samplers == {cfg.FLASHGEN_SAMPLER}, (
+                    f"{path.name}: FlashGen steps {cfg.FLASHGEN_SAMPLER}, graph has "
+                    f"{sorted(map(str, main_samplers))}")
+                got = (found.strengths or {}).get(cfg.FLASHGEN_LORA)
+                assert got == cfg.FLASHGEN_STRENGTH, (
+                    f"{path.name}: FlashGen strength {got}, want {cfg.FLASHGEN_STRENGTH}")
+                continue
             turbo = [l for l in found.loras if is_turbo(l) or classify_pdd(l)]
 
             if not turbo:
@@ -935,6 +995,37 @@ def main():
             "carries it, drop the UNATTESTED entry -- do not silently keep "
             "grading it against its filename")
 
+    def refine_passes_run_undistilled():
+        """An audio-only refine pass exists to run UNDISTILLED steps: its model
+        must reach the UNETLoader with no LoRA loader on the way."""
+        import h3_config as cfg
+        seen = 0
+        for path in graph_paths(WORKFLOWS, "*_api.json", include_bench=True):
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            for n in doc.values():
+                if not (isinstance(n, dict) and n.get("class_type") == "SamplerCustomAdvanced"):
+                    continue
+                lat = n["inputs"].get("latent_image")
+                if not (isinstance(lat, list) and doc.get(str(lat[0]), {}).get("class_type")
+                        == cfg.AUDIO_REFINE_MASK_NODE):
+                    continue
+                seen += 1
+                guider = doc[str(n["inputs"]["guider"][0])]
+                ref = guider["inputs"]["model"]
+                chain = []
+                while isinstance(ref, list):
+                    node = doc[str(ref[0])]
+                    chain.append(node["class_type"])
+                    ref = node["inputs"].get("model")
+                assert chain and chain[-1] == "UNETLoader", (
+                    f"{path.name}: the refine pass's model chain {chain} does not end at a UNETLoader")
+                bad = [c for c in chain if c in LORA_LOADER_CLASSES]
+                assert not bad, (
+                    f"{path.name}: the refine pass runs through {bad}, so its "
+                    f"steps are distilled -- the pass exists to be undistilled")
+        assert seen, "no refine pass found; the graphs that carry one would go ungraded"
+
+    check("an audio refine pass runs undistilled", refine_passes_run_undistilled)
     check("an unknown turbo checkpoint is not classified", unknown_lora_is_caught)
 
     if failures:

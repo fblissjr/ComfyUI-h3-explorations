@@ -93,6 +93,17 @@
       "Filenames"
     ]
   },
+  "MiniMaxH3AudioRefineMask": {
+    "inputs": [
+      "latent",
+      "video_mask",
+      "audio_mask"
+    ],
+    "node_id": "MiniMaxH3AudioRefineMask",
+    "outputs": [
+      "latent"
+    ]
+  },
   "MiniMaxH3ChannelBalance": {
     "inputs": [
       "model",

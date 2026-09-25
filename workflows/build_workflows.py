@@ -109,6 +109,8 @@ from h3_config import (  # noqa: E402
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
     TAOMATE_LORA,
+    AUDIO_REFINE, FLASHGEN_LORA, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
+    FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
 )
 
 
@@ -1477,6 +1479,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # in <Picture N> order.
               freeze_song_refs: tuple[str, ...] | None = None,
               freeze_song_lists: tuple[tuple[str, str, str, int], ...] | None = None,
+              # Audio-only refinement after the pass (audio_refine.py,
+              # h3_config.AUDIO_REFINE): the sampled latent's video frozen and
+              # its audio reopened, then a partial-denoise pass on the model
+              # from BEFORE the LoRA, on its own copy of the base chain.
+              audio_refine: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2251,6 +2258,46 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g["74"]["inputs"]["lists"] = chain
     elif freeze_song_refs or freeze_song_lists:
         raise SystemExit("freeze_song_refs and freeze_song_lists need freeze_song")
+
+    if audio_refine:
+        # ComfyUI-H3-AudioRefine's design (coderef/ComfyUI-H3-AudioRefine,
+        # MIT): pass 1 runs the distill, pass 2 runs a few undistilled steps on
+        # the audio only. The refine model starts at the UNETLoader, BEFORE
+        # the LoRA, and gets its own copy of the base chain -- base shift,
+        # the dense backend node if the graph has one, and Sol at the base
+        # recipe -- so every sampling path carries the attention the graph
+        # declares. Node ids 80-87.
+        if lora is None or freeze_audio or freeze_windows or freeze_song or split_at or single_frame:
+            raise SystemExit("audio_refine needs a distill LoRA and composes with none of "
+                             "freeze_audio, freeze_windows, freeze_song, split_at, single_frame")
+        rsrc = ["1", 0]
+        g["80"] = {"class_type": "MiniMaxH3SigmaShift", "inputs": {"model": rsrc, **SIGMA_SHIFT}}
+        rsrc = ["80", 0]
+        if "58" in g:
+            g["81"] = {"class_type": "ModelAttentionBackend",
+                       "inputs": {"model": rsrc, "attention": g["58"]["inputs"]["attention"]}}
+            rsrc = ["81", 0]
+        if sol is not None:
+            g["82"] = {"class_type": SOL_NODE,
+                       "inputs": {"model": rsrc,
+                                  **sol_api_inputs(sol_for_graph(False, SAMPLING["steps"]))}}
+            rsrc = ["82", 0]
+        g["83"] = {"class_type": "MiniMaxH3AudioRefineMask",
+                   "inputs": {"latent": ["10", 0],
+                              "video_mask": AUDIO_REFINE["video_mask"],
+                              "audio_mask": AUDIO_REFINE["audio_mask"]}}
+        g["84"] = {"class_type": "BasicScheduler",
+                   "inputs": {"model": rsrc, "scheduler": AUDIO_REFINE["scheduler"],
+                              "steps": AUDIO_REFINE["steps"], "denoise": AUDIO_REFINE["denoise"]}}
+        g["85"] = {"class_type": "KSamplerSelect",
+                   "inputs": {"sampler_name": AUDIO_REFINE["sampler"]}}
+        g["86"] = {"class_type": "BasicGuider",
+                   "inputs": {"model": rsrc, "conditioning": ["26", 0]}}
+        g["87"] = {"class_type": "SamplerCustomAdvanced",
+                   "inputs": {"noise": ["6", 0], "guider": ["86", 0], "sampler": ["85", 0],
+                              "sigmas": ["84", 0], "latent_image": ["83", 0]}}
+        g["11"]["inputs"]["samples"] = ["87", 0]
+        g["12"]["inputs"]["samples"] = ["87", 0]
 
     return g
 
@@ -4059,6 +4106,35 @@ def main():
               freeze_audio=True,
               out_prefix="Video/h3_probe_taomate_3step_audio_freeze"),
          "text + a frozen audio track -> video at 3 steps via the TaoMate-H3 adapter"),
+
+        # **The 2026-09-25 distill and audio-recovery probes** (docs/wiki/next_steps.md,
+        # the 2026-09-25 blocks). Same prompt, seed, canvas and length as the
+        # shipped t2v graphs, on the default chain, so each pairs with
+        # h3_text_to_video_pdd and with the dense baseline at a matched seed.
+        # C1, audio recovery: the shipped PDD8 graph plus an audio-only refine
+        # pass on the undistilled model (audio_refine.py, h3_config.AUDIO_REFINE).
+        ("h3_probe_t2v_pdd8_audio_refine.json", "t2v-pdd8-audio-refine", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS, audio_refine=True,
+              out_prefix="Video/h3_probe_t2v_pdd8_audio_refine"),
+         "text -> video + audio at 8 steps via PDD, then 6 undistilled audio-only steps"),
+
+        # FlashGen (h3_config.FLASHGEN_*): a 4-step VSD distill as kijai converted
+        # it, on its own four sigmas. Trained at 5.2 s; rendered at the owner's
+        # length, which is a known confound.
+        ("h3_probe_t2v_flashgen_4step.json", "t2v-flashgen-4step", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_flashgen_4step"),
+         "text -> video + audio at 4 steps via the FlashGen LoRA on its own sigmas"),
+
+        ("h3_probe_t2v_flashgen_4step_audio_refine.json", "t2v-flashgen-4step-audio-refine", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              audio_refine=True,
+              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine"),
+         "the FlashGen arm plus 6 undistilled audio-only steps"),
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.

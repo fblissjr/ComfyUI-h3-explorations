@@ -176,6 +176,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("BasicScheduler", "steps"):
         ("ARM", "the arm's evaluation count; graded against the LoRA it loads "
                 "by bench/check_distill_settings.py"),
+    ("BasicScheduler", "denoise"):
+        ("ARM", "0.5 on the audio-only refine pass of the audio_refine probes "
+                "only: its steps run at the tail of a steps/denoise schedule. "
+                "Inherited from ComfyUI-H3-AudioRefine's node default; "
+                "h3_config.AUDIO_REFINE. Every graph's own pass keeps 1.0."),
     ("MiniMaxH3Resolution", "length"):
         ("ARM", "the arm's frame count; h3_config.LENGTH / LONG_LENGTH"),
     ("MiniMaxH3Resolution", "shape"):
@@ -437,8 +442,11 @@ def graph_step_count(graph: dict):
     """Evaluations this graph runs, resolved through a PrimitiveInt link."""
     prim = {nid: n.get("inputs", {}).get("value")
             for nid, n in graph.items() if n.get("class_type") == "PrimitiveInt"}
-    for node in graph.values():
-        if node.get("class_type") not in _STEP_NODES:
+    # An audio-only refine pass's scheduler counts extra audio steps, not the
+    # evaluations the stem names (h3_config.refine_scheduler_ids).
+    skip = h3_config.refine_scheduler_ids(graph)
+    for nid, node in graph.items():
+        if nid in skip or node.get("class_type") not in _STEP_NODES:
             continue
         raw = node.get("inputs", {}).get("steps")
         val = prim.get(raw[0]) if isinstance(raw, list) else raw

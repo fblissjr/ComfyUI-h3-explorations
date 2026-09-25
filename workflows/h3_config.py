@@ -1384,6 +1384,38 @@ PDD_MANUAL_SIGMAS = "1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0"
 PDD_MANUAL_EVALS = 6
 PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
+# ---- Audio-only refinement after a distilled pass ----------------------------
+#: The refine pass's schedule: `steps` run at the tail of a `steps / denoise`
+#: long `simple` schedule on Euler, with the video frozen and the audio
+#: reopened (`audio_refine.py::MiniMaxH3AudioRefineMask`), on the model from
+#: BEFORE the distill LoRA. **Inherited:** these are ComfyUI-H3-AudioRefine's
+#: own node defaults (`coderef/ComfyUI-H3-AudioRefine/nodes.py`,
+#: `H3AudioRefineSampler`: steps 6, euler, simple, audio_denoise 0.5), which its
+#: README shows after a 4-step Turbo pass. Nothing here has tuned them; the
+#: first pair is the 2026-09-25 C1 session (`docs/wiki/next_steps.md`).
+AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
+                    video_mask=0.0, audio_mask=1.0)
+
+# ---- FlashGen 4-step LoRA ------------------------------------------------------
+#: Beidouqixing's `minimax-h3-4step-lora-flashgen` (Apache-2.0): a 4-step
+#: data-free distribution-matching (VSD, no GAN) LoRA for T2VA, trained at
+#: 1344x768 and 5.2 s on the FL2VA partition. This is kijai's conversion
+#: (HF `Kijai/MiniMax-H3-experimental`, 2026-09-22): a dynamic rank resize at
+#: sv_fro 0.95 from rank 64, lossy by construction, with the adaln update
+#: projected onto the pruned checkpoint's curve basis. So it loads on
+#: `MODELS["unet_fl2va"]` and on nothing else. A plain weight LoRA with per-module
+#: alphas; `LoraLoaderModelOnly` carries it.
+FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors"
+FLASHGEN_STRENGTH = 1.0
+FLASHGEN_STEPS = 4
+#: **Inherited:** the file's own `manual_sigmas_shift12` metadata, which is the
+#: publisher's `base_schedule` [1.0, 0.7, 0.4, 0.15, 0.0] mapped through shift
+#: 12. Read from the header, so a re-download that changed it would show.
+FLASHGEN_MANUAL_SIGMAS = "1.0, 0.965517, 0.888889, 0.679245, 0.0"
+#: **Reasoned:** the card names no sampler, and both its deployment targets
+#: (vllm-omni, MindIE-SD) step Euler deterministically.
+FLASHGEN_SAMPLER = "euler"
+
 # ---- TaoMate-H3 -------------------------------------------------------------
 #: TaoLiveAIGC's streaming adapter (step-3000 generator EMA, rank 128, alpha
 #: 128), trained on the FL2VA partition of `MiniMaxAI/MiniMax-H3` -- the
@@ -2224,6 +2256,31 @@ def resolve_widget(graph, node, name, *,
     return resolve_link(graph, inputs[name], max_hops=max_hops)
 
 
+#: The node that marks a sampler's latent as an audio-only refinement pass.
+AUDIO_REFINE_MASK_NODE = "MiniMaxH3AudioRefineMask"
+
+
+def refine_scheduler_ids(graph) -> set:
+    """Ids of the `BasicScheduler` nodes that schedule an audio-only refine pass.
+
+    A refine pass is a `SamplerCustomAdvanced` whose `latent_image` comes from
+    `AUDIO_REFINE_MASK_NODE`, and its schedule is the node on its `sigmas`
+    input. Those steps are extra evaluations on the audio after the graph's own
+    pass, so every reader of "the graph's step count" must leave them out.
+    """
+    ids = set()
+    for n in graph.values():
+        if not isinstance(n, dict) or n.get("class_type") != "SamplerCustomAdvanced":
+            continue
+        inp = n.get("inputs", {})
+        lat, sig = inp.get("latent_image"), inp.get("sigmas")
+        if (isinstance(lat, list) and isinstance(sig, list)
+                and graph.get(str(lat[0]), {}).get("class_type") == AUDIO_REFINE_MASK_NODE
+                and graph.get(str(sig[0]), {}).get("class_type") == "BasicScheduler"):
+            ids.add(str(sig[0]))
+    return ids
+
+
 def graph_schedule(graph) -> tuple:
     """`(steps, scheduler)` for one graph, from whichever node owns the schedule.
 
@@ -2290,8 +2347,12 @@ def graph_schedule(graph) -> tuple:
     """
     steps = scheduler = None
     pdd_steps = manual_steps = None
-    for n in list(graph.values()):
-        if not isinstance(n, dict):
+    # A refine pass's scheduler is the refine pass's, not the graph's (added
+    # 2026-09-25 with `audio_refine.py`): its steps are extra audio-only
+    # evaluations, and read as the graph's they made a PDD arm look untiled.
+    skip = refine_scheduler_ids(graph)
+    for nid, n in list(graph.items()):
+        if not isinstance(n, dict) or nid in skip:
             continue
         kind = n.get("class_type")
         if kind == "BasicScheduler":
