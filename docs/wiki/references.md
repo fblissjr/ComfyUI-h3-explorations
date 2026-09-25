@@ -246,6 +246,12 @@ it, and none of the three moved a default this repo differs on.
     ComfyUI cannot load that layout as shipped. If one is ever converted,
     `bench/check_distill_settings.py` would classify the graph as base (it
     keys on LoRA filenames) and demand the base shift, which V2 does not use.
+    *2026-09-25: one has been converted.
+    `FastVideo/FastVideo-FastH3-Comfy` publishes
+    `fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors`. ComfyUI's own
+    templates (`video_fastvideo_fasth3_t2v`/`_i2v`) run it at 8 `simple`
+    steps on `res_multistep`, through core's `MiniMaxH3SigmaShift` at 10/3.
+    Not on disk here, and no graph of ours loads it.*
   - `507cb1d83` (#7535) moves its H3 VSA into the model. Same cube tiling and
     gated coarse branch as `vsa_attention.py`; it keeps a fixed count of
     video tiles where ours keeps a fraction (`h3_config.VSA_KEEP_PERCENT`).
