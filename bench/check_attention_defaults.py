@@ -170,6 +170,13 @@ DEVIATIONS = {
 #: Graphs that legitimately ship without live Sol, by MECHANISM. The
 #: single-frame class is not listed here -- it is derived from GRAPH_DIRS below.
 SOL_EXEMPT_STEMS = {
+    "h3_probe_t2v_fasth3_8step":
+        "FastVideo's FastH3 V2 was trained with VSA and runs core's "
+        "BlockSparseAttention in VSA mode, as ComfyUI's own template does "
+        "(h3_config.FASTH3_CORE_VSA). VSA replaces the block attention Sol "
+        "would override, so Sol here would be silently inert or a different "
+        "arm than the checkpoint's publishers ship. The kitchen backend is "
+        "still wired",
     "h3_probe_t2v_dense":
         "the fully dense control (2026-09-15): no Sol, no sage, no dense node, "
         "ComfyUI's own attention on every step; the ceiling for the whole chain "

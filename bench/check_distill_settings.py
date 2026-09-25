@@ -726,6 +726,32 @@ def main():
                     f"{path.name}: TaoMate strength {got_strength}, the runtime "
                     f"applies {tm.STRENGTH}")
                 continue
+            nodes_all = [n for n in doc.values() if isinstance(n, dict)]
+            unets_all = {n["inputs"].get("unet_name") for n in nodes_all
+                         if n.get("class_type") == "UNETLoader"}
+            if cfg.MODELS["unet_fasth3_v2"] in unets_all:
+                # A distilled CHECKPOINT, not a LoRA, so it is keyed on the
+                # unet. Without this row it read as a base graph and failed on
+                # its own 10/3 shift -- or, had it sat at 12/3, passed wrongly.
+                assert not found.loras, (
+                    f"{path.name}: FastH3 V2 is a full distilled model; stacking "
+                    f"{found.loras} on it is outside anything its publishers ship")
+                want_shift = (cfg.FASTH3_SHIFT["shift_video"], cfg.FASTH3_SHIFT["shift_audio"])
+                assert found.shift == want_shift, (
+                    f"{path.name}: FastH3 V2 samples at {want_shift} (its card: "
+                    f"video shift 10), graph has {found.shift}")
+                assert (found.scheduler, found.steps) == (cfg.FASTH3_SCHEDULER, cfg.FASTH3_STEPS), (
+                    f"{path.name}: FastH3 V2 runs {cfg.FASTH3_STEPS} {cfg.FASTH3_SCHEDULER} "
+                    f"steps; graph has {found.scheduler!r}/{found.steps}")
+                samplers = {n["inputs"].get("sampler_name") for n in nodes_all
+                            if n.get("class_type") == "KSamplerSelect"}
+                assert samplers == {cfg.FASTH3_SAMPLER}, (
+                    f"{path.name}: FastH3 V2 steps {cfg.FASTH3_SAMPLER}, graph has {sorted(map(str, samplers))}")
+                vsa = [n["inputs"] for n in nodes_all if n.get("class_type") == cfg.SOL_CORE_NODE]
+                assert vsa and all(v.get("selection") == "vsa" for v in vsa), (
+                    f"{path.name}: FastH3 V2 was trained with VSA and ships with "
+                    f"core's VSA node; graph has {vsa}")
+                continue
             flashgen = [l for l in found.loras if classify_flashgen(l)]
             if flashgen:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]

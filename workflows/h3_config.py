@@ -71,6 +71,14 @@ MODELS = dict(
     # to ask whether an fl2v distill LoRA transfers to reference work better on
     # fl2va's linears than on ref2va's; `docs/roadmap.md`, the regime section.
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
+    # FastVideo's FastH3 8-step V2 (HF FastVideo/FastVideo-FastH3-Comfy): a full
+    # distilled T2VA DiT (data-free DMD2, trained WITH VSA-H3), pruned int8
+    # convrot on the fl2va curve basis, plus a `to_gate_compress` per main block
+    # that core's model detection now reads from the keys
+    # (`comfy/model_detection.py`, `gate_compress`). It also quantizes the token
+    # refiner, which ours keeps bf16. T2VA only: FL2VA and Ref2VA were not
+    # distilled. Sampling contract: `FASTH3_*` below.
+    unet_fasth3_v2="fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
     # **EXPERIMENTAL, and every word of that is load-bearing.** kijai's
@@ -1395,6 +1403,23 @@ PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 #: first pair is the 2026-09-25 C1 session (`docs/wiki/next_steps.md`).
 AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
                     video_mask=0.0, audio_mask=1.0)
+
+# ---- FastH3 8-step V2 ------------------------------------------------------------
+#: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
+#: `templates/video_fastvideo_fasth3_t2v.json` (read 2026-09-25): 8 `simple`
+#: steps on `res_multistep`, core's `MiniMaxH3SigmaShift` at 10/3 (the card:
+#: "its video scheduler shift is 10, not the base model's 12"), the kitchen
+#: backend, and core's `BlockSparseAttention` in VSA mode.
+FASTH3_STEPS = 8
+FASTH3_SAMPLER = "res_multistep"
+FASTH3_SCHEDULER = "simple"
+FASTH3_SHIFT = dict(shift_video=10.0, shift_audio=3.0)
+#: Core's node at the template's widget values. `keep_percent` 10 is the
+#: TEMPLATE's; the model card says the checkpoint was trained with VSA at 80%
+#: sparsity, which would be 20. The template is ComfyUI's own, so it wins here;
+#: the discrepancy is recorded, not resolved.
+FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
+    "selection": "vsa", "selection.keep_percent": 10.0}).items() if k != "selection.tau"}
 
 # ---- FlashGen 4-step LoRA ------------------------------------------------------
 #: Beidouqixing's `minimax-h3-4step-lora-flashgen` (Apache-2.0): a 4-step

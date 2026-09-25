@@ -176,6 +176,11 @@ DECLARED: dict[tuple[str, str], tuple] = {
     ("BasicScheduler", "steps"):
         ("ARM", "the arm's evaluation count; graded against the LoRA it loads "
                 "by bench/check_distill_settings.py"),
+    ("BlockSparseAttention", "selection"):
+        ("ARM", "'vsa' on the FastH3 V2 probe only: the checkpoint was trained "
+                "with VSA and ComfyUI's own template runs it through this node "
+                "in VSA mode (h3_config.FASTH3_CORE_VSA, inherited). The node's "
+                "first option is 'sol-attn'."),
     ("BasicScheduler", "denoise"):
         ("ARM", "0.5 on the audio-only refine pass of the audio_refine probes "
                 "only: its steps run at the tail of a steps/denoise schedule. "

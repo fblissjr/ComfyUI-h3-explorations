@@ -111,6 +111,8 @@ from h3_config import (  # noqa: E402
     TAOMATE_LORA,
     AUDIO_REFINE, FLASHGEN_LORA, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
+    FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
+    refine_scheduler_ids,
 )
 
 
@@ -1484,6 +1486,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # its audio reopened, then a partial-denoise pass on the model
               # from BEFORE the LoRA, on its own copy of the base chain.
               audio_refine: bool = False,
+              # Core's BlockSparseAttention at these API inputs, in Sol's slot
+              # (node 21). For a checkpoint trained with VSA whose upstream
+              # recipe is core's node (FastH3, h3_config.FASTH3_CORE_VSA).
+              core_vsa: dict | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -1957,6 +1963,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                               "keep_percent": keep_percent,
                               "pooled_tail": pooled_tail}}
         model_src = ["46", 0]
+    if core_vsa is not None:
+        if sol is not None or vsa is not None:
+            raise SystemExit("core_vsa takes Sol's slot and replaces the block attention VSA "
+                             "would; pass it with sol=None and vsa=None")
+        g["21"] = {"class_type": SOL_CORE_NODE,
+                   "inputs": {"model": model_src, **core_vsa}}
+        model_src = ["21", 0]
     if sol is not None and sol_impl == "core":
         # ComfyUI core's own Sol node in our node's slot, at ITS OWN schema
         # defaults (h3_config.SOL_CORE_DEFAULTS, inherited and re-read against
@@ -3784,8 +3797,24 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
     # stray second model path to an ordinary graph would now pass.
     split_nodes = [nid for nid, n in graph.items()
                    if n["class_type"] == "SplitSigmas"]
+    # An audio-only refine pass (audio_refine.py) is a second sampler with its
+    # own model path by design. Its scheduler and guider must agree with EACH
+    # OTHER, and are taken out of the main pass's pool; anything else reading a
+    # third source still fails below.
+    refine_ids = set(refine_scheduler_ids(graph))
+    for n in graph.values():
+        if (n["class_type"] == "SamplerCustomAdvanced"
+                and isinstance(n["inputs"].get("sigmas"), list)
+                and str(n["inputs"]["sigmas"][0]) in refine_ids):
+            sid, gid = str(n["inputs"]["sigmas"][0]), str(n["inputs"]["guider"][0])
+            pair = {tuple(graph[x]["inputs"]["model"]) for x in (sid, gid)}
+            if len(pair) != 1:
+                e(f"refine pass: scheduler {sid} and guider {gid} read MODEL from "
+                  f"different sources {pair}")
+            refine_ids.add(gid)
     consumers = [(nid, n) for nid, n in graph.items()
-                 if n["class_type"] in ("BasicScheduler", "BasicGuider")]
+                 if n["class_type"] in ("BasicScheduler", "BasicGuider")
+                 and nid not in refine_ids]
     srcs = {tuple(n["inputs"]["model"]) for _, n in consumers
             if isinstance(n["inputs"].get("model"), list)}
     if split_nodes and len(srcs) == 2:
@@ -4127,6 +4156,17 @@ def main():
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/h3_probe_t2v_flashgen_4step"),
          "text -> video + audio at 4 steps via the FlashGen LoRA on its own sigmas"),
+
+        # FastH3 8-step V2 as ComfyUI's own template runs it (h3_config.FASTH3_*):
+        # kitchen backend, core's VSA in Sol's slot, Sol off because VSA replaces
+        # the block attention it would override. T2VA only.
+        ("h3_probe_t2v_fasth3_8step.json", "t2v-fasth3-8step", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
+              steps=FASTH3_STEPS, sampler_name=FASTH3_SAMPLER,
+              scheduler_name=FASTH3_SCHEDULER, shift=FASTH3_SHIFT,
+              core_vsa=FASTH3_CORE_VSA,
+              out_prefix="Video/h3_probe_t2v_fasth3_8step"),
+         "text -> video + audio at 8 steps via FastVideo's FastH3 V2, core VSA"),
 
         ("h3_probe_t2v_flashgen_4step_audio_refine.json", "t2v-flashgen-4step-audio-refine", "t2v",
          LONG_T2V_PROMPT,

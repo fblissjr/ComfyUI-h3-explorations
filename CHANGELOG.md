@@ -14,6 +14,39 @@ artifact.
   Retired with its hooked harness branch. The check passes again, and
   `docs/comfyui_vendor_gaps.md` gap 2b now reads as fixed.
 
+## 0.141.0
+
+### Added
+
+- **`h3_probe_t2v_fasth3_8step`**: FastVideo's FastH3 8-step V2
+  (`MODELS["unet_fasth3_v2"]`, from HF `FastVideo/FastVideo-FastH3-Comfy`).
+  The graph copies ComfyUI's own template (`h3_config.FASTH3_*`, inherited):
+  - 8 `simple` steps on `res_multistep`;
+  - shift 10/3;
+  - the kitchen backend, and core's `BlockSparseAttention` in VSA mode in
+    Sol's slot, with Sol off, because VSA replaces the block attention Sol
+    would override.
+
+  The template keeps 10% of blocks where the model card says the model was
+  trained at 80% sparsity; the constant records that. Core now reads the
+  checkpoint's `to_gate_compress` from its keys, so no draft PR is needed.
+  T2VA only. Not rendered yet.
+- `build_api(core_vsa=...)` emits core's node at given inputs.
+
+### Changed
+
+- **`bench/check_distill_settings.py` has a FastH3 row**, keyed on the
+  checkpoint because there is no LoRA to key on. It grades shift 10/3,
+  8 simple steps, `res_multistep`, core VSA present, and no LoRA stacked.
+  Without the row the graph read as a base graph. It fails against a copy
+  of the graph at 12/3.
+- `check_attention_defaults` exempts the FastH3 probe from Sol, with the
+  reason. `check_widget_deviations` declares core's `selection` = `vsa`.
+- **The generator's validator checks a refine pass's scheduler and guider as
+  their own pair**, instead of requiring every scheduler and guider in the
+  graph to share one model. A pair that disagrees fails. All 118 graphs
+  validate against the live server.
+
 ## 0.140.0
 
 ### Added
