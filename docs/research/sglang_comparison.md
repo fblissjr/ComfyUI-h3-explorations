@@ -695,7 +695,7 @@ engine did ([`pdd/pdd_implementations.md`](pdd/pdd_implementations.md), section
   fl2va; ref2va has its own.
 
 **Where it agrees with ours:** the fusion formula (`pdd_math.fusion_plan`),
-the shifts, the evaluation count, Euler at eta 0, reading alibaba-pai's raw
+the shifts (`h3_config.PDD_SHIFT`), the evaluation count (`h3_config.PDD_STEPS`), Euler at eta 0, reading alibaba-pai's raw
 head stack as absolute heads rather than deltas, and failing closed on an
 off-grid request. **Where it differs:** one uniform partition fixed when the
 heads are fused, where ours fuses lazily from the sampler's sigmas and takes

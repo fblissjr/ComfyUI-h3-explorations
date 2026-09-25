@@ -21,7 +21,9 @@ Older history lives elsewhere and is not copied here:
   ([`references.md`](references.md), "What moved by 2026-09-25";
   [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
   2026-09-25"; [`../research/sglang_comparison.md`](../research/sglang_comparison.md),
-  "Seventh read"). Each has a dated note in place.
+  "Seventh read"). Each has a dated note in place. Commit `d226ec0f`, with
+  its checks recorded in
+  `bench/results/2026-09-25_upstream_survey_checks.md` in the follow-up.
   - "No engine implements PDD" (`references.md`, `pdd_implementations.md`
     section 1, the `index.md` row): sglang has implemented it since
     `973fb44471` (2026-09-23).

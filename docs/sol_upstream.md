@@ -76,7 +76,7 @@ so by policy it is not built. What it holds, for the next rebase:
   device, a semantics change to carry through the next rebase. #186 adds head
   dim 256 to the Flash kernel, which is not H3's. #191 and #193 add W6A8 (no
   model in `workflows/h3_config.py::MODELS` uses it: every DiT and encoder
-  header is `int8_tensorwise`). #194 is HIP INT8 attention; the rest is
+  header is `int8_tensorwise`, `bench/results/2026-09-25_upstream_survey_checks.md` check 3). #194 is HIP INT8 attention; the rest is
   Ascend.
 - **Open:** 187 and 189 unchanged; 195, 197, 199, 200, 201 and 202 are HIP,
   Ascend, or Triton INT8 dequantisation. **168 (ours)** is still open with no
@@ -104,7 +104,7 @@ follow-ups.
   attention for that block, and only that method is supported. An
   `optimized_attention_override` keeps priority, so Sol's override still
   wins. **No file in `workflows/h3_config.py::MODELS` carries the key**
-  (every file scanned with `safe_open`, 2026-09-25), so no shipped graph
+  (`bench/results/2026-09-25_upstream_survey_checks.md` check 2), so no shipped graph
   moves. Two copies of core's forward in this pack would react differently
   to a file that did carry it. `exact_blocks.py::_exact_forward` strips the
   override and calls core's `Attention.forward`, so its "exact" blocks would
@@ -113,14 +113,14 @@ follow-ups.
   `preferred_attention`. Both are inert today.
 - **`b16023b0` (#16457) removes torchaudio from core's requirements.** Core's
   H3 reference-audio resample now calls `comfy/audio.py::resample`. This pack
-  still imports torchaudio lazily at three resample sites
-  (`audio_freeze.py`, `reference_conditioning.py`), and `pyproject.toml`
+  still imports torchaudio lazily at its resample sites
+  (`grep -n torchaudio audio_freeze.py reference_conditioning.py`), and `pyproject.toml`
   declares no dependency. So a fresh install without torchaudio fails only
   when a clip's sample rate differs from the audio VAE's. This box still has
   torchaudio. `comfy.audio.resample` returned tensors `torch.equal` to
-  `torchaudio.functional.resample` on CPU fp32 at four common source rates
-  into the VAE's rate, checked in the 2026-09-25 session. That makes it a
-  drop-in replacement; it is not yet made.
+  `torchaudio.functional.resample` on CPU in fp32 (`bench/results/2026-09-25_upstream_survey_checks.md` check 1,
+  with the conditions it did not cover). That makes it a drop-in
+  replacement there. The swap has not been made.
 - `95539f56` (#16471) Fun-ControlNet Union 2.0 for H3; nothing here wires a
   ControlNet. ComfyUI `v0.37.0` was tagged 2026-09-20. The rest is other
   models, assets, partner nodes and NPU/ROCm.
@@ -148,15 +148,16 @@ under an unrelated title can be missed.
 - **16508 (fp16 inference for H3) would move this install's DiT to fp16 if
   it merged.** It adds `torch.float16` to H3's `supported_inference_dtypes`.
   `start.sh`'s `--fast fp16_accumulation` sets `PRIORITIZE_FP16`
-  (`comfy/model_management.py`), which `unet_dtype()` consults before its
-  dtype loop. The quantized-checkpoint exemption in the PR body covers
-  fp16-stored weights, not that branch, and every shipped graph loads the DiT
-  with `weight_dtype` at default. With fp16 activations, Sol's eligibility
+  (`comfy/model_management.py`). With the flag on and the PR's list,
+  `unet_dtype` and `unet_manual_cast` both choose fp16 for a quantized
+  checkpoint. The quantized-checkpoint exemption in the PR body does not
+  cover that path, and every graph loads the DiT with `weight_dtype` at
+  default. Both were called in-process (`bench/results/2026-09-25_upstream_survey_checks.md` check 4). With fp16 activations, Sol's eligibility
   gate refuses the call (`sol_attn_h3.py::_ineligible`, "kernel is
   bf16-only"), so every Sol graph would run dense, and the reason would show
   only in the route record. This pack's own attention forwards also lack the
-  PR's fp16 `out_proj` rescale. All of this is reasoned from the code, not
-  run. It is the one open PR here worth watching.
+  PR's fp16 `out_proj` rescale. The dtype choice was run; the Sol fallback
+  and the rescale are reasoned from the code, with no render under the PR. It is the one open PR here worth watching.
 - **16460 (packed-row memory estimate) and 16542 (dynamic-VRAM headroom)**
   would together change what gets paged out when sampling is admitted: the
   first changes the estimate, and the second makes `free_memory` partially

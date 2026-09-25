@@ -18,17 +18,20 @@ own below the rule.
 2026-09-25", and [`references.md`](references.md), "What moved by
 2026-09-25". Most urgent first; none of it is done.
 
-- **torchaudio left core's requirements** (#16457). The three resample sites
+- **torchaudio left core's requirements** (#16457). The resample sites
   in `audio_freeze.py` and `reference_conditioning.py` still import it, and
   `pyproject.toml` declares nothing, so a community install without
   torchaudio breaks on any clip whose rate is not the audio VAE's.
-  `comfy.audio.resample` returned tensors `torch.equal` to torchaudio's in
-  this session. Done when the sites call it, keeping torchaudio only as a
-  fallback on an older core. Waiting on the owner's go.
+  `comfy.audio.resample` returned tensors `torch.equal` to torchaudio's
+  (`../../bench/results/2026-09-25_upstream_survey_checks.md` check 1). Done when the sites call it, keeping
+  torchaudio only as a fallback on an older core. The provenance string in
+  `audio_freeze.py` that names torchaudio's sinc as the resampler changes
+  with them. Waiting on the owner's go.
 - **Watch core PR 16508 (fp16 H3).** If it merges as written, `start.sh`'s
   `--fast fp16_accumulation` puts the DiT in fp16, and every Sol graph runs
   dense without saying so beyond the route record
-  (`sol_attn_h3.py::_ineligible`). Reasoned from the code, not run. Cheap
+  (`sol_attn_h3.py::_ineligible`). The fp16 choice was run in-process
+  (`../../bench/results/2026-09-25_upstream_survey_checks.md` check 4); the dense fallback is reasoned. Cheap
   insurance whether or not it merges: a preflight or Sol-node refusal when
   the DiT's compute dtype is not bf16. Owner's call.
 - **The PDD head-half question is live.** Core's head bank merged 2026-08-29

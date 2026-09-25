@@ -346,8 +346,9 @@ VAE, belongs to none of the rule's three upstreams and contradicts an owner
 decision; `sol_upstream.md` has it.
 
 - **`sglang`** (`993d1fccba` to `2f5c9ac43d`) **now implements PDD**
-  (`973fb44471`, #40568). It uses the same dt-weighted head fusion, the same
-  shifts and the same eight evaluations as ours, over a fixed uniform
+  (`973fb44471`, #40568). It uses the same dt-weighted head fusion as ours
+  (`pdd_math.py::fusion_plan`), at `h3_config.PDD_SHIFT` and
+  `h3_config.PDD_STEPS` evaluations, over a fixed uniform
   partition fused offline. The seventh read has the comparison, and a probable
   gate/value swap in its offline fc1 merge.
 - **`vllm-omni`** (`fa506e0fe` to `3bd5ac968`).
