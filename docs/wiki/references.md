@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-09-26 (the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -251,7 +251,13 @@ it, and none of the three moved a default this repo differs on.
     `fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors`. ComfyUI's own
     templates (`video_fastvideo_fasth3_t2v`/`_i2v`) run it at 8 `simple`
     steps on `res_multistep`, through core's `MiniMaxH3SigmaShift` at 10/3.
-    Not on disk here, and no graph of ours loads it.*
+    Not on disk here, and no graph of ours loads it.* *2026-09-26: it is on
+    disk, and `h3_probe_t2v_fasth3_8step` loads it at the template's settings.
+    Those depart from FastVideo's own contract, which this file validates:
+    Euler on the release's positions, and VSA sparsity 0.8 (keep 20%) on every
+    step, against the template's keep 10% after a dense warm-up.
+    `h3_probe_t2v_fasth3_8step_contract` runs the contract
+    (`../../bench/results/2026-09-26_fasth3_contract_s1.md`).*
   - `507cb1d83` (#7535) moves its H3 VSA into the model. Same cube tiling and
     gated coarse branch as `vsa_attention.py`; it keeps a fixed count of
     video tiles where ours keeps a fraction (`h3_config.VSA_KEEP_PERCENT`).

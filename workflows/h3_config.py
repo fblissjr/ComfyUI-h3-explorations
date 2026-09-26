@@ -1439,9 +1439,10 @@ FASTH3_SAMPLER = "res_multistep"
 FASTH3_SCHEDULER = "simple"
 FASTH3_SHIFT = dict(shift_video=10.0, shift_audio=3.0)
 #: Core's node at the template's widget values. `keep_percent` 10 is the
-#: TEMPLATE's; the model card says the checkpoint was trained with VSA at 80%
-#: sparsity, which would be 20. The template is ComfyUI's own, so it wins here;
-#: the discrepancy is recorded, not resolved.
+#: TEMPLATE's; FastVideo's own contract is sparsity 0.8, keep 20, on every step.
+#: This constant stays the template arm; `FASTH3_CONTRACT_VSA` below is the
+#: contract, and `bench/results/2026-09-26_fasth3_contract_s1.md` compares them.
+#: Until 2026-09-26 this said the template "wins here" (`docs/wiki/decisions.md`).
 FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
     "selection": "vsa", "selection.keep_percent": 10.0}).items() if k != "selection.tau"}
 

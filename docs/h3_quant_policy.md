@@ -34,6 +34,16 @@ placeholder, not a recommendation.
 | all | int8 convrot (`qkv_proj`, `out_proj`, `fc1`, `fc2`) | shipped | inherited; no sensitivity measurement exists here |
 | tail | bf16? | unmeasured | TaoMate protects 0, 1, 47, 48, 49 on its W8A8 path; near-miss against our loud set, and a different surface |
 
+## LoRAs on the int8 checkpoints (2026-09-26)
+
+A LoRA merged by `LoraLoaderModelOnly` is requantized into each int8 layer
+with stochastic rounding (`comfy/ops.py::resolve_cast_module_with_vbar`). A
+delta well below one int8 step survives only in expectation, under rounding
+noise several times its size. How far below a step each distill's delta sits,
+per layer: `../bench/results/2026-09-26_int8_lora_requant.json`, from
+`bench/probe_int8_lora_requant.py`. `MiniMaxH3LoRABranch` (`lora_branch.py`)
+applies a LoRA at the call instead and leaves the int8 weight as shipped.
+
 ## The plan, in tiers
 
 Each tier is usable on its own; each later tier removes a cost of the one

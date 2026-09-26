@@ -323,7 +323,10 @@ on 2026-08-27 (`huggingface.co/FastVideo`, repos
 VSA-Synthetic-Step1300, VSA-Synthetic-Step1900}`), one day before kijai's
 int8 conversion above was uploaded. The VSA-DataFree card describes the
 weights as a step-1300, data-free DMD2 four-step distillation trained with
-VSA-H3 at 0.9 sparsity on 64-token tiles, t2va only: the second reading
+VSA-H3 at 0.9 sparsity on 64-token tiles, t2va only (*2026-09-26: that is
+Preview v1. The later 8-step V2 is pinned at 0.8, keep 20%, in its own
+`fastvideo_inference.json`, which ComfyUI's template and core's VSA tooltip do
+not follow; `../../../bench/results/2026-09-26_fasth3_contract_s1.md`*): the second reading
 above, and a distillation of the sampler rather than of the attention. Two
 serving engines have since pinned the recipe as code, and those are the
 pointers to use rather than anything retyped here:

@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **Corrected: FastH3 V2 was built to ComfyUI's template, not FastVideo's
+  contract.**
+  - `docs/wiki/references.md` said the FastH3 file was "Not on disk here, and
+    no graph of ours loads it". A dated note there now says what does.
+  - `docs/research/vsa/fastvideo_vsa_checkpoint.md` quoted Preview v1's 0.9
+    sparsity with nothing saying V2 is 0.8.
+  - The `h3_config.FASTH3_CORE_VSA` comment said the template "wins here".
+    It now names the contract arms, `h3_config.FASTH3_CONTRACT_*` (0.148.0),
+    and the record that compares them.
 - **FlashGen ships as `h3_text_to_video_flashgen`**, with rank 64 applied at
   the call (owner: "lets take our best stab at making a good workflow ship",
   while unable to look). Chosen by source rather than by eye:
