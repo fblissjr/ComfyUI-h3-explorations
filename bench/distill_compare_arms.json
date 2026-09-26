@@ -1,0 +1,19 @@
+{
+ "what": "The three distills as each is best built today, at one seed on two scenes. pdd8 = h3_text_to_video_pdd (the shipped PDD8 graph); flashgen = h3_text_to_video_flashgen (rank 64 applied at the call, 0.146.0 and later); fasth3 = h3_probe_t2v_fasth3_8step_contract (FastVideo's contract, 0.148.0). 1344x768, 345 frames. The diner FastH3 and FlashGen clips at this seed and code already exist (bench/results/2026-09-26_fasth3_contract_s1.jsonl row contract; bench/results/2026-09-26_flashgen_lora_path_s1.jsonl row fast_ship), so this run renders the other four.",
+ "why": "The owner, 2026-09-26: make FastH3 as good as it can be before saying it is not as good as PDD or FlashGen. This is that comparison, on the corrected FastH3.",
+ "arms": {
+  "diner_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+  "subway_pdd8": "workflows/h3_text_to_video_pdd_api.json",
+  "subway_flashgen": "workflows/h3_text_to_video_flashgen_api.json",
+  "subway_fasth3": "workflows/h3_probe_t2v_fasth3_8step_contract_api.json"
+ },
+ "patches": [
+  "diner_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "subway_pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_flashgen:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "subway_fasth3:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase"
+ ],
+ "seeds": {"first": 730451892, "note": "held"},
+ "run": "run_graph_arms.py --manifest bench/distill_compare_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-26_distill_compare_s1.jsonl",
+ "predictions": "none registered"
+}

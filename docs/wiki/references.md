@@ -1,6 +1,6 @@
 # The sister checkouts: what each one is good for
 
-last updated: 2026-09-26 (the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
+last updated: 2026-09-26 (section "A distill's reference is its trainer's contract" added; the FastH3 V2 note under 2026-09-19 extended); 2026-09-25 (section "What moved by 2026-09-25" added; the PDD line and the vllm-omni #7693 bullet corrected in place); 2026-09-19 (section "What moved by 2026-09-19" added); 2026-09-15 (section "The streaming references: TaoMate" added; "What moved by 2026-09-11" added and the two comfy-kitchen rows corrected 2026-09-11; "What moved by 2026-09-10" added 2026-09-10; the tables are otherwise the 2026-08-28 read)
 
 `coderef/` holds the reference implementations. `ls -l coderef/` is the list of
 what is currently on disk — some symlinks, some real clones — and this page is
@@ -24,6 +24,32 @@ and `grep -r --dereference-recursive`, or a search answers about a minority of
 it. Two references live in this repo instead: `bench/_sol_attn_reference.py`
 is the Sol-Attn reference for what can be imported, and
 `vendor/sol_attn_minimax.py` is a read-only reference node that is not loaded.
+
+## A distill's reference is its trainer's contract
+
+The owner's rule, 2026-09-26. A distilled checkpoint or LoRA is run the way
+its trainer says to run it: the sampling contract the trainer ships.
+
+**What counts as the contract:**
+- a settings file in the release (FastVideo's `fastvideo_inference.json`);
+- a release's merge script and schedule (FlashGen's `merge_lora_ckpt.py` and
+  `base_schedule`);
+- a serving engine's validator that pins those values
+  (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py`
+  checks FastH3 V2 against its file).
+
+**The contract outranks a downstream template**, ComfyUI's included. A
+template is a claim to test against the contract. When they differ, the
+contract is the default and the template is an arm. CLAUDE.md's adopt-upstream
+rule covers defaults that sglang and ComfyUI agree on. This rule covers a
+distill's sampling, where the trainer is the one source with the answer.
+
+**The instance that earned it:** FastH3 V2 was first built to ComfyUI's
+template. That template departs from FastVideo's contract on the sampler, the
+VSA kept fraction and a dense warm-up. The contract arms rendered a different
+and more complete take (`../../bench/results/2026-09-26_fasth3_contract_s1.md`).
+FlashGen was already on its contract's schedule
+(`../research/2026-09-26_flashgen.md`).
 
 ---
 

@@ -17,6 +17,10 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **A distill runs on its trainer's contract, not a downstream template**
+  (owner, approving the postmortem's proposal). The rule and its instance are
+  in `references.md`, "A distill's reference is its trainer's contract", and
+  CLAUDE.md points there.
 - **The owner could not tell the INT8 ConvRot video VAE from fp16** on one
   345-frame latent, decoded both ways and watched sighted
   (`bench/results/2026-09-26_vae_decoders_345f.md`). The lane was reopened

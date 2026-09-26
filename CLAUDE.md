@@ -15,7 +15,9 @@ comfy-kitchen agree on a default and ours differs, adopt theirs** in
 `workflows/h3_config.py` and the generator, rebuild, and say in the CHANGELOG
 what it replaced. Our own evals do not gate that; a later eval showing ours was
 better reverses it. One upstream alone, upstreams that disagree, or a knob no
-upstream has is an ordinary judgement call. (Owner, 2026-09-11.)
+upstream has is an ordinary judgement call. (Owner, 2026-09-11.) **A
+distill runs on its trainer's contract**, not a downstream template:
+`docs/wiki/references.md`, "A distill's reference is its trainer's contract".
 
 ## Do not trust prose, including this file's
 
