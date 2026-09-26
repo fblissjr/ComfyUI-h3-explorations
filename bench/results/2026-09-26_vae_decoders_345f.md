@@ -75,3 +75,19 @@ and int8 vaes". It was one scene, sighted rather than blind, on the encoded
 clips. That is proportionate for a practical choice under `CLAUDE.md`'s
 tinkering rule, and it is not a published finding.
 
+## End to end after the switch, 2026-09-26
+
+`2026-09-26_int8_vae_e2e_s1.jsonl`: the shipped FlashGen t2v graph at 0.151.0
+(INT8 VAE), same seed, on a freshly restarted unarmed server, warmup then one
+render. It is compared against the fp16 rows of the same graph and seed
+earlier that day (`2026-09-26_draft_decode_s1.jsonl`, `ship`).
+
+| state | fp16 total / sampler / decode (s) | INT8 total / sampler / decode (s) |
+|---|---|---|
+| warm | 166.1 / 131.7 / 29.9 | 153.7 / 131.5 / 17.6 |
+| cold (warmup) | 170.7 / 132.5 / 29.9 | 159.5 / 132.7 / 17.6 |
+
+The saving is the decode, about 12 s a render at this length. The sampler
+does not move. The VAE's reload inside VAEDecode, which pipeline telemetry
+shows on every render, is not a visible share of either decode.
+

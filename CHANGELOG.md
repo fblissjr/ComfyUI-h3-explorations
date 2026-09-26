@@ -19,7 +19,9 @@ artifact.
     tell the two apart on a clip pair.
   - A clip rendered before this is not pixel-comparable with one rendered
     after it.
-  - What it saves end to end is not yet measured in a full render.
+  - End to end, a warm FlashGen render took 153.7 s against 166.1 s with
+    fp16. The decode went from 29.9 s to 17.6 s and the sampler did not move
+    (record above, "End to end after the switch").
 - `h3_config.VIDEO_VAE_FP16` names the fp16 file. `compare_vae_decoders.py`
   uses it as the reference, and `check_model_files.py` grades it and
   `DRAFT_VAE` as constants.
