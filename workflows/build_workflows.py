@@ -4191,6 +4191,16 @@ def main():
               manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/h3_probe_t2v_flashgen_r64_4step_branch"),
          "FlashGen at full rank 64, applied at the call instead of merged"),
+        # The same with Sol off, on the kitchen backend: vllm-omni's NPU recipe
+        # runs FlashGen dense with the sparse config dropped.
+        ("h3_probe_t2v_flashgen_r64_4step_branch_dense.json", "t2v-flashgen-r64-4step-branch-dense",
+         "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              dense_attn="ck", sol_on=False,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step_branch_dense"),
+         "FlashGen rank 64 at the call, dense attention as vllm-omni's recipe runs it"),
 
         # FastH3 8-step V2 as ComfyUI's own template runs it (h3_config.FASTH3_*):
         # kitchen backend, core's VSA in Sol's slot, Sol off because VSA replaces

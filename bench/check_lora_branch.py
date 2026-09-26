@@ -51,6 +51,11 @@ import lora_branch as lb  # noqa: E402
 
 HIDDEN, TEXT_DIM, TEXT_LEN, LATENT, AUDIO_T = 256, 64, 8, (2, 4, 4), 6
 RANK, ALPHA, STRENGTH = 4, 6.0, 0.8
+#: The ops class the int8 checkpoints load through, with no quant config, so
+#: its Linear is the class the node meets on the card. `manual_cast` here let a
+#: `torch.nn.Linear` isinstance test pass on CPU and refuse every real render
+#: (2026-09-26).
+OPS = comfy.ops.mixed_precision_ops({}, torch.float32)
 
 
 class _Base(torch.nn.Module):
@@ -60,12 +65,25 @@ class _Base(torch.nn.Module):
 
 
 def tiny():
+    """Random weights on `manual_cast`, then loaded into an `OPS` model the way a
+    checkpoint load fills it (its Linear creates `weight` at load)."""
+    src = _build(comfy.ops.manual_cast)
+    dm = _build(OPS, init=False)
+    missing, unexpected = dm.load_state_dict(src.state_dict(), strict=False)
+    assert not unexpected, unexpected
+    dm.requires_grad_(False)
+    return dm
+
+
+def _build(ops, init=True):
     torch.manual_seed(0)
     dm = mm_h3.MiniMaxH3Model(
         hidden_size=HIDDEN, num_layers=2, token_refiner_num_layers=2, num_attention_heads=2,
         attention_head_dim=128, ffn_hidden_size=384, text_dim=TEXT_DIM, timestep_input_dim=32,
         time_embed_hidden_size=64, time_embed_dim=64, dtype=torch.float32, device="cpu",
-        operations=comfy.ops.manual_cast)
+        operations=ops)
+    if not init:
+        return dm
     with torch.no_grad():
         for name, p in dm.named_parameters():
             p.fill_(1.0) if "norm" in name else p.normal_(0.0, 0.05)

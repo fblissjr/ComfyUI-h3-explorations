@@ -1,17 +1,23 @@
 {
- "what": "How FlashGen reaches the int8 weight, on the diner scene at one seed. r13 = kijai's rank-13 resize merged by LoraLoaderModelOnly (h3_probe_t2v_flashgen_4step, the shipped FlashGen probe); r64 = the publisher's full rank 64 merged the same way (h3_probe_t2v_flashgen_r64_4step); r64_branch = rank 64 applied at the call by MiniMaxH3LoRABranch (h3_probe_t2v_flashgen_r64_4step_branch). Same sigmas, sampler, Sol and canvas; 1344x768, 345 frames.",
+ "what": "How FlashGen reaches the int8 weight, on the diner scene at one seed. r13 = kijai's rank-13 resize merged by LoraLoaderModelOnly (h3_probe_t2v_flashgen_4step, the shipped FlashGen probe); r64 = the publisher's full rank 64 merged the same way (h3_probe_t2v_flashgen_r64_4step); r64_branch = rank 64 applied at the call by MiniMaxH3LoRABranch (h3_probe_t2v_flashgen_r64_4step_branch). Same sigmas, sampler, Sol and canvas; 1344x768, 345 frames. r64_branch_dense = r64_branch with Sol off on the kitchen backend, as vllm-omni's NPU recipe runs FlashGen dense.",
  "why": "bench/results/2026-09-26_int8_lora_requant.json: merging FlashGen into the int8 convrot weight requantizes it, and its delta is about a hundredth of an int8 step, so the merge keeps it only under rounding noise several times its size. The branch keeps it exactly. The owner, 2026-09-26: make FlashGen work as well as it can before audio refining.",
  "arms": {
   "r13": "workflows/h3_probe_t2v_flashgen_4step_api.json",
   "r64": "workflows/h3_probe_t2v_flashgen_r64_4step_api.json",
-  "r64_branch": "workflows/h3_probe_t2v_flashgen_r64_4step_branch_api.json"
+  "r64_branch": "workflows/h3_probe_t2v_flashgen_r64_4step_branch_api.json",
+  "r64_branch_dense": "workflows/h3_probe_t2v_flashgen_r64_4step_branch_dense_api.json"
  },
  "patches": [
   "r13:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
   "r64:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
-  "r64_branch:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup"
+  "r64_branch:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "r64_branch_dense:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup"
  ],
- "seeds": {"first": 730451892, "note": "held across arms"},
+ "seeds": {
+  "first": 730451892,
+  "note": "held across arms"
+ },
  "run": "run_graph_arms.py --manifest bench/flashgen_lora_path_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-26_flashgen_lora_path_s1.jsonl",
- "predictions": "none registered: a first look. A rendered clip cannot A/B a small numerical change (CLAUDE.md), but this is whether most of the LoRA applies at all."
+ "predictions": "none registered: a first look. A rendered clip cannot A/B a small numerical change (CLAUDE.md), but this is whether most of the LoRA applies at all.",
+ "reruns": "2026-09-26: r64_branch first failed at load (the node's isinstance test refused ComfyUI's mixed-precision Linear; fixed in lora_branch.py) and its row carries that error; r64_branch and r64_branch_dense were rendered after a server restart, so r64_branch's row is the second."
 }

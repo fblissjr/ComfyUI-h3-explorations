@@ -13,6 +13,17 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-26 (FlashGen before audio refine).** The owner: make FlashGen work as
+well as it can before refining its audio. Where every setting comes from and how
+upstream runs it: `../research/2026-09-26_flashgen.md`.
+- **The owner's look** at `r64` against `r64_branch`
+  (`../../bench/results/2026-09-26_flashgen_lora_path_s1.md`). A merged LoRA on
+  the int8 checkpoint loses most of FlashGen's delta
+  (`../../bench/results/2026-09-26_int8_lora_requant.json`). Applied at the call,
+  it renders a different take.
+- **Then:** a second seed and scene; the same pair for a LightX2V Turbo LoRA; a
+  125-frame arm at FlashGen's trained length.
+
 **2026-09-25, late night (0.143.0, the frozen-video cache).**
 `MiniMaxH3FrozenVideoCache` ran live on the FlashGen refine arm
 (`../../bench/results/2026-09-25_frozen_cache_s1.md`). It roughly halves the

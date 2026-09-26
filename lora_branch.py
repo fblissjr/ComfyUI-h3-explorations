@@ -146,9 +146,11 @@ def attach(model, branches):
         if path in fc2:
             continue
         mod = m.get_model_object(PREFIX + path)
-        if not isinstance(mod, torch.nn.Linear):
-            raise ValueError(f"{path} is a {type(mod).__name__}, not a Linear; this "
-                             f"node only branches Linear modules and MLP.fc2")
+        # Duck-typed: the int8 checkpoints load through
+        # `comfy.ops.mixed_precision_ops`, whose Linear is not a torch.nn.Linear.
+        if getattr(getattr(mod, "weight", None), "ndim", 0) != 2:
+            raise ValueError(f"{path} is a {type(mod).__name__} with no 2-D weight; this "
+                             f"node only branches linear modules and MLP.fc2")
         patches[f"{PREFIX}{path}.forward"] = _linear_forward(mod.forward, branch)
     for path in fc2:
         parent = path[:-len(".fc2")]

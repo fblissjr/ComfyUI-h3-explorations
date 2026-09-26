@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.145.1
+
+### Fixed
+
+- `MiniMaxH3LoRABranch` refused every int8 checkpoint: it tested for
+  `torch.nn.Linear`, and `comfy.ops.mixed_precision_ops`' Linear is not one.
+  It now duck-types on a 2-D weight. `bench/check_lora_branch.py` builds its
+  model on that class, since `manual_cast` let the old test pass on CPU.
+
+### Added
+
+- `h3_probe_t2v_flashgen_r64_4step_branch_dense`: FlashGen at the call with Sol
+  off, as vllm-omni's NPU recipe runs it.
+- `docs/research/2026-09-26_flashgen.md`: what FlashGen is, where each of our
+  settings comes from, and how upstream runs it.
+- The first render pair, `bench/results/2026-09-26_flashgen_lora_path_s1.md`.
+
 ## 0.145.0
 
 ### Added

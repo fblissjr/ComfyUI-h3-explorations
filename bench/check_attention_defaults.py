@@ -187,6 +187,10 @@ def _dense_tail_constants_agree() -> list[str]:
 
 
 SOL_EXEMPT_STEMS = {
+    "h3_probe_t2v_flashgen_r64_4step_branch_dense":
+        "FlashGen as vllm-omni's NPU recipe runs it: dense attention with the "
+        "sparse config dropped (vllm-omni recipes/MiniMaxAI/MiniMax-H3-NPU.md). "
+        "The Sol-off arm of the FlashGen pair; the kitchen backend is wired",
     "h3_probe_t2v_fasth3_8step":
         "FastVideo's FastH3 V2 was trained with VSA and runs core's "
         "BlockSparseAttention in VSA mode, as ComfyUI's own template does "
