@@ -1,0 +1,16 @@
+[
+ {
+  "id": "keep",
+  "label": "Would you keep this seed?",
+  "type": "choice",
+  "options": ["keep", "maybe", "drop"],
+  "help": "The scouting decision: would you take this seed forward to a final render?"
+ },
+ {
+  "id": "note",
+  "label": "Why",
+  "type": "text",
+  "primary": true,
+  "help": "Free text: what decided it (composition, motion, performance, timing, a defect)."
+ }
+]

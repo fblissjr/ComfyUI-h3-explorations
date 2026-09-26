@@ -1,0 +1,1 @@
+Final decodes, one scene, several seeds. For each clip, decide whether you would keep this seed, as you would when choosing seeds to finish: composition, motion, performance, lip sync and timing, and any defect you would not want in a final. One pass in the order shown.
