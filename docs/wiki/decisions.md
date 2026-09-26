@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **The owner could not tell the INT8 ConvRot video VAE from fp16** on one
+  345-frame latent, decoded both ways and watched sighted
+  (`bench/results/2026-09-26_vae_decoders_345f.md`). The lane was reopened
+  for measurement the same day. The shipped VAE is still fp16 until the owner
+  decides to switch.
 - **Corrected: where the server log lives.** `docs/comfy_notes.md` said
   `user/comfyui_<port>.log` always holds the current session. The server
   started 2026-09-26 by `start.sh` wrote only to its stdout pipe, and that

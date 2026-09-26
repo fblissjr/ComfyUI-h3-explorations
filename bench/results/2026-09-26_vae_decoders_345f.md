@@ -65,3 +65,13 @@ far below INT8, so the metric separates decoders.
 - **What did not run:** one latent and one scene. VRAM here is the decoder in
   isolation. In a render the DiT may be resident too, depending on
   ComfyUI's offload at decode time.
+
+## Owner's viewing, 2026-09-26
+
+The owner watched `h3_decode_saved_latent_keep_00001-audio.mp4` (fp16) against
+`h3_decode_saved_latent_int8_00001-audio.mp4` (INT8), both decoded from this
+latent in the server: "Dont think I can see the difference between the fp16
+and int8 vaes". It was one scene, sighted rather than blind, on the encoded
+clips. That is proportionate for a practical choice under `CLAUDE.md`'s
+tinkering rule, and it is not a published finding.
+
