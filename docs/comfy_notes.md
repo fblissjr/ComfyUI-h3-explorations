@@ -193,12 +193,16 @@ and nothing else in the model path moves.
 
 ## Traps that have each bitten more than once
 
-**The server writes its own log, and the launcher piping stdout does not hide
-it.** `user/comfyui_<port>.log` holds the current server session and
-`user/comfyui_<port>.prev.log` the previous one, whatever `start.sh` does with
-stdout. This is where the answer lives for "did that render silently fall back
-to lowvram, novram or a partial load", which is otherwise unanswerable after the
-fact and turns any timing or quality comparison into an argument. On 2026-08-28
+**The running server's log is readable over HTTP, whatever the launcher does
+with stdout.** `GET /internal/logs/raw` returns core's in-memory log buffer
+for the current session (`app/logger.py`), with a timestamp per entry. This is
+where the answer lives for "did that render silently fall back to lowvram,
+novram or a partial load", and for what dynamic VRAM staged, which is
+otherwise unanswerable after the fact and turns any timing or quality
+comparison into an argument. The buffer is bounded and dies with the process,
+so copy what a record needs into the record. *Until 2026-09-26 this paragraph
+named `user/comfyui_<port>.log` as the log. The server `start.sh` launched that
+day wrote only to its stdout pipe, and that file's last write was 2026-09-16.* On 2026-08-28
 this lane read a stale `comfyui_detail.log`, saw the live process had both fds
 on a pipe, and concluded a VRAM-mode switch was *unobservable* — then proposed a
 26-minute control render partly to work around the gap. It was observable the

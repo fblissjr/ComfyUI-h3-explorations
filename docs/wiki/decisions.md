@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **Corrected: where the server log lives.** `docs/comfy_notes.md` said
+  `user/comfyui_<port>.log` always holds the current session. The server
+  started 2026-09-26 by `start.sh` wrote only to its stdout pipe, and that
+  file stopped at 2026-09-16. The paragraph now names `/internal/logs/raw`,
+  core's in-memory buffer, with a dated note in place.
 - **Corrected: FastH3 V2 was built to ComfyUI's template, not FastVideo's
   contract.**
   - `docs/wiki/references.md` said the FastH3 file was "Not on disk here, and
