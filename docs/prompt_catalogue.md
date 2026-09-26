@@ -8,11 +8,11 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | bank id | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 45 | 290 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | `t2va_covered_market` | 53 | 290 | 3 | 2 | `<d>` |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 13 | 173 | 1 | 0 | — |
-| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 11 | 135 | 1 | 0 | — |
+| [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 12 | 135 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 5 | 264 | 1 | 0 | — |
-| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 3 | 90 | 1 | 0 | — |
+| [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 4 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | `ref2va_market_stallholder` | 3 | 582 | 3 | 2 | `<d>` |
 | [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 375 | 3 | 2 | `<d>` |
@@ -48,7 +48,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **45** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **53** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -69,8 +69,14 @@ Carried by **45** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_probe_t2v_dense_api`
 - `h3_probe_t2v_exact_tail_api`
 - `h3_probe_t2v_fasth3_8step_api`
+- `h3_probe_t2v_fasth3_8step_contract_api`
+- `h3_probe_t2v_fasth3_8step_contract_attn_api`
+- `h3_probe_t2v_fasth3_8step_contract_sampling_api`
 - `h3_probe_t2v_flashgen_4step_api`
 - `h3_probe_t2v_flashgen_4step_audio_refine_api`
+- `h3_probe_t2v_flashgen_4step_audio_refine_uncached_api`
+- `h3_probe_t2v_flashgen_r64_4step_api`
+- `h3_probe_t2v_flashgen_r64_4step_branch_dense_api`
 - `h3_probe_t2v_levers_api`
 - `h3_probe_t2v_no_dense_tail_api`
 - `h3_probe_t2v_pdd8_audio_refine_api`
@@ -93,6 +99,8 @@ Carried by **45** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_text_to_video_api`
 - `h3_text_to_video_audio_freeze_2windows_api`
 - `h3_text_to_video_audio_freeze_api`
+- `h3_text_to_video_flashgen_api`
+- `h3_text_to_video_flashgen_draft_api`
 - `h3_text_to_video_pdd_4step_api`
 - `h3_text_to_video_pdd_api`
 - `h3_text_to_video_pdd_manual_sigmas_api`
@@ -159,7 +167,7 @@ N/A
 
 ## ref2va_role_character_environment
 
-Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **12** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -167,6 +175,7 @@ Carried by **11** graph(s). Sections: `subject_definitions`, `summary`, `retenti
 - `h3_image_ref_plus_text_to_video_pdd_4step_api`
 - `h3_image_ref_plus_text_to_video_pdd_api`
 - `h3_image_ref_plus_text_to_video_turbo_4step_api`
+- `h3_probe_r2v_flashgen_4step_api`
 - `h3_probe_ref2v_pdd_345_api`
 - `h3_probe_ref2v_pdd_8s_api`
 - `h3_probe_ref2v_pdd_api`
@@ -245,13 +254,14 @@ A slow instrumental score follows the tempo and instrumentation of <Audio 2>.
 
 ## I2V_PROMPT
 
-Carried by **3** graph(s). Sections: none.
+Carried by **4** graph(s). Sections: none.
 
 <details><summary>graphs</summary>
 
 - `h3_first_frame_to_video_api`
 - `h3_first_frame_to_video_audio_freeze_api`
 - `h3_first_frame_to_video_stamped_api`
+- `h3_probe_i2v_flashgen_4step_api`
 
 </details>
 

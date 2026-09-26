@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **`t2va_subway_chase` rewritten** (owner, after the three-way distill look:
+  "make sure its super clear and specific about what is going on in this
+  scene").
+  - **The scene now states its cast:** exactly two people, and the suspect
+    never speaks.
+  - **One physical path**, turnstiles then stairs down then the platform, where
+    shot 2 had the agent on stairs and shot 3 looked up an escalator nobody was
+    placed on. The owner saw an escalator chase in the wrong direction and a
+    cloned pursuer.
+  - **Every action has an agent** (`prompting.md` section 15.3, items 6 and 7).
+  - It grades 0 FAIL and 0 WARN, as before. Every subway render before this
+    entry used the old text, and each row records the prompt hash.
 - **The shipped video VAE is the INT8 ConvRot build** (owner: "yes switch"),
   `h3_config.MODELS["video_vae"]`, 0.151.0. It reverses the 2026-08-21
   removal (`bc25d89`), and the closed-lanes row in `docs/roadmap.md` is gone.
