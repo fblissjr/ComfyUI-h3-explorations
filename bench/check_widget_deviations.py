@@ -84,7 +84,7 @@ import h3_config  # noqa: E402
 #: reason like "it is the prompt". Kept explicit -- an input added here stops
 #: being graded, so it is a judgement and reads as one.
 IDENTITY = {
-    "filename_prefix", "prompt", "text", "image", "video", "audio_prompt",
+    "filename_prefix", "prompt", "text", "image", "video", "latent", "audio_prompt",
     "unet_name", "lora_name", "vae_name", "clip_name", "type",
     "seed", "noise_seed", "value",
 }

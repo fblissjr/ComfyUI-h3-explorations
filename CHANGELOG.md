@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.149.0
+
+### Added
+
+- **Draft decodes for scouting seeds.** `h3_text_to_video_flashgen_draft` is
+  the shipped FlashGen graph with two changes:
+  - the video is decoded by `h3_config.DRAFT_VAE`, core's taeh3, which stock
+    `VAELoader` loads whole;
+  - the sampled latent is saved as a video half and an audio half under
+    `latents/`.
+
+  `h3_decode_saved_latent` gives a keeper the real decode from the saved pair
+  without sampling again. The generator switch is `build_api(draft_decode=True)`.
+  A draft is for choosing a seed, never for judging a clip. What it saves and
+  whether a keep made on it survives the real decode is
+  `docs/open_experiments.md` #31, unmeasured.
+- **Experiments #32 and #33** in `docs/open_experiments.md`: continuation by
+  latent-tail guide rows (promoted from `docs/wiki/next_steps.md`), and the
+  video VAE encode under the next kitchen tag's fp16 accumulation.
+
+### Changed
+
+- `bench/check_attention_defaults.py` skips a graph that loads no diffusion
+  model and names it in its summary. The rule is derived from the graph, not
+  kept as a list.
+- `bench/check_widget_deviations.py` treats `latent` (a `LoadLatent` file) as
+  identity, like `image`. `build_workflows.py` accepts an annotated
+  `LoadLatent` path, having read the node.
+
 ## 0.148.0
 
 ### Added

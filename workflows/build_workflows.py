@@ -89,7 +89,7 @@ _OUR_NODES = {
 # 2026-09-03 (owner): one source of truth for prompt text.
 from prompts import text as _bank_prompt  # noqa: E402
 from h3_config import (  # noqa: E402
-    CORE_LOADED_ENCODERS, IMAGE_VAE, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
+    CORE_LOADED_ENCODERS, IMAGE_VAE, DRAFT_VAE, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, DENSE_BACKEND_NODE, DENSE_CHAINS, DEFAULT_DENSE_CHAIN, SEED, SIGMA_SHIFT, SOL_CORE_NODE, SOL_CORE_DEFAULTS,
     VSA_KEEP_PERCENT, REF_VIDEO_LOADER,
     CACHE_NODE, CACHE_NODE_CLASS,
@@ -1498,6 +1498,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # (node 21). For a checkpoint trained with VSA whose upstream
               # recipe is core's node (FastH3, h3_config.FASTH3_CORE_VSA).
               core_vsa: dict | None = None,
+              # Scouting: the video decoded by h3_config.DRAFT_VAE, and the
+              # latent the decoders read saved in two halves (video, audio) so
+              # a keeper is decoded for real by h3_decode_saved_latent_api.json.
+              # Audio decodes on the real audio VAE either way. Nodes 100-103
+              # (90-97 are the prompt lists).
+              draft_decode: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -2330,7 +2336,53 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["11"]["inputs"]["samples"] = ["87", 0]
         g["12"]["inputs"]["samples"] = ["87", 0]
 
+    if draft_decode:
+        # Last, so it saves whatever latent the decoders read after every
+        # other option has rewired them (the refine pass moves them to 87).
+        # SaveLatent writes `samples` as one tensor and H3's latent is a
+        # nested video/audio pair, so core's AV splitter goes first. The
+        # prefixes share the clip's, so a draft's latents sort beside it.
+        if single_frame or "12" not in g:
+            raise SystemExit("draft_decode needs a clip with both decoders (nodes 11 and 12)")
+        prefix = g["13"]["inputs"]["filename_prefix"].removeprefix("Video/")
+        g["100"] = {"class_type": "VAELoader", "inputs": {"vae_name": DRAFT_VAE}}
+        g["11"]["inputs"]["vae"] = ["100", 0]
+        g["101"] = {"class_type": "LTXVSeparateAVLatent",
+                   "inputs": {"av_latent": g["11"]["inputs"]["samples"]}}
+        g["102"] = {"class_type": "SaveLatent",
+                   "inputs": {"samples": ["101", 0], "filename_prefix": f"latents/{prefix}_video"}}
+        g["103"] = {"class_type": "SaveLatent",
+                   "inputs": {"samples": ["101", 1], "filename_prefix": f"latents/{prefix}_audio"}}
+
     return g
+
+
+def build_decode_saved_latent(video_latent: str, audio_latent: str, *,
+                              out_prefix: str = "Video/h3_decode_saved_latent") -> dict:
+    """The real decode of a draft's saved latents, with no sampling.
+
+    `LoadLatent` resolves an annotated path, so `latents/<name>.latent [output]`
+    reads the file where `SaveLatent` wrote it; nothing is copied to `input/`.
+    The video goes through `MODELS["video_vae"]`, the decoder every shipped
+    graph uses, and the audio through the audio VAE as the draft did. Node ids
+    follow `build_api` where the role is the same.
+    """
+    return {
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["video_vae"]}},
+        "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
+        "104": {"class_type": "LoadLatent", "inputs": {"latent": video_latent}},
+        "105": {"class_type": "LoadLatent", "inputs": {"latent": audio_latent}},
+        "11": {"class_type": "VAEDecode", "inputs": {"samples": ["104", 0], "vae": ["3", 0]}},
+        "12": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["105", 0], "vae": ["4", 0]}},
+        "13": {"class_type": "VHS_VideoCombine",
+               "inputs": {"images": ["11", 0], "audio": ["12", 0],
+                          "frame_rate": FPS, "loop_count": 0,
+                          "filename_prefix": out_prefix,
+                          "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
+                          "crf": 19, "save_metadata": True,
+                          "trim_to_audio": False,
+                          "pingpong": False, "save_output": True}},
+    }
 
 
 # --------------------------------------------------------------------------
@@ -3576,9 +3628,12 @@ def load_object_info(source: str) -> dict:
 
 
 # Inputs whose node declares VALIDATE_INPUTS and checks the filesystem instead
-# of the combo list. Only `LoadImage.image` so far; add one when its node is
-# read, not on the assumption that other loaders behave the same way.
-_ANNOTATED_INPUTS = {("LoadImage", "image")}
+# of the combo list; add one when its node is read, not on the assumption that
+# other loaders behave the same way. `LoadLatent.latent` read 2026-09-26: its
+# `VALIDATE_INPUTS` and `load` both go through `folder_paths`' annotated-path
+# functions (`ComfyUI/nodes.py::LoadLatent`), so `latents/x.latent [output]`
+# resolves in the output directory.
+_ANNOTATED_INPUTS = {("LoadImage", "image"), ("LoadLatent", "latent")}
 
 
 def _annotated_path(class_type: str, name: str, val) -> bool:
@@ -4970,6 +5025,15 @@ def main():
               manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/text_to_video_flashgen"),
          "text -> video + audio at 4 steps via FlashGen at full rank, applied at the call, kitchen dense + Sol"),
+        # The same graph for scouting seeds (owner, 2026-09-26): the video
+        # decoded by h3_config.DRAFT_VAE and the latent saved, so a keeper gets
+        # the real decode from h3_decode_saved_latent without sampling again.
+        ("h3_text_to_video_flashgen_draft.json", "texttovideoflashgendraft", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS, draft_decode=True,
+              out_prefix="Video/text_to_video_flashgen_draft"),
+         "the FlashGen graph for scouting: taeh3 decode, latent saved for a real decode later"),
 
         # FlashGen beyond T2VA, 2026-09-26, the owner: "even if it wasnt
         # trained with that, its worth testing". Both are the shipped t2v
@@ -5493,6 +5557,17 @@ def main():
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         written.append((label, p, wf))
         print(f"  {p.name}: {note}")
+
+    # The keeper half of `draft_decode`. Its latent names are placeholders in
+    # the shape SaveLatent writes for the draft graph's first run; set both to
+    # the pair a draft run wrote (the counters advance together).
+    if not alt_chain:
+        _draft = "latents/text_to_video_flashgen_draft"
+        wf = build_decode_saved_latent(f"{_draft}_video_00001_.latent [output]",
+                                       f"{_draft}_audio_00001_.latent [output]")
+        p = out / "h3_decode_saved_latent_api.json"
+        written.append(("decodesavedlatent", p, wf))
+        print(f"  {p.name}: a draft's saved latents through the real video decoder, no sampling")
 
     # Bench copies carrying MiniMaxH3ProvenanceStamp. Deliberately NOT the
     # shipped graphs: the stamp reads another pack's closure internals, so it

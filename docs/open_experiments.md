@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-09-19 (#28, a status line); otherwise 2026-09-11
+Last updated: 2026-09-26 (#31 to #33 added); #28 status 2026-09-19; otherwise 2026-09-11
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -2377,3 +2377,90 @@ instead, is not ruled out, and a tiled latent differs for its own reason. No
 flags wrapper is warranted on this evidence. The first run of the tool left a
 guessed margin and ran out of memory, which is why the ballast is now sized
 from the measured peak.
+
+## 31. Draft decodes with taeh3: what they save, and whether a keep survives
+
+Added 2026-09-26 (owner: the VAE items not already on the list become
+experiments). The case for it moved with the sampler: on the 4-step
+FlashGen graphs decode is a much larger share of a render than #28 sized on
+the base step count. Compare `decode_s` against `total_s` in
+`bench/results/2026-09-26_flashgen_lora_path_s1.jsonl` with #28's command.
+
+**Built the same day, and unmeasured.** `h3_text_to_video_flashgen_draft` is
+the shipped FlashGen graph with the video decoded by `h3_config.DRAFT_VAE`
+(core's taeh3, loaded whole by stock `VAELoader`). It also saves the
+sampled latent in two halves under `latents/`, and
+`h3_decode_saved_latent` decodes a saved pair with the real video VAE and no
+sampling. The generator switch is `draft_decode` on `build_api`. Audio goes
+through the real audio VAE on both graphs.
+
+**Three observables, cheapest first:**
+
+1. **The keeper path is lossless.** The same saved latent through
+   `h3_decode_saved_latent` against the shipped graph's own decode at a
+   matched seed. The frames should be bit-identical. The one step that could
+   break that is the round trip through the file: `LoadLatent` returns
+   float32 whatever dtype was saved. If they differ, the keeper decode is a
+   different clip and the draft route is broken.
+   `bench/compare_clip_pixels.py` on the two clips.
+2. **The saving.** `decode_s` for the draft graph against the shipped one,
+   in the same cache state, plus the peak VRAM of each decode.
+3. **Does a keep decision survive?** Several seeds of one scene, each as a
+   draft and as a real decode. The owner picks keepers from the drafts,
+   blind to the real decodes, then judges the real decodes. What matters is
+   whether the choice would change. This is a scouting question, not a
+   quality A/B, so `docs/eval_comparison.md`'s pair protocol does not apply.
+
+**Decision it changes.** If 1 holds and 3 does not change the choice, the
+draft graph is how seeds are scouted, and the generator can grow draft twins
+of the other shipped graphs. If 3 changes the choice, taeh3 is a preview and
+nothing more, and the graphs go.
+
+**Blocker:** none for 1 and 2, which are machine time. 3 needs the owner.
+
+## 32. Continuation by the previous window's latent tail, as guide rows
+
+Added 2026-09-26, promoted from [`wiki/next_steps.md`](wiki/next_steps.md)
+(2026-09-25). It is VAE work only in passing: a window that takes the last
+window's sampled latent as conditioning never decodes and re-encodes it.
+The design, what core already expresses, and the arms are in
+[`research/2026-09-25_continuation_guide_rows.md`](research/2026-09-25_continuation_guide_rows.md);
+this entry adds nothing to them.
+
+**The arm.** One matched pair: guide rows (arm B in that note) against
+`MiniMaxH3FreezeAudioWindow` (arm A), judged through
+[`eval_comparison.md`](eval_comparison.md) with the seam as the thing to
+look at.
+
+**Decision it changes.** Whether the continuation lane builds B, or keeps A
+as its only design.
+
+**Blocker:** the owner. The continuation lane is paused, and the note is
+evidence for the owner's decision, not a build.
+
+## 33. The video VAE encode under fp16 accumulation, on the next kitchen tag
+
+Added 2026-09-26. Kitchen `ef40891` (#192) raises the depth gate on
+`fp16_conv3d`'s fp16 accumulation. On this launcher (`start.sh`,
+`--fast fp16_accumulation`) that moves some of the H3 video encoder's
+convolutions onto fp16 accumulation once the next tag is built; the decoder
+has none past the old gate ([`sol_upstream.md`](sol_upstream.md),
+"comfy-kitchen and core, 2026-09-25"). Every keyframe and reference encode
+passes through it.
+
+**The arm.** `bench/grade_vae_encoder_precision.py` before and after the
+rebuild. It already runs fp16 against fp32 and bf16 on the real VAE with a
+determinism and a direction control. Add the new kitchen's fp16 encode as a
+fourth arm, and read its delta from the fp32 encode against the current fp16
+delta. No render: an encoder change would diverge the trajectory at frame
+zero (`CLAUDE.md`).
+
+**Decision it changes.** If the new delta sits well past fp16's and toward
+bf16's, the encode needs fp32 accumulation. kijai's fork has an
+`fp32_accumulate` option on `fp16_conv3d` (`sol_upstream.md`), and a pack
+node can scope that to the encode, since the checkout stays stock. If it
+sits with fp16's, the rebuild record says so and this closes.
+
+**Blocker:** the tag. Upstream `main` is past `v0.2.35` and untagged, and by
+policy an untagged main is not built.
+

@@ -1580,6 +1580,20 @@ TAOMATE_SWAPPED_CONTROL_LORA = ("h3/minimax_h3_taomate_3step_rank128_comfy_bf16"
 # Source: huggingface.co/Mamad8/MiniMax-H3-Image-VAE (experimental, step 1597).
 IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
 
+# The draft decoder for scouting renders: core's tiny autoencoder for H3, which
+# stock `VAELoader` offers from `models/vae_approx/` and loads as a whole VAE
+# (`comfy/sd.py`, the `decoder.22.bias` branch with 24 latent channels; its
+# frame count follows the same 17k+5 rule as the real decoder). Inherited from
+# core (`comfy/latent_formats.py::MiniMaxH3Video.taesd_decoder_name`).
+#
+# **A draft clip is for choosing which seed to keep, never for judging.** It
+# is an approximation of the real decoder, and a graph with `draft_decode`
+# saves the sampled latent so a keeper gets the real decode from
+# `h3_decode_saved_latent_api.json` without sampling again. What a draft
+# costs against the real decode, and whether a keep decision made on it
+# survives the real decode, is `docs/open_experiments.md` #31.
+DRAFT_VAE = "taeh3.safetensors"
+
 # 2:3 portrait, and INSIDE the trained family -- `adapt_canvas(2, 3)` returns
 # exactly this. Worth stating because the community workflow this path follows
 # renders 1024x1536 (1.57 MP), which is 52% over H3's 768*1344 area cap and

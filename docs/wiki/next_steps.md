@@ -163,10 +163,11 @@ mapped to the owner decision it feeds. None of the decisions is made here.
   That is `../h3_audio_freeze.md` section 5 idea 5, and core can express the
   guide half as `minimax_keyframes` latent rows. Whenever the continuation lane
   resumes: one matched pair against `MiniMaxH3FreezeAudioWindow`, through
-  [`../eval_comparison.md`](../eval_comparison.md).
+  [`../eval_comparison.md`](../eval_comparison.md). *Now
+  `../open_experiments.md` #32 (2026-09-26).*
 - **On the next kitchen tag,** #192's fp16-accumulate depth gate reaches H3's
   video VAE encode on this launcher, so the rebuild record for that tag says
-  so and checks an encode.
+  so and checks an encode. *Now `../open_experiments.md` #33 (2026-09-26).*
 - **Not proposed:** ComfyUI's templates moved to the INT8 video VAE the owner
   removed on 2026-08-21. That decision stands unless reopened. sglang's
   probable fc1 swap in its PDD builder is theirs to hear about; reporting it

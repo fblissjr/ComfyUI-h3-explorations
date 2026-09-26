@@ -431,9 +431,17 @@ def main() -> int:
     floor_seen = {k: False for k in FLOOR_STEMS}
     floors = {"ck": 0, "sage": 0, "stock": 0}
 
+    no_dit = []
     for p in paths:
         g = load(p)
         stem = p.stem[:-4] if p.stem.endswith("_api") else p.stem
+        # A graph that loads no diffusion model runs no DiT attention, so
+        # there is nothing here to default (h3_decode_saved_latent decodes a
+        # saved latent and samples nothing). Derived from the graph, not
+        # listed, and printed below so the class cannot grow unseen.
+        if not any(n.get("class_type") == "UNETLoader" for n in g.values()):
+            no_dit.append(stem)
+            continue
         in_image = p.parent.name in img_dirs
         exempt_reason = SOL_EXEMPT_STEMS.get(stem)
         pdd_reference = loads_pdd(g) and not wires_dense_kernel(g)
@@ -625,6 +633,7 @@ def main() -> int:
              "EMPTY -- h3_config.GRAPH_DIRS routes no graph to a "
              "subdirectory, so nothing is exempted on single-frame grounds "
              "(the lane is parked; docs/h3_image_editing.md)"))
+    print(f"  no DiT, so no attention to grade: {', '.join(no_dit) or 'none'}")
     print(f"  out of scope: workflows/bench/*_stamped_api.json are the dense "
           f"baselines and are outside graph_paths()")
     if problems:
