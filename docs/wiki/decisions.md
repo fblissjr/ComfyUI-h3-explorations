@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **Corrected: the no-header-timestamps rule has been measured once.**
+  `prompting.md` section 3.1 and the portable standard said it was "not yet
+  measured in either direction". `bench/results/2026-09-18_timestamps_diner.md`
+  had measured one same-seed pair on the rule's own day, and the owner
+  preferred the timestamped take slightly. The owner keeps the house rule
+  knowingly (asked 2026-09-26, answered "1"). A blind multi-scene test is the
+  open alternative.
 - **`t2va_subway_chase` rewritten** (owner, after the three-way distill look:
   "make sure its super clear and specific about what is going on in this
   scene").

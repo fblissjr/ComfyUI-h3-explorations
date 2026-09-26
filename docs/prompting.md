@@ -197,9 +197,17 @@ and do not "correct" a prompt on this axis. What *is* stated: entries inside
 > format is quoted below and kept for reference; the owner's judgement is that
 > fixed cut times are "probably a big cause of issues" on a model that is never
 > told the clip's duration. Every header timestamp was removed from
-> `prompt_bank/` on that date. NOT yet measured in either direction: a same-seed
-> render of one three-shot prompt with and without its cut times was queued the
-> same day (`Video/timestamps_test/`). The graded examples of section 10 and
+> `prompt_bank/` on that date. **Measured once, and the one pair slightly
+> favoured the guides.** One same-seed pair of the diner prompt, with and
+> without its cut times, unblinded (`bench/results/2026-09-18_timestamps_diner.md`):
+> - both versions cut twice at nearly the same points;
+> - the written times were not hit exactly either;
+> - the owner judged the timestamped take "a better scene", with "nothing really
+>   wrong with either".
+>
+> The rule stands on the owner's judgement, not on that pair. Until
+> 2026-09-26 this paragraph said the rule was "NOT yet measured in either
+> direction" (`docs/wiki/decisions.md`). The graded examples of section 10 and
 > the rule table were converted with the bank. `preflight_graph.py` now FAILS
 > any shot header that opens with a time; its older cut-time rules (strictly
 > increasing, inside the clip's duration) still run on whatever times a prompt
