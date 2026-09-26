@@ -204,6 +204,21 @@ and do not "correct" a prompt on this axis. What *is* stated: entries inside
 > any shot header that opens with a time; its older cut-time rules (strictly
 > increasing, inside the clip's duration) still run on whatever times a prompt
 > has, so they now guard the mid-shot exception.
+>
+> **The one place a time belongs, in the owner's words (2026-09-26):**
+> "timestamps are ONLY to be used when you are changing shots mid-shot... you
+> start shot 2, and then 2 seconds later, you want it to cut to X. That's a
+> timestamp. But if you're just cutting from shot 1 to 2 to 3, no timestamps
+> should be in the prompt."
+>
+> - **A cut to the next numbered shot takes no time:** `[Shot 3] The shot cuts
+>   to ...`.
+> - **A change inside a shot, before the next `[Shot N]` header, takes one:**
+>   `[Shot 2] The shot cuts to a medium shot of the agent on the landing. ...
+>   At 00:07.500, the camera cuts to a close-up of his hand on the rail. ...`
+>   The time says where inside shot 2 the change lands. It is measured from the
+>   clip's start, and it must fall after shot 2 opens and inside the clip's
+>   duration.
 
 base §4.2 and ref §5.1, *stated* (the vendor format; superseded for shot
 headers by the house rule above):

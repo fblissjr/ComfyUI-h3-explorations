@@ -172,7 +172,7 @@ L2VA   How the reference pictures align with the target video —
        &lt;Picture 1&gt; (from [Shot N]) aligns with the S.SS-second mark of
        the target video.</pre>
     <p><strong>FL2VA is the only one with no angle brackets and no square brackets.</strong> I2VA and L2VA bracket both labels. Getting this wrong is the single most common structural error, and it is silent.</p></div>
-  <div class="callout"><p><strong>A prompt is correct only at a duration.</strong> <code>S.SS</code> and every cut timestamp resolve against the clip's real length, so the same text is right at one length and wrong at another. Fix the frame count before writing.</p></div>
+  <div class="callout"><p><strong>A prompt is correct only at a duration.</strong> <code>S.SS</code> and every mid-shot time resolve against the clip's real length, so the same text is right at one length and wrong at another. Fix the frame count before writing.</p></div>
 </section>
 
 <section id="fields">
@@ -197,7 +197,7 @@ non_diegetic_music: ...</pre>
 <section id="shots">
   <h2><span class="num">04</span>Shots and timing</h2>
   <div class="rule"><h4><span class="chip c-house">House · 2026-09-18</span>No shot header carries a timestamp</h4>
-    <p>Write <code>[Shot 2] The shot cuts to…</code>. A time is used only to split action <em>inside</em> one shot. The vendor guides open later shots with a cut time (<code>[Shot 2] At 00:03.500, the camera cuts to…</code>); this house departs from them, on the owner's judgement that fixed cut times cause trouble on a model that is never told the clip's duration. Not yet measured in either direction. A cut should introduce new information; if only distance or angle changes, prefer camera motion over a cut.</p></div>
+    <p>Write <code>[Shot 2] The shot cuts to…</code>. A time is used only to split action <em>inside</em> one shot: shot 2 opens, and two seconds later the camera cuts to something else before shot 3, as in <code>[Shot 2] The shot cuts to a medium shot of the agent on the landing. … At 00:07.500, the camera cuts to a close-up of his hand on the rail. …</code> Cutting from shot 1 to 2 to 3 takes no time at all. The vendor guides open later shots with a cut time (<code>[Shot 2] At 00:03.500, the camera cuts to…</code>); this house departs from them, on the owner's judgement that fixed cut times cause trouble on a model that is never told the clip's duration. Not yet measured in either direction. A cut should introduce new information; if only distance or angle changes, prefer camera motion over a cut.</p></div>
   <div class="rule"><h4><span class="chip c-house">House</span>Ordering rides on prose and on cuts, not on clock times</h4>
     <p>With no timestamps in the headers, nothing in the prompt tells the model WHEN something happens; a cut still separates what comes before from what comes after. If two speakers must share a shot, the ordering has to be carried in prose instead — and prose ordering is weaker than a cut.</p></div>
   <div class="rule"><h4><span class="chip c-open">Open</span>How many spoken words fit in a shot</h4>

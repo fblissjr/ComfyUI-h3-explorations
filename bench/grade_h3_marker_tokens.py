@@ -82,6 +82,10 @@ SHIPPED = ("<Subject 1> (S1) turns toward the camera and says, in the clear "
            "timbre referenced from <Audio 1>, "
            "<d>[English] I thought you would have gone by now.</d>")
 
+# Its shot headers carry cut times, the vendor format, because it was written
+# on 2026-08-22, before the house rule of 2026-09-18 (docs/prompting.md section
+# 3.1). It is an encoder tokenization fixture that is never rendered, so it is
+# left as recorded: rewriting it would change the input its results measured.
 # Fourteen marker pairs in the base guide's three-field t2v format, which is
 # where the markers land earliest. Built to be the strongest stressor an
 # on-format prompt can be: a space before every `<d>` (three BPE pieces, where
