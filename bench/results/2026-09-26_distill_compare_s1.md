@@ -50,6 +50,38 @@ Four frames per arm, at frames 24, 120, 216 and 312.
 - **FastH3 at its contract does not look washed out on either scene.** That
   was the owner's reading of the 0.141.0 template clip.
 
+## The owner's look, 2026-09-26 (unblinded, one seed, not a verdict)
+
+In the owner's words, relayed in session.
+
+**Diner:**
+- **PDD8:** "the zoom out gets a little artifacty, otherwise seems fine".
+- **FlashGen:**
+  - "little less detail, more contrasty, and a very different scene from all
+    the others we've used". Also: "the zoom out looks good, keeps coherency.
+    it complements pdd well".
+  - "flashgen and pdd seem stronger and weaker at different things".
+- **FastH3:** "very different scene again. more washed out / contrasty than
+  flashgen was, even. zoom out is good like flashgen though".
+- **Across the three:** "pdd seems to be the weak link on the zoom out. not
+  sure if due to our implementation or the pdd adapters themselves."
+
+**Subway:**
+- **PDD8:** "super artifacty... really bad. text is mangled. people disappear.
+  at the end down the escalator, the guy chasing him clones himself onto the
+  other elevator".
+- **FlashGen:**
+  - "MUCH cleaner look, but very different scene. hes running up the escalator
+    chasing him. seems like prompt adherence here might be worse? also saw a
+    clone of the guy chasing him at the 5s mark".
+  - "between this and pdd i'd take this, unless the prompt adherence is so low
+    that its like a slot machine".
+- **FastH3:** "much better audio and less artifacty than pdd.. but like
+  flashgen a second clone of him appears at the 5s mark. stairs at the 10s mark
+  look like low res ps2 polygons almost".
+- **Across the three:** "we should look at the subway prompt and make sure its
+  super clear and specific about what is going on in this scene."
+
 ## Clips
 
 On the output share under `Video/`, each with a `-audio.mp4` companion:
