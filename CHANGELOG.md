@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.148.0
+
+### Added
+
+- **FastH3 V2 to FastVideo's own contract.** `h3_config.FASTH3_CONTRACT_*`
+  holds the release's `fastvideo_inference.json` as vllm-omni validates it:
+  - the 8 positions shifted at 10, through ManualSigmas;
+  - Euler;
+  - VSA sparsity 0.8, i.e. core's `keep_percent` 20, on every step.
+
+  The ComfyUI template the first probe copied differs on the sampler
+  (`res_multistep`), the kept fraction (10%) and a 20% dense warm-up.
+  - **Probes:** `h3_probe_t2v_fasth3_8step_contract`, plus `_contract_attn` and
+    `_contract_sampling`, which carry one half of the change each.
+  - **Check:** `bench/check_distill_settings.py` accepts either sampling setup
+    whole, and neither half-mixed.
+  - The deviations are declared, and the arms are exempt from Sol like the
+    template's.
+
 ## 0.147.1
 
 ### Changed

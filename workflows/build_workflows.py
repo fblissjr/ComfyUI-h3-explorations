@@ -113,6 +113,7 @@ from h3_config import (  # noqa: E402
     FLASHGEN_R64_LORA, FLASHGEN_R64_REF2VA_LORA, LORA_BRANCH_NODE, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
     FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
+    FASTH3_CONTRACT_SIGMAS, FASTH3_CONTRACT_SAMPLER, FASTH3_CONTRACT_VSA,
     refine_scheduler_ids,
 )
 
@@ -4207,6 +4208,33 @@ def main():
               core_vsa=FASTH3_CORE_VSA,
               out_prefix="Video/h3_probe_t2v_fasth3_8step"),
          "text -> video + audio at 8 steps via FastVideo's FastH3 V2, core VSA"),
+
+        # FastH3 V2 to FastVideo's own contract (h3_config.FASTH3_CONTRACT_*),
+        # and the two halves of the change on their own: the attention (keep
+        # 20%, VSA from the first step) and the sampling (the release's
+        # positions on Euler). The template graph above is the fourth arm.
+        ("h3_probe_t2v_fasth3_8step_contract.json", "t2v-fasth3-8step-contract", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
+              steps=FASTH3_STEPS, sampler_name=FASTH3_CONTRACT_SAMPLER,
+              manual_sigmas=FASTH3_CONTRACT_SIGMAS, shift=FASTH3_SHIFT,
+              core_vsa=FASTH3_CONTRACT_VSA,
+              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract"),
+         "FastH3 V2 as FastVideo's contract runs it: its sigmas on Euler, VSA keep 20% on every step"),
+        ("h3_probe_t2v_fasth3_8step_contract_attn.json", "t2v-fasth3-8step-contract-attn", "t2v", LONG_T2V_PROMPT,
+         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
+              steps=FASTH3_STEPS, sampler_name=FASTH3_SAMPLER,
+              scheduler_name=FASTH3_SCHEDULER, shift=FASTH3_SHIFT,
+              core_vsa=FASTH3_CONTRACT_VSA,
+              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract_attn"),
+         "FastH3 V2 on the template's sampling with the contract's attention only"),
+        ("h3_probe_t2v_fasth3_8step_contract_sampling.json", "t2v-fasth3-8step-contract-sampling", "t2v",
+         LONG_T2V_PROMPT,
+         dict(dense_attn="ck", sol_on=False, unet=MODELS["unet_fasth3_v2"],
+              steps=FASTH3_STEPS, sampler_name=FASTH3_CONTRACT_SAMPLER,
+              manual_sigmas=FASTH3_CONTRACT_SIGMAS, shift=FASTH3_SHIFT,
+              core_vsa=FASTH3_CORE_VSA,
+              out_prefix="Video/h3_probe_t2v_fasth3_8step_contract_sampling"),
+         "FastH3 V2 on the contract's sampling with the template's attention only"),
 
         ("h3_probe_t2v_flashgen_4step_audio_refine.json", "t2v-flashgen-4step-audio-refine", "t2v",
          LONG_T2V_PROMPT,

@@ -1,0 +1,19 @@
+{
+ "what": "FastH3 V2 to FastVideo's own contract, and each half of the change, against ComfyUI's template, on the diner scene at one seed. template = h3_probe_t2v_fasth3_8step (res_multistep, 8 simple steps, VSA keep 10% after a 20% dense warm-up); contract = the release's positions shifted at 10 through ManualSigmas on Euler, VSA keep 20% on every step (h3_config.FASTH3_CONTRACT_*); contract_attn = the template's sampling with the contract's attention; contract_sampling = the contract's sampling with the template's attention. All at shift 10/3, BasicGuider, kitchen backend, 1344x768, 345 frames.",
+ "why": "The owner's first FastH3 look (bench/results/2026-09-25_distill_audio_s1.md) found it washed out. The owner, 2026-09-26: make FastH3 as good as it can be before saying it is worse than PDD or FlashGen. vllm-omni validates FastH3 V2 against FastVideo's fastvideo_inference.json, which the template departs from on the sampler, the kept fraction and the dense warm-up.",
+ "arms": {
+  "template": "workflows/h3_probe_t2v_fasth3_8step_api.json",
+  "contract": "workflows/h3_probe_t2v_fasth3_8step_contract_api.json",
+  "contract_attn": "workflows/h3_probe_t2v_fasth3_8step_contract_attn_api.json",
+  "contract_sampling": "workflows/h3_probe_t2v_fasth3_8step_contract_sampling_api.json"
+ },
+ "patches": [
+  "template:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "contract:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "contract_attn:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
+  "contract_sampling:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup"
+ ],
+ "seeds": {"first": 730451892, "note": "held across arms; the seed of the owner's washed-out FastH3 clip"},
+ "run": "run_graph_arms.py --manifest bench/fasth3_contract_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-26_fasth3_contract_s1.jsonl",
+ "predictions": "none registered"
+}

@@ -1445,6 +1445,31 @@ FASTH3_SHIFT = dict(shift_video=10.0, shift_audio=3.0)
 FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
     "selection": "vsa", "selection.keep_percent": 10.0}).items() if k != "selection.tau"}
 
+# ---- FastH3 V2 as FastVideo's own contract runs it (2026-09-26) ----------------
+#: **Inherited** from the release's `fastvideo_inference.json`, as vllm-omni
+#: validates it (`coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/fasth3_checkpoint.py`,
+#: `FastH3CheckpointSpec.from_metadata`):
+#: `dmd_denoising_steps` [999, 874, ..., 125], video shift 10, audio shift 3,
+#: guidance 1, `vsa_sparsity` 0.8, VSA tile 64. vllm-omni steps it with Euler at
+#: eta 0 and runs VSA on every step. The ComfyUI template above differs on the
+#: sampler, the schedule, the kept fraction and the dense warm-up; the owner,
+#: 2026-09-26: make FastH3 as good as it can be before calling it worse.
+FASTH3_CONTRACT_POSITIONS = (0.999, 0.874, 0.749, 0.624, 0.5, 0.375, 0.25, 0.125, 0.0)
+#: The positions shifted at the video shift 10 (`s * u / (1 + (s - 1) * u)`);
+#: core derives the audio stream's sigmas from these through the model's own
+#: 10/3 shifts, so `MiniMaxH3SigmaShift` must stay at `FASTH3_SHIFT`.
+FASTH3_CONTRACT_SIGMAS = ", ".join(
+    "0.0" if u == 0 else f"{10.0 * u / (1 + 9.0 * u):.6f}".rstrip("0").rstrip(".")
+    for u in FASTH3_CONTRACT_POSITIONS)
+FASTH3_CONTRACT_SAMPLER = "euler"
+#: Sparsity 0.8 is the fraction of cubes DROPPED (vllm-omni `diffusion/data.py`,
+#: "the nominal fraction of key blocks dropped"), so core's `keep_percent` is 20.
+#: Core's tooltip says FastH3-VSA was "trained at 10", which is the 90% sparsity
+#: vllm-omni quotes for the preview-v1 VSA student, not V2. `start_percent` 0:
+#: the student was trained sparse on every step, coarse branch included.
+FASTH3_CONTRACT_VSA = dict(FASTH3_CORE_VSA, **{"selection.keep_percent": 20.0,
+                                                "start_percent": 0.0})
+
 # ---- FlashGen 4-step LoRA ------------------------------------------------------
 #: Beidouqixing's `minimax-h3-4step-lora-flashgen` (Apache-2.0): a 4-step
 #: data-free distribution-matching (VSD, no GAN) LoRA for T2VA, trained at

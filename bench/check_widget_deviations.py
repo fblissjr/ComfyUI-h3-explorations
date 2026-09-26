@@ -181,6 +181,14 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "with VSA and ComfyUI's own template runs it through this node "
                 "in VSA mode (h3_config.FASTH3_CORE_VSA, inherited). The node's "
                 "first option is 'sol-attn'."),
+    ("BlockSparseAttention", "selection.keep_percent"):
+        ("ARM", "20 on the FastH3 contract arms: FastVideo's contract pins VSA "
+                "sparsity 0.8, the fraction dropped (h3_config.FASTH3_CONTRACT_VSA). "
+                "The template's and the node's 10 stays on the template arm."),
+    ("BlockSparseAttention", "start_percent"):
+        ("ARM", "0 on the FastH3 contract arms: the student was trained with VSA "
+                "on every step (h3_config.FASTH3_CONTRACT_VSA); the template's "
+                "dense warm-up of 0.2 stays on the template arm."),
     ("BasicScheduler", "denoise"):
         ("ARM", "0.5 on the audio-only refine pass of the audio_refine probes "
                 "only: its steps run at the tail of a steps/denoise schedule. "

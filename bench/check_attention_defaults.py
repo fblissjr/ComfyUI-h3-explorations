@@ -187,6 +187,12 @@ def _dense_tail_constants_agree() -> list[str]:
 
 
 SOL_EXEMPT_STEMS = {
+    **{stem: "FastH3 V2 to FastVideo's contract, or one half of it: core's "
+             "VSA replaces the block attention Sol would override, as on "
+             "h3_probe_t2v_fasth3_8step (h3_config.FASTH3_CONTRACT_*)"
+       for stem in ("h3_probe_t2v_fasth3_8step_contract",
+                    "h3_probe_t2v_fasth3_8step_contract_attn",
+                    "h3_probe_t2v_fasth3_8step_contract_sampling")},
     "h3_probe_t2v_flashgen_r64_4step_branch_dense":
         "FlashGen as vllm-omni's NPU recipe runs it: dense attention with the "
         "sparse config dropped (vllm-omni recipes/MiniMaxAI/MiniMax-H3-NPU.md). "

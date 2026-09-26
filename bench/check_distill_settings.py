@@ -752,13 +752,25 @@ def main():
                 assert found.shift == want_shift, (
                     f"{path.name}: FastH3 V2 samples at {want_shift} (its card: "
                     f"video shift 10), graph has {found.shift}")
-                assert (found.scheduler, found.steps) == (cfg.FASTH3_SCHEDULER, cfg.FASTH3_STEPS), (
-                    f"{path.name}: FastH3 V2 runs {cfg.FASTH3_STEPS} {cfg.FASTH3_SCHEDULER} "
-                    f"steps; graph has {found.scheduler!r}/{found.steps}")
+                # Two sampling setups are legal: ComfyUI's template (8 `simple`
+                # steps on res_multistep) and FastVideo's contract (the
+                # release's positions through ManualSigmas, on Euler). Each is
+                # graded whole; a graph mixing their halves is neither.
                 samplers = {n["inputs"].get("sampler_name") for n in nodes_all
                             if n.get("class_type") == "KSamplerSelect"}
-                assert samplers == {cfg.FASTH3_SAMPLER}, (
-                    f"{path.name}: FastH3 V2 steps {cfg.FASTH3_SAMPLER}, graph has {sorted(map(str, samplers))}")
+                manual = [n["inputs"].get("sigmas") for n in nodes_all
+                          if n.get("class_type") == "ManualSigmas"]
+                template = ((found.scheduler, found.steps) == (cfg.FASTH3_SCHEDULER, cfg.FASTH3_STEPS)
+                            and samplers == {cfg.FASTH3_SAMPLER})
+                contract = ((found.scheduler, found.steps) == ("manual", cfg.FASTH3_STEPS)
+                            and manual == [cfg.FASTH3_CONTRACT_SIGMAS]
+                            and samplers == {cfg.FASTH3_CONTRACT_SAMPLER})
+                assert template or contract, (
+                    f"{path.name}: FastH3 V2 runs either the template's {cfg.FASTH3_STEPS} "
+                    f"{cfg.FASTH3_SCHEDULER} steps on {cfg.FASTH3_SAMPLER} or the contract's "
+                    f"sigmas on {cfg.FASTH3_CONTRACT_SAMPLER}; graph has "
+                    f"{found.scheduler!r}/{found.steps}, samplers {sorted(map(str, samplers))}, "
+                    f"ManualSigmas {manual}")
                 vsa = [n["inputs"] for n in nodes_all if n.get("class_type") == cfg.SOL_CORE_NODE]
                 assert vsa and all(v.get("selection") == "vsa" for v in vsa), (
                     f"{path.name}: FastH3 V2 was trained with VSA and ships with "
