@@ -76,6 +76,13 @@ attention costs about what the Sol window saves.
   (`sampler_s`: 120.6 against 140.0). That is the per-call transfer of the
   rank-64 matrices from RAM plus their matmuls. It is not optimized.
 
+## The shipped graph
+
+`h3_text_to_video_flashgen` (0.146.0) rendered once on diner at the same seed
+(row `ship_diner`). Its video decodes identical to `r64_branch`
+(`ffmpeg psnr`: inf). It is the same graph under another output prefix, and the
+branch path reproduces bit for bit across runs.
+
 ## Clips
 
 On the output share under `Video/`, each with a `-audio.mp4` companion:
@@ -85,6 +92,7 @@ On the output share under `Video/`, each with a `-audio.mp4` companion:
 - `h3_probe_t2v_flashgen_r64_4step_branch_dense_r64_branch_dense_00001`
 - `h3_probe_t2v_flashgen_r64_4step_subway_r64_00001`
 - `h3_probe_t2v_flashgen_r64_4step_branch_subway_r64_branch_00001`
+- `text_to_video_flashgen_ship_diner_00001`
 
 ## Next
 

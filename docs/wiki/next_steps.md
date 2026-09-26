@@ -41,6 +41,9 @@ refine pass, and the finished audio stays close to the uncached pass.
 
 **2026-09-25, night (0.142.0).** Sol now defaults to `dense_blocks = 45,48,49`,
 and `token_routing` is one dropdown with `off` as its default.
+- **Red since 0.139.0, found 2026-09-26:** `bench/check_audio_freeze.py`
+  imports `audio_freeze.py` as a top-level module. That module's relative import
+  of `audio_resample` fails, so the check never reaches its cases.
 - **Owner decision:** `bench/check_schema_defaults.py` has been red since this
   change. `token_routing` is `'off'` in the schema and `None` in `execute`,
   which keeps a pre-dropdown API graph on its list. Align them, which silently
