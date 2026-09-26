@@ -88,12 +88,21 @@ here:
   K/V with a full-sequence qkv matmul;
 - the 4090 streams weights under dynamic VRAM.
 
+## The owner's listen, 2026-09-26 (unblinded, one seed)
+
+`refine` against `refine_cached`, in the owner's words: "Cant hear a
+difference whatsoever". On that the shipped refine graphs took the cache in
+0.144.0, and the graphs this run named moved: the uncached arm is now
+`h3_probe_t2v_flashgen_4step_audio_refine_uncached`, and the `_cached` graph is
+gone because the refine graph carries the cache itself. The rows keep the sha
+of the graphs that ran.
+
 ## Next
 
-- **An owner A/B listen** of `refine` against `refine_cached` (paths below),
-  blind if it is to be quoted.
+- *Done 2026-09-26:* the owner's listen, above.
 - **A same-graph repeat of `refine` after a cache clear**, for the noise floor.
-- **Not tried:** a VRAM store, K/V contents instead of the hidden state, or
+- **Not tried:** fewer refine steps (`h3_config.AUDIO_REFINE` is inherited and
+  untuned), a VRAM store, K/V contents instead of the hidden state, or
   pinned transfers, any of which could shorten the cached steps.
 
 Clips on the output share under `Video/`, each with a `-audio.mp4` companion:

@@ -15,6 +15,15 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-09-26
+
+- **The shipped refine graphs carry the frozen-video cache** (owner, on the
+  unblinded pair: "Cant hear a difference whatsoever"). A practical default in
+  a tinkering repo: it roughly halves the refine sampler
+  (`bench/results/2026-09-25_frozen_cache_s1.md`). The PDD8 and FlashGen
+  refine probes wire it. `h3_probe_t2v_flashgen_4step_audio_refine_uncached`
+  replaces the `_cached` probe as its control. 0.144.0.
+
 ## 2026-09-25
 
 - **Sol's default `dense_blocks` is `45,48,49`** (owner: "why wouldnt we set

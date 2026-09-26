@@ -4154,6 +4154,7 @@ def main():
         ("h3_probe_t2v_pdd8_audio_refine.json", "t2v-pdd8-audio-refine", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS, audio_refine=True,
+              refine_cache=True,
               out_prefix="Video/h3_probe_t2v_pdd8_audio_refine"),
          "text -> video + audio at 8 steps via PDD, then 6 undistilled audio-only steps"),
 
@@ -4181,20 +4182,20 @@ def main():
          LONG_T2V_PROMPT,
          dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              audio_refine=True,
+              audio_refine=True, refine_cache=True,
               out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine"),
-         "the FlashGen arm plus 6 undistilled audio-only steps"),
+         "the FlashGen arm plus 6 undistilled audio-only steps, the frozen video cached"),
 
-        # The same arm with the refine pass's frozen video cached
-        # (frozen_video_cache.py): the first refine step runs stock, the rest
-        # compute the text and audio rows only.
-        ("h3_probe_t2v_flashgen_4step_audio_refine_cached.json",
-         "t2v-flashgen-4step-audio-refine-cached", "t2v", LONG_T2V_PROMPT,
+        # The cache's control: the same arm with the refine pass uncached.
+        # The refine graphs carry the cache since 0.144.0, after the owner
+        # heard no difference (bench/results/2026-09-25_frozen_cache_s1.md).
+        ("h3_probe_t2v_flashgen_4step_audio_refine_uncached.json",
+         "t2v-flashgen-4step-audio-refine-uncached", "t2v", LONG_T2V_PROMPT,
          dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              audio_refine=True, refine_cache=True,
-              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine_cached"),
-         "the FlashGen refine arm with the frozen video cached"),
+              audio_refine=True,
+              out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine_uncached"),
+         "the FlashGen refine arm without the frozen-video cache, its control"),
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.

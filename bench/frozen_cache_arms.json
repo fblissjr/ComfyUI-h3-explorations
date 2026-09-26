@@ -2,9 +2,9 @@
  "what": "First live run of MiniMaxH3FrozenVideoCache (frozen_video_cache.py, 0.143.0) on the FlashGen audio-refine arm, diner scene, one seed. Arms: refine = the uncached refine graph (h3_probe_t2v_flashgen_4step_audio_refine); refine_cached_verify = the cached graph with verify on, which also runs each cached step stock and logs the audio velocity's cosine against it; refine_cached = the cached graph as shipped, for wall time. 1344x768, 345 frames.",
  "why": "The owner, 2026-09-25: the refine pass is a big cost; port our own cache rather than depend on ComfyUI-H3-AudioRefine. The CPU check (bench/check_frozen_video_cache.py) cannot settle the kitchen backend with a short query, memory on the card, wall time, or what the approximation costs on real audio.",
  "arms": {
-  "refine": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_api.json",
-  "refine_cached_verify": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_cached_api.json",
-  "refine_cached": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_cached_api.json"
+  "refine": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_uncached_api.json",
+  "refine_cached_verify": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_api.json",
+  "refine_cached": "workflows/h3_probe_t2v_flashgen_4step_audio_refine_api.json"
  },
  "patches": [
   "refine:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup",
@@ -12,7 +12,11 @@
   "refine_cached_verify:MiniMaxH3FrozenVideoCache.verify=true",
   "refine_cached:MiniMaxH3Conditioning.prompt=@bank:t2va_diner_breakup"
  ],
- "seeds": {"first": 730451892, "note": "held: every arm shares the first pass, which ComfyUI's node cache serves to the second and third arms, so their rows time the refine pass alone"},
+ "seeds": {
+  "first": 730451892,
+  "note": "held: every arm shares the first pass, which ComfyUI's node cache serves to the second and third arms, so their rows time the refine pass alone"
+ },
  "run": "run_graph_arms.py --manifest bench/frozen_cache_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-25_frozen_cache_s1.jsonl",
- "predictions": "none registered: a first live run to find wiring errors and read verify's cosine"
+ "predictions": "none registered: a first live run to find wiring errors and read verify's cosine",
+ "graphs_moved": "2026-09-26, 0.144.0: the refine graph carries the cache itself and the uncached arm is the _uncached probe; the 2026-09-25 rows ran the old names, and each row keeps the sha of the graph that ran"
 }

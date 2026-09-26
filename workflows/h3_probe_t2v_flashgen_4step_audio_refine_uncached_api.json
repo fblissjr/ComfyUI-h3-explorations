@@ -114,7 +114,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_probe_t2v_flashgen_4step_audio_refine_cached",
+      "filename_prefix": "Video/h3_probe_t2v_flashgen_4step_audio_refine_uncached",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -279,19 +279,6 @@
       "token_routing": "off"
     }
   },
-  "88": {
-    "class_type": "MiniMaxH3FrozenVideoCache",
-    "inputs": {
-      "model": [
-        "82",
-        0
-      ],
-      "precision": "int4",
-      "refresh": false,
-      "refresh_every": 2,
-      "verify": false
-    }
-  },
   "83": {
     "class_type": "MiniMaxH3AudioRefineMask",
     "inputs": {
@@ -307,7 +294,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "88",
+        "82",
         0
       ],
       "scheduler": "simple",
@@ -325,7 +312,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "88",
+        "82",
         0
       ],
       "conditioning": [

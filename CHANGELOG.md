@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.144.0
+
+### Changed
+
+- **The shipped refine graphs carry the frozen-video cache.**
+  `h3_probe_t2v_pdd8_audio_refine` and `h3_probe_t2v_flashgen_4step_audio_refine`
+  wire `MiniMaxH3FrozenVideoCache` (node 88) on the refine model. The owner
+  heard no difference on the unblinded diner pair, and the cache roughly halves
+  the refine sampler (`bench/results/2026-09-25_frozen_cache_s1.md`).
+
+### Replaced
+
+- `h3_probe_t2v_flashgen_4step_audio_refine_cached` is gone; the refine graph
+  carries the cache itself. `h3_probe_t2v_flashgen_4step_audio_refine_uncached`
+  is the control. `bench/frozen_cache_arms.json` points at the new names, and
+  `bench/distill_audio_arms.json` notes that its refine arms now render cached.
+
 ## 0.143.0
 
 ### Added

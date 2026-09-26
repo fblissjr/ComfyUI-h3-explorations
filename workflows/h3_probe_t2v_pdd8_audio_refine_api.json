@@ -275,6 +275,19 @@
       "token_routing": "off"
     }
   },
+  "88": {
+    "class_type": "MiniMaxH3FrozenVideoCache",
+    "inputs": {
+      "model": [
+        "82",
+        0
+      ],
+      "precision": "int4",
+      "refresh": false,
+      "refresh_every": 2,
+      "verify": false
+    }
+  },
   "83": {
     "class_type": "MiniMaxH3AudioRefineMask",
     "inputs": {
@@ -290,7 +303,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "82",
+        "88",
         0
       ],
       "scheduler": "simple",
@@ -308,7 +321,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "82",
+        "88",
         0
       ],
       "conditioning": [

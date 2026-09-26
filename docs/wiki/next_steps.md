@@ -17,12 +17,14 @@ own below the rule.
 `MiniMaxH3FrozenVideoCache` ran live on the FlashGen refine arm
 (`../../bench/results/2026-09-25_frozen_cache_s1.md`). It roughly halves the
 refine pass, and the finished audio stays close to the uncached pass.
-- **Owner listen:** `refine` against `refine_cached` (clips named in the record).
-  Blind, if it is to be quoted.
-- **Noise floor:** a same-graph repeat of the uncached refine after a cache
-  clear. The earlier session's clip is a different graph.
-- **If the listen holds:** turn `refine_cache` on in the shipped refine probes,
-  then try a VRAM store or K/V contents to shorten the cached steps.
+- *Done 2026-09-26:* the owner heard no difference, and the shipped refine
+  graphs carry the cache (0.144.0, `decisions.md`).
+- **Fewer refine steps** is the cheapest remaining cut: `h3_config.AUDIO_REFINE`
+  is inherited and untuned, and whether fewer steps keep the audio lift is a
+  listen.
+- **Noise floor:** a same-graph repeat of
+  `h3_probe_t2v_flashgen_4step_audio_refine_uncached` after a cache clear.
+- **Shorter cached steps:** a VRAM store or K/V contents, both untried.
 
 **2026-09-25, night (0.142.0).** Sol now defaults to `dense_blocks = 45,48,49`,
 and `token_routing` is one dropdown with `off` as its default.
