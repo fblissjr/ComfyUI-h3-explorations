@@ -43,7 +43,7 @@ washed out / contrasty than flashgen was, even".
 - The base clips decode through the INT8 video VAE, shipped by 0.151.0 before
   they rendered. The distill clips decode through fp16. The owner could not
   tell the two decoders apart on a matched pair
-  (`2026-09-26_vae_decoders_345f`, the VAE session's record). This run has not
+  (`2026-09-26_vae_decoders_345f.md`, the VAE session's record). This run has not
   measured whether the decoder moves these columns.
 - **Why distills do this is not tested here.** Inference: every distill
   trained to match the teacher in few steps shows it, the two
