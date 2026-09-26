@@ -65,6 +65,17 @@ This is description, not a ranking.
 after a restart, so its row is not a warm comparison with `r64`. Dense
 attention costs about what the Sol window saves.
 
+## Second scene: subway, same seed
+
+`subway_r64` and `subway_r64_branch` rendered warm, back to back.
+- **PSNR between them:** 13.3 dB. A different take again, with the same shots
+  and composition.
+- **Audio level:** mean -22.9 dB merged and -19.1 dB at the call; max -6.6 and
+  -2.6 dB.
+- **What the branch costs:** it adds about 19 s to the four steps on this pair
+  (`sampler_s`: 120.6 against 140.0). That is the per-call transfer of the
+  rank-64 matrices from RAM plus their matmuls. It is not optimized.
+
 ## Clips
 
 On the output share under `Video/`, each with a `-audio.mp4` companion:
@@ -72,12 +83,14 @@ On the output share under `Video/`, each with a `-audio.mp4` companion:
 - `h3_probe_t2v_flashgen_r64_4step_r64_00001`
 - `h3_probe_t2v_flashgen_r64_4step_branch_r64_branch_00001`
 - `h3_probe_t2v_flashgen_r64_4step_branch_dense_r64_branch_dense_00001`
+- `h3_probe_t2v_flashgen_r64_4step_subway_r64_00001`
+- `h3_probe_t2v_flashgen_r64_4step_branch_subway_r64_branch_00001`
 
 ## Next
 
 - **The owner's look**, at `r64` against `r64_branch` above all, since that pair
   isolates the merge.
-- **A second seed and scene** before anything is shipped on this.
+- **A second seed** before anything is shipped on this. The second scene is above.
 - **The same pair for a LightX2V Turbo LoRA**, whose delta the merge loses
   almost entirely.
 - **A 125-frame arm**, FlashGen's trained length.
