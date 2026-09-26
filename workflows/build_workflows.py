@@ -4176,21 +4176,16 @@ def main():
          "text -> video + audio at 4 steps via the FlashGen LoRA on its own sigmas"),
 
         # FlashGen at the publisher's full rank 64 (FLASHGEN_R64_LORA), merged
-        # by the stock loader and then applied at the call (lora_branch.py).
-        # The pair isolates how the LoRA reaches the int8 weight
-        # (bench/results/2026-09-26_int8_lora_requant.json).
+        # by the stock loader: the control for h3_text_to_video_flashgen, which
+        # applies it at the call (lora_branch.py). The pair isolates how the
+        # LoRA reaches the int8 weight (bench/results/2026-09-26_int8_lora_requant.json).
+        # The `_branch` probe that was the other half is gone since 0.147.1:
+        # it was the shipped graph under another name.
         ("h3_probe_t2v_flashgen_r64_4step.json", "t2v-flashgen-r64-4step", "t2v", LONG_T2V_PROMPT,
          dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/h3_probe_t2v_flashgen_r64_4step"),
          "FlashGen at full rank 64, merged by LoraLoaderModelOnly"),
-        ("h3_probe_t2v_flashgen_r64_4step_branch.json", "t2v-flashgen-r64-4step-branch", "t2v",
-         LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
-              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
-              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
-              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step_branch"),
-         "FlashGen at full rank 64, applied at the call instead of merged"),
         # The same with Sol off, on the kitchen backend: vllm-omni's NPU recipe
         # runs FlashGen dense with the sparse config dropped.
         ("h3_probe_t2v_flashgen_r64_4step_branch_dense.json", "t2v-flashgen-r64-4step-branch-dense",
@@ -4215,7 +4210,7 @@ def main():
 
         ("h3_probe_t2v_flashgen_4step_audio_refine.json", "t2v-flashgen-4step-audio-refine", "t2v",
          LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True, steps=FLASHGEN_STEPS,
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               audio_refine=True, refine_cache=True,
               out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine"),
@@ -4226,7 +4221,7 @@ def main():
         # heard no difference (bench/results/2026-09-25_frozen_cache_s1.md).
         ("h3_probe_t2v_flashgen_4step_audio_refine_uncached.json",
          "t2v-flashgen-4step-audio-refine-uncached", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(FLASHGEN_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True, steps=FLASHGEN_STEPS,
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               audio_refine=True,
               out_prefix="Video/h3_probe_t2v_flashgen_4step_audio_refine_uncached"),

@@ -18,5 +18,6 @@
  },
  "run": "run_graph_arms.py --manifest bench/frozen_cache_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-25_frozen_cache_s1.jsonl",
  "predictions": "none registered: a first live run to find wiring errors and read verify's cosine",
- "graphs_moved": "2026-09-26, 0.144.0: the refine graph carries the cache itself and the uncached arm is the _uncached probe; the 2026-09-25 rows ran the old names, and each row keeps the sha of the graph that ran"
+ "graphs_moved": "2026-09-26, 0.144.0: the refine graph carries the cache itself and the uncached arm is the _uncached probe; the 2026-09-25 rows ran the old names, and each row keeps the sha of the graph that ran",
+ "graphs_moved_0_147_1": "2026-09-26, 0.147.1: the FlashGen refine graphs now load rank 64 at the call (MiniMaxH3LoRABranch) instead of kijai's rank 13 merged; earlier rows ran the old setup and keep its sha."
 }

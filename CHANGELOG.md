@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.147.1
+
+### Changed
+
+- **The FlashGen refine probes are on the shipped setup.**
+  `h3_probe_t2v_flashgen_4step_audio_refine` and its `_uncached` control now
+  load rank 64 through `MiniMaxH3LoRABranch`, where they had kijai's rank 13
+  merged. The refine pass itself still runs on the model without the LoRA.
+  The run manifests that name these graphs say so.
+
+### Removed
+
+- `h3_probe_t2v_flashgen_r64_4step_branch`. It was `h3_text_to_video_flashgen`
+  under another name. `bench/flashgen_lora_path_arms.json` points its arm at the
+  shipped graph, and the earlier rows keep the sha of the graph that ran.
+
 ## 0.147.0
 
 ### Changed

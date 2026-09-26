@@ -48,5 +48,6 @@
   "FastH3 V2 runs no Sol; the other arms run Sol at their recipes."
  ],
  "predictions": "none registered: a throwaway first run exists to find wiring errors, and nothing from it is quoted.",
- "graphs_moved": "2026-09-26, 0.144.0: the two refine graphs now carry the frozen-video cache (frozen_video_cache.py). A re-run of this manifest renders cached refine passes; for the uncached pass use h3_probe_t2v_flashgen_4step_audio_refine_uncached. The 2026-09-25 rows keep the sha of the graphs that ran"
+ "graphs_moved": "2026-09-26, 0.144.0: the two refine graphs now carry the frozen-video cache (frozen_video_cache.py). A re-run of this manifest renders cached refine passes; for the uncached pass use h3_probe_t2v_flashgen_4step_audio_refine_uncached. The 2026-09-25 rows keep the sha of the graphs that ran",
+ "graphs_moved_0_147_1": "2026-09-26, 0.147.1: the FlashGen refine graphs now load rank 64 at the call (MiniMaxH3LoRABranch) instead of kijai's rank 13 merged; earlier rows ran the old setup and keep its sha."
 }

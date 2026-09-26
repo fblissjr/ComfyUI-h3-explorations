@@ -4,7 +4,7 @@
  "arms": {
   "r13": "workflows/h3_probe_t2v_flashgen_4step_api.json",
   "r64": "workflows/h3_probe_t2v_flashgen_r64_4step_api.json",
-  "r64_branch": "workflows/h3_probe_t2v_flashgen_r64_4step_branch_api.json",
+  "r64_branch": "workflows/h3_text_to_video_flashgen_api.json",
   "r64_branch_dense": "workflows/h3_probe_t2v_flashgen_r64_4step_branch_dense_api.json"
  },
  "patches": [
@@ -19,5 +19,6 @@
  },
  "run": "run_graph_arms.py --manifest bench/flashgen_lora_path_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-26_flashgen_lora_path_s1.jsonl",
  "predictions": "none registered: a first look. A rendered clip cannot A/B a small numerical change (CLAUDE.md), but this is whether most of the LoRA applies at all.",
- "reruns": "2026-09-26: r64_branch first failed at load (the node's isinstance test refused ComfyUI's mixed-precision Linear; fixed in lora_branch.py) and its row carries that error; r64_branch and r64_branch_dense were rendered after a server restart, so r64_branch's row is the second."
+ "reruns": "2026-09-26: r64_branch first failed at load (the node's isinstance test refused ComfyUI's mixed-precision Linear; fixed in lora_branch.py) and its row carries that error; r64_branch and r64_branch_dense were rendered after a server restart, so r64_branch's row is the second.",
+ "graphs_moved": "2026-09-26, 0.147.1: r64_branch points at h3_text_to_video_flashgen, the same graph; the h3_probe_t2v_flashgen_r64_4step_branch probe the first rows ran is gone. Each row keeps the sha of the graph that ran."
 }

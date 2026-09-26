@@ -160,14 +160,14 @@
     }
   },
   "18": {
-    "class_type": "LoraLoaderModelOnly",
+    "class_type": "MiniMaxH3LoRABranch",
     "inputs": {
       "model": [
         "1",
         0
       ],
-      "lora_name": "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
-      "strength_model": 1.0
+      "lora_name": "h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+      "strength": 1.0
     }
   },
   "19": {
