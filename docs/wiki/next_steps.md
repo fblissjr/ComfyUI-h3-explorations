@@ -13,6 +13,16 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-26 (FastH3 before judging it).** The owner: make FastH3 as good as it
+can be before calling it worse than PDD or FlashGen. The first probe copied
+ComfyUI's template, and FastVideo's own contract differs on the sampler, the
+VSA kept fraction and a dense warm-up (0.148.0, `h3_config.FASTH3_CONTRACT_*`).
+- **The owner's look** at `contract` against `template`
+  (`../../bench/results/2026-09-26_fasth3_contract_s1.md`). The attention change
+  decides the take and is also faster.
+- **Then:** a second seed and scene, and FastH3 at the contract against PDD8 and
+  FlashGen.
+
 **2026-09-26 (FlashGen before audio refine).** The owner: make FlashGen work as
 well as it can before refining its audio. Where every setting comes from and how
 upstream runs it: `../research/2026-09-26_flashgen.md`.
