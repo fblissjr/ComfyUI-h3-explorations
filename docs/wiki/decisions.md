@@ -17,6 +17,12 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **Every flagged prompt fixed, the bench prompt included** (owner: "Yes fix
+  all"). `t2va_frontier_standoff` is the bench and baseline prompt, so the
+  dense baseline graph's text changed (0.151.2). A baseline render before
+  0.151.2 is not a same-prompt comparison with one after. The refview2 ablation
+  prompts changed too, while their blind session is pending; the clips already
+  rendered keep the old text.
 - **The prompt bank is fixed for the subway-chase defect class** (owner: "we
   need to fix all our prompts"). 38 of 139 prompts got minimal edits, graded
   unchanged. The composed ref2va prompts, the refview2 ablation scenes (a blind

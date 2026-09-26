@@ -1,0 +1,19 @@
+{
+ "what": "The rewritten t2va_subway_chase (18bd00ca: two people, one path down, every action with an agent) on the undistilled base and the three distills as each is best built today, at the seed of the earlier subway renders. base = h3_text_to_video; pdd8 = h3_text_to_video_pdd; flashgen = h3_text_to_video_flashgen; fasth3 = h3_probe_t2v_fasth3_8step_contract. 1344x768, 345 frames, the INT8 video VAE (0.151.0).",
+ "why": "The owner's subway look (bench/results/2026-09-26_distill_compare_s1.md) found cloned pursuers, an escalator chase in the wrong direction and weak adherence, and asked for the prompt to be made clear; then 'fix all. And then run.' A rendered clip cannot A/B a prompt change on one seed (docs/eval_comparison.md); this shows the new text on each model, not the prompt's effect.",
+ "arms": {
+  "base": "workflows/h3_text_to_video_api.json",
+  "pdd8": "workflows/h3_text_to_video_pdd_api.json",
+  "flashgen": "workflows/h3_text_to_video_flashgen_api.json",
+  "fasth3": "workflows/h3_probe_t2v_fasth3_8step_contract_api.json"
+ },
+ "patches": [
+  "base:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "pdd8:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "flashgen:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase",
+  "fasth3:MiniMaxH3Conditioning.prompt=@bank:t2va_subway_chase"
+ ],
+ "seeds": {"first": 730451892, "note": "held"},
+ "run": "run_graph_arms.py --manifest bench/subway_v2_arms.json --runs 1 --seed 730451892 --hold-seed --no-alternate --out bench/results/2026-09-26_subway_v2_s1.jsonl",
+ "predictions": "none registered"
+}

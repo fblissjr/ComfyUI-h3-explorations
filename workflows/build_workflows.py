@@ -2540,7 +2540,7 @@ REF_SCENE_SHOTS = {
         "[Shot 1] Handheld with fast reframing under cool platform fluorescents. "
         "A wide shot establishes {environment_beat}a crowded underground platform, "
         "tiled columns receding, a train braking into frame from the right, "
-        "still moving fast. A tiled platform sign above her head reads "
+        "still moving fast. A tiled platform sign on the nearest column reads "
         "\"NORTHBOUND - PLATFORM 2\" in white capitals on a dark blue "
         "ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> "
         "{character}, with a bright, slightly raw mezzo (S1), stands over an open "
@@ -2558,10 +2558,12 @@ REF_SCENE_SHOTS = {
         "not stop, it is the last one.</d> Her lips close. Her companion, a man in "
         "his thirties with a breathless, higher tenor (S3), answers half a step "
         "behind her: <d>[English] I know, I know, go, go.</d> His lips close and "
-        "he shoves his bag under one arm as they cut left around a column.",
+        "he shoves his bag under one arm as they cut left around a column, "
+        "{character} out of frame behind them, still at her guitar case.",
         "[Shot 3] The camera whip pans to a low wide shot of the "
-        "platform edge as the doors open and the crowd compresses inward, a "
-        "dropped umbrella skidding across the tiles. {character} (S1) keeps playing "
+        "platform edge as the doors open and the crowd compresses inward, an "
+        "umbrella knocked from a commuter's hand skidding across the tiles. "
+        "{character} (S1) keeps playing "
         "through it, her identity unchanged from the reference, and sings over "
         "the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line."
         "</d><|lyrics_end|> Her lips close. The camera holds wide long enough "
@@ -2571,8 +2573,10 @@ REF_SCENE_SHOTS = {
         "and bags passing close to the lens without occluding her face.",
         "[Shot 4] The shot changes to a close shot inside the "
         "carriage looking out through the closing doors, the woman in the raincoat "
-        "(S2) pressed against the glass, breathing hard, calling back to her companion "
-        "still on the platform: <d>[English] Get the next one and meet me at the"
+        "(S2) pressed against the glass, breathing hard, calling back to her companion, "
+        "who was cut off by the crowd and is still on the platform outside the "
+        "closing doors, {character} small at her guitar case beyond him: "
+        "<d>[English] Get the next one and meet me at the"
         "</d><|cutoff|>",
     ],
     "kitchen": [
@@ -2588,8 +2592,9 @@ REF_SCENE_SHOTS = {
         "down the line: <d>[English] Two on twelve, fire it now.</d> His lips "
         "close and he snaps the ticket free with two fingers. The camera tracks "
         "right at large amplitude and fast speed past three cooks, one tossing a "
-        "pan so the flame climbs above the rim.",
-        "[Shot 2] The shot cuts to a close shot of a young line cook "
+        "pan so the flame climbs above the rim, the youngest working the flat top, "
+        "and a runner waiting at the end of the pass.",
+        "[Shot 2] The shot cuts to a close shot of the young line cook "
         "with a light, quick soprano (S2) at the flat top, moving fast, who "
         "answers without looking up: <d>[English] Two on twelve, heard.</d> Her "
         "lips close, and she sings along under her breath with a radio on the "
@@ -2597,11 +2602,13 @@ REF_SCENE_SHOTS = {
         "hot.</d><|lyrics_end|> Her lips close as she flips two portions in one "
         "motion and the flame flares behind her shoulder.",
         "[Shot 3] The camera pushes in fast with large amplitude on "
-        "the pass as two plates land side by side, hands entering frame from three "
-        "directions, a thumb wiping a rim clean. {character} (S1) and the cook (S2) overlap "
+        "the pass as two plates land side by side, the hands of {character}, the "
+        "young cook and the pan-tossing cook entering frame from three directions, "
+        "the young cook's thumb wiping a rim clean. {character} (S1) and the young "
+        "cook (S2), leaning in from the flat top, overlap "
         "with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind "
-        "you, behind you.</d> Both sets of lips close as a plate is spun into "
-        "position. The camera stays low across the pass so the stainless "
+        "you, behind you.</d> Both sets of lips close as {character} spins a plate "
+        "into position. The camera stays low across the pass so the stainless "
         "surfaces, the loaded ticket rail and the lit burners of the reference "
         "setting remain continuously visible behind the hands, steam crossing "
         "the lens twice without hiding either face.",
@@ -2612,13 +2619,13 @@ REF_SCENE_SHOTS = {
         # band -- the beat is here because the shot was underspecified, not to
         # clear the number. `Pedestal Up` is base 4.3's table entry for this
         # move; "cranes up" is not in it.
-        "[Shot 4] The shot changes to a low shot as a runner lifts "
+        "[Shot 4] The shot changes to a low shot as the runner lifts "
         "both plates and turns for the door, the kitchen receding behind him in a "
         "blur of steam. The camera pedestals up with small amplitude at slow "
         "speed as he passes, holding the lit burners and the loaded ticket rail "
         "of the reference setting across the top of the frame while the ticket "
-        "printer starts another run behind the pass and a pan is set down hard "
-        "on the flat top. {character} (S1) calls after him already reading the next "
+        "printer starts another run behind the pass and the pan-tossing cook sets "
+        "a pan down hard on the flat top. {character} (S1) calls after him already reading the next "
         "ticket: <d>[English] And tell them the special is</d><|cutoff|>",
     ],
 }

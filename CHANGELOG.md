@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.151.2
+
+### Changed
+
+- **The prompts left for the owner in 0.151.1 are fixed** (owner: "Yes fix
+  all").
+  - **Moved speaker identities:** eleven t2va prompts gave a speaker's voice and
+    identity in a later shot than their first appearance (`prompting.md` section
+    5.2). Each moves to the first appearance; every `<d>` line and speaker id is
+    unchanged.
+  - **Inconsistencies:**
+    - the "silent" samurai rival no longer carries the never-speaks phrase, and
+      stays silent in shot 1;
+    - the silent co-host's laugh is silent;
+    - the precinct gate hangs open beside its cut padlock;
+    - the ER monitor settles after "stabilizing";
+    - the singers' mouths hold open on the sustained note;
+    - the masked assassin who speaks has his mask pulled down;
+    - the orbital engineer's visor becomes his headset.
+  - **Agents for every sound:** the soundscape events nobody made now have
+    someone making them.
+  - **ref2va:**
+    - `ref2va_observatory`'s speaker ids follow the order of vocal events;
+    - `ref2va_image_ref_default` is rewritten per its audit, with no in-shot
+      times, "fourteen-second", and the two missing audio fields;
+    - the refview2 twins get the stairwell prompt's speaker-id and placement
+      fixes;
+    - `ref2va_diner_breakup_refs` places both people and drops an uncaused
+      clink.
+  - **The composed kitchen and subway scenes** are fixed in the generator's
+    `REF_SCENE_SHOTS`, and their bank copies are regenerated.
+  - Every changed prompt grades as before or better.
+  - **Eight graphs change their prompt text and nothing else.**
+    `t2va_frontier_standoff` is the bench prompt, so this includes the baseline
+    `workflows/bench/h3_text_to_video_dense_stamped_api.json`. Baseline renders
+    before this version used the old text.
+
 ## 0.151.1
 
 ### Changed
