@@ -44,14 +44,14 @@ REPO = HERE.parent
 COMFY = REPO.parent.parent
 sys.path.insert(0, str(REPO / "workflows"))
 
-from h3_config import DRAFT_VAE, MODELS  # noqa: E402
+from h3_config import DRAFT_VAE, VIDEO_VAE_FP16  # noqa: E402
 
 INT8_VAE = "minimax_h3_video_vae_int8_convrot.safetensors"
 #: (label, folder, file). fp16 runs twice: the second run is the determinism
 #: control and never a result.
 ARMS = [
-    ("fp16", "vae", MODELS["video_vae"]),
-    ("fp16_repeat", "vae", MODELS["video_vae"]),
+    ("fp16", "vae", VIDEO_VAE_FP16),
+    ("fp16_repeat", "vae", VIDEO_VAE_FP16),
     ("int8", "vae", INT8_VAE),
     ("taeh3", "vae_approx", DRAFT_VAE),
 ]

@@ -101,25 +101,34 @@ MODELS = dict(
     unet_vsa=("minimax_h3_fastvideo_vsa_datafree_1300step"
               "_4step_int8_convrot.safetensors"),
     clip=ENCODER_INT8,
-    # The fp16 video VAE, and it is the best build available in ComfyUI's
-    # format. **Measured 2026-08-21** against the official release's fp32
-    # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):
-    # all 559 shared tensors match in name and shape, median relative delta
-    # 2.07e-4 and max 2.48e-4, which is fp16's own rounding floor and no more
-    # -- so this file is that fp32 cast down, with `latents_mean` and
-    # `latents_std` folded in as tensors. Only the fp32 original is more
-    # faithful, at twice the size; a bf16 conversion would be less, since
-    # fp16 carries three more mantissa bits.
+    # **The INT8 ConvRot build, by owner decision 2026-09-26** ("yes
+    # switch"), after the owner could not tell it from fp16 on a 345-frame
+    # clip pair. Measured: its decoder is the only quantized half, and its
+    # encoder encodes bit-identically to the fp16 file's
+    # (`bench/results/2026-09-26_vae_encoder_int8_file.json`), so the switch
+    # moves the decode only. That decode is faster, holds less VRAM, and adds
+    # no flicker (`bench/results/2026-09-26_vae_decoders_345f.md`).
     #
-    # The int8_convrot decoder shipped here from 2026-08-10 and was removed
-    # by owner decision on 2026-08-21, file deleted from disk. It decoded
-    # 1.29x faster at 124f/1344x768 and cost 53.3 dB against fp16 on
-    # lossless pixels; the CHANGELOG holds that measurement. Nothing may name
-    # it again -- `bench/check_model_files.py` goes red on any graph or
-    # constant pointing at a file the server does not offer.
-    video_vae="minimax_h3_video_vae_fp16.safetensors",
+    # History: it shipped from 2026-08-10, was removed by owner decision on
+    # 2026-08-21 in favour of VIDEO_VAE_FP16 (below), and came back on
+    # 2026-09-26 when ComfyUI's own templates had moved to it
+    # (`docs/sol_upstream.md`). MiniMaxH3VAEPrecision refuses to cast its
+    # quantized decoder.
+    video_vae="minimax_h3_video_vae_int8_convrot.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
+
+#: The fp16 video VAE: the shipped build until 2026-09-26, and the reference
+#: the INT8 build is measured against (`bench/compare_vae_decoders.py`). It is
+#: the most faithful build in ComfyUI's format. **Measured 2026-08-21** against
+#: the official release's fp32 weights (`MiniMaxAI/MiniMax-H3`,
+#: `video_vae/source/model.safetensors`): all 559 shared tensors match in name
+#: and shape, median relative delta 2.07e-4 and max 2.48e-4, which is fp16's
+#: own rounding floor and no more -- so this file is that fp32 cast down, with
+#: `latents_mean` and `latents_std` folded in as tensors. Only the fp32
+#: original is more faithful, at twice the size; a bf16 conversion would be
+#: less, since fp16 carries three more mantissa bits.
+VIDEO_VAE_FP16 = "minimax_h3_video_vae_fp16.safetensors"
 
 
 #: Encoder files core's own `CLIPLoader` (type `minimax`) loads, and therefore

@@ -140,7 +140,9 @@ mapped to the owner decision it feeds. None of the decisions is made here.
 - **INT8 video VAE:** nothing new bears on it. The tile-seam change is inside
   the overlap bands and fidelity-neutral
   (`../../bench/results/2026-09-25_vae_tile_seam_blend.md`); it only means
-  pre-2026-09-22 renders are not bit-comparable.
+  pre-2026-09-22 renders are not bit-comparable. *Superseded 2026-09-26: the
+  owner reopened the lane, and `h3_config.MODELS["video_vae"]` is the INT8
+  build since 0.151.0.*
 
 **2026-09-25 (the upstream survey session).** Found by the read in
 [`../sol_upstream.md`](../sol_upstream.md), "comfy-kitchen and core,
@@ -171,7 +173,8 @@ mapped to the owner decision it feeds. None of the decisions is made here.
   video VAE encode on this launcher, so the rebuild record for that tag says
   so and checks an encode. *Now `../open_experiments.md` #33 (2026-09-26).*
 - **Not proposed:** ComfyUI's templates moved to the INT8 video VAE the owner
-  removed on 2026-08-21. That decision stands unless reopened. sglang's
+  removed on 2026-08-21. That decision stands unless reopened. *Reopened and
+  adopted 2026-09-26 (0.151.0).* sglang's
   probable fc1 swap in its PDD builder is theirs to hear about; reporting it
   upstream is outward-facing and the owner's call.
 

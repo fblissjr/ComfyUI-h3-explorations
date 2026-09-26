@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **The shipped video VAE is the INT8 ConvRot build** (owner: "yes switch"),
+  `h3_config.MODELS["video_vae"]`, 0.151.0. It reverses the 2026-08-21
+  removal (`bc25d89`), and the closed-lanes row in `docs/roadmap.md` is gone.
+  `VIDEO_VAE_FP16` keeps the fp16 name for the comparison tools.
+  `MiniMaxH3VAEPrecision` now refuses to cast a quantized half. Prose that
+  named the fp16 file as shipped carries dated notes in `next_steps.md` and
+  `capture_manifest_schema.md`.
 - **A distill runs on its trainer's contract, not a downstream template**
   (owner, approving the postmortem's proposal). The rule and its instance are
   in `references.md`, "A distill's reference is its trainer's contract", and

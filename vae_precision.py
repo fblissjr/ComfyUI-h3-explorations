@@ -66,6 +66,12 @@ def _module_dtype(module):
     return None
 
 
+def _is_quantized(module) -> bool:
+    """True when any parameter is core's QuantizedTensor (comfy/quant_ops.py),
+    which reports its logical dtype, so `_module_dtype` cannot tell."""
+    return any(type(p.data).__name__ == "QuantizedTensor" for p in module.parameters())
+
+
 def _wrap_boundaries(first_stage_model):
     """Cast at both module boundaries to whatever that half actually holds.
 
@@ -161,6 +167,18 @@ class MiniMaxH3VAEPrecision(io.ComfyNode):
                 "AUDIO VAE does not go through this node -- it is fp32 in "
                 "ComfyUI already, which is what the release uses."
             )
+
+        for half, choice in (("encoder", encoder), ("decoder", decoder)):
+            if choice != "unchanged" and _is_quantized(getattr(model, half)):
+                # The INT8 ConvRot video VAE (h3_config.MODELS["video_vae"] since
+                # 0.151.0) quantizes its decoder: `.to(dtype)` on those weights
+                # is untested, and a silent dequantize or a corrupted decode
+                # are both worse than a refusal.
+                raise ValueError(
+                    f"MiniMaxH3VAEPrecision: this VAE's {half} holds quantized "
+                    f"weights, so {half}={choice!r} is refused. Leave it "
+                    f"'unchanged', or load the fp16 file "
+                    f"(h3_config.VIDEO_VAE_FP16) to change its precision.")
 
         out = copy.copy(vae)
         if encoder != "unchanged":

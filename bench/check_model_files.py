@@ -31,7 +31,8 @@ core's menu contains it. Symlinks into other volumes remain normal.
   resolves    every `*.safetensors` name in a shipped graph is one the live
               server offers for THAT node class. A VAE name under `UNETLoader`
               is a failure even though both files exist.
-  constants   every model name in `h3_config.MODELS`, plus `IMAGE_VAE`, is
+  constants   every model name in `h3_config.MODELS`, plus `IMAGE_VAE`,
+              `VIDEO_VAE_FP16` and `DRAFT_VAE`, is
               offered by the class that loads it.
   format owner the custom compressed-tensors W4A16 artifact is loaded only by
               the repo adapter that recognizes and repacks that format.
@@ -79,7 +80,8 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parents[0] / "workflows"))
 
-from h3_config import CORE_LOADED_ENCODERS, MODELS, IMAGE_VAE, graph_paths  # noqa: E402
+from h3_config import (CORE_LOADED_ENCODERS, MODELS, IMAGE_VAE, VIDEO_VAE_FP16,  # noqa: E402
+                       DRAFT_VAE, graph_paths)
 
 WORKFLOWS = _HERE.parents[0] / "workflows"
 DEFAULT_URL = "http://127.0.0.1:8188"
@@ -211,6 +213,8 @@ def main() -> int:
             resolved = cls or "MiniMaxH3EncoderLoader"
             items.append((f"h3_config.MODELS[{key!r}]", resolved, MODELS[key]))
     items.append(("h3_config.IMAGE_VAE", "VAELoader", IMAGE_VAE))
+    items.append(("h3_config.VIDEO_VAE_FP16", "VAELoader", VIDEO_VAE_FP16))
+    items.append(("h3_config.DRAFT_VAE", "VAELoader", DRAFT_VAE))
 
     failures = grade(items, oi) + grade_format_owner(items)
     print(f"{len(items)} model reference(s) from "

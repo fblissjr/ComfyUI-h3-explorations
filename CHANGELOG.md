@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.151.0
+
+### Changed
+
+- **The shipped video VAE is `minimax_h3_video_vae_int8_convrot`**, replacing
+  `minimax_h3_video_vae_fp16` (owner, 2026-09-26). Every graph is rebuilt,
+  including the bench baselines.
+  - Only the decoder is quantized. The encoder encodes bit-identically
+    (`bench/results/2026-09-26_vae_encoder_int8_file.json`), so references
+    and keyframes are unchanged and only the decode moves.
+  - At 345 frames the decode is faster, holds less VRAM and adds no flicker
+    (`bench/results/2026-09-26_vae_decoders_345f.md`). The owner could not
+    tell the two apart on a clip pair.
+  - A clip rendered before this is not pixel-comparable with one rendered
+    after it.
+  - What it saves end to end is not yet measured in a full render.
+- `h3_config.VIDEO_VAE_FP16` names the fp16 file. `compare_vae_decoders.py`
+  uses it as the reference, and `check_model_files.py` grades it and
+  `DRAFT_VAE` as constants.
+
+### Fixed
+
+- `MiniMaxH3VAEPrecision` refuses `encoder=` or `decoder=` other than
+  `unchanged` on a half that holds quantized weights. Core's QuantizedTensor
+  reports its logical dtype, so a cast would have gone ahead untested on the
+  INT8 decoder. It needs a server restart.
+
 ## 0.150.1
 
 ### Added

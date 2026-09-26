@@ -239,16 +239,22 @@
       }
     },
     "video_vae": {
-      "mechanism": null,
-      "tensors": 562,
-      "quantized_layers": 0,
-      "configs": {},
+      "mechanism": "comfy_quant",
+      "tensors": 850,
+      "quantized_layers": 144,
+      "configs": {
+        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
+          "layers": 144,
+          "roles": {
+            "decoder.transformer_blocks.N.attn.to_out": 36,
+            "decoder.transformer_blocks.N.attn.to_qkv": 36,
+            "decoder.transformer_blocks.N.ff.w1": 36,
+            "decoder.transformer_blocks.N.ff.w2": 36
+          }
+        }
+      },
       "unquantized_2d_weights": {
         "decoder.proj_out": 1,
-        "decoder.transformer_blocks.N.attn.to_out": 36,
-        "decoder.transformer_blocks.N.attn.to_qkv": 36,
-        "decoder.transformer_blocks.N.ff.w1": 36,
-        "decoder.transformer_blocks.N.ff.w2": 36,
         "decoder.x_embedder": 1
       }
     },
@@ -284,7 +290,7 @@
   "producer": {
     "file": "check_model_contents.py",
     "sha256": "5caf2a63b50e1240ba3e3c12aa4003d885e2073d99c7bcc900dd65f00e7b17e4",
-    "repository_commit": "7c9440bdd0be77542ad8b1792f80f57cb32c9da3",
+    "repository_commit": "35926ae67dbeab082cf45e0d43d895d9ba4455e0",
     "dirty_against_commit": false
   }
 }

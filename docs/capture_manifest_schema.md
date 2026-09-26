@@ -351,8 +351,9 @@ dense node after the fact.
 ### `vae_quantization` is deliberately not required
 
 It is singular, and a reference graph loads two VAEs at different quantizations --
-`minimax_h3_video_vae_fp16` beside `minimax_h3_audio_vae_fp32` in
-`workflows/h3_probe_capture_ref3_api.json`. One value over two files records
+`h3_config.MODELS["video_vae"]` beside `MODELS["audio_vae"]` in
+`workflows/h3_probe_capture_ref3_api.json`. *Until 2026-09-26 this named the
+fp16 video VAE; the shipped one is INT8 since 0.151.0, and the point stands.* One value over two files records
 something true of neither, and the existing manifest demonstrates it: it says
 `int8_convrot`, which described the video VAE that graph loaded when it was
 captured and never described the audio one.
