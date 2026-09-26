@@ -534,6 +534,18 @@ def main():
 
     print("turbo LoRA shift and step pairing")
 
+    # ---- every loader of ours is read as one --------------------------------
+    def loaders_complete():
+        """A node of ours with a `lora_name` input that LORA_LOADER_CLASSES
+        misses reads its graph as a base graph, which every rule below then
+        passes. `MiniMaxH3LoRABranch` did on 2026-09-26."""
+        manifest = json.loads((HERE / "node_id_manifest.json").read_text())
+        takes = sorted(n for n, e in manifest.items() if "lora_name" in e.get("inputs", []))
+        missing = [n for n in takes if n not in LORA_LOADER_CLASSES]
+        assert takes and not missing, (
+            f"nodes with a lora_name input missing from LORA_LOADER_CLASSES: {missing}")
+    check("every node of ours with a lora_name input is a known loader", loaders_complete)
+
     # ---- the table against the vendor's own README -----------------------
     def vendor_table_agrees():
         rows = parse_vendor_table(VENDOR_README.read_text(encoding="utf-8"))
@@ -755,9 +767,11 @@ def main():
             flashgen = [l for l in found.loras if classify_flashgen(l)]
             if flashgen:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
-                assert found.loras == [cfg.FLASHGEN_LORA], (
-                    f"{path.name}: FlashGen must load exactly "
-                    f"h3_config.FLASHGEN_LORA and nothing beside it, has {found.loras}")
+                flashgen_files = (cfg.FLASHGEN_LORA, cfg.FLASHGEN_R64_LORA)
+                assert len(found.loras) == 1 and found.loras[0] in flashgen_files, (
+                    f"{path.name}: FlashGen must load exactly one of "
+                    f"h3_config.FLASHGEN_LORA / FLASHGEN_R64_LORA and nothing beside it, "
+                    f"has {found.loras}")
                 unets = {n["inputs"].get("unet_name") for n in nodes
                          if n.get("class_type") == "UNETLoader"}
                 assert unets == {cfg.MODELS["unet_fl2va"]}, (
@@ -788,7 +802,7 @@ def main():
                 assert main_samplers == {cfg.FLASHGEN_SAMPLER}, (
                     f"{path.name}: FlashGen steps {cfg.FLASHGEN_SAMPLER}, graph has "
                     f"{sorted(map(str, main_samplers))}")
-                got = (found.strengths or {}).get(cfg.FLASHGEN_LORA)
+                got = (found.strengths or {}).get(found.loras[0])
                 assert got == cfg.FLASHGEN_STRENGTH, (
                     f"{path.name}: FlashGen strength {got}, want {cfg.FLASHGEN_STRENGTH}")
                 continue

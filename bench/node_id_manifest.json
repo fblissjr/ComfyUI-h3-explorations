@@ -250,6 +250,17 @@
       "length"
     ]
   },
+  "MiniMaxH3LoRABranch": {
+    "inputs": [
+      "model",
+      "lora_name",
+      "strength"
+    ],
+    "node_id": "MiniMaxH3LoRABranch",
+    "outputs": [
+      "model"
+    ]
+  },
   "MiniMaxH3MarkerArm": {
     "inputs": [
       "clip",

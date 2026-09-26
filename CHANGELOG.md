@@ -4,6 +4,39 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.145.0
+
+### Added
+
+- **`MiniMaxH3LoRABranch`** (`lora_branch.py`) applies a LoRA at the call,
+  `y = W x + B (A x)`, instead of merging it into the weight.
+  - **Why:** on the int8 convrot checkpoints ComfyUI merges a LoRA by
+    requantizing the layer with stochastic rounding. A delta below one int8
+    step then survives only as rounding noise several times its size.
+  - **Mechanism:** `pdd_lora.py`'s `unmerged_blocks`, generalized to any LoRA
+    and to every module an H3 LoRA targets. `fc2` goes through the MLP's
+    forward, which the int8 path never routes through `fc2.forward`.
+  - **Check:** `bench/check_lora_branch.py` compares the branch against the
+    float32 merge on core's real model, with controls.
+- **`bench/probe_int8_lora_requant.py`** runs ComfyUI's
+  dequantize, add and requantize sequence on real layers and measures how much
+  of each LoRA's delta survives (`bench/results/2026-09-26_int8_lora_requant.json`):
+  - FlashGen's delta is about a hundredth of a step, and LightX2V Turbo v1.2's
+    about a thousandth in the middle blocks, so the merge keeps little of
+    either;
+  - PDD's and TaoMate's are ten times FlashGen's.
+- **`h3_config.FLASHGEN_R64_LORA`** (the publisher's full rank 64), the
+  generator's `lora_branch` option, and the probes
+  `h3_probe_t2v_flashgen_r64_4step` (merged) and `_branch` (at the call).
+
+### Fixed
+
+- `bench/check_distill_settings.py` read a graph loading through a loader it
+  did not know as a base graph. `LORA_LOADER_CLASSES` gains
+  `MiniMaxH3LoRABranch`, and a new case asserts every node of ours with a
+  `lora_name` input is in it.
+- The provenance of `FLASHGEN_STRENGTH` is written beside it.
+
 ## 0.144.0
 
 ### Changed

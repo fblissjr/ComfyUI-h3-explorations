@@ -44,6 +44,7 @@ from .audio_freeze import (MiniMaxH3FreezeAudio, MiniMaxH3FreezeAudioWindow,
 from .audio_freeze_song import MiniMaxH3AudioFreezeSong
 from .audio_refine import MiniMaxH3AudioRefineMask
 from .frozen_video_cache import MiniMaxH3FrozenVideoCache
+from .lora_branch import MiniMaxH3LoRABranch
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .quant_observe import MiniMaxH3QuantObserve
@@ -322,7 +323,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 # appended 2026-09-25, the audio-only refinement mask (audio_refine.py)
                 MiniMaxH3AudioRefineMask,
                 # appended 2026-09-25, the refine pass's frozen-video cache (frozen_video_cache.py)
-                MiniMaxH3FrozenVideoCache]
+                MiniMaxH3FrozenVideoCache,
+                # appended 2026-09-26, a LoRA applied at the call (lora_branch.py)
+                MiniMaxH3LoRABranch]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

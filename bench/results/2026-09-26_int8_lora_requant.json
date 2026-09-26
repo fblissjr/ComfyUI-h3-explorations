@@ -1,0 +1,1266 @@
+{
+ "checkpoint": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+ "seed": 1234,
+ "rows": [
+  {
+   "layer": "blocks.0.attn.qkv_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0006,
+   "delta_over_step": 0.015,
+   "stochastic": {
+    "cos": 0.03397,
+    "rel_err": 16.6715,
+    "out_rel_err": 16.2557
+   },
+   "nearest": {
+    "cos": 0.00822,
+    "rel_err": 4.9206,
+    "out_rel_err": 4.809
+   }
+  },
+  {
+   "layer": "blocks.0.attn.qkv_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00058,
+   "delta_over_step": 0.0139,
+   "stochastic": {
+    "cos": 0.03311,
+    "rel_err": 17.3503,
+    "out_rel_err": 16.8886
+   },
+   "nearest": {
+    "cos": 0.00805,
+    "rel_err": 5.1121,
+    "out_rel_err": 4.9881
+   }
+  },
+  {
+   "layer": "blocks.0.attn.qkv_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00312,
+   "delta_over_step": 0.08,
+   "stochastic": {
+    "cos": 0.26086,
+    "rel_err": 3.4931,
+    "out_rel_err": 3.4912
+   },
+   "nearest": {
+    "cos": 0.24153,
+    "rel_err": 1.4401,
+    "out_rel_err": 1.4419
+   }
+  },
+  {
+   "layer": "blocks.0.attn.qkv_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00014,
+   "delta_over_step": 0.0032,
+   "stochastic": {
+    "cos": 0.00365,
+    "rel_err": 70.8342,
+    "out_rel_err": 71.6341
+   },
+   "nearest": {
+    "cos": 0.0007,
+    "rel_err": 20.477,
+    "out_rel_err": 20.7321
+   }
+  },
+  {
+   "layer": "blocks.0.attn.qkv_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00803,
+   "delta_over_step": 0.1962,
+   "stochastic": {
+    "cos": 0.55274,
+    "rel_err": 1.5011,
+    "out_rel_err": 1.5369
+   },
+   "nearest": {
+    "cos": 0.68844,
+    "rel_err": 0.8641,
+    "out_rel_err": 0.8845
+   }
+  },
+  {
+   "layer": "blocks.0.attn.out_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00055,
+   "delta_over_step": 0.0092,
+   "stochastic": {
+    "cos": 0.02443,
+    "rel_err": 20.8719,
+    "out_rel_err": 19.8326
+   },
+   "nearest": {
+    "cos": 0.00204,
+    "rel_err": 4.7106,
+    "out_rel_err": 4.4957
+   }
+  },
+  {
+   "layer": "blocks.0.attn.out_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00053,
+   "delta_over_step": 0.0087,
+   "stochastic": {
+    "cos": 0.0239,
+    "rel_err": 21.4735,
+    "out_rel_err": 20.342
+   },
+   "nearest": {
+    "cos": 0.0019,
+    "rel_err": 4.8403,
+    "out_rel_err": 4.6046
+   }
+  },
+  {
+   "layer": "blocks.0.attn.out_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00474,
+   "delta_over_step": 0.077,
+   "stochastic": {
+    "cos": 0.32777,
+    "rel_err": 2.8278,
+    "out_rel_err": 2.6999
+   },
+   "nearest": {
+    "cos": 0.30047,
+    "rel_err": 1.1684,
+    "out_rel_err": 1.1316
+   }
+  },
+  {
+   "layer": "blocks.0.attn.out_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00013,
+   "delta_over_step": 0.0022,
+   "stochastic": {
+    "cos": 0.00217,
+    "rel_err": 84.2627,
+    "out_rel_err": 85.2566
+   },
+   "nearest": {
+    "cos": 0.00023,
+    "rel_err": 18.6511,
+    "out_rel_err": 18.9062
+   }
+  },
+  {
+   "layer": "blocks.0.attn.out_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00652,
+   "delta_over_step": 0.1123,
+   "stochastic": {
+    "cos": 0.41498,
+    "rel_err": 2.1794,
+    "out_rel_err": 2.1485
+   },
+   "nearest": {
+    "cos": 0.45204,
+    "rel_err": 1.0572,
+    "out_rel_err": 1.0458
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc1",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00046,
+   "delta_over_step": 0.0117,
+   "stochastic": {
+    "cos": 0.01771,
+    "rel_err": 21.9701,
+    "out_rel_err": 22.9129
+   },
+   "nearest": {
+    "cos": 0.00422,
+    "rel_err": 6.6065,
+    "out_rel_err": 6.8947
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc1",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00044,
+   "delta_over_step": 0.0109,
+   "stochastic": {
+    "cos": 0.01698,
+    "rel_err": 23.0407,
+    "out_rel_err": 24.1197
+   },
+   "nearest": {
+    "cos": 0.00409,
+    "rel_err": 6.9219,
+    "out_rel_err": 7.2517
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc1",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0046,
+   "delta_over_step": 0.1153,
+   "stochastic": {
+    "cos": 0.36209,
+    "rel_err": 2.5241,
+    "out_rel_err": 2.4811
+   },
+   "nearest": {
+    "cos": 0.33749,
+    "rel_err": 1.2633,
+    "out_rel_err": 1.2511
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc1",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 5e-05,
+   "delta_over_step": 0.0013,
+   "stochastic": {
+    "cos": 0.00034,
+    "rel_err": 198.5991,
+    "out_rel_err": 202.0158
+   },
+   "nearest": {
+    "cos": 0.0,
+    "rel_err": 59.0631,
+    "out_rel_err": 60.1632
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc1",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00615,
+   "delta_over_step": 0.1466,
+   "stochastic": {
+    "cos": 0.45806,
+    "rel_err": 1.9236,
+    "out_rel_err": 1.9959
+   },
+   "nearest": {
+    "cos": 0.55696,
+    "rel_err": 1.0469,
+    "out_rel_err": 1.0812
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc2",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00024,
+   "delta_over_step": 0.0055,
+   "stochastic": {
+    "cos": 0.00462,
+    "rel_err": 44.0427,
+    "out_rel_err": 44.9728
+   },
+   "nearest": {
+    "cos": 0.00099,
+    "rel_err": 11.9336,
+    "out_rel_err": 12.2255
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc2",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00023,
+   "delta_over_step": 0.0052,
+   "stochastic": {
+    "cos": 0.00431,
+    "rel_err": 46.2368,
+    "out_rel_err": 47.2971
+   },
+   "nearest": {
+    "cos": 0.00089,
+    "rel_err": 12.5225,
+    "out_rel_err": 12.8523
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc2",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0049,
+   "delta_over_step": 0.1113,
+   "stochastic": {
+    "cos": 0.36922,
+    "rel_err": 2.4797,
+    "out_rel_err": 2.4477
+   },
+   "nearest": {
+    "cos": 0.33505,
+    "rel_err": 1.2242,
+    "out_rel_err": 1.2121
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc2",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 5e-05,
+   "delta_over_step": 0.0011,
+   "stochastic": {
+    "cos": 0.00039,
+    "rel_err": 219.1147,
+    "out_rel_err": 222.7419
+   },
+   "nearest": {
+    "cos": 1e-05,
+    "rel_err": 59.1772,
+    "out_rel_err": 60.366
+   }
+  },
+  {
+   "layer": "blocks.0.mlp.fc2",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00617,
+   "delta_over_step": 0.1274,
+   "stochastic": {
+    "cos": 0.44654,
+    "rel_err": 1.9873,
+    "out_rel_err": 1.9716
+   },
+   "nearest": {
+    "cos": 0.54464,
+    "rel_err": 1.0491,
+    "out_rel_err": 1.0379
+   }
+  },
+  {
+   "layer": "blocks.24.attn.qkv_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00041,
+   "delta_over_step": 0.0102,
+   "stochastic": {
+    "cos": 0.01139,
+    "rel_err": 24.8541,
+    "out_rel_err": 23.3425
+   },
+   "nearest": {
+    "cos": 0.00217,
+    "rel_err": 7.5684,
+    "out_rel_err": 7.1286
+   }
+  },
+  {
+   "layer": "blocks.24.attn.qkv_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00039,
+   "delta_over_step": 0.0096,
+   "stochastic": {
+    "cos": 0.0107,
+    "rel_err": 26.071,
+    "out_rel_err": 24.3611
+   },
+   "nearest": {
+    "cos": 0.00203,
+    "rel_err": 7.9332,
+    "out_rel_err": 7.4332
+   }
+  },
+  {
+   "layer": "blocks.24.attn.qkv_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0084,
+   "delta_over_step": 0.1813,
+   "stochastic": {
+    "cos": 0.56675,
+    "rel_err": 1.449,
+    "out_rel_err": 1.3996
+   },
+   "nearest": {
+    "cos": 0.69774,
+    "rel_err": 0.8573,
+    "out_rel_err": 0.8289
+   }
+  },
+  {
+   "layer": "blocks.24.attn.qkv_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 5e-05,
+   "delta_over_step": 0.0013,
+   "stochastic": {
+    "cos": 0.00027,
+    "rel_err": 191.8759,
+    "out_rel_err": 189.9953
+   },
+   "nearest": {
+    "cos": 4e-05,
+    "rel_err": 57.9639,
+    "out_rel_err": 57.4819
+   }
+  },
+  {
+   "layer": "blocks.24.attn.qkv_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00766,
+   "delta_over_step": 0.1763,
+   "stochastic": {
+    "cos": 0.53349,
+    "rel_err": 1.5788,
+    "out_rel_err": 1.694
+   },
+   "nearest": {
+    "cos": 0.66085,
+    "rel_err": 0.9193,
+    "out_rel_err": 0.9744
+   }
+  },
+  {
+   "layer": "blocks.24.attn.out_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00037,
+   "delta_over_step": 0.0081,
+   "stochastic": {
+    "cos": 0.01061,
+    "rel_err": 28.534,
+    "out_rel_err": 28.2206
+   },
+   "nearest": {
+    "cos": 0.00124,
+    "rel_err": 7.3843,
+    "out_rel_err": 7.3251
+   }
+  },
+  {
+   "layer": "blocks.24.attn.out_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00035,
+   "delta_over_step": 0.0076,
+   "stochastic": {
+    "cos": 0.01013,
+    "rel_err": 29.9528,
+    "out_rel_err": 29.5995
+   },
+   "nearest": {
+    "cos": 0.00132,
+    "rel_err": 7.7453,
+    "out_rel_err": 7.6755
+   }
+  },
+  {
+   "layer": "blocks.24.attn.out_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00579,
+   "delta_over_step": 0.124,
+   "stochastic": {
+    "cos": 0.41076,
+    "rel_err": 2.1987,
+    "out_rel_err": 2.1735
+   },
+   "nearest": {
+    "cos": 0.4308,
+    "rel_err": 1.126,
+    "out_rel_err": 1.1254
+   }
+  },
+  {
+   "layer": "blocks.24.attn.out_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 5e-05,
+   "delta_over_step": 0.0011,
+   "stochastic": {
+    "cos": 0.00027,
+    "rel_err": 228.6728,
+    "out_rel_err": 232.249
+   },
+   "nearest": {
+    "cos": 0.00013,
+    "rel_err": 58.6792,
+    "out_rel_err": 59.7627
+   }
+  },
+  {
+   "layer": "blocks.24.attn.out_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00347,
+   "delta_over_step": 0.0751,
+   "stochastic": {
+    "cos": 0.26968,
+    "rel_err": 3.4011,
+    "out_rel_err": 3.2558
+   },
+   "nearest": {
+    "cos": 0.21588,
+    "rel_err": 1.3419,
+    "out_rel_err": 1.3103
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc1",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00042,
+   "delta_over_step": 0.01,
+   "stochastic": {
+    "cos": 0.01334,
+    "rel_err": 24.2087,
+    "out_rel_err": 24.3087
+   },
+   "nearest": {
+    "cos": 0.00273,
+    "rel_err": 7.1912,
+    "out_rel_err": 7.2304
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc1",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0004,
+   "delta_over_step": 0.0093,
+   "stochastic": {
+    "cos": 0.01272,
+    "rel_err": 25.3972,
+    "out_rel_err": 25.4942
+   },
+   "nearest": {
+    "cos": 0.00265,
+    "rel_err": 7.5373,
+    "out_rel_err": 7.5779
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc1",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00607,
+   "delta_over_step": 0.1381,
+   "stochastic": {
+    "cos": 0.45272,
+    "rel_err": 1.9509,
+    "out_rel_err": 1.825
+   },
+   "nearest": {
+    "cos": 0.54245,
+    "rel_err": 1.0669,
+    "out_rel_err": 1.0162
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc1",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 3e-05,
+   "delta_over_step": 0.0009,
+   "stochastic": {
+    "cos": 0.00013,
+    "rel_err": 293.0783,
+    "out_rel_err": 288.9247
+   },
+   "nearest": {
+    "cos": -2e-05,
+    "rel_err": 86.2363,
+    "out_rel_err": 85.14
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc1",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00507,
+   "delta_over_step": 0.1144,
+   "stochastic": {
+    "cos": 0.39675,
+    "rel_err": 2.2763,
+    "out_rel_err": 2.2905
+   },
+   "nearest": {
+    "cos": 0.46517,
+    "rel_err": 1.1594,
+    "out_rel_err": 1.1713
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc2",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0002,
+   "delta_over_step": 0.005,
+   "stochastic": {
+    "cos": 0.00263,
+    "rel_err": 50.5967,
+    "out_rel_err": 50.0553
+   },
+   "nearest": {
+    "cos": 0.00041,
+    "rel_err": 13.1375,
+    "out_rel_err": 13.0367
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc2",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0002,
+   "delta_over_step": 0.0048,
+   "stochastic": {
+    "cos": 0.00238,
+    "rel_err": 53.0102,
+    "out_rel_err": 52.4889
+   },
+   "nearest": {
+    "cos": 0.00039,
+    "rel_err": 13.7609,
+    "out_rel_err": 13.6627
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc2",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00437,
+   "delta_over_step": 0.0999,
+   "stochastic": {
+    "cos": 0.33809,
+    "rel_err": 2.7182,
+    "out_rel_err": 2.8013
+   },
+   "nearest": {
+    "cos": 0.29446,
+    "rel_err": 1.2569,
+    "out_rel_err": 1.2831
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc2",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 3e-05,
+   "delta_over_step": 0.0008,
+   "stochastic": {
+    "cos": -6e-05,
+    "rel_err": 302.3239,
+    "out_rel_err": 301.1542
+   },
+   "nearest": {
+    "cos": 0.0,
+    "rel_err": 78.2706,
+    "out_rel_err": 78.1846
+   }
+  },
+  {
+   "layer": "blocks.24.mlp.fc2",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00225,
+   "delta_over_step": 0.0535,
+   "stochastic": {
+    "cos": 0.17538,
+    "rel_err": 4.8874,
+    "out_rel_err": 4.7203
+   },
+   "nearest": {
+    "cos": 0.05126,
+    "rel_err": 1.6634,
+    "out_rel_err": 1.6277
+   }
+  },
+  {
+   "layer": "blocks.49.attn.qkv_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00147,
+   "delta_over_step": 0.0306,
+   "stochastic": {
+    "cos": 0.12211,
+    "rel_err": 6.9798,
+    "out_rel_err": 7.2667
+   },
+   "nearest": {
+    "cos": 0.13692,
+    "rel_err": 2.2263,
+    "out_rel_err": 2.312
+   }
+  },
+  {
+   "layer": "blocks.49.attn.qkv_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00146,
+   "delta_over_step": 0.0301,
+   "stochastic": {
+    "cos": 0.12153,
+    "rel_err": 7.0259,
+    "out_rel_err": 7.3192
+   },
+   "nearest": {
+    "cos": 0.13707,
+    "rel_err": 2.2379,
+    "out_rel_err": 2.3258
+   }
+  },
+  {
+   "layer": "blocks.49.attn.qkv_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00834,
+   "delta_over_step": 0.164,
+   "stochastic": {
+    "cos": 0.58284,
+    "rel_err": 1.3872,
+    "out_rel_err": 1.4834
+   },
+   "nearest": {
+    "cos": 0.77221,
+    "rel_err": 0.735,
+    "out_rel_err": 0.7842
+   }
+  },
+  {
+   "layer": "blocks.49.attn.qkv_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00114,
+   "delta_over_step": 0.0237,
+   "stochastic": {
+    "cos": 0.09033,
+    "rel_err": 8.9664,
+    "out_rel_err": 9.2731
+   },
+   "nearest": {
+    "cos": 0.08582,
+    "rel_err": 2.7454,
+    "out_rel_err": 2.835
+   }
+  },
+  {
+   "layer": "blocks.49.attn.qkv_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00983,
+   "delta_over_step": 0.2204,
+   "stochastic": {
+    "cos": 0.6309,
+    "rel_err": 1.2263,
+    "out_rel_err": 1.2653
+   },
+   "nearest": {
+    "cos": 0.78314,
+    "rel_err": 0.7111,
+    "out_rel_err": 0.7324
+   }
+  },
+  {
+   "layer": "blocks.49.attn.out_proj",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00029,
+   "delta_over_step": 0.0056,
+   "stochastic": {
+    "cos": 0.00741,
+    "rel_err": 38.0847,
+    "out_rel_err": 38.6942
+   },
+   "nearest": {
+    "cos": 0.0005,
+    "rel_err": 8.6043,
+    "out_rel_err": 8.77
+   }
+  },
+  {
+   "layer": "blocks.49.attn.out_proj",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00029,
+   "delta_over_step": 0.0055,
+   "stochastic": {
+    "cos": 0.00727,
+    "rel_err": 38.7578,
+    "out_rel_err": 39.4189
+   },
+   "nearest": {
+    "cos": 0.00049,
+    "rel_err": 8.7535,
+    "out_rel_err": 8.9342
+   }
+  },
+  {
+   "layer": "blocks.49.attn.out_proj",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00353,
+   "delta_over_step": 0.0602,
+   "stochastic": {
+    "cos": 0.2655,
+    "rel_err": 3.5069,
+    "out_rel_err": 3.4155
+   },
+   "nearest": {
+    "cos": 0.20073,
+    "rel_err": 1.2847,
+    "out_rel_err": 1.2685
+   }
+  },
+  {
+   "layer": "blocks.49.attn.out_proj",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00053,
+   "delta_over_step": 0.0101,
+   "stochastic": {
+    "cos": 0.02021,
+    "rel_err": 21.1843,
+    "out_rel_err": 20.7981
+   },
+   "nearest": {
+    "cos": 0.00203,
+    "rel_err": 4.855,
+    "out_rel_err": 4.7849
+   }
+  },
+  {
+   "layer": "blocks.49.attn.out_proj",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00659,
+   "delta_over_step": 0.1088,
+   "stochastic": {
+    "cos": 0.44041,
+    "rel_err": 2.0231,
+    "out_rel_err": 1.9939
+   },
+   "nearest": {
+    "cos": 0.57124,
+    "rel_err": 0.9686,
+    "out_rel_err": 0.9451
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc1",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00051,
+   "delta_over_step": 0.011,
+   "stochastic": {
+    "cos": 0.02468,
+    "rel_err": 19.6418,
+    "out_rel_err": 19.6758
+   },
+   "nearest": {
+    "cos": 0.00524,
+    "rel_err": 5.7893,
+    "out_rel_err": 5.8063
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc1",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.0005,
+   "delta_over_step": 0.0104,
+   "stochastic": {
+    "cos": 0.02435,
+    "rel_err": 20.1279,
+    "out_rel_err": 20.1715
+   },
+   "nearest": {
+    "cos": 0.00514,
+    "rel_err": 5.9284,
+    "out_rel_err": 5.9493
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc1",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.01308,
+   "delta_over_step": 0.2239,
+   "stochastic": {
+    "cos": 0.73198,
+    "rel_err": 0.9295,
+    "out_rel_err": 0.9669
+   },
+   "nearest": {
+    "cos": 0.86172,
+    "rel_err": 0.5577,
+    "out_rel_err": 0.58
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc1",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00057,
+   "delta_over_step": 0.0132,
+   "stochastic": {
+    "cos": 0.02532,
+    "rel_err": 17.857,
+    "out_rel_err": 16.8344
+   },
+   "nearest": {
+    "cos": 0.00551,
+    "rel_err": 5.2787,
+    "out_rel_err": 4.9946
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc1",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00942,
+   "delta_over_step": 0.187,
+   "stochastic": {
+    "cos": 0.61416,
+    "rel_err": 1.2805,
+    "out_rel_err": 1.2938
+   },
+   "nearest": {
+    "cos": 0.76445,
+    "rel_err": 0.7416,
+    "out_rel_err": 0.7548
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc2",
+   "lora": "minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00128,
+   "delta_over_step": 0.033,
+   "stochastic": {
+    "cos": 0.10347,
+    "rel_err": 8.3315,
+    "out_rel_err": 8.7594
+   },
+   "nearest": {
+    "cos": 0.03104,
+    "rel_err": 2.374,
+    "out_rel_err": 2.4831
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc2",
+   "lora": "minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00127,
+   "delta_over_step": 0.0327,
+   "stochastic": {
+    "cos": 0.10308,
+    "rel_err": 8.3667,
+    "out_rel_err": 8.7976
+   },
+   "nearest": {
+    "cos": 0.03085,
+    "rel_err": 2.3811,
+    "out_rel_err": 2.4894
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc2",
+   "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.04431,
+   "delta_over_step": 0.86,
+   "stochastic": {
+    "cos": 0.95612,
+    "rel_err": 0.3064,
+    "out_rel_err": 0.3082
+   },
+   "nearest": {
+    "cos": 0.9796,
+    "rel_err": 0.2044,
+    "out_rel_err": 0.2048
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc2",
+   "lora": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.00109,
+   "delta_over_step": 0.0281,
+   "stochastic": {
+    "cos": 0.08486,
+    "rel_err": 9.6883,
+    "out_rel_err": 10.4648
+   },
+   "nearest": {
+    "cos": 0.02399,
+    "rel_err": 2.6823,
+    "out_rel_err": 2.8797
+   }
+  },
+  {
+   "layer": "blocks.49.mlp.fc2",
+   "lora": "minimax_h3_taomate_3step_rank128_comfy_bf16.safetensors",
+   "quant": {
+    "format": "int8_tensorwise",
+    "convrot": true,
+    "convrot_groupsize": 256
+   },
+   "delta_rel": 0.02522,
+   "delta_over_step": 0.5316,
+   "stochastic": {
+    "cos": 0.89154,
+    "rel_err": 0.5078,
+    "out_rel_err": 0.5025
+   },
+   "nearest": {
+    "cos": 0.95715,
+    "rel_err": 0.2975,
+    "out_rel_err": 0.2947
+   }
+  }
+ ]
+}

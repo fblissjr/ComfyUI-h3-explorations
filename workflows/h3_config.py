@@ -1329,8 +1329,11 @@ DISTILL_SAMPLING = dict(sampler=TURBO_SAMPLER, scheduler="simple")
 #: matches on the VALUE looking like a weight filename instead, which cannot go
 #: quietly incomplete when a new loader appears. This list is used where the
 #: node's other inputs are needed too, which that approach does not give.
+#: `bench/check_distill_settings.py` asserts every node of ours with a
+#: `lora_name` input is here, since 2026-09-26, when `MiniMaxH3LoRABranch`
+#: was missing and its graph read as a base graph.
 LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
-                       "MiniMaxH3PDDLoRA")
+                       "MiniMaxH3PDDLoRA", "MiniMaxH3LoRABranch")
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
 # The stripped sidecar, cut 2026-09-05 against `MODELS["unet_fl2va_pdd8_baked"]`
@@ -1452,6 +1455,15 @@ FASTH3_CORE_VSA = {k: v for k, v in dict(SOL_CORE_DEFAULTS, **{
 #: `MODELS["unet_fl2va"]` and on nothing else. A plain weight LoRA with per-module
 #: alphas; `LoraLoaderModelOnly` carries it.
 FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors"
+#: The publisher's LoRA at its full rank 64, converted here by
+#: `bench/convert_flashgen_lora.py` (`bench/results/2026-09-25_flashgen_lora_conversion.json`):
+#: exact to the release where kijai's resize keeps about 95% of each delta.
+FLASHGEN_R64_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors"
+#: The node that applies a LoRA at the call instead of merging it (`lora_branch.py`).
+LORA_BRANCH_NODE = "MiniMaxH3LoRABranch"
+#: **Inherited:** the publisher's merge scale, `merge_lora_ckpt.py --scale`
+#: default 1.0 ("lora_alpha / rank; 1.0 when alpha equals rank"). Both
+#: conversions carry alpha so that 1.0 here is that scale.
 FLASHGEN_STRENGTH = 1.0
 FLASHGEN_STEPS = 4
 #: **Inherited:** the file's own `manual_sigmas_shift12` metadata, which is the

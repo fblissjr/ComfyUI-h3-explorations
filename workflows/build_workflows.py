@@ -109,7 +109,8 @@ from h3_config import (  # noqa: E402
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
     TAOMATE_LORA,
-    AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, FLASHGEN_LORA, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
+    AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, FLASHGEN_LORA,
+    FLASHGEN_R64_LORA, LORA_BRANCH_NODE, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
     FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
     refine_scheduler_ids,
@@ -1387,6 +1388,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               first_frame: bool = True,
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
+              # Apply `lora` at the call (lora_branch.py) instead of merging
+              # it into the int8 weight, where a sub-step delta is lost.
+              lora_branch: bool = False,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None,
@@ -1884,6 +1888,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             if not split_at and not manual_sigmas:
                 g["61"] = {"class_type": "PrimitiveInt",
                            "inputs": {"value": _resolved_steps}}
+        elif lora_branch:
+            g["18"] = {"class_type": LORA_BRANCH_NODE,
+                       "inputs": {"model": model_src, "lora_name": lora[0],
+                                  "strength": lora[1]}}
         else:
             g["18"] = {"class_type": "LoraLoaderModelOnly",
                        "inputs": {"model": model_src, "lora_name": lora[0],
@@ -4166,6 +4174,23 @@ def main():
               sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/h3_probe_t2v_flashgen_4step"),
          "text -> video + audio at 4 steps via the FlashGen LoRA on its own sigmas"),
+
+        # FlashGen at the publisher's full rank 64 (FLASHGEN_R64_LORA), merged
+        # by the stock loader and then applied at the call (lora_branch.py).
+        # The pair isolates how the LoRA reaches the int8 weight
+        # (bench/results/2026-09-26_int8_lora_requant.json).
+        ("h3_probe_t2v_flashgen_r64_4step.json", "t2v-flashgen-r64-4step", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), steps=FLASHGEN_STEPS,
+              sampler_name=FLASHGEN_SAMPLER, manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step"),
+         "FlashGen at full rank 64, merged by LoraLoaderModelOnly"),
+        ("h3_probe_t2v_flashgen_r64_4step_branch.json", "t2v-flashgen-r64-4step-branch", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_t2v_flashgen_r64_4step_branch"),
+         "FlashGen at full rank 64, applied at the call instead of merged"),
 
         # FastH3 8-step V2 as ComfyUI's own template runs it (h3_config.FASTH3_*):
         # kitchen backend, core's VSA in Sol's slot, Sol off because VSA replaces
