@@ -13,6 +13,36 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**2026-09-26 (the prompt bank fix, 0.151.1).** 38 prompts fixed. Left for the
+owner, unedited:
+- **Speaker identity given in a later shot than the speaker's first appearance**
+  (`prompting.md` section 5.2). Each fix is a larger rewrite:
+  - `t2va_castle_rampart`, `diner_breakup`, `fireworks_barge`,
+    `french_new_wave_cafe`, `frontier_standoff` (ships in 2 graphs);
+  - `gladiator_arena_tunnel`, `medical_er_triage`, `orbital_airlock`,
+    `speakeasy_heist`, `steampunk_airship_bridge`, `trench_ww1_messenger`.
+- **Changes what the prompt tests:**
+  - `t2va_samurai_bamboo_duel`: the "silent" rival speaks;
+  - `ref2va_observatory`: the speaker ids are in the wrong order for ref 5.4,
+    and fixing them swaps the `<Audio 1>` binding;
+  - `ref2va_image_ref_default`: in-shot times and "fifteen-second" on a
+    14.375 s clip; `prompt_audit.md` says `rewrite`, and a bench graph ships it.
+- **The refview2 ablation scenes**, held while their blind session is pending:
+  `ref2va_stairwell_dialogue_backstage`, `_circus`, and
+  `ref2va_diner_breakup_refs`.
+- **Composed prompts, fixed in the generator's role tables and not in the
+  bank:** `ref2va_scene_kitchen` (cast count, unowned hands and actions) and
+  `ref2va_scene_subway` (an unplaced subject and an unowned umbrella).
+- **Smaller:**
+  - `t2va_cooking_show_meltdown`: a silent co-host laughs aloud;
+  - `precinct_archive_vault`: a locked gate beside a cut padlock;
+  - `medical_er_triage`: a flatline after "stabilizing";
+  - `cyberpunk_music_video` and `disco_roller_rink`: the mouth closes while
+    the note sustains;
+  - `kungfu_tea_house`: a masked assassin whose lips move;
+  - soundscape events with no performer in `samurai_bamboo_duel`,
+    `clay_apiary`, `hospital_fire_escape` and `precinct_archive_vault`.
+
 **2026-09-26 (FastH3 before judging it).** The owner: make FastH3 as good as it
 can be before calling it worse than PDD or FlashGen. The first probe copied
 ComfyUI's template, and FastVideo's own contract differs on the sampler, the

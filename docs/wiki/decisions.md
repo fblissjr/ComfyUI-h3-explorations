@@ -17,6 +17,11 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **The prompt bank is fixed for the subway-chase defect class** (owner: "we
+  need to fix all our prompts"). 38 of 139 prompts got minimal edits, graded
+  unchanged. The composed ref2va prompts, the refview2 ablation scenes (a blind
+  session is pending) and anything whose fix changes what it tests are listed
+  for the owner in `next_steps.md`, unedited. 0.151.1.
 - **Corrected: the no-header-timestamps rule has been measured once.**
   `prompting.md` section 3.1 and the portable standard said it was "not yet
   measured in either direction". `bench/results/2026-09-18_timestamps_diner.md`

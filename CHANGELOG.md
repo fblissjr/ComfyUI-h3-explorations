@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.151.1
+
+### Changed
+
+- **38 bank prompts fixed for the subway-chase defect class** (owner: "we need
+  to fix all our prompts").
+  - **Kinds fixed:** an unstated or broken cast count; a character who vanishes
+    from a shot; geography that contradicts itself; actions or sounds with no
+    agent; a count the shots do not keep; a speaker not placed in frame; a line
+    too long for its shot.
+  - **Minimal edits:** every changed prompt grades as it did before (0 FAIL,
+    0 WARN). What each prompt exists to test is kept.
+  - **Shipped prompts:** two are among them, `ref2va_market_stallholder` and
+    `ref2va_stairwell_dialogue`, so their five graphs are rebuilt.
+  - **Timestamps:** no prompt carried a shot-header time or a mid-shot time.
+  - Prompts whose fix would change an experiment or what they test are left
+    for the owner (`docs/wiki/next_steps.md`).
+
 ## 0.151.0
 
 ### Changed
