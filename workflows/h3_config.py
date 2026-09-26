@@ -1459,6 +1459,11 @@ FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_ra
 #: `bench/convert_flashgen_lora.py` (`bench/results/2026-09-25_flashgen_lora_conversion.json`):
 #: exact to the release where kijai's resize keeps about 95% of each delta.
 FLASHGEN_R64_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors"
+#: The same at rank 64 for the pruned Ref2VA checkpoint: `convert_flashgen_lora.py
+#: --partition Ref2VA` fits the adaln onto that partition's own time basis
+#: (`bench/results/2026-09-26_flashgen_lora_conversion_ref2va.json`). FlashGen was
+#: trained on FL2VA for T2VA; on Ref2VA it is an untested transfer.
+FLASHGEN_R64_REF2VA_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors"
 #: The node that applies a LoRA at the call instead of merging it (`lora_branch.py`).
 LORA_BRANCH_NODE = "MiniMaxH3LoRABranch"
 #: **Inherited:** the publisher's merge scale, `merge_lora_ckpt.py --scale`

@@ -1,0 +1,41 @@
+{
+ "source": "minimax_h3_4step_lora_flashgen_v1.0_768p_bf16.safetensors",
+ "checks": {
+  "layout_median_row_cosine": {
+   "blocks.0.attn.qkv_proj": {
+    "permuted": 0.9999626874923706,
+    "as_stored": 0.00030944112222641706
+   },
+   "blocks.49.attn.qkv_proj": {
+    "permuted": 0.999962329864502,
+    "as_stored": 0.0003210244467481971
+   },
+   "token_refiner.blocks.0.attn.qkv_proj": {
+    "permuted": 1.0000011920928955,
+    "as_stored": 0.0005611169617623091
+   },
+   "blocks.0.mlp.fc1": {
+    "as_stored": 0.9999625086784363
+   }
+  },
+  "adaln_worst_relative_fit": 8.093715952175097e-06,
+  "reconstruction_relative": {
+   "blocks.7.attn.qkv_proj": 0.0,
+   "blocks.7.mlp.fc1": 0.0,
+   "blocks.7.attn.out_proj": 0.0,
+   "blocks.7.mlp.fc2": 0.0
+  }
+ },
+ "out": "minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors",
+ "rank": 64,
+ "modules": 259,
+ "metadata": {
+  "format": "pt",
+  "source": "Beidouqixing/minimax-h3-4step-lora-flashgen minimax_h3_4step_lora_flashgen_v1.0_768p_bf16.safetensors",
+  "conversion": "bench/convert_flashgen_lora.py: full rank; qkv lora_B rows [head,qkv,dim]->[qkv,head,dim]; adaln lora_A projected onto the pruned ref2va adaln_t_table basis with the mean in diff_b; alpha = rank (publisher scale 1.0)",
+  "adaln_curve_basis": "ref2va",
+  "sampler_steps": "4",
+  "manual_sigmas_shift12": "1.0, 0.965517, 0.888889, 0.679245, 0.0",
+  "base_schedule": "1.0,0.7,0.4,0.15,0.0"
+ }
+}

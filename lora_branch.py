@@ -25,10 +25,10 @@ LoRA and to every module an H3 LoRA targets:
   MLP's own `forward` is patched: the stock call, plus `fc2`'s branch applied
   to `swiglu(fc1(x))`.
 
-**Costs.** Two small matmuls per targeted module per call. The A and B
-matrices stay in RAM and are cast to the device per call, `pdd_lora.py`'s
-reasoning: a rank-64 file resident on a 24 GB card is about a gigabyte ComfyUI
-does not account for.
+**Costs.** Two small matmuls per targeted module per call, added into the
+base output in place. The A and B matrices stay in pinned host RAM and are
+copied to the device per call, `pdd_lora.py`'s reasoning: a rank-64 file
+resident on a 24 GB card is about a gigabyte ComfyUI does not account for.
 
 **Formats.** `<prefix>.lora_A.weight` / `.lora_B.weight` (or
 `lora_down` / `lora_up`), an optional `.alpha`, and an optional `.diff_b`, under
@@ -54,23 +54,47 @@ _A = (".lora_A.weight", ".lora_down.weight")
 _B = (".lora_B.weight", ".lora_up.weight")
 
 
+def _host(t):
+    """Contiguous, and pinned when there is a card to copy to, so the per-call
+    copy can run without blocking. Pinned host memory is page-locked RAM, not
+    VRAM: a rank-64 file pins about a gigabyte of the host's RAM."""
+    if t is None:
+        return None
+    t = t.contiguous()
+    if torch.cuda.is_available():
+        try:
+            t = t.pin_memory()
+        except RuntimeError:     # pinning refused (limits): pageable still works
+            pass
+    return t
+
+
 class _Branch:
-    """One module's low-rank delta: `x -> scale * B (A x) + diff_b`, cast per call."""
+    """One module's low-rank delta, `scale * B (A x) + diff_b`, added into the base output.
+
+    Added in place with `addmm_`: the delta never exists as its own
+    output-sized tensor. On a 24 GB card under dynamic VRAM an extra
+    `[tokens, 21504]` temporary per qkv call is room ComfyUI then evicts
+    weights to find. The matrices live in host RAM and are copied per call.
+    """
 
     def __init__(self, a, b, scale, diff_b):
-        self.a = a
-        self.b = b * scale if b is not None else None
-        self.diff_b = diff_b
+        self.a = _host(a)
+        self.b = _host(b * scale if (b is not None and scale != 1.0) else b)
+        self.diff_b = _host(diff_b)
 
-    def __call__(self, x, dtype):
-        out = None
+    @staticmethod
+    def _dev(t, like):
+        return t.to(like.device, non_blocking=True).to(like.dtype)
+
+    def add_into(self, x, out):
+        """`out += branch(x)`, in place; `out` is the base forward's fresh output."""
+        flat_out = out.view(-1, out.shape[-1])
         if self.a is not None:
-            a = self.a.to(x.device, dtype)
-            b = self.b.to(x.device, dtype)
-            out = (x.to(dtype) @ a.T) @ b.T
+            flat_x = x.reshape(-1, x.shape[-1]).to(out.dtype)
+            flat_out.addmm_(flat_x @ self._dev(self.a, out).T, self._dev(self.b, out).T)
         if self.diff_b is not None:
-            db = self.diff_b.to(x.device, dtype)
-            out = db.expand(*x.shape[:-1], db.shape[0]) if out is None else out + db
+            flat_out.add_(self._dev(self.diff_b, out))
         return out
 
 
@@ -109,7 +133,9 @@ def parse_lora(sd, strength):
 def _linear_forward(base_forward, branch):
     def forward(x):
         out = base_forward(x)
-        return out + branch(x, out.dtype)
+        if not out.is_contiguous():
+            out = out.contiguous()
+        return branch.add_into(x, out)
     return forward
 
 
@@ -128,10 +154,12 @@ def _mlp_forward(mlp, fc1_forward, fc2_branch):
         h = fc1_forward(x)
         out = comfy.ops.linear_input_act(mlp.fc2, h, "swiglu")
         flat_h = h.reshape(-1, h.shape[-1])
+        if not out.is_contiguous():
+            out = out.contiguous()
         flat_out = out.view(-1, out.shape[-1])
         for a in range(0, flat_h.shape[0], FC2_CHUNK_ROWS):
             b = min(a + FC2_CHUNK_ROWS, flat_h.shape[0])
-            flat_out[a:b] += fc2_branch(swiglu(flat_h[a:b]), out.dtype)
+            fc2_branch.add_into(swiglu(flat_h[a:b]), flat_out[a:b])
         return out
     return forward
 

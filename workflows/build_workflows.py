@@ -110,7 +110,7 @@ from h3_config import (  # noqa: E402
     PDD_STRENGTH, PDD_FL2VA_STRIPPED_LORA,
     TAOMATE_LORA,
     AUDIO_REFINE, FROZEN_VIDEO_CACHE, FROZEN_VIDEO_CACHE_NODE, FLASHGEN_LORA,
-    FLASHGEN_R64_LORA, LORA_BRANCH_NODE, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
+    FLASHGEN_R64_LORA, FLASHGEN_R64_REF2VA_LORA, LORA_BRANCH_NODE, FLASHGEN_STRENGTH, FLASHGEN_STEPS,
     FLASHGEN_MANUAL_SIGMAS, FLASHGEN_SAMPLER,
     FASTH3_STEPS, FASTH3_SAMPLER, FASTH3_SCHEDULER, FASTH3_SHIFT, FASTH3_CORE_VSA,
     refine_scheduler_ids,
@@ -4947,6 +4947,25 @@ def main():
               manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
               out_prefix="Video/text_to_video_flashgen"),
          "text -> video + audio at 4 steps via FlashGen at full rank, applied at the call, kitchen dense + Sol"),
+
+        # FlashGen beyond T2VA, 2026-09-26, the owner: "even if it wasnt
+        # trained with that, its worth testing". Both are the shipped t2v
+        # graph's settings on another task. First frame runs on the same fl2va
+        # checkpoint and file; ref2va runs on the ref2va checkpoint with the
+        # file converted for its adaln basis. vllm-omni refuses FlashGen on
+        # anything but T2VA, so both are outside the upstream contract.
+        ("h3_probe_i2v_flashgen_4step.json", "i2v-flashgen-4step", "i2v", None,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_i2v_flashgen_4step"),
+         "first frame + text -> video + audio at 4 steps via FlashGen, an untrained task"),
+        ("h3_probe_r2v_flashgen_4step.json", "r2v-flashgen-4step", "r2v", _ref_prompt(images=True),
+         dict(lora=(FLASHGEN_R64_REF2VA_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/h3_probe_r2v_flashgen_4step"),
+         "image references -> video + audio at 4 steps via FlashGen on ref2va, an untrained transfer"),
 
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",

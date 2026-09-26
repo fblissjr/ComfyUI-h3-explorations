@@ -86,8 +86,14 @@ def shifted(shift, t):
     return shift * t / (1 + (shift - 1) * t)
 
 
+#: The release partition the pruned checkpoint was cut from, set by
+#: `--partition`. FlashGen was trained on FL2VA; converting it for Ref2VA fits
+#: its adaln onto that partition's own time basis and embedder.
+PARTITION = "FL2VA"
+
+
 def release_tensor(release: Path, key: str) -> torch.Tensor:
-    d = release / "FL2VA" / "transformer"
+    d = release / PARTITION / "transformer"
     idx = json.loads((d / "model.safetensors.index.json").read_text())["weight_map"]
     with safe_open(str(d / idx[key]), "pt") as f:
         return f.get_tensor(key).float()
@@ -124,7 +130,11 @@ def main() -> int:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--compare", type=Path, default=None)
     ap.add_argument("--record", type=Path, default=None)
+    ap.add_argument("--partition", choices=("FL2VA", "Ref2VA"), default="FL2VA",
+                    help="the release partition --pruned was cut from (default FL2VA)")
     args = ap.parse_args()
+    global PARTITION
+    PARTITION = args.partition
     rec = {"source": args.lora.name, "checks": {}}
 
     with safe_open(str(args.lora), "pt") as f:
@@ -233,9 +243,9 @@ def main() -> int:
         "format": "pt",
         "source": f"Beidouqixing/minimax-h3-4step-lora-flashgen {args.lora.name}",
         "conversion": ("bench/convert_flashgen_lora.py: full rank; qkv lora_B rows [head,qkv,dim]->[qkv,head,dim]; "
-                       "adaln lora_A projected onto the pruned fl2va adaln_t_table basis with the mean in diff_b; "
+                       f"adaln lora_A projected onto the pruned {PARTITION.lower()} adaln_t_table basis with the mean in diff_b; "
                        "alpha = rank (publisher scale 1.0)"),
-        "adaln_curve_basis": "fl2va",
+        "adaln_curve_basis": PARTITION.lower(),
         "sampler_steps": "4",
         "manual_sigmas_shift12": FLASHGEN_MANUAL_SIGMAS,
         "base_schedule": ",".join(str(x) for x in BASE_SCHEDULE),

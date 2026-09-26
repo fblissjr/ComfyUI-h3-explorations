@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.147.0
+
+### Changed
+
+- **`MiniMaxH3LoRABranch` is faster.** The branch adds into the base output in
+  place with `addmm_` rather than as its own output-sized tensor. Its matrices
+  sit in pinned host RAM and are copied without blocking.
+  - The overhead over the merged loader roughly halves; timings are in
+    `bench/results/2026-09-26_flashgen_lora_path_s1.jsonl`, rows `fast_r64`
+    and `fast_ship`.
+  - On the GPU, the in-place sum is as accurate as the old one against float64.
+  - The render changes by rounding only, which four deterministic steps
+    amplify.
+
+### Added
+
+- **`bench/convert_flashgen_lora.py --partition Ref2VA`** fits FlashGen's
+  adaln onto the Ref2VA checkpoint's own time basis
+  (`bench/results/2026-09-26_flashgen_lora_conversion_ref2va.json`).
+  `h3_config.FLASHGEN_R64_REF2VA_LORA` is that file.
+- **Two FlashGen probes on tasks it was not trained for:**
+  `h3_probe_i2v_flashgen_4step` (first frame, fl2va) and
+  `h3_probe_r2v_flashgen_4step` (image references, ref2va). vllm-omni refuses
+  FlashGen outside T2VA; these test the transfer.
+- `bench/check_distill_settings.py` pairs each FlashGen file with the
+  checkpoint whose adaln basis it was fitted on.
+
 ## 0.146.0
 
 ### Added

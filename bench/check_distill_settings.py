@@ -767,17 +767,21 @@ def main():
             flashgen = [l for l in found.loras if classify_flashgen(l)]
             if flashgen:
                 nodes = [n for n in doc.values() if isinstance(n, dict)]
-                flashgen_files = (cfg.FLASHGEN_LORA, cfg.FLASHGEN_R64_LORA)
+                # Each file's adaln was fitted onto one pruned checkpoint's curve
+                # basis, so each file loads on that checkpoint and no other.
+                flashgen_files = {cfg.FLASHGEN_LORA: "unet_fl2va",
+                                  cfg.FLASHGEN_R64_LORA: "unet_fl2va",
+                                  cfg.FLASHGEN_R64_REF2VA_LORA: "unet_ref2va"}
                 assert len(found.loras) == 1 and found.loras[0] in flashgen_files, (
                     f"{path.name}: FlashGen must load exactly one of "
-                    f"h3_config.FLASHGEN_LORA / FLASHGEN_R64_LORA and nothing beside it, "
-                    f"has {found.loras}")
+                    f"{sorted(flashgen_files)} and nothing beside it, has {found.loras}")
                 unets = {n["inputs"].get("unet_name") for n in nodes
                          if n.get("class_type") == "UNETLoader"}
-                assert unets == {cfg.MODELS["unet_fl2va"]}, (
-                    f"{path.name}: kijai projected FlashGen's adaln onto the pruned "
-                    f"fl2va curve basis, so it loads on MODELS['unet_fl2va'] only, "
-                    f"has {sorted(map(str, unets))}")
+                want_unet = cfg.MODELS[flashgen_files[found.loras[0]]]
+                assert unets == {want_unet}, (
+                    f"{path.name}: {found.loras[0]}'s adaln is fitted to "
+                    f"{flashgen_files[found.loras[0]]}'s curve basis, so it loads on "
+                    f"{want_unet} only, has {sorted(map(str, unets))}")
                 effective = BASE_SHIFT if found.shift is None else found.shift
                 assert effective == BASE_SHIFT, (
                     f"{path.name}: FlashGen's sigmas are its base_schedule at shift "
