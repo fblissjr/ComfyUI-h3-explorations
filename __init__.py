@@ -5,6 +5,12 @@ and chain-assert nodes. See README.md.
 """
 
 from .nodes import comfy_entrypoint
+from . import pipeline_telemetry as _telemetry
+
+# Inert unless the server starts with H3_TELEMETRY set (docs/pipeline_telemetry.md).
+# It observes through core's cache-provider API and a logging handler; it
+# patches nothing.
+_telemetry.install_from_env()
 
 # The single-frame shim that used to be applied here is archived, and with it
 # the last thing in this pack that modified ComfyUI core. Nothing here patches

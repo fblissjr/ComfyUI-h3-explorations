@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.150.0
+
+### Added
+
+- **Pipeline telemetry.** A server started with `H3_TELEMETRY=dir=<path>`
+  writes one JSONL record per prompt. Each record holds:
+  - per node, its start and end, with every loaded model's bytes on the card,
+    pinned and in RAM, dynamic VRAM's residency, and each DiT block's
+    resident fraction;
+  - a sampler row every 250 ms: the card by NVML (memory, PCIe bytes each
+    way, utilisation, clocks, power), dynamic VRAM's total, the process's
+    anonymous and file-backed memory, disk reads, major faults and CPU, and
+    the host's page cache;
+  - core's load, stage, unload and eviction log lines, parsed.
+
+  It observes through core's cache-provider API and a logging handler, and
+  patches nothing. The provider never caches. NVML is bound with ctypes, so
+  there is no new dependency. The pack imports it in every server, and
+  unarmed it registers nothing.
+  - The recorder is `pipeline_telemetry.py`.
+  - The reader, `bench/telemetry_report.py`, prints per-node phases.
+  - The controls are `bench/check_pipeline_telemetry.py`.
+  - The schema and its blind spots are in `docs/pipeline_telemetry.md`.
+  - What arming costs a render is not yet measured.
+
+### Fixed
+
+- `docs/comfy_notes.md` said twice that the server always writes
+  `user/comfyui_<port>.log`. The server launched today wrote no such file. The
+  live log is `/internal/logs/raw`.
+
 ## 0.149.1
 
 ### Added

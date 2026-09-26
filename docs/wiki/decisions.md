@@ -30,7 +30,16 @@ Older history lives elsewhere and is not copied here:
   `user/comfyui_<port>.log` always holds the current session. The server
   started 2026-09-26 by `start.sh` wrote only to its stdout pipe, and that
   file stopped at 2026-09-16. The paragraph now names `/internal/logs/raw`,
-  core's in-memory buffer, with a dated note in place.
+  core's in-memory buffer, with a dated note in place. The same claim was also
+  in the restart recipe ("redirecting the launcher to `/dev/null` loses
+  nothing"), now corrected with its own note.
+- **Pipeline telemetry exists** (owner: "we should know whats happening
+  throughout our pipeline in a structured schema and be able to record it end
+  to end"). `H3_TELEMETRY` is `docs/pipeline_telemetry.md`. Two things said in
+  session that day were wrong, and are corrected there rather than repeated:
+  "Staged" is reserved address space on the card, not data held in RAM; and
+  `--mmap-torch-files` does not affect `.safetensors`, which dynamic VRAM
+  memory-maps anyway.
 - **Corrected: FastH3 V2 was built to ComfyUI's template, not FastVideo's
   contract.**
   - `docs/wiki/references.md` said the FastH3 file was "Not on disk here, and

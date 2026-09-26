@@ -41,6 +41,7 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | file | what it answers |
 |---|---|
 | [`docs/comfy_notes.md`](../../docs/comfy_notes.md) | running and restarting ComfyUI, generating workflows, the `node_id` rule and the `import nodes` trap |
+| [`docs/pipeline_telemetry.md`](../../docs/pipeline_telemetry.md) | what a prompt loaded, moved and spent per node: the `H3_TELEMETRY` recorder, its schema, what it cannot see, and `bench/telemetry_report.py` |
 | [`docs/hardware.md`](../../docs/hardware.md) | what bounds this workload and which host settings invalidate a timing. Carries no values; `bench/hwinfo.py` prints those |
 | [`docs/open_experiments.md`](../../docs/open_experiments.md) | what is deliberately not measured, and the blocker for each |
 | [`docs/SOLATTN.md`](../../docs/SOLATTN.md) | the Sol-Attn authority: knobs, sink, measured arms, ordering, its own do-not-rely table. `morton.md`, `h3_input_impacts.md` and `sol_upstream.md` are reached only through it |

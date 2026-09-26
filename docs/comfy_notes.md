@@ -72,7 +72,9 @@ goes to a file so the owner can read it.
 environment: `H3_CAPTURE` (q/k/v tensors, gigabytes per cell),
 `H3_SOL_OBSERVE` (Sol route counts per call), `H3_SOL_PROBE` (Sol against
 the shipped fallback per call, summaries only). Each takes `dir=`; put it
-under `$H3_CAPTURE_ROOT`. A server carrying any of them renders slower and
+under `$H3_CAPTURE_ROOT`. A fourth, `H3_TELEMETRY` (2026-09-26), records what
+each prompt loaded, moved and spent per node:
+[`pipeline_telemetry.md`](pipeline_telemetry.md). A server carrying any of them renders slower and
 its timings are void, which is the reason to read the port owner's
 environment before you trust a number from it.
 
@@ -88,8 +90,11 @@ owner's environment rather than assuming it is the one you launched.
 
 The last line is the point: the new process's start time must be LATER than
 the file you changed, or you are measuring the old code with a fresh-looking
-server. The server writes its own log to `user/comfyui_<port>.log` whatever
-you do with stdout, so redirecting the launcher to `/dev/null` loses nothing.
+server. The running server's log is `GET /internal/logs/raw` (see "Traps"
+below). *Until 2026-09-26 this said the server writes `user/comfyui_<port>.log`
+whatever you do with stdout, so redirecting the launcher to `/dev/null` loses
+nothing. The server launched that day wrote no such file, so send the
+launcher's output to a file.*
 
 **Captures are transient, and the collection root is `start.sh`'s.** Since
 2026-09-03 `start.sh` exports `H3_CAPTURE_ROOT`, the directory every
