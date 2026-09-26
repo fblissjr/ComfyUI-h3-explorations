@@ -25,6 +25,10 @@ upstream runs it: `../research/2026-09-26_flashgen.md`.
   it renders a different take.
 - **Then:** a second seed and scene; the same pair for a LightX2V Turbo LoRA; a
   125-frame arm at FlashGen's trained length.
+- **FlashGen off T2VA** (0.147.0): i2v and ref2va probes rendered and hold up by
+  eye (`../../bench/results/2026-09-26_flashgen_tasks_s1.md`). Still owed: the
+  owner's look, same-seed base or PDD renders to compare, and prompts with sound
+  in them.
 
 **2026-09-25, late night (0.143.0, the frozen-video cache).**
 `MiniMaxH3FrozenVideoCache` ran live on the FlashGen refine arm
