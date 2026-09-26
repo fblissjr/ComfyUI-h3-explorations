@@ -20,8 +20,10 @@ VSA kept fraction and a dense warm-up (0.148.0, `h3_config.FASTH3_CONTRACT_*`).
 - **The owner's look** at `contract` against `template`
   (`../../bench/results/2026-09-26_fasth3_contract_s1.md`). The attention change
   decides the take and is also faster.
-- **Then:** a second seed and scene, and FastH3 at the contract against PDD8 and
-  FlashGen.
+- *Rendered 2026-09-26:* FastH3 at the contract against PDD8 and FlashGen, one
+  seed, two scenes (`../../bench/results/2026-09-26_distill_compare_s1.md`).
+  Still owed: the owner's three-way look, then a blind session with the dense
+  baseline if one of them is to be the default.
 
 **2026-09-26 (FlashGen before audio refine).** The owner: make FlashGen work as
 well as it can before refining its audio. Where every setting comes from and how
