@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-09-26
 
+- **FlashGen ships as `h3_text_to_video_flashgen`**, with rank 64 applied at
+  the call (owner: "lets take our best stab at making a good workflow ship",
+  while unable to look). Chosen by source rather than by eye:
+  - the int8 merge keeps little of FlashGen's delta
+    (`bench/results/2026-09-26_int8_lora_requant.json`);
+  - vllm-omni's native route applies the LoRA at run time.
+
+  The render pair is unjudged (`bench/results/2026-09-26_flashgen_lora_path_s1.md`).
+  If the owner prefers the merged take, the loader swaps back. 0.146.0.
 - **The shipped refine graphs carry the frozen-video cache** (owner, on the
   unblinded pair: "Cant hear a difference whatsoever"). A practical default in
   a tinkering repo: it roughly halves the refine sampler

@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.146.0
+
+### Added
+
+- **`h3_text_to_video_flashgen`**, the first shipped FlashGen workflow: text
+  to video and audio in 4 steps.
+  - **LoRA:** the publisher's full rank 64, applied at the call by
+    `MiniMaxH3LoRABranch`.
+  - **Sampling:** the release's schedule shifted at 12 on Euler, with no
+    guidance, as vllm-omni runs it.
+  - **Attention and canvas:** the repo default (kitchen dense plus Sol), at
+    1344x768 and 345 frames.
+  - **No audio refine.**
+  - Each choice and its source is in `docs/research/2026-09-26_flashgen.md`.
+    The owner had not judged it when it shipped.
+    `h3_probe_t2v_flashgen_r64_4step` is the merged control.
+
+### Fixed
+
+- `bench/results/model_contents_baseline.json` gains `unet_fasth3_v2`, which
+  `h3_config.MODELS` has named since 0.141.0 while `check_model_contents.py` was
+  red on it.
+
+### Known
+
+- `check_schema_defaults.py` has been red since 0.142.0.
+  `MiniMaxH3SolAttn.token_routing` defaults to `'off'` in the schema and to
+  `None` in `execute`. `None` is deliberate: it keeps an API graph saved before
+  the dropdown on its list. Aligning the two changes what such a graph renders,
+  so the owner decides. Recorded in `docs/wiki/next_steps.md`.
+
 ## 0.145.1
 
 ### Fixed

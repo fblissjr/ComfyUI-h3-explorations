@@ -4930,6 +4930,24 @@ def main():
                  "the same sorting line elaborated, no new content"))
         ],
 
+        # --- FlashGen, the 4-step arm to render with (2026-09-26) ----------
+        # The owner: "lets take our best stab at making a good workflow ship".
+        # Every choice and its source is docs/research/2026-09-26_flashgen.md:
+        # the publisher's full rank 64 (FLASHGEN_R64_LORA) applied at the call
+        # (lora_branch.py), because the stock loader's int8 merge keeps little
+        # of FlashGen's delta (bench/results/2026-09-26_int8_lora_requant.json)
+        # and vllm-omni's native route applies it at run time too; the
+        # release's schedule shifted at 12 on Euler, no guidance, as vllm-omni
+        # runs it; the repo's attention default. T2VA only: vllm-omni refuses
+        # FlashGen on any other task. Unjudged by the owner when it shipped;
+        # h3_probe_t2v_flashgen_r64_4step is the merged control.
+        ("h3_text_to_video_flashgen.json", "texttovideoflashgen", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(FLASHGEN_R64_LORA, FLASHGEN_STRENGTH), lora_branch=True,
+              steps=FLASHGEN_STEPS, sampler_name=FLASHGEN_SAMPLER,
+              manual_sigmas=FLASHGEN_MANUAL_SIGMAS,
+              out_prefix="Video/text_to_video_flashgen"),
+         "text -> video + audio at 4 steps via FlashGen at full rank, applied at the call, kitchen dense + Sol"),
+
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,

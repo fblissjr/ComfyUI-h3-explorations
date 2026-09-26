@@ -16,6 +16,8 @@ own below the rule.
 **2026-09-26 (FlashGen before audio refine).** The owner: make FlashGen work as
 well as it can before refining its audio. Where every setting comes from and how
 upstream runs it: `../research/2026-09-26_flashgen.md`.
+- *Shipped 2026-09-26:* `h3_text_to_video_flashgen` (rank 64 at the call), on
+  the owner's "best stab" before they could look (`decisions.md`).
 - **The owner's look** at `r64` against `r64_branch`
   (`../../bench/results/2026-09-26_flashgen_lora_path_s1.md`). A merged LoRA on
   the int8 checkpoint loses most of FlashGen's delta
@@ -39,6 +41,10 @@ refine pass, and the finished audio stays close to the uncached pass.
 
 **2026-09-25, night (0.142.0).** Sol now defaults to `dense_blocks = 45,48,49`,
 and `token_routing` is one dropdown with `off` as its default.
+- **Owner decision:** `bench/check_schema_defaults.py` has been red since this
+  change. `token_routing` is `'off'` in the schema and `None` in `execute`,
+  which keeps a pre-dropdown API graph on its list. Align them, which silently
+  drops such a graph's routing, or exempt the input with that reason.
 - *Done 2026-09-25:* the server was restarted at 0.143.0, all graphs validate
   against it, and `bench/check_widget_deviations.py` passes. **Still owed:** the
   Sol kernel checks run with the GPU visible.

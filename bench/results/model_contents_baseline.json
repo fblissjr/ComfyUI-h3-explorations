@@ -89,6 +89,36 @@
         "video_patch_proj": 1
       }
     },
+    "unet_fasth3_v2": {
+      "mechanism": "comfy_quant",
+      "tensors": 1098,
+      "quantized_layers": 258,
+      "configs": {
+        "{\"convrot\": true, \"convrot_groupsize\": 256, \"format\": \"int8_tensorwise\"}": {
+          "layers": 258,
+          "roles": {
+            "blocks.N.attn.out_proj": 50,
+            "blocks.N.attn.qkv_proj": 50,
+            "blocks.N.attn.to_gate_compress": 50,
+            "blocks.N.mlp.fc1": 50,
+            "blocks.N.mlp.fc2": 50,
+            "token_refiner.blocks.N.attn.out_proj": 2,
+            "token_refiner.blocks.N.attn.qkv_proj": 2,
+            "token_refiner.blocks.N.mlp.fc1": 2,
+            "token_refiner.blocks.N.mlp.fc2": 2
+          }
+        }
+      },
+      "unquantized_2d_weights": {
+        "audio_patch_proj": 1,
+        "blocks.N.adaln_proj.linear": 50,
+        "condition_proj": 1,
+        "final_layer.adaln_proj.linear": 1,
+        "final_layer.audio_out": 1,
+        "final_layer.video_out": 1,
+        "video_patch_proj": 1
+      }
+    },
     "unet_hybrid_b30": {
       "mechanism": "comfy_quant",
       "tensors": 932,
@@ -254,7 +284,7 @@
   "producer": {
     "file": "check_model_contents.py",
     "sha256": "5caf2a63b50e1240ba3e3c12aa4003d885e2073d99c7bcc900dd65f00e7b17e4",
-    "repository_commit": "8225adfcde66057cb406b95a86275d4c92e01450",
-    "dirty_against_commit": true
+    "repository_commit": "7c9440bdd0be77542ad8b1792f80f57cb32c9da3",
+    "dirty_against_commit": false
   }
 }
