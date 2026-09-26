@@ -119,13 +119,25 @@ def phases(rows: list[dict]) -> dict:
     graph = (header.get("graph") or {}).get("nodes") or {}
     return {
         "prompt_id": header.get("prompt_id"), "schema": header.get("schema"),
-        "substrate": header.get("substrate"),
+        "substrate": _redacted(header.get("substrate")),
         "total_s": rows[-1]["t"] if rows else None,
         "nodes": out_nodes,
         "not_observed": sorted(set(graph) - executed, key=lambda k: (len(k), k)),
         "unclosed": sorted(starts),
         "log_counts": _counts(x.get("kind") for x in logs),
     }
+
+
+def _redacted(sub):
+    """The summary is committed; the record is not. Absolute paths in the
+    server's argv (output, input and temp directories) say where this machine
+    keeps things, so the summary names the flag and drops the path."""
+    if not isinstance(sub, dict):
+        return sub
+    out = dict(sub)
+    out["argv"] = ["<path>" if isinstance(a, str) and a.startswith("/") else a
+                   for a in sub.get("argv") or []]
+    return out
 
 
 def _gib(x):

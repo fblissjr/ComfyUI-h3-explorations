@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.150.1
+
+### Added
+
+- **The first telemetry records**, the shipped FlashGen t2v graph cold and
+  warm: `bench/results/2026-09-26_telemetry_first_records.md`.
+  - Arming cost no measurable time.
+  - The DiT keeps about half its weights on the card and streams the rest
+    each step, overlapped with compute.
+  - The encoder and the video VAE are evicted by the sampler and reloaded
+    when next needed; the VAE reload is not where decode time goes.
+  - torch's allocator does not see dynamic VRAM.
+  - The link runs at gen 4 x8.
+
+### Changed
+
+- `bench/telemetry_report.py` redacts absolute paths from the server argv it
+  copies into a summary, since summaries are committed.
+
 ## 0.150.0
 
 ### Added

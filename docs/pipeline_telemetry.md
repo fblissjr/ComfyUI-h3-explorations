@@ -18,9 +18,10 @@ The server reads its environment once, at pack import:
 Unset, the module registers nothing. Armed, every prompt writes
 `<dir>/<date>_<time>_<prompt id prefix>.jsonl`. It is the fourth arming key
 beside the three in [`comfy_notes.md`](comfy_notes.md). Read the port
-owner's environment before trusting a number, as for those. What arming
-costs a render is not yet measured; until it is, compare a timing only with
-another timing from a server armed the same way.
+owner's environment before trusting a number, as for those. **Arming cost
+no measurable time** on a warm FlashGen render at the default interval
+(`bench/results/2026-09-26_telemetry_first_records.md`). That is one graph
+in one cache state; still compare a timing with another taken the same way.
 
 ## How it sees, and what it cannot see
 
@@ -109,9 +110,12 @@ Every row has `t` (seconds since the prompt started, monotonic), `seq`, and
   become evictable after use.
 - **So `proc_rssfile` and the page cache are the file-backed weights.**
   `proc_rssanon` includes the pinned copies.
-- **torch's allocator figures likely exclude dynamic VRAM's pages.**
-  `aimdo_vram` and NVML's `used` are the totals to read. This is inferred
-  from the code and not yet confirmed against a record.
+- **torch's allocator figures exclude dynamic VRAM's pages**, measured on
+  the first record: about 11 MiB allocated against about 10 GB resident.
+  `aimdo_vram` and NVML's `used` are the totals to read.
+- **`node_start` is a cache lookup, and it can repeat.** Core looks a node up
+  when it first reaches it and again when it runs after waiting for inputs.
+  The reader pairs the last start before the end.
 
 ## Reading a record
 
