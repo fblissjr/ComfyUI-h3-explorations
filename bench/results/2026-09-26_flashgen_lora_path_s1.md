@@ -83,6 +83,18 @@ attention costs about what the Sol window saves.
 (`ffmpeg psnr`: inf). It is the same graph under another output prefix, and the
 branch path reproduces bit for bit across runs.
 
+## The faster branch (0.147.0)
+
+Rows `fast_r64` and `fast_ship` rendered back to back in one session after the
+restart that loaded the change. Their `sampler_s` gives the branch's overhead
+over the merged loader.
+- **Against `ship_diner`** (the same graph and seed on the old branch):
+  `ffmpeg psnr` gives 20.2 dB. The in-place add changed the rounding, and four
+  deterministic steps amplified it into a visibly shifted take.
+- **Exactness is unchanged.** On the GPU, the in-place path's error against a
+  float64 reference was equal to or lower than the old path's (0.147.0 in
+  `CHANGELOG.md`).
+
 ## Clips
 
 On the output share under `Video/`, each with a `-audio.mp4` companion:
@@ -93,6 +105,7 @@ On the output share under `Video/`, each with a `-audio.mp4` companion:
 - `h3_probe_t2v_flashgen_r64_4step_subway_r64_00001`
 - `h3_probe_t2v_flashgen_r64_4step_branch_subway_r64_branch_00001`
 - `text_to_video_flashgen_ship_diner_00001`
+- `h3_probe_t2v_flashgen_r64_4step_fast_r64_00001`, `text_to_video_flashgen_fast_ship_00001`
 
 ## Next
 
