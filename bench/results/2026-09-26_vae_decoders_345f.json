@@ -1,0 +1,117 @@
+{
+ "question": "what the INT8 and taeh3 video decoders cost and save against fp16, on one saved latent",
+ "latent": "text_to_video_flashgen_draft_video_draft_00001_.latent",
+ "fast": [
+  "fp16_accumulation"
+ ],
+ "arms": {
+  "fp16": {
+   "file": "minimax_h3_video_vae_fp16.safetensors",
+   "vae_dtype": "torch.float16",
+   "latent_shape": [
+    1,
+    24,
+    102,
+    48,
+    84
+   ],
+   "frames_shape": [
+    345,
+    768,
+    1344,
+    3
+   ],
+   "decode_s_first": 30.35,
+   "decode_s_steady": 29.55,
+   "peak_mib": 5651
+  },
+  "fp16_repeat": {
+   "file": "minimax_h3_video_vae_fp16.safetensors",
+   "vae_dtype": "torch.float16",
+   "latent_shape": [
+    1,
+    24,
+    102,
+    48,
+    84
+   ],
+   "frames_shape": [
+    345,
+    768,
+    1344,
+    3
+   ],
+   "decode_s_first": 30.4,
+   "decode_s_steady": 29.63,
+   "peak_mib": 5651,
+   "against_fp16": {
+    "bit_identical": true,
+    "psnr_db": Infinity,
+    "psnr_frame_min_db": null,
+    "worst_frame": null,
+    "max_abs": 0,
+    "motion_ratio": 1.0
+   }
+  },
+  "int8": {
+   "file": "minimax_h3_video_vae_int8_convrot.safetensors",
+   "vae_dtype": "torch.float16",
+   "latent_shape": [
+    1,
+    24,
+    102,
+    48,
+    84
+   ],
+   "frames_shape": [
+    345,
+    768,
+    1344,
+    3
+   ],
+   "decode_s_first": 17.99,
+   "decode_s_steady": 17.36,
+   "peak_mib": 3295,
+   "against_fp16": {
+    "bit_identical": false,
+    "psnr_db": 54.91,
+    "psnr_frame_min_db": 53.42,
+    "worst_frame": 277,
+    "max_abs": 29,
+    "motion_ratio": 1.0002
+   }
+  },
+  "taeh3": {
+   "file": "taeh3.safetensors",
+   "vae_dtype": "torch.bfloat16",
+   "latent_shape": [
+    1,
+    24,
+    102,
+    48,
+    84
+   ],
+   "frames_shape": [
+    345,
+    768,
+    1344,
+    3
+   ],
+   "decode_s_first": 2.91,
+   "decode_s_steady": 2.04,
+   "peak_mib": 279,
+   "against_fp16": {
+    "bit_identical": false,
+    "psnr_db": 26.66,
+    "psnr_frame_min_db": 22.69,
+    "worst_frame": 286,
+    "max_abs": 242,
+    "motion_ratio": 0.9039
+   }
+  }
+ },
+ "controls": {
+  "determinism": true,
+  "taeh3_below_int8": true
+ }
+}

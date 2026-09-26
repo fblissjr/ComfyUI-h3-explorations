@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.149.1
+
+### Added
+
+- `bench/compare_vae_decoders.py` decodes one saved latent with the fp16, INT8
+  ConvRot and taeh3 video decoders. Each runs in a fresh process, and the tool
+  reports time, peak VRAM and pixels against fp16, with a determinism control
+  and a fidelity-ordering control. The first record,
+  `bench/results/2026-09-26_vae_decoders_345f.md`, is at the owner's 345 frames.
+  It also settles #31's first observable: a draft's keeper decode is identical
+  to the shipped render. The INT8 lane is reopened for measurement only
+  (`docs/roadmap.md`); the shipped VAE is unchanged.
+
 ## 0.149.0
 
 ### Added

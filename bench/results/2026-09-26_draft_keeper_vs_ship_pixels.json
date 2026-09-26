@@ -1,0 +1,59 @@
+{
+ "measured": "2026-09-26",
+ "produced_by": "bench/compare_clip_pixels.py; ffmpeg decode to rgb24 and s16le, sha256 and numpy over the decoded arrays",
+ "note": null,
+ "clip_a": "text_to_video_flashgen_ship_00002.mp4",
+ "clip_b": "h3_decode_saved_latent_keep_00001.mp4",
+ "provenance": {
+  "a": {
+   "embedded_graph": true,
+   "seed": 730451892,
+   "class_types": [
+    "BasicGuider",
+    "KSamplerSelect",
+    "ManualSigmas",
+    "MiniMaxH3Conditioning",
+    "MiniMaxH3EncoderLoader",
+    "MiniMaxH3LoRABranch",
+    "MiniMaxH3Preflight",
+    "MiniMaxH3Resolution",
+    "MiniMaxH3SigmaShift",
+    "MiniMaxH3SolAttn",
+    "ModelAttentionBackend",
+    "RandomNoise",
+    "SamplerCustomAdvanced",
+    "UNETLoader",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "b": {
+   "embedded_graph": true,
+   "seed": null,
+   "class_types": [
+    "LoadLatent",
+    "VAEDecode",
+    "VAEDecodeAudio",
+    "VAELoader",
+    "VHS_VideoCombine"
+   ]
+  },
+  "same_seed": null,
+  "same_class_types": false
+ },
+ "video": {
+  "frames": 345,
+  "size": "1344x768",
+  "sha256_a": "46367ab88ba1a39bc407937d234b678a5a260e9fde0f83cc7f54d1db78d00273",
+  "sha256_b": "46367ab88ba1a39bc407937d234b678a5a260e9fde0f83cc7f54d1db78d00273",
+  "identical": true
+ },
+ "audio": {
+  "present_a": false,
+  "present_b": false,
+  "identical": null
+ },
+ "reading": "identical on both streams means the same render; a differing video with the same seed and the same class types means the substrate changed numerics between the two renders, and the per-frame statistics say by how much in 8-bit levels"
+}

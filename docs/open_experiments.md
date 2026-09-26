@@ -2418,6 +2418,12 @@ nothing more, and the graphs go.
 
 **Blocker:** none for 1 and 2, which are machine time. 3 needs the owner.
 
+**Measured 2026-09-26: 1 holds, and 2 is recorded.** The keeper clip is
+identical to the shipped graph's clip on video and audio, and the draft
+decode's time and peak VRAM against fp16 on one 345-frame latent are in
+`bench/results/2026-09-26_vae_decoders_345f.md`. That record also covers the
+INT8 decoder. 3 is open and needs the owner.
+
 ## 32. Continuation by the previous window's latent tail, as guide rows
 
 Added 2026-09-26, promoted from [`wiki/next_steps.md`](wiki/next_steps.md)

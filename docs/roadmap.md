@@ -35,7 +35,7 @@ session logs) is deliberate and is not drift to clean up.
 | lane | closed | what stands instead |
 |---|---|---|
 | the extracted fl2va-to-ref2va reference LoRA | 2026-08-21, `816f704` | reference graphs load the ref2va checkpoint; there is no second path |
-| the int8_convrot video VAE | 2026-08-21, `bc25d89` | the fp16 cast of the release's VAE; `bench/check_model_files.py` grades every model name |
+| the int8_convrot video VAE | 2026-08-21, `bc25d89`; *reopened for measurement 2026-09-26 (owner), shipped VAE unchanged pending the owner's call* | the fp16 cast of the release's VAE; `bench/check_model_files.py` grades every model name. The 345-frame measurement is `bench/results/2026-09-26_vae_decoders_345f.md` |
 | single-frame image generation and editing | 2026-08-27 | `docs/h3_image_editing.md` records what moved to `archive/`. Reference-image video graphs are live and not part of this |
 | calibrating or quantising our own encoder (the llm-compressor AWQ/GPTQ lane) | 2026-08-27 | the encoder is `h3_config.MODELS["clip"]`; the lane's record is under `docs/research/qwen3-vl-special-tokens-post-training/`. **Closed after a badly executed attempt, not because the approach was refuted** (owner, 2026-09-20, `docs/wiki/decisions.md`); calibration data is the untapped part |
 | PDD quality work | parked 2026-09-05 | "Owner decisions, 2026-09-05 evening" below, and `docs/research/pdd/2026-09-05_bake_plan.md` |
