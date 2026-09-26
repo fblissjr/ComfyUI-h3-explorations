@@ -94,6 +94,17 @@ def _delta(a, b):
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    # Another VAE file's own encoder as an extra arm, at its load dtype, against
+    # the shipped file's baseline: whether swapping the FILE moves the latent.
+    # Added 2026-09-26 for the INT8 ConvRot file, whose decoder is quantized.
+    ap.add_argument("--against", action="append", default=[], metavar="VAE_NAME")
+    ap.add_argument("--out", type=Path,
+                    help="record path; required with --against so the 2026-08-21 record is not overwritten")
+    args = ap.parse_args()
+    if args.against and args.out is None:
+        ap.error("--against needs --out")
     try:
         import torch
         import comfy.sd  # noqa: F401
@@ -127,6 +138,17 @@ def main() -> int:
               f"mean {r['mean']:.8f}  rel {rel}  "
               f"{'identical' if r['bit_identical'] else ''}")
 
+    for other in args.against:
+        lat, dt = _encode(other, None, pixels)
+        if lat is None:
+            print(f"{other} is not on disk")
+            return 2
+        rows[f"file:{other}"] = r = {"encoder_dtype": str(dt), **_delta(base, lat)}
+        rel = "n/a" if r["relative_mean"] is None else f"{r['relative_mean']:.2e}"
+        print(f"  file {other}\n               encoder {str(dt):<15} max {r['max']:.6f}  "
+              f"mean {r['mean']:.8f}  rel {rel}  "
+              f"{'identical' if r['bit_identical'] else ''}")
+
     det_ok = rows["determinism"]["bit_identical"]
     order_ok = rows["bf16"]["mean"] > rows["fp32"]["mean"]
     print("\n--- controls ---")
@@ -145,9 +167,9 @@ def main() -> int:
                     "artifact on disk, so neither arm has a reference to be "
                     "right against"),
     }
-    out = _REPO / "bench" / "results" / "2026-08-21_vae_encoder_precision.json"
+    out = args.out or _REPO / "bench" / "results" / "2026-08-21_vae_encoder_precision.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
-    print(f"\nwrote {out.relative_to(_REPO)}")
+    print(f"\nwrote {out.resolve().relative_to(_REPO)}")
     return 0 if (det_ok and order_ok) else 1
 
 

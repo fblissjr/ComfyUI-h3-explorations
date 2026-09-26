@@ -1,0 +1,47 @@
+{
+  "question": "does promoting the H3 video VAE encoder change the latent?",
+  "vae": "minimax_h3_video_vae_fp16.safetensors",
+  "input": {
+    "seed": 0,
+    "size": [
+      128,
+      128
+    ]
+  },
+  "baseline_encoder_dtype": "torch.float16",
+  "arms": {
+    "determinism": {
+      "encoder_dtype": "torch.float16",
+      "max": 0.0,
+      "mean": 0.0,
+      "relative_mean": 0.0,
+      "bit_identical": true
+    },
+    "fp32": {
+      "encoder_dtype": "torch.float32",
+      "max": 0.03180846571922302,
+      "mean": 0.0006230733706615865,
+      "relative_mean": 0.0007260284619405866,
+      "bit_identical": false
+    },
+    "bf16": {
+      "encoder_dtype": "torch.bfloat16",
+      "max": 0.2639126777648926,
+      "mean": 0.009361161850392818,
+      "relative_mean": 0.010907976888120174,
+      "bit_identical": false
+    },
+    "file:minimax_h3_video_vae_int8_convrot.safetensors": {
+      "encoder_dtype": "torch.float16",
+      "max": 0.0,
+      "mean": 0.0,
+      "relative_mean": 0.0,
+      "bit_identical": true
+    }
+  },
+  "controls": {
+    "determinism_holds": true,
+    "direction_holds": true
+  },
+  "reading": "a delta, not a verdict: the fp16 checkpoint is the only artifact on disk, so neither arm has a reference to be right against"
+}
