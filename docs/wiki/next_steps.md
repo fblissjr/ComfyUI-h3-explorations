@@ -62,23 +62,28 @@ own below the rule.
 - Owed, lower: the original subject's shadow stays in the plate; the source
   is resampled twice on its way to the canvas (the loader, then the fit); the
   margin as a share of the subject's size and not a pixel count.
-- **The frozen-row cache on a masked window: in one probe graph, not yet
-  run on a window.**
+- **The frozen-row cache on a masked window: run once, and it saves no
+  time on a Sol-Attn graph.**
   `MiniMaxH3FrozenVideoCache` takes a partly masked video since 2026-10-06
   (`frozen_video_cache.py::_gate` says which calls it takes and which it
   leaves stock, with the reason). The generator's `masked_cache` argument
   puts it on the song node's model, and one graph carries it:
   `../../workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`,
   the ref2va motion graph with the cache and nothing else changed. No
-  shipped or daily graph does. What a cached
-  step costs with nothing live is measured, on the refine pass, and what
-  that would save a masked window is modelled from it:
-  `../../bench/results/2026-10-06_frozen_cache_stage_split.md`. Owed, in
-  order: one
-  matched pair on the band window with `verify` on, read for the regenerated
-  rows next to kept ones first and for the log's rebuild reasons; then the
-  owner's eye. A cadence for `refresh` and a width for `halo` come from that
-  run, not from the model.
+  shipped or daily graph does. The first masked run is
+  `../../bench/results/2026-10-06_frozen_cache_masked_window.md`: the cache
+  engages cleanly, and the cached step is slower than the Sol-Attn stock
+  step it replaces, so the owner retired the masked use and kept the node
+  for the audio-refine pass (`decisions.md`, 2026-10-06). **Owed: the
+  retirement itself**, the masked code and the probe graph moved under
+  `archive/` and out of the generator, the node and the checks. The model
+  that predicted a saving
+  (`../../bench/results/2026-10-06_frozen_cache_stage_split.md`) is wrong
+  about the attention call for the live rows against every row, which is
+  most of a cached step. For whoever reopens it, both named in the record
+  and neither tried: that call's cost, and a graph whose stock step is
+  dense, where the cached step is ahead. Also not tried: a halo, a refresh,
+  the owner's eye on the pair.
 - Parked by the owner, 2026-10-04: two samplers. The node that restores the
   plate between them is written and held to core's sampler on a stub model
   (`../../plate_restore.py`, `../../bench/check_plate_restore.py`), is in no

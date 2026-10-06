@@ -3882,8 +3882,10 @@ def main():
         # model and nothing else changed (board card `use-frozen-row-cache`):
         # the first step of a window runs stock and later steps compute only
         # the regenerated rows and the text. A probe: no shipped or daily
-        # graph carries the cache until a masked window has been timed and
-        # looked at with it.
+        # graph carries the cache. Timed on one window, where it saved no
+        # sampling time on this Sol-Attn chain
+        # (bench/results/2026-10-06_frozen_cache_masked_window.md); the graph
+        # stays as the arm that record ran.
         ("h3_probe_v2v_masked_song_ref2va_motion_cache.json", "v2v-masked-song-ref2va-motion-cache", "t2v",
          _bank_prompt("ref2va_masked_person_motion"),
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,

@@ -116,12 +116,17 @@ FROZEN_BELOW = 1e-3
 #: the attention call's own cost) and then for a dense rectangle of live
 #: queries against all keys, where the stock step with Sol-Attn pays for a
 #: sparse square. **Measured**: the first part, on the refine pass
-#: (`bench/results/2026-10-06_frozen_cache_stage_split.md`). **Modelled, not
-#: measured**: the rectangle at a masked window's live share. With both, that
-#: record puts break-even a little above this on every window it works
-#: through, further above on a short one. **Reasoned**: the limit sits under
-#: break-even because a window on it gains nothing and still pays the
-#: approximation. The first masked run's step times replace the model.
+#: (`bench/results/2026-10-06_frozen_cache_stage_split.md`), and the whole
+#: step on one masked window
+#: (`bench/results/2026-10-06_frozen_cache_masked_window.md`). **This limit
+#: does not mark break-even.** The model that put break-even a little above
+#: it assumed the rectangle's time follows the number of query rows; on the
+#: masked window, at a live share well under this limit, the cached step is
+#: slower than a Sol-Attn stock step and faster only than a dense one. So on
+#: a Sol-Attn graph no share under this limit is known to gain. The limit is
+#: **kept as inherited from that model**, as the bound above which the cache
+#: does not try at all; where a cached step would have to get cheaper for a
+#: masked window to gain is in the second record, not in this number.
 LIVE_SHARE_LIMIT = 0.5
 
 #: How many cells of each kept input `_content_sample` keeps. **Reasoned**: a

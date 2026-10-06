@@ -17,6 +17,27 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-06
 
+- **The frozen-row cache's masked use is retired; the node stays for the
+  audio-refine pass** (owner, 2026-10-06, relayed by the lane's lead
+  session, on the first masked run:
+  `bench/results/2026-10-06_frozen_cache_masked_window.md`). On a Sol-Attn
+  graph the cache saves no sampling time at that window's live share and
+  departs from the stock step on every cached step; on the refine pass it
+  is measured to pay (`bench/results/2026-09-25_frozen_cache_s1.md`). The
+  owner's terms: cite why, and keep the masked code where it is plainly
+  used by nothing, which is `archive/`. **Not done at this commit**: the
+  masked gate, `masked_cache` in the generator and the probe graph
+  (`workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`) are
+  still in the tree until the retirement lands. What was tried is one
+  window, one seed, no halo and no refresh, and the record claims no more
+  than that. Three pieces of prose are corrected with it. What they used to
+  say: `docs/wiki/next_steps.md`
+  listed the run as owed and its saving as modelled;
+  `frozen_video_cache.LIVE_SHARE_LIMIT`'s comment said the limit "sits under
+  break-even" and that "the first masked run's step times replace the
+  model"; the generator's note on the probe graph said no graph carries the
+  cache "until a masked window has been timed and looked at with it".
+
 - **Prose corrected: the frozen video cache had run on the card, and is in
   one masked graph.** The comment on `h3_config.FROZEN_VIDEO_CACHE` ended
   "Not yet run on the card"; the refine pass ran through it on the card on
