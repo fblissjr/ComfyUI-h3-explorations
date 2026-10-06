@@ -156,6 +156,19 @@ where in core.
   for its `mask` input, so the tracker does not run. `MASK_KEY_SKIP` names
   the settings that do not change the mask.
 
+**Three things called a version, and none is the other.** The pack's
+version is the newest heading in `CHANGELOG.md`, assigned by
+`bench/build_changelog.py` from fragments (semver; `pyproject.toml`'s
+`version` is what ComfyUI's registry reads and is kept equal to it by the
+same build). `MASK_VERSION` is not a version of a node: it is one integer
+per node class that goes into the kept mask's key, bumped only when that
+node's code would make a different mask from the same inputs, so the
+numbers on different nodes (`subject_track.py`, `sapiens2_parts.py`,
+`video_mask.py`) are unrelated and never compared; it leaves with the kept
+mask (card `build-remove-kept-mask`). `TABLE_VERSION` (`shot_table.py`) is
+the shot table's file format, checked on read. A node's identity is its
+`node_id` in `bench/node_id_manifest.json`, which has no number at all.
+
 ### 3. `MiniMaxH3MaskedPrompt` (`masked_prompt.py`): the prompt
 
 The reference format is six sections of prose, and in this lane almost none

@@ -255,6 +255,31 @@ def build(text: str, head: list[tuple[str, str]], mine: list[tuple[str, str]]) -
     return preamble + generated + below, [(name, ".".join(map(str, v))) for (name, _p), v in zip(fragments, versions)]
 
 
+PYPROJECT = REPO / "pyproject.toml"
+PYPROJECT_VERSION = re.compile(r'^(version\s*=\s*")([0-9]+\.[0-9]+\.[0-9]+)(")', re.M)
+
+
+def sync_pyproject(version: str) -> bool:
+    """`pyproject.toml`'s `version` set to the changelog's newest; True when it was changed.
+
+    That field is what ComfyUI's registry and manager read as the pack's version, and it had
+    sat at 0.13.0 since f66fa9d1 while the changelog went past 0.213 (owner, 2026-10-06:
+    "might need to make sure what mask version vs node versions mean in this repo").
+    """
+    if not PYPROJECT.exists():
+        return False            # a scratch tree (the check's) has a changelog and no pack
+    text = PYPROJECT.read_text()
+    want = version
+    m = PYPROJECT_VERSION.search(text)
+    if m is None:
+        raise Refused(f"{PYPROJECT.name} has no version line this script recognises")
+    if m.group(2) == want:
+        return False
+    PYPROJECT.write_text(text[:m.start(2)] + want + text[m.end(2):])
+    print(f"wrote {PYPROJECT.name}: version {m.group(2)} -> {want}")
+    return True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--with", dest="mine", nargs="+", type=Path, default=[], metavar="FRAGMENT",
@@ -298,6 +323,7 @@ def main() -> int:
         new, versions = build(text, head, mine)
         if new != text:
             CHANGELOG.write_text(new)
+        sync_pyproject(versions[-1][1] if versions else ".".join(map(str, base_version(split(new)[2]))))
         for name, version in versions[len(head):]:
             print(f"{version}  {name}")
         print(("wrote" if new != text else "unchanged:") + f" CHANGELOG.md, {len(versions)} generated entr"
