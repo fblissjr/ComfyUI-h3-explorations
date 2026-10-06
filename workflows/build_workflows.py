@@ -1388,13 +1388,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # and shot table saved and the Masked Source's preview shown.
               # The mask it tracks is kept, so the render graphs reuse it.
               masked_review: bool = False,
-              # The frozen video cache (frozen_video_cache.py,
-              # h3_config.FROZEN_VIDEO_CACHE) on the song node's model, node
-              # 89: after Sol-Attn and everything else on the chain, so the
-              # cache's build step runs the attention the graph wires. A
-              # masked window keeps most of its rows, which is what the cache
-              # is for; the scheduler keeps reading the model before it.
-              masked_cache: bool = False,
               # Audio-only refinement after the pass (audio_refine.py,
               # h3_config.AUDIO_REFINE): the sampled latent's video frozen and
               # its audio reopened, then a partial-denoise pass on the model
@@ -2197,13 +2190,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # The node's report on a Preview as Text, so the plan a `preview` run
         # prints shows on the canvas in the editor.
         g["75"] = {"class_type": "PreviewAny", "inputs": {"source": ["74", 1]}}
-        if masked_cache:
-            if not freeze_song_source:
-                raise SystemExit("masked_cache needs freeze_song_source: without a source nothing but the "
-                                 "context is kept, and the cache declines a window it cannot gain on")
-            g["89"] = {"class_type": FROZEN_VIDEO_CACHE_NODE,
-                       "inputs": {"model": _model, **FROZEN_VIDEO_CACHE}}
-            g["74"]["inputs"]["model"] = ["89", 0]
         if freeze_song_refs:
             # The song node compiles its references itself, once per distinct
             # prompt, so only the conditioner differs from a reference graph:
@@ -2299,8 +2285,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                      "text; rebuild the bank copy with bench/check_masked_prompt.py --write")
         elif masked_prompt is not None:
             raise SystemExit("masked_prompt needs freeze_song_source")
-    elif freeze_song_refs or freeze_song_lists or freeze_song_source or masked_cache:
-        raise SystemExit("freeze_song_refs, freeze_song_lists, freeze_song_source and masked_cache need freeze_song")
+    elif freeze_song_refs or freeze_song_lists or freeze_song_source:
+        raise SystemExit("freeze_song_refs, freeze_song_lists and freeze_song_source need freeze_song")
 
     if refine_cache and not audio_refine:
         raise SystemExit("refine_cache needs audio_refine")
@@ -3886,15 +3872,6 @@ def main():
         # sampling time on this Sol-Attn chain
         # (bench/results/2026-10-06_frozen_cache_masked_window.md); the graph
         # stays as the arm that record ran.
-        ("h3_probe_v2v_masked_song_ref2va_motion_cache.json", "v2v-masked-song-ref2va-motion-cache", "t2v",
-         _bank_prompt("ref2va_masked_person_motion"),
-         dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
-              freeze_song=True, freeze_song_seconds=30.0,
-              freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
-              masked_source=MASKED_MOTION_SOURCE, masked_prompt=MASKED_PROMPT, masked_cache=True,
-              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
-              out_prefix="Video/h3_probe_v2v_masked_song_ref2va_motion_cache"),
-         "masked video to video on ref2va with the frozen video cache on the song node's model: kept rows computed once a window"),
         # The PDD8 freeze with the audio attention gain node in front of the
         # guider, inert as shipped; bench arms patch key_gain / value_gain.
         ("h3_candidate_t2v_pdd8_baked_audio_freeze_gain.json", "t2v-candidate-pdd8-baked-audio-freeze-gain",

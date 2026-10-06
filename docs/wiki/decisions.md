@@ -25,10 +25,10 @@ Older history lives elsewhere and is not copied here:
   departs from the stock step on every cached step; on the refine pass it
   is measured to pay (`bench/results/2026-09-25_frozen_cache_s1.md`). The
   owner's terms: cite why, and keep the masked code where it is plainly
-  used by nothing, which is `archive/`. **Not done at this commit**: the
-  masked gate, `masked_cache` in the generator and the probe graph
-  (`workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`) are
-  still in the tree until the retirement lands. What was tried is one
+  used by nothing, which is `archive/`. **Not done at that commit**, done the
+  same evening (the retirement commit after 25103f0e): the masked gate,
+  `masked_cache` in the generator and the probe graph left the tree for
+  `archive/frozen_cache_masked/`. What was tried is one
   window, one seed, no halo and no refresh, and the record claims no more
   than that. Three pieces of prose are corrected with it. What they used to
   say: `docs/wiki/next_steps.md`
@@ -47,8 +47,9 @@ Older history lives elsewhere and is not copied here:
   now points at the later record. `docs/wiki/next_steps.md` said of the
   cache "It is in no masked graph"; the generator's `masked_cache` argument
   now writes one probe graph with it
-  (`workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`), and
-  no shipped or daily graph carries it. No masked window has run through it.
+  (`h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`; retired the
+  same day to `archive/frozen_cache_masked/`), and no shipped or daily graph
+  carries it. No masked window has run through it.
 
 - **Prose corrected: the frozen-row cache takes a partly masked video.**
   `docs/wiki/next_steps.md` listed "a frozen-row cache for a partly masked

@@ -61,11 +61,11 @@ All four are in `workflows/daily/` too, as `h3_mask_pdd8_api.json`,
 `h3_mask_ref2va_motion_api.json`, `h3_mask_review_api.json` and
 `h3_mask_parts_pdd8_api.json` (`h3_config.DAILY_GRAPHS`).
 
-One more generated graph wires a Masked Source and is not part of the lane
-as shipped: `workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`
-is a probe, the ref2va motion graph with the frozen video cache on the song
-node's model (`frozen_video_cache.py`), there to time and grade the cache on
-a masked window. It is not in `workflows/daily/`.
+Until 2026-10-06 one more generated graph wired a Masked Source: a probe
+with the frozen video cache on the song node's model. Its one run saved no
+time (`../../bench/results/2026-10-06_frozen_cache_masked_window.md`) and
+the owner retired the cache's masked use; the graph, the module and the
+check as they were are under `archive/frozen_cache_masked/`.
 
 It is not a trained task. The release trains t2va, fl2va and ref2va; a
 spatial mask on a base checkpoint is an inference-time method. The mechanism

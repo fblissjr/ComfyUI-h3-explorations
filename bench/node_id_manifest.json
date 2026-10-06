@@ -265,8 +265,7 @@
       "precision",
       "refresh",
       "refresh_every",
-      "verify",
-      "halo"
+      "verify"
     ],
     "node_id": "MiniMaxH3FrozenVideoCache",
     "outputs": [

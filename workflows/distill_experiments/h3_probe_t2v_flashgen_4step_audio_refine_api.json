@@ -281,8 +281,7 @@
       "precision": "int4",
       "refresh": false,
       "refresh_every": 2,
-      "verify": false,
-      "halo": 0
+      "verify": false
     }
   },
   "83": {
