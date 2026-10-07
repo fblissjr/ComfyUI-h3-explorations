@@ -15,6 +15,10 @@ depends on this file. Each rung feeds both sides an equal input, so a difference
     tracker    by outcome, not by stage: core's track node and Meta's tracker class started from the SAME masks. The masks
                come from one detect by core, on the frame as its node gets it or in the trained range (`--seeds-from`):
                which people are seeded, and in what order, differs between the two.
+    there-and-back  the tracker again, with what the first run lacked: the window played forward and then in reverse, so a
+               subject must end on its own seed; the range corrected the way a loader would (clamped, then mapped, at the
+               first layer); every arm repeated with the input moved one level of 255, as its floor; a shape test on
+               every mask, so a track that slid onto the frame's border is not counted as a subject held.
     render     print the record's tables from the json the rungs wrote.
 
 What it cannot say. `tracker` counts seeded people who still have a non-empty mask; it does not say a mask is still on the
@@ -36,6 +40,7 @@ phrase whose text is not written anywhere.
     <python> bench/sam3_parity_ladder.py trunk --clip C --second S --width W --json J
     <python> bench/sam3_parity_ladder.py detector --clip C --second S --width W --json J
     <python> bench/sam3_parity_ladder.py tracker --clip C --second S --seconds T --width W --rate R --seeds-from node|trained --json J
+    <python> bench/sam3_parity_ladder.py there-and-back --clip C --second S --seconds T --width W --rate R --seeds-from node|corrected --json J
     <python> bench/sam3_parity_ladder.py render --json J
 
 Run from ComfyUI's environment, outside the server, with the card free for every rung but `tokens` and `files`.
@@ -106,10 +111,28 @@ def boot(float32: bool, cpu: bool = False):
     return torch
 
 
-def environment(torch) -> dict:
+def tf32_selftest(torch) -> dict:
+    """A float32 convolution and matmul on the card against float64 on the CPU: a relative error near 1e-6 is true float32,
+    near 1e-3 is TF32. The convolution has the neck's shape, 256 channels and 3x3, because a narrower one does not show
+    cuDNN's TF32. After `bench/sam3_precision_arms.py::tf32_selftest`, the independent session's."""
+    if not torch.cuda.is_available():
+        return {}
+    g = torch.Generator().manual_seed(7)
+    x, w = torch.randn(1, 256, 72, 72, generator=g), torch.randn(256, 256, 3, 3, generator=g) * 0.05
+    a, b = torch.randn(512, 1024, generator=g), torch.randn(1024, 512, generator=g)
+    conv = torch.nn.functional.conv2d
+    rel = lambda got, ref: float((got.double().cpu() - ref).abs().max() / ref.abs().max())   # noqa: E731
+    return {"conv_relative_error": rel(conv(x.cuda(), w.cuda(), padding=1), conv(x.double(), w.double(), padding=1)),
+            "matmul_relative_error": rel(a.cuda() @ b.cuda(), a.double() @ b.double())}
+
+
+def environment(torch, selftest: bool = False) -> dict:
     head = subprocess.run(["git", "-C", str(COMFY), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
-    return {"torch": torch.__version__, "core_commit": head,
-            "tf32": {"matmul": torch.backends.cuda.matmul.allow_tf32, "cudnn": torch.backends.cudnn.allow_tf32}}
+    out = {"torch": torch.__version__, "core_commit": head,
+           "tf32": {"matmul": torch.backends.cuda.matmul.allow_tf32, "cudnn": torch.backends.cudnn.allow_tf32}}
+    if selftest:
+        out["tf32_selftest"] = tf32_selftest(torch)
+    return out
 
 
 def meta_package():
@@ -328,7 +351,7 @@ def cmd_trunk(a):
     x_meta = (torch.from_numpy(np.asarray(Image.fromarray(arr).resize((SIDE, SIDE))).astype(np.float32) / 255.0).permute(2, 0, 1)[None] - 0.5) / 0.5
     x_mapped = (x_core - 0.5) / 0.5
     rng = lambda t: [round(float(t.min()), 3), round(float(t.max()), 3)]   # noqa: E731
-    R = {"environment": environment(torch), "frame": where, "weights_into_meta": weights, "core_dtype": str(core.model.get_dtype()),
+    R = {"environment": environment(torch, selftest=True), "frame": where, "weights_into_meta": weights, "core_dtype": str(core.model.get_dtype()),
          "input": {"core_range": rng(x_core), "meta_range": rng(x_meta), "core_as_fed_vs_meta": stats(x_core, x_meta),
                    "core_mapped_to_metas_range_vs_meta": stats(x_mapped, x_meta)}}
     x_core, x_meta, x_mapped = x_core.cuda(), x_meta.cuda(), x_mapped.cuda()
@@ -336,8 +359,19 @@ def cmd_trunk(a):
     with torch.inference_mode():
         with torch.autocast("cuda", dtype=torch.bfloat16):
             f_meta, f_meta_unmapped = last(mtrunk(x_meta)), last(mtrunk(x_core))
-        R["trunk"] = {"shape": list(f_meta.shape),
-                      "equal_tensor_core_vs_meta": stats(last(ctrunk(x_meta)), f_meta),
+        f_core = last(ctrunk(x_meta))
+        # the two floors the rows below are read against: the same network at bf16, and the same frame moved one level
+        floors = {}
+        try:
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                floors["FLOOR_core_float32_vs_core_under_bf16_same_tensor"] = stats(last(ctrunk(x_meta)), f_core)
+        except Exception as e:      # core's trunk under autocast is not a path core itself takes
+            floors["FLOOR_core_float32_vs_core_under_bf16_same_tensor"] = {"error": f"{type(e).__name__}: {e}"}
+        moved = nudged(arr[None], 1)[0]
+        x_moved = (torch.from_numpy(np.asarray(Image.fromarray(moved).resize((SIDE, SIDE))).astype(np.float32) / 255.0).permute(2, 0, 1)[None] - 0.5) / 0.5
+        floors["FLOOR_core_float32_same_frame_moved_one_level"] = stats(last(ctrunk(x_moved.cuda())), f_core)
+        R["trunk"] = {"shape": list(f_meta.shape), **floors,
+                      "equal_tensor_core_vs_meta": stats(f_core, f_meta),
                       "core_as_its_node_feeds_vs_meta": stats(last(ctrunk(x_core)), f_meta),
                       "core_resize_in_metas_range_vs_meta": stats(last(ctrunk(x_mapped)), f_meta),
                       "meta_given_the_unmapped_image_vs_meta": stats(f_meta_unmapped, f_meta),
@@ -346,10 +380,18 @@ def cmd_trunk(a):
     R["patch_embedding"] = {"max_abs_diff_of_weights": float((cw - mw.to(cw.device)).abs().max()),
                             "core_has_bias": ctrunk.patch_embed.proj.bias is not None, "meta_has_bias": mtrunk.patch_embed.proj.bias is not None}
     print(json.dumps(R, indent=1))
-    put(a.json, "trunk", R)
+    put(a.json, "trunk" if a.width else "trunk, the file's own size", R)
 
 
 # ---- detector
+
+#: inherited: Meta's 3.1 builder (`meta_sam3/sam3/model_builder.py`, the multiplex builder's detection values): a detection is
+#: kept above this joint score, and overlapping detections are removed at this overlap on the smaller mask.
+META_KEEP_ABOVE = 0.4
+META_NMS_IOM = 0.1
+#: read: `comfy_extras/nodes_sam3.py::SAM3_Detect`'s default threshold, on the class score alone.
+NODE_KEEP_ABOVE = 0.5
+
 
 def cmd_detector(a):
     torch = boot(float32=True)
@@ -360,31 +402,14 @@ def cmd_detector(a):
     core, clip = load_core(a.ckpt)
     sam = core.model.diffusion_model
     p, _ = load_meta(a.ckpt)
-    arr, where = one_frame(a.clip, a.second, a.width)
-    R = {"environment": environment(torch), "frame": where, "phrase": a.phrase, "core_dtype": str(core.model.get_dtype())}
-
-    # Meta: one one-frame request, keeping what its loader handed the trunk and what the detector returned
+    from _h3pack.meta_sam3.sam3.model.sam3_multiplex_detector_utils import nms_masks
+    R = {"environment": environment(torch, selftest=True), "phrase": a.phrase, "core_dtype": str(core.model.get_dtype()),
+         "rules": {"node": f"class score over {NODE_KEEP_ABOVE}", "meta": f"class times presence over {META_KEEP_ABOVE}, then overlap removal at {META_NMS_IOM} on the smaller mask"}}
     mtrunk = next(m for n, m in p.model.named_modules() if n.endswith("vision_backbone.trunk"))
-    detector, kept, fed = p.model.detector, [], []
-    stock = detector.forward_grounding
-
-    def grounding(*args, **kwargs):
-        out = stock(*args, **kwargs)
-        kept.append({k: v.detach().float().cpu() for k, v in out.items() if torch.is_tensor(v) and k in ("pred_logits", "presence_logit_dec", "pred_masks", "pred_boxes_xyxy")})
-        return out
-
-    detector.forward_grounding = grounding
-    pre = mtrunk.register_forward_pre_hook(lambda m, i: fed.append(i[0].detach().float().clone()))
-    try:
-        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            sid = p.handle_request({"type": "start_session", "resource_path": [Image.fromarray(arr)], "offload_video_to_cpu": True})["session_id"]
-            p.handle_request({"type": "add_prompt", "session_id": sid, "frame_index": 0, "text": a.phrase})
-            p.handle_request({"type": "close_session", "session_id": sid})
-    finally:
-        pre.remove()
-        detector.forward_grounding = stock
-    M, X = kept[0], fed[0][:1]
-    R["meta_trunk_input_range"] = [round(float(X.min()), 3), round(float(X.max()), 3)]
+    detector = p.model.detector
+    _, _, switch = text_activation(clip)
+    mm.load_model_gpu(core)
+    device, dtype = mm.get_torch_device(), core.model.get_dtype()
 
     def joint(cls, pres):
         """Meta's `pred_logits` are the joint score, inverse_sigmoid(sigmoid(class) * sigmoid(presence)) clamped to +-10
@@ -392,20 +417,60 @@ def cmd_detector(a):
         q = (cls.float().sigmoid() * pres.float().sigmoid()).clamp(1e-6, 1 - 1e-6)
         return torch.log(q / (1 - q)).clamp(-10, 10)
 
-    _, _, switch = text_activation(clip)
-    mm.load_model_gpu(core)
-    device, dtype = mm.get_torch_device(), core.model.get_dtype()
-    mj = M["pred_logits"].flatten()
-    top = mj.argsort(descending=True)[:10]
+    def metas_rule(joint_logits, mask_logits) -> int:
+        """How many detections Meta's own rule keeps of these queries: its `nms_masks` on the joint score."""
+        keep = nms_masks(joint_logits.sigmoid().float(), (mask_logits > 0).float(), META_KEEP_ABOVE, META_NMS_IOM, nms_use_iom=True)
+        return int(keep.sum())
+
+    def meta_side(arr):
+        """One one-frame request to Meta's predictor, keeping what its loader handed the trunk and what the detector returned."""
+        kept, fed = [], []
+        stock = detector.forward_grounding
+
+        def grounding(*args, **kwargs):
+            out = stock(*args, **kwargs)
+            kept.append({k: v.detach().float().cpu() for k, v in out.items() if torch.is_tensor(v) and k in ("pred_logits", "presence_logit_dec", "pred_masks", "pred_boxes_xyxy")})
+            return out
+
+        detector.forward_grounding = grounding
+        pre = mtrunk.register_forward_pre_hook(lambda m, i: fed.append(i[0].detach().float().clone()))
+        try:
+            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+                sid = p.handle_request({"type": "start_session", "resource_path": [Image.fromarray(arr)], "offload_video_to_cpu": True})["session_id"]
+                p.handle_request({"type": "add_prompt", "session_id": sid, "frame_index": 0, "text": a.phrase})
+                p.handle_request({"type": "close_session", "session_id": sid})
+        finally:
+            pre.remove()
+            detector.forward_grounding = stock
+        return kept[0], fed[0][:1]
+
+    def core_side(X, exact: bool):
+        switch(exact)
+        cond = clip.encode_from_tokens_scheduled(clip.tokenize(a.phrase))
+        emb = cond[0][0].to(device=device, dtype=dtype)
+        mask = cond[0][1].get("attention_mask")
+        mask = mask.to(device) if mask is not None else torch.ones(emb.shape[:2], dtype=torch.int64, device=device)
+        out = sam.detector(X.to(device=device, dtype=dtype), text_embeddings=emb, text_mask=mask, threshold=0.5, orig_size=None)
+        switch(False)
+        return {k: v.detach().float().cpu() for k, v in out.items() if torch.is_tensor(v)}
+
+    def counts(C, M):
+        """The same 200 queries under each rule, on each side's own outputs."""
+        cj, mj = joint(C["scores"][0], C["presence"].flatten()[0]), M["pred_logits"].flatten()
+        mm_ = M["pred_masks"].reshape(mj.numel(), *M["pred_masks"].shape[-2:])
+        return {"presence_logit": {"core": round(float(C["presence"].flatten()[0]), 4), "meta": round(float(M["presence_logit_dec"].flatten()[0]), 4)},
+                "core_outputs": {"node_rule": int((C["scores"][0].sigmoid() > NODE_KEEP_ABOVE).sum()), "metas_rule": metas_rule(cj, C["masks"][0])},
+                "meta_outputs": {"metas_rule": metas_rule(mj, mm_)},
+                "queries_over_half_joint": {"core": int((cj.sigmoid() > 0.5).sum()), "meta": int((mj.sigmoid() > 0.5).sum())}}
+
     with torch.inference_mode():
+        arr, R["frame"] = one_frame(a.clip, a.second, a.width)
+        M, X = meta_side(arr)
+        R["meta_trunk_input_range"] = [round(float(X.min()), 3), round(float(X.max()), 3)]
+        mj = M["pred_logits"].flatten()
+        top = mj.argsort(descending=True)[:10]
         for label, exact in (("exact GELU", True), ("as shipped", False)):
-            switch(exact)
-            cond = clip.encode_from_tokens_scheduled(clip.tokenize(a.phrase))
-            emb = cond[0][0].to(device=device, dtype=dtype)
-            mask = cond[0][1].get("attention_mask")
-            mask = mask.to(device) if mask is not None else torch.ones(emb.shape[:2], dtype=torch.int64, device=device)
-            out = sam.detector(X.to(device=device, dtype=dtype), text_embeddings=emb, text_mask=mask, threshold=0.5, orig_size=None)
-            C = {k: v.detach().float().cpu() for k, v in out.items() if torch.is_tensor(v)}
+            C = core_side(X, exact)
             cj = joint(C["scores"][0], C["presence"].flatten()[0])
             cm = C["masks"][0][top]
             mk = M["pred_masks"].reshape(mj.numel(), *M["pred_masks"].shape[-2:])[top]
@@ -413,15 +478,25 @@ def cmd_detector(a):
                 mk = F.interpolate(mk[None], size=cm.shape[-2:], mode="bilinear", align_corners=False)[0]
             inter = ((cm > 0) & (mk > 0)).flatten(1).sum(1).float()
             union = ((cm > 0) | (mk > 0)).flatten(1).sum(1).float().clamp(min=1)
-            R[label] = {"presence_logit": {"core": round(float(C["presence"].flatten()[0]), 4), "meta": round(float(M["presence_logit_dec"].flatten()[0]), 4)},
-                        "joint_score_logits_all_queries": stats(cj, mj), "queries": int(mj.numel()),
-                        "kept_over_half": {"core": int((cj.sigmoid() > 0.5).sum()), "meta": int((mj.sigmoid() > 0.5).sum())},
+            R[label] = {**counts(C, M), "joint_score_logits_all_queries": stats(cj, mj), "queries": int(mj.numel()),
                         "top10_by_meta": {"meta": [round(float(x), 3) for x in mj[top].sigmoid()], "core": [round(float(x), 3) for x in cj[top].sigmoid()],
                                           "mask_iou": [round(float(x), 3) for x in inter / union]},
                         "boxes_top10_max_abs_diff": round(float((C["boxes"][0][top] - M["pred_boxes_xyxy"].reshape(-1, 4)[top]).abs().max()), 5)}
             print(label, json.dumps(R[label]), flush=True)
-        switch(False)
-    put(a.json, "detector", R)
+        # the floor for the row above: core against itself with the frame moved one level, on its own equal-input path
+        moved, _ = meta_side(nudged(arr[None], 1)[0])[1], None
+        Cn, C0 = core_side(moved, True), core_side(X, True)
+        R["FLOOR_core_same_frame_moved_one_level"] = {
+            "presence_logit": [round(float(C0["presence"].flatten()[0]), 4), round(float(Cn["presence"].flatten()[0]), 4)],
+            "joint_score_logits_all_queries": stats(joint(Cn["scores"][0], Cn["presence"].flatten()[0]), joint(C0["scores"][0], C0["presence"].flatten()[0]))}
+        print("floor", json.dumps(R["FLOOR_core_same_frame_moved_one_level"]), flush=True)
+        R["more_frames"] = {}
+        for second in a.more_seconds or []:
+            arr2, where = one_frame(a.clip, second, a.width)
+            M2, X2 = meta_side(arr2)
+            R["more_frames"][str(second)] = {"decoded_at": where["decoded_at"], **counts(core_side(X2, True), M2)}
+            print(second, json.dumps(R["more_frames"][str(second)]), flush=True)
+    put(a.json, "detector, " + R["frame"]["clip"], R)
 
 
 # ---- tracker, by outcome
@@ -551,6 +626,232 @@ def cmd_tracker(a):
     put(a.json, "tracker, seeds " + a.seeds_from, R)
 
 
+# ---- there and back: the tracker with a floor, a shape test and the range corrected as a loader would
+
+#: reasoned, on the 252 grid the masks are compared on (a quarter of the model's side): a mask is a PLAUSIBLE subject when it
+#: is not a fragment (at least this many cells, about 500 of the model's pixels), not mostly inside a band along the frame's
+#: border (the band is about 25 of the model's pixels) and not a sparse scatter (it fills a tenth of its own box). After the
+#: independent session's test of 2026-10-07, which found a track that slides onto a strip along the bottom edge and stays "on".
+SMALL = 252
+PLAUSIBLE_MIN_CELLS = 32
+BORDER_CELLS = 6
+BORDER_SHARE_MOST = 0.5
+BOX_FILL_LEAST = 0.1
+#: inherited: `bench/sam3_precision_arms.py::NUDGE_SEED`, so the nudge is the independent session's, frame for frame.
+NUDGE_SEED = 1234
+THERE_AND_BACK_SEEDS = (("alone", 1), ("with one neighbour", 2), ("16", 16), ("32", 32))
+
+
+def nudged(u8, levels: int):
+    """Every value moved by `levels` of 255 at random sign, seeded per frame (`bench/sam3_precision_arms.py::nudged`)."""
+    import numpy as np
+    if levels == 0:
+        return u8
+    out = np.empty_like(u8)
+    for i in range(u8.shape[0]):
+        sign = np.random.default_rng(NUDGE_SEED + i).integers(0, 2, size=u8.shape[1:], dtype=np.int8) * 2 - 1
+        out[i] = np.clip(u8[i].astype(np.int16) + sign * levels, 0, 255).astype(np.uint8)
+    return out
+
+
+def plausible(m):
+    """[..., SMALL, SMALL] bool masks to [...] bool: a mask that passes the shape test above. Shape only, not identity."""
+    import torch
+    area = m.flatten(-2).sum(-1)
+    band = torch.zeros((SMALL, SMALL), dtype=torch.bool)
+    band[:BORDER_CELLS] = band[-BORDER_CELLS:] = True
+    band[:, :BORDER_CELLS] = band[:, -BORDER_CELLS:] = True
+    in_band = (m & band).flatten(-2).sum(-1)
+    rows, cols = m.any(-1), m.any(-2)
+    height = SMALL - rows.float().argmax(-1) - rows.flip(-1).float().argmax(-1)
+    width = SMALL - cols.float().argmax(-1) - cols.flip(-1).float().argmax(-1)
+    return (area >= PLAUSIBLE_MIN_CELLS) & (in_band <= BORDER_SHARE_MOST * area) & (area >= BOX_FILL_LEAST * height * width)
+
+
+def cmd_there_and_back(a):
+    torch = boot(float32=False)         # core as it computes by default; outcomes are compared, not tensors
+    import numpy as np
+    import torch.nn.functional as F
+    from PIL import Image
+
+    import comfy.ldm.sam3.tracker as T
+    import server
+    from comfy.ldm.sam3.tracker import unpack_masks
+    from comfy_extras.nodes_sam3 import SAM3_Detect, SAM3_VideoTrack
+    server.PromptServer.instance = types.SimpleNamespace(prompt_queue=None, routes=None)
+    sys.path.insert(0, str(COMFY / "custom_nodes" / "ComfyUI-VideoHelperSuite"))
+    from videohelpersuite.load_video_nodes import LoadVideoFFmpegPath
+    loaded = LoadVideoFFmpegPath().load_video(video=a.clip, force_rate=float(a.rate), custom_width=a.width, custom_height=0,
+                                              frame_load_cap=int(round(a.seconds * a.rate)), start_time=float(a.second), format="AnimateDiff")[0][..., :3]
+    u8 = (loaded.numpy() * 255.0).round().clip(0, 255).astype(np.uint8)
+    del loaded
+    n, H, W = (int(v) for v in u8.shape[:3])
+    core, clip = load_core(a.ckpt)
+    patch_embed = core.model.diffusion_model.detector.backbone["vision_backbone"].trunk.patch_embed
+    p, _ = load_meta(a.ckpt)
+    from _h3pack.meta_sam3.sam3.model.io_utils import load_resource_as_video_frames
+    tracker = p.model.tracker.model
+    tracker.backbone = _TrackerBackbone(p.model.detector.backbone)
+
+    def there_and_back(x):
+        """The window played forward and then in reverse, so its last frame is its first."""
+        return np.concatenate([x, x[::-1][1:]], axis=0)
+
+    def as_float(x):
+        return torch.from_numpy(x.astype(np.float32) / 255.0)
+
+    class corrected:
+        """The range corrected as a loader would: at the patch embedding, clamped to 0..1 and then mapped, so the trunk
+        sees exactly -1..1 whatever the node's own resize overshot. In memory, on the module, for the length of the block."""
+
+        def __enter__(self):
+            stock = patch_embed.forward
+            patch_embed.forward = lambda x: stock(x.clamp(0.0, 1.0) * 2.0 - 1.0)
+
+        def __exit__(self, *exc):
+            del patch_embed.__dict__["forward"]
+
+    class as_it_is:
+        def __enter__(self):
+            pass
+
+        def __exit__(self, *exc):
+            pass
+
+    R = {"environment": environment(torch), "frames": {"clip": Path(a.clip).name, "second": a.second, "count": n, "rate": a.rate, "size": [W, H],
+                                                        "played": 2 * n - 1},
+         "core_dtype": str(core.model.get_dtype()), "seeds_from": "one detect by core on the first frame, " + ("corrected" if a.seeds_from == "corrected" else "as its node gets it"),
+         "shape_test": {"grid": SMALL, "least_cells": PLAUSIBLE_MIN_CELLS, "border_cells": BORDER_CELLS, "border_share_most": BORDER_SHARE_MOST, "box_fill_least": BOX_FILL_LEAST},
+         "one_run_per_arm": True, "sets": {},
+         "caution": "with several subjects Meta's tracker-only path applies neither of its two between-subject rules; core applies both"}
+
+    cond = clip.encode_from_tokens_scheduled(clip.tokenize("person:64"))
+    with torch.inference_mode(), (corrected() if a.seeds_from == "corrected" else as_it_is()):
+        det = SAM3_Detect.execute(core, as_float(u8[:1]), conditioning=cond, threshold=0.5, individual_masks=True)
+    masks = getattr(det, "args", det)[0].float().cpu()
+    area = masks.flatten(1).sum(1)
+    ys, xs = torch.meshgrid(torch.arange(H, dtype=torch.float32), torch.arange(W, dtype=torch.float32), indexing="ij")
+    cx, cy = (masks * xs).flatten(1).sum(1) / area.clamp(min=1), (masks * ys).flatten(1).sum(1) / area.clamp(min=1)
+    subject = int(area.argmax())
+    near = ((cx - cx[subject]) ** 2 + (cy - cy[subject]) ** 2).argsort().tolist()       # the largest subject first, then by distance from it
+    R["detections_on_the_seed_frame"] = int(masks.shape[0])
+    seed_sets = {name: (masks[near[:k]] if k <= 2 else masks[:k]) for name, k in THERE_AND_BACK_SEEDS if masks.shape[0] >= k}
+
+    def small(x):
+        """[N, h, w] bool or float masks to [N, SMALL, SMALL] bool: a cell is on if any pixel under it is."""
+        return F.adaptive_max_pool2d(x.float()[:, None], (SMALL, SMALL))[:, 0] > 0.5
+
+    stock_step, logged = T.SAM31Tracker.track_step, []
+
+    def step(self, *args, **kwargs):
+        out = stock_step(self, *args, **kwargs)
+        v = out.get("object_score_logits")
+        logged.append(None if v is None else float(v.detach().float().flatten()[0]))
+        return out
+
+    def core_run(video, seed, how):
+        logged.clear()
+        T.SAM31Tracker.track_step = step
+        try:
+            with torch.inference_mode(), how():
+                out = SAM3_VideoTrack.execute(video, core, initial_mask=seed, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
+        finally:
+            T.SAM31Tracker.track_step = stock_step
+        packed = getattr(out, "args", out)[0]["packed_masks"]
+        got = torch.zeros((seed.shape[0], int(video.shape[0]), SMALL, SMALL), dtype=torch.bool)
+        if packed is not None:
+            for k in range(min(int(packed.shape[1]), seed.shape[0])):
+                got[k] = small(unpack_masks(packed[:, k]).cpu())
+        return got, [x for x in logged if x is not None]
+
+    def meta_run(frames_u8, seed):
+        k = seed.shape[0]
+        at = F.interpolate(seed[:, None], size=(SEED_SIDE, SEED_SIDE), mode="bilinear", align_corners=False)[:, 0] > 0.5
+        got, scores = torch.zeros((k, frames_u8.shape[0], SMALL, SMALL), dtype=torch.bool), []
+        flags = (torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+        torch.backends.cuda.matmul.allow_tf32 = torch.backends.cudnn.allow_tf32 = True    # upstream's predictor sets both
+        try:
+            with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+                images, vh, vw = load_resource_as_video_frames([Image.fromarray(f) for f in frames_u8], image_size=SIDE, offload_video_to_cpu=False)
+                st = tracker.init_state(video_height=vh, video_width=vw, num_frames=len(images))
+                st["images"] = images
+                tracker.add_new_masks(st, frame_idx=0, obj_ids=list(range(k)), masks=at, add_mask_to_memory=True)
+                tracker.propagate_in_video_preflight(st, run_mem_encoder=True)
+                for frame_idx, obj_ids, _low, video_res, obj_scores in tracker.propagate_in_video(
+                        st, start_frame_idx=0, max_frame_num_to_track=None, reverse=False, tqdm_disable=True, run_mem_encoder=True):
+                    ids = [int(i) for i in (obj_ids.tolist() if hasattr(obj_ids, "tolist") else obj_ids)]
+                    cells = small((video_res[:, 0] > 0).cpu())
+                    for j, i in enumerate(ids):
+                        if 0 <= i < k:
+                            got[i, frame_idx] = cells[j]
+                    if 0 in ids:
+                        scores.append(float(obj_scores.float().flatten()[ids.index(0)]))
+        finally:
+            torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32 = flags
+        return got, scores
+
+    def iou(x, y):
+        """[K, F, S, S] against the same: per subject, the mean over frames either has a mask on of intersection over union."""
+        inter, union = (x & y).flatten(2).sum(2).float(), (x | y).flatten(2).sum(2).float()
+        out = []
+        for k in range(x.shape[0]):
+            on = union[k] > 0
+            out.append(float((inter[k][on] / union[k][on]).mean()) if bool(on.any()) else None)
+        return out
+
+    def agreement(x, y):
+        v = [t for t in iou(x, y) if t is not None]
+        return {"subjects_at_a_half_or_more": sum(t >= 0.5 for t in v), "median": round(float(np.median(v)), 3) if v else None, "of": int(x.shape[0])}
+
+    def describe(got, seed_small, scores):
+        ok = plausible(got)                                    # [K, F]
+        on = got.flatten(2).any(2)
+        last = got[:, -1]                                      # back on the first frame
+        inter = (last[:, None] & seed_small[None]).flatten(2).sum(2).float()
+        union = (last[:, None] | seed_small[None]).flatten(2).sum(2).float().clamp(min=1)
+        back = inter / union                                   # [K, K]: each subject's last mask against every seed
+        own = back.diagonal()
+        home = (own >= 0.5) & (back.argmax(1) == torch.arange(back.shape[0]))
+        out = {"with_a_mask": {"end_of_forward": int(on[:, n - 1].sum()), "back_at_the_start": int(on[:, -1].sum())},
+               "plausible": {"end_of_forward": int(ok[:, n - 1].sum()), "back_at_the_start": int(ok[:, -1].sum())},
+               "back_on_its_own_seed": int(home.sum()), "back_on_another_seed": int(((back.argmax(1) != torch.arange(back.shape[0])) & (back.max(1)[0] >= 0.5)).sum()),
+               "subject_frames": {"with_a_mask": int(on.sum()), "plausible": int(ok.sum()), "of": int(on.numel())}}
+        if scores:
+            out["object_score_first_frames"] = [round(float(v), 2) for v in scores[:8]]
+        return out
+
+    ARMS = (("core, as its node gets the frames", "core", as_it_is, False), ("core, mapped before the node", "core", as_it_is, True),
+            ("core, corrected at the first layer", "core", corrected, False), ("Meta's tracker", "meta", None, False))
+    for name, seed in seed_sets.items():
+        seed_small = small(seed)
+        kept, rows = {}, {}
+        for arm, which, how, mapped in ARMS:
+            for level in (0, 1):
+                frames_u8 = there_and_back(nudged(u8, level))
+                key = arm + (", nudged" if level else "")
+                try:
+                    if which == "meta":
+                        got, scores = meta_run(frames_u8, seed)
+                    else:
+                        video = as_float(frames_u8)
+                        got, scores = core_run(video * 2 - 1 if mapped else video, seed, how)
+                    kept[key] = got
+                    rows[key] = describe(got, seed_small, scores if name == "alone" else None)
+                except Exception as e:      # Meta's call sequence is a reading of its class, not its documented API: say where it stops
+                    rows[key] = {"error": f"{type(e).__name__}: {e}", "where": traceback.format_exc().strip().splitlines()[-3:]}
+                torch.cuda.empty_cache()
+        for arm, _which, _how, _mapped in ARMS:
+            if arm in kept and arm + ", nudged" in kept:
+                rows[arm]["against_itself_nudged"] = agreement(kept[arm], kept[arm + ", nudged"])
+            for key in (arm, arm + ", nudged"):
+                if key in kept and "Meta's tracker" in kept and key != "Meta's tracker":
+                    rows[key]["against_metas_tracker"] = agreement(kept[key], kept["Meta's tracker"])
+        R["sets"][name] = rows
+        for key, row in rows.items():
+            print(f"{name} | {key}", json.dumps(row), flush=True)
+    put(a.json, "there and back, seeds " + a.seeds_from, R)
+
+
 # ---- render
 
 def cmd_render(a):
@@ -574,25 +875,55 @@ def cmd_render(a):
         for ph, r in t["detect"].items():
             print(f"| {ph} | {r['as shipped']['detections']} | {r['exact GELU']['detections']} | {r['as shipped']['presence']} | {r['exact GELU']['presence']} | {r.get('lowest_best_iou_between_the_two', '')} |")
         print()
-    if "trunk" in D:
-        t = D["trunk"]
-        print(f"### Image range and trunk\n\n`{t['frame']['clip']}` at {t['frame']['second']} s, {t['frame']['size'][0]}x{t['frame']['size'][1]}. "
+    for key in sorted(k for k in D if k.startswith("trunk")):
+        t = D[key]
+        print(f"### Image range and trunk{'' if key == 'trunk' else ', at the file' + chr(39) + 's own size'}\n\n`{t['frame']['clip']}` at {t['frame']['second']} s, {t['frame']['size'][0]}x{t['frame']['size'][1]}. "
               f"Core's node hands its trunk {t['input']['core_range']}; Meta's loader hands its trunk {t['input']['meta_range']}. "
               f"Patch embedding: weights differ by {t['patch_embedding']['max_abs_diff_of_weights']}, bias in core {t['patch_embedding']['core_has_bias']}, in Meta {t['patch_embedding']['meta_has_bias']}.\n")
         print("| trunk features, last level | relative L2 | cosine |\n|---|---|---|")
         for k, v in t["trunk"].items():
-            if isinstance(v, dict):
+            if isinstance(v, dict) and "relative_l2" in v:
                 print(f"| {k.replace('_', ' ')} | {v['relative_l2']} | {v['cosine']} |")
+            elif isinstance(v, dict):
+                print(f"| {k.replace('_', ' ')} | {v.get('error', '')} | |")
+        self_test = t["environment"].get("tf32_selftest")
+        if self_test:
+            print(f"\nTF32 flags {t['environment']['tf32']}; self-test relative error against float64: convolution {self_test['conv_relative_error']:.1e}, matmul {self_test['matmul_relative_error']:.1e}.")
         print()
-    if "detector" in D:
-        d = D["detector"]
-        print(f"### Detector, on Meta's image tensor\n\n`{d['frame']['clip']}` at {d['frame']['second']} s, phrase `{d['phrase']}`, {d['exact GELU']['queries']} queries.\n")
-        print("| core's text | presence logit core / Meta | joint score logits: relative L2, cosine | kept over 0.5 core / Meta | top ten by Meta: Meta | the same queries: core | their mask IoU |\n|---|---|---|---|---|---|---|")
+    for key in sorted(k for k in D if k.startswith("detector")):
+        d = D[key]
+        if "rules" not in d:      # the first run's shape (2026-10-07), kept as it was recorded
+            print(f"### Detector, on Meta's image tensor: the first run\n\n`{d['frame']['clip']}` at {d['frame']['second']} s, phrase `{d['phrase']}`, {d['exact GELU']['queries']} queries. "
+                  "\"Over 0.5\" counts queries over 0.5 on the joint score, before any overlap removal: it is not what either side returns.\n")
+            print("| core's text | presence logit core / Meta | joint score logits: relative L2, cosine | queries over 0.5 core / Meta | top ten by Meta: Meta | the same queries: core | their mask IoU |\n|---|---|---|---|---|---|---|")
+            for label in ("exact GELU", "as shipped"):
+                r = d[label]
+                j = r["joint_score_logits_all_queries"]
+                print(f"| {label} | {r['presence_logit']['core']} / {r['presence_logit']['meta']} | {j['relative_l2']}, {j['cosine']} | {r['kept_over_half']['core']} / {r['kept_over_half']['meta']} | "
+                      f"{r['top10_by_meta']['meta']} | {r['top10_by_meta']['core']} | {r['top10_by_meta']['mask_iou']} |")
+            print()
+            continue
+        print(f"### Detector, on Meta's image tensor\n\n`{d['frame']['clip']}` at {d['frame']['second']} s, phrase `{d['phrase']}`, {d['exact GELU']['queries']} queries. "
+              f"Rules: the node's is {d['rules']['node']}; Meta's is {d['rules']['meta']}.\n")
+        print("| core's text | presence logit core / Meta | joint score logits: relative L2, cosine | queries over 0.5 on the joint score, core / Meta | top ten by Meta: Meta | the same queries: core | their mask IoU |\n|---|---|---|---|---|---|---|")
         for label in ("exact GELU", "as shipped"):
             r = d[label]
             j = r["joint_score_logits_all_queries"]
-            print(f"| {label} | {r['presence_logit']['core']} / {r['presence_logit']['meta']} | {j['relative_l2']}, {j['cosine']} | {r['kept_over_half']['core']} / {r['kept_over_half']['meta']} | "
+            print(f"| {label} | {r['presence_logit']['core']} / {r['presence_logit']['meta']} | {j['relative_l2']}, {j['cosine']} | {r['queries_over_half_joint']['core']} / {r['queries_over_half_joint']['meta']} | "
                   f"{r['top10_by_meta']['meta']} | {r['top10_by_meta']['core']} | {r['top10_by_meta']['mask_iou']} |")
+        fl = d.get("FLOOR_core_same_frame_moved_one_level")
+        if fl:
+            j = fl["joint_score_logits_all_queries"]
+            print(f"\nThe floor for that row: core against itself with the frame moved one level of 255: presence logit {fl['presence_logit'][0]} and {fl['presence_logit'][1]}; "
+                  f"joint score logits relative L2 {j['relative_l2']}, cosine {j['cosine']}.\n")
+        print("What each rule keeps of the same queries (core's text with exact GELU):\n")
+        print("| frame, s | presence logit core / Meta | core's outputs, the node's rule | core's outputs, Meta's rule | Meta's outputs, Meta's rule |\n|---|---|---|---|---|")
+        rows = [(d["frame"]["second"], d["exact GELU"])] + list(d.get("more_frames", {}).items())
+        for second, r in rows:
+            print(f"| {second} | {r['presence_logit']['core']} / {r['presence_logit']['meta']} | {r['core_outputs']['node_rule']} | {r['core_outputs']['metas_rule']} | {r['meta_outputs']['metas_rule']} |")
+        self_test = d["environment"].get("tf32_selftest")
+        if self_test:
+            print(f"\nTF32 flags {d['environment']['tf32']}; self-test relative error against float64: convolution {self_test['conv_relative_error']:.1e}, matmul {self_test['matmul_relative_error']:.1e}.")
         print()
     for key in sorted(k for k in D if k.startswith("tracker")):
         t = D[key]
@@ -611,6 +942,24 @@ def cmd_render(a):
             lasts = v["last_frame_each_is_on"]
             print(f"| {arm} | {seeded} | {list(v['with_a_mask_at'].values())} | {lasts if len(lasts) <= 2 else sorted(x for x in lasts if x is not None)} | {v.get('object_score_first_frames', '')} |")
         print()
+    for key in sorted(k for k in D if k.startswith("there and back")):
+        t = D[key]
+        f = t["frames"]
+        print(f"### There and back: seeds from {t['seeds_from']}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second played forward and then in reverse "
+              f"({f['played']} frames, the last being the first), {f['size'][0]}x{f['size'][1]}; {t['detections_on_the_seed_frame']} detections on the seed frame. One run per arm. "
+              f"A subject is PLAUSIBLE when its mask passes the shape test ({t['shape_test']}); shape, not identity. {t['caution'].capitalize()}.\n")
+        for name, rows in t["sets"].items():
+            print(f"Seeded: {name}.\n")
+            print("| arm | with a mask, end of forward | plausible, end of forward | plausible, back at the start | back on its own seed | on another's seed | plausible subject-frames | against itself nudged: at a half or more, median | against Meta's tracker: at a half or more, median |\n|---|---|---|---|---|---|---|---|---|")
+            for arm, r in rows.items():
+                if "error" in r:
+                    print(f"| {arm} | {r['error']} | | | | | | | |")
+                    continue
+                n1, m1 = r.get("against_itself_nudged"), r.get("against_metas_tracker")
+                cell = lambda v: "" if not v else f"{v['subjects_at_a_half_or_more']} of {v['of']}, {v['median']}"   # noqa: E731
+                print(f"| {arm} | {r['with_a_mask']['end_of_forward']} | {r['plausible']['end_of_forward']} | {r['plausible']['back_at_the_start']} | {r['back_on_its_own_seed']} | "
+                      f"{r['back_on_another_seed']} | {r['subject_frames']['plausible']} of {r['subject_frames']['of']} | {cell(n1)} | {cell(m1)} |")
+            print()
     if "earlier_run_other_decode" in D:
         e = D["earlier_run_other_decode"]
         px = e["frames_against_the_tools"]["mean_abs_pixel_difference_in_levels_of_255"]
@@ -645,12 +994,19 @@ def main():
     s.add_argument("--ours", required=True)
     cmd("text", cmd_text, frame=True).add_argument("--describing", default="", help="a phrase asked of the frame; its text is not written to the json")
     cmd("trunk", cmd_trunk, frame=True)
-    cmd("detector", cmd_detector, frame=True).add_argument("--phrase", default="person")
+    s = cmd("detector", cmd_detector, frame=True)
+    s.add_argument("--phrase", default="person")
+    s.add_argument("--more-seconds", type=float, nargs="*", help="further frames of the clip: what each detection rule keeps there")
     s = cmd("tracker", cmd_tracker, frame=True)
     s.add_argument("--seconds", type=float, required=True)
     s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
     s.add_argument("--seeds-from", choices=("node", "trained"), required=True,
                    help="the seed masks come from one detect on the first frame as core's node gets it, or in the trained range")
+    s = cmd("there-and-back", cmd_there_and_back, frame=True)
+    s.add_argument("--seconds", type=float, required=True)
+    s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
+    s.add_argument("--seeds-from", choices=("node", "corrected"), required=True,
+                   help="the seed masks come from one detect on the first frame as core's node gets it, or with the range corrected at the first layer")
     cmd("render", cmd_render)
     a = ap.parse_args()
     a.fn(a)

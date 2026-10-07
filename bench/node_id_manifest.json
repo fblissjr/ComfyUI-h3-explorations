@@ -465,6 +465,20 @@
       "latent"
     ]
   },
+  "MiniMaxH3SAM31Corrections": {
+    "inputs": [
+      "segmenter",
+      "segmenter_clip",
+      "correct_image_range",
+      "correct_text_activation"
+    ],
+    "node_id": "MiniMaxH3SAM31Corrections",
+    "outputs": [
+      "segmenter",
+      "segmenter_clip",
+      "report"
+    ]
+  },
   "MiniMaxH3SAM3DBodyViTHLoader": {
     "inputs": [
       "model_file"

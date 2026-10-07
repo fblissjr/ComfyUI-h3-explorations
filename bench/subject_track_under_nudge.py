@@ -192,6 +192,8 @@ def cmd_run(a):
 
 def cmd_render(a):
     D = json.loads(Path(a.json).read_text())
+    if a.key:
+        D = D[a.key]
     f = D["frames"]
     print(f"`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second, {f['size'][0]}x{f['size'][1]}; "
           f"the node's lines: {D['lines']}.\n")
@@ -200,7 +202,17 @@ def cmd_render(a):
         taken = sum(s["decision"] != "absent" for s in arm["shots"])
         print(f"| {name} | {arm['cuts']} | {arm['pick_frame']} | {arm['others_on_the_pick_frame']} | {arm['match_line']} | {taken} | {len(arm['shots']) - taken} | "
               f"{sum(len(s['regained']) for s in arm['shots'])} |")
-    for pair, row in D["between"].items():
+    if not D.get("between"):       # one arm only: its regains, with nothing to compare them with
+        for name, arm in D["arms"].items():
+            regains = [(s["shot"], g) for s in arm["shots"] for g in s["regained"]]
+            if regains:
+                print(f"\nEach time the `{name}` arm seeded the track again (the line is {D['lines']['REGAIN_SAME']}, the lead required {D['lines']['REGAIN_MARGIN']}):\n")
+                print("| shot | empty from | seeded on | best | next person | lead |\n|---|---|---|---|---|---|")
+                for shot, g in regains:
+                    print(f"| {shot} | {g['empty_from']} | {g['seeded_on']} | {g['best']} | {g['next']} | {round(g['best'] - g['next'], 4)} |")
+            for s in arm["shots"]:
+                print(f"\nShot {s['shot']}: {s['frames_with_a_mask']} of {s['end'] - s['start']} frames with a mask; searched and found nobody over {s['searched_and_found_nobody']}.")
+    for pair, row in D.get("between", {}).items():
         print(f"\n### {pair}\n\nSame cuts: {row['same_cuts']}; same pick frame: {row['same_pick_frame']}; match line {row['match_line'][0]} and {row['match_line'][1]}.\n")
         if not row["shots"]:
             print("The cuts differ, so the shots are not the same shots and are not compared one to one.")
@@ -233,6 +245,7 @@ def main():
     s = sub.add_parser("render")
     s.set_defaults(fn=cmd_render)
     s.add_argument("--json", required=True)
+    s.add_argument("--key", default="", help="when the json holds several runs, the one to print")
     a = ap.parse_args()
     a.fn(a)
 

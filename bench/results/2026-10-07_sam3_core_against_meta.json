@@ -559,6 +559,10 @@
    "tf32": {
     "matmul": false,
     "cudnn": false
+   },
+   "tf32_selftest": {
+    "conv_relative_error": 7.283508511330061e-07,
+    "matmul_relative_error": 4.226398171043584e-07
    }
   },
   "frame": {
@@ -602,6 +606,16 @@
     72,
     72
    ],
+   "FLOOR_core_float32_vs_core_under_bf16_same_tensor": {
+    "relative_l2": 0.06635,
+    "cosine": 0.99822,
+    "max_abs_diff": 127.5303
+   },
+   "FLOOR_core_float32_same_frame_moved_one_level": {
+    "relative_l2": 0.43833,
+    "cosine": 0.90383,
+    "max_abs_diff": 211.8627
+   },
    "equal_tensor_core_vs_meta": {
     "relative_l2": 0.04907,
     "cosine": 0.99922,
@@ -1517,5 +1531,1266 @@
    "core, frames as its node gets them": 5,
    "core, frames in the trained range": 3
   }
+ },
+ "trunk, the file's own size": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   },
+   "tf32_selftest": {
+    "conv_relative_error": 7.283508511330061e-07,
+    "matmul_relative_error": 4.226398171043584e-07
+   }
+  },
+  "frame": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 16.0,
+   "decoded_at": 16.0,
+   "size": [
+    1920,
+    1080
+   ]
+  },
+  "weights_into_meta": {
+   "missing": 96,
+   "unexpected": 0
+  },
+  "core_dtype": "torch.float32",
+  "input": {
+   "core_range": [
+    0.0,
+    0.934
+   ],
+   "meta_range": [
+    -1.0,
+    0.882
+   ],
+   "core_as_fed_vs_meta": {
+    "relative_l2": 1.12737,
+    "cosine": -0.20116,
+    "max_abs_diff": 1.0345
+   },
+   "core_mapped_to_metas_range_vs_meta": {
+    "relative_l2": 0.0062,
+    "cosine": 1.00012,
+    "max_abs_diff": 0.1179
+   }
+  },
+  "trunk": {
+   "shape": [
+    1,
+    1024,
+    72,
+    72
+   ],
+   "FLOOR_core_float32_vs_core_under_bf16_same_tensor": {
+    "relative_l2": 0.03804,
+    "cosine": 0.99971,
+    "max_abs_diff": 41.484
+   },
+   "FLOOR_core_float32_same_frame_moved_one_level": {
+    "relative_l2": 0.33347,
+    "cosine": 0.9448,
+    "max_abs_diff": 175.4842
+   },
+   "equal_tensor_core_vs_meta": {
+    "relative_l2": 0.03503,
+    "cosine": 0.99982,
+    "max_abs_diff": 45.6063
+   },
+   "core_as_its_node_feeds_vs_meta": {
+    "relative_l2": 0.65828,
+    "cosine": 0.78806,
+    "max_abs_diff": 213.1173
+   },
+   "core_resize_in_metas_range_vs_meta": {
+    "relative_l2": 0.22659,
+    "cosine": 0.97482,
+    "max_abs_diff": 169.3995
+   },
+   "meta_given_the_unmapped_image_vs_meta": {
+    "relative_l2": 0.65868,
+    "cosine": 0.78758,
+    "max_abs_diff": 212.3836
+   },
+   "core_as_fed_vs_meta_given_the_same_unmapped_image": {
+    "relative_l2": 0.0397,
+    "cosine": 0.99962,
+    "max_abs_diff": 63.7202
+   }
+  },
+  "patch_embedding": {
+   "max_abs_diff_of_weights": 0.0,
+   "core_has_bias": false,
+   "meta_has_bias": false
+  }
+ },
+ "detector, lotsofpeopledance_0414_0720.mkv": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   },
+   "tf32_selftest": {
+    "conv_relative_error": 7.283508511330061e-07,
+    "matmul_relative_error": 4.226398171043584e-07
+   }
+  },
+  "phrase": "person",
+  "core_dtype": "torch.float32",
+  "rules": {
+   "node": "class score over 0.5",
+   "meta": "class times presence over 0.4, then overlap removal at 0.1 on the smaller mask"
+  },
+  "frame": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 16.0,
+   "decoded_at": 16.0,
+   "size": [
+    1920,
+    1080
+   ]
+  },
+  "meta_trunk_input_range": [
+   -1.0,
+   0.883
+  ],
+  "exact GELU": {
+   "presence_logit": {
+    "core": 2.8536,
+    "meta": 2.7969
+   },
+   "core_outputs": {
+    "node_rule": 27,
+    "metas_rule": 26
+   },
+   "meta_outputs": {
+    "metas_rule": 26
+   },
+   "queries_over_half_joint": {
+    "core": 26,
+    "meta": 25
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.36242,
+    "cosine": 0.93378,
+    "max_abs_diff": 4.6849
+   },
+   "queries": 200,
+   "top10_by_meta": {
+    "meta": [
+     0.914,
+     0.91,
+     0.91,
+     0.906,
+     0.906,
+     0.895,
+     0.895,
+     0.895,
+     0.89,
+     0.887
+    ],
+    "core": [
+     0.914,
+     0.915,
+     0.913,
+     0.887,
+     0.909,
+     0.894,
+     0.86,
+     0.885,
+     0.879,
+     0.069
+    ],
+    "mask_iou": [
+     0.998,
+     0.999,
+     0.998,
+     0.997,
+     0.999,
+     0.999,
+     0.997,
+     0.994,
+     0.991,
+     0.001
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.27685
+  },
+  "as shipped": {
+   "presence_logit": {
+    "core": 3.192,
+    "meta": 2.7969
+   },
+   "core_outputs": {
+    "node_rule": 28,
+    "metas_rule": 26
+   },
+   "meta_outputs": {
+    "metas_rule": 26
+   },
+   "queries_over_half_joint": {
+    "core": 27,
+    "meta": 25
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.36474,
+    "cosine": 0.93255,
+    "max_abs_diff": 4.6172
+   },
+   "queries": 200,
+   "top10_by_meta": {
+    "meta": [
+     0.914,
+     0.91,
+     0.91,
+     0.906,
+     0.906,
+     0.895,
+     0.895,
+     0.895,
+     0.89,
+     0.887
+    ],
+    "core": [
+     0.93,
+     0.931,
+     0.929,
+     0.904,
+     0.925,
+     0.911,
+     0.877,
+     0.903,
+     0.897,
+     0.072
+    ],
+    "mask_iou": [
+     0.998,
+     0.999,
+     0.998,
+     0.997,
+     0.998,
+     0.998,
+     0.997,
+     0.993,
+     0.99,
+     0.002
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.27415
+  },
+  "FLOOR_core_same_frame_moved_one_level": {
+   "presence_logit": [
+    2.8536,
+    2.9333
+   ],
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.27039,
+    "cosine": 0.96384,
+    "max_abs_diff": 4.3391
+   }
+  },
+  "more_frames": {
+   "18.0": {
+    "decoded_at": 18.0,
+    "presence_logit": {
+     "core": 2.8994,
+     "meta": 2.8906
+    },
+    "core_outputs": {
+     "node_rule": 28,
+     "metas_rule": 28
+    },
+    "meta_outputs": {
+     "metas_rule": 30
+    },
+    "queries_over_half_joint": {
+     "core": 28,
+     "meta": 29
+    }
+   },
+   "138.0": {
+    "decoded_at": 138.0,
+    "presence_logit": {
+     "core": 2.6011,
+     "meta": 2.6406
+    },
+    "core_outputs": {
+     "node_rule": 48,
+     "metas_rule": 49
+    },
+    "meta_outputs": {
+     "metas_rule": 49
+    },
+    "queries_over_half_joint": {
+     "core": 48,
+     "meta": 50
+    }
+   },
+   "140.0": {
+    "decoded_at": 140.0,
+    "presence_logit": {
+     "core": 1.7975,
+     "meta": 1.7891
+    },
+    "core_outputs": {
+     "node_rule": 45,
+     "metas_rule": 45
+    },
+    "meta_outputs": {
+     "metas_rule": 48
+    },
+    "queries_over_half_joint": {
+     "core": 35,
+     "meta": 37
+    }
+   },
+   "142.0": {
+    "decoded_at": 142.0,
+    "presence_logit": {
+     "core": 0.188,
+     "meta": 0.1221
+    },
+    "core_outputs": {
+     "node_rule": 30,
+     "metas_rule": 1
+    },
+    "meta_outputs": {
+     "metas_rule": 0
+    },
+    "queries_over_half_joint": {
+     "core": 0,
+     "meta": 0
+    }
+   },
+   "147.13": {
+    "decoded_at": 147.16,
+    "presence_logit": {
+     "core": 1.139,
+     "meta": 1.1328
+    },
+    "core_outputs": {
+     "node_rule": 41,
+     "metas_rule": 34
+    },
+    "meta_outputs": {
+     "metas_rule": 40
+    },
+    "queries_over_half_joint": {
+     "core": 27,
+     "meta": 31
+    }
+   },
+   "150.0": {
+    "decoded_at": 150.0,
+    "presence_logit": {
+     "core": 1.1084,
+     "meta": 1.2188
+    },
+    "core_outputs": {
+     "node_rule": 52,
+     "metas_rule": 44
+    },
+    "meta_outputs": {
+     "metas_rule": 49
+    },
+    "queries_over_half_joint": {
+     "core": 32,
+     "meta": 38
+    }
+   }
+  }
+ },
+ "there and back, seeds corrected": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "vma.mp4",
+   "second": 121.93,
+   "count": 72,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ],
+   "played": 143
+  },
+  "core_dtype": "torch.float16",
+  "seeds_from": "one detect by core on the first frame, corrected",
+  "shape_test": {
+   "grid": 252,
+   "least_cells": 32,
+   "border_cells": 6,
+   "border_share_most": 0.5,
+   "box_fill_least": 0.1
+  },
+  "one_run_per_arm": true,
+  "sets": {
+   "alone": {
+    "core, as its node gets the frames": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.81,
+      1.22,
+      -0.04,
+      -1.61,
+      -2.6,
+      -2.72,
+      -2.74
+     ],
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.996,
+      "of": 1
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.973,
+      "of": 1
+     }
+    },
+    "core, as its node gets the frames, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.79,
+      1.17,
+      -0.05,
+      -1.67,
+      -2.67,
+      -2.7,
+      -2.87
+     ],
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.973,
+      "of": 1
+     }
+    },
+    "core, mapped before the node": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.32,
+      0.52,
+      -0.61,
+      -2.02,
+      -3.01,
+      -3.04,
+      -3.32
+     ],
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.996,
+      "of": 1
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.978,
+      "of": 1
+     }
+    },
+    "core, mapped before the node, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.2,
+      0.31,
+      -0.56,
+      -2.03,
+      -3.09,
+      -3.16,
+      -3.24
+     ],
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.978,
+      "of": 1
+     }
+    },
+    "core, corrected at the first layer": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.37,
+      0.53,
+      -0.61,
+      -1.99,
+      -2.99,
+      -3.01,
+      -3.3
+     ],
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.995,
+      "of": 1
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.978,
+      "of": 1
+     }
+    },
+    "core, corrected at the first layer, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.21,
+      0.29,
+      -0.56,
+      -2.04,
+      -3.09,
+      -3.15,
+      -3.24
+     ],
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.978,
+      "of": 1
+     }
+    },
+    "Meta's tracker": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.67,
+      0.82,
+      -0.31,
+      -1.77,
+      -2.64,
+      -2.67,
+      -2.98
+     ],
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.994,
+      "of": 1
+     }
+    },
+    "Meta's tracker, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 1
+     },
+     "back_on_its_own_seed": 1,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4,
+      "plausible": 4,
+      "of": 143
+     },
+     "object_score_first_frames": [
+      10.0,
+      2.36,
+      0.64,
+      -0.24,
+      -1.75,
+      -2.56,
+      -2.7,
+      -2.97
+     ],
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 1,
+      "median": 0.994,
+      "of": 1
+     }
+    }
+   },
+   "with one neighbour": {
+    "core, as its node gets the frames": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.978,
+      "of": 2
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.939,
+      "of": 2
+     }
+    },
+    "core, as its node gets the frames, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.928,
+      "of": 2
+     }
+    },
+    "core, mapped before the node": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.973,
+      "of": 2
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.946,
+      "of": 2
+     }
+    },
+    "core, mapped before the node, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.951,
+      "of": 2
+     }
+    },
+    "core, corrected at the first layer": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 21,
+      "plausible": 21,
+      "of": 286
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.93,
+      "of": 2
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.905,
+      "of": 2
+     }
+    },
+    "core, corrected at the first layer, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.952,
+      "of": 2
+     }
+    },
+    "Meta's tracker": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 20,
+      "plausible": 20,
+      "of": 286
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.929,
+      "of": 2
+     }
+    },
+    "Meta's tracker, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "plausible": {
+      "end_of_forward": 0,
+      "back_at_the_start": 2
+     },
+     "back_on_its_own_seed": 2,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 21,
+      "plausible": 21,
+      "of": 286
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 2,
+      "median": 0.929,
+      "of": 2
+     }
+    }
+   },
+   "16": {
+    "core, as its node gets the frames": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 13,
+      "back_at_the_start": 15
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2273,
+      "plausible": 1960,
+      "of": 2288
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 16,
+      "median": 0.965,
+      "of": 16
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 11,
+      "median": 0.881,
+      "of": 16
+     }
+    },
+    "core, as its node gets the frames, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 15
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2274,
+      "plausible": 1971,
+      "of": 2288
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 11,
+      "median": 0.878,
+      "of": 16
+     }
+    },
+    "core, mapped before the node": {
+     "with_a_mask": {
+      "end_of_forward": 15,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 13,
+      "back_at_the_start": 16
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2274,
+      "plausible": 1956,
+      "of": 2288
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 15,
+      "median": 0.969,
+      "of": 16
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 11,
+      "median": 0.928,
+      "of": 16
+     }
+    },
+    "core, mapped before the node, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 15,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 15
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2273,
+      "plausible": 1929,
+      "of": 2288
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.926,
+      "of": 16
+     }
+    },
+    "core, corrected at the first layer": {
+     "with_a_mask": {
+      "end_of_forward": 15,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 16
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2275,
+      "plausible": 1954,
+      "of": 2288
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 15,
+      "median": 0.972,
+      "of": 16
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.93,
+      "of": 16
+     }
+    },
+    "core, corrected at the first layer, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 15,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 15
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2274,
+      "plausible": 1925,
+      "of": 2288
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.925,
+      "of": 16
+     }
+    },
+    "Meta's tracker": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2288,
+      "plausible": 2245,
+      "of": 2288
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 16,
+      "median": 0.98,
+      "of": 16
+     }
+    },
+    "Meta's tracker, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "plausible": {
+      "end_of_forward": 16,
+      "back_at_the_start": 16
+     },
+     "back_on_its_own_seed": 16,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2288,
+      "plausible": 2248,
+      "of": 2288
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 16,
+      "median": 0.98,
+      "of": 16
+     }
+    }
+   },
+   "32": {
+    "core, as its node gets the frames": {
+     "with_a_mask": {
+      "end_of_forward": 17,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 14,
+      "back_at_the_start": 31
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2958,
+      "plausible": 2408,
+      "of": 4576
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 28,
+      "median": 0.831,
+      "of": 32
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 11,
+      "median": 0.256,
+      "of": 32
+     }
+    },
+    "core, as its node gets the frames, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 31
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 2758,
+      "plausible": 2344,
+      "of": 4576
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 11,
+      "median": 0.213,
+      "of": 32
+     }
+    },
+    "core, mapped before the node": {
+     "with_a_mask": {
+      "end_of_forward": 17,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 13,
+      "back_at_the_start": 32
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 3176,
+      "plausible": 2715,
+      "of": 4576
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 28,
+      "median": 0.923,
+      "of": 32
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 12,
+      "median": 0.386,
+      "of": 32
+     }
+    },
+    "core, mapped before the node, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 31
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 3152,
+      "plausible": 2647,
+      "of": 4576
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.389,
+      "of": 32
+     }
+    },
+    "core, corrected at the first layer": {
+     "with_a_mask": {
+      "end_of_forward": 16,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 32
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 3154,
+      "plausible": 2684,
+      "of": 4576
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 28,
+      "median": 0.931,
+      "of": 32
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.394,
+      "of": 32
+     }
+    },
+    "core, corrected at the first layer, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 15,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 12,
+      "back_at_the_start": 31
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 3139,
+      "plausible": 2627,
+      "of": 4576
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 13,
+      "median": 0.378,
+      "of": 32
+     }
+    },
+    "Meta's tracker": {
+     "with_a_mask": {
+      "end_of_forward": 32,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 26,
+      "back_at_the_start": 31
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4539,
+      "plausible": 4218,
+      "of": 4576
+     },
+     "against_itself_nudged": {
+      "subjects_at_a_half_or_more": 28,
+      "median": 0.93,
+      "of": 32
+     }
+    },
+    "Meta's tracker, nudged": {
+     "with_a_mask": {
+      "end_of_forward": 32,
+      "back_at_the_start": 32
+     },
+     "plausible": {
+      "end_of_forward": 26,
+      "back_at_the_start": 32
+     },
+     "back_on_its_own_seed": 32,
+     "back_on_another_seed": 0,
+     "subject_frames": {
+      "with_a_mask": 4491,
+      "plausible": 4086,
+      "of": 4576
+     },
+     "against_metas_tracker": {
+      "subjects_at_a_half_or_more": 28,
+      "median": 0.93,
+      "of": 32
+     }
+    }
+   }
+  },
+  "caution": "with several subjects Meta's tracker-only path applies neither of its two between-subject rules; core applies both",
+  "detections_on_the_seed_frame": 64
  }
 }

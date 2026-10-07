@@ -1,0 +1,333 @@
+{
+ "server": "a scratch server on its own port, started with the main server's start.sh and a scratch base directory; default mode, dynamic VRAM on by its log",
+ "stats_before": [
+  {
+   "name": "cuda:0 NVIDIA GeForce RTX 4090 : cudaMallocAsync",
+   "type": "cuda",
+   "index": 0,
+   "vram_total": 25328156672,
+   "vram_free": 23891148800,
+   "torch_vram_total": 0,
+   "torch_vram_free": 0
+  }
+ ],
+ "rounds": [
+  {
+   "round": "before the H3 prompt",
+   "status": "success",
+   "probes": [
+    {
+     "label": "stock",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": false,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock again",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected twice over",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected again",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock last",
+     "nonce": 1,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    }
+   ]
+  },
+  {
+   "round": "after the H3 prompt",
+   "status": "success",
+   "probes": [
+    {
+     "label": "stock",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": false,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock again",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected twice over",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected again",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock last",
+     "nonce": 2,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    }
+   ]
+  },
+  {
+   "round": "after /free",
+   "status": "success",
+   "probes": [
+    {
+     "label": "stock",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": false,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock again",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected twice over",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "corrected again",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      -1.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "stock last",
+     "nonce": 3,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": false,
+     "text_calls": 1,
+     "object_patches": [],
+     "clip_object_patches": 1,
+     "verdict": "ok"
+    }
+   ]
+  }
+ ],
+ "h3_prompt": {
+  "graph": "h3_text_to_video_api.json",
+  "steps": 2,
+  "length": 73,
+  "status": "success",
+  "outputs": [
+   "13"
+  ]
+ },
+ "passed": true,
+ "pack_served": "a copy of this pack at 45db1464 with the node and the probe registered in the copy only"
+}

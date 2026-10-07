@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 122 |
+| [the rest](#the-rest) | 124 |
 
 ## check
 
@@ -374,6 +374,8 @@ this file is only a way to find a script by what it says it does.
 | [`run_pruning_arms.py`](run_pruning_arms.py) | CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for 345 frames at a fixed short length, which bench/run_graph_arms.py now refuses; it needs prompts written for its length before it runs again (its results are the ... |
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
+| [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
+| [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
 | [`sam3_parity_ladder.py`](sam3_parity_ladder.py) | Is core's SAM 3.1 the model Meta released? The same weights and the same input through both, stage by stage. |
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
@@ -527,7 +529,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-826 tracked files: [`results/INDEX.md`](results/INDEX.md).
+830 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

@@ -1,0 +1,1591 @@
+{
+ "many cuts": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "thrill_2160.mkv",
+   "second": 56.0,
+   "count": 720,
+   "rate": 24.0,
+   "size": [
+    1024,
+    768
+   ]
+  },
+  "settings": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "automatic",
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": ""
+  },
+  "core_dtype": "torch.float16",
+  "lines": {
+   "MATCH_FLOOR": 0.8,
+   "PLAIN_FLOOR": 0.91,
+   "MATCH_THRESHOLD": 0.82,
+   "PLAIN_SAME": 0.93,
+   "REGAIN_SAME": 0.88,
+   "REGAIN_MARGIN": 0.03,
+   "MIN_GAP": 0.1
+  },
+  "arms": {
+   "as fed": {
+    "cut_line": 0.7275,
+    "cuts": [
+     501,
+     544,
+     611,
+     626,
+     705
+    ],
+    "pick_frame": 505,
+    "others_on_the_pick_frame": 6,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 501,
+      "decision": "taken over the line",
+      "seed": 4,
+      "shown": 4,
+      "detections": 1,
+      "best": 0.9188,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "start": 501,
+      "end": 544,
+      "decision": "the pick",
+      "seed": 505,
+      "shown": 505,
+      "detections": 7,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "start": 544,
+      "end": 611,
+      "decision": "absent",
+      "seed": null,
+      "shown": 568,
+      "detections": 9,
+      "best": 0.6491,
+      "runner_up": 0.4494,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "start": 611,
+      "end": 626,
+      "decision": "absent",
+      "seed": null,
+      "shown": 623,
+      "detections": 4,
+      "best": 0.6762,
+      "runner_up": 0.6393,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "start": 626,
+      "end": 705,
+      "decision": "absent",
+      "seed": null,
+      "shown": 662,
+      "detections": 7,
+      "best": 0.6222,
+      "runner_up": 0.5163,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "start": 705,
+      "end": 720,
+      "decision": "absent",
+      "seed": null,
+      "shown": 705,
+      "detections": 8,
+      "best": 0.6308,
+      "runner_up": 0.5925,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     }
+    ]
+   },
+   "as fed, again": {
+    "cut_line": 0.7275,
+    "cuts": [
+     501,
+     544,
+     611,
+     626,
+     705
+    ],
+    "pick_frame": 505,
+    "others_on_the_pick_frame": 6,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 501,
+      "decision": "taken over the line",
+      "seed": 4,
+      "shown": 4,
+      "detections": 1,
+      "best": 0.9188,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "start": 501,
+      "end": 544,
+      "decision": "the pick",
+      "seed": 505,
+      "shown": 505,
+      "detections": 7,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "start": 544,
+      "end": 611,
+      "decision": "absent",
+      "seed": null,
+      "shown": 568,
+      "detections": 9,
+      "best": 0.6491,
+      "runner_up": 0.4494,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "start": 611,
+      "end": 626,
+      "decision": "absent",
+      "seed": null,
+      "shown": 623,
+      "detections": 4,
+      "best": 0.6762,
+      "runner_up": 0.6393,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "start": 626,
+      "end": 705,
+      "decision": "absent",
+      "seed": null,
+      "shown": 662,
+      "detections": 7,
+      "best": 0.6222,
+      "runner_up": 0.5163,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "start": 705,
+      "end": 720,
+      "decision": "absent",
+      "seed": null,
+      "shown": 705,
+      "detections": 8,
+      "best": 0.6308,
+      "runner_up": 0.5925,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     }
+    ]
+   },
+   "nudged": {
+    "cut_line": 0.7282,
+    "cuts": [
+     501,
+     544,
+     611,
+     626,
+     705
+    ],
+    "pick_frame": 505,
+    "others_on_the_pick_frame": 5,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 501,
+      "decision": "taken over the line",
+      "seed": 4,
+      "shown": 4,
+      "detections": 1,
+      "best": 0.9202,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "start": 501,
+      "end": 544,
+      "decision": "the pick",
+      "seed": 505,
+      "shown": 505,
+      "detections": 6,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "start": 544,
+      "end": 611,
+      "decision": "absent",
+      "seed": null,
+      "shown": 568,
+      "detections": 9,
+      "best": 0.6448,
+      "runner_up": 0.4548,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "start": 611,
+      "end": 626,
+      "decision": "absent",
+      "seed": null,
+      "shown": 623,
+      "detections": 4,
+      "best": 0.6737,
+      "runner_up": 0.642,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "start": 626,
+      "end": 705,
+      "decision": "absent",
+      "seed": null,
+      "shown": 662,
+      "detections": 7,
+      "best": 0.6243,
+      "runner_up": 0.5205,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "start": 705,
+      "end": 720,
+      "decision": "absent",
+      "seed": null,
+      "shown": 705,
+      "detections": 8,
+      "best": 0.6389,
+      "runner_up": 0.6036,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     }
+    ]
+   },
+   "nudged, again": {
+    "cut_line": 0.7282,
+    "cuts": [
+     501,
+     544,
+     611,
+     626,
+     705
+    ],
+    "pick_frame": 505,
+    "others_on_the_pick_frame": 5,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 501,
+      "decision": "taken over the line",
+      "seed": 4,
+      "shown": 4,
+      "detections": 1,
+      "best": 0.9202,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "start": 501,
+      "end": 544,
+      "decision": "the pick",
+      "seed": 505,
+      "shown": 505,
+      "detections": 6,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "start": 544,
+      "end": 611,
+      "decision": "absent",
+      "seed": null,
+      "shown": 568,
+      "detections": 9,
+      "best": 0.6448,
+      "runner_up": 0.4548,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "start": 611,
+      "end": 626,
+      "decision": "absent",
+      "seed": null,
+      "shown": 623,
+      "detections": 4,
+      "best": 0.6737,
+      "runner_up": 0.642,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "start": 626,
+      "end": 705,
+      "decision": "absent",
+      "seed": null,
+      "shown": 662,
+      "detections": 7,
+      "best": 0.6243,
+      "runner_up": 0.5205,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "start": 705,
+      "end": 720,
+      "decision": "absent",
+      "seed": null,
+      "shown": 705,
+      "detections": 8,
+      "best": 0.6389,
+      "runner_up": 0.6036,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 0
+     }
+    ]
+   }
+  },
+  "between": {
+   "as fed | as fed, again": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "taken over the line",
+       "taken over the line"
+      ],
+      "same_decision": true,
+      "best": [
+       0.9188,
+       0.9188
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1188,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6491,
+       0.6491
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1509,
+      "runner_up": [
+       0.4494,
+       0.4494
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6762,
+       0.6762
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1238,
+      "runner_up": [
+       0.6393,
+       0.6393
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6222,
+       0.6222
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1778,
+      "runner_up": [
+       0.5163,
+       0.5163
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6308,
+       0.6308
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1692,
+      "runner_up": [
+       0.5925,
+       0.5925
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     }
+    ]
+   },
+   "nudged | nudged, again": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "taken over the line",
+       "taken over the line"
+      ],
+      "same_decision": true,
+      "best": [
+       0.9202,
+       0.9202
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1202,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6448,
+       0.6448
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1552,
+      "runner_up": [
+       0.4548,
+       0.4548
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6737,
+       0.6737
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1263,
+      "runner_up": [
+       0.642,
+       0.642
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6243,
+       0.6243
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1757,
+      "runner_up": [
+       0.5205,
+       0.5205
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6389,
+       0.6389
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": 0.1611,
+      "runner_up": [
+       0.6036,
+       0.6036
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     }
+    ]
+   },
+   "as fed | nudged": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "taken over the line",
+       "taken over the line"
+      ],
+      "same_decision": true,
+      "best": [
+       0.9188,
+       0.9202
+      ],
+      "best_moved": 0.0014,
+      "distance_to_the_match_line": 0.1188,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 0.9965,
+      "frames_either_has_a_mask": 501
+     },
+     {
+      "shot": 2,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 0.9949,
+      "frames_either_has_a_mask": 43
+     },
+     {
+      "shot": 3,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6491,
+       0.6448
+      ],
+      "best_moved": 0.0043,
+      "distance_to_the_match_line": 0.1509,
+      "runner_up": [
+       0.4494,
+       0.4548
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 4,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6762,
+       0.6737
+      ],
+      "best_moved": 0.0025,
+      "distance_to_the_match_line": 0.1238,
+      "runner_up": [
+       0.6393,
+       0.642
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 5,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6222,
+       0.6243
+      ],
+      "best_moved": 0.0021,
+      "distance_to_the_match_line": 0.1778,
+      "runner_up": [
+       0.5163,
+       0.5205
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     },
+     {
+      "shot": 6,
+      "decision": [
+       "absent",
+       "absent"
+      ],
+      "same_decision": true,
+      "best": [
+       0.6308,
+       0.6389
+      ],
+      "best_moved": 0.0081,
+      "distance_to_the_match_line": 0.1692,
+      "runner_up": [
+       0.5925,
+       0.6036
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": null,
+      "frames_either_has_a_mask": 0
+     }
+    ]
+   }
+  }
+ },
+ "crowd, calm": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 16.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "settings": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "automatic",
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": ""
+  },
+  "core_dtype": "torch.float16",
+  "lines": {
+   "MATCH_FLOOR": 0.8,
+   "PLAIN_FLOOR": 0.91,
+   "MATCH_THRESHOLD": 0.82,
+   "PLAIN_SAME": 0.93,
+   "REGAIN_SAME": 0.88,
+   "REGAIN_MARGIN": 0.03,
+   "MIN_GAP": 0.1
+  },
+  "arms": {
+   "as fed": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 144
+     }
+    ]
+   },
+   "as fed, again": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 144
+     }
+    ]
+   },
+   "nudged": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 144
+     }
+    ]
+   },
+   "nudged, again": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 0,
+      "frames_with_a_mask": 144
+     }
+    ]
+   }
+  },
+  "between": {
+   "as fed | as fed, again": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 144
+     }
+    ]
+   },
+   "nudged | nudged, again": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 1.0,
+      "frames_either_has_a_mask": 144
+     }
+    ]
+   },
+   "as fed | nudged": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       0,
+       0
+      ],
+      "mask_overlap": 0.9959,
+      "frames_either_has_a_mask": 144
+     }
+    ]
+   }
+  }
+ },
+ "crowd, hard, six seconds": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "settings": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "automatic",
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": ""
+  },
+  "core_dtype": "torch.float16",
+  "lines": {
+   "MATCH_FLOOR": 0.8,
+   "PLAIN_FLOOR": 0.91,
+   "MATCH_THRESHOLD": 0.82,
+   "PLAIN_SAME": 0.93,
+   "REGAIN_SAME": 0.88,
+   "REGAIN_MARGIN": 0.03,
+   "MIN_GAP": 0.1
+  },
+  "arms": {
+   "as fed": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [
+       {
+        "empty_from": 23,
+        "seeded_on": 23,
+        "detections": 16,
+        "best": 0.9632,
+        "next": 0.8737
+       },
+       {
+        "empty_from": 71,
+        "seeded_on": 83,
+        "detections": 16,
+        "best": 0.9244,
+        "next": 0.8791
+       },
+       {
+        "empty_from": 92,
+        "seeded_on": 92,
+        "detections": 16,
+        "best": 0.9227,
+        "next": 0.8923
+       },
+       {
+        "empty_from": 105,
+        "seeded_on": 141,
+        "detections": 16,
+        "best": 0.9308,
+        "next": 0.8975
+       }
+      ],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 8,
+      "frames_with_a_mask": 124
+     }
+    ]
+   },
+   "nudged": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 144,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [
+       {
+        "empty_from": 23,
+        "seeded_on": 23,
+        "detections": 16,
+        "best": 0.9641,
+        "next": 0.8752
+       },
+       {
+        "empty_from": 68,
+        "seeded_on": 92,
+        "detections": 16,
+        "best": 0.9197,
+        "next": 0.8573
+       },
+       {
+        "empty_from": 105,
+        "seeded_on": 141,
+        "detections": 16,
+        "best": 0.9315,
+        "next": 0.8968
+       }
+      ],
+      "searched_and_found_nobody": [],
+      "probes_after_a_loss": 8,
+      "frames_with_a_mask": 123
+     }
+    ]
+   }
+  },
+  "between": {
+   "as fed | nudged": {
+    "same_cuts": true,
+    "same_pick_frame": true,
+    "match_line": [
+     0.8,
+     0.8
+    ],
+    "shots": [
+     {
+      "shot": 1,
+      "decision": [
+       "the pick",
+       "the pick"
+      ],
+      "same_decision": true,
+      "best": [
+       1.0,
+       1.0
+      ],
+      "best_moved": 0.0,
+      "distance_to_the_match_line": null,
+      "runner_up": [
+       null,
+       null
+      ],
+      "regained": [
+       4,
+       3
+      ],
+      "mask_overlap": 0.7881,
+      "frames_either_has_a_mask": 124
+     }
+    ],
+    "regains": [
+     {
+      "shot": 1,
+      "arm": "as fed",
+      "empty_from": 23,
+      "seeded_on": 23,
+      "best": 0.9632,
+      "next": 0.8737,
+      "lead": 0.0895,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.987,
+      "frames_compared": 24
+     },
+     {
+      "shot": 1,
+      "arm": "as fed",
+      "empty_from": 71,
+      "seeded_on": 83,
+      "best": 0.9244,
+      "next": 0.8791,
+      "lead": 0.0453,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.5792,
+      "frames_compared": 22
+     },
+     {
+      "shot": 1,
+      "arm": "as fed",
+      "empty_from": 92,
+      "seeded_on": 92,
+      "best": 0.9227,
+      "next": 0.8923,
+      "lead": 0.0304,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.9802,
+      "frames_compared": 13
+     },
+     {
+      "shot": 1,
+      "arm": "as fed",
+      "empty_from": 105,
+      "seeded_on": 141,
+      "best": 0.9308,
+      "next": 0.8975,
+      "lead": 0.0333,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.9873,
+      "frames_compared": 3
+     },
+     {
+      "shot": 1,
+      "arm": "nudged",
+      "empty_from": 23,
+      "seeded_on": 23,
+      "best": 0.9641,
+      "next": 0.8752,
+      "lead": 0.0889,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.987,
+      "frames_compared": 24
+     },
+     {
+      "shot": 1,
+      "arm": "nudged",
+      "empty_from": 68,
+      "seeded_on": 92,
+      "best": 0.9197,
+      "next": 0.8573,
+      "lead": 0.0624,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.9802,
+      "frames_compared": 13
+     },
+     {
+      "shot": 1,
+      "arm": "nudged",
+      "empty_from": 105,
+      "seeded_on": 141,
+      "best": 0.9315,
+      "next": 0.8968,
+      "lead": 0.0347,
+      "other_arm_seeded_within_a_stride": true,
+      "overlap_of_the_two_arms_after_it": 0.9873,
+      "frames_compared": 3
+     }
+    ]
+   }
+  }
+ },
+ "crowd, hard, fourteen seconds, as fed only": {
+  "note": "one arm only: the run was stopped after it (about nine minutes an arm); nothing to compare it with",
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 336,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "settings": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "automatic",
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": ""
+  },
+  "core_dtype": "torch.float16",
+  "lines": {
+   "MATCH_FLOOR": 0.8,
+   "PLAIN_FLOOR": 0.91,
+   "MATCH_THRESHOLD": 0.82,
+   "PLAIN_SAME": 0.93,
+   "REGAIN_SAME": 0.88,
+   "REGAIN_MARGIN": 0.03,
+   "MIN_GAP": 0.1
+  },
+  "arms": {
+   "as fed": {
+    "cut_line": 0.9,
+    "cuts": [],
+    "pick_frame": 4,
+    "others_on_the_pick_frame": 15,
+    "match_line": 0.8,
+    "shots": [
+     {
+      "shot": 1,
+      "start": 0,
+      "end": 336,
+      "decision": "the pick",
+      "seed": 4,
+      "shown": 4,
+      "detections": 16,
+      "best": 1.0,
+      "runner_up": null,
+      "runner_up_note": "",
+      "regained": [
+       {
+        "empty_from": 23,
+        "seeded_on": 23,
+        "detections": 16,
+        "best": 0.9632,
+        "next": 0.8737
+       },
+       {
+        "empty_from": 71,
+        "seeded_on": 83,
+        "detections": 16,
+        "best": 0.9244,
+        "next": 0.8791
+       },
+       {
+        "empty_from": 92,
+        "seeded_on": 92,
+        "detections": 16,
+        "best": 0.9227,
+        "next": 0.8923
+       },
+       {
+        "empty_from": 105,
+        "seeded_on": 141,
+        "detections": 16,
+        "best": 0.9308,
+        "next": 0.8975
+       },
+       {
+        "empty_from": 150,
+        "seeded_on": 162,
+        "detections": 16,
+        "best": 0.8846,
+        "next": 0.8412
+       },
+       {
+        "empty_from": 167,
+        "seeded_on": 179,
+        "detections": 16,
+        "best": 0.9209,
+        "next": 0.8901
+       },
+       {
+        "empty_from": 191,
+        "seeded_on": 275,
+        "detections": 16,
+        "best": 0.9001,
+        "next": 0.864
+       }
+      ],
+      "searched_and_found_nobody": [
+       [
+        277,
+        335
+       ]
+      ],
+      "probes_after_a_loss": 25,
+      "frames_with_a_mask": 179
+     }
+    ]
+   }
+  },
+  "between": {}
+ }
+}

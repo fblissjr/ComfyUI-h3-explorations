@@ -38,6 +38,13 @@ that were rendered are `bench/masked_v2v_arms.json` and
   collects what was measured on 2026-10-07 and section 8 what was not.
   [`2026-10-07_mryolk_stage_table.md`](2026-10-07_mryolk_stage_table.md) is its stage table: one row per
   stage with the lines on both sides and the tensor to compare.
+- [`2026-10-07_mryolk_phrases.md`](2026-10-07_mryolk_phrases.md): what phrase to
+  give SAM 3.1 and how specific to be, from Meta's examples, tests, eval
+  configs and dataset cards: short plain nouns; one thing among several
+  is chosen with a box or a click on top of the phrase, never with a
+  longer phrase; presence is part of Meta's score and rejects describing
+  phrases; what ComfyUI's detect node can and cannot do of that today; and
+  a small measurement, planned and not run.
 - [`2026-10-06_mrsun.md`](2026-10-06_mrsun.md): SAM 3.1's video pipeline as
   Meta built it, frame by frame, with the builder's values; where core's port
   departs (its own shorter session logic, the presence score dropped); which
