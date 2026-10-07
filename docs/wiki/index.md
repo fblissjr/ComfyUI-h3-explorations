@@ -1,6 +1,6 @@
 # The wiki: where to start, and who owns each answer
 
-last updated: 2026-10-05 (the library of uses); 2026-10-04 (the masked video to video page; the masking research folder); 2026-10-01 (the clip-to-graph coverage tool; the wiki's prompting page folded into `docs/prompting.md` and removed); 2026-09-29 (next_steps and decisions: the ref2va verification, the gate dial and issue 16604); 2026-09-29 (the FastH3 overlay, rank, gates and finisher rows); 2026-09-29 (the block-49 row says the problem is specific to unrotated attention); 2026-09-27 (the two encoder tool rows: the bf16 pruned rebuild and the int8-vs-bf16 DiT measurement)
+last updated: 2026-10-07 (the page on asking SAM 3.1 for something); 2026-10-05 (the library of uses); 2026-10-04 (the masked video to video page; the masking research folder); 2026-10-01 (the clip-to-graph coverage tool; the wiki's prompting page folded into `docs/prompting.md` and removed); 2026-09-29 (next_steps and decisions: the ref2va verification, the gate dial and issue 16604); 2026-09-29 (the FastH3 overlay, rank, gates and finisher rows); 2026-09-29 (the block-49 row says the problem is specific to unrotated attention); 2026-09-27 (the two encoder tool rows: the bf16 pruned rebuild and the int8-vs-bf16 DiT measurement)
 
 Written by hand, and the only copy of these routes: `CLAUDE.md` points here
 instead of carrying them. This is a router, not an authority. It states no
@@ -18,6 +18,7 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 | [`stages.md`](stages.md) | one row per stage of a render: our code, the document that owns it, the check that guards it, and the implementation to compare against |
 | [`h3_uses.md`](h3_uses.md) | everything that can be made here, one row per use: what H3 itself does for it, the nodes and graph that do it today, its state (shipped, probe, built, wireable, proposed, closed) and where the evidence is. Start here when the question is "can we do X" |
 | [`masked_v2v.md`](masked_v2v.md) | masked video to video in one place: the pieces in the order a render meets them, the limits each has shown and where the evidence is, and the directions worth trying. Start here before touching the Subject Track or the Masked Source |
+| [`sam3_prompting.md`](sam3_prompting.md) | **what to type when SAM 3.1 is asked for something.** The phrase forms Meta's own benchmarks use for a person, a part, a thing and a small thing; why a longer phrase does not choose one among several and what does; what ComfyUI does differently from Meta with a phrase; and the records that hold the counts. Read it before changing a SAM phrase, a detection count or a threshold |
 
 ## Read these before you start
 

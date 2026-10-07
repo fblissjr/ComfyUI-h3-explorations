@@ -102,6 +102,9 @@ back into the kept tokens every step.
 
 ### 1. `MiniMaxH3SubjectTrack` (`subject_track.py`): which pixels are the person
 
+What to type as a SAM phrase, and why a description does not pick one person
+out: [`sam3_prompting.md`](sam3_prompting.md).
+
 One mask per frame, empty where the person is not on screen. The module
 docstring is the authority and lists the steps; `follow` is the function.
 
