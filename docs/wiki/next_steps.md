@@ -28,6 +28,44 @@ own below the rule.
   has rendered. Owed, in order: a first render on the node's text; a
   clothing text for the parts graph; several stills of one subject.
   `decisions.md`, 2026-10-06.
+- **2026-10-07, SAM 3.1 read against Meta's code, and the tracker's rebuild
+  begun.** Where each thing stands, pointers only:
+  - *What to type when SAM is asked for something*, and the four places
+    ComfyUI treats a phrase differently from Meta:
+    [`sam3_prompting.md`](sam3_prompting.md).
+  - *The corrections node* (`../../sam31_corrections.py`): the image range
+    and the text activation set right for whatever loader feeds it, accepted
+    on a server's queue
+    (`../../bench/results/2026-10-07_sam31_corrections_on_a_queue.md`). No
+    shipped graph wires it yet.
+  - *The default pick is the most central person* (`decisions.md`,
+    2026-10-07; `h3_config.SUBJECT_TRACK`).
+  - *What today's Subject Track does on a crowd*, under a change too small
+    to see and alone against a group:
+    `../../bench/results/2026-10-07_subject_track_under_nudge.md`,
+    `../../bench/results/2026-10-07_subject_alone_or_in_a_group.md`. Owed
+    from them, in order: a test on every frame that a track's mask has not
+    jumped to another person; a re-find judged by where the subject was as
+    well as by likeness; a higher detection count with that rule. The design
+    and its build order are on the masking board (card
+    `q-sam3-route-after-the-read`) and not yet a tracked page.
+  - *Keeping what the original holds*: the Masked Source's `keep` input and
+    the part node's `held` output (`masked_v2v.md`, "The region"). Built and
+    rendered once each; the owner's look is owed, and no graph wires them.
+  - *The frozen video cache on a masked window*: the bullet below.
+  - *The reference still to the text encoder alone*: tried and closed for
+    the masked graphs
+    (`../../bench/results/2026-10-07_masked_still_encoder_only.md`).
+  - *The prompt node's text against the vendor's guide*: one render of a
+    rewrite in the guide's form was judged better by the owner on the
+    upper-body recipe's window; a second seed and a version that follows the
+    house rule on shot headers are owed before the node's text changes, and
+    so is the record.
+  - *A region switched on partway through a window*: rendered on and off the
+    video model's frame grouping; the owner's look is owed (the masking
+    board, "videos that need your eye").
+  - *Owed, not started*: the kept mask on disk is still to be removed
+    (the owner's ask of 2026-10-06; the masking board, `build-remove-kept-mask`).
 - How it works, its limits and the wider set of directions:
   [`masked_v2v.md`](masked_v2v.md). The dated account:
   [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4. What was

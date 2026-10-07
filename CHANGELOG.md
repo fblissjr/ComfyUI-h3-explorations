@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.220.2
+<!-- changelog.d/mrdragon-next-steps-2026-10-07.md -->
+
+### Changed
+
+- **`docs/wiki/next_steps.md` says where the masked lane stands after
+  2026-10-07**, as pointers: the SAM 3.1 prompting page, the corrections
+  node, the default pick, what the Subject Track's records owe next, the
+  `keep` input and the `held` output, the encoder-only still closed, the
+  prompt rewrite and the timed switch awaiting a second run or the owner's
+  look, and the kept mask's removal still owed.
+
 ## 0.220.1
 <!-- changelog.d/mregg-place-text-and-device.md -->
 
