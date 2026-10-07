@@ -141,13 +141,32 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "copy), against the node default 'whole subject': the region "
                 "is the mask MiniMaxH3SubjectParts makes from Sapiens2's "
                 "labels, which is what those graphs exist to wire. Every "
-                "other masked graph is at the default. Not rendered."),
+                "other masked graph is at the default. Also on "
+                "`h3_video_to_video_masked_upper_song_ref2va_motion` and its "
+                "daily copy (2026-10-07), whose region rendered on 2026-10-06 "
+                "(bench/results/2026-10-06_masked_v2v_body_window_arms.md); "
+                "the fast parts graph has not rendered as generated."),
+    ("MiniMaxH3SubjectParts", "upper_clothing"):
+        ("ARM", "True on `h3_video_to_video_masked_upper_song_ref2va_motion` "
+                "and its daily copy, against the node default False: the "
+                "region is the head and upper body, the one the owner called "
+                "solid on playback "
+                "(bench/results/2026-10-06_masked_v2v_body_window_arms.md). "
+                "`h3_config.MASKED_UPPER_PARTS` says so. The fast parts graph "
+                "is at the default."),
+    ("MiniMaxH3SubjectParts", "hands"):
+        ("ARM", "True on the same graph and for the same reason as "
+                "upper_clothing above: the hands go with the upper body, "
+                "`h3_config.MASKED_UPPER_PARTS`."),
     ("MiniMaxH3MaskedPrompt", "picture_gives"):
         ("ARM", "'the head and hair' on the parts graphs, against the node "
                 "default, which reads it off the Masked Source: `the wired "
                 "parts` can be any part, so the node refuses to guess and "
                 "the graph says what its default ticks (hair, face and neck) "
-                "make the still provide."),
+                "make the still provide. 'the head and upper body' on "
+                "`h3_video_to_video_masked_upper_song_ref2va_motion`, whose "
+                "part node also ticks upper clothing and hands "
+                "(`h3_config.MASKED_UPPER_PROMPT`)."),
     ("MiniMaxH3AudioFreezeSong", "preview"):
         ("ARM", "True on the review graphs "
                 "(`h3_video_to_video_masked_review` and its daily copy), "
@@ -164,7 +183,10 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "(bench/results/2026-10-05_masked_v2v_motion_arms.md): the "
                 "reference carries the band clip's turn on ref2va at "
                 "`h3_config.MASKED_MOTION_STEPS` and the no-reference control "
-                "does not; `h3_config.MASKED_MOTION_SOURCE` says so."),
+                "does not; `h3_config.MASKED_MOTION_SOURCE` says so. The "
+                "upper-body graph on the same base, "
+                "`h3_video_to_video_masked_upper_song_ref2va_motion`, carries "
+                "it too (`h3_config.MASKED_UPPER_SOURCE`)."),
     ("MiniMaxH3AppendRefImage", "qwen_view"):
         ("ARM", "'shared' on the instruments, against the node default "
                 "'separate' (2026-10-03): the `_savelat` and `_x0` twins and "

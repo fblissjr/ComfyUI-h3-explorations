@@ -88,6 +88,8 @@ BANK_COPIES = {
     "ref2va_masked_person_swap": dict(),
     "ref2va_masked_person_motion": dict(motion_reference=MOTION_ON),
     "ref2va_masked_person_head": dict(replace=m.REPLACE_PART),
+    "ref2va_masked_person_upper_motion": dict(picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS,
+                                              motion_reference=MOTION_ON),
     "ref2va_masked_person_silent": dict(voice=m.VOICE_SILENT),
 }
 SONG, SOURCE, NODE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", h3_config.MASKED_PROMPT_NODE

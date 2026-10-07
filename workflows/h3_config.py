@@ -1307,6 +1307,21 @@ MASKED_PARTS_PROMPT = dict(subject="person", voice="the main voice on the track"
                            picture_gives="the head and hair", add_to_shot="")
 MASKED_PROMPT = dict(subject="person", voice="the main voice on the track",
                      picture_gives="what the Masked Source replaces", add_to_shot="")
+#: The head and upper body on the ref2va motion graph: the part node's hair,
+#: face and neck, upper clothing and hands as the region, the legs kept from
+#: the source, the subject's own frames as the motion reference, and the
+#: prompt node told the still gives the head and upper body. **Measured**,
+#: by the owner's eye on playback: the one arm called solid on a window of a
+#: fourth clip at both window lengths, and better at a smaller margin on a
+#: fifth where the subject is small
+#: (`bench/results/2026-10-06_masked_v2v_body_window_arms.md`). One seed
+#: each. The same region on the fast chain was called broken there, which is
+#: why no fast graph ticks these parts. `grow_pixels` stays the Masked
+#: Source's default: the margin that held on a close subject.
+MASKED_UPPER_PARTS = dict(SUBJECT_PARTS, upper_clothing=True, hands=True)
+MASKED_UPPER_SOURCE = dict(MASKED_MOTION_SOURCE, replace="the wired parts")
+MASKED_UPPER_PROMPT = dict(subject="person", voice="the main voice on the track",
+                           picture_gives="the head and upper body", add_to_shot="")
 
 # ---- FastH3 8-step V2 ------------------------------------------------------------
 #: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
@@ -2051,6 +2066,9 @@ DAILY_GRAPHS: dict[str, str] = {
     # a render (tiles, shot table, the region and the prompt, no sampling).
     "h3_mask_parts_pdd8": "h3_video_to_video_masked_parts_song_pdd8.json",
     "h3_mask_review": "h3_video_to_video_masked_review.json",
+    # 2026-10-07: the head and upper body on the ref2va motion graph, the
+    # recipe the owner's playback verdicts of 2026-10-06 picked.
+    "h3_mask_upper_ref2va_motion": "h3_video_to_video_masked_upper_song_ref2va_motion.json",
 }
 GRAPH_DIRS: tuple[str, ...] = ("", "distill_experiments", DAILY_DIR)
 

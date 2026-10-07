@@ -1197,6 +1197,15 @@
       "recorded_findings": "The bank's shape rule reads no camera motion because the text names none on purpose: \"The framing and every movement of the camera are the scene's own and do not change\". The plate holds the camera, and one text serves every window of any clip (docs/prompt_audit.md, the ref2va_masked rows)."
     },
     {
+      "id": "ref2va_masked_person_upper_motion",
+      "mode": "ref2va",
+      "frames": 345,
+      "donor": "h3_probe_refview2_dancer_api",
+      "brief": "Masked video to video, the head and upper body, with the original's movement: written by the Masked Prompt node when the still is said to give the head and upper body and the Masked Source's motion reference is on. <Picture 1> gives the face, the hair, anything worn on the head and what is worn above the waist; the legs are the source's own; <Video 1>, the source subject's own frames, is the source of the subject's motion and timing and nothing else.",
+      "tests": "the shipped default of h3_video_to_video_masked_upper_song_ref2va_motion since 2026-10-07. The arm the owner called solid on 2026-10-06 rendered a typed text for this region; the node's own wording for it rendered once, on another clip, and was not watched (bench/results/2026-10-06_masked_v2v_body_window_arms.md)",
+      "recorded_findings": "<Video 1> has no socket on any donor: the song node builds it per window from the Masked Source's motion reference (audio_freeze_song.py), so the label grade fails on a property of the donor. The bank's shape rule reads no camera motion because the text names none on purpose: \"The framing and every movement of the camera are the scene's own and do not change\". The plate holds the camera, and one text serves every window of any clip (docs/prompt_audit.md, the ref2va_masked rows)."
+    },
+    {
       "id": "ref2va_masked_person_silent",
       "mode": "ref2va",
       "frames": 345,

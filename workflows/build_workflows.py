@@ -98,6 +98,7 @@ from h3_config import (  # noqa: E402
     REF_VIDEO_LOADER, REF_QWEN_SHORT_EDGE, SEGMENTER, SUBJECT_TRACK, MASKED_SOURCE,
     MASKED_MOTION_STEPS, MASKED_MOTION_SOURCE, MASKED_PROMPT, MASKED_PROMPT_NODE,
     SAPIENS2, SUBJECT_PARTS, MASKED_PARTS_SOURCE, MASKED_PARTS_PROMPT,
+    MASKED_UPPER_PARTS, MASKED_UPPER_SOURCE, MASKED_UPPER_PROMPT,
     CACHE_NODE, CACHE_NODE_CLASS,
     DISTILL_SAMPLING,
     REF_VIDEO_BUDGET,
@@ -1381,8 +1382,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # Sapiens2's part mask into the Masked Source's `parts`
               # (`sapiens2_parts.py`, `h3_config.SAPIENS2` and
               # `SUBJECT_PARTS`); `masked_source` then has to choose
-              # `the wired parts`.
-              masked_parts: bool = False,
+              # `the wired parts`. True is the part node at `SUBJECT_PARTS`;
+              # a dict is its widget values whole (`MASKED_UPPER_PARTS`).
+              masked_parts: bool | dict = False,
               # The look before a render: the song node on `preview`, which
               # samples nothing and loads no model, with the tracker's tiles
               # and shot table saved and the Masked Source's preview shown.
@@ -2262,7 +2264,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 g["107"] = {"class_type": "MiniMaxH3Sapiens2Loader", "inputs": dict(SAPIENS2)}
                 g["108"] = {"class_type": "MiniMaxH3SubjectParts",
                             "inputs": {"sapiens2": ["107", 0], "frames": ["28", 0], "subject_mask": ["105", 0],
-                                       **SUBJECT_PARTS}}
+                                       **(SUBJECT_PARTS if masked_parts is True else masked_parts)}}
                 g["104"]["inputs"]["parts"] = ["108", 0]
             if masked_review:
                 # ids 109 and 110, in a review graph only: a consumer of the
@@ -3864,6 +3866,23 @@ def main():
               freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
               out_prefix="Video/h3_v2v_masked_song_ref2va_motion"),
          "masked video to video on ref2va: the subject replaced from a still and moving as the source's subject moved"),
+        # The graph above with the region cut to the head and upper body
+        # (2026-10-07): the part node's hair, face and neck, upper clothing
+        # and hands, the legs the source's own, and the prompt node told so.
+        # It is the one arm the owner called solid on playback, for a still
+        # that shows the person from the chest up
+        # (bench/results/2026-10-06_masked_v2v_body_window_arms.md). Until
+        # this graph that recipe existed only as patches in a run script.
+        ("h3_video_to_video_masked_upper_song_ref2va_motion.json", "v2v-masked-upper-song-ref2va-motion", "t2v",
+         _bank_prompt("ref2va_masked_person_upper_motion"),
+         dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
+              freeze_song=True, freeze_song_seconds=30.0,
+              freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
+              masked_prompt=MASKED_UPPER_PROMPT,
+              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              out_prefix="Video/h3_v2v_masked_upper_song_ref2va_motion"),
+         "masked video to video on ref2va, the head and upper body: found by Sapiens2, replaced from a still, moving as the source's subject moved"),
         # The graph above with the frozen video cache on the song node's
         # model and nothing else changed (board card `use-frozen-row-cache`):
         # the first step of a window runs stock and later steps compute only

@@ -52,14 +52,29 @@ Two more graphs since 2026-10-06, neither rendered yet:
   (2026-10-06): the still's head and what it wears above the waist, on the
   original's legs. It is the choice for a still that shows the person from
   the chest up, which cannot dress legs; where it came from and what has
-  and has not rendered is in `masked_prompt_text.py`'s docstring. No
-  shipped graph ticks those parts yet. What the part node was seen to find,
+  and has not rendered is in `masked_prompt_text.py`'s docstring. The
+  fast parts graph does not tick those parts; the graph below does. (Said
+  until 2026-10-07 that no shipped graph ticked them.) What the part node was seen to find,
   on which clips:
   `../../bench/results/2026-10-05_sapiens2_first_frame.md`.
 
-All four are in `workflows/daily/` too, as `h3_mask_pdd8_api.json`,
-`h3_mask_ref2va_motion_api.json`, `h3_mask_review_api.json` and
-`h3_mask_parts_pdd8_api.json` (`h3_config.DAILY_GRAPHS`).
+- `workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json`
+  (2026-10-07) is the ref2va motion graph with the region cut to the head
+  and upper body: the part node at `h3_config.MASKED_UPPER_PARTS` (hair,
+  face and neck, upper clothing, hands), the legs the source's own, and the
+  prompt node told so. It is the one recipe the owner called solid on
+  playback, on one window of one clip at two lengths and one seed, and
+  better at a smaller margin on a clip where the subject is small:
+  `../../bench/results/2026-10-06_masked_v2v_body_window_arms.md`. That arm
+  rendered a typed text; this graph renders the node's wording for the same
+  region, which has not been watched. Start here for a still that shows the
+  person from the chest up. The same region on the fast chain was called
+  broken in that record, so no fast graph carries it.
+
+All five are in `workflows/daily/` too, as `h3_mask_pdd8_api.json`,
+`h3_mask_ref2va_motion_api.json`, `h3_mask_review_api.json`,
+`h3_mask_parts_pdd8_api.json` and `h3_mask_upper_ref2va_motion_api.json`
+(`h3_config.DAILY_GRAPHS`).
 
 Until 2026-10-06 one more generated graph wired a Masked Source: a probe
 with the frozen video cache on the song node's model. Its one run saved no
