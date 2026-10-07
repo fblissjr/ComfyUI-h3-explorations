@@ -231,7 +231,10 @@ def gallery_span(run: Unbroken) -> tuple[int, int]:
     the input moved one level, a figure the owner did not mean). `unbroken` keeps that frame, since by overlap it is
     still the subject's mask; a gallery must not, because the Subject Track's `gallery_frames` takes the frame with the
     largest mask by rule and that frame is the likeliest to be it. The seed frame is never left out: its mask was
-    picked, not tracked. A side that stopped on an empty frame or the track's end loses nothing.
+    picked, not tracked. A side that stopped on an empty frame or the track's end loses nothing. A second jump on the
+    same stretch came with no such frame before it (`bench/results/2026-10-07_subject_track_calls_on_masks.md`): there
+    the trim costs one good frame and adds no bad one, and a trim of one frame is not shown to be enough for a mask
+    that leaves over several.
 
     `box_ratio` and `centre_step` on the frame left out say whether it was such a frame; nothing is decided on them
     until there is more than one case.
@@ -405,6 +408,62 @@ def take_back_by_place(scores: list[float], boxes: list, last_box, asked: int, l
                        "over_the_line": bool(scores[i] >= line), "overlap_with_the_place": round(overlaps[i], 3),
                        "next_overlap_with_the_place": round(max((overlaps[k] for k in order if k != i), default=0.0), 3)}
     return i, TOOK_AT_THE_PLACE, detail
+
+
+# ---- who stands in the subject's way
+
+#: reasoned, not measured: a detection counts as standing in the subject's box when its mask covers at least this share
+#: of that box. A person in front covers a good part of it; a neighbour's shoulder at its edge covers a sliver. No
+#: stretch has been measured for it, so it is an argument.
+IN_THE_BOX = 0.05
+
+THE_ONE_IN_THE_WAY, NOBODY_IN_THE_WAY = "the detection most inside the subject's box", "nobody else inside the subject's box"
+
+
+def in_the_way(subject: torch.Tensor, detections: torch.Tensor, in_the_box: float = IN_THE_BOX,
+               same_at: float = AGREE_AT) -> tuple[int | None, str, dict]:
+    """Which detection on a looked-at frame stands most in the subject's way without being the subject.
+
+    For keeping a person who stands in front of the subject out of the region that is regenerated: they are followed
+    in a tracker call of their own and their mask is kept (the Masked Source's `keep`). This only names who.
+
+    `subject` is the subject's [H, W] mask on the frame, `detections` the [N, H, W] masks a fresh detect returned
+    there. The detection that is the subject (the one overlapping the subject's mask most, if by `same_at`) is set
+    aside. Of the rest, the one whose mask covers the largest share of the subject's BOX is named, if it covers
+    `in_the_box` of it. The box and not the mask, because the detector's masks of two people hardly overlap even
+    where one stands in front of the other (`bench/results/2026-10-07_subject_track_calls_on_masks.md`, the fresh
+    detect at each look): by mask against mask the person in front scores as nobody.
+
+    It cannot say who is in front and who behind, only who shares the subject's box; and with as many detections
+    returned as were asked for, the one in the way may not be among them. The choice is a first guess for a shot,
+    to be shown and corrected like the pick.
+
+    Returns (the index or None, the reason, the numbers behind it).
+    """
+    m = subject if subject.dtype == torch.bool else subject > 0.5
+    d = detections if detections.dtype == torch.bool else detections > 0.5
+    box = box_of(m)
+    detail: dict = {"in_the_box": in_the_box, "detections": int(d.shape[0]), "the_subject_among_them": None}
+    if box is None or d.shape[0] == 0:
+        return None, NOBODY_IN_THE_WAY, detail
+    h, w = int(m.shape[0]), int(m.shape[1])
+    x0, y0, x1, y1 = round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h)
+    shared = (d & m).flatten(1).sum(1).float()
+    on_the_subject = (shared / (d | m).flatten(1).sum(1).float().clamp(min=1)).tolist()
+    me = max(range(len(on_the_subject)), key=lambda i: on_the_subject[i])
+    if on_the_subject[me] >= same_at:
+        detail["the_subject_among_them"] = {"detection": me, "overlap": round(on_the_subject[me], 3)}
+    else:
+        me = None
+    covers = (d[:, y0:y1, x0:x1].flatten(1).sum(1).float() / max((y1 - y0) * (x1 - x0), 1)).tolist()
+    order = sorted((i for i in range(len(covers)) if i != me), key=lambda i: -covers[i])
+    if not order or covers[order[0]] < in_the_box:
+        detail["most_of_the_box"] = round(covers[order[0]], 3) if order else None
+        return None, NOBODY_IN_THE_WAY, detail
+    i = order[0]
+    detail.update({"share_of_the_box": round(covers[i], 3), "overlap_with_the_subjects_mask": round(on_the_subject[i], 3),
+                   "next_share_of_the_box": (round(covers[order[1]], 3) if len(order) > 1 else None)})
+    return i, THE_ONE_IN_THE_WAY, detail
 
 
 # ---- places in the clip

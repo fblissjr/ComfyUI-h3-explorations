@@ -36,6 +36,13 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   centre step stand out and decide nothing. A run that ends on an empty frame or the
                                   track's end loses no frame, and the seed is never left out. THE CONTROL: the Subject
                                   Track's own `gallery_frames` given the run as the cut leaves it takes that frame.
+  a_jump_without_warning_costs_a_good_frame  KNOWN COST, asserted: `gallery_span` leaves out the frame beside
+                                  every jump, and a jump can come with no warning. The frame before it is then an
+                                  ordinary frame of the subject (the same mask as the one before, by every measure)
+                                  and is left out all the same. Seen on 2026-10-07 at a second jump on the same
+                                  stretch as the first (`bench/results/2026-10-07_subject_track_calls_on_masks.md`).
+                                  The trim was reasoned from one jump; this is a case it does not describe, and it
+                                  costs one good frame and adds no bad one.
   a_creep_is_not_caught           KNOWN LIMIT, asserted so it is never read as covered: a mask that grows from one
                                   figure over the next and shrinks onto it ends sharing nothing with its seed and is
                                   one run, because no single step shares too little; the area ratio shows the growth.
@@ -68,6 +75,11 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   rank and lead. THE CONTROL: `take_back`, likeness first, takes the higher score
                                   standing somewhere else on the same candidates. KNOWN LIMIT, asserted: two figures
                                   who have changed places are taken wrongly.
+  the_one_in_the_way_is_named_by_the_box  of the detections on a frame that are not the subject, the one whose mask
+                                  covers most of the subject's box is named, whether or not the detector also returned
+                                  the subject; a neighbour whose edge touches the box is not; with nobody in the box
+                                  nobody is named. THE CONTROL: by mask against mask the person in front overlaps the
+                                  subject's mask by nothing, which is why the box is asked.
   notes_say_a_place_in_the_clip   the four forms of a corrections line read as written; a frame and its time are the
                                   same place; each kind of typo is refused with the line quoted, never skipped.
   a_note_lands_in_its_shot        a note is placed by where the load starts in the clip, the same text serves two
@@ -313,6 +325,18 @@ def the_frame_beside_a_jump_is_no_gallery_frame():
     return f"the cut keeps frame 9 (overlap {run.overlap[9]:.2f}, box ratio {run.box_ratio[9]:.1f}); the gallery's span leaves it out; the node's gallery on the run as cut takes it: {as_cut}"
 
 
+def a_jump_without_warning_costs_a_good_frame():
+    track = _clip_with_a_jump()                          # frames 0 to 9 on one figure, 10 on another: no straddle frame
+    run = S.unbroken(track, seed=2)
+    assert (run.first, run.end, run.after) == (0, 10, S.STOPPED_MOVED), run
+    # the frame beside the jump is ordinary: the same mask as the frame before, by every measure returned
+    assert (run.overlap[9], run.area_ratio[9], run.box_ratio[9], run.centre_step[9]) == (1.0, 1.0, 1.0, 0.0), (run.overlap[9], run.area_ratio[9], run.box_ratio[9], run.centre_step[9])
+    assert bool((track[9] == track[2]).all()), "frame 9 should be the subject's own mask"
+    # THE KNOWN COST: it is left out of the gallery's span all the same, and nothing from after the jump comes in
+    assert S.gallery_span(run) == (0, 9), S.gallery_span(run)
+    return "KNOWN COST: a jump with no straddle frame; the frame before it is the subject's own mask and the gallery's span still leaves it out"
+
+
 def a_creep_is_not_caught():
     # the mask's right edge grows from one figure over the next, three columns a frame, then its left edge follows
     grow = [_figure(HERE_, right) for right in range(HERE_ + 12, THERE_ + 13, 3)]
@@ -502,10 +526,36 @@ def taking_back_by_place_asks_where_first():
     return "by place first: the one who may be asked and stands where the subject was; nobody when none or two do; KNOWN LIMIT: whoever stands there is taken"
 
 
+def the_one_in_the_way_is_named_by_the_box():
+    subject = _blank(64, 64)
+    subject[16:48, 16:44] = True
+    subject[30:48, 24:36] = False                      # where somebody stands in front, the subject's mask has a gap
+    front = _blank(64, 64)
+    front[30:60, 24:36] = True
+    beside = _blank(64, 64)
+    beside[16:48, 43:55] = True                        # a neighbour: one column inside the subject's box
+    far = _figure(2, 10)
+    which, why, detail = S.in_the_way(subject, torch.stack([far, beside, front]))
+    assert (which, why) == (2, S.THE_ONE_IN_THE_WAY) and detail["the_subject_among_them"] is None, (which, why, detail)
+    assert detail["share_of_the_box"] > 0.2 and detail["next_share_of_the_box"] < S.IN_THE_BOX, detail
+    # THE CONTROL: mask against mask, the person in front shares nothing with the subject
+    assert detail["overlap_with_the_subjects_mask"] == 0.0 and not bool((front & subject).any()), detail
+    # the detector also returned the subject: set aside, and the same person is named
+    which, why, detail = S.in_the_way(subject, torch.stack([subject, front, beside]).to(torch.float32))
+    assert (which, why) == (1, S.THE_ONE_IN_THE_WAY) and detail["the_subject_among_them"]["detection"] == 0, (which, why, detail)
+    # only a neighbour at the edge, or nobody, or no subject: nobody is named
+    which, why, detail = S.in_the_way(subject, torch.stack([far, beside]))
+    assert (which, why) == (None, S.NOBODY_IN_THE_WAY) and 0 < detail["most_of_the_box"] < S.IN_THE_BOX, (which, why, detail)
+    assert S.in_the_way(subject, torch.zeros((0, 64, 64), dtype=torch.bool))[:2] == (None, S.NOBODY_IN_THE_WAY)
+    assert S.in_the_way(subject, subject[None])[:2] == (None, S.NOBODY_IN_THE_WAY), "the subject was named as standing in their own way"
+    assert S.in_the_way(_blank(64, 64), front[None])[:2] == (None, S.NOBODY_IN_THE_WAY)
+    return "named by the share of the subject's box a detection covers; the subject set aside; a neighbour at the edge is not named; mask against mask says nobody"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               the_frame_beside_a_jump_is_no_gallery_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

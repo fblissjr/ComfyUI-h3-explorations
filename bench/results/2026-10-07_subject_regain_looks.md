@@ -182,6 +182,10 @@ higher count gains one take and, at sixty-four, loses two (more people
 over the line, a smaller lead); judged by place it is what puts the figure
 among the candidates at all.
 
+**Later the same evening:** the masks themselves were put through `unbroken`, one tracked call at a time, and the
+jump is cut on them as it is on the recorded steps here:
+[`2026-10-07_subject_track_calls_on_masks.md`](2026-10-07_subject_track_calls_on_masks.md).
+
 ## By place, through the function (added the same evening, session mrhen)
 
 "What the by-place tables show" above was read off the data. The rule is now

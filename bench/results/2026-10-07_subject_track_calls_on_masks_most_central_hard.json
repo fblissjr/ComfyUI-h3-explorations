@@ -1,0 +1,3729 @@
+{
+ "environment": {
+  "torch": "2.14.1+cu132",
+  "core_commit": "b00c6e952",
+  "tf32": {
+   "matmul": false,
+   "cudnn": true
+  }
+ },
+ "frames": {
+  "clip": "lotsofpeopledance_0414_0720.mkv",
+  "second": 138.0,
+  "count": 144,
+  "rate": 24.0,
+  "size": [
+   1344,
+   760
+  ]
+ },
+ "sam": "as ComfyUI ships it",
+ "settings": {
+  "subject_phrase": "person",
+  "pick": "most central",
+  "pick_on": "automatic",
+  "match": "automatic",
+  "cuts": "automatic",
+  "detection_threshold": 0.5,
+  "max_people": 16,
+  "head_phrase": "head",
+  "corrections": ""
+ },
+ "device": "cuda:0",
+ "lines": {
+  "REGAIN_SAME": 0.88,
+  "REGAIN_MARGIN": 0.03
+ },
+ "crop_times": 3.0,
+ "centre_share": 0.5,
+ "runs": {
+  "as fed": {
+   "cuts": [],
+   "pick_frame": 4,
+   "each_pick_rule_on_the_pick_frame": {
+    "largest": {
+     "detection": 5,
+     "box": [
+      0.306,
+      0.633,
+      0.417,
+      0.913
+     ]
+    },
+    "most central": {
+     "detection": 3,
+     "box": [
+      0.457,
+      0.446,
+      0.519,
+      0.679
+     ]
+    },
+    "best match for the phrase": {
+     "detection": 0,
+     "box": [
+      0.609,
+      0.699,
+      0.707,
+      0.918
+     ]
+    }
+   },
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.458,
+    0.446,
+    0.519,
+    0.679
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 144,
+    "plausible": 144,
+    "taken_again_at": [],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.488,
+      0.547
+     ],
+     "12": [
+      0.487,
+      0.537
+     ],
+     "24": [
+      0.491,
+      0.532
+     ],
+     "36": [
+      0.487,
+      0.574
+     ],
+     "48": [
+      0.485,
+      0.532
+     ],
+     "60": [
+      0.487,
+      0.553
+     ],
+     "72": [
+      0.485,
+      0.635
+     ],
+     "84": [
+      0.482,
+      0.546
+     ],
+     "96": [
+      0.481,
+      0.548
+     ],
+     "108": [
+      0.488,
+      0.525
+     ],
+     "120": [
+      0.485,
+      0.555
+     ],
+     "132": [
+      0.461,
+      0.558
+     ]
+    },
+    "mask_overlap_with_the_frame_before": {
+     "pairs": 143,
+     "least": 0.585,
+     "median": 0.885,
+     "under_a_half": []
+    }
+   },
+   "each_tracked_call": [
+    {
+     "frames": [
+      0,
+      144
+     ],
+     "seeded_on": 4,
+     "moved_off": 0.2,
+     "unbroken": [
+      0,
+      144
+     ],
+     "stops_before": "the end of the track",
+     "stops_after": "the end of the track",
+     "a_gallery_may_use": [
+      0,
+      144
+     ],
+     "least_overlap_inside": 0.585,
+     "the_box_on_its_last_gallery_frame": [
+      0.441,
+      0.429,
+      0.518,
+      0.636
+     ],
+     "the_frame_that_stops_it_before": null,
+     "its_first_frame": {
+      "frame": 0,
+      "frames_apart": 1,
+      "overlap": 0.919,
+      "area_ratio": 1.01,
+      "box_ratio": 1.026,
+      "centre_step": 0.005
+     },
+     "its_last_frame": {
+      "frame": 143,
+      "frames_apart": 1,
+      "overlap": 0.851,
+      "area_ratio": 1.002,
+      "box_ratio": 0.916,
+      "centre_step": 0.014
+     },
+     "the_frame_that_stops_it_after": null
+    }
+   ],
+   "looks": [],
+   "track_only": true,
+   "the_track_every_frame": [
+    {
+     "frame": 0,
+     "box": [
+      0.458,
+      0.446,
+      0.518,
+      0.647
+     ],
+     "overlap_with_the_frame_before": null,
+     "share_of_the_frame": 0.00792
+    },
+    {
+     "frame": 1,
+     "box": [
+      0.461,
+      0.445,
+      0.518,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.919,
+     "share_of_the_frame": 0.00784
+    },
+    {
+     "frame": 2,
+     "box": [
+      0.461,
+      0.445,
+      0.519,
+      0.659
+     ],
+     "overlap_with_the_frame_before": 0.901,
+     "share_of_the_frame": 0.00812
+    },
+    {
+     "frame": 3,
+     "box": [
+      0.458,
+      0.445,
+      0.519,
+      0.662
+     ],
+     "overlap_with_the_frame_before": 0.873,
+     "share_of_the_frame": 0.00893
+    },
+    {
+     "frame": 4,
+     "box": [
+      0.458,
+      0.446,
+      0.519,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.897,
+     "share_of_the_frame": 0.0095
+    },
+    {
+     "frame": 5,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.697
+     ],
+     "overlap_with_the_frame_before": 0.881,
+     "share_of_the_frame": 0.0107
+    },
+    {
+     "frame": 6,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.713
+     ],
+     "overlap_with_the_frame_before": 0.935,
+     "share_of_the_frame": 0.01132
+    },
+    {
+     "frame": 7,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.72
+     ],
+     "overlap_with_the_frame_before": 0.971,
+     "share_of_the_frame": 0.01137
+    },
+    {
+     "frame": 8,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.716
+     ],
+     "overlap_with_the_frame_before": 0.966,
+     "share_of_the_frame": 0.01114
+    },
+    {
+     "frame": 9,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.711
+     ],
+     "overlap_with_the_frame_before": 0.931,
+     "share_of_the_frame": 0.01066
+    },
+    {
+     "frame": 10,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.686
+     ],
+     "overlap_with_the_frame_before": 0.904,
+     "share_of_the_frame": 0.00987
+    },
+    {
+     "frame": 11,
+     "box": [
+      0.456,
+      0.443,
+      0.519,
+      0.647
+     ],
+     "overlap_with_the_frame_before": 0.895,
+     "share_of_the_frame": 0.00898
+    },
+    {
+     "frame": 12,
+     "box": [
+      0.455,
+      0.445,
+      0.518,
+      0.629
+     ],
+     "overlap_with_the_frame_before": 0.816,
+     "share_of_the_frame": 0.00744
+    },
+    {
+     "frame": 13,
+     "box": [
+      0.455,
+      0.445,
+      0.519,
+      0.624
+     ],
+     "overlap_with_the_frame_before": 0.933,
+     "share_of_the_frame": 0.00709
+    },
+    {
+     "frame": 14,
+     "box": [
+      0.455,
+      0.445,
+      0.518,
+      0.638
+     ],
+     "overlap_with_the_frame_before": 0.905,
+     "share_of_the_frame": 0.00691
+    },
+    {
+     "frame": 15,
+     "box": [
+      0.456,
+      0.445,
+      0.517,
+      0.642
+     ],
+     "overlap_with_the_frame_before": 0.877,
+     "share_of_the_frame": 0.00653
+    },
+    {
+     "frame": 16,
+     "box": [
+      0.456,
+      0.442,
+      0.517,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.882,
+     "share_of_the_frame": 0.0072
+    },
+    {
+     "frame": 17,
+     "box": [
+      0.456,
+      0.443,
+      0.518,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.939,
+     "share_of_the_frame": 0.00716
+    },
+    {
+     "frame": 18,
+     "box": [
+      0.458,
+      0.442,
+      0.518,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.892,
+     "share_of_the_frame": 0.00713
+    },
+    {
+     "frame": 19,
+     "box": [
+      0.46,
+      0.443,
+      0.518,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.909,
+     "share_of_the_frame": 0.00705
+    },
+    {
+     "frame": 20,
+     "box": [
+      0.462,
+      0.445,
+      0.518,
+      0.633
+     ],
+     "overlap_with_the_frame_before": 0.883,
+     "share_of_the_frame": 0.00639
+    },
+    {
+     "frame": 21,
+     "box": [
+      0.465,
+      0.445,
+      0.518,
+      0.63
+     ],
+     "overlap_with_the_frame_before": 0.869,
+     "share_of_the_frame": 0.00614
+    },
+    {
+     "frame": 22,
+     "box": [
+      0.464,
+      0.442,
+      0.518,
+      0.597
+     ],
+     "overlap_with_the_frame_before": 0.802,
+     "share_of_the_frame": 0.00508
+    },
+    {
+     "frame": 23,
+     "box": [
+      0.461,
+      0.443,
+      0.517,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.887,
+     "share_of_the_frame": 0.00531
+    },
+    {
+     "frame": 24,
+     "box": [
+      0.464,
+      0.446,
+      0.518,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.892,
+     "share_of_the_frame": 0.00546
+    },
+    {
+     "frame": 25,
+     "box": [
+      0.461,
+      0.445,
+      0.518,
+      0.597
+     ],
+     "overlap_with_the_frame_before": 0.817,
+     "share_of_the_frame": 0.00477
+    },
+    {
+     "frame": 26,
+     "box": [
+      0.456,
+      0.445,
+      0.518,
+      0.588
+     ],
+     "overlap_with_the_frame_before": 0.866,
+     "share_of_the_frame": 0.00477
+    },
+    {
+     "frame": 27,
+     "box": [
+      0.455,
+      0.445,
+      0.517,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.885,
+     "share_of_the_frame": 0.00527
+    },
+    {
+     "frame": 28,
+     "box": [
+      0.452,
+      0.443,
+      0.517,
+      0.592
+     ],
+     "overlap_with_the_frame_before": 0.909,
+     "share_of_the_frame": 0.00562
+    },
+    {
+     "frame": 29,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.595
+     ],
+     "overlap_with_the_frame_before": 0.935,
+     "share_of_the_frame": 0.00591
+    },
+    {
+     "frame": 30,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.596
+     ],
+     "overlap_with_the_frame_before": 0.957,
+     "share_of_the_frame": 0.00585
+    },
+    {
+     "frame": 31,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.592
+     ],
+     "overlap_with_the_frame_before": 0.951,
+     "share_of_the_frame": 0.00564
+    },
+    {
+     "frame": 32,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.595
+     ],
+     "overlap_with_the_frame_before": 0.922,
+     "share_of_the_frame": 0.00563
+    },
+    {
+     "frame": 33,
+     "box": [
+      0.452,
+      0.441,
+      0.517,
+      0.628
+     ],
+     "overlap_with_the_frame_before": 0.832,
+     "share_of_the_frame": 0.00643
+    },
+    {
+     "frame": 34,
+     "box": [
+      0.453,
+      0.441,
+      0.517,
+      0.63
+     ],
+     "overlap_with_the_frame_before": 0.876,
+     "share_of_the_frame": 0.00676
+    },
+    {
+     "frame": 35,
+     "box": [
+      0.455,
+      0.442,
+      0.516,
+      0.654
+     ],
+     "overlap_with_the_frame_before": 0.854,
+     "share_of_the_frame": 0.00748
+    },
+    {
+     "frame": 36,
+     "box": [
+      0.455,
+      0.441,
+      0.519,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.654,
+     "share_of_the_frame": 0.0114
+    },
+    {
+     "frame": 37,
+     "box": [
+      0.453,
+      0.441,
+      0.52,
+      0.724
+     ],
+     "overlap_with_the_frame_before": 0.913,
+     "share_of_the_frame": 0.01183
+    },
+    {
+     "frame": 38,
+     "box": [
+      0.452,
+      0.443,
+      0.52,
+      0.732
+     ],
+     "overlap_with_the_frame_before": 0.945,
+     "share_of_the_frame": 0.01227
+    },
+    {
+     "frame": 39,
+     "box": [
+      0.45,
+      0.442,
+      0.52,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.96,
+     "share_of_the_frame": 0.01277
+    },
+    {
+     "frame": 40,
+     "box": [
+      0.45,
+      0.442,
+      0.517,
+      0.726
+     ],
+     "overlap_with_the_frame_before": 0.944,
+     "share_of_the_frame": 0.01242
+    },
+    {
+     "frame": 41,
+     "box": [
+      0.45,
+      0.443,
+      0.519,
+      0.713
+     ],
+     "overlap_with_the_frame_before": 0.927,
+     "share_of_the_frame": 0.01221
+    },
+    {
+     "frame": 42,
+     "box": [
+      0.45,
+      0.443,
+      0.517,
+      0.693
+     ],
+     "overlap_with_the_frame_before": 0.889,
+     "share_of_the_frame": 0.01093
+    },
+    {
+     "frame": 43,
+     "box": [
+      0.45,
+      0.443,
+      0.517,
+      0.664
+     ],
+     "overlap_with_the_frame_before": 0.822,
+     "share_of_the_frame": 0.00911
+    },
+    {
+     "frame": 44,
+     "box": [
+      0.449,
+      0.442,
+      0.517,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.818,
+     "share_of_the_frame": 0.0077
+    },
+    {
+     "frame": 45,
+     "box": [
+      0.449,
+      0.438,
+      0.524,
+      0.632
+     ],
+     "overlap_with_the_frame_before": 0.843,
+     "share_of_the_frame": 0.00761
+    },
+    {
+     "frame": 46,
+     "box": [
+      0.446,
+      0.441,
+      0.527,
+      0.629
+     ],
+     "overlap_with_the_frame_before": 0.8,
+     "share_of_the_frame": 0.00741
+    },
+    {
+     "frame": 47,
+     "box": [
+      0.45,
+      0.438,
+      0.527,
+      0.614
+     ],
+     "overlap_with_the_frame_before": 0.7,
+     "share_of_the_frame": 0.00592
+    },
+    {
+     "frame": 48,
+     "box": [
+      0.449,
+      0.439,
+      0.522,
+      0.624
+     ],
+     "overlap_with_the_frame_before": 0.745,
+     "share_of_the_frame": 0.00574
+    },
+    {
+     "frame": 49,
+     "box": [
+      0.452,
+      0.439,
+      0.514,
+      0.622
+     ],
+     "overlap_with_the_frame_before": 0.698,
+     "share_of_the_frame": 0.00526
+    },
+    {
+     "frame": 50,
+     "box": [
+      0.456,
+      0.442,
+      0.514,
+      0.653
+     ],
+     "overlap_with_the_frame_before": 0.71,
+     "share_of_the_frame": 0.00597
+    },
+    {
+     "frame": 51,
+     "box": [
+      0.461,
+      0.442,
+      0.514,
+      0.641
+     ],
+     "overlap_with_the_frame_before": 0.792,
+     "share_of_the_frame": 0.00588
+    },
+    {
+     "frame": 52,
+     "box": [
+      0.465,
+      0.442,
+      0.515,
+      0.636
+     ],
+     "overlap_with_the_frame_before": 0.894,
+     "share_of_the_frame": 0.00596
+    },
+    {
+     "frame": 53,
+     "box": [
+      0.465,
+      0.441,
+      0.515,
+      0.639
+     ],
+     "overlap_with_the_frame_before": 0.889,
+     "share_of_the_frame": 0.00635
+    },
+    {
+     "frame": 54,
+     "box": [
+      0.339,
+      0.441,
+      0.517,
+      0.763
+     ],
+     "overlap_with_the_frame_before": 0.867,
+     "share_of_the_frame": 0.0066
+    },
+    {
+     "frame": 55,
+     "box": [
+      0.456,
+      0.441,
+      0.518,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.82,
+     "share_of_the_frame": 0.00728
+    },
+    {
+     "frame": 56,
+     "box": [
+      0.453,
+      0.438,
+      0.52,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.804,
+     "share_of_the_frame": 0.00814
+    },
+    {
+     "frame": 57,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.639
+     ],
+     "overlap_with_the_frame_before": 0.861,
+     "share_of_the_frame": 0.00784
+    },
+    {
+     "frame": 58,
+     "box": [
+      0.45,
+      0.439,
+      0.521,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.891,
+     "share_of_the_frame": 0.00778
+    },
+    {
+     "frame": 59,
+     "box": [
+      0.45,
+      0.438,
+      0.521,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.899,
+     "share_of_the_frame": 0.00776
+    },
+    {
+     "frame": 60,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.806,
+     "share_of_the_frame": 0.00785
+    },
+    {
+     "frame": 61,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.667
+     ],
+     "overlap_with_the_frame_before": 0.876,
+     "share_of_the_frame": 0.00883
+    },
+    {
+     "frame": 62,
+     "box": [
+      0.452,
+      0.438,
+      0.521,
+      0.68
+     ],
+     "overlap_with_the_frame_before": 0.848,
+     "share_of_the_frame": 0.01035
+    },
+    {
+     "frame": 63,
+     "box": [
+      0.452,
+      0.438,
+      0.522,
+      0.695
+     ],
+     "overlap_with_the_frame_before": 0.909,
+     "share_of_the_frame": 0.0113
+    },
+    {
+     "frame": 64,
+     "box": [
+      0.449,
+      0.438,
+      0.522,
+      0.7
+     ],
+     "overlap_with_the_frame_before": 0.906,
+     "share_of_the_frame": 0.01178
+    },
+    {
+     "frame": 65,
+     "box": [
+      0.448,
+      0.438,
+      0.522,
+      0.755
+     ],
+     "overlap_with_the_frame_before": 0.847,
+     "share_of_the_frame": 0.01235
+    },
+    {
+     "frame": 66,
+     "box": [
+      0.452,
+      0.438,
+      0.522,
+      0.721
+     ],
+     "overlap_with_the_frame_before": 0.885,
+     "share_of_the_frame": 0.01168
+    },
+    {
+     "frame": 67,
+     "box": [
+      0.45,
+      0.437,
+      0.522,
+      0.697
+     ],
+     "overlap_with_the_frame_before": 0.91,
+     "share_of_the_frame": 0.01122
+    },
+    {
+     "frame": 68,
+     "box": [
+      0.449,
+      0.437,
+      0.522,
+      0.696
+     ],
+     "overlap_with_the_frame_before": 0.889,
+     "share_of_the_frame": 0.01026
+    },
+    {
+     "frame": 69,
+     "box": [
+      0.449,
+      0.437,
+      0.521,
+      0.703
+     ],
+     "overlap_with_the_frame_before": 0.927,
+     "share_of_the_frame": 0.01069
+    },
+    {
+     "frame": 70,
+     "box": [
+      0.449,
+      0.438,
+      0.522,
+      0.7
+     ],
+     "overlap_with_the_frame_before": 0.96,
+     "share_of_the_frame": 0.01081
+    },
+    {
+     "frame": 71,
+     "box": [
+      0.449,
+      0.437,
+      0.521,
+      0.695
+     ],
+     "overlap_with_the_frame_before": 0.959,
+     "share_of_the_frame": 0.0108
+    },
+    {
+     "frame": 72,
+     "box": [
+      0.449,
+      0.437,
+      0.521,
+      0.833
+     ],
+     "overlap_with_the_frame_before": 0.913,
+     "share_of_the_frame": 0.01125
+    },
+    {
+     "frame": 73,
+     "box": [
+      0.449,
+      0.436,
+      0.525,
+      0.726
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.01187
+    },
+    {
+     "frame": 74,
+     "box": [
+      0.449,
+      0.437,
+      0.525,
+      0.732
+     ],
+     "overlap_with_the_frame_before": 0.946,
+     "share_of_the_frame": 0.01208
+    },
+    {
+     "frame": 75,
+     "box": [
+      0.449,
+      0.436,
+      0.524,
+      0.726
+     ],
+     "overlap_with_the_frame_before": 0.936,
+     "share_of_the_frame": 0.01181
+    },
+    {
+     "frame": 76,
+     "box": [
+      0.45,
+      0.438,
+      0.528,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.891,
+     "share_of_the_frame": 0.01125
+    },
+    {
+     "frame": 77,
+     "box": [
+      0.452,
+      0.438,
+      0.52,
+      0.709
+     ],
+     "overlap_with_the_frame_before": 0.808,
+     "share_of_the_frame": 0.01196
+    },
+    {
+     "frame": 78,
+     "box": [
+      0.452,
+      0.437,
+      0.52,
+      0.717
+     ],
+     "overlap_with_the_frame_before": 0.849,
+     "share_of_the_frame": 0.01137
+    },
+    {
+     "frame": 79,
+     "box": [
+      0.452,
+      0.437,
+      0.519,
+      0.716
+     ],
+     "overlap_with_the_frame_before": 0.883,
+     "share_of_the_frame": 0.01203
+    },
+    {
+     "frame": 80,
+     "box": [
+      0.446,
+      0.437,
+      0.519,
+      0.711
+     ],
+     "overlap_with_the_frame_before": 0.83,
+     "share_of_the_frame": 0.01295
+    },
+    {
+     "frame": 81,
+     "box": [
+      0.446,
+      0.438,
+      0.519,
+      0.7
+     ],
+     "overlap_with_the_frame_before": 0.876,
+     "share_of_the_frame": 0.01217
+    },
+    {
+     "frame": 82,
+     "box": [
+      0.447,
+      0.437,
+      0.518,
+      0.684
+     ],
+     "overlap_with_the_frame_before": 0.868,
+     "share_of_the_frame": 0.01094
+    },
+    {
+     "frame": 83,
+     "box": [
+      0.446,
+      0.438,
+      0.518,
+      0.663
+     ],
+     "overlap_with_the_frame_before": 0.852,
+     "share_of_the_frame": 0.00957
+    },
+    {
+     "frame": 84,
+     "box": [
+      0.446,
+      0.436,
+      0.518,
+      0.657
+     ],
+     "overlap_with_the_frame_before": 0.835,
+     "share_of_the_frame": 0.00882
+    },
+    {
+     "frame": 85,
+     "box": [
+      0.446,
+      0.436,
+      0.518,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.914,
+     "share_of_the_frame": 0.00932
+    },
+    {
+     "frame": 86,
+     "box": [
+      0.446,
+      0.437,
+      0.518,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.862,
+     "share_of_the_frame": 0.01012
+    },
+    {
+     "frame": 87,
+     "box": [
+      0.446,
+      0.434,
+      0.518,
+      0.687
+     ],
+     "overlap_with_the_frame_before": 0.859,
+     "share_of_the_frame": 0.01121
+    },
+    {
+     "frame": 88,
+     "box": [
+      0.446,
+      0.436,
+      0.517,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.854,
+     "share_of_the_frame": 0.01282
+    },
+    {
+     "frame": 89,
+     "box": [
+      0.443,
+      0.434,
+      0.517,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.891,
+     "share_of_the_frame": 0.01415
+    },
+    {
+     "frame": 90,
+     "box": [
+      0.443,
+      0.437,
+      0.518,
+      0.747
+     ],
+     "overlap_with_the_frame_before": 0.929,
+     "share_of_the_frame": 0.015
+    },
+    {
+     "frame": 91,
+     "box": [
+      0.147,
+      0.437,
+      0.518,
+      0.749
+     ],
+     "overlap_with_the_frame_before": 0.965,
+     "share_of_the_frame": 0.01502
+    },
+    {
+     "frame": 92,
+     "box": [
+      0.443,
+      0.436,
+      0.518,
+      0.742
+     ],
+     "overlap_with_the_frame_before": 0.958,
+     "share_of_the_frame": 0.01473
+    },
+    {
+     "frame": 93,
+     "box": [
+      0.443,
+      0.436,
+      0.518,
+      0.725
+     ],
+     "overlap_with_the_frame_before": 0.923,
+     "share_of_the_frame": 0.01387
+    },
+    {
+     "frame": 94,
+     "box": [
+      0.444,
+      0.434,
+      0.519,
+      0.704
+     ],
+     "overlap_with_the_frame_before": 0.908,
+     "share_of_the_frame": 0.01275
+    },
+    {
+     "frame": 95,
+     "box": [
+      0.444,
+      0.436,
+      0.519,
+      0.667
+     ],
+     "overlap_with_the_frame_before": 0.875,
+     "share_of_the_frame": 0.01148
+    },
+    {
+     "frame": 96,
+     "box": [
+      0.444,
+      0.434,
+      0.519,
+      0.662
+     ],
+     "overlap_with_the_frame_before": 0.906,
+     "share_of_the_frame": 0.01096
+    },
+    {
+     "frame": 97,
+     "box": [
+      0.444,
+      0.433,
+      0.52,
+      0.647
+     ],
+     "overlap_with_the_frame_before": 0.917,
+     "share_of_the_frame": 0.01027
+    },
+    {
+     "frame": 98,
+     "box": [
+      0.444,
+      0.434,
+      0.52,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.938,
+     "share_of_the_frame": 0.00978
+    },
+    {
+     "frame": 99,
+     "box": [
+      0.446,
+      0.434,
+      0.519,
+      0.653
+     ],
+     "overlap_with_the_frame_before": 0.935,
+     "share_of_the_frame": 0.0097
+    },
+    {
+     "frame": 100,
+     "box": [
+      0.446,
+      0.434,
+      0.518,
+      0.659
+     ],
+     "overlap_with_the_frame_before": 0.877,
+     "share_of_the_frame": 0.0087
+    },
+    {
+     "frame": 101,
+     "box": [
+      0.447,
+      0.433,
+      0.519,
+      0.664
+     ],
+     "overlap_with_the_frame_before": 0.869,
+     "share_of_the_frame": 0.0089
+    },
+    {
+     "frame": 102,
+     "box": [
+      0.449,
+      0.433,
+      0.518,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.887,
+     "share_of_the_frame": 0.00969
+    },
+    {
+     "frame": 103,
+     "box": [
+      0.449,
+      0.434,
+      0.52,
+      0.68
+     ],
+     "overlap_with_the_frame_before": 0.929,
+     "share_of_the_frame": 0.01
+    },
+    {
+     "frame": 104,
+     "box": [
+      0.452,
+      0.433,
+      0.521,
+      0.676
+     ],
+     "overlap_with_the_frame_before": 0.917,
+     "share_of_the_frame": 0.0098
+    },
+    {
+     "frame": 105,
+     "box": [
+      0.455,
+      0.433,
+      0.521,
+      0.668
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.00935
+    },
+    {
+     "frame": 106,
+     "box": [
+      0.459,
+      0.433,
+      0.521,
+      0.642
+     ],
+     "overlap_with_the_frame_before": 0.847,
+     "share_of_the_frame": 0.00823
+    },
+    {
+     "frame": 107,
+     "box": [
+      0.461,
+      0.433,
+      0.522,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.81,
+     "share_of_the_frame": 0.00719
+    },
+    {
+     "frame": 108,
+     "box": [
+      0.455,
+      0.433,
+      0.522,
+      0.617
+     ],
+     "overlap_with_the_frame_before": 0.903,
+     "share_of_the_frame": 0.00732
+    },
+    {
+     "frame": 109,
+     "box": [
+      0.458,
+      0.433,
+      0.522,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.906,
+     "share_of_the_frame": 0.00731
+    },
+    {
+     "frame": 110,
+     "box": [
+      0.455,
+      0.43,
+      0.524,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.849,
+     "share_of_the_frame": 0.00688
+    },
+    {
+     "frame": 111,
+     "box": [
+      0.45,
+      0.429,
+      0.522,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.885,
+     "share_of_the_frame": 0.00721
+    },
+    {
+     "frame": 112,
+     "box": [
+      0.45,
+      0.428,
+      0.522,
+      0.613
+     ],
+     "overlap_with_the_frame_before": 0.87,
+     "share_of_the_frame": 0.00749
+    },
+    {
+     "frame": 113,
+     "box": [
+      0.449,
+      0.429,
+      0.522,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.905,
+     "share_of_the_frame": 0.00783
+    },
+    {
+     "frame": 114,
+     "box": [
+      0.449,
+      0.429,
+      0.522,
+      0.613
+     ],
+     "overlap_with_the_frame_before": 0.953,
+     "share_of_the_frame": 0.00774
+    },
+    {
+     "frame": 115,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.952,
+     "share_of_the_frame": 0.00748
+    },
+    {
+     "frame": 116,
+     "box": [
+      0.45,
+      0.43,
+      0.523,
+      0.614
+     ],
+     "overlap_with_the_frame_before": 0.897,
+     "share_of_the_frame": 0.00754
+    },
+    {
+     "frame": 117,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.625
+     ],
+     "overlap_with_the_frame_before": 0.892,
+     "share_of_the_frame": 0.00806
+    },
+    {
+     "frame": 118,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.886,
+     "share_of_the_frame": 0.00879
+    },
+    {
+     "frame": 119,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.654
+     ],
+     "overlap_with_the_frame_before": 0.856,
+     "share_of_the_frame": 0.00998
+    },
+    {
+     "frame": 120,
+     "box": [
+      0.449,
+      0.432,
+      0.522,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.866,
+     "share_of_the_frame": 0.01103
+    },
+    {
+     "frame": 121,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.699
+     ],
+     "overlap_with_the_frame_before": 0.884,
+     "share_of_the_frame": 0.01201
+    },
+    {
+     "frame": 122,
+     "box": [
+      0.449,
+      0.43,
+      0.523,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.807,
+     "share_of_the_frame": 0.01479
+    },
+    {
+     "frame": 123,
+     "box": [
+      0.447,
+      0.43,
+      0.525,
+      0.753
+     ],
+     "overlap_with_the_frame_before": 0.888,
+     "share_of_the_frame": 0.01628
+    },
+    {
+     "frame": 124,
+     "box": [
+      0.447,
+      0.43,
+      0.523,
+      0.757
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.01579
+    },
+    {
+     "frame": 125,
+     "box": [
+      0.446,
+      0.43,
+      0.524,
+      0.757
+     ],
+     "overlap_with_the_frame_before": 0.943,
+     "share_of_the_frame": 0.01647
+    },
+    {
+     "frame": 126,
+     "box": [
+      0.446,
+      0.429,
+      0.524,
+      0.749
+     ],
+     "overlap_with_the_frame_before": 0.946,
+     "share_of_the_frame": 0.01618
+    },
+    {
+     "frame": 127,
+     "box": [
+      0.444,
+      0.43,
+      0.524,
+      0.725
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.01504
+    },
+    {
+     "frame": 128,
+     "box": [
+      0.446,
+      0.429,
+      0.525,
+      0.693
+     ],
+     "overlap_with_the_frame_before": 0.867,
+     "share_of_the_frame": 0.01324
+    },
+    {
+     "frame": 129,
+     "box": [
+      0.443,
+      0.429,
+      0.519,
+      0.678
+     ],
+     "overlap_with_the_frame_before": 0.77,
+     "share_of_the_frame": 0.01045
+    },
+    {
+     "frame": 130,
+     "box": [
+      0.443,
+      0.43,
+      0.521,
+      0.655
+     ],
+     "overlap_with_the_frame_before": 0.857,
+     "share_of_the_frame": 0.00923
+    },
+    {
+     "frame": 131,
+     "box": [
+      0.443,
+      0.43,
+      0.538,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.801,
+     "share_of_the_frame": 0.00877
+    },
+    {
+     "frame": 132,
+     "box": [
+      0.411,
+      0.429,
+      0.511,
+      0.687
+     ],
+     "overlap_with_the_frame_before": 0.585,
+     "share_of_the_frame": 0.00756
+    },
+    {
+     "frame": 133,
+     "box": [
+      0.443,
+      0.429,
+      0.511,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.616,
+     "share_of_the_frame": 0.00613
+    },
+    {
+     "frame": 134,
+     "box": [
+      0.443,
+      0.429,
+      0.514,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.645,
+     "share_of_the_frame": 0.00486
+    },
+    {
+     "frame": 135,
+     "box": [
+      0.444,
+      0.429,
+      0.513,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.64,
+     "share_of_the_frame": 0.00441
+    },
+    {
+     "frame": 136,
+     "box": [
+      0.449,
+      0.429,
+      0.515,
+      0.658
+     ],
+     "overlap_with_the_frame_before": 0.749,
+     "share_of_the_frame": 0.00503
+    },
+    {
+     "frame": 137,
+     "box": [
+      0.453,
+      0.429,
+      0.516,
+      0.655
+     ],
+     "overlap_with_the_frame_before": 0.728,
+     "share_of_the_frame": 0.00447
+    },
+    {
+     "frame": 138,
+     "box": [
+      0.45,
+      0.43,
+      0.516,
+      0.655
+     ],
+     "overlap_with_the_frame_before": 0.824,
+     "share_of_the_frame": 0.00512
+    },
+    {
+     "frame": 139,
+     "box": [
+      0.446,
+      0.43,
+      0.517,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.7,
+     "share_of_the_frame": 0.00631
+    },
+    {
+     "frame": 140,
+     "box": [
+      0.443,
+      0.429,
+      0.518,
+      0.62
+     ],
+     "overlap_with_the_frame_before": 0.711,
+     "share_of_the_frame": 0.00806
+    },
+    {
+     "frame": 141,
+     "box": [
+      0.443,
+      0.429,
+      0.518,
+      0.617
+     ],
+     "overlap_with_the_frame_before": 0.872,
+     "share_of_the_frame": 0.00813
+    },
+    {
+     "frame": 142,
+     "box": [
+      0.435,
+      0.429,
+      0.518,
+      0.638
+     ],
+     "overlap_with_the_frame_before": 0.833,
+     "share_of_the_frame": 0.00869
+    },
+    {
+     "frame": 143,
+     "box": [
+      0.441,
+      0.429,
+      0.518,
+      0.636
+     ],
+     "overlap_with_the_frame_before": 0.851,
+     "share_of_the_frame": 0.0087
+    }
+   ],
+   "a_fresh_detect_at_each_look": [
+    {
+     "frame": 0,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.966,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 12,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.979,
+     "next_overlap": 0.003
+    },
+    {
+     "frame": 24,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.943,
+     "next_overlap": 0.001
+    },
+    {
+     "frame": 36,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.963,
+     "next_overlap": 0.002
+    },
+    {
+     "frame": 48,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.894,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 60,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 0,
+     "best_overlap": 0.002,
+     "next_overlap": 0.001
+    },
+    {
+     "frame": 72,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.962,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 84,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.953,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 96,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.976,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 108,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.973,
+     "next_overlap": 0.002
+    },
+    {
+     "frame": 120,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.962,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 132,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.891,
+     "next_overlap": 0.008
+    }
+   ]
+  },
+  "nudged": {
+   "cuts": [],
+   "pick_frame": 4,
+   "each_pick_rule_on_the_pick_frame": {
+    "largest": {
+     "detection": 7,
+     "box": [
+      0.306,
+      0.633,
+      0.425,
+      0.913
+     ]
+    },
+    "most central": {
+     "detection": 2,
+     "box": [
+      0.457,
+      0.446,
+      0.519,
+      0.676
+     ]
+    },
+    "best match for the phrase": {
+     "detection": 0,
+     "box": [
+      0.609,
+      0.699,
+      0.707,
+      0.918
+     ]
+    }
+   },
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.458,
+    0.446,
+    0.519,
+    0.676
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 144,
+    "plausible": 144,
+    "taken_again_at": [],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.488,
+      0.547
+     ],
+     "12": [
+      0.487,
+      0.537
+     ],
+     "24": [
+      0.491,
+      0.532
+     ],
+     "36": [
+      0.487,
+      0.575
+     ],
+     "48": [
+      0.486,
+      0.53
+     ],
+     "60": [
+      0.487,
+      0.553
+     ],
+     "72": [
+      0.485,
+      0.635
+     ],
+     "84": [
+      0.482,
+      0.545
+     ],
+     "96": [
+      0.481,
+      0.548
+     ],
+     "108": [
+      0.488,
+      0.525
+     ],
+     "120": [
+      0.485,
+      0.555
+     ],
+     "132": [
+      0.461,
+      0.558
+     ]
+    },
+    "mask_overlap_with_the_frame_before": {
+     "pairs": 143,
+     "least": 0.581,
+     "median": 0.886,
+     "under_a_half": []
+    }
+   },
+   "each_tracked_call": [
+    {
+     "frames": [
+      0,
+      144
+     ],
+     "seeded_on": 4,
+     "moved_off": 0.2,
+     "unbroken": [
+      0,
+      144
+     ],
+     "stops_before": "the end of the track",
+     "stops_after": "the end of the track",
+     "a_gallery_may_use": [
+      0,
+      144
+     ],
+     "least_overlap_inside": 0.581,
+     "the_box_on_its_last_gallery_frame": [
+      0.441,
+      0.429,
+      0.518,
+      0.636
+     ],
+     "the_frame_that_stops_it_before": null,
+     "its_first_frame": {
+      "frame": 0,
+      "frames_apart": 1,
+      "overlap": 0.919,
+      "area_ratio": 1.011,
+      "box_ratio": 1.019,
+      "centre_step": 0.005
+     },
+     "its_last_frame": {
+      "frame": 143,
+      "frames_apart": 1,
+      "overlap": 0.839,
+      "area_ratio": 1.017,
+      "box_ratio": 0.942,
+      "centre_step": 0.01
+     },
+     "the_frame_that_stops_it_after": null
+    }
+   ],
+   "looks": [],
+   "track_only": true,
+   "the_track_every_frame": [
+    {
+     "frame": 0,
+     "box": [
+      0.458,
+      0.446,
+      0.518,
+      0.647
+     ],
+     "overlap_with_the_frame_before": null,
+     "share_of_the_frame": 0.00789
+    },
+    {
+     "frame": 1,
+     "box": [
+      0.46,
+      0.446,
+      0.518,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.919,
+     "share_of_the_frame": 0.0078
+    },
+    {
+     "frame": 2,
+     "box": [
+      0.461,
+      0.445,
+      0.519,
+      0.659
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.00811
+    },
+    {
+     "frame": 3,
+     "box": [
+      0.458,
+      0.445,
+      0.518,
+      0.662
+     ],
+     "overlap_with_the_frame_before": 0.875,
+     "share_of_the_frame": 0.00892
+    },
+    {
+     "frame": 4,
+     "box": [
+      0.458,
+      0.446,
+      0.519,
+      0.676
+     ],
+     "overlap_with_the_frame_before": 0.904,
+     "share_of_the_frame": 0.00943
+    },
+    {
+     "frame": 5,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.699
+     ],
+     "overlap_with_the_frame_before": 0.873,
+     "share_of_the_frame": 0.01073
+    },
+    {
+     "frame": 6,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.714
+     ],
+     "overlap_with_the_frame_before": 0.935,
+     "share_of_the_frame": 0.01133
+    },
+    {
+     "frame": 7,
+     "box": [
+      0.456,
+      0.446,
+      0.519,
+      0.72
+     ],
+     "overlap_with_the_frame_before": 0.969,
+     "share_of_the_frame": 0.01133
+    },
+    {
+     "frame": 8,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.714
+     ],
+     "overlap_with_the_frame_before": 0.969,
+     "share_of_the_frame": 0.01115
+    },
+    {
+     "frame": 9,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.712
+     ],
+     "overlap_with_the_frame_before": 0.927,
+     "share_of_the_frame": 0.01065
+    },
+    {
+     "frame": 10,
+     "box": [
+      0.456,
+      0.445,
+      0.519,
+      0.687
+     ],
+     "overlap_with_the_frame_before": 0.905,
+     "share_of_the_frame": 0.00988
+    },
+    {
+     "frame": 11,
+     "box": [
+      0.456,
+      0.443,
+      0.519,
+      0.647
+     ],
+     "overlap_with_the_frame_before": 0.893,
+     "share_of_the_frame": 0.00897
+    },
+    {
+     "frame": 12,
+     "box": [
+      0.455,
+      0.445,
+      0.518,
+      0.629
+     ],
+     "overlap_with_the_frame_before": 0.819,
+     "share_of_the_frame": 0.00744
+    },
+    {
+     "frame": 13,
+     "box": [
+      0.452,
+      0.445,
+      0.519,
+      0.784
+     ],
+     "overlap_with_the_frame_before": 0.933,
+     "share_of_the_frame": 0.0071
+    },
+    {
+     "frame": 14,
+     "box": [
+      0.455,
+      0.445,
+      0.518,
+      0.638
+     ],
+     "overlap_with_the_frame_before": 0.902,
+     "share_of_the_frame": 0.00689
+    },
+    {
+     "frame": 15,
+     "box": [
+      0.456,
+      0.445,
+      0.517,
+      0.642
+     ],
+     "overlap_with_the_frame_before": 0.879,
+     "share_of_the_frame": 0.00655
+    },
+    {
+     "frame": 16,
+     "box": [
+      0.456,
+      0.442,
+      0.517,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.891,
+     "share_of_the_frame": 0.00713
+    },
+    {
+     "frame": 17,
+     "box": [
+      0.456,
+      0.443,
+      0.518,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.94,
+     "share_of_the_frame": 0.00716
+    },
+    {
+     "frame": 18,
+     "box": [
+      0.458,
+      0.442,
+      0.518,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.877,
+     "share_of_the_frame": 0.00734
+    },
+    {
+     "frame": 19,
+     "box": [
+      0.46,
+      0.443,
+      0.518,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.908,
+     "share_of_the_frame": 0.00692
+    },
+    {
+     "frame": 20,
+     "box": [
+      0.462,
+      0.445,
+      0.518,
+      0.634
+     ],
+     "overlap_with_the_frame_before": 0.892,
+     "share_of_the_frame": 0.0064
+    },
+    {
+     "frame": 21,
+     "box": [
+      0.465,
+      0.445,
+      0.518,
+      0.63
+     ],
+     "overlap_with_the_frame_before": 0.87,
+     "share_of_the_frame": 0.00616
+    },
+    {
+     "frame": 22,
+     "box": [
+      0.464,
+      0.442,
+      0.518,
+      0.597
+     ],
+     "overlap_with_the_frame_before": 0.798,
+     "share_of_the_frame": 0.00507
+    },
+    {
+     "frame": 23,
+     "box": [
+      0.461,
+      0.443,
+      0.517,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.887,
+     "share_of_the_frame": 0.0053
+    },
+    {
+     "frame": 24,
+     "box": [
+      0.464,
+      0.446,
+      0.518,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.89,
+     "share_of_the_frame": 0.00547
+    },
+    {
+     "frame": 25,
+     "box": [
+      0.462,
+      0.445,
+      0.518,
+      0.597
+     ],
+     "overlap_with_the_frame_before": 0.818,
+     "share_of_the_frame": 0.00472
+    },
+    {
+     "frame": 26,
+     "box": [
+      0.456,
+      0.445,
+      0.518,
+      0.588
+     ],
+     "overlap_with_the_frame_before": 0.867,
+     "share_of_the_frame": 0.00475
+    },
+    {
+     "frame": 27,
+     "box": [
+      0.455,
+      0.445,
+      0.517,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.884,
+     "share_of_the_frame": 0.00525
+    },
+    {
+     "frame": 28,
+     "box": [
+      0.452,
+      0.443,
+      0.517,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.905,
+     "share_of_the_frame": 0.00575
+    },
+    {
+     "frame": 29,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.595
+     ],
+     "overlap_with_the_frame_before": 0.939,
+     "share_of_the_frame": 0.00592
+    },
+    {
+     "frame": 30,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.596
+     ],
+     "overlap_with_the_frame_before": 0.956,
+     "share_of_the_frame": 0.00585
+    },
+    {
+     "frame": 31,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.591
+     ],
+     "overlap_with_the_frame_before": 0.951,
+     "share_of_the_frame": 0.00564
+    },
+    {
+     "frame": 32,
+     "box": [
+      0.452,
+      0.442,
+      0.517,
+      0.595
+     ],
+     "overlap_with_the_frame_before": 0.926,
+     "share_of_the_frame": 0.00563
+    },
+    {
+     "frame": 33,
+     "box": [
+      0.452,
+      0.441,
+      0.517,
+      0.628
+     ],
+     "overlap_with_the_frame_before": 0.831,
+     "share_of_the_frame": 0.00644
+    },
+    {
+     "frame": 34,
+     "box": [
+      0.453,
+      0.441,
+      0.517,
+      0.632
+     ],
+     "overlap_with_the_frame_before": 0.876,
+     "share_of_the_frame": 0.00677
+    },
+    {
+     "frame": 35,
+     "box": [
+      0.455,
+      0.442,
+      0.516,
+      0.657
+     ],
+     "overlap_with_the_frame_before": 0.836,
+     "share_of_the_frame": 0.00772
+    },
+    {
+     "frame": 36,
+     "box": [
+      0.455,
+      0.441,
+      0.52,
+      0.709
+     ],
+     "overlap_with_the_frame_before": 0.671,
+     "share_of_the_frame": 0.01142
+    },
+    {
+     "frame": 37,
+     "box": [
+      0.453,
+      0.441,
+      0.52,
+      0.724
+     ],
+     "overlap_with_the_frame_before": 0.912,
+     "share_of_the_frame": 0.01173
+    },
+    {
+     "frame": 38,
+     "box": [
+      0.452,
+      0.443,
+      0.52,
+      0.732
+     ],
+     "overlap_with_the_frame_before": 0.945,
+     "share_of_the_frame": 0.01227
+    },
+    {
+     "frame": 39,
+     "box": [
+      0.45,
+      0.442,
+      0.52,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.958,
+     "share_of_the_frame": 0.01279
+    },
+    {
+     "frame": 40,
+     "box": [
+      0.45,
+      0.442,
+      0.517,
+      0.726
+     ],
+     "overlap_with_the_frame_before": 0.94,
+     "share_of_the_frame": 0.01241
+    },
+    {
+     "frame": 41,
+     "box": [
+      0.45,
+      0.443,
+      0.517,
+      0.712
+     ],
+     "overlap_with_the_frame_before": 0.936,
+     "share_of_the_frame": 0.01199
+    },
+    {
+     "frame": 42,
+     "box": [
+      0.45,
+      0.443,
+      0.516,
+      0.693
+     ],
+     "overlap_with_the_frame_before": 0.897,
+     "share_of_the_frame": 0.01091
+    },
+    {
+     "frame": 43,
+     "box": [
+      0.45,
+      0.443,
+      0.517,
+      0.667
+     ],
+     "overlap_with_the_frame_before": 0.828,
+     "share_of_the_frame": 0.00916
+    },
+    {
+     "frame": 44,
+     "box": [
+      0.449,
+      0.442,
+      0.52,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.817,
+     "share_of_the_frame": 0.00775
+    },
+    {
+     "frame": 45,
+     "box": [
+      0.449,
+      0.439,
+      0.524,
+      0.632
+     ],
+     "overlap_with_the_frame_before": 0.844,
+     "share_of_the_frame": 0.00752
+    },
+    {
+     "frame": 46,
+     "box": [
+      0.446,
+      0.441,
+      0.527,
+      0.629
+     ],
+     "overlap_with_the_frame_before": 0.804,
+     "share_of_the_frame": 0.0074
+    },
+    {
+     "frame": 47,
+     "box": [
+      0.45,
+      0.438,
+      0.527,
+      0.614
+     ],
+     "overlap_with_the_frame_before": 0.7,
+     "share_of_the_frame": 0.00593
+    },
+    {
+     "frame": 48,
+     "box": [
+      0.449,
+      0.441,
+      0.523,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.753,
+     "share_of_the_frame": 0.00579
+    },
+    {
+     "frame": 49,
+     "box": [
+      0.452,
+      0.439,
+      0.514,
+      0.622
+     ],
+     "overlap_with_the_frame_before": 0.696,
+     "share_of_the_frame": 0.00527
+    },
+    {
+     "frame": 50,
+     "box": [
+      0.456,
+      0.442,
+      0.514,
+      0.653
+     ],
+     "overlap_with_the_frame_before": 0.71,
+     "share_of_the_frame": 0.00599
+    },
+    {
+     "frame": 51,
+     "box": [
+      0.461,
+      0.442,
+      0.514,
+      0.634
+     ],
+     "overlap_with_the_frame_before": 0.763,
+     "share_of_the_frame": 0.0057
+    },
+    {
+     "frame": 52,
+     "box": [
+      0.465,
+      0.442,
+      0.515,
+      0.634
+     ],
+     "overlap_with_the_frame_before": 0.895,
+     "share_of_the_frame": 0.00592
+    },
+    {
+     "frame": 53,
+     "box": [
+      0.465,
+      0.441,
+      0.515,
+      0.639
+     ],
+     "overlap_with_the_frame_before": 0.887,
+     "share_of_the_frame": 0.00633
+    },
+    {
+     "frame": 54,
+     "box": [
+      0.339,
+      0.441,
+      0.516,
+      0.763
+     ],
+     "overlap_with_the_frame_before": 0.867,
+     "share_of_the_frame": 0.0066
+    },
+    {
+     "frame": 55,
+     "box": [
+      0.456,
+      0.441,
+      0.518,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.823,
+     "share_of_the_frame": 0.0073
+    },
+    {
+     "frame": 56,
+     "box": [
+      0.453,
+      0.439,
+      0.52,
+      0.649
+     ],
+     "overlap_with_the_frame_before": 0.808,
+     "share_of_the_frame": 0.00816
+    },
+    {
+     "frame": 57,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.638
+     ],
+     "overlap_with_the_frame_before": 0.86,
+     "share_of_the_frame": 0.00786
+    },
+    {
+     "frame": 58,
+     "box": [
+      0.45,
+      0.439,
+      0.521,
+      0.642
+     ],
+     "overlap_with_the_frame_before": 0.893,
+     "share_of_the_frame": 0.00775
+    },
+    {
+     "frame": 59,
+     "box": [
+      0.45,
+      0.438,
+      0.521,
+      0.651
+     ],
+     "overlap_with_the_frame_before": 0.896,
+     "share_of_the_frame": 0.00776
+    },
+    {
+     "frame": 60,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.807,
+     "share_of_the_frame": 0.00786
+    },
+    {
+     "frame": 61,
+     "box": [
+      0.452,
+      0.439,
+      0.521,
+      0.667
+     ],
+     "overlap_with_the_frame_before": 0.855,
+     "share_of_the_frame": 0.0091
+    },
+    {
+     "frame": 62,
+     "box": [
+      0.452,
+      0.438,
+      0.521,
+      0.682
+     ],
+     "overlap_with_the_frame_before": 0.866,
+     "share_of_the_frame": 0.01043
+    },
+    {
+     "frame": 63,
+     "box": [
+      0.452,
+      0.438,
+      0.522,
+      0.695
+     ],
+     "overlap_with_the_frame_before": 0.908,
+     "share_of_the_frame": 0.01134
+    },
+    {
+     "frame": 64,
+     "box": [
+      0.449,
+      0.438,
+      0.522,
+      0.7
+     ],
+     "overlap_with_the_frame_before": 0.904,
+     "share_of_the_frame": 0.01195
+    },
+    {
+     "frame": 65,
+     "box": [
+      0.447,
+      0.438,
+      0.522,
+      0.755
+     ],
+     "overlap_with_the_frame_before": 0.848,
+     "share_of_the_frame": 0.01247
+    },
+    {
+     "frame": 66,
+     "box": [
+      0.452,
+      0.438,
+      0.522,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.893,
+     "share_of_the_frame": 0.01188
+    },
+    {
+     "frame": 67,
+     "box": [
+      0.45,
+      0.437,
+      0.522,
+      0.697
+     ],
+     "overlap_with_the_frame_before": 0.898,
+     "share_of_the_frame": 0.01118
+    },
+    {
+     "frame": 68,
+     "box": [
+      0.449,
+      0.437,
+      0.522,
+      0.696
+     ],
+     "overlap_with_the_frame_before": 0.894,
+     "share_of_the_frame": 0.01025
+    },
+    {
+     "frame": 69,
+     "box": [
+      0.449,
+      0.437,
+      0.522,
+      0.704
+     ],
+     "overlap_with_the_frame_before": 0.927,
+     "share_of_the_frame": 0.01074
+    },
+    {
+     "frame": 70,
+     "box": [
+      0.449,
+      0.438,
+      0.522,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.959,
+     "share_of_the_frame": 0.01088
+    },
+    {
+     "frame": 71,
+     "box": [
+      0.449,
+      0.437,
+      0.521,
+      0.695
+     ],
+     "overlap_with_the_frame_before": 0.955,
+     "share_of_the_frame": 0.01081
+    },
+    {
+     "frame": 72,
+     "box": [
+      0.449,
+      0.437,
+      0.521,
+      0.833
+     ],
+     "overlap_with_the_frame_before": 0.917,
+     "share_of_the_frame": 0.01123
+    },
+    {
+     "frame": 73,
+     "box": [
+      0.449,
+      0.436,
+      0.525,
+      0.728
+     ],
+     "overlap_with_the_frame_before": 0.897,
+     "share_of_the_frame": 0.01187
+    },
+    {
+     "frame": 74,
+     "box": [
+      0.449,
+      0.437,
+      0.525,
+      0.733
+     ],
+     "overlap_with_the_frame_before": 0.945,
+     "share_of_the_frame": 0.01208
+    },
+    {
+     "frame": 75,
+     "box": [
+      0.449,
+      0.436,
+      0.524,
+      0.726
+     ],
+     "overlap_with_the_frame_before": 0.937,
+     "share_of_the_frame": 0.01188
+    },
+    {
+     "frame": 76,
+     "box": [
+      0.45,
+      0.438,
+      0.528,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.885,
+     "share_of_the_frame": 0.01122
+    },
+    {
+     "frame": 77,
+     "box": [
+      0.452,
+      0.438,
+      0.519,
+      0.709
+     ],
+     "overlap_with_the_frame_before": 0.801,
+     "share_of_the_frame": 0.012
+    },
+    {
+     "frame": 78,
+     "box": [
+      0.452,
+      0.437,
+      0.52,
+      0.717
+     ],
+     "overlap_with_the_frame_before": 0.85,
+     "share_of_the_frame": 0.01136
+    },
+    {
+     "frame": 79,
+     "box": [
+      0.452,
+      0.437,
+      0.52,
+      0.716
+     ],
+     "overlap_with_the_frame_before": 0.879,
+     "share_of_the_frame": 0.01205
+    },
+    {
+     "frame": 80,
+     "box": [
+      0.446,
+      0.437,
+      0.519,
+      0.711
+     ],
+     "overlap_with_the_frame_before": 0.824,
+     "share_of_the_frame": 0.01305
+    },
+    {
+     "frame": 81,
+     "box": [
+      0.446,
+      0.438,
+      0.519,
+      0.7
+     ],
+     "overlap_with_the_frame_before": 0.877,
+     "share_of_the_frame": 0.01216
+    },
+    {
+     "frame": 82,
+     "box": [
+      0.447,
+      0.437,
+      0.518,
+      0.684
+     ],
+     "overlap_with_the_frame_before": 0.871,
+     "share_of_the_frame": 0.01101
+    },
+    {
+     "frame": 83,
+     "box": [
+      0.446,
+      0.438,
+      0.518,
+      0.663
+     ],
+     "overlap_with_the_frame_before": 0.846,
+     "share_of_the_frame": 0.00957
+    },
+    {
+     "frame": 84,
+     "box": [
+      0.446,
+      0.436,
+      0.517,
+      0.655
+     ],
+     "overlap_with_the_frame_before": 0.835,
+     "share_of_the_frame": 0.00883
+    },
+    {
+     "frame": 85,
+     "box": [
+      0.446,
+      0.436,
+      0.518,
+      0.666
+     ],
+     "overlap_with_the_frame_before": 0.916,
+     "share_of_the_frame": 0.00931
+    },
+    {
+     "frame": 86,
+     "box": [
+      0.446,
+      0.437,
+      0.518,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.86,
+     "share_of_the_frame": 0.01011
+    },
+    {
+     "frame": 87,
+     "box": [
+      0.446,
+      0.434,
+      0.518,
+      0.687
+     ],
+     "overlap_with_the_frame_before": 0.858,
+     "share_of_the_frame": 0.01125
+    },
+    {
+     "frame": 88,
+     "box": [
+      0.446,
+      0.436,
+      0.517,
+      0.708
+     ],
+     "overlap_with_the_frame_before": 0.856,
+     "share_of_the_frame": 0.01284
+    },
+    {
+     "frame": 89,
+     "box": [
+      0.443,
+      0.434,
+      0.517,
+      0.736
+     ],
+     "overlap_with_the_frame_before": 0.893,
+     "share_of_the_frame": 0.01419
+    },
+    {
+     "frame": 90,
+     "box": [
+      0.443,
+      0.437,
+      0.518,
+      0.747
+     ],
+     "overlap_with_the_frame_before": 0.931,
+     "share_of_the_frame": 0.01499
+    },
+    {
+     "frame": 91,
+     "box": [
+      0.147,
+      0.437,
+      0.518,
+      0.749
+     ],
+     "overlap_with_the_frame_before": 0.964,
+     "share_of_the_frame": 0.01499
+    },
+    {
+     "frame": 92,
+     "box": [
+      0.443,
+      0.436,
+      0.518,
+      0.739
+     ],
+     "overlap_with_the_frame_before": 0.955,
+     "share_of_the_frame": 0.01445
+    },
+    {
+     "frame": 93,
+     "box": [
+      0.443,
+      0.436,
+      0.518,
+      0.724
+     ],
+     "overlap_with_the_frame_before": 0.933,
+     "share_of_the_frame": 0.01386
+    },
+    {
+     "frame": 94,
+     "box": [
+      0.444,
+      0.434,
+      0.519,
+      0.704
+     ],
+     "overlap_with_the_frame_before": 0.91,
+     "share_of_the_frame": 0.01278
+    },
+    {
+     "frame": 95,
+     "box": [
+      0.444,
+      0.436,
+      0.519,
+      0.667
+     ],
+     "overlap_with_the_frame_before": 0.874,
+     "share_of_the_frame": 0.0115
+    },
+    {
+     "frame": 96,
+     "box": [
+      0.444,
+      0.434,
+      0.519,
+      0.662
+     ],
+     "overlap_with_the_frame_before": 0.906,
+     "share_of_the_frame": 0.01094
+    },
+    {
+     "frame": 97,
+     "box": [
+      0.444,
+      0.433,
+      0.52,
+      0.647
+     ],
+     "overlap_with_the_frame_before": 0.92,
+     "share_of_the_frame": 0.01028
+    },
+    {
+     "frame": 98,
+     "box": [
+      0.444,
+      0.434,
+      0.52,
+      0.645
+     ],
+     "overlap_with_the_frame_before": 0.935,
+     "share_of_the_frame": 0.00977
+    },
+    {
+     "frame": 99,
+     "box": [
+      0.446,
+      0.434,
+      0.519,
+      0.653
+     ],
+     "overlap_with_the_frame_before": 0.936,
+     "share_of_the_frame": 0.00968
+    },
+    {
+     "frame": 100,
+     "box": [
+      0.446,
+      0.434,
+      0.518,
+      0.659
+     ],
+     "overlap_with_the_frame_before": 0.879,
+     "share_of_the_frame": 0.00869
+    },
+    {
+     "frame": 101,
+     "box": [
+      0.447,
+      0.433,
+      0.519,
+      0.663
+     ],
+     "overlap_with_the_frame_before": 0.865,
+     "share_of_the_frame": 0.00891
+    },
+    {
+     "frame": 102,
+     "box": [
+      0.449,
+      0.433,
+      0.518,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.895,
+     "share_of_the_frame": 0.00963
+    },
+    {
+     "frame": 103,
+     "box": [
+      0.449,
+      0.434,
+      0.52,
+      0.68
+     ],
+     "overlap_with_the_frame_before": 0.922,
+     "share_of_the_frame": 0.01001
+    },
+    {
+     "frame": 104,
+     "box": [
+      0.452,
+      0.433,
+      0.52,
+      0.678
+     ],
+     "overlap_with_the_frame_before": 0.917,
+     "share_of_the_frame": 0.00983
+    },
+    {
+     "frame": 105,
+     "box": [
+      0.455,
+      0.433,
+      0.521,
+      0.67
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.00937
+    },
+    {
+     "frame": 106,
+     "box": [
+      0.459,
+      0.433,
+      0.521,
+      0.642
+     ],
+     "overlap_with_the_frame_before": 0.844,
+     "share_of_the_frame": 0.00821
+    },
+    {
+     "frame": 107,
+     "box": [
+      0.461,
+      0.433,
+      0.522,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.811,
+     "share_of_the_frame": 0.00718
+    },
+    {
+     "frame": 108,
+     "box": [
+      0.455,
+      0.433,
+      0.522,
+      0.617
+     ],
+     "overlap_with_the_frame_before": 0.902,
+     "share_of_the_frame": 0.00732
+    },
+    {
+     "frame": 109,
+     "box": [
+      0.458,
+      0.433,
+      0.522,
+      0.617
+     ],
+     "overlap_with_the_frame_before": 0.905,
+     "share_of_the_frame": 0.00729
+    },
+    {
+     "frame": 110,
+     "box": [
+      0.455,
+      0.43,
+      0.523,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.848,
+     "share_of_the_frame": 0.00681
+    },
+    {
+     "frame": 111,
+     "box": [
+      0.45,
+      0.429,
+      0.522,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.885,
+     "share_of_the_frame": 0.00719
+    },
+    {
+     "frame": 112,
+     "box": [
+      0.45,
+      0.428,
+      0.522,
+      0.613
+     ],
+     "overlap_with_the_frame_before": 0.869,
+     "share_of_the_frame": 0.0075
+    },
+    {
+     "frame": 113,
+     "box": [
+      0.449,
+      0.429,
+      0.522,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.906,
+     "share_of_the_frame": 0.00783
+    },
+    {
+     "frame": 114,
+     "box": [
+      0.449,
+      0.429,
+      0.522,
+      0.613
+     ],
+     "overlap_with_the_frame_before": 0.952,
+     "share_of_the_frame": 0.00774
+    },
+    {
+     "frame": 115,
+     "box": [
+      0.449,
+      0.43,
+      0.523,
+      0.611
+     ],
+     "overlap_with_the_frame_before": 0.947,
+     "share_of_the_frame": 0.00751
+    },
+    {
+     "frame": 116,
+     "box": [
+      0.45,
+      0.43,
+      0.523,
+      0.614
+     ],
+     "overlap_with_the_frame_before": 0.898,
+     "share_of_the_frame": 0.00755
+    },
+    {
+     "frame": 117,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.625
+     ],
+     "overlap_with_the_frame_before": 0.89,
+     "share_of_the_frame": 0.00803
+    },
+    {
+     "frame": 118,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.646
+     ],
+     "overlap_with_the_frame_before": 0.886,
+     "share_of_the_frame": 0.00879
+    },
+    {
+     "frame": 119,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.654
+     ],
+     "overlap_with_the_frame_before": 0.857,
+     "share_of_the_frame": 0.00998
+    },
+    {
+     "frame": 120,
+     "box": [
+      0.449,
+      0.432,
+      0.522,
+      0.679
+     ],
+     "overlap_with_the_frame_before": 0.866,
+     "share_of_the_frame": 0.01102
+    },
+    {
+     "frame": 121,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.699
+     ],
+     "overlap_with_the_frame_before": 0.886,
+     "share_of_the_frame": 0.012
+    },
+    {
+     "frame": 122,
+     "box": [
+      0.449,
+      0.43,
+      0.522,
+      0.732
+     ],
+     "overlap_with_the_frame_before": 0.811,
+     "share_of_the_frame": 0.01468
+    },
+    {
+     "frame": 123,
+     "box": [
+      0.447,
+      0.43,
+      0.525,
+      0.753
+     ],
+     "overlap_with_the_frame_before": 0.89,
+     "share_of_the_frame": 0.01614
+    },
+    {
+     "frame": 124,
+     "box": [
+      0.446,
+      0.43,
+      0.524,
+      0.757
+     ],
+     "overlap_with_the_frame_before": 0.919,
+     "share_of_the_frame": 0.01658
+    },
+    {
+     "frame": 125,
+     "box": [
+      0.446,
+      0.43,
+      0.524,
+      0.757
+     ],
+     "overlap_with_the_frame_before": 0.969,
+     "share_of_the_frame": 0.01657
+    },
+    {
+     "frame": 126,
+     "box": [
+      0.446,
+      0.429,
+      0.524,
+      0.75
+     ],
+     "overlap_with_the_frame_before": 0.947,
+     "share_of_the_frame": 0.01623
+    },
+    {
+     "frame": 127,
+     "box": [
+      0.444,
+      0.43,
+      0.525,
+      0.725
+     ],
+     "overlap_with_the_frame_before": 0.9,
+     "share_of_the_frame": 0.01506
+    },
+    {
+     "frame": 128,
+     "box": [
+      0.446,
+      0.429,
+      0.526,
+      0.693
+     ],
+     "overlap_with_the_frame_before": 0.868,
+     "share_of_the_frame": 0.01336
+    },
+    {
+     "frame": 129,
+     "box": [
+      0.443,
+      0.429,
+      0.519,
+      0.678
+     ],
+     "overlap_with_the_frame_before": 0.763,
+     "share_of_the_frame": 0.01043
+    },
+    {
+     "frame": 130,
+     "box": [
+      0.443,
+      0.43,
+      0.521,
+      0.655
+     ],
+     "overlap_with_the_frame_before": 0.857,
+     "share_of_the_frame": 0.00919
+    },
+    {
+     "frame": 131,
+     "box": [
+      0.443,
+      0.43,
+      0.538,
+      0.647
+     ],
+     "overlap_with_the_frame_before": 0.79,
+     "share_of_the_frame": 0.00876
+    },
+    {
+     "frame": 132,
+     "box": [
+      0.411,
+      0.429,
+      0.511,
+      0.687
+     ],
+     "overlap_with_the_frame_before": 0.581,
+     "share_of_the_frame": 0.00754
+    },
+    {
+     "frame": 133,
+     "box": [
+      0.443,
+      0.429,
+      0.511,
+      0.618
+     ],
+     "overlap_with_the_frame_before": 0.616,
+     "share_of_the_frame": 0.00612
+    },
+    {
+     "frame": 134,
+     "box": [
+      0.443,
+      0.429,
+      0.514,
+      0.612
+     ],
+     "overlap_with_the_frame_before": 0.645,
+     "share_of_the_frame": 0.00484
+    },
+    {
+     "frame": 135,
+     "box": [
+      0.444,
+      0.429,
+      0.513,
+      0.613
+     ],
+     "overlap_with_the_frame_before": 0.696,
+     "share_of_the_frame": 0.00381
+    },
+    {
+     "frame": 136,
+     "box": [
+      0.449,
+      0.429,
+      0.515,
+      0.658
+     ],
+     "overlap_with_the_frame_before": 0.644,
+     "share_of_the_frame": 0.00505
+    },
+    {
+     "frame": 137,
+     "box": [
+      0.453,
+      0.429,
+      0.516,
+      0.654
+     ],
+     "overlap_with_the_frame_before": 0.731,
+     "share_of_the_frame": 0.0044
+    },
+    {
+     "frame": 138,
+     "box": [
+      0.45,
+      0.43,
+      0.516,
+      0.654
+     ],
+     "overlap_with_the_frame_before": 0.826,
+     "share_of_the_frame": 0.00503
+    },
+    {
+     "frame": 139,
+     "box": [
+      0.446,
+      0.43,
+      0.517,
+      0.65
+     ],
+     "overlap_with_the_frame_before": 0.704,
+     "share_of_the_frame": 0.00627
+    },
+    {
+     "frame": 140,
+     "box": [
+      0.441,
+      0.429,
+      0.518,
+      0.62
+     ],
+     "overlap_with_the_frame_before": 0.712,
+     "share_of_the_frame": 0.00805
+    },
+    {
+     "frame": 141,
+     "box": [
+      0.443,
+      0.429,
+      0.518,
+      0.617
+     ],
+     "overlap_with_the_frame_before": 0.872,
+     "share_of_the_frame": 0.00812
+    },
+    {
+     "frame": 142,
+     "box": [
+      0.438,
+      0.429,
+      0.518,
+      0.638
+     ],
+     "overlap_with_the_frame_before": 0.846,
+     "share_of_the_frame": 0.00854
+    },
+    {
+     "frame": 143,
+     "box": [
+      0.441,
+      0.429,
+      0.518,
+      0.636
+     ],
+     "overlap_with_the_frame_before": 0.839,
+     "share_of_the_frame": 0.00868
+    }
+   ],
+   "a_fresh_detect_at_each_look": [
+    {
+     "frame": 0,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.967,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 12,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.979,
+     "next_overlap": 0.003
+    },
+    {
+     "frame": 24,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.945,
+     "next_overlap": 0.001
+    },
+    {
+     "frame": 36,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.96,
+     "next_overlap": 0.004
+    },
+    {
+     "frame": 48,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.884,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 60,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 0,
+     "best_overlap": 0.008,
+     "next_overlap": 0.008
+    },
+    {
+     "frame": 72,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.962,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 84,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.954,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 96,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.977,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 108,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.972,
+     "next_overlap": 0.002
+    },
+    {
+     "frame": 120,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.964,
+     "next_overlap": 0.0
+    },
+    {
+     "frame": 132,
+     "asked": 16,
+     "detections": 16,
+     "the_track_has_a_mask": true,
+     "on_the_track": 1,
+     "best_overlap": 0.894,
+     "next_overlap": 0.008
+    }
+   ]
+  }
+ }
+}
