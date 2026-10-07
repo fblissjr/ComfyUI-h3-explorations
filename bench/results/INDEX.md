@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-07 | masked | [The frozen-row cache's masked run measured torch's attention kernel, not kitchen's (2026-10-07)](2026-10-07_frozen_cache_rectangle_kernel.md) | timed alone on the card, the kitchen int8 kernel runs a rectangle of live queries against every key at the square's rate per pair (11.0 s a step at the masked window's sizes), and torch's own kernel on the same rectangle takes 28.9 s, which is the attention stage the 2026-10-06 run measured (29.2 s); the cached block drops the override that carries the kitchen backend and the checkpoint names none, so that run timed a cache on torch's kernel and its "saves no time" is not a result about the design; nothing was rendered and the retirement stands until the owner reopens it |
 | 2026-10-06 | masked | [The window keep on the card: one window rendered twice, the second on a kept latent and conditioning (2026-10-06)](2026-10-06_window_keep_matched_pair.md) | accepted: the second run's stored window latent equals the first's on both streams and its videos are the same bytes; the source encode and the conditioning are gone from its stage seconds; one short window, one seed, one stretch |
 | 2026-10-06 | masked | [The Subject Track after a loss inside a shot, and the subject handed from one run to the next (2026-10-06)](2026-10-06_subject_track_regain_and_handover.md) | on one clip the track is seeded again 48 frames after the tracker lets go and a later load picks the same person from an earlier run's gallery where the pick rule takes somebody else; the line between the subject and another person is 0.88 with three hundredths to spare, and the subject is refused where the gallery shows them at a much larger size |
 | 2026-10-06 | masked | [The Subject Track and the part node at their defaults on the lane's three windows (2026-10-06)](2026-10-06_subject_track_defaults.md) | at defaults one window was masked on a microphone and one misses a shot; the first is fixed by a rule, the second by a correction; the part was found on every frame the subject is a person |
@@ -64,7 +65,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-01 | lora | [Where a LoRA at the call spends its time (2026-10-01)](2026-10-01_lora_branch_profile.md) |  |
 | 2026-10-01 | kitchen | [comfy-kitchen: h3-frontier merged to upstream main, 2026-10-01](2026-10-01_kitchen_merge_aade8d5.md) |  |
 
-Data files dated this month and not listed: 70.
+Data files dated this month and not listed: 71.
 
 ## 2026-09
 

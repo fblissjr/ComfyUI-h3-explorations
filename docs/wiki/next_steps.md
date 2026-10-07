@@ -75,6 +75,14 @@ own below the rule.
   now sends any call that regenerates a video row stock. What would make it
   worth reopening is in the archive's README: the owner's look at the
   side-by-side, then an hour timing the kernel alone off the square.
+  **2026-10-07: that hour was spent, and the run did not test the cache on
+  the kernel the stock steps use.** The cached block's attention ran on
+  torch's own kernel, because the block drops the override that carries the
+  kitchen backend; the kitchen kernel on the same rectangle costs a fraction
+  of it (`../../bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`).
+  The retirement stands until the owner reopens it. What reopening would
+  be: the archived module in a scratch copy with that one call routed to
+  the dense backend, and the same like-for-like pair on the same window.
 - Parked by the owner, 2026-10-04: two samplers. The node that restores the
   plate between them is written and held to core's sampler on a stub model
   (`../../plate_restore.py`, `../../bench/check_plate_restore.py`), is in no

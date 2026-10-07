@@ -124,6 +124,18 @@ steps use. Why a rectangle costs that much on it was not looked at; the
 refine record's note on a per-call cost that does not follow the query count
 points the same way.
 
+**Corrected 2026-10-07: the call did not go to the kitchen kernel.** This
+section said it did, and nobody had checked. The cached block removes the
+attention override that carries the kitchen backend, the checkpoint names
+none of its own, and the call falls to torch's kernel; timed alone, torch's
+kernel reproduces the 29.2 s above and the kitchen kernel on the same
+rectangle is well under half of it
+([`2026-10-07_frozen_cache_rectangle_kernel.md`](2026-10-07_frozen_cache_rectangle_kernel.md)).
+So the times below are of a cache on the wrong kernel, the sentence after
+this note and "The band is the lowest one" describe that run and not the
+design, and `verify`'s table compares exact attention with Sol's sparse
+int8 attention as well as cached rows with live ones.
+
 A stock Sol-Attn step is sparse, and at this length it is cheaper than the
 cached step's dense rectangle. That is the whole result: the cache replaces
 a step that Sol-Attn had already made cheap.

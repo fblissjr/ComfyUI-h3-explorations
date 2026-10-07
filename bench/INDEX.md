@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 118 |
+| [the rest](#the-rest) | 119 |
 
 ## check
 
@@ -291,6 +291,7 @@ this file is only a way to find a script by what it says it does.
 | [`bench_e2e_h3.py`](bench_e2e_h3.py) | End-to-end A/B: a real MiniMax H3 render with the sage node in and out. |
 | [`bench_kitchen_int8_linear.py`](bench_kitchen_int8_linear.py) | comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest. |
 | [`bench_minimax_attn.py`](bench_minimax_attn.py) | A/B the patched MiniMax H3 attention forward against the stock one. |
+| [`bench_rect_attention.py`](bench_rect_attention.py) | One block's attention, alone on the card, for a rectangle of queries against every key. |
 | [`blind_batch.py`](blind_batch.py) | Turn a run_graph_arms JSONL into a blinded batch of clips with a sealed key. |
 | [`blind_batch_add_audio.py`](blind_batch_add_audio.py) | Replace a blind batch's silent singles with their muxed `-audio.mp4` sources, in place. |
 | [`blind_panel.py`](blind_panel.py) | Build a blinded panel of stacked pairs from clips that already exist, with a sealed key. |
@@ -520,7 +521,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-816 tracked files: [`results/INDEX.md`](results/INDEX.md).
+818 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

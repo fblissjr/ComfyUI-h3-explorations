@@ -463,6 +463,13 @@ def _dense_options(transformer_options):
     declines a q/k length mismatch to dense anyway, and a sparse pattern over
     a few thousand queries buys nothing, so the call goes straight to the
     model's own backend (`preferred_attention`).
+
+    2026-10-07, measured: on the shipped checkpoints that backend is unset
+    (`ComfyAttention.function` is `None`), and the kitchen kernel lives in
+    the override this removes, so the call runs core's default, torch's
+    SDPA. `bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`. Left
+    as it is: routing it to the kitchen kernel changes the refine pass's
+    numbers and wants its own graded run.
     """
     opts = dict(transformer_options)
     opts.pop("optimized_attention_override", None)

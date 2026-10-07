@@ -62,6 +62,28 @@ text-cached verify pass, and the gate now sends any call that regenerates a
 video row stock with the reason. The check's items 9 to 16 (the masked use)
 became one item holding the retirement and the guards on the refine layout.
 
+## 2026-10-07: the run measured torch's kernel, not kitchen's
+
+Read this before "Why it was retired" is taken as a verdict on the design.
+The kernel was timed alone the next morning
+(`bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`). On the
+kitchen int8 kernel the rectangle costs the square's rate per query-key
+pair, so the kernel is not slow off the square. The cached block never
+reached it: `_dense_options` removes `optimized_attention_override`, which
+is where core's Model Attention Backend node puts the kitchen kernel (Sol
+chains onto it), and the checkpoint names no backend of its own
+(`ComfyAttention.function` is `None`), so the call falls to core's default,
+torch's `scaled_dot_product_attention`. Torch's kernel timed alone at the
+window's sizes reproduces the attention stage the run measured. The saving
+the cost model predicted was therefore never tested. Neither was the
+approximation: `verify` compared a cached step on exact attention with a
+stock step on Sol's sparse int8 attention, so its figures hold two
+differences at once.
+
+The fix is in this module's `_cached_block`: send the call to the dense
+backend the override chain carries, not past it. Nothing here is changed;
+the retirement is the owner's decision and stands until they reopen it.
+
 ## For whoever reads this next
 
 mrhand's end-of-day note (`internal/claude/2026-10-06_mrhand/notes.md`,

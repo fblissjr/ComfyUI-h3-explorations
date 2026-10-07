@@ -15,6 +15,21 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-07
+
+- **Corrected: the frozen-row cache's first masked run did not run its
+  attention on the kitchen kernel** (`bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`).
+  What the prose used to say: the 2026-10-06 record, "The call goes to the
+  kitchen backend's int8 attention, the kernel the dense stock steps use",
+  and from it the archive's README and `next_steps.md`, that the miss is
+  the kernel's cost on a rectangle. The kernel timed alone says the
+  rectangle costs the square's rate; the cached block's call falls to
+  torch's kernel because it drops the override that carries the backend.
+  No decision is changed by this entry: the owner retired the masked use on
+  that record, and reopening it is theirs. The same call is in the live
+  module, so the audio-refine pass's cached steps run torch's kernel too;
+  it is left as it is, since changing it changes that pass's numbers.
+
 ## 2026-10-06
 
 - **The frozen-row cache's masked use is retired; the node stays for the
