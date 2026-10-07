@@ -6,7 +6,7 @@
    "type": "cuda",
    "index": 0,
    "vram_total": 25328156672,
-   "vram_free": 23891148800,
+   "vram_free": 19345178624,
    "torch_vram_total": 0,
    "torch_vram_free": 0
   }
@@ -27,6 +27,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -42,6 +44,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -59,6 +63,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -74,6 +80,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -91,6 +99,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -108,6 +118,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -129,6 +141,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -144,6 +158,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -161,6 +177,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -176,6 +194,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -193,6 +213,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -210,6 +232,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -231,6 +255,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -246,6 +272,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -263,6 +291,8 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
      "verdict": "ok"
@@ -278,6 +308,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -295,6 +327,8 @@
      ],
      "text_ran_exact_gelu": true,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": true,
      "object_patches": [
       "patch_embed.forward"
      ],
@@ -312,8 +346,49 @@
      ],
      "text_ran_exact_gelu": false,
      "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": false,
      "object_patches": [],
      "clip_object_patches": 1,
+     "verdict": "ok"
+    }
+   ]
+  },
+  {
+   "round": "the node run again while its first output is loaded",
+   "status": "success",
+   "probes": [
+    {
+     "label": "corrected, text only, left loaded",
+     "nonce": 4,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": null,
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "text_module_showed_exact_before_the_call": false,
+     "text_module_shows_exact_after_the_call": true,
+     "object_patches": [
+      "patch_embed.forward"
+     ],
+     "clip_object_patches": 25,
+     "verdict": "ok"
+    },
+    {
+     "label": "the node run again (range off, activation on) while its first output is loaded",
+     "nonce": 4,
+     "patcher": "ModelPatcherDynamic",
+     "on_the_card_before_the_call": true,
+     "first_layer": [
+      0.0,
+      1.0
+     ],
+     "text_ran_exact_gelu": true,
+     "text_calls": 1,
+     "text_module_showed_exact_before_the_call": true,
+     "text_module_shows_exact_after_the_call": true,
+     "object_patches": [],
+     "clip_object_patches": 25,
      "verdict": "ok"
     }
    ]
@@ -329,5 +404,19 @@
   ]
  },
  "passed": true,
- "pack_served": "a copy of this pack at 45db1464 with the node and the probe registered in the copy only"
+ "pack_served": "a copy of this pack at 60a67519 with the probe registered in the copy only",
+ "control_on_the_node_as_first_served": {
+  "what": "the fifth step alone, against the same scratch copy with sam31_corrections.py from 6b3e3dc2 swapped in",
+  "the_node_run_again": {
+   "first_layer": [
+    0.0,
+    1.0
+   ],
+   "text_ran_exact_gelu": false,
+   "text_module_showed_exact_before_the_call": true,
+   "clip_object_patches": 1
+  },
+  "verdict": "WRONG, as it must be: the node attached no activation patch and the text encoder ran the shipped activation",
+  "the_steps_first_form": "a second node with the same inputs, after a prompt ending on a detect: PASSED on this faulty file, because the executor served the second node from its cache"
+ }
 }

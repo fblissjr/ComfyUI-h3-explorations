@@ -30,8 +30,10 @@ def frame() -> torch.Tensor:
     return ramp[None]
 
 
-def look(model, clip) -> dict:
-    """Run core's detect node on `frame()` and report the first layer's input range and the text activation it ran."""
+def look(model, clip, detect: bool = True) -> dict:
+    """Run core's detect node on `frame()` and report the first layer's input range and the text activation it ran.
+
+    With `detect` off only the text is encoded, so the text encoder is the last thing this call loaded."""
     import comfy.clip_model
     import comfy.model_management as mm
     import comfy.utils
@@ -42,18 +44,21 @@ def look(model, clip) -> dict:
     seen, ran = [], []
     conv = comfy.utils.get_attr(model.model, PATCH_EMBED).proj
     mlp = next(m for m in clip.cond_stage_model.modules() if isinstance(m, comfy.clip_model.CLIPMLP))
+    exact_before = mlp.activation is F.gelu       # what the shared module shows before this call loads anything
     h1 = conv.register_forward_pre_hook(lambda m, i: seen.append((float(i[0].amin()), float(i[0].amax()))))
     h2 = mlp.fc1.register_forward_hook(lambda m, i, o: ran.append(mlp.activation is F.gelu))
     try:
         with torch.inference_mode():
             cond = clip.encode_from_tokens_scheduled(clip.tokenize("person:4"))
-            SAM3_Detect.execute(model, frame(), conditioning=cond, threshold=0.5, individual_masks=True)
+            if detect:
+                SAM3_Detect.execute(model, frame(), conditioning=cond, threshold=0.5, individual_masks=True)
     finally:
         h1.remove()
         h2.remove()
     return {"patcher": type(model).__name__, "on_the_card_before_the_call": bool(loaded_before),
             "first_layer": [round(min(s[0] for s in seen), 4), round(max(s[1] for s in seen), 4)] if seen else None,
             "text_ran_exact_gelu": (all(ran) if ran else None), "text_calls": len(ran),
+            "text_module_showed_exact_before_the_call": bool(exact_before), "text_module_shows_exact_after_the_call": mlp.activation is F.gelu,
             "object_patches": sorted(k.rsplit(".", 2)[-2] + "." + k.rsplit(".", 1)[-1] for k in model.object_patches)[:4],
             "clip_object_patches": len(clip.patcher.object_patches)}
 
@@ -72,6 +77,7 @@ class H3TestSAM31FirstLayer(io.ComfyNode):
                 io.Clip.Input("segmenter_clip"),
                 io.String.Input("label", default="", tooltip="Written into the result, to tell the probes of a graph apart."),
                 io.Int.Input("nonce", default=1, min=1, max=2 ** 31 - 1, tooltip="Change it to make a later prompt run this probe again."),
+                io.Boolean.Input("detect", default=True, tooltip="Off: only encode the text, so the text encoder is the last thing loaded."),
                 io.String.Input("after", default="", optional=True, force_input=True, tooltip="Wire another probe's result here to run after it."),
             ],
             outputs=[io.String.Output(display_name="result")],
@@ -79,7 +85,7 @@ class H3TestSAM31FirstLayer(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, segmenter, segmenter_clip, label="", nonce=1, after="") -> io.NodeOutput:
-        got = {"label": label, "nonce": int(nonce), **look(segmenter, segmenter_clip)}
+    def execute(cls, segmenter, segmenter_clip, label="", nonce=1, detect=True, after="") -> io.NodeOutput:
+        got = {"label": label, "nonce": int(nonce), **look(segmenter, segmenter_clip, bool(detect))}
         text = json.dumps(got)
         return io.NodeOutput(text, ui=ui.PreviewText(text).as_dict())

@@ -1,0 +1,596 @@
+{
+ "crowd, hard": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 19,
+    "plausible": 18,
+    "trusted": 1,
+    "first_frame_lost": 23,
+    "doubted": 18,
+    "against_itself_nudged": 0.99
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 19,
+    "plausible": 18,
+    "trusted": 1,
+    "first_frame_lost": 23,
+    "doubted": 18
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 15,
+    "plausible": 15,
+    "trusted": 1,
+    "first_frame_lost": 19,
+    "doubted": 14,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 15,
+     "mean": 0.935,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.894
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 14,
+    "plausible": 14,
+    "trusted": 1,
+    "first_frame_lost": 18,
+    "doubted": 13,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 14,
+     "mean": 0.917,
+     "frames_under_a_half": 0
+    }
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 74,
+    "plausible": 54,
+    "trusted": 3,
+    "first_frame_lost": 73,
+    "doubted": 71,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 19,
+     "mean": 0.715,
+     "frames_under_a_half": 3
+    },
+    "against_itself_nudged": 0.785
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 69,
+    "plausible": 52,
+    "trusted": 2,
+    "first_frame_lost": 69,
+    "doubted": 67,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 19,
+     "mean": 0.7,
+     "frames_under_a_half": 3
+    }
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 19,
+    "trusted": 19,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "against_itself_nudged": 0.985
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 19,
+    "trusted": 19,
+    "first_frame_lost": 24,
+    "doubted": 0
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 18,
+    "trusted": 18,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.928,
+     "frames_under_a_half": 1
+    },
+    "against_itself_nudged": 0.973
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 17,
+    "trusted": 17,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.924,
+     "frames_under_a_half": 1
+    }
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 100,
+    "plausible": 92,
+    "trusted": 49,
+    "first_frame_lost": 104,
+    "doubted": 46,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.774,
+     "frames_under_a_half": 4
+    },
+    "against_itself_nudged": 0.863
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 99,
+    "plausible": 95,
+    "trusted": 70,
+    "first_frame_lost": 103,
+    "doubted": 26,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.772,
+     "frames_under_a_half": 4
+    }
+   }
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.001
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.001
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ },
+ "crowd, calm": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 16.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "against_itself_nudged": 0.996
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.992,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.998
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.992,
+     "frames_under_a_half": 0
+    }
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.984,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.997
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.984,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "against_itself_nudged": 0.997
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.994,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.998
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.994,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.986,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.996
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.986,
+     "frames_under_a_half": 0
+    }
+   }
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.002
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.002
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ },
+ "dense": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "vma.mp4",
+   "second": 121.93,
+   "count": 72,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 5,
+    "plausible": 5,
+    "trusted": 5,
+    "first_frame_lost": 9,
+    "doubted": 0,
+    "against_itself_nudged": 0.995
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 5,
+    "plausible": 5,
+    "trusted": 5,
+    "first_frame_lost": 9,
+    "doubted": 0
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 17,
+    "plausible": 17,
+    "trusted": 1,
+    "first_frame_lost": 21,
+    "doubted": 16,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 5,
+     "mean": 0.988,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.992
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 17,
+    "plausible": 17,
+    "trusted": 1,
+    "first_frame_lost": 21,
+    "doubted": 16,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 5,
+     "mean": 0.988,
+     "frames_under_a_half": 0
+    }
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 36,
+    "trusted": 12,
+    "first_frame_lost": null,
+    "doubted": 54,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 5,
+     "mean": 0.982,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.993
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 37,
+    "trusted": 2,
+    "first_frame_lost": null,
+    "doubted": 66,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 5,
+     "mean": 0.983,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 6,
+    "plausible": 6,
+    "trusted": 0,
+    "first_frame_lost": 10,
+    "doubted": 6,
+    "against_itself_nudged": 0.994
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 6,
+    "plausible": 6,
+    "trusted": 6,
+    "first_frame_lost": 10,
+    "doubted": 0
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 27,
+    "plausible": 27,
+    "trusted": 15,
+    "first_frame_lost": 31,
+    "doubted": 12,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 6,
+     "mean": 0.991,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.99
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 27,
+    "plausible": 27,
+    "trusted": 27,
+    "first_frame_lost": 31,
+    "doubted": 0,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 6,
+     "mean": 0.99,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 33,
+    "trusted": 16,
+    "first_frame_lost": null,
+    "doubted": 43,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 6,
+     "mean": 0.984,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.99
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 36,
+    "trusted": 25,
+    "first_frame_lost": null,
+    "doubted": 31,
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 6,
+     "mean": 0.983,
+     "frames_under_a_half": 0
+    }
+   }
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ }
+}

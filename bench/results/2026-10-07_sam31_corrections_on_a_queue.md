@@ -1,7 +1,7 @@
 # The SAM 3.1 Corrections node on a server's queue, with an H3 render between its reads (2026-10-07)
 
 lane: masked
-verdict: on a server with dynamic VRAM, a stock SAM 3.1 pair and its corrected clone sharing one model each get their own first layer in both orders, the node wired twice corrects once, and both still hold after a real H3 sample evicted SAM from the card and after all models were freed; not covered: SAM called while the video model holds most of the card
+verdict: on a server with dynamic VRAM, a stock SAM 3.1 pair and its corrected clone sharing one model each get their own first layer in both orders, the node wired twice corrects once, both still hold after a real H3 sample evicted SAM from the card and after all models were freed, and the node run again while its first output is loaded still corrects (a fault on that path was found by review after the first acceptance and fixed); not covered: SAM called while the video model holds most of the card
 
 **What was asked.** The owner, 2026-10-07, on patch nodes in general:
 "every offload that happens in comfy ... i *believe* they lose their
@@ -19,8 +19,9 @@ text encoder's activation; the two departures of
 **How.** [`bench/sam31_corrections_queue_test.py`](../sam31_corrections_queue_test.py).
 A scratch server on its own port, started with the main server's launch
 script and a scratch base directory, in default mode; its log says dynamic
-VRAM was detected and enabled. It served a COPY of this pack at the commit
-before this record's, in which alone the node and a test-only probe node
+VRAM was detected and enabled. It served a COPY of this pack (at the commit
+before this record's for the first acceptance, at 60a67519 for the table
+below), in which alone the node, until it was registered, and a test-only probe node
 ([`bench/sam31_probe_node.py`](../sam31_probe_node.py)) were registered, so
 nothing unaccepted was on the main server. The probe calls ComfyUI's own
 `SAM3_Detect` on a frame it makes (a ramp with a block of exact black and
@@ -57,6 +58,8 @@ The H3 prompt between the rounds: `h3_text_to_video_api.json` at 2 steps and 73 
 | after /free | corrected twice over | ModelPatcherDynamic | True | [-1.0, 1.0] | True | ok |
 | after /free | corrected again | ModelPatcherDynamic | True | [-1.0, 1.0] | True | ok |
 | after /free | stock last | ModelPatcherDynamic | True | [0.0, 1.0] | False | ok |
+| the node run again while its first output is loaded | corrected, text only, left loaded | ModelPatcherDynamic | True | None | True | ok |
+| the node run again while its first output is loaded | the node run again (range off, activation on) while its first output is loaded | ModelPatcherDynamic | True | [0.0, 1.0] | True | ok |
 
 ## On the main server
 
@@ -96,10 +99,25 @@ corrected clip was on the card. The fix reads what an MLP was built with
 from the patchers' shared backup before the live attribute
 (`sam31_corrections.py::text_mlps`); `bench/check_sam31_corrections.py`'s
 case `a_loaded_sibling_changes_nothing` is red on the node as first served
-and green on the fix; and the queue test has a fifth step for that path
-(the node as a second node on the same loader output, run while the first
-corrected output is loaded). That step's result is added below when it has
-run on a server.
+and green on the fix; and the queue test has a fifth step for that path,
+whose rows are the last two of the table above (run on the fixed node,
+60a67519).
+
+That step had to be written twice, and the first form is worth recording.
+It added a second Corrections node with the SAME inputs after a prompt
+ending on a detect, and it passed on the faulty file: the executor keys
+its cache on a node's class and inputs, not its id, so the second node was
+never run. A control showed it (the json's
+`control_on_the_node_as_first_served`). As it stands the first prompt ends
+on a text-only probe, so the corrected text encoder is the last thing
+loaded, and the second node differs in one input (range off, activation
+on), so the executor runs it; the probe reports what the shared text
+module showed before its call. On the node as first served that step is
+WRONG, as it must be: the module shows exact GELU before the call, the
+node attaches no activation patch, and the text encoder runs the shipped
+activation. On the fix it reads the stock range, as asked, and exact
+GELU. `docs/checks.md`, "A node tested on the queue has to be made to run,
+in the state under test", is the rule drawn from it.
 
 ## What this shows
 

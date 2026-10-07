@@ -149,6 +149,32 @@ Same cuts: True; same pick frame: True; match line 0.8 and 0.8.
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | the pick / the pick | True | 1.0 / 1.0 | 0.0 | None | None / None | 4 / 3 | 0.7881 | 124 |
 
+Every frame the `as fed` arm looked at after a loss (the line is 0.88, the lead required 0.03):
+
+| shot | frame | detections | best | next person | lead | taken |
+|---|---|---|---|---|---|---|
+| 1 | 23 | 16 | 0.9632 | 0.8737 | 0.0895 | yes |
+| 1 | 71 | 16 | 0.8675 | 0.8553 | 0.0122 | no |
+| 1 | 83 | 16 | 0.9244 | 0.8791 | 0.0453 | yes |
+| 1 | 92 | 16 | 0.9227 | 0.8923 | 0.0304 | yes |
+| 1 | 105 | 16 | 0.8974 | 0.8885 | 0.0089 | no |
+| 1 | 117 | 16 | 0.8754 | 0.8731 | 0.0023 | no |
+| 1 | 129 | 16 | 0.8967 | 0.8875 | 0.0092 | no |
+| 1 | 141 | 16 | 0.9308 | 0.8975 | 0.0333 | yes |
+
+Every frame the `nudged` arm looked at after a loss (the line is 0.88, the lead required 0.03):
+
+| shot | frame | detections | best | next person | lead | taken |
+|---|---|---|---|---|---|---|
+| 1 | 23 | 16 | 0.9641 | 0.8752 | 0.0889 | yes |
+| 1 | 68 | 16 | 0.8898 | 0.8741 | 0.0157 | no |
+| 1 | 80 | 16 | 0.8704 | 0.869 | 0.0014 | no |
+| 1 | 92 | 16 | 0.9197 | 0.8573 | 0.0624 | yes |
+| 1 | 105 | 16 | 0.8927 | 0.8901 | 0.0026 | no |
+| 1 | 117 | 16 | 0.8768 | 0.8691 | 0.0077 | no |
+| 1 | 129 | 16 | 0.9023 | 0.8878 | 0.0145 | no |
+| 1 | 141 | 16 | 0.9315 | 0.8968 | 0.0347 | yes |
+
 Each time an arm seeded the track again (the line is 0.88, the lead required 0.03):
 
 | shot | arm | empty from | seeded on | best | next person | lead | the other arm seeded within a stride | overlap of the two arms over the next second | frames compared |
@@ -167,6 +193,11 @@ arm, which loses the subject three frames earlier and has nobody until
 frame 92. So the nudge costs a gap, not a wrong person. The thinnest lead
 as fed (frame 92) doubles in the nudged arm because the next person's
 score moved: the nudge moves a lead by about the lead the node requires.
+The tables of every look show why the arms part: they lose the subject
+three frames apart, so they look at different frames, and at most of the
+looks that take nobody the best person is over the line and is refused on
+the lead alone. Every look returns sixteen detections, the most the node
+asks for: on this clip the frame holds more people than that.
 
 ## The same stretch for fourteen seconds, as fed only
 

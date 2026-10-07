@@ -124,6 +124,28 @@ This does not conflict with **prefer a control the check compares against** --
 it is the same rule seen from the other end. A control is a second, independent
 answer; a restatement is the same answer twice.
 
+### A node tested on the queue has to be made to run, in the state under test
+
+**A test that runs a node through the queue must make the executor actually run
+it in the state under test.** The executor serves a node from its cache when its
+class and inputs are unchanged, whatever its id, and runs each node once per
+prompt, usually before any model of that prompt is loaded. Change an input to
+force the run, and have the test report the state it ran in.
+
+It escaped twice in one afternoon (2026-10-07), on one node
+(`sam31_corrections.py`):
+
+| the test | why it could not fail |
+|---|---|
+| the node's first acceptance on a queue: three rounds, an H3 sample between them | the node ran once per prompt before anything was loaded, then came from the cache; its fault needed it to run while its own earlier output was loaded |
+| the step added for that fault: a second node of the same class on the same loader output | the same inputs, so the executor handed it the first node's output and never ran it; the step passed on the faulty file |
+
+The second was caught by its control: the step was run against the node as first
+served and passed, which said the step did not reach the fault. The fix is in
+`bench/sam31_corrections_queue_test.py::rerun_graphs`: the second node differs
+in one input, and the probe reports what the shared module showed before the
+call, so a pass names the state it passed in.
+
 ## Running them
 
 Most need neither CUDA nor a model and finish in about a second.

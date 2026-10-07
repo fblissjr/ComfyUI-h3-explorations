@@ -125,7 +125,7 @@ def probe_graph(nonce: int) -> dict:
     previous = None
     for i, (label, which) in enumerate(CHAIN):
         node = str(10 + i)
-        inputs = {"segmenter": [source[which], 0], "segmenter_clip": [source[which], 1], "label": label, "nonce": nonce}
+        inputs = {"segmenter": [source[which], 0], "segmenter_clip": [source[which], 1], "label": label, "nonce": nonce, "detect": True}
         if previous is not None:
             inputs["after"] = [previous, 0]
         g[node] = {"class_type": "H3TestSAM31FirstLayer", "inputs": inputs}
@@ -137,20 +137,27 @@ def rerun_graphs(nonce: int) -> tuple[dict, dict]:
     """Two prompts for the node run AGAIN while its first corrected output is still loaded.
 
     The text encoder is one module shared by every clone, and while a corrected clip is loaded its patch is what the
-    module shows. The first prompt ends on a probe of the corrected pair, so that is what is loaded. The second adds a
-    second Corrections node on the same stock loader output (a new node, so the executor runs it) and probes ITS
-    output. A node that decided what to patch from the live module would attach nothing there.
+    module shows. The first prompt ends on a text-only probe of the corrected pair, so the corrected text encoder is the
+    last thing loaded. The second adds a second Corrections node on the same stock loader output and probes ITS output.
+    A node that decided what to patch from the live module would attach nothing there.
+
+    The second node has `correct_image_range` OFF. That is not incidental: the executor keys its cache on a node's class
+    and inputs, not its id, so a second node with the same inputs is never run; it is handed the first one's output
+    (measured 2026-10-07: with identical inputs this step passed on the faulty node). A different input makes it run.
+    So its probe must read the stock range and exact GELU.
     """
     from h3_config import SEGMENTER
     base = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SEGMENTER}},
             "2": {"class_type": "MiniMaxH3SAM31Corrections", "inputs": {"segmenter": ["1", 0], "segmenter_clip": ["1", 1],
                                                                           "correct_image_range": True, "correct_text_activation": True}}}
     first = dict(base, **{"30": {"class_type": "H3TestSAM31FirstLayer", "inputs": {"segmenter": ["2", 0], "segmenter_clip": ["2", 1],
-                                                                                   "label": "corrected, left loaded", "nonce": nonce}}})
+                                                                                   "label": "corrected, text only, left loaded", "nonce": nonce,
+                                                                                   "detect": False}}})
     second = dict(base, **{"20": {"class_type": "MiniMaxH3SAM31Corrections", "inputs": {"segmenter": ["1", 0], "segmenter_clip": ["1", 1],
-                                                                                        "correct_image_range": True, "correct_text_activation": True}},
+                                                                                        "correct_image_range": False, "correct_text_activation": True}},
                            "31": {"class_type": "H3TestSAM31FirstLayer", "inputs": {"segmenter": ["20", 0], "segmenter_clip": ["20", 1],
-                                                                                    "label": "the node run again, while its first output is loaded", "nonce": nonce}}})
+                                                                                    "label": "the node run again (range off, activation on) while its first output is loaded", "nonce": nonce,
+                                                                                    "detect": True}}})
     return first, second
 
 
@@ -227,7 +234,14 @@ def cmd_run(a):
         got = entry.get("outputs", {}).get(node, {})
         text = next((v[0] if isinstance(v, list) and v else v for k, v in got.items() if k in ("text", "string", "result")), None)
         p = json.loads(text) if isinstance(text, str) else {"label": node, "missing": True, "raw": got}
-        p["verdict"] = verdict(p, "corrected")
+        if p.get("missing"):
+            p["verdict"] = "NO READING"
+        elif node == "30":      # text only
+            p["verdict"] = "ok" if p.get("text_ran_exact_gelu") is True else "WRONG"
+        else:                   # the range left alone on purpose, the activation corrected, with a corrected clip loaded before the call
+            low, high = p.get("first_layer") or (9, 9)
+            p["verdict"] = "ok" if (abs(low) < 0.02 and abs(high - 1) < 0.02 and p.get("text_ran_exact_gelu") is True
+                                    and p.get("text_module_showed_exact_before_the_call") is True) else "WRONG"
         probes.append(p)
         print("the node run again", json.dumps(p), flush=True)
     R["rounds"].append({"round": "the node run again while its first output is loaded", "status": entry.get("status", {}).get("status_str"), "probes": probes})
