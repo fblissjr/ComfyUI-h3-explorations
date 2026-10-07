@@ -89,8 +89,9 @@ VIDEO_DEFINITION = ("<Video 1> is the source of the movement transferred to <Sub
                     "reused and its person's appearance is not.")
 VIDEO_RETENTION = ("<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures "
                    "and their timing are taken; the scene and the person's appearance are not.")
-MOVES = ("<Subject 1> moves exactly as the person in <Video 1> moves, turning when they turn and by as "
-         "much, facing where they face, gesturing when they gesture, at the same moments.")
+# The relationship and nothing else (owner, 2026-10-07): a list of what the movements might be
+# ("turning when they turn ...") is read as an instruction, and the subject turned.
+MOVES = "<Subject 1> moves as the person in <Video 1> moves, at the same moments."
 
 SUMMARY_VOICE = {VOICE_MAIN: "and performs the main voice heard on the track to its timing",
                  VOICE_SILENT: "without speaking or singing"}
@@ -166,44 +167,31 @@ ROLES: dict[str, dict] = {
     # person it gave a head at the portrait's scale or nobody, and asked for this it held
     # (2026-10-06, the docstring's last paragraph). The Masked Source's `replace` has no value
     # that means it, so it is chosen here, with the matching parts wired.
+    # In the vendor guide's form since 2026-10-07 (owner, on two seeds of one window:
+    # bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md, section 4): the finished
+    # scene is described, not an edit to it; the subject's own words are said in the definition,
+    # the retention line and the shot; nothing says what the subject will do, because the text is
+    # written without seeing the clip. One shot paragraph: this node does not know which window
+    # of a clip a render takes, so it cannot count that window's cuts.
     GIVES_UPPER: dict(
-        definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, "
-                    "{poss} hair, anything worn on the head and the clothing on {poss} upper body in "
-                    "<Picture 1>{motion}. The background, lighting and framing of <Picture 1> are not "
-                    "present in the target video."),
-        summary=("[reference generation] <Subject 1> takes the place of one person from the waist up in a "
-                 "scene that is already lit, framed and cut, on that person's own legs and in what that "
-                 "person wears below the waist, {voice}, while everything else in the scene stays as it "
-                 "is."),
-        retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, "
-                   "headwear and upper-body clothing in every frame, at every distance from the camera and "
-                   "from every side; the legs, what is worn below the waist and the setting are the "
-                   "scene's own."),
-        scene=("The target video is photorealistic live-action, and its setting, its lighting, its framing, "
-               "every other person and object in it, and the legs, what is worn below the waist and the "
-               "movement of the one person whose upper body is replaced stay exactly as they already are "
-               "from the first frame to the last. Only that person's head and upper body change: they are "
-               "those of <Subject 1>."),
-        # "where the frame shows the waist": a subject seen from the waist up, behind other people,
-        # has no waistband in the picture, and the text outranks the picture where they disagree
-        place=("[Shot 1] From the waist up that person is <Subject 1>: {poss} head sits where that person's "
-               "head was and is the same size, at the scale of everything around it, and where the frame "
-               "shows the waist, the clothing of <Picture 1> meets the waistband of what that person wears "
-               "below it with no gap."),
-        unreferenced=("The upper body of <Subject 1> and the legs below it move as one body: it turns when "
-                      "they turn, leans when they step, and the arms swing in time with them."),
+        definition="<Subject 1> is the {who} shown in <Picture 1>{motion}.",
+        summary=("[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. "
+                 "From the waist up <Subject 1> is as <Picture 1> shows {obj}, {voice}."),
+        retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - the {who}: {poss} face and "
+                   "everything <Picture 1> shows of {obj} from the waist up are retained in every frame."),
+        scene="The target video is photorealistic live-action.",
+        place="[Shot 1] <Subject 1>, the {who}, is in the scene.",
+        unreferenced="The upper body of <Subject 1> and the legs below it move as one body.",
         shot=(
-            "The arms and hands of <Subject 1> move as that person's arms and hands move.",
-            "The scene's own light falls on <Subject 1> exactly as it falls on the legs below {obj} and on "
-            "what is beside {obj}: the same direction, the same softness and the same colour on the face, "
-            "the hair and the clothing, and whenever the light changes colour or brightness, the light on "
-            "<Subject 1> changes with it at the same moment.",
-            "Seen from the side or from behind, <Subject 1> keeps the same hair, the same headwear, the "
-            "same build and the same clothing.",
+            "The scene's own light falls on <Subject 1> as it falls on everything around {obj}, from the "
+            "same direction and in the same colour, and changes on {obj} when it changes there.",
         ),
-        performance=None,  # the whole person's, set below
-        close=("Everyone and everything else is untouched: the other people, the walls, the furniture and "
-               "the ground are visible exactly as before, steady and in focus."),
+        performance={
+            VOICE_MAIN: ("<Subject 1> (S1) is the main voice heard on the track and performs it as it plays.",),
+            VOICE_SILENT: ("<Subject 1> does not speak or sing at any point, and none of the voices on the "
+                           "track belongs to <Subject 1>.",),
+        },
+        close="",
     ),
     GIVES_HEAD: dict(
         definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, "
@@ -250,11 +238,6 @@ ROLES: dict[str, dict] = {
                "the ground are visible exactly as before, steady and in focus."),
     ),
 }
-
-# From the waist up the performance is the whole person's: the typed text this role came from
-# used those sentences unchanged.
-ROLES[GIVES_UPPER]["performance"] = ROLES[GIVES_WHOLE]["performance"]
-
 
 def resolve_gives(picture_gives: str, replace: str | None) -> str:
     """What the still provides: the choice itself, or read off the Masked Source's `replace`."""
@@ -334,7 +317,7 @@ def assemble(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_giv
     added = re.sub(r"\s+", " ", add_to_shot or "").strip()
     if added:
         shot.append("{added}")
-    shot += [role["close"], CAMERA]
+    shot += ([role["close"]] if role["close"] else []) + [CAMERA]
     sections = [
         "subject_definitions:\n" + "\n".join([role["definition"]] + ([VIDEO_DEFINITION] if moving else [])),
         "summary:\n" + role["summary"],

@@ -17,6 +17,24 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **The Masked Prompt node's upper-body text is rewritten in the vendor
+  guide's form, at under half the length, and says nothing it cannot know**
+  (the owner, on two seeds of one window:
+  `bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`, section
+  4). The finished scene is described and not an edit to it; the user's
+  words for the subject are said in the definition, the retention line and
+  the shot; the voice is one sentence. **No sentence says what the subject
+  will do**: the node writes without seeing the clip, a word such as
+  "turning" is read as an instruction, and on one seed the subject faced
+  away at a cut. For the same reason the movement sentence every role shares
+  is now the relationship alone (`masked_prompt_text.MOVES`). It was: a
+  replacement described against "that person", lip and body choreography
+  from the whole-person role, and "turning when they turn and by as much,
+  facing where they face, gesturing when they gesture". One shot paragraph
+  stays: the node does not know which window of a clip a render takes. The
+  head and whole-person roles keep their text until each has a judged pair.
+  What the node writes now has not itself been rendered; it differs from
+  the judged text in having one shot paragraph and no list of movements.
 - **The Subject Track picks the most central person by default, not the
   largest** (the owner, on a measured difference). On the three windows
   tested, two stretches of the lane's crowd clip and one of a second clip,

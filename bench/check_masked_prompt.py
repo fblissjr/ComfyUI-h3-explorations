@@ -17,8 +17,10 @@ Each case is a way a render could run on a text nobody meant:
                                   subject is the voice.
   extra_lands_in_the_shot         `add_to_shot` appears once, on the shot's line,
                                   on one line whatever whitespace it held.
-  subject_is_the_users_words      `subject` lands once, in the subject's
-                                  definition, as one phrase whatever article,
+  subject_is_the_users_words      `subject` lands in the subject's definition
+                                  (once; the upper-body role says it again in
+                                  the retention line and the shot), as one
+                                  phrase whatever article,
                                   punctuation and whitespace it came with;
                                   an empty one is "person"; the first man or
                                   woman word in it sets the pronouns; a brace
@@ -131,8 +133,10 @@ def extra_lands_in_the_shot():
 def subject_is_the_users_words():
     for gives in m.ROLES:
         text = m.assemble(subject=" A blonde haired woman,\n wearing a grey T-shirt. ", picture_gives=gives)
-        want = "<Subject 1> is the blonde haired woman, wearing a grey T-shirt shown in <Picture 1>, preserving her"
-        assert text.count(want) == 1 and text.count("blonde haired") == 1, gives
+        # the upper-body role says the words in the definition, the retention line and the shot; the others once
+        upper = gives == m.GIVES_UPPER
+        want = "<Subject 1> is the blonde haired woman, wearing a grey T-shirt shown in <Picture 1>" + ("" if upper else ", preserving her")
+        assert text.count(want) == 1 and text.count("blonde haired") == (3 if upper else 1), gives
         assert m.assemble(subject=" \n", picture_gives=gives) == m.assemble(picture_gives=gives)
         assert m.assemble(subject="a person", picture_gives=gives) == m.assemble(picture_gives=gives)
     # the first man or woman word decides the pronouns, and none means "their"
@@ -166,24 +170,35 @@ def wired_parts_must_be_named():
     assert m.assemble(replace=m.REPLACE_PARTS, picture_gives=m.GIVES_HEAD) == m.assemble(replace=m.REPLACE_PART)
 
 
-def upper_body_role_keeps_the_legs():
+def upper_body_role_says_nothing_it_cannot_know():
     # chosen here, never followed: the Masked Source has no `replace` that means the upper body
     assert m.GIVES_UPPER in m.GIVES and m.resolve_gives(m.GIVES_UPPER, m.REPLACE_PARTS) == m.GIVES_UPPER
     for replace in (None, m.REPLACE_WHOLE, m.REPLACE_PART):
         assert m.resolve_gives(m.GIVES_FOLLOW, replace) != m.GIVES_UPPER, replace
     moving = m.assemble("man", picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS, motion_reference=MOTION_ON)
     still = m.assemble("man", picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS, motion_reference=m.MOTION_NONE)
-    for text in (moving, still):
-        for want in ("From the waist up that person is <Subject 1>", "on that person's own legs",
-                     "the legs, what is worn below the waist and the setting are the scene's own",
-                     "fully_preserved"):
+    silent = m.assemble("man", voice=m.VOICE_SILENT, picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS,
+                        motion_reference=MOTION_ON)
+    for text in (moving, still, silent):
+        for want in ("From the waist up <Subject 1> is as <Picture 1> shows him", "fully_preserved"):
             assert text.count(want) == 1, want
+        # the finished scene is described, not an edit to it, and nothing guesses what the subject does
+        # (owner, 2026-10-07: a word like "turning" is read as an instruction)
+        for guess in ("turn", "that person", "untouched", "behind", "gestur", "the jaw", "[Shot 2]"):
+            assert guess not in text.replace("gestures and their timing", "").replace("gestures, head movements", ""), guess
+        # the user's words for the subject are said three times: the definition, the retention line, the shot
+        assert text.count("the man") == 3, text.count("the man")
     # with no <Video 1> the sentence that ties the upper body to the kept legs stands where MOVES would
     unreferenced = m.ROLES[m.GIVES_UPPER]["unreferenced"]
     assert unreferenced in still and m.MOVES not in still
     assert m.MOVES in moving and unreferenced not in moving
-    # from the waist up the performance is the whole person's, both voices
-    assert m.ROLES[m.GIVES_UPPER]["performance"] is m.ROLES[m.GIVES_WHOLE]["performance"]
+    # the role says the voice once, either way
+    for voice in m.VOICES:
+        assert len(m.ROLES[m.GIVES_UPPER]["performance"][voice]) == 1, voice
+    assert "does not speak or sing" in silent and "performs it as it plays" not in silent
+    # and it is the short one: under half the whole person's text for the same choices
+    whole = m.assemble("man", motion_reference=MOTION_ON)
+    assert len(moving.split()) * 2 < len(whole.split()), (len(moving.split()), len(whole.split()))
     assert "the head and upper body (set here)" in m.summary(picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS)
 
 
@@ -291,7 +306,7 @@ def main() -> int:
             print(f"wrote prompt_bank/{pid}.txt")
         return 0
     for fn in (bank_copies_are_what_it_writes, every_combination_is_well_formed, extra_lands_in_the_shot,
-               subject_is_the_users_words, summary_says_what_was_worked_out, wired_parts_must_be_named, upper_body_role_keeps_the_legs,
+               subject_is_the_users_words, summary_says_what_was_worked_out, wired_parts_must_be_named, upper_body_role_says_nothing_it_cannot_know,
                copies_match_the_masked_source, config_is_the_defaults,
                graders_read_what_the_node_writes, node_reads_the_source, shipped_graphs_wire_the_node):
         case(fn.__name__, fn)
