@@ -1,7 +1,20 @@
 # Today's Subject Track with every input value moved by one level of 255 (2026-10-07)
 
 lane: masked
-verdict: the automatic pass alone, without the owner's typed corrections: on a thirty-second stretch with five cuts and on a calm stretch of a crowd clip every decision is the same as fed and nudged, with every likeness far from its line; on the first six seconds of a hard crowd stretch the nudge makes the node skip one of four regains, leaving nine frames with nobody, and no regain in either arm lands on another person; there the nudge moves a regain's lead over the next person by about the lead the node requires
+verdict: the automatic pass alone, without the owner's typed corrections: on a thirty-second stretch with five cuts and on a calm stretch of a crowd clip every decision is the same as fed and nudged, with every likeness far from its line; on the first six seconds of a hard crowd stretch the nudge makes the node skip one of four regains, leaving nine frames with nobody, and the regains the two arms share land on the same figures in both (corrected 2026-10-07: this clause said no regain lands on another person, which nothing here measured; the same afternoon three of the four takes were found on other figures by position); there the nudge moves a regain's lead over the next person by about the lead the node requires
+
+**Corrected 2026-10-07, the same afternoon; read before anything below.**
+Every arm here ran with `pick: largest`, the shipped default until
+0.220.0, and on the crowd clip's stretches the largest person is a
+front-row figure, not the most central one. On the hard stretch the
+"subject" these regains take back is not one person:
+[`2026-10-07_subject_regain_looks.md`](2026-10-07_subject_regain_looks.md)
+shows ComfyUI's tracker moving the mask to another figure with no empty
+frame between, the node taking that figure back, and its later takes
+landing in three places. So "the arms agree" and "the shared regains
+overlap" below say the two runs made the same decisions; they say nothing
+about who the mask is on. A nudged twin is a noise floor, not a label.
+With `pick: most central` the node holds that stretch without a regain.
 
 **Read this first.** This is the Subject Track's AUTOMATIC pass alone. The
 owner's typed corrections on these clips are not applied. A shot the node

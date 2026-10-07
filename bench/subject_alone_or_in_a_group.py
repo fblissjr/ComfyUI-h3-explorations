@@ -50,6 +50,9 @@ SMALL = 252
 #: inherited: `subject_track.PROBE_OFFSET` and `PROBE_STRIDE`, the frame today's node judges a shot on and how often it looks.
 SEED_FRAME = 4
 LOOK_EVERY = 12
+#: reasoned, not measured: a mask that shares less than this with the frame before's, by intersection over union, has
+#: moved off the figure it was on; a person keeps most of their outline over a twenty-fourth of a second.
+MOVED_OFF = 0.2
 #: inherited: `h3_config.SUBJECT_TRACK["max_people"]`, the most people the detector is asked for; also one group of the tracker.
 MOST = 16
 COMPANY = (("alone", 1), ("with the three nearest", 4), ("in a group of up to sixteen", MOST))
@@ -149,26 +152,68 @@ def cmd_run(a):
     R["detections_on_the_seed_frame"] = int(found.shape[0])
     R["seeds"] = "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
 
-    def run(model, clip, levels: int, k: int):
-        """The subject's track from the seed frame to the end, [F, SMALL, SMALL] bool, with what the detector saw on the looks."""
+    def run(model, clip, levels: int, k: int, every_track: bool = False):
+        """The subject's track from the seed frame to the end, [F, SMALL, SMALL] bool, with what the detector saw on the looks.
+
+        `every_track` also counts where two of the followed tracks lie on one figure, and leaves out the looks.
+        """
         video = plain if levels == 0 else torch.from_numpy(nudged(u8, levels).astype(np.float32) / 255.0)
         detect = detector(model, clip, video)
         seeds = SEEDS[k]
+        merged, every = None, None
         with torch.inference_mode():
             out = SAM3_VideoTrack.execute(video[SEED_FRAME:], model, initial_mask=seeds, conditioning=None, detection_threshold=0.5, max_objects=0, detect_interval=1)
             packed = getattr(out, "args", out)[0]["packed_masks"]
             track = torch.zeros((n - SEED_FRAME, SMALL, SMALL), dtype=torch.bool)
             if packed is not None:
                 track = small(unpack_masks(packed[:, 0]).cpu())      # row 0: the subject's seed is first in every set
-            looks = {f - SEED_FRAME: small(detect(f)) for f in range(SEED_FRAME, n, LOOK_EVERY)}
+            if every_track and packed is not None:
+                rows = torch.stack([small(unpack_masks(packed[:, j]).cpu()) for j in range(int(seeds.shape[0]))]).flatten(2).float()     # [K, F, P]
+                every = rows > 0.5
+                pairs, frames_, with_subject = set(), set(), set()
+                for t in range(rows.shape[1]):
+                    x = rows[:, t]
+                    inter = x @ x.T
+                    area = x.sum(1)
+                    iou = inter / (area[:, None] + area[None, :] - inter).clamp(min=1)
+                    for i, j in torch.triu(iou > SAME_OBJECT, diagonal=1).nonzero().tolist():
+                        pairs.add((i, j))
+                        frames_.add(t)
+                        if i == 0:
+                            with_subject.add(t)
+                merged = {"pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": len(pairs), "frames_with_such_a_pair": len(frames_),
+                          "frames_where_the_subject_is_in_one": len(with_subject)}
+            looks = {} if every_track else {f - SEED_FRAME: small(detect(f)) for f in range(SEED_FRAME, n, LOOK_EVERY)}
         on = track.flatten(1).any(1)
         ok = subject_tracks.plausible(track)
         trust = subject_tracks.trusted(track, looks)
         lost = (~on).nonzero()
-        return track, {"seeded": int(seeds.shape[0]), "frames": int(on.numel()),
+        # DOES THE MASK STAY ON ONE FIGURE? Each frame's mask against the frame before's. Added 2026-10-07 after a track
+        # followed alone was found to move to another figure half the frame away with no empty frame between: a count
+        # of plausible masks cannot see that, and "held" below is the count that can.
+        steps = {}
+        for t in range(1, int(track.shape[0])):
+            if bool(on[t]) and bool(on[t - 1]):
+                steps[t] = int((track[t] & track[t - 1]).sum()) / max(int((track[t] | track[t - 1]).sum()), 1)
+        # held: up to the first frame that is empty or has moved off. NOT "or is not plausible": the first run with
+        # this count (the central figure, hard stretch) had a mask on every frame, every step over 0.6, and one or two
+        # frames the shape test failed, and "held" then read 140 in one arm and 89 in its nudged twin. A single frame
+        # the shape test fails on a moving figure is a false alarm of that test, counted beside it, not a break.
+        held = 0
+        for t in range(int(track.shape[0])):
+            if not bool(on[t]) or steps.get(t, 1.0) < MOVED_OFF:
+                break
+            held += 1
+        not_plausible = [int(t) + SEED_FRAME for t in (on & ~ok).nonzero().flatten().tolist()]
+        values = sorted(steps.values())
+        return (track if every is None else every), {"seeded": int(seeds.shape[0]), "frames": int(on.numel()),
                        "with_a_mask": int(on.sum()), "plausible": int(ok.sum()), "trusted": int(trust.sum()),
                        "first_frame_lost": (int(lost[0]) + SEED_FRAME) if lost.numel() else None,
-                       "doubted": int(subject_tracks.doubted(track, looks).sum())}
+                       "doubted": int(subject_tracks.doubted(track, looks).sum()),
+                       "held_from_the_seed_without_a_break": held, "held_counts": "up to the first frame that is empty or has moved off",
+                       "frames_with_a_mask_the_shape_test_fails": not_plausible[:20], **({"two_tracks_on_one_figure": merged} if merged is not None else {}),
+                       "mask_overlap_with_the_frame_before": {"least": round(values[0], 3) if values else None, "median": round(values[len(values) // 2], 3) if values else None,
+                                                             "under_a_half": [[t + SEED_FRAME, round(v, 3)] for t, v in steps.items() if v < 0.5]}}
 
     def overlap(x, y):
         inter, union = (x & y).flatten(1).sum(1).float(), (x | y).flatten(1).sum(1).float()
@@ -187,6 +232,81 @@ def cmd_run(a):
         data = json.loads(f.read_text()) if f.exists() else {}
         data[a.key or f"{R['frames']['clip']} from {a.second} s"] = R
         f.write_text(json.dumps(data, indent=1))
+
+    if a.rules:
+        # CORE'S TWO RULES BETWEEN FOLLOWED OBJECTS, each switched off in memory for the length of one arm; nothing on
+        # disk is touched. First read in `docs/research/masking/2026-10-07_mryolk_stage_table.md`, row 26, with lines
+        # for both sides; this run is what tests it. No arm here is Meta's rule whole: Meta's blanks the returned mask
+        # as well as the stored one, and its session logic around it differs (the same table, row 26b: not tested). (1) `_suppress_recently_occluded`: of two tracks whose masks overlap by 0.3 (the larger of
+        # intersection over union and over the smaller mask), the one more recently empty is blanked. Meta's full
+        # pipeline has the same rule at 0.7 of intersection over union alone (`meta_sam3`, `model_builder.py`,
+        # `suppress_overlapping_based_on_recent_occlusion_threshold`; `sam3_video_base.py`). (2) in
+        # `_deferred_memory_encode`: a track that keeps under 0.3 of its area once every pixel is given to one track
+        # gets an empty memory for that frame. Meta's has the same rule at the same 0.3.
+        import functools
+        import inspect
+        import textwrap
+        import types as types_
+        import comfy.ldm.sam3.tracker as core_tracker
+
+        def tracker_of(model):
+            return next(m for m in model.model.diffusion_model.modules() if hasattr(m, "_suppress_recently_occluded") and hasattr(m, "_deferred_memory_encode"))
+
+        def no_shrink(obj):
+            src = textwrap.dedent(inspect.getsource(type(obj)._deferred_memory_encode))
+            line = "shrink_ok = (area_after / area_before) >= 0.3"
+            if src.count(line) != 1:
+                raise SystemExit("core's memory rule no longer reads as this tool expects; read comfy/ldm/sam3/tracker.py")
+            scope: dict = {}
+            exec(src.replace(line, "shrink_ok = (area_after / area_before) >= 0.0"), vars(core_tracker), scope)
+            return types_.MethodType(scope["_deferred_memory_encode"], obj)
+
+        def unsuppressed(masks, last_occluded, frame_idx, threshold=0.3):
+            return masks
+
+        RULES = {"as core has them": {}, "the occlusion rule off": {"_suppress_recently_occluded": lambda o: unsuppressed},
+                 "the occlusion rule at 0.7, core's measure": {"_suppress_recently_occluded": lambda o: functools.partial(type(o)._suppress_recently_occluded, threshold=0.7)},
+                 "the occlusion rule at 0.7 of intersection over union (Meta's threshold and measure)": {"_suppress_recently_occluded": lambda o: union_alone_rule(type(o))},
+                 "the memory rule off": {"_deferred_memory_encode": no_shrink},
+                 "both off": {"_suppress_recently_occluded": lambda o: unsuppressed, "_deferred_memory_encode": no_shrink}}
+        R["rules"] = "each rule switched off in memory on core's tracker for one arm; the subject in the group of up to sixteen"
+        # THE PREDICTION, WRITTEN BEFORE THE FIRST RUN (2026-10-07, from the code): the occlusion rule blanks one of an
+        # overlapping pair only when BOTH have been empty or blanked before (`comfy/ldm/sam3/tracker.py`, `last_occ_j >
+        # -1` beside `last_occ_i > last_occ_j`; Meta's has the same condition, `meta_sam3/sam3/model/sam3_video_base.py`).
+        # So every arm that changes only that rule must give the same masks as core as it is, on every track, up to the
+        # first frame on which any track is empty. If an arm differs earlier, the patch is doing something else and
+        # the arm is void. Compared on the masks pooled to the tool's small grid.
+        R["prediction"] = ("an arm that changes only the occlusion rule equals core as it is on every track up to the first frame on which any track is empty; "
+                           "an earlier difference voids the arm")
+        base = {}
+        for model_name, model, clip in (("as ComfyUI ships it", stock, stock_clip), ("corrected", fixed, fixed_clip)):
+            obj = tracker_of(model)
+            for rule, patches in RULES.items():
+                for name_, make in patches.items():
+                    setattr(obj, name_, make(obj))
+                try:
+                    for levels in (0, 1):
+                        key = f"{model_name} | {rule}" + (" | nudged" if levels else "")
+                        every, R["arms"][key] = run(model, clip, levels, MOST, every_track=True)
+                        if not patches:
+                            base[(model_name, levels)] = every
+                            empty = (~every.any(2)).any(0).nonzero()             # frames on which some track has no mask
+                            R["arms"][key]["first_frame_on_which_any_track_is_empty"] = (int(empty[0]) + SEED_FRAME) if empty.numel() else None
+                        elif (model_name, levels) in base and base[(model_name, levels)].shape == every.shape:
+                            differs = (every != base[(model_name, levels)]).any(2).any(0).nonzero()
+                            first_empty = R["arms"][f"{model_name} | as core has them" + (" | nudged" if levels else "")]["first_frame_on_which_any_track_is_empty"]
+                            first_diff = (int(differs[0]) + SEED_FRAME) if differs.numel() else None
+                            R["arms"][key]["first_frame_differing_from_core_as_it_is"] = first_diff
+                            if "_deferred_memory_encode" not in patches:
+                                R["arms"][key]["the_prediction_holds"] = first_diff is None or (first_empty is not None and first_diff >= first_empty)
+                        save()
+                        print(key, json.dumps(R["arms"][key]), flush=True)
+                finally:
+                    for name_ in patches:
+                        delattr(obj, name_)
+                torch.cuda.empty_cache()
+        save()
+        return
 
     for model_name, model, clip in (("as ComfyUI ships it", stock, stock_clip), ("corrected", fixed, fixed_clip)):
         alone = {}                                           # the alone arm's track, per nudge: what each group arm is held against
@@ -208,9 +328,93 @@ def cmd_run(a):
     save()
 
 
+def union_alone_rule(cls):
+    """Core's occlusion rule with Meta's measure and threshold: 0.7 of intersection over union alone. Still applied
+    where core applies it, to the stored mask; Meta's also blanks the returned one (the stage table, row 26)."""
+    import functools
+    import inspect
+    import textwrap
+
+    import comfy.ldm.sam3.tracker as core_tracker
+    src = textwrap.dedent(inspect.getsource(cls._suppress_recently_occluded))
+    line = "iou = _compute_mask_overlap(low_res_masks[:, 0], low_res_masks[:, 0])"
+    if src.count(line) != 1 or not src.startswith("@staticmethod"):
+        raise SystemExit("core's occlusion rule no longer reads as this tool expects; read comfy/ldm/sam3/tracker.py")
+    new = ("flat_ = binary.float().flatten(1); inter_ = flat_ @ flat_.T; area_ = flat_.sum(1, keepdim=True); "
+           "iou = inter_ / (area_ + area_.T - inter_).clamp(min=1)")
+    scope: dict = {}
+    exec(src.replace("@staticmethod\n", "", 1).replace(line, new), vars(core_tracker), scope)
+    return functools.partial(scope["_suppress_recently_occluded"], threshold=0.7)
+
+
+def cmd_rules_selftest(a):
+    """Model-free, off the card: do the two forms of the occlusion rule part where the reading says they do?"""
+    import torch
+
+    sys.path.insert(0, str(COMFY))
+    argv, sys.argv = sys.argv, sys.argv[:1]         # ComfyUI reads the command line when its arguments are imported
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True                  # no model is loaded and the card is not touched
+    sys.argv = argv
+    import comfy.ldm.sam3.tracker as core_tracker
+    cls = next(c for c in vars(core_tracker).values() if isinstance(c, type) and hasattr(c, "_suppress_recently_occluded") and hasattr(c, "_deferred_memory_encode"))
+    union = union_alone_rule(cls)
+
+    def blanked(rule, masks):
+        out = masks.clone()
+        rule(out, torch.tensor([3, 5]), 9)          # the second object was empty more recently: it is the one a rule would blank
+        return bool((out[1] > 0).sum() == 0)
+    inside = torch.full((2, 1, 8, 8), -5.0)         # a small mask lying inside a larger one: over the smaller 1.0, over the union 0.25
+    inside[0, 0, :4, :4], inside[1, 0, :2, :2] = 5, 5
+    same = torch.full((2, 1, 8, 8), -5.0)           # THE CONTROL: two masks that are nearly one: over the union 0.8
+    same[0, 0, :4, :5], same[1, 0, :4, :4] = 5, 5
+    apart = torch.full((2, 1, 8, 8), -5.0)          # and two that do not touch
+    apart[0, 0, :2, :2], apart[1, 0, 5:, 5:] = 5, 5
+    got = {"a small mask inside a larger one": (blanked(cls._suppress_recently_occluded, inside), blanked(union, inside)),
+           "two masks that are nearly one": (blanked(cls._suppress_recently_occluded, same), blanked(union, same)),
+           "two masks apart": (blanked(cls._suppress_recently_occluded, apart), blanked(union, apart))}
+    want = {"a small mask inside a larger one": (True, False), "two masks that are nearly one": (True, True), "two masks apart": (False, False)}
+    for k in want:
+        print(("ok   " if got[k] == want[k] else "FAIL ") + f"{k}: core's rule blanks the more recently empty one: {got[k][0]}; at 0.7 of intersection over union: {got[k][1]}")
+    return 0 if got == want else 1
+
+
+def held(r: dict, seed_frame: int):
+    """Frames from the seed up to the first that is empty or has moved off, read from an arm's record."""
+    if "mask_overlap_with_the_frame_before" not in r:
+        return None
+    ends = [f for f, v in r["mask_overlap_with_the_frame_before"]["under_a_half"] if v < MOVED_OFF]
+    if r.get("first_frame_lost") is not None:
+        ends.append(r["first_frame_lost"])
+    return (min(ends) - seed_frame) if ends else r["frames"]
+
+
 def cmd_render(a):
     for name, D in json.loads(Path(a.json).read_text()).items():
         f = D["frames"]
+        if D.get("rules"):
+            print(f"### {name}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second, {f['size'][0]}x{f['size'][1]}; the subject is the {D['subject']['picked_by']} person on frame "
+                  f"{D['seed_frame']}, box {D['subject']['box_on_the_seed_frame']}, seeded with the group of up to sixteen; {D['rules']}. One run per arm.\n")
+            print("| SAM 3.1 | core's rules between followed objects | the subject held from the seed without a break | nudged | with a mask | nudged | pairs of tracks sharing over a half of their masks on some frame | "
+                  "frames with such a pair | of them with the subject | nudged: pairs, frames, with the subject |\n|---|---|---|---|---|---|---|---|---|---|")
+            for key, r in D["arms"].items():
+                if key.endswith("| nudged"):
+                    continue
+                model, rule = key.split(" | ")
+                t = D["arms"].get(key + " | nudged", {})
+                m, tm = r["two_tracks_on_one_figure"], t.get("two_tracks_on_one_figure", {})
+                print(f"| {model} | {rule} | {held(r, D['seed_frame'])} | {held(t, D['seed_frame']) if t else None} | {r['with_a_mask']} | {t.get('with_a_mask')} | {list(m.values())[0]} | {list(m.values())[1]} | {list(m.values())[2]} | {list(tm.values())} |")
+            print(f"\nThe prediction written before the run: {D.get('prediction')}.\n")
+            print("| SAM 3.1 | core's rules between followed objects | first frame on which any track is empty (core as it is) | first frame differing from core as it is | nudged | the prediction holds | nudged |\n|---|---|---|---|---|---|---|")
+            for key, r in D["arms"].items():
+                if key.endswith("| nudged"):
+                    continue
+                model, rule = key.split(" | ")
+                t = D["arms"].get(key + " | nudged", {})
+                print(f"| {model} | {rule} | {r.get('first_frame_on_which_any_track_is_empty', '')} | {r.get('first_frame_differing_from_core_as_it_is', '')} | {t.get('first_frame_differing_from_core_as_it_is', '')} | "
+                      f"{r.get('the_prediction_holds', '')} | {t.get('the_prediction_holds', '')} |")
+            print()
+            continue
         print(f"### {name}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second, {f['size'][0]}x{f['size'][1]}; the subject is the {D.get('subject', {}).get('picked_by', 'largest')} person "
               f"on frame {D['seed_frame']}{', box ' + str(D['subject']['box_on_the_seed_frame']) + ' (left, top, right, bottom as shares of the frame)' if D.get('subject') else ''} ({D.get('detections_on_the_seed_frame')} detections; {D.get('seeds', '')}), followed from there; the detector is asked again every {D['look_every']} frames. One run per arm.\n")
         print(f"Seed sets: {D.get('seed_sets')}.\n")
@@ -224,6 +428,18 @@ def cmd_render(a):
                   f"{t.get('with_a_mask')}, {t.get('plausible')}, {t.get('trusted')} | {r.get('against_itself_nudged')} | "
                   f"{'' if not r.get('overlap_with_the_alone_arm') else list(r['overlap_with_the_alone_arm'].values())} |")
         print()
+        if any("mask_overlap_with_the_frame_before" in r for r in D["arms"].values()):
+            print("Does the mask stay on one figure? `held` counts frames from the seed frame up to the first that is empty or shares under "
+                  f"{MOVED_OFF} of its mask with the frame before's.\n")
+            print("| SAM 3.1 | the subject is seeded | held from the seed without a break | nudged | each mask against the frame before's: least, median | frames under a half (frame, overlap) | nudged: least, frames under a half |\n|---|---|---|---|---|---|---|")
+            for key, r in D["arms"].items():
+                if key.endswith("| nudged") or "error" in r or "mask_overlap_with_the_frame_before" not in r:
+                    continue
+                model, company = key.split(" | ")
+                t, m = D["arms"].get(key + " | nudged", {}), r["mask_overlap_with_the_frame_before"]
+                tm = t.get("mask_overlap_with_the_frame_before", {})
+                print(f"| {model} | {company} | {held(r, D['seed_frame'])} | {held(t, D['seed_frame'])} | {m['least']}, {m['median']} | {m['under_a_half']} | {tm.get('least')}, {tm.get('under_a_half')} |")
+            print()
 
 
 def main():
@@ -238,8 +454,11 @@ def main():
     s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
     s.add_argument("--json", required=True)
     s.add_argument("--key", default="", help="the name of this run in the json; the clip and second when left out")
+    s.add_argument("--rules", action="store_true", help="instead of the company arms: the group of up to sixteen with core's two rules between followed objects switched off in memory, one at a time and both")
     s.add_argument("--subject", required=True, choices=["largest", "most central"],
                    help="the node's `pick` rule that chooses the subject on the seed frame. Always named: the first runs took the largest, the shipped default until 2026-10-07")
+    s = sub.add_parser("rules-selftest")
+    s.set_defaults(fn=cmd_rules_selftest)
     s = sub.add_parser("render")
     s.set_defaults(fn=cmd_render)
     s.add_argument("--json", required=True)

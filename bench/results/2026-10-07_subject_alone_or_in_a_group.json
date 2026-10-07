@@ -195,7 +195,12 @@
    }
   },
   "detections_on_the_seed_frame": 16,
-  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first",
+  "subject": {
+   "picked_by": "largest",
+   "box_on_the_seed_frame": null,
+   "note": "the first runs of the tool took the largest and did not record the box"
+  }
  },
  "crowd, calm": {
   "environment": {
@@ -393,7 +398,12 @@
    }
   },
   "detections_on_the_seed_frame": 16,
-  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first",
+  "subject": {
+   "picked_by": "largest",
+   "box_on_the_seed_frame": null,
+   "note": "the first runs of the tool took the largest and did not record the box"
+  }
  },
  "dense": {
   "environment": {
@@ -588,6 +598,2492 @@
     "seeded": 16,
     "second_masks_of_a_chosen_person_dropped": 0,
     "largest_overlap_with_the_subject": 0.0
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first",
+  "subject": {
+   "picked_by": "largest",
+   "box_on_the_seed_frame": null,
+   "note": "the first runs of the tool took the largest and did not record the box"
+  }
+ },
+ "crowd, hard, the most central": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 139,
+    "trusted": 116,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.62,
+     "median": 0.889,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.991,
+    "held_as_first_stored_under_a_withdrawn_definition": 130,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.614,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 134,
+    "plausible": 134,
+    "trusted": 111,
+    "first_frame_lost": 137,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 133,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.388,
+     "median": 0.89,
+     "under_a_half": [
+      [
+       136,
+       0.388
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 134,
+     "mean": 0.968,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.977,
+    "held_as_first_stored_under_a_withdrawn_definition": 133,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 132,
+    "plausible": 131,
+    "trusted": 109,
+    "first_frame_lost": 136,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 132,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.638,
+     "median": 0.888,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 132,
+     "mean": 0.973,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 22,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 73,
+    "first_frame_lost": 95,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 91,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.561,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 97,
+     "mean": 0.944,
+     "frames_under_a_half": 1
+    },
+    "against_itself_nudged": 0.957,
+    "held_as_first_stored_under_a_withdrawn_definition": 7,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 96,
+    "plausible": 95,
+    "trusted": 72,
+    "first_frame_lost": 95,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 91,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 96,
+     "mean": 0.941,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 7,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.61,
+     "median": 0.885,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.992,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 139,
+    "trusted": 116,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.603,
+     "median": 0.887,
+     "under_a_half": []
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 89,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 137,
+    "trusted": 116,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.522,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.965,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.987,
+    "held_as_first_stored_under_a_withdrawn_definition": 13,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 138,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.528,
+     "median": 0.891,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.963,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 13,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 122,
+    "trusted": 99,
+    "first_frame_lost": 115,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 111,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.887,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 129,
+     "mean": 0.932,
+     "frames_under_a_half": 3
+    },
+    "against_itself_nudged": 0.945,
+    "held_as_first_stored_under_a_withdrawn_definition": 7,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 124,
+    "plausible": 118,
+    "trusted": 95,
+    "first_frame_lost": 111,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 107,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.691,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 124,
+     "mean": 0.94,
+     "frames_under_a_half": 2
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 7,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   }
+  },
+  "subject": {
+   "picked_by": "most central",
+   "box_on_the_seed_frame": [
+    0.457,
+    0.446,
+    0.519,
+    0.679
+   ]
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ },
+ "crowd, calm, the most central": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 16.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.731,
+     "median": 0.939,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.997,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.731,
+     "median": 0.938,
+     "under_a_half": []
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.723,
+     "median": 0.939,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.989,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.998,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.725,
+     "median": 0.94,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.989,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.734,
+     "median": 0.94,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.978,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.998,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 117,
+    "first_frame_lost": null,
+    "doubted": 23,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.733,
+     "median": 0.94,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.979,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.732,
+     "median": 0.937,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.995,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.731,
+     "median": 0.936,
+     "under_a_half": []
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.722,
+     "median": 0.939,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.989,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.998,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.722,
+     "median": 0.939,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.989,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.73,
+     "median": 0.94,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.979,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.997,
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 140,
+    "plausible": 140,
+    "trusted": 140,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 140,
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.731,
+     "median": 0.939,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 140,
+     "mean": 0.979,
+     "frames_under_a_half": 0
+    },
+    "held_as_first_stored_under_a_withdrawn_definition": 140,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "held_recomputed": "from first_frame_lost and the steps under a half saved by the run; the run stored a count that also broke at one frame the shape test failed"
+   }
+  },
+  "subject": {
+   "picked_by": "most central",
+   "box_on_the_seed_frame": [
+    0.316,
+    0.247,
+    0.531,
+    0.62
+   ]
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ },
+ "dense, the most central": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "vma.mp4",
+   "second": 121.93,
+   "count": 72,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 68,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.741,
+     "median": 0.92,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.992
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 68,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.745,
+     "median": 0.917,
+     "under_a_half": []
+    }
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 68,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.636,
+     "median": 0.917,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.96,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.994
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 68,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.64,
+     "median": 0.92,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.958,
+     "frames_under_a_half": 0
+    }
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 62,
+    "trusted": 62,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     55,
+     56,
+     65,
+     68,
+     69,
+     70
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.745,
+     "median": 0.914,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.952,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.994
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 59,
+    "trusted": 59,
+    "first_frame_lost": null,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     55,
+     56,
+     62,
+     65,
+     66,
+     68,
+     69,
+     70,
+     71
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.742,
+     "median": 0.914,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.954,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 49,
+    "first_frame_lost": null,
+    "doubted": 19,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.647,
+     "median": 0.915,
+     "under_a_half": []
+    },
+    "against_itself_nudged": 0.993
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 33,
+    "first_frame_lost": null,
+    "doubted": 35,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.645,
+     "median": 0.917,
+     "under_a_half": []
+    }
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 49,
+    "first_frame_lost": null,
+    "doubted": 19,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.633,
+     "median": 0.919,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.959,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.987
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 68,
+    "trusted": 33,
+    "first_frame_lost": null,
+    "doubted": 35,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.64,
+     "median": 0.92,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.965,
+     "frames_under_a_half": 0
+    }
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 58,
+    "trusted": 47,
+    "first_frame_lost": null,
+    "doubted": 19,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     14,
+     35,
+     58,
+     60,
+     61,
+     65,
+     66,
+     67,
+     68,
+     69
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.725,
+     "median": 0.914,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.954,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.99
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 68,
+    "with_a_mask": 68,
+    "plausible": 58,
+    "trusted": 25,
+    "first_frame_lost": null,
+    "doubted": 35,
+    "held_from_the_seed_without_a_break": 68,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     35,
+     36,
+     58,
+     59,
+     60,
+     62,
+     65,
+     66,
+     67,
+     68
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.723,
+     "median": 0.917,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 68,
+     "mean": 0.954,
+     "frames_under_a_half": 0
+    }
+   }
+  },
+  "subject": {
+   "picked_by": "most central",
+   "box_on_the_seed_frame": [
+    0.468,
+    0.297,
+    0.569,
+    0.576
+   ]
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.009
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.009
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first"
+ },
+ "crowd, hard, the most central, core's rules": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | as core has them": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 11,
+     "frames_with_such_a_pair": 21,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.561,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "first_frame_on_which_any_track_is_empty": 12
+   },
+   "as ComfyUI ships it | as core has them | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 96,
+    "plausible": 95,
+    "trusted": 95,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 13,
+     "frames_with_such_a_pair": 21,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "first_frame_on_which_any_track_is_empty": 12
+   },
+   "as ComfyUI ships it | the occlusion rule off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 11,
+     "frames_with_such_a_pair": 21,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.563,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 36,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the occlusion rule off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 96,
+    "plausible": 95,
+    "trusted": 95,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 13,
+     "frames_with_such_a_pair": 17,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 29,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the occlusion rule at 0.7, core's measure": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 10,
+     "frames_with_such_a_pair": 22,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 41,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the occlusion rule at 0.7, core's measure | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 96,
+    "plausible": 95,
+    "trusted": 95,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 12,
+     "frames_with_such_a_pair": 19,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 39,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the occlusion rule at 0.7 of intersection over union (Meta's threshold and measure)": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 11,
+     "frames_with_such_a_pair": 21,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.89,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 36,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the occlusion rule at 0.7 of intersection over union (Meta's threshold and measure) | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 96,
+    "plausible": 95,
+    "trusted": 95,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 13,
+     "frames_with_such_a_pair": 17,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 29,
+    "the_prediction_holds": true
+   },
+   "as ComfyUI ships it | the memory rule off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 10,
+     "frames_with_such_a_pair": 23,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.892,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 17
+   },
+   "as ComfyUI ships it | the memory rule off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 94,
+    "plausible": 93,
+    "trusted": 93,
+    "first_frame_lost": 94,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 90,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 9,
+     "frames_with_such_a_pair": 18,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.566,
+     "median": 0.889,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 14
+   },
+   "as ComfyUI ships it | both off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 97,
+    "plausible": 96,
+    "trusted": 96,
+    "first_frame_lost": 95,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 91,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 10,
+     "frames_with_such_a_pair": 25,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.892,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 17
+   },
+   "as ComfyUI ships it | both off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 92,
+    "plausible": 91,
+    "trusted": 91,
+    "first_frame_lost": 79,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 75,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 10,
+     "frames_with_such_a_pair": 13,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.562,
+     "median": 0.887,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 14
+   },
+   "corrected | as core has them": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 122,
+    "trusted": 122,
+    "first_frame_lost": 115,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 111,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 18,
+     "frames_with_such_a_pair": 27,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.887,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_on_which_any_track_is_empty": 15
+   },
+   "corrected | as core has them | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 124,
+    "plausible": 118,
+    "trusted": 118,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 17,
+     "frames_with_such_a_pair": 26,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.691,
+     "median": 0.886,
+     "under_a_half": []
+    },
+    "first_frame_on_which_any_track_is_empty": 15
+   },
+   "corrected | the occlusion rule off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 123,
+    "trusted": 123,
+    "first_frame_lost": 115,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 111,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 18,
+     "frames_with_such_a_pair": 25,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.889,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_differing_from_core_as_it_is": 42,
+    "the_prediction_holds": true
+   },
+   "corrected | the occlusion rule off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 124,
+    "plausible": 118,
+    "trusted": 118,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 17,
+     "frames_with_such_a_pair": 24,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.691,
+     "median": 0.889,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 42,
+    "the_prediction_holds": true
+   },
+   "corrected | the occlusion rule at 0.7, core's measure": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 122,
+    "trusted": 122,
+    "first_frame_lost": 115,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 111,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 17,
+     "frames_with_such_a_pair": 25,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.888,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_differing_from_core_as_it_is": 46,
+    "the_prediction_holds": true
+   },
+   "corrected | the occlusion rule at 0.7, core's measure | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 123,
+    "plausible": 117,
+    "trusted": 117,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 17,
+     "frames_with_such_a_pair": 24,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.691,
+     "median": 0.889,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 56,
+    "the_prediction_holds": true
+   },
+   "corrected | the occlusion rule at 0.7 of intersection over union (Meta's threshold and measure)": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 123,
+    "trusted": 123,
+    "first_frame_lost": 115,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 111,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 18,
+     "frames_with_such_a_pair": 23,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.889,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_differing_from_core_as_it_is": 42,
+    "the_prediction_holds": true
+   },
+   "corrected | the occlusion rule at 0.7 of intersection over union (Meta's threshold and measure) | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 124,
+    "plausible": 118,
+    "trusted": 118,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 17,
+     "frames_with_such_a_pair": 25,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.691,
+     "median": 0.889,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 42,
+    "the_prediction_holds": true
+   },
+   "corrected | the memory rule off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 128,
+    "plausible": 121,
+    "trusted": 121,
+    "first_frame_lost": 114,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 110,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 14,
+     "frames_with_such_a_pair": 24,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.887,
+     "under_a_half": [
+      [
+       137,
+       0.442
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_differing_from_core_as_it_is": 22
+   },
+   "corrected | the memory rule off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 123,
+    "plausible": 116,
+    "trusted": 116,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     110,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 14,
+     "frames_with_such_a_pair": 27,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.697,
+     "median": 0.885,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 20
+   },
+   "corrected | both off": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 129,
+    "plausible": 123,
+    "trusted": 123,
+    "first_frame_lost": 115,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 111,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     107,
+     108,
+     113,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 11,
+     "frames_with_such_a_pair": 19,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.0,
+     "median": 0.886,
+     "under_a_half": [
+      [
+       137,
+       0.441
+      ],
+      [
+       138,
+       0.0
+      ]
+     ]
+    },
+    "first_frame_differing_from_core_as_it_is": 22
+   },
+   "corrected | both off | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 123,
+    "plausible": 116,
+    "trusted": 116,
+    "first_frame_lost": 111,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 107,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     11,
+     103,
+     107,
+     108,
+     110,
+     136,
+     138
+    ],
+    "two_tracks_on_one_figure": {
+     "pairs_of_tracks_sharing_over_a_half_of_their_masks_on_some_frame": 13,
+     "frames_with_such_a_pair": 26,
+     "frames_where_the_subject_is_in_one": 0
+    },
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.697,
+     "median": 0.885,
+     "under_a_half": []
+    },
+    "first_frame_differing_from_core_as_it_is": 20
+   }
+  },
+  "subject": {
+   "picked_by": "most central",
+   "box_on_the_seed_frame": [
+    0.457,
+    0.446,
+    0.519,
+    0.679
+   ]
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   }
+  },
+  "detections_on_the_seed_frame": 16,
+  "seeds": "one detect on the seed frame as fed, by SAM as it ships; the same masks seed every arm, the subject's first",
+  "rules": "each rule switched off in memory on core's tracker for one arm; the subject in the group of up to sixteen",
+  "prediction": "an arm that changes only the occlusion rule equals core as it is on every track up to the first frame on which any track is empty; an earlier difference voids the arm"
+ },
+ "crowd, hard, the largest": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "seed_frame": 4,
+  "look_every": 12,
+  "one_run_per_arm": true,
+  "arms": {
+   "as ComfyUI ships it | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 19,
+    "plausible": 18,
+    "trusted": 1,
+    "first_frame_lost": 23,
+    "doubted": 18,
+    "held_from_the_seed_without_a_break": 16,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     19
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.006,
+     "median": 0.9,
+     "under_a_half": [
+      [
+       20,
+       0.006
+      ]
+     ]
+    },
+    "against_itself_nudged": 0.99
+   },
+   "as ComfyUI ships it | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 19,
+    "plausible": 18,
+    "trusted": 1,
+    "first_frame_lost": 23,
+    "doubted": 18,
+    "held_from_the_seed_without_a_break": 16,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     19
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.011,
+     "median": 0.905,
+     "under_a_half": [
+      [
+       20,
+       0.011
+      ]
+     ]
+    }
+   },
+   "as ComfyUI ships it | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 15,
+    "plausible": 15,
+    "trusted": 1,
+    "first_frame_lost": 19,
+    "doubted": 14,
+    "held_from_the_seed_without_a_break": 15,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.801,
+     "median": 0.875,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 15,
+     "mean": 0.935,
+     "frames_under_a_half": 0
+    },
+    "against_itself_nudged": 0.894
+   },
+   "as ComfyUI ships it | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 14,
+    "plausible": 14,
+    "trusted": 1,
+    "first_frame_lost": 18,
+    "doubted": 13,
+    "held_from_the_seed_without_a_break": 14,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.75,
+     "median": 0.875,
+     "under_a_half": []
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 14,
+     "mean": 0.917,
+     "frames_under_a_half": 0
+    }
+   },
+   "as ComfyUI ships it | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 74,
+    "plausible": 54,
+    "trusted": 3,
+    "first_frame_lost": 73,
+    "doubted": 71,
+    "held_from_the_seed_without_a_break": 20,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     23,
+     24,
+     25,
+     27,
+     28,
+     29,
+     30,
+     34,
+     46,
+     61,
+     63,
+     64,
+     65,
+     66,
+     67,
+     71,
+     72,
+     86,
+     88,
+     89
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.043,
+     "median": 0.662,
+     "under_a_half": [
+      [
+       23,
+       0.455
+      ],
+      [
+       24,
+       0.08
+      ],
+      [
+       25,
+       0.288
+      ],
+      [
+       26,
+       0.086
+      ],
+      [
+       27,
+       0.483
+      ],
+      [
+       28,
+       0.187
+      ],
+      [
+       29,
+       0.067
+      ],
+      [
+       30,
+       0.228
+      ],
+      [
+       31,
+       0.378
+      ],
+      [
+       34,
+       0.065
+      ],
+      [
+       35,
+       0.178
+      ],
+      [
+       36,
+       0.271
+      ],
+      [
+       54,
+       0.395
+      ],
+      [
+       55,
+       0.396
+      ],
+      [
+       60,
+       0.043
+      ],
+      [
+       62,
+       0.068
+      ],
+      [
+       63,
+       0.471
+      ],
+      [
+       64,
+       0.42
+      ],
+      [
+       65,
+       0.19
+      ],
+      [
+       66,
+       0.268
+      ],
+      [
+       67,
+       0.082
+      ],
+      [
+       68,
+       0.127
+      ],
+      [
+       69,
+       0.245
+      ],
+      [
+       87,
+       0.134
+      ],
+      [
+       88,
+       0.112
+      ],
+      [
+       89,
+       0.342
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 19,
+     "mean": 0.715,
+     "frames_under_a_half": 3
+    },
+    "against_itself_nudged": 0.785
+   },
+   "as ComfyUI ships it | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 69,
+    "plausible": 52,
+    "trusted": 2,
+    "first_frame_lost": 69,
+    "doubted": 67,
+    "held_from_the_seed_without_a_break": 20,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     23,
+     24,
+     25,
+     27,
+     29,
+     30,
+     32,
+     34,
+     46,
+     63,
+     64,
+     65,
+     66,
+     67,
+     68,
+     86,
+     88
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.03,
+     "median": 0.677,
+     "under_a_half": [
+      [
+       23,
+       0.465
+      ],
+      [
+       24,
+       0.071
+      ],
+      [
+       25,
+       0.282
+      ],
+      [
+       26,
+       0.084
+      ],
+      [
+       28,
+       0.111
+      ],
+      [
+       29,
+       0.044
+      ],
+      [
+       30,
+       0.414
+      ],
+      [
+       31,
+       0.349
+      ],
+      [
+       32,
+       0.203
+      ],
+      [
+       33,
+       0.265
+      ],
+      [
+       34,
+       0.097
+      ],
+      [
+       35,
+       0.147
+      ],
+      [
+       36,
+       0.272
+      ],
+      [
+       37,
+       0.47
+      ],
+      [
+       59,
+       0.39
+      ],
+      [
+       60,
+       0.03
+      ],
+      [
+       62,
+       0.057
+      ],
+      [
+       63,
+       0.467
+      ],
+      [
+       64,
+       0.334
+      ],
+      [
+       65,
+       0.084
+      ],
+      [
+       66,
+       0.144
+      ],
+      [
+       67,
+       0.044
+      ],
+      [
+       68,
+       0.114
+      ],
+      [
+       87,
+       0.115
+      ],
+      [
+       88,
+       0.116
+      ],
+      [
+       89,
+       0.117
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 19,
+     "mean": 0.7,
+     "frames_under_a_half": 3
+    }
+   },
+   "corrected | alone": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 19,
+    "trusted": 19,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 16,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     19
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.001,
+     "median": 0.892,
+     "under_a_half": [
+      [
+       20,
+       0.001
+      ]
+     ]
+    },
+    "against_itself_nudged": 0.985
+   },
+   "corrected | alone | nudged": {
+    "seeded": 1,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 19,
+    "trusted": 19,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 16,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     19
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.003,
+     "median": 0.89,
+     "under_a_half": [
+      [
+       20,
+       0.003
+      ]
+     ]
+    }
+   },
+   "corrected | with the three nearest": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 18,
+    "trusted": 18,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 20,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     21,
+     23
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.253,
+     "median": 0.88,
+     "under_a_half": [
+      [
+       21,
+       0.253
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.928,
+     "frames_under_a_half": 1
+    },
+    "against_itself_nudged": 0.973
+   },
+   "corrected | with the three nearest | nudged": {
+    "seeded": 4,
+    "frames": 140,
+    "with_a_mask": 20,
+    "plausible": 17,
+    "trusted": 17,
+    "first_frame_lost": 24,
+    "doubted": 0,
+    "held_from_the_seed_without_a_break": 17,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     20,
+     21,
+     23
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.096,
+     "median": 0.881,
+     "under_a_half": [
+      [
+       21,
+       0.096
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.924,
+     "frames_under_a_half": 1
+    }
+   },
+   "corrected | in a group of up to sixteen": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 100,
+    "plausible": 92,
+    "trusted": 49,
+    "first_frame_lost": 104,
+    "doubted": 46,
+    "held_from_the_seed_without_a_break": 28,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     12,
+     23,
+     24,
+     25,
+     44,
+     61,
+     95,
+     99
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.132,
+     "median": 0.82,
+     "under_a_half": [
+      [
+       31,
+       0.253
+      ],
+      [
+       32,
+       0.16
+      ],
+      [
+       34,
+       0.45
+      ],
+      [
+       35,
+       0.384
+      ],
+      [
+       36,
+       0.183
+      ],
+      [
+       37,
+       0.132
+      ],
+      [
+       44,
+       0.401
+      ],
+      [
+       45,
+       0.449
+      ],
+      [
+       65,
+       0.261
+      ],
+      [
+       67,
+       0.48
+      ],
+      [
+       68,
+       0.432
+      ],
+      [
+       101,
+       0.402
+      ],
+      [
+       102,
+       0.317
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.774,
+     "frames_under_a_half": 4
+    },
+    "against_itself_nudged": 0.863
+   },
+   "corrected | in a group of up to sixteen | nudged": {
+    "seeded": 16,
+    "frames": 140,
+    "with_a_mask": 99,
+    "plausible": 95,
+    "trusted": 70,
+    "first_frame_lost": 103,
+    "doubted": 26,
+    "held_from_the_seed_without_a_break": 28,
+    "held_counts": "up to the first frame that is empty or has moved off",
+    "frames_with_a_mask_the_shape_test_fails": [
+     23,
+     24,
+     66,
+     99
+    ],
+    "mask_overlap_with_the_frame_before": {
+     "least": 0.04,
+     "median": 0.819,
+     "under_a_half": [
+      [
+       31,
+       0.302
+      ],
+      [
+       32,
+       0.04
+      ],
+      [
+       33,
+       0.5
+      ],
+      [
+       35,
+       0.397
+      ],
+      [
+       65,
+       0.295
+      ],
+      [
+       66,
+       0.396
+      ],
+      [
+       67,
+       0.254
+      ],
+      [
+       68,
+       0.314
+      ],
+      [
+       69,
+       0.449
+      ],
+      [
+       101,
+       0.25
+      ],
+      [
+       102,
+       0.265
+      ]
+     ]
+    },
+    "overlap_with_the_alone_arm": {
+     "frames_both_have_a_mask": 20,
+     "mean": 0.772,
+     "frames_under_a_half": 4
+    }
+   }
+  },
+  "subject": {
+   "picked_by": "largest",
+   "box_on_the_seed_frame": [
+    0.306,
+    0.633,
+    0.417,
+    0.913
+   ]
+  },
+  "seed_sets": {
+   "alone": {
+    "seeded": 1,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.0
+   },
+   "with the three nearest": {
+    "seeded": 4,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.001
+   },
+   "in a group of up to sixteen": {
+    "seeded": 16,
+    "second_masks_of_a_chosen_person_dropped": 0,
+    "largest_overlap_with_the_subject": 0.001
    }
   },
   "detections_on_the_seed_frame": 16,

@@ -1,0 +1,1975 @@
+{
+ "crowd, hard, the most central": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "lotsofpeopledance_0414_0720.mkv",
+   "second": 138.0,
+   "count": 144,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "sam": "corrected (sam31_corrections)",
+  "device": "cuda:0",
+  "seed_frame": 4,
+  "look_every": 6,
+  "line": 0.88,
+  "lead": 0.03,
+  "one_run_per_arm": true,
+  "runs": {
+   "as fed": {
+    "the_seed_has_a_head": {
+     "with a head, 16 on the frame": true,
+     "with a head, 64 on the frame": true,
+     "with a head, from a crop": true
+    },
+    "looks": [
+     {
+      "frame": 10,
+      "plausible_tracks": 14,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.9576,
+        "best_other": 0.7808,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.9499,
+        "best_other": 0.7808,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.9499,
+        "best_other": 0.7808,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.9505,
+        "best_other": 0.7808,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.9219,
+        "best_other": 0.5619,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7808,
+        "best_other": 0.9576,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.7808,
+        "best_other": 0.9499,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7808,
+        "best_other": 0.9499,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7808,
+        "best_other": 0.9505,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.4288,
+        "best_other": 0.9219,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 16,
+      "plausible_tracks": 13,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8969,
+        "best_other": 0.6916,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8969,
+        "best_other": 0.6916,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8969,
+        "best_other": 0.6916,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8969,
+        "best_other": 0.6916,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7858,
+        "best_other": 0.4824,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.6714,
+        "best_other": 0.8969,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.6714,
+        "best_other": 0.8969,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.6714,
+        "best_other": 0.8969,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.6714,
+        "best_other": 0.8969,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.4824,
+        "best_other": 0.7858,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 22,
+      "plausible_tracks": 14,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7811,
+        "best_other": 0.7799,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.7811,
+        "best_other": 0.7799,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7811,
+        "best_other": 0.7799,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7811,
+        "best_other": 0.7799,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.6838,
+        "best_other": 0.5388,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.6303,
+        "best_other": 0.7811,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.7811,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.6303,
+        "best_other": 0.7811,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.6303,
+        "best_other": 0.7811,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.4263,
+        "best_other": 0.6838,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 28,
+      "plausible_tracks": 12,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8114,
+        "best_other": 0.694,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8114,
+        "best_other": 0.6305,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8114,
+        "best_other": 0.6305,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8114,
+        "best_other": 0.6305,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7016,
+        "best_other": 0.5407,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.4592,
+        "best_other": 0.8114,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8114,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8114,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8114,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": 0.2259,
+        "best_other": 0.7016,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 34,
+      "plausible_tracks": 10,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8497,
+        "best_other": 0.7458,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8475,
+        "best_other": 0.6038,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8475,
+        "best_other": 0.6674,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8444,
+        "best_other": 0.6674,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7134,
+        "best_other": 0.4703,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8497,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8475,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8475,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8444,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.7134,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 40,
+      "plausible_tracks": 14,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8987,
+        "best_other": 0.7722,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8591,
+        "best_other": 0.7527,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8591,
+        "best_other": 0.7527,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8586,
+        "best_other": 0.7507,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8418,
+        "best_other": 0.5244,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7722,
+        "best_other": 0.8987,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.7527,
+        "best_other": 0.8591,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7527,
+        "best_other": 0.8591,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7507,
+        "best_other": 0.8586,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.4391,
+        "best_other": 0.8418,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 46,
+      "plausible_tracks": 12,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7933,
+        "best_other": 0.7781,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.7781,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7933,
+        "best_other": 0.7781,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7933,
+        "best_other": 0.7781,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7073,
+        "best_other": 0.6288,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7488,
+        "best_other": 0.7933,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.7781,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7488,
+        "best_other": 0.7933,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7488,
+        "best_other": 0.7933,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.606,
+        "best_other": 0.7073,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 52,
+      "plausible_tracks": 14,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.801,
+        "best_other": 0.8283,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8283,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7759,
+        "best_other": 0.8283,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7702,
+        "best_other": 0.8283,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7573,
+        "best_other": 0.5504,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.6478,
+        "best_other": 0.8283,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8283,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8283,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": 0.6478,
+        "best_other": 0.8283,
+        "over_the_line": false,
+        "first": false,
+        "leads_by_the_margin": false
+       },
+       "the lightness under the mask": {
+        "likeness": 0.3987,
+        "best_other": 0.7573,
+        "over_the_line": true,
+        "first": false,
+        "leads_by_the_margin": false
+       }
+      }
+     },
+     {
+      "frame": 58,
+      "plausible_tracks": 8,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8952,
+        "best_other": 0.7622,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.6358,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8952,
+        "best_other": 0.6358,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8952,
+        "best_other": 0.6291,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.732,
+        "best_other": 0.5178,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8952,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.6358,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8952,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8952,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.732,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 64,
+      "plausible_tracks": 11,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.9479,
+        "best_other": 0.7789,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.9224,
+        "best_other": 0.754,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.9224,
+        "best_other": 0.754,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.9226,
+        "best_other": 0.7506,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8757,
+        "best_other": 0.5222,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.9479,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.9224,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.9224,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.9226,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8757,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 70,
+      "plausible_tracks": 9,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.9407,
+        "best_other": 0.6992,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.9352,
+        "best_other": null,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.9352,
+        "best_other": 0.6965,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.9347,
+        "best_other": 0.6909,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8914,
+        "best_other": 0.456,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.9407,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.9352,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.9352,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.9347,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8914,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 76,
+      "plausible_tracks": 8,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.9309,
+        "best_other": 0.7392,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8919,
+        "best_other": 0.7076,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8919,
+        "best_other": 0.7239,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.89,
+        "best_other": 0.7239,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8526,
+        "best_other": 0.4834,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.9309,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8919,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8919,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.89,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8526,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 82,
+      "plausible_tracks": 8,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.856,
+        "best_other": 0.6934,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8157,
+        "best_other": 0.5561,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8157,
+        "best_other": 0.6551,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8108,
+        "best_other": 0.6425,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8627,
+        "best_other": 0.4291,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.856,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8157,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8157,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8108,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8627,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 88,
+      "plausible_tracks": 13,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.923,
+        "best_other": 0.7403,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8607,
+        "best_other": 0.7403,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8607,
+        "best_other": 0.7403,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8571,
+        "best_other": 0.7403,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8999,
+        "best_other": 0.578,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.923,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8607,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8607,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8571,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8999,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 94,
+      "plausible_tracks": 9,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.9171,
+        "best_other": 0.7428,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8579,
+        "best_other": 0.7428,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8579,
+        "best_other": 0.7428,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.852,
+        "best_other": 0.7428,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.9208,
+        "best_other": 0.5606,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.9171,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8579,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8579,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.852,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.9208,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 100,
+      "plausible_tracks": 1,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8587,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8057,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8057,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7989,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7672,
+        "best_other": null,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8587,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8057,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8057,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.7989,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.7672,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 106,
+      "plausible_tracks": 1,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8658,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8368,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8368,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8337,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7998,
+        "best_other": null,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8658,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8368,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8368,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8337,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.7998,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 112,
+      "plausible_tracks": 1,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.7931,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.7931,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7931,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.7931,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.6822,
+        "best_other": null,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.7931,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.7931,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.7931,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.7931,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.6822,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 118,
+      "plausible_tracks": 1,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8329,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": 0.8329,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.8329,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.8329,
+        "best_other": null,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.7058,
+        "best_other": null,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8329,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.8329,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.8329,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.8329,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.7058,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 124,
+      "plausible_tracks": 2,
+      "subject": {
+       "plausible": true,
+       "the top third alone": {
+        "likeness": 0.8172,
+        "best_other": 0.5066,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": 0.7277,
+        "best_other": 0.5066,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "with a head, from a crop": {
+        "likeness": 0.714,
+        "best_other": 0.5066,
+        "over_the_line": false,
+        "first": true,
+        "leads_by_the_margin": true
+       },
+       "the lightness under the mask": {
+        "likeness": 0.8785,
+        "best_other": 0.3515,
+        "over_the_line": true,
+        "first": true,
+        "leads_by_the_margin": true
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.8172,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.7277,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.714,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.8785,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 130,
+      "plausible_tracks": 2,
+      "subject": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.4405,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": 0.6523,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.4405,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 136,
+      "plausible_tracks": 1,
+      "subject": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.5592,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.4769,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": 0.5592,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": 0.4769,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     },
+     {
+      "frame": 142,
+      "plausible_tracks": 0,
+      "subject": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      },
+      "nearest_neighbour": {
+       "plausible": false,
+       "the top third alone": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 16 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, 64 on the frame": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "with a head, from a crop": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       },
+       "the lightness under the mask": {
+        "likeness": null,
+        "best_other": null,
+        "over_the_line": null,
+        "first": null,
+        "leads_by_the_margin": null
+       }
+      }
+     }
+    ],
+    "subject": {
+     "the top third alone": {
+      "looks_with_a_plausible_mask": 20,
+      "nothing_to_compare": 0,
+      "over_the_line": 9,
+      "first": 19,
+      "over_the_line_and_first": 9,
+      "over_the_line_and_leading_by_the_margin": 9
+     },
+     "with a head, 16 on the frame": {
+      "looks_with_a_plausible_mask": 20,
+      "nothing_to_compare": 4,
+      "over_the_line": 5,
+      "first": 16,
+      "over_the_line_and_first": 5,
+      "over_the_line_and_leading_by_the_margin": 5
+     },
+     "with a head, 64 on the frame": {
+      "looks_with_a_plausible_mask": 20,
+      "nothing_to_compare": 0,
+      "over_the_line": 6,
+      "first": 19,
+      "over_the_line_and_first": 6,
+      "over_the_line_and_leading_by_the_margin": 6
+     },
+     "with a head, from a crop": {
+      "looks_with_a_plausible_mask": 20,
+      "nothing_to_compare": 0,
+      "over_the_line": 6,
+      "first": 19,
+      "over_the_line_and_first": 6,
+      "over_the_line_and_leading_by_the_margin": 6
+     },
+     "the lightness under the mask": {
+      "looks_with_a_plausible_mask": 20,
+      "nothing_to_compare": 0,
+      "over_the_line": 20,
+      "first": 20,
+      "over_the_line_and_first": 20,
+      "over_the_line_and_leading_by_the_margin": 20
+     }
+    },
+    "nearest_neighbour_judged_as_the_subject": {
+     "the top third alone": {
+      "looks_with_a_plausible_mask": 7,
+      "nothing_to_compare": 0,
+      "over_the_line": 0,
+      "first": 0,
+      "over_the_line_and_first": 0,
+      "over_the_line_and_leading_by_the_margin": 0
+     },
+     "with a head, 16 on the frame": {
+      "looks_with_a_plausible_mask": 7,
+      "nothing_to_compare": 4,
+      "over_the_line": 0,
+      "first": 0,
+      "over_the_line_and_first": 0,
+      "over_the_line_and_leading_by_the_margin": 0
+     },
+     "with a head, 64 on the frame": {
+      "looks_with_a_plausible_mask": 7,
+      "nothing_to_compare": 2,
+      "over_the_line": 0,
+      "first": 0,
+      "over_the_line_and_first": 0,
+      "over_the_line_and_leading_by_the_margin": 0
+     },
+     "with a head, from a crop": {
+      "looks_with_a_plausible_mask": 7,
+      "nothing_to_compare": 1,
+      "over_the_line": 0,
+      "first": 0,
+      "over_the_line_and_first": 0,
+      "over_the_line_and_leading_by_the_margin": 0
+     },
+     "the lightness under the mask": {
+      "looks_with_a_plausible_mask": 7,
+      "nothing_to_compare": 0,
+      "over_the_line": 7,
+      "first": 0,
+      "over_the_line_and_first": 0,
+      "over_the_line_and_leading_by_the_margin": 0
+     }
+    }
+   }
+  },
+  "subject": {
+   "picked_by": "most central",
+   "box_on_the_seed_frame": [
+    0.457,
+    0.446,
+    0.519,
+    0.679
+   ]
+  },
+  "seeded": 16,
+  "nearest_neighbour_row": 13
+ }
+}

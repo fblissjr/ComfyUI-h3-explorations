@@ -1,7 +1,7 @@
 # ComfyUI's SAM 3.1 against Meta's code, stage by stage on equal inputs (2026-10-07)
 
 lane: masked
-verdict: with the same weights, ComfyUI's port tokenizes as Meta's code does, its trunk agrees with Meta's on an equal input to within a measured bf16 floor, and its detector agrees on what it is confident about; it departs in two places before the model, the range of the image its nodes hand over and the activation its text encoder runs; from the same starting masks on one dense window, read against a one-level change of the input, Meta's tracker keeps more plausible masks than ComfyUI's at sixteen subjects and holds a second group of sixteen where ComfyUI's does not, and a subject followed alone is lost within a few frames by both
+verdict: with the same weights, ComfyUI's port tokenizes as Meta's code does, its trunk agrees with Meta's on an equal input to within a measured bf16 floor, and its detector agrees on what it is confident about; it departs in two places before the model, the range of the image its nodes hand over and the activation its text encoder runs; from the same starting masks on one dense window, read against a one-level change of the input, Meta's tracker keeps more plausible masks than ComfyUI's at sixteen subjects and holds a second group of sixteen where ComfyUI's does not, and a subject followed alone is lost within a few frames by both (the largest person on that window, a figure cut by two edges of the frame; corrected 2026-10-07, see the body)
 
 **What was asked.** The owner, 2026-10-07: whether ComfyUI's native SAM 3.1
 is correct, "down to the tokenizer", traced end to end. ComfyUI's port
@@ -24,9 +24,13 @@ precision. Outside the server, the card otherwise idle. **Every model
 rung here ran on the card** (CUDA; only the tokens rung is on the CPU). That
 matters: another session found on 2026-10-07 that the same unmodified
 ComfyUI gives materially different detections for descriptive phrases in a
-CPU process and on the card at the same float32, with neither side known to
-be the right one, so nothing in this record says anything about ComfyUI's
-SAM 3.1 run on a CPU. Every number is in
+CPU process and on the card at the same float32, so nothing in this record
+says anything about ComfyUI's SAM 3.1 run on a CPU. (Corrected the same
+day: this said neither side was known to be the right one. The cause is
+known: a CPU process uses an attention function that does not hide a
+phrase's padding, and the card's path is the right one;
+[`docs/wiki/sam3_prompting.md`](../../docs/wiki/sam3_prompting.md) has the
+code and the flag.) Every number is in
 [`2026-10-07_sam3_core_against_meta.json`](2026-10-07_sam3_core_against_meta.json)
 and every table below is printed from it by the tool's `render`; where a
 sentence and the file disagree the file is right.
@@ -326,7 +330,12 @@ Each line says how it is known.
 - **Trackers, there and back, with a floor** (measured, one dense window,
   seeds from a corrected detect, each arm also run nudged): a subject
   followed alone is lost within a few frames by ComfyUI and by Meta's
-  tracker, and so are two together; at sixteen, Meta's tracker keeps a
+  tracker, and so are two together (CORRECTED 2026-10-07, afternoon: "a
+  subject" here is the largest person on the seed frame, who on this
+  window is cut by the left and bottom edges of the frame; the most
+  central person on the same window is held alone on every frame,
+  [`2026-10-07_subject_alone_or_in_a_group.md`](2026-10-07_subject_alone_or_in_a_group.md);
+  the sentence stands for the edge-cut figure only); at sixteen, Meta's tracker keeps a
   plausible mask on nearly every subject-frame and ComfyUI's on about six
   in seven, a difference ten times the floor; at thirty-two, Meta's ends
   the forward pass with all of them and ComfyUI's with about half, in both

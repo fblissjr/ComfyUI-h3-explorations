@@ -1,0 +1,5743 @@
+{
+ "environment": {
+  "torch": "2.14.1+cu132",
+  "core_commit": "b00c6e952",
+  "tf32": {
+   "matmul": false,
+   "cudnn": true
+  }
+ },
+ "frames": {
+  "clip": "lotsofpeopledance_0414_0720.mkv",
+  "second": 138.0,
+  "count": 144,
+  "rate": 24.0,
+  "size": [
+   1344,
+   760
+  ]
+ },
+ "sam": "as ComfyUI ships it",
+ "settings": {
+  "subject_phrase": "person",
+  "pick": "largest",
+  "pick_on": "automatic",
+  "match": "automatic",
+  "cuts": "automatic",
+  "detection_threshold": 0.5,
+  "max_people": 16,
+  "head_phrase": "head",
+  "corrections": ""
+ },
+ "device": "cuda:0",
+ "lines": {
+  "REGAIN_SAME": 0.88,
+  "REGAIN_MARGIN": 0.03
+ },
+ "crop_times": 3.0,
+ "centre_share": 0.5,
+ "runs": {
+  "as fed": {
+   "cuts": [],
+   "pick_frame": 4,
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.306,
+    0.633,
+    0.417,
+    0.913
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 124,
+    "plausible": 122,
+    "taken_again_at": [
+     23,
+     83,
+     92,
+     141
+    ],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.365,
+      0.756
+     ],
+     "12": [
+      0.362,
+      0.76
+     ],
+     "24": [
+      0.885,
+      0.761
+     ],
+     "36": [
+      0.893,
+      0.827
+     ],
+     "48": [
+      0.899,
+      0.77
+     ],
+     "60": [
+      0.908,
+      0.766
+     ],
+     "72": [
+      0.457,
+      0.809
+     ],
+     "84": [
+      0.458,
+      0.806
+     ],
+     "96": [
+      0.34,
+      0.796
+     ],
+     "108": null,
+     "120": null,
+     "132": [
+      0.469,
+      0.798
+     ]
+    }
+   },
+   "looks": [
+    {
+     "shot": 1,
+     "frame": 23,
+     "the_node_then": {
+      "best": 0.9632,
+      "next": 0.8737
+     },
+     "last_box": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_run_searched_began_at": 23,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 23,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 1,
+       "best": 0.9632,
+       "next": 0.8737,
+       "lead": 0.0895,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.944,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.519
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9632,
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.904,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9632,
+       "next": 0.8748,
+       "lead": 0.0885,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.944,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.519
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9632,
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.904,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9632,
+       "next": 0.8748,
+       "lead": 0.0885,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.944,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.519
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9632,
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.904,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9632,
+       "next": 0.8748,
+       "lead": 0.0885,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.944,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.519
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.519
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9632,
+         "box": [
+          0.816,
+          0.588,
+          0.944,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.904,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 14,
+       "over_the_line": 1,
+       "best": 0.9601,
+       "next": 0.8737,
+       "lead": 0.0865,
+       "todays_rule_takes": {
+        "box": [
+         0.815,
+         0.589,
+         0.939,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.95,
+        "centre_from_the_picks_centre": 0.516
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.815,
+          0.589,
+          0.939,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.95,
+         "centre_from_the_picks_centre": 0.516
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.815,
+          0.589,
+          0.939,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.95,
+         "centre_from_the_picks_centre": 0.516
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.03,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9601,
+         "box": [
+          0.815,
+          0.589,
+          0.939,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.888,
+         "diagonals_from_it": 0.03
+        }
+       ],
+       "crop": [
+        918,
+        215,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8227,
+       "next": 0.8142,
+       "lead": 0.0085,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 71,
+     "the_node_then": {
+      "best": 0.8675,
+      "next": 0.8553
+     },
+     "last_box": [
+      0.852,
+      0.732,
+      0.982,
+      0.98
+     ],
+     "the_run_searched_began_at": 71,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 71,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8675,
+       "next": 0.8553,
+       "lead": 0.0122,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 2,
+       "best": 0.899,
+       "next": 0.8948,
+       "lead": 0.0042,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.658,
+         2.062
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.212,
+         1.527
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.899,
+         "box": [
+          0.28,
+          0.633,
+          0.402,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.527
+        },
+        {
+         "likeness": 0.8948,
+         "box": [
+          0.39,
+          0.659,
+          0.516,
+          0.975
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.212
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 42,
+       "over_the_line": 2,
+       "best": 0.899,
+       "next": 0.8948,
+       "lead": 0.0042,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.658,
+         2.062
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.212,
+         1.527
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.899,
+         "box": [
+          0.28,
+          0.633,
+          0.402,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.527
+        },
+        {
+         "likeness": 0.8948,
+         "box": [
+          0.39,
+          0.659,
+          0.516,
+          0.975
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.212
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 42,
+       "over_the_line": 2,
+       "best": 0.899,
+       "next": 0.8948,
+       "lead": 0.0042,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.658,
+         2.062
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.212,
+         1.527
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.899,
+         "box": [
+          0.28,
+          0.633,
+          0.402,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.527
+        },
+        {
+         "likeness": 0.8948,
+         "box": [
+          0.39,
+          0.659,
+          0.516,
+          0.975
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.212
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 11,
+       "over_the_line": 0,
+       "best": 0.8375,
+       "next": 0.8275,
+       "lead": 0.01,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        970,
+        367,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8375,
+       "next": 0.7954,
+       "lead": 0.0421,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 83,
+     "the_node_then": {
+      "best": 0.9244,
+      "next": 0.8791
+     },
+     "last_box": [
+      0.852,
+      0.732,
+      0.982,
+      0.98
+     ],
+     "the_run_searched_began_at": 71,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 83,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 1,
+       "best": 0.9244,
+       "next": 0.8791,
+       "lead": 0.0452,
+       "todays_rule_takes": {
+        "box": [
+         0.394,
+         0.657,
+         0.514,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.975,
+        "centre_from_the_picks_centre": 0.103
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.975,
+         "centre_from_the_picks_centre": 0.103
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.21,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9244,
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.21
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9244,
+       "next": 0.8791,
+       "lead": 0.0452,
+       "todays_rule_takes": {
+        "box": [
+         0.394,
+         0.657,
+         0.514,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.975,
+        "centre_from_the_picks_centre": 0.103
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.975,
+         "centre_from_the_picks_centre": 0.103
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.21,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9244,
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.21
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 44,
+       "over_the_line": 1,
+       "best": 0.9244,
+       "next": 0.8791,
+       "lead": 0.0452,
+       "todays_rule_takes": {
+        "box": [
+         0.394,
+         0.657,
+         0.514,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.975,
+        "centre_from_the_picks_centre": 0.103
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.975,
+         "centre_from_the_picks_centre": 0.103
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.21,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9244,
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.21
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 44,
+       "over_the_line": 1,
+       "best": 0.9244,
+       "next": 0.8791,
+       "lead": 0.0452,
+       "todays_rule_takes": {
+        "box": [
+         0.394,
+         0.657,
+         0.514,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.975,
+        "centre_from_the_picks_centre": 0.103
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.975,
+         "centre_from_the_picks_centre": 0.103
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.21,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9244,
+         "box": [
+          0.394,
+          0.657,
+          0.514,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.21
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8559,
+       "next": 0.8501,
+       "lead": 0.0058,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        970,
+        367,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8309,
+       "next": 0.8122,
+       "lead": 0.0187,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 92,
+     "the_node_then": {
+      "best": 0.9227,
+      "next": 0.8923
+     },
+     "last_box": [
+      0.401,
+      0.708,
+      0.518,
+      0.98
+     ],
+     "the_run_searched_began_at": 92,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 92,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 2,
+       "best": 0.9227,
+       "next": 0.8923,
+       "lead": 0.0305,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.68,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.994,
+        "centre_from_the_picks_centre": 0.063
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.994,
+         "centre_from_the_picks_centre": 0.063
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.547,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9227,
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.547
+        },
+        {
+         "likeness": 0.8923,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 2,
+       "best": 0.9227,
+       "next": 0.8923,
+       "lead": 0.0305,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.68,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.994,
+        "centre_from_the_picks_centre": 0.063
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.994,
+         "centre_from_the_picks_centre": 0.063
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.547,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9227,
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.547
+        },
+        {
+         "likeness": 0.8923,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 41,
+       "over_the_line": 2,
+       "best": 0.9227,
+       "next": 0.8923,
+       "lead": 0.0305,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.68,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.994,
+        "centre_from_the_picks_centre": 0.063
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.994,
+         "centre_from_the_picks_centre": 0.063
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.547,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9227,
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.547
+        },
+        {
+         "likeness": 0.8923,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 41,
+       "over_the_line": 2,
+       "best": 0.9227,
+       "next": 0.8923,
+       "lead": 0.0305,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.68,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.994,
+        "centre_from_the_picks_centre": 0.063
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.994,
+         "centre_from_the_picks_centre": 0.063
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.547,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9227,
+         "box": [
+          0.272,
+          0.68,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.547
+        },
+        {
+         "likeness": 0.8923,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 9,
+       "over_the_line": 1,
+       "best": 0.8925,
+       "next": 0.8407,
+       "lead": 0.0519,
+       "todays_rule_takes": {
+        "box": [
+         0.401,
+         0.692,
+         0.517,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.0,
+        "centre_from_the_picks_centre": 0.116
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.401,
+          0.692,
+          0.517,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.116
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.202,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8925,
+         "box": [
+          0.401,
+          0.692,
+          0.517,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.202
+        }
+       ],
+       "crop": [
+        381,
+        331,
+        853,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 9,
+       "over_the_line": 0,
+       "best": 0.8251,
+       "next": 0.7782,
+       "lead": 0.0469,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 105,
+     "the_node_then": {
+      "best": 0.8974,
+      "next": 0.8885
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 125,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.8974,
+       "next": 0.8885,
+       "lead": 0.0089,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.583
+        },
+        "distances_in_diagonals": [
+         0.062,
+         0.397,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.153,
+         0.195,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8974,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.272,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.967
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.385,
+         "diagonals_from_it": 0.153
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 4,
+       "best": 0.8982,
+       "next": 0.8974,
+       "lead": 0.0008,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.583
+        },
+        "distances_in_diagonals": [
+         0.062,
+         0.397,
+         1.972,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.153,
+         0.195,
+         1.529,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8982,
+         "box": [
+          0.277,
+          0.562,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.529
+        },
+        {
+         "likeness": 0.8974,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.272,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.967
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.385,
+         "diagonals_from_it": 0.153
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 40,
+       "over_the_line": 4,
+       "best": 0.8982,
+       "next": 0.8974,
+       "lead": 0.0008,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.583
+        },
+        "distances_in_diagonals": [
+         0.062,
+         0.397,
+         1.972,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.153,
+         0.195,
+         1.529,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8982,
+         "box": [
+          0.277,
+          0.562,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.529
+        },
+        {
+         "likeness": 0.8974,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.272,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.967
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.385,
+         "diagonals_from_it": 0.153
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 40,
+       "over_the_line": 4,
+       "best": 0.8982,
+       "next": 0.8974,
+       "lead": 0.0008,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.583
+        },
+        "distances_in_diagonals": [
+         0.062,
+         0.397,
+         1.972,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.153,
+         0.195,
+         1.529,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8982,
+         "box": [
+          0.277,
+          0.562,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.529
+        },
+        {
+         "likeness": 0.8974,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.272,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.967
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.385,
+         "diagonals_from_it": 0.153
+        },
+        {
+         "likeness": 0.8885,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 7,
+       "over_the_line": 2,
+       "best": 0.9031,
+       "next": 0.8877,
+       "lead": 0.0153,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.972
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.583
+        },
+        "distances_in_diagonals": [
+         0.056,
+         0.373
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.138,
+         0.197
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9031,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.27,
+         "diagonals_from_it": 0.197
+        },
+        {
+         "likeness": 0.8877,
+         "box": [
+          0.786,
+          0.614,
+          0.88,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.398,
+         "diagonals_from_it": 0.138
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8268,
+       "next": 0.8119,
+       "lead": 0.015,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 117,
+     "the_node_then": {
+      "best": 0.8754,
+      "next": 0.8731
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 125,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8754,
+       "next": 0.8731,
+       "lead": 0.0022,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.8846,
+       "next": 0.8769,
+       "lead": 0.0078,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.994
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.549
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8846,
+         "box": [
+          0.27,
+          0.566,
+          0.394,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.549
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 54,
+       "over_the_line": 1,
+       "best": 0.8846,
+       "next": 0.8769,
+       "lead": 0.0078,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.994
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.549
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8846,
+         "box": [
+          0.27,
+          0.566,
+          0.394,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.549
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 54,
+       "over_the_line": 1,
+       "best": 0.8846,
+       "next": 0.8769,
+       "lead": 0.0078,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.994
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.549
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8846,
+         "box": [
+          0.27,
+          0.566,
+          0.394,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.549
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 12,
+       "over_the_line": 1,
+       "best": 0.8816,
+       "next": 0.8577,
+       "lead": 0.024,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.476
+        },
+        "distances_in_diagonals": [
+         0.358
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.476
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.131
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8816,
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.438,
+         "diagonals_from_it": 0.131
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8518,
+       "next": 0.8258,
+       "lead": 0.026,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 129,
+     "the_node_then": {
+      "best": 0.8967,
+      "next": 0.8875
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 129,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.8967,
+       "next": 0.8875,
+       "lead": 0.0092,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "distances_in_diagonals": [
+         0.367,
+         1.183,
+         1.554
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.121,
+         0.837,
+         1.169
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8967,
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.439,
+         "diagonals_from_it": 0.121
+        },
+        {
+         "likeness": 0.8875,
+         "box": [
+          0.41,
+          0.634,
+          0.524,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.169
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.531,
+          0.576,
+          0.636,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.837
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 4,
+       "best": 0.9049,
+       "next": 0.8967,
+       "lead": 0.0082,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "distances_in_diagonals": [
+         0.367,
+         1.183,
+         1.554,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.121,
+         0.837,
+         1.169,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9049,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.8967,
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.439,
+         "diagonals_from_it": 0.121
+        },
+        {
+         "likeness": 0.8875,
+         "box": [
+          0.41,
+          0.634,
+          0.524,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.169
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.531,
+          0.576,
+          0.636,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.837
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 44,
+       "over_the_line": 5,
+       "best": 0.9123,
+       "next": 0.9049,
+       "lead": 0.0074,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "distances_in_diagonals": [
+         0.367,
+         1.183,
+         1.554,
+         1.999,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.121,
+         0.837,
+         1.169,
+         1.554,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9123,
+         "box": [
+          0.268,
+          0.584,
+          0.393,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        },
+        {
+         "likeness": 0.9049,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.8967,
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.439,
+         "diagonals_from_it": 0.121
+        },
+        {
+         "likeness": 0.8875,
+         "box": [
+          0.41,
+          0.634,
+          0.524,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.169
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.531,
+          0.576,
+          0.636,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.837
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 44,
+       "over_the_line": 5,
+       "best": 0.9123,
+       "next": 0.9049,
+       "lead": 0.0074,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "distances_in_diagonals": [
+         0.367,
+         1.183,
+         1.554,
+         1.999,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.121,
+         0.837,
+         1.169,
+         1.554,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9123,
+         "box": [
+          0.268,
+          0.584,
+          0.393,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        },
+        {
+         "likeness": 0.9049,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.8967,
+         "box": [
+          0.779,
+          0.592,
+          0.894,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.439,
+         "diagonals_from_it": 0.121
+        },
+        {
+         "likeness": 0.8875,
+         "box": [
+          0.41,
+          0.634,
+          0.524,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.169
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.531,
+          0.576,
+          0.636,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.837
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 10,
+       "over_the_line": 1,
+       "best": 0.8959,
+       "next": 0.8522,
+       "lead": 0.0437,
+       "todays_rule_takes": {
+        "box": [
+         0.786,
+         0.593,
+         0.894,
+         0.979
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.0,
+        "centre_from_the_picks_centre": 0.479
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.479
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.479
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.113,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8959,
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.458,
+         "diagonals_from_it": 0.113
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8304,
+       "next": 0.8212,
+       "lead": 0.0093,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 141,
+     "the_node_then": {
+      "best": 0.9308,
+      "next": 0.8975
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 141,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.9308,
+       "next": 0.8975,
+       "lead": 0.0333,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.099
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.099
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9308,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8975,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.887,
+         "box": [
+          0.516,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.857
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 3,
+       "best": 0.9308,
+       "next": 0.8975,
+       "lead": 0.0333,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.099
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.099
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9308,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8975,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.887,
+         "box": [
+          0.516,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.857
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 54,
+       "over_the_line": 3,
+       "best": 0.9308,
+       "next": 0.8975,
+       "lead": 0.0333,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.099
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.099
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9308,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8975,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.887,
+         "box": [
+          0.516,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.857
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 54,
+       "over_the_line": 3,
+       "best": 0.9308,
+       "next": 0.8975,
+       "lead": 0.0333,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.099
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.099
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9308,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8975,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.887,
+         "box": [
+          0.516,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.857
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 12,
+       "over_the_line": 1,
+       "best": 0.8808,
+       "next": 0.8592,
+       "lead": 0.0217,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.558,
+          0.885,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.474
+        },
+        "distances_in_diagonals": [
+         0.387
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.558,
+          0.885,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.474
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.123
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8808,
+         "box": [
+          0.786,
+          0.558,
+          0.885,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.387,
+         "diagonals_from_it": 0.123
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.82,
+       "next": 0.806,
+       "lead": 0.0139,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    }
+   ]
+  },
+  "nudged": {
+   "cuts": [],
+   "pick_frame": 4,
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.306,
+    0.633,
+    0.425,
+    0.913
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 123,
+    "plausible": 121,
+    "taken_again_at": [
+     23,
+     92,
+     141
+    ],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.367,
+      0.755
+     ],
+     "12": [
+      0.303,
+      0.76
+     ],
+     "24": [
+      0.885,
+      0.761
+     ],
+     "36": [
+      0.893,
+      0.827
+     ],
+     "48": [
+      0.899,
+      0.77
+     ],
+     "60": [
+      0.908,
+      0.766
+     ],
+     "72": [
+      0.341,
+      0.791
+     ],
+     "84": [
+      0.34,
+      0.799
+     ],
+     "96": [
+      0.339,
+      0.796
+     ],
+     "108": null,
+     "120": null,
+     "132": [
+      0.469,
+      0.797
+     ]
+    }
+   },
+   "looks": [
+    {
+     "shot": 1,
+     "frame": 23,
+     "the_node_then": {
+      "best": 0.9641,
+      "next": 0.8752
+     },
+     "last_box": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_run_searched_began_at": 23,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 23,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 1,
+       "best": 0.9641,
+       "next": 0.8752,
+       "lead": 0.0889,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.943,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.515
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9641,
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.909,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9641,
+       "next": 0.8752,
+       "lead": 0.0889,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.943,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.515
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9641,
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.909,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 36,
+       "over_the_line": 1,
+       "best": 0.9641,
+       "next": 0.8752,
+       "lead": 0.0889,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.943,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.515
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9641,
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.909,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 36,
+       "over_the_line": 1,
+       "best": 0.9641,
+       "next": 0.8752,
+       "lead": 0.0889,
+       "todays_rule_takes": {
+        "box": [
+         0.816,
+         0.588,
+         0.943,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.515
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.515
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.032,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9641,
+         "box": [
+          0.816,
+          0.588,
+          0.943,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.909,
+         "diagonals_from_it": 0.032
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 14,
+       "over_the_line": 1,
+       "best": 0.9608,
+       "next": 0.8753,
+       "lead": 0.0855,
+       "todays_rule_takes": {
+        "box": [
+         0.815,
+         0.589,
+         0.938,
+         0.941
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.944,
+        "centre_from_the_picks_centre": 0.511
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.815,
+          0.589,
+          0.938,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.944,
+         "centre_from_the_picks_centre": 0.511
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.815,
+          0.589,
+          0.938,
+          0.941
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.944,
+         "centre_from_the_picks_centre": 0.511
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.03,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9608,
+         "box": [
+          0.815,
+          0.589,
+          0.938,
+          0.941
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.878,
+         "diagonals_from_it": 0.03
+        }
+       ],
+       "crop": [
+        918,
+        215,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8238,
+       "next": 0.8064,
+       "lead": 0.0174,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 68,
+     "the_node_then": {
+      "best": 0.8898,
+      "next": 0.8741
+     },
+     "last_box": [
+      0.848,
+      0.732,
+      0.981,
+      0.979
+     ],
+     "the_run_searched_began_at": 68,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 68,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 1,
+       "best": 0.8898,
+       "next": 0.8741,
+       "lead": 0.0156,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.225
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.218
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.895
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8898,
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.895
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.8898,
+       "next": 0.8768,
+       "lead": 0.0129,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.225
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.218
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.895
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8898,
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.895
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 47,
+       "over_the_line": 2,
+       "best": 0.8958,
+       "next": 0.8898,
+       "lead": 0.0061,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.225,
+         2.862
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.218
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.895,
+         2.178
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8958,
+         "box": [
+          0.053,
+          0.668,
+          0.17,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 2.178
+        },
+        {
+         "likeness": 0.8898,
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.895
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 47,
+       "over_the_line": 2,
+       "best": 0.8958,
+       "next": 0.8898,
+       "lead": 0.0061,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.225,
+         2.862
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.218
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.895,
+         2.178
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8958,
+         "box": [
+          0.053,
+          0.668,
+          0.17,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 2.178
+        },
+        {
+         "likeness": 0.8898,
+         "box": [
+          0.516,
+          0.718,
+          0.626,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.895
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 10,
+       "over_the_line": 0,
+       "best": 0.8221,
+       "next": 0.8191,
+       "lead": 0.003,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        961,
+        368,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8235,
+       "next": 0.8227,
+       "lead": 0.0008,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 80,
+     "the_node_then": {
+      "best": 0.8704,
+      "next": 0.869
+     },
+     "last_box": [
+      0.848,
+      0.732,
+      0.981,
+      0.979
+     ],
+     "the_run_searched_began_at": 68,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 80,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8704,
+       "next": 0.869,
+       "lead": 0.0013,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9202,
+       "next": 0.8704,
+       "lead": 0.0498,
+       "todays_rule_takes": {
+        "box": [
+         0.264,
+         0.684,
+         0.403,
+         0.979
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.879,
+        "centre_from_the_picks_centre": 0.067
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.879,
+         "centre_from_the_picks_centre": 0.067
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.554,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9202,
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 45,
+       "over_the_line": 1,
+       "best": 0.9202,
+       "next": 0.8704,
+       "lead": 0.0498,
+       "todays_rule_takes": {
+        "box": [
+         0.264,
+         0.684,
+         0.403,
+         0.979
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.879,
+        "centre_from_the_picks_centre": 0.067
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.879,
+         "centre_from_the_picks_centre": 0.067
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.554,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9202,
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 45,
+       "over_the_line": 1,
+       "best": 0.9202,
+       "next": 0.8704,
+       "lead": 0.0498,
+       "todays_rule_takes": {
+        "box": [
+         0.264,
+         0.684,
+         0.403,
+         0.979
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.879,
+        "centre_from_the_picks_centre": 0.067
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.879,
+         "centre_from_the_picks_centre": 0.067
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.554,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9202,
+         "box": [
+          0.264,
+          0.684,
+          0.403,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 11,
+       "over_the_line": 0,
+       "best": 0.8545,
+       "next": 0.8335,
+       "lead": 0.021,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        961,
+        368,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8322,
+       "next": 0.8156,
+       "lead": 0.0166,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 92,
+     "the_node_then": {
+      "best": 0.9197,
+      "next": 0.8573
+     },
+     "last_box": [
+      0.848,
+      0.732,
+      0.981,
+      0.979
+     ],
+     "the_run_searched_began_at": 68,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 92,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 1,
+       "best": 0.9197,
+       "next": 0.8573,
+       "lead": 0.0624,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.707,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.077
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.077
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.553,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9197,
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.553
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 1,
+       "best": 0.9197,
+       "next": 0.8573,
+       "lead": 0.0624,
+       "todays_rule_takes": {
+        "box": [
+         0.272,
+         0.707,
+         0.399,
+         0.98
+        ],
+        "box_overlap_with_the_tracks_next_mask": 1.0,
+        "centre_from_the_picks_centre": 0.077
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_tracks_next_mask": 1.0,
+         "centre_from_the_picks_centre": 0.077
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.553,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9197,
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.553
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 40,
+       "over_the_line": 3,
+       "best": 0.9197,
+       "next": 0.8926,
+       "lead": 0.0271,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         2.064,
+         2.48
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.553,
+         1.885
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9197,
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.553
+        },
+        {
+         "likeness": 0.8926,
+         "box": [
+          0.164,
+          0.718,
+          0.272,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.885
+        },
+        {
+         "likeness": 0.8881,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 40,
+       "over_the_line": 3,
+       "best": 0.9197,
+       "next": 0.8926,
+       "lead": 0.0271,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         2.064,
+         2.48
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.553,
+         1.885
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9197,
+         "box": [
+          0.272,
+          0.707,
+          0.399,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.553
+        },
+        {
+         "likeness": 0.8926,
+         "box": [
+          0.164,
+          0.718,
+          0.272,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.885
+        },
+        {
+         "likeness": 0.8881,
+         "box": [
+          0.402,
+          0.692,
+          0.518,
+          0.98
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.199
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 9,
+       "over_the_line": 0,
+       "best": 0.855,
+       "next": 0.853,
+       "lead": 0.0019,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        961,
+        368,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 9,
+       "over_the_line": 0,
+       "best": 0.8273,
+       "next": 0.7789,
+       "lead": 0.0484,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 105,
+     "the_node_then": {
+      "best": 0.8927,
+      "next": 0.8901
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 126,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.8927,
+       "next": 0.8901,
+       "lead": 0.0026,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.58
+        },
+        "distances_in_diagonals": [
+         0.06,
+         0.395,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.155,
+         0.195,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8927,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.271,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8901,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.381,
+         "diagonals_from_it": 0.155
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 4,
+       "best": 0.8927,
+       "next": 0.8901,
+       "lead": 0.0026,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.58
+        },
+        "distances_in_diagonals": [
+         0.06,
+         0.395,
+         1.976,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.155,
+         0.195,
+         1.53,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8927,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.271,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8901,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.381,
+         "diagonals_from_it": 0.155
+        },
+        {
+         "likeness": 0.8832,
+         "box": [
+          0.278,
+          0.521,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.53
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 39,
+       "over_the_line": 4,
+       "best": 0.8927,
+       "next": 0.8901,
+       "lead": 0.0026,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.58
+        },
+        "distances_in_diagonals": [
+         0.06,
+         0.395,
+         1.976,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.155,
+         0.195,
+         1.53,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8927,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.271,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8901,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.381,
+         "diagonals_from_it": 0.155
+        },
+        {
+         "likeness": 0.8832,
+         "box": [
+          0.278,
+          0.521,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.53
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 39,
+       "over_the_line": 4,
+       "best": 0.8927,
+       "next": 0.8901,
+       "lead": 0.0026,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.58
+        },
+        "distances_in_diagonals": [
+         0.06,
+         0.395,
+         1.976,
+         2.367
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.155,
+         0.195,
+         1.53,
+         1.876
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8927,
+         "box": [
+          0.889,
+          0.62,
+          1.0,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.271,
+         "diagonals_from_it": 0.195
+        },
+        {
+         "likeness": 0.8901,
+         "box": [
+          0.164,
+          0.57,
+          0.27,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.876
+        },
+        {
+         "likeness": 0.8849,
+         "box": [
+          0.768,
+          0.612,
+          0.885,
+          0.972
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.381,
+         "diagonals_from_it": 0.155
+        },
+        {
+         "likeness": 0.8832,
+         "box": [
+          0.278,
+          0.521,
+          0.402,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.53
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 9,
+       "over_the_line": 2,
+       "best": 0.8981,
+       "next": 0.8848,
+       "lead": 0.0133,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.888,
+          0.62,
+          1.0,
+          0.974
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.579
+        },
+        "distances_in_diagonals": [
+         0.054,
+         0.373
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.138,
+         0.196
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8981,
+         "box": [
+          0.888,
+          0.62,
+          1.0,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.273,
+         "diagonals_from_it": 0.196
+        },
+        {
+         "likeness": 0.8848,
+         "box": [
+          0.786,
+          0.613,
+          0.88,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.398,
+         "diagonals_from_it": 0.138
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8301,
+       "next": 0.8172,
+       "lead": 0.0129,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 117,
+     "the_node_then": {
+      "best": 0.8768,
+      "next": 0.8691
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 126,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8768,
+       "next": 0.8691,
+       "lead": 0.0077,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 0,
+       "best": 0.8796,
+       "next": 0.8768,
+       "lead": 0.0029,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "64, the frame": {
+       "detections": 54,
+       "over_the_line": 0,
+       "best": 0.8796,
+       "next": 0.8768,
+       "lead": 0.0029,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "64 people, 16 heads": {
+       "detections": 54,
+       "over_the_line": 0,
+       "best": 0.8796,
+       "next": 0.8768,
+       "lead": 0.0029,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": []
+      },
+      "16, a crop": {
+       "detections": 12,
+       "over_the_line": 1,
+       "best": 0.8814,
+       "next": 0.8613,
+       "lead": 0.0201,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "distances_in_diagonals": [
+         0.358
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.131
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.8814,
+         "box": [
+          0.786,
+          0.617,
+          0.888,
+          0.976
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.438,
+         "diagonals_from_it": 0.131
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8509,
+       "next": 0.8225,
+       "lead": 0.0285,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 129,
+     "the_node_then": {
+      "best": 0.9023,
+      "next": 0.8878
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 129,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.9023,
+       "next": 0.8878,
+       "lead": 0.0145,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "distances_in_diagonals": [
+         0.365,
+         1.181,
+         1.553
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.119,
+         0.836,
+         1.168
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9023,
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.446,
+         "diagonals_from_it": 0.119
+        },
+        {
+         "likeness": 0.8878,
+         "box": [
+          0.41,
+          0.633,
+          0.525,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.168
+        },
+        {
+         "likeness": 0.8855,
+         "box": [
+          0.531,
+          0.578,
+          0.637,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.836
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 4,
+       "best": 0.9058,
+       "next": 0.9023,
+       "lead": 0.0035,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "distances_in_diagonals": [
+         0.365,
+         1.181,
+         1.553,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.119,
+         0.836,
+         1.168,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9058,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.9023,
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.446,
+         "diagonals_from_it": 0.119
+        },
+        {
+         "likeness": 0.8878,
+         "box": [
+          0.41,
+          0.633,
+          0.525,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.168
+        },
+        {
+         "likeness": 0.8855,
+         "box": [
+          0.531,
+          0.578,
+          0.637,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.836
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 44,
+       "over_the_line": 5,
+       "best": 0.9124,
+       "next": 0.9058,
+       "lead": 0.0067,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "distances_in_diagonals": [
+         0.365,
+         1.181,
+         1.553,
+         1.999,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.119,
+         0.836,
+         1.168,
+         1.554,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9124,
+         "box": [
+          0.268,
+          0.584,
+          0.393,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        },
+        {
+         "likeness": 0.9058,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.9023,
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.446,
+         "diagonals_from_it": 0.119
+        },
+        {
+         "likeness": 0.8878,
+         "box": [
+          0.41,
+          0.633,
+          0.525,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.168
+        },
+        {
+         "likeness": 0.8855,
+         "box": [
+          0.531,
+          0.578,
+          0.637,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.836
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 44,
+       "over_the_line": 5,
+       "best": 0.9124,
+       "next": 0.9058,
+       "lead": 0.0067,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "distances_in_diagonals": [
+         0.365,
+         1.181,
+         1.553,
+         1.999,
+         2.423
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "the nearest of those too close to call",
+        "takes": {
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.472
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         0.119,
+         0.836,
+         1.168,
+         1.554,
+         1.925
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9124,
+         "box": [
+          0.268,
+          0.584,
+          0.393,
+          0.968
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.554
+        },
+        {
+         "likeness": 0.9058,
+         "box": [
+          0.147,
+          0.57,
+          0.252,
+          0.971
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.925
+        },
+        {
+         "likeness": 0.9023,
+         "box": [
+          0.779,
+          0.592,
+          0.896,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.446,
+         "diagonals_from_it": 0.119
+        },
+        {
+         "likeness": 0.8878,
+         "box": [
+          0.41,
+          0.633,
+          0.525,
+          0.97
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.168
+        },
+        {
+         "likeness": 0.8855,
+         "box": [
+          0.531,
+          0.578,
+          0.637,
+          0.974
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.836
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 10,
+       "over_the_line": 1,
+       "best": 0.9016,
+       "next": 0.8507,
+       "lead": 0.051,
+       "todays_rule_takes": {
+        "box": [
+         0.786,
+         0.593,
+         0.894,
+         0.979
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.0,
+        "centre_from_the_picks_centre": 0.475
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.0,
+         "centre_from_the_picks_centre": 0.475
+        },
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 0.113,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9016,
+         "box": [
+          0.786,
+          0.593,
+          0.894,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.458,
+         "diagonals_from_it": 0.113
+        }
+       ],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.823,
+       "next": 0.82,
+       "lead": 0.003,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    },
+    {
+     "shot": 1,
+     "frame": 141,
+     "the_node_then": {
+      "best": 0.9315,
+      "next": 0.8968
+     },
+     "last_box": [
+      0.893,
+      0.668,
+      1.0,
+      0.958
+     ],
+     "the_run_searched_began_at": 105,
+     "the_place_before_the_first_loss": [
+      0.813,
+      0.612,
+      0.943,
+      0.939
+     ],
+     "the_tracks_next_mask_is_at": 141,
+     "ways": {
+      "16, the frame": {
+       "detections": 16,
+       "over_the_line": 3,
+       "best": 0.9315,
+       "next": 0.8968,
+       "lead": 0.0347,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.997,
+        "centre_from_the_picks_centre": 0.096
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.997,
+         "centre_from_the_picks_centre": 0.096
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9315,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8968,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.8851,
+         "box": [
+          0.518,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.855
+        }
+       ]
+      },
+      "32, the frame": {
+       "detections": 32,
+       "over_the_line": 3,
+       "best": 0.9315,
+       "next": 0.8968,
+       "lead": 0.0347,
+       "todays_rule_takes": {
+        "box": [
+         0.408,
+         0.566,
+         0.514,
+         0.978
+        ],
+        "box_overlap_with_the_tracks_next_mask": 0.997,
+        "centre_from_the_picks_centre": 0.096
+       },
+       "take_back": {
+        "reason": "a clear leader",
+        "takes": {
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_tracks_next_mask": 0.997,
+         "centre_from_the_picks_centre": 0.096
+        },
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "a clear leader, but not where the subject last was",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": 1.184,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9315,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.8968,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.8851,
+         "box": [
+          0.518,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.855
+        }
+       ]
+      },
+      "64, the frame": {
+       "detections": 53,
+       "over_the_line": 4,
+       "best": 0.9315,
+       "next": 0.9076,
+       "lead": 0.0238,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.579,
+         2.438
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.184,
+         1.94
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9315,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.9076,
+         "box": [
+          0.144,
+          0.588,
+          0.246,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.94
+        },
+        {
+         "likeness": 0.8968,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.8851,
+         "box": [
+          0.518,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.855
+        }
+       ]
+      },
+      "64 people, 16 heads": {
+       "detections": 53,
+       "over_the_line": 4,
+       "best": 0.9315,
+       "next": 0.9076,
+       "lead": 0.0238,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "too close to call",
+        "takes": null,
+        "distances_in_diagonals": [
+         1.579,
+         2.438
+        ]
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "too close to call",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": [
+         1.184,
+         1.94
+        ]
+       },
+       "over_the_line_candidates": [
+        {
+         "likeness": 0.9315,
+         "box": [
+          0.408,
+          0.566,
+          0.514,
+          0.978
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.184
+        },
+        {
+         "likeness": 0.9076,
+         "box": [
+          0.144,
+          0.588,
+          0.246,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 1.94
+        },
+        {
+         "likeness": 0.8968,
+         "box": [
+          0.656,
+          0.566,
+          0.76,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.482
+        },
+        {
+         "likeness": 0.8851,
+         "box": [
+          0.518,
+          0.576,
+          0.636,
+          0.979
+         ],
+         "box_overlap_with_the_place_before_the_first_loss": 0.0,
+         "diagonals_from_it": 0.855
+        }
+       ]
+      },
+      "16, a crop": {
+       "detections": 12,
+       "over_the_line": 0,
+       "best": 0.8786,
+       "next": 0.8551,
+       "lead": 0.0235,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        1056,
+        288,
+        1344,
+        760
+       ]
+      },
+      "16, the centre": {
+       "detections": 16,
+       "over_the_line": 0,
+       "best": 0.8261,
+       "next": 0.8082,
+       "lead": 0.0179,
+       "todays_rule_takes": null,
+       "take_back": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "distances_in_diagonals": null
+       },
+       "take_back_from_the_place_before_the_first_loss": {
+        "reason": "nobody over the line",
+        "takes": null,
+        "a_clear_leader_must_be_near": true,
+        "leader_distance_in_diagonals": null,
+        "distances_in_diagonals": null
+       },
+       "over_the_line_candidates": [],
+       "crop": [
+        336,
+        190,
+        1008,
+        570
+       ]
+      }
+     },
+     "reproduces_the_node": true
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,187 @@
+{
+ "environment": {
+  "torch": "2.14.1+cu132",
+  "core_commit": "b00c6e952",
+  "tf32": {
+   "matmul": false,
+   "cudnn": true
+  }
+ },
+ "frames": {
+  "clip": "lotsofpeopledance_0414_0720.mkv",
+  "second": 138.0,
+  "count": 144,
+  "rate": 24.0,
+  "size": [
+   1344,
+   760
+  ]
+ },
+ "sam": "as ComfyUI ships it",
+ "settings": {
+  "subject_phrase": "person",
+  "pick": "most central",
+  "pick_on": "automatic",
+  "match": "automatic",
+  "cuts": "automatic",
+  "detection_threshold": 0.5,
+  "max_people": 16,
+  "head_phrase": "head",
+  "corrections": ""
+ },
+ "device": "cuda:0",
+ "lines": {
+  "REGAIN_SAME": 0.88,
+  "REGAIN_MARGIN": 0.03
+ },
+ "crop_times": 3.0,
+ "centre_share": 0.5,
+ "runs": {
+  "as fed": {
+   "cuts": [],
+   "pick_frame": 4,
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.458,
+    0.446,
+    0.519,
+    0.679
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 144,
+    "plausible": 144,
+    "taken_again_at": [],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.488,
+      0.547
+     ],
+     "12": [
+      0.487,
+      0.537
+     ],
+     "24": [
+      0.491,
+      0.532
+     ],
+     "36": [
+      0.487,
+      0.574
+     ],
+     "48": [
+      0.485,
+      0.532
+     ],
+     "60": [
+      0.487,
+      0.553
+     ],
+     "72": [
+      0.485,
+      0.635
+     ],
+     "84": [
+      0.482,
+      0.546
+     ],
+     "96": [
+      0.481,
+      0.548
+     ],
+     "108": [
+      0.488,
+      0.525
+     ],
+     "120": [
+      0.485,
+      0.555
+     ],
+     "132": [
+      0.461,
+      0.558
+     ]
+    },
+    "mask_overlap_with_the_frame_before": {
+     "pairs": 143,
+     "least": 0.585,
+     "median": 0.885,
+     "under_a_half": []
+    }
+   },
+   "looks": []
+  },
+  "nudged": {
+   "cuts": [],
+   "pick_frame": 4,
+   "the_picked_subjects_box_on_the_pick_frame": [
+    0.458,
+    0.446,
+    0.519,
+    0.676
+   ],
+   "the_track_handed_back": {
+    "frames": 144,
+    "with_a_mask": 144,
+    "plausible": 144,
+    "taken_again_at": [],
+    "box_centre_every_12_frames": {
+     "0": [
+      0.488,
+      0.547
+     ],
+     "12": [
+      0.487,
+      0.537
+     ],
+     "24": [
+      0.491,
+      0.532
+     ],
+     "36": [
+      0.487,
+      0.575
+     ],
+     "48": [
+      0.486,
+      0.53
+     ],
+     "60": [
+      0.487,
+      0.553
+     ],
+     "72": [
+      0.485,
+      0.635
+     ],
+     "84": [
+      0.482,
+      0.545
+     ],
+     "96": [
+      0.481,
+      0.548
+     ],
+     "108": [
+      0.488,
+      0.525
+     ],
+     "120": [
+      0.485,
+      0.555
+     ],
+     "132": [
+      0.461,
+      0.558
+     ]
+    },
+    "mask_overlap_with_the_frame_before": {
+     "pairs": 143,
+     "least": 0.581,
+     "median": 0.886,
+     "under_a_half": []
+    }
+   },
+   "looks": []
+  }
+ }
+}
