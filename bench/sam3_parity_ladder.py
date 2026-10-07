@@ -23,7 +23,8 @@ not steady, the same arm ending with every person or with a dozen fewer on frame
 brightness levels apart. Read a difference between arms beyond sixteen as noise until it is repeated under such a change. With several people Meta's tracker-only path applies neither of the two rules its full
 pipeline applies between people, and core applies both, so only the one-person arm compares like with like. Core runs in
 float32 with TF32 off in `text`, `trunk` and `detector`, Meta under the bf16 autocast its own code enters; a difference the
-size of float32 against bf16 is this tool's floor, not a finding. Compute precision is a separate question and a separate
+size of float32 against bf16 is read as this tool's floor, which it does not yet measure by itself. Meta's side is its
+list-of-images loading route; its other routes are not compared. Compute precision is a separate question and a separate
 tool's: `bench/sam3_precision_arms.py`.
 
 Every path is an argument. A clip is named in the json by its file name and never by what it shows; `--describing` takes a
@@ -322,7 +323,8 @@ def cmd_trunk(a):
     img = torch.from_numpy(arr.astype(np.float32) / 255.0)[None]                                    # a ComfyUI IMAGE, 0..1
     # what core's detect node hands its model (`comfy_extras/nodes_sam3.py`: a bilinear resize to the side, nothing else)
     x_core = comfy.utils.common_upscale(img.movedim(-1, 1), SIDE, SIDE, "bilinear", crop="disabled")
-    # what Meta's loader hands its model (`meta_sam3/sam3/model/io_utils.py`: a PIL resize to the side, then (x / 255 - 0.5) / 0.5)
+    # what Meta's list-of-images route hands its model (`meta_sam3/sam3/model/io_utils.py`: a PIL resize to the side, then
+    # (x / 255 - 0.5) / 0.5); its other loading routes are not built here
     x_meta = (torch.from_numpy(np.asarray(Image.fromarray(arr).resize((SIDE, SIDE))).astype(np.float32) / 255.0).permute(2, 0, 1)[None] - 0.5) / 0.5
     x_mapped = (x_core - 0.5) / 0.5
     rng = lambda t: [round(float(t.min()), 3), round(float(t.max()), 3)]   # noqa: E731

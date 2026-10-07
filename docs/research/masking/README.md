@@ -30,6 +30,14 @@ that were rendered are `bench/masked_v2v_arms.json` and
 
 ## Notes
 
+- [`2026-10-07_mryolk.md`](2026-10-07_mryolk.md): SAM 3.1 in ComfyUI from input to output, stage by
+  stage, for someone who knows ComfyUI and not SAM: what goes in and comes
+  out of each stage, which file does it, what Meta's code does at the same
+  point, and a verdict for each (same by reading, same by running,
+  different as a choice or as a departure, not established). Its section 7
+  collects what was measured on 2026-10-07 and section 8 what was not.
+  [`2026-10-07_mryolk_stage_table.md`](2026-10-07_mryolk_stage_table.md) is its stage table: one row per
+  stage with the lines on both sides and the tensor to compare.
 - [`2026-10-06_mrsun.md`](2026-10-06_mrsun.md): SAM 3.1's video pipeline as
   Meta built it, frame by frame, with the builder's values; where core's port
   departs (its own shorter session logic, the presence score dropped); which

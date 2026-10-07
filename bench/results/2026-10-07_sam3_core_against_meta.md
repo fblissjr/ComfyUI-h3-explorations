@@ -16,7 +16,10 @@ given an equal input so a difference found lower down does not leak upward.
 Both sides load the one weights file `workflows/h3_config.py::SEGMENTER`
 names. ComfyUI computes in float32 with TF32 off for the text, trunk and
 detector rungs; Meta's code under the bf16 autocast it enters itself, so a
-difference of that size is the floor of this comparison and not a finding.
+difference of that size is read as the floor of this comparison and not as
+a finding. That floor was not measured by itself: ComfyUI's own network at
+float32 against itself at bf16 on the same tensor is the control, and it
+has not been run.
 The tracker rung compares outcomes, not tensors, with ComfyUI at its default
 precision. Outside the server, the card otherwise idle. Every number is in
 [`2026-10-07_sam3_core_against_meta.json`](2026-10-07_sam3_core_against_meta.json)
@@ -153,20 +156,31 @@ Each line says how it is known.
   shipped" columns; with the activation switched in memory to exact GELU
   they agree to the floor. For the one-word phrases the lane ships the
   detections on one frame are the same either way; for a describing phrase
-  the presence score halves.
+  the presence score halves, at a presence Meta's own detection rule (the
+  class score times presence; the precision record's third departure)
+  would reject, so for such a phrase the activation matters only together
+  with that rule.
 - **Image range: departs** (measured at the trunk's input, and read:
-  `comfy_extras/nodes_sam3.py` resizes and does nothing else, Meta's
-  `io_utils.py` maps to -1..1). The patch embedding has no bias on either
+  `comfy_extras/nodes_sam3.py` resizes and does nothing else; Meta's
+  list-of-images route in `io_utils.py`, which is the route these rungs
+  drive, and its image processor map to -1..1; the value mapping of Meta's
+  other loading routes was not compared). The patch embedding has no bias on either
   side and equal weights, so nothing downstream can absorb it. Meta's own
   trunk given ComfyUI's unmapped image is as far from itself as ComfyUI's
   is, and ComfyUI's trunk given the unmapped image matches Meta's given the
   same: the port's arithmetic is right and its input is not.
-- **Trunk: the same on an equal tensor** (measured), to the floor.
+- **Trunk: the same on an equal tensor** (measured), to what is read as
+  the floor.
+- **The resize: departs too, by more than that floor** (measured, one
+  frame; the row "core resize in metas range vs meta"). With the range
+  mapped, ComfyUI's bilinear resize without smoothing against Meta's Pillow
+  resize moves the trunk's features about four times as far as the
+  equal-tensor row. Mapping the range does not correct it.
 - **Detector: the same on what it is confident about** (measured, one
   frame, one phrase). The presence logit agrees to the second decimal, the
   detections both sides keep score within a hundredth and their masks
   coincide; among low-scoring queries neither side keeps, scores and masks
-  wander, as float32 against bf16 would make them.
+  wander, which is read as float32 against bf16.
 - **Tracker, where every run agrees** (measured, one dense window, two seed
   sets, and the earlier run on other frames): the largest person followed
   alone is lost within a few frames in ComfyUI's port and in Meta's tracker
@@ -198,6 +212,13 @@ Each line says how it is known.
 - **The tracker stage by stage**, the detector beyond one frame and one
   phrase, Meta's full session logic (its association, confirmation and
   refresh rules), or any clip but the two named.
+- **That mapping the range and switching the activation make ComfyUI's
+  pipeline Meta's.** They correct those two departures. The resize, the
+  detection rule, the detect node's refinement passes, the hole-fill value,
+  the pointer token, the rules between people and the order of threshold
+  and resize on output stay ComfyUI's
+  ([`docs/research/masking/2026-10-07_mryolk.md`](../../docs/research/masking/2026-10-07_mryolk.md)
+  walks through each).
 - **Nothing here is changed in this pack.** No node maps the range or
   switches the activation today.
 
