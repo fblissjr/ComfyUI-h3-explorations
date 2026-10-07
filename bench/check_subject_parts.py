@@ -568,6 +568,65 @@ def check_alone(problems):
         problems.append("showing the subject alone became an input of the node; it is how the node works")
 
 
+def check_held(problems):
+    """`Found.holds`: what the subject holds, with no name asked (2026-10-07). Inside the subject's own mask,
+    background to the part model, near the lips or a hand. Controls: the same thing far from both, taken only
+    when the reach is made long; the same thing beside the hand but outside the mask, never taken."""
+    hand, lip = sp.CLASS_NAMES.index("Right_Hand"), sp.CLASS_NAMES.index("Upper_Lip")
+    codes = torch.cat([CODES, torch.tensor([[1.0, 1.0, 0.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0]])])
+    classes = torch.cat([CODE_CLASS, torch.tensor([hand, lip, sp.BACKGROUND])])
+    yellow, magenta, cyan = codes[5], codes[6], codes[7]
+
+    def seg_held(crops):
+        nearest = (crops.movedim(1, -1)[..., None, :] - codes).square().sum(dim=-1).argmin(dim=-1)
+        return torch.nn.functional.one_hot(classes[nearest], len(sp.CLASS_NAMES)).movedim(-1, 1).float() * 10.0
+
+    def found(frames, mask, **kw):
+        return sp.subject_parts(frames, mask, (HAIR,), seg_held, None, mean=MEAN, std=STD, size=SIZE,
+                                crop_margin=MARGIN, subject_margin=2, **kw)
+
+    frames, mask = scene()
+    person(frames[0], mask[0], LEFT)
+    frames[0, 44:46, 68:74] = magenta                 # the lips
+    frames[0, 60:66, 82:88] = yellow                  # a hand at the body's right edge
+    frames[0, 52:58, 82:88] = cyan                    # held: just above the hand, inside the mask
+    frames[0, 43:47, 74:82] = cyan                    # held: beside the lips
+    frames[0, 64:70, 56:62] = cyan                    # a bag at the hip, far from both
+    frames[0, 60:66, 88:94] = cyan                    # beside the hand but outside the subject's mask
+    want = torch.zeros(H, W)
+    want[52:58, 82:88] = 1.0
+    want[43:47, 74:82] = 1.0
+    got = found(frames, mask, held_near=8, held_smallest=24).holds[0]
+    if not torch.equal(got, want):
+        problems.append(f"held: with a reach of 8 px it took {int(got.sum())} px, {int((got * want).sum())} of them "
+                        f"on the two held things ({int(want.sum())} px); the bag has {int(got[64:70, 56:62].sum())} "
+                        f"and outside the mask {int(got[60:66, 88:94].sum())}")
+    far = found(frames, mask, held_near=40, held_smallest=24).holds[0]
+    if int(far[64:70, 56:62].sum()) != 36:
+        problems.append("held: the control did not work: with a long reach the bag at the hip is still not taken, "
+                        "so the reach is not what kept it out")
+    if int(far[60:66, 88:94].sum()) != 0:
+        problems.append("held: a thing outside the subject's mask was taken at a long reach")
+    # nothing to anchor on: the same picture without the hand and the lips holds nothing
+    bare, bare_mask = scene()
+    person(bare[0], bare_mask[0], LEFT)
+    bare[0, 52:58, 82:88] = cyan
+    if float(found(bare, bare_mask, held_near=40, held_smallest=1).holds.sum()) != 0.0:
+        problems.append("held: something was taken on a frame with no lips and no hand found")
+    # a speck is dropped, and the size is what drops it
+    speck, speck_mask = scene()
+    person(speck[0], speck_mask[0], LEFT)
+    speck[0, 60:66, 82:88] = yellow
+    speck[0, 57:59, 84:86] = cyan
+    if float(found(speck, speck_mask, held_near=8, held_smallest=24).holds.sum()) != 0.0:
+        problems.append("held: a 4 px speck beside the hand was taken at a smallest size of 24")
+    if float(found(speck, speck_mask, held_near=8, held_smallest=1).holds.sum()) != 4.0:
+        problems.append("held: the control did not work: the speck is not taken at a smallest size of 1 either")
+    text = sp.report(found(frames, mask, held_near=8, held_smallest=24), (HAIR,), MARGIN, 2, 0, True, SIZE, None)
+    if "held: " not in text or "on 1 of 1 frames" not in text:
+        problems.append(f"held: the report does not say on how many frames something is held: {text!r}")
+
+
 def _graded(check):
     def run():
         problems: list[str] = []
@@ -589,7 +648,8 @@ def main() -> int:
             ("the loader lists a folder by its architecture", check_loader),
             ("the preview and the report", check_shown),
             ("the report says how much of the subject the parts cover", check_coverage),
-            ("the models are shown the subject alone", check_alone)):
+            ("the models are shown the subject alone", check_alone),
+            ("what the subject holds is found by where it is, with no name", check_held)):
         case(name, _graded(check))
     return finish()
 

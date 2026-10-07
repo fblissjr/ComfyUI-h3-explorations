@@ -9,6 +9,18 @@ with one of `CLASS_NAMES` in one forward pass per frame, and its matting model
 gives an alpha for the person's edge. A part menu, a garment swap and a redub
 of the mouth are the same map read with a different choice of classes.
 
+**What the subject holds** (`Found.holds`, the `held` output, 2026-10-07). The
+map has no class for a cigarette or a cup, and the tracker's mask of a person
+takes in what they hold, so inside the subject's own mask a pixel this model
+calls background is something attached to them that is not them. Taken near
+the lips or a hand (`HELD_ANCHORS`, `held_near`), it is a mask of the held
+thing with no name asked of any model and nothing small tracked on its own:
+it rides on the subject's track. Wired to the Masked Source's `keep`, the
+thing stays the original's while the person is replaced. It cannot see a
+thing the tracker's mask leaves out (a thin tip past the subject's edge), and
+a part of the body the model fails to label near a hand counts as held.
+Reasoned and checked on a painted frame; not yet run on a clip.
+
 **The steps** (`subject_parts`), per frame the subject is in:
 
 0. The subject alone (`alone`): before the crop is taken, every pixel further
@@ -164,6 +176,22 @@ MATTE_REACH = 8
 #: `subject_parts` never uses less than `subject_margin`, since a label
 #: counts out to there.
 ALONE_MARGIN = 8
+#: `held`: what the subject holds, with no name asked of any model. The
+#: tracker's mask of a person takes in what they hold, and the part model has
+#: no class for it, so inside the subject's own mask a pixel the part model
+#: calls background is something attached to them that is not them. It is
+#: taken only near the lips or a hand (`HELD_ANCHORS`), where a thing is held.
+#: The owner's idea and Gemini's hand-anchor sketch, 2026-10-07; the mouth is
+#: here because the owner's first example starts with a cigarette in it.
+HELD_ANCHORS = _MOUTH + ("Left_Hand", "Right_Hand")
+#: The default of `held_near`, in pixels of the source frame: how far from the
+#: lips or a hand a held thing may reach. Reasoned, not measured: about a
+#: hand's length at this lane's frame sizes, so a cone or a cup is covered and
+#: a thing on the other side of the body is not.
+HELD_NEAR = 64
+#: The default of `held_smallest`, in pixels: fewer than this on a frame is
+#: taken for speckle at the mask's edge and dropped. Reasoned, not measured.
+HELD_SMALLEST = 24
 #: Crops per forward pass. Reasoned, not measured: the head's last layers hold
 #: the working size at tens of channels per crop, which is small next to the
 #: weights, and a larger batch buys little on one card.
@@ -311,6 +339,7 @@ class Found:
     boxes: dict[int, tuple] = field(default_factory=dict)        # the crop box of each frame run
     labels: dict[int, torch.Tensor] = field(default_factory=dict)  # the label map of each frame in `keep`
     coverage: Coverage | None = None         # how much of the subject `parts` covers, per frame
+    holds: torch.Tensor | None = None        # [N, H, W], 1 on what the subject holds (`HELD_ANCHORS`), or None
     seconds: float = 0.0                     # the whole pass, both models
 
 
@@ -318,13 +347,19 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
                   seg: Callable[[torch.Tensor], torch.Tensor], matting: Callable[[torch.Tensor], torch.Tensor] | None,
                   *, size: tuple[int, int], mean, std, crop_margin: int = CROP_MARGIN,
                   subject_margin: int = SUBJECT_MARGIN, matte_reach: int = MATTE_REACH, hold_missing: bool = True,
-                  batch: int = BATCH, keep: tuple[int, ...] = (), show_alone: bool = True) -> Found:
+                  batch: int = BATCH, keep: tuple[int, ...] = (), show_alone: bool = True,
+                  held_near: int = HELD_NEAR, held_smallest: int = HELD_SMALLEST) -> Found:
     """The chosen classes on the tracked subject, per frame. The module docstring has the steps.
 
     `seg` takes normalised crops [B, 3, h, w] and returns logits [B, classes, h', w']; `matting` returns alpha
     [B, 1, h', w'] in 0..1, or is None. Both are callables so a check can stand in for the models.
     `show_alone` is step 0. It is not an input of the node: off, the models are shown the picture as it is,
     which is what the node did until 2026-10-06 and what a check needs as its control.
+
+    `Found.holds` is what the subject holds: inside their own mask (not the widened one: the ring around
+    it is real background, and keeping that would keep the original's outline), labelled background by the
+    part model, within `held_near` pixels of the lips or a hand, and at least `held_smallest` pixels on the
+    frame. No frame is given a neighbour's: a held thing comes and goes.
     """
     n, height, width = int(frames.shape[0]), int(frames.shape[1]), int(frames.shape[2])
     mean_t = torch.as_tensor(mean, dtype=torch.float32).view(1, 3, 1, 1)
@@ -336,6 +371,8 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
                 matte=torch.zeros((n, height, width), dtype=torch.float32), present=present,
                 found=torch.zeros(n, dtype=torch.bool), seen=torch.zeros((n, len(CLASS_NAMES)), dtype=torch.long))
     wanted = torch.tensor(classes, dtype=torch.long)
+    anchors = torch.tensor([CLASS_NAMES.index(c) for c in HELD_ANCHORS], dtype=torch.long)
+    out.holds = torch.zeros((n, height, width), dtype=torch.float32)
     began = time.perf_counter()
     for i in range(0, len(where), int(batch)):
         index = where[i:i + int(batch)]
@@ -347,6 +384,7 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
         alphas = matting(crops) if matting is not None else None
         wide = grow(subject[index].to(torch.float32), int(subject_margin)) > 0.5
         soft = []                      # per frame: the alpha on the frame, and where the label map says background
+        anchored, unlabelled = [], []
         for j, (f, box) in enumerate(zip(index, boxes)):
             shape = (box[3] - box[1], box[2] - box[0])
             scores = F.interpolate(logits[j:j + 1].to(torch.float32), size=shape, mode="bilinear", align_corners=False)
@@ -357,6 +395,8 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
             out.parts[f] = chosen.to(torch.float32)
             out.found[f] = bool(chosen.any())
             out.boxes[f] = box
+            anchored.append(torch.isin(label.to(torch.long), anchors) & on_subject)
+            unlabelled.append((label == BACKGROUND) & (subject[f] > 0.5))
             if f in keep:
                 out.labels[f] = label
             if alphas is not None:
@@ -365,6 +405,11 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
                 soft.append((paste_back(alpha, box, height, width), (label == BACKGROUND) & on_subject))
             else:
                 out.matte[f] = out.parts[f]
+        near_anchor = grow(torch.stack(anchored).to(torch.float32), int(held_near)) > 0.5
+        for j, f in enumerate(index):
+            thing = unlabelled[j] & near_anchor[j]
+            if int(thing.sum()) >= int(held_smallest):
+                out.holds[f] = thing.to(torch.float32)
         if alphas is not None:
             # one dilation for the batch: measured on CPU, 2026-10-05, a frame at a time it cost about three
             # times as much per frame
@@ -423,6 +468,13 @@ def report(found: Found, classes: tuple[int, ...], crop_margin: int, subject_mar
     lines.append("classes seen on the subject, by frames: " + (", ".join(seen) if seen else "none"))
     if found.coverage is not None and present:
         lines.extend(summarise(found.coverage).lines())
+    if found.holds is not None and present:
+        sizes = found.holds.flatten(1).sum(dim=1)
+        on = sizes > 0
+        lines.append(f"held: something attached to the subject that is not body or clothing, near the lips or a "
+                     f"hand, on {int(on.sum())} of {present} frames"
+                     + (f" (median {int(sizes[on].median())} px, frames {ranges(on.nonzero().flatten().tolist())})"
+                        if bool(on.any()) else ""))
     if found.boxes:
         tall = [b[3] - b[1] for b in found.boxes.values()]
         lines.append(f"crop: margin {int(crop_margin)} px, {min(tall)} to {max(tall)} px tall before the resize to "
@@ -666,6 +718,14 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
                                  tooltip=("On: a frame where the subject is on screen and none of the chosen parts "
                                           "is found on them takes the part of the nearest frame that has one, "
                                           "moved to where the subject is. Off: that frame's mask is left empty.")),
+                # appended 2026-10-07 with the `held` output; saved graphs keep running
+                io.Int.Input("held_near", default=HELD_NEAR, min=1, max=512, optional=True,
+                             tooltip=("For the `held` output: how far from the lips or a hand a held thing may "
+                                      "reach, in pixels of the source frame. Raise it when a long thing is cut "
+                                      "short; lower it when `held` takes in a bag or a strap.")),
+                io.Int.Input("held_smallest", default=HELD_SMALLEST, min=1, max=65536, optional=True,
+                             tooltip=("For the `held` output: a frame with fewer pixels than this is left empty. "
+                                      "Raise it when `held` flickers on with specks at the subject's edge.")),
             ],
             outputs=[
                 io.Mask.Output(display_name="parts", tooltip="One mask per frame, 1 on the chosen parts of the subject."),
@@ -674,6 +734,12 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
                                         "when no matting model is loaded.")),
                 io.Image.Output(display_name="preview", tooltip="The label map on a few frames, with the classes named."),
                 io.String.Output(display_name="report"),
+                io.Mask.Output(display_name="held",
+                               tooltip=("One mask per frame of what the subject holds: inside their mask, not body "
+                                        "or clothing by the part model, near the lips or a hand. No name is asked "
+                                        "for it. Wire it to the Masked Source's `keep` so a cigarette, a cone or a "
+                                        "microphone stays the original's while the person is replaced. Empty on a "
+                                        "frame where nothing is held.")),
             ],
         )
 
@@ -682,7 +748,7 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
                 face_and_neck="face_and_neck" in PARTS_ON, upper_clothing="upper_clothing" in PARTS_ON,
                 lower_clothing="lower_clothing" in PARTS_ON, hands="hands" in PARTS_ON, mouth="mouth" in PARTS_ON,
                 other_classes="", crop_margin=CROP_MARGIN, subject_margin=SUBJECT_MARGIN, matte_reach=MATTE_REACH,
-                hold_missing=True) -> io.NodeOutput:
+                hold_missing=True, held_near=HELD_NEAR, held_smallest=HELD_SMALLEST) -> io.NodeOutput:
         mask = check_inputs(frames, subject_mask)
         classes = chosen_classes({"hair": hair, "face_and_neck": face_and_neck, "upper_clothing": upper_clothing,
                                   "lower_clothing": lower_clothing, "hands": hands, "mouth": mouth}, other_classes)
@@ -696,13 +762,14 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
         found = subject_parts(frames, mask, classes, seg, matting, size=size, mean=sapiens2["mean"],
                               std=sapiens2["std"], crop_margin=int(crop_margin), subject_margin=int(subject_margin),
                               matte_reach=int(matte_reach), hold_missing=bool(hold_missing),
-                              keep=preview_frames(present))
+                              keep=preview_frames(present), held_near=int(held_near),
+                              held_smallest=int(held_smallest))
         text = report(found, classes, crop_margin, subject_margin, matte_reach, bool(hold_missing), size,
                       sapiens2["matting_name"])
         logger.info("[h3] MiniMaxH3SubjectParts: %s", text.replace("\n", "; "))
         sheet = preview(frames, found, size)
         shown = {**ui.PreviewImage(sheet, cls=cls).as_dict(), **ui.PreviewText(text).as_dict()}
-        return io.NodeOutput(found.parts, found.matte, sheet, text, ui=shown)
+        return io.NodeOutput(found.parts, found.matte, sheet, text, found.holds, ui=shown)
 
 
 def check_inputs(frames: torch.Tensor, subject_mask: torch.Tensor) -> torch.Tensor:

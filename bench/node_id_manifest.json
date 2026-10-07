@@ -578,14 +578,17 @@
       "crop_margin",
       "subject_margin",
       "matte_reach",
-      "hold_missing"
+      "hold_missing",
+      "held_near",
+      "held_smallest"
     ],
     "node_id": "MiniMaxH3SubjectParts",
     "outputs": [
       "parts",
       "matte",
       "preview",
-      "report"
+      "report",
+      "held"
     ]
   },
   "MiniMaxH3SubjectTrack": {
