@@ -17,6 +17,23 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   doubted; a track seeded again after a loss starts with no doubt against it; frames
                                   before the first look are not doubted.
   trusted_is_both                 a frame is trusted only with a plausible mask the detector does not contradict.
+  a_held_figure_is_one_run        a figure that moves a little every frame, seeded in the middle of its track, is one
+                                  run from the first frame to the last; the seed has no step; a seed frame with no
+                                  mask gives an empty run, and a seed outside the track is refused.
+  a_jump_is_cut                   a mask that leaves its figure for another with no empty frame between is cut at the
+                                  jump, tracked forward and tracked backward, and the frames past it are outside the
+                                  run though each is steady on the other figure. THE CONTROLS: a count of non-empty
+                                  masks and the shape test call the whole track held; with the line at zero the whole
+                                  track is one run.
+  a_return_after_a_gap_is_outside  the run stops at the first empty frame; a mask that comes back, in the same place
+                                  or another, is outside it, and its step across the gap says which with how many
+                                  frames lie between.
+  a_gallery_is_taken_inside_the_run  the Subject Track's own `gallery_frames` given the run takes no frame from after
+                                  a jump. THE CONTROL: given the whole track, as today's node gives it, it does.
+  a_creep_is_not_caught           KNOWN LIMIT, asserted so it is never read as covered: a mask that grows from one
+                                  figure over the next and shrinks onto it ends sharing nothing with its seed and is
+                                  one run, because no single step shares too little; the area ratio shows the growth.
+                                  This is a test of continuity, not of identity.
   taking_back_is_by_likeness_then_place  after a loss, a clear leader is taken on likeness wherever they stand and
                                   nobody under the line is; a call too close by likeness goes to the candidate where the
                                   subject last was, only if that one is near, like-sized and clearly nearer than the
@@ -142,6 +159,118 @@ def trusted_is_both():
     return "trusted on frames 0 to 2 and 10, 11; frame 3 is doubted though plausible, 4 to 7 fail on shape, 8 and 9 are empty"
 
 
+def _figure(left: int, right: int | None = None) -> torch.Tensor:
+    """A figure on a 64 x 64 frame: rows 16 to 47, columns `left` to `right` (twelve wide when `right` is not given)."""
+    m = _blank(64, 64)
+    m[16:48, left:(left + 12 if right is None else right)] = True
+    return m
+
+
+HERE_, THERE_ = 10, 40      # the left columns of two figures standing apart, sharing no pixel
+
+
+def a_held_figure_is_one_run():
+    track = torch.stack([_figure(10 + f) for f in range(24)])        # one column a frame: a figure walking across
+    got = S.unbroken(track, seed=12)
+    assert (got.first, got.end, got.before, got.after) == (0, 24, S.STOPPED_END, S.STOPPED_END), got
+    steps = [v for f, v in enumerate(got.overlap) if f != 12 and v is not None]
+    assert got.overlap[12] is None and len(steps) == 23 and all(v > 0.8 for v in steps), got.overlap
+    assert all(v == 1 for f, v in enumerate(got.frames_apart) if f != 12), got.frames_apart
+    assert all(v is not None and abs(v - 1.0) < 1e-6 for f, v in enumerate(got.area_ratio) if f != 12), got.area_ratio
+    assert S.unbroken(track.to(torch.float32), seed=12).overlap == got.overlap, "float masks are judged differently from bool ones"
+    nobody = torch.stack([_figure(10)] * 3 + [_blank(64, 64)] + [_figure(10)] * 3)
+    empty = S.unbroken(nobody, seed=3)
+    assert (empty.first, empty.end, empty.before, empty.after) == (3, 3, S.STOPPED_EMPTY, S.STOPPED_EMPTY), empty
+    for bad in (-1, 7):
+        try:
+            S.unbroken(nobody, seed=bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"a seed on frame {bad} of a 7-frame track was accepted")
+    return f"24 frames, seeded on 12: one run, the least step {min(steps):.2f}; an empty seed frame gives an empty run"
+
+
+def _clip_with_a_jump() -> torch.Tensor:
+    """Twenty frames: the mask is on one figure for frames 0 to 9 and on another, sharing no pixel, for 10 to 19. No empty frame."""
+    return torch.stack([_figure(HERE_)] * 10 + [_figure(THERE_)] * 10)
+
+
+def a_jump_is_cut():
+    track = _clip_with_a_jump()
+    got = S.unbroken(track, seed=2)
+    assert (got.first, got.end, got.after) == (0, 10, S.STOPPED_MOVED), got
+    assert got.overlap[10] == 0.0 and (got.centre_step[10] or 0.0) > 0.5 and got.frames_apart[10] == 1, (got.overlap[10], got.centre_step[10])
+    assert all(v == 1.0 for v in got.overlap[11:]), "past the jump each frame is steady on the other figure, and still outside the run"
+    back = S.unbroken(track, seed=15)                    # the same track seeded on the other figure: tracked backward into the jump
+    assert (back.first, back.end, back.before, back.after) == (10, 20, S.STOPPED_MOVED, S.STOPPED_END), back
+    # THE CONTROLS: what was counted until 2026-10-07 calls this track held on every frame, and so does the line at zero
+    assert int(track.flatten(1).any(1).sum()) == 20 and bool(S.plausible(track).all()), "the control: non-empty and plausible on every frame"
+    off = S.unbroken(track, seed=2, moved_off=0.0)
+    assert (off.first, off.end) == (0, 20), f"with the line at zero the jump should pass, got {(off.first, off.end)}"
+    return "cut at the jump from either side; a count of masks, the shape test and the line at zero all pass the whole track"
+
+
+def a_return_after_a_gap_is_outside():
+    gap = [_blank(64, 64)] * 3
+    elsewhere = S.unbroken(torch.stack([_figure(HERE_)] * 6 + gap + [_figure(THERE_)] * 3), seed=0)
+    same = S.unbroken(torch.stack([_figure(HERE_)] * 6 + gap + [_figure(HERE_)] * 3), seed=0)
+    for got in (elsewhere, same):
+        assert (got.first, got.end, got.after) == (0, 6, S.STOPPED_EMPTY), got
+        assert got.overlap[6:9] == [None] * 3 and got.frames_apart[9] == 4, (got.overlap, got.frames_apart)
+    assert elsewhere.overlap[9] == 0.0 and same.overlap[9] == 1.0, (elsewhere.overlap[9], same.overlap[9])
+    return "the run ends at the first empty frame; the step across the gap is 0 for a return elsewhere and 1 for a return in place"
+
+
+def _subject_track():
+    """`subject_track.py`, the node's module, loaded as `check_subject_track.py` loads it; only for its `gallery_frames`."""
+    import importlib.util
+    import types
+    sys.path.insert(0, str(REPO.parent.parent))
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
+    pkg = types.ModuleType("_h3pack")
+    pkg.__path__ = [str(REPO)]
+    sys.modules.setdefault("_h3pack", pkg)
+    spec = importlib.util.spec_from_file_location("_h3pack.subject_track", REPO / "subject_track.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["_h3pack.subject_track"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def a_gallery_is_taken_inside_the_run():
+    node = _subject_track()
+    track = _clip_with_a_jump().to(torch.float32)
+    run = S.unbroken(track, seed=2)
+    inside = [f + run.first for f in node.gallery_frames(track[run.first:run.end])]
+    assert inside and all(run.first <= f < run.end for f in inside) and max(inside) < 10, inside
+    # THE CONTROL: today's node hands `gallery_frames` the whole tracked piece
+    whole = node.gallery_frames(track)
+    assert any(f >= 10 for f in whole), f"the control: the whole track's gallery should hold frames from after the jump, got {whole}"
+    return f"inside the run: frames {inside}; from the whole track, as today: {whole}, {sum(f >= 10 for f in whole)} of them after the jump"
+
+
+def a_creep_is_not_caught():
+    # the mask's right edge grows from one figure over the next, three columns a frame, then its left edge follows
+    grow = [_figure(HERE_, right) for right in range(HERE_ + 12, THERE_ + 13, 3)]
+    shrink = [_figure(left, THERE_ + 12) for left in range(HERE_ + 3, THERE_ + 1, 3)]
+    track = torch.stack(grow + shrink)
+    assert not bool((track[0] & track[-1]).any()), "the creep should end on a figure sharing nothing with the seed's"
+    got = S.unbroken(track, seed=0)
+    steps = [v for v in got.overlap[1:] if v is not None]
+    ratios = [v for v in got.area_ratio[1:] if v is not None]
+    assert len(steps) == len(ratios) == int(track.shape[0]) - 1, "every frame after the seed should have a step"
+    # THE KNOWN LIMIT: one run, every step far over the line; only the area says anything happened
+    assert (got.first, got.end, got.after) == (0, int(track.shape[0]), S.STOPPED_END), "the step test claimed to see a creep; it cannot"
+    assert min(steps) > 2 * S.MOVED_OFF, min(steps)
+    grown = max(int(m.sum()) for m in track) / int(track[0].sum())
+    assert grown > 3 and max(ratios) > 1.1, (grown, max(ratios))
+    return (f"KNOWN LIMIT: {int(track.shape[0])} frames from one figure onto another, the least step {min(steps):.2f}, one run; "
+            f"the mask grew to {grown:.1f} times its seed on the way")
+
+
 def notes_say_a_place_in_the_clip():
     text = "frame 1310: person 2\n# a comment\n\n1:23.5: nobody\n83.5 s = take the best\nFrame 3055 : line 0.75\n0:02: leave it alone\n"
     notes = S.parse_notes(text, rate=24.0)
@@ -249,7 +378,8 @@ def a_clear_leader_elsewhere_is_refused():
 
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
-               taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
+               a_creep_is_not_caught, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

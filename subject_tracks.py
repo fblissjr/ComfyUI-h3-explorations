@@ -2,7 +2,7 @@
 a track, and where in the clip does a correction point.
 
 The SAM 3.1 tracker node (`sam31_track.py`, not built yet) follows subjects through a shot and has to say when a track
-cannot be trusted. Three model-free pieces of that live here, so they can be checked on made-up masks and reused by the
+cannot be trusted. The model-free pieces of that live here, so they can be checked on made-up masks and reused by the
 bench tools that accept or reject the tracker:
 
 **The shape test** (`plausible`). On 2026-10-07 an independent run found a tracked mask that slid off its person onto a
@@ -18,6 +18,16 @@ where between the two it went wrong. WHAT IT CANNOT SEE: a track that slid onto 
 so the detector agrees with the mask. Catching that takes a likeness test against the subject, which is the tracker
 node's to make, not this function's.
 `trusted` is the two together, per frame: what the report shows, and the only frames a motion reference may be built from.
+
+**The step test** (`unbroken`). On 2026-10-07 a subject followed alone had its mask moved by the tracker onto another
+figure half the frame away with no empty frame between; the shape test passed every frame, a re-find then took the figure
+the track was on, and the gallery it was judged against already held both figures
+(`bench/results/2026-10-07_subject_regain_looks.md`). So each frame's mask is compared with the last mask before it, the
+track is cut at the first empty frame or the first step that shares too little, and only the part that reaches the seed
+without a cut is the subject's: the only frames a gallery may be taken from. IT IS A TEST OF CONTINUITY, NOT OF IDENTITY.
+It sees a jump. It does not see a creep, a mask that grows over two figures and then shrinks onto the other, because
+every step of that shares most of its pixels with the one before; the area and the box centre are returned beside the
+overlap so a report can show one, and nothing is cut on them.
 
 **Taking a subject back after a loss** (`take_back`). On hard crowd footage a change of the input too small to see
 moved a regain's lead over the next person by about the lead the Subject Track requires
@@ -114,6 +124,90 @@ def trusted(track: torch.Tensor, looks: dict[int, torch.Tensor], agree_at: float
     """[F] bool: the frames where the track has a mask that passes the shape test and the detector does not contradict."""
     t = track if track.dtype == torch.bool else track > 0.5
     return plausible(t).cpu() & ~doubted(t, looks, agree_at)
+
+
+# ---- has the mask stayed on one figure
+
+#: reasoned, not measured: a mask that shares less than this with the last mask before it, by intersection over union,
+#: has moved off the figure it was on. One clip at one frame rate stands behind it: the least step of a figure that was
+#: held, on three windows at 24 frames a second, is in `bench/results/2026-10-07_subject_regain_looks.md` (the table of
+#: tracks handed back) and sits well clear of it. A lower frame rate or a small fast figure moves a held mask further
+#: in one step, so this is the default of `unbroken`'s `moved_off` and never a constant a caller cannot set.
+MOVED_OFF = 0.2
+
+STOPPED_EMPTY, STOPPED_MOVED, STOPPED_END = "an empty frame", "the mask moved off", "the end of the track"
+
+
+@dataclass(frozen=True)
+class Unbroken:
+    """`unbroken`'s result: the part of one tracked call that reaches its seed without a cut, and every frame's step.
+
+    A frame's step is taken against the last frame with a mask on the seed's side of it: the frame before for a frame
+    after the seed, the frame after for a frame before it. Each list has one entry per frame, None where there is no
+    step: on the seed, on an empty frame, and where no frame on the seed's side has a mask.
+    """
+    first: int                       # the run's first frame
+    end: int                         # one past its last; equal to `first` when the seed frame has no mask
+    before: str                      # why the run starts where it does: one of the STOPPED_ reasons
+    after: str                       # why it ends where it does
+    overlap: list[float | None]      # intersection over union with that mask; the run is cut on this alone
+    area_ratio: list[float | None]   # this mask's area over that mask's: above 1 it grew
+    centre_step: list[float | None]  # how far the box centre moved, in diagonals of that mask's box
+    frames_apart: list[int | None]   # how many frames away that mask is: 1 unless empty frames lie between
+
+
+def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Unbroken:
+    """[F, H, W] masks of ONE tracked call and the frame it was seeded on, to the run around the seed that stayed on one figure.
+
+    Walking away from the seed in each direction, the run stops before the first frame that is empty or whose mask
+    shares less than `moved_off` with the last mask before it. Frames past a stop are not in the run whatever they
+    hold: a mask that comes back after a gap is a re-find's to judge, and its step across the gap is here for that
+    (`overlap`, with `frames_apart` saying how old the mask it was compared with is).
+
+    A TEST OF CONTINUITY, NOT OF IDENTITY: see the module's note on what it cannot see. `area_ratio` and `centre_step`
+    are returned for the report and cut nothing.
+
+    One tracked call, not a stitched piece. The Subject Track fills a run of empty frames backward as well as forward
+    from the frame it takes somebody on (`subject_track.py`, the regain), so a finished piece has a seam where a later
+    call's backward fill meets an earlier call's track, and a seam reads as a jump. Give each call's own frames and seed.
+    """
+    t = track if track.dtype == torch.bool else track > 0.5
+    n = int(t.shape[0])
+    if not 0 <= int(seed) < n:
+        raise ValueError(f"unbroken: seed frame {seed} is outside the track's {n} frame(s)")
+    seed = int(seed)
+    flat = t.flatten(1)
+    area = [int(a) for a in flat.sum(1)]
+    overlap: list[float | None] = [None] * n
+    area_ratio: list[float | None] = [None] * n
+    centre_step: list[float | None] = [None] * n
+    frames_apart: list[int | None] = [None] * n
+
+    def walk(frames) -> tuple[int | None, str]:
+        """The steps of `frames`, in order away from the seed; the first frame that stops the run, and why."""
+        last = seed if area[seed] else None
+        stop, why = None, STOPPED_END
+        for f in frames:
+            if area[f] and last is not None:
+                shared = int((flat[f] & flat[last]).sum())
+                overlap[f] = shared / max(area[f] + area[last] - shared, 1)
+                area_ratio[f] = area[f] / area[last]
+                centre_step[f] = _away(box_of(t[f]), box_of(t[last]))[0]
+                frames_apart[f] = abs(f - last)
+            if stop is None and not area[f]:
+                stop, why = f, STOPPED_EMPTY
+            elif stop is None and overlap[f] is not None and overlap[f] < moved_off:
+                stop, why = f, STOPPED_MOVED
+            if area[f]:
+                last = f
+        return stop, why
+
+    late, after = walk(range(seed + 1, n))
+    early, before = walk(range(seed - 1, -1, -1))
+    if not area[seed]:
+        return Unbroken(seed, seed, STOPPED_EMPTY, STOPPED_EMPTY, overlap, area_ratio, centre_step, frames_apart)
+    return Unbroken(0 if early is None else early + 1, n if late is None else late, before, after,
+                    overlap, area_ratio, centre_step, frames_apart)
 
 
 # ---- taking a subject back after a loss
