@@ -1,0 +1,458 @@
+{
+ "date": "2026-10-07",
+ "lane": "masked",
+ "recipe": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json, one 345-frame window, typed arms through bench/run_graph_arms.py; Subject Track pick `largest` in every arm (the default before 0.220.0)",
+ "switch": {
+  "window": "thrill_2160.mkv from 67.0 s, canvas 1024x768",
+  "how": "the subject's mask blanked before frame N with core mask nodes, so nothing regenerates before N; not a shipped graph",
+  "arms": {
+   "always_on": "the shipped graph",
+   "on_from_153": "N=153, a multiple of 17 and the first frame of a latent step",
+   "on_from_162": "N=163 asked; the region turns on at frame 162 by the lane's frame grouping"
+  },
+  "landing": {
+   "box": [
+    430,
+    270,
+    560,
+    420
+   ],
+   "frames": [
+    140,
+    180
+   ],
+   "arms": {
+    "on_from_153": {
+     "render": "sw153_sw153_00001.mp4",
+     "difference_per_frame": [
+      23.91,
+      24.12,
+      24.53,
+      24.69,
+      25.53,
+      25.07,
+      24.32,
+      23.33,
+      23.66,
+      23.9,
+      24.78,
+      24.7,
+      23.87,
+      26.24,
+      26.66,
+      27.68,
+      28.26,
+      28.86,
+      29.64,
+      29.33,
+      28.75,
+      28.25,
+      27.23,
+      26.87,
+      26.97,
+      11.95,
+      12.89,
+      13.16,
+      13.86,
+      12.92,
+      11.9,
+      11.39,
+      11.28,
+      10.91,
+      11.48,
+      12.92,
+      14.2,
+      15.28,
+      15.78,
+      16.87,
+      16.81
+     ],
+     "level_before": 24.56,
+     "level_after": 15.79,
+     "first_frame_under_the_midpoint": 165
+    },
+    "on_from_162": {
+     "render": "sw163_sw163_00001.mp4",
+     "difference_per_frame": [
+      23.98,
+      24.13,
+      24.55,
+      24.72,
+      25.54,
+      25.09,
+      24.3,
+      23.35,
+      23.66,
+      23.89,
+      24.78,
+      24.74,
+      23.86,
+      24.18,
+      24.96,
+      26.12,
+      27.25,
+      27.98,
+      28.28,
+      28.38,
+      28.01,
+      27.7,
+      28.53,
+      28.22,
+      27.93,
+      28.43,
+      29.36,
+      14.75,
+      15.52,
+      15.13,
+      14.77,
+      14.68,
+      14.54,
+      14.13,
+      14.03,
+      13.66,
+      14.32,
+      14.7,
+      14.82,
+      16.0,
+      16.1
+     ],
+     "level_before": 24.58,
+     "level_after": 15.19,
+     "first_frame_under_the_midpoint": 167
+    }
+   }
+  },
+  "flicker": {
+   "start": 67.0,
+   "rate": 24.0,
+   "size": [
+    1024,
+    768
+   ],
+   "arms": {
+    "always_on": "baseline_again_baseline_again_00001.mp4",
+    "on_from_153": "sw153_sw153_00001.mp4",
+    "on_from_162": "sw163_sw163_00001.mp4"
+   },
+   "seam_band_px": 10,
+   "deep_px": 40,
+   "spans": {
+    "172-236": {
+     "outside the seam (frozen)": {
+      "always_on": {
+       "frames_used": 63,
+       "flicker": 1.124,
+       "brightness_step": 0.078
+      },
+      "on_from_153": {
+       "frames_used": 63,
+       "flicker": 1.113,
+       "brightness_step": 0.081
+      },
+      "on_from_162": {
+       "frames_used": 63,
+       "flicker": 1.121,
+       "brightness_step": 0.076
+      }
+     },
+     "inside the seam": {
+      "always_on": {
+       "frames_used": 63,
+       "flicker": 1.651,
+       "brightness_step": 0.17
+      },
+      "on_from_153": {
+       "frames_used": 63,
+       "flicker": 1.563,
+       "brightness_step": 0.134
+      },
+      "on_from_162": {
+       "frames_used": 63,
+       "flicker": 1.528,
+       "brightness_step": 0.145
+      }
+     },
+     "deep inside": {
+      "always_on": {
+       "frames_used": 63,
+       "flicker": 3.865,
+       "brightness_step": 0.25
+      },
+      "on_from_153": {
+       "frames_used": 63,
+       "flicker": 3.803,
+       "brightness_step": 0.23
+      },
+      "on_from_162": {
+       "frames_used": 63,
+       "flicker": 3.871,
+       "brightness_step": 0.222
+      }
+     }
+    },
+    "238-279": {
+     "outside the seam (frozen)": {
+      "always_on": {
+       "frames_used": 40,
+       "flicker": 2.024,
+       "brightness_step": 0.396
+      },
+      "on_from_153": {
+       "frames_used": 40,
+       "flicker": 1.824,
+       "brightness_step": 0.226
+      },
+      "on_from_162": {
+       "frames_used": 40,
+       "flicker": 1.929,
+       "brightness_step": 0.268
+      }
+     },
+     "inside the seam": {
+      "always_on": {
+       "frames_used": 40,
+       "flicker": 6.448,
+       "brightness_step": 1.066
+      },
+      "on_from_153": {
+       "frames_used": 40,
+       "flicker": 6.561,
+       "brightness_step": 1.176
+      },
+      "on_from_162": {
+       "frames_used": 40,
+       "flicker": 6.517,
+       "brightness_step": 1.259
+      }
+     },
+     "deep inside": {
+      "always_on": {
+       "frames_used": 40,
+       "flicker": 8.074,
+       "brightness_step": 0.559
+      },
+      "on_from_153": {
+       "frames_used": 40,
+       "flicker": 7.856,
+       "brightness_step": 0.644
+      },
+      "on_from_162": {
+       "frames_used": 40,
+       "flicker": 7.808,
+       "brightness_step": 0.708
+      }
+     }
+    },
+    "281-344": {
+     "outside the seam (frozen)": {
+      "always_on": {
+       "frames_used": 62,
+       "flicker": 1.822,
+       "brightness_step": 0.088
+      },
+      "on_from_153": {
+       "frames_used": 62,
+       "flicker": 1.804,
+       "brightness_step": 0.075
+      },
+      "on_from_162": {
+       "frames_used": 62,
+       "flicker": 1.808,
+       "brightness_step": 0.076
+      }
+     },
+     "inside the seam": {
+      "always_on": {
+       "frames_used": 62,
+       "flicker": 3.477,
+       "brightness_step": 0.408
+      },
+      "on_from_153": {
+       "frames_used": 62,
+       "flicker": 3.509,
+       "brightness_step": 0.387
+      },
+      "on_from_162": {
+       "frames_used": 62,
+       "flicker": 3.469,
+       "brightness_step": 0.372
+      }
+     },
+     "deep inside": {
+      "always_on": {
+       "frames_used": 62,
+       "flicker": 7.593,
+       "brightness_step": 1.075
+      },
+      "on_from_153": {
+       "frames_used": 62,
+       "flicker": 7.585,
+       "brightness_step": 1.051
+      },
+      "on_from_162": {
+       "frames_used": 62,
+       "flicker": 7.593,
+       "brightness_step": 1.056
+      }
+     }
+    }
+   },
+   "calibration": {
+    "arm": "on_from_153",
+    "frames": [
+     20,
+     140
+    ],
+    "mean_abs_residual": 1.669
+   }
+  }
+ },
+ "keep": {
+  "window": "lotsofpeopledance_0414_0720.mkv from 4.0 s, canvas 1344x768, one shot",
+  "arms": {
+   "stock": "nothing kept",
+   "kept by the phrase": "a second Subject Track on a phrase, its mask on the Masked Source's keep input; the phrase found the thing on frames 0-43",
+   "kept with no name": "the part node's held output on keep; non-empty on frames 0-39 and 274-316"
+  },
+  "region_overlap_with_stock": {
+   "kept with no name": {
+    "min": 0.892,
+    "mean": 0.993,
+    "frames_under_0.95": 13
+   },
+   "kept by the phrase": {
+    "min": 0.99,
+    "mean": 0.996,
+    "frames_under_0.95": 0
+   }
+  },
+  "against_source_rough": {
+   "frames": [
+    5,
+    15,
+    25,
+    34,
+    39,
+    46,
+    60
+   ],
+   "boxes_y0_y1_x0_x1": {
+    "frozen background": [
+     100,
+     500,
+     900,
+     1300
+    ],
+    "face, above the kept patch": [
+     280,
+     440,
+     360,
+     640
+    ],
+    "chest, below the hand": [
+     660,
+     760,
+     250,
+     700
+    ]
+   },
+   "mean_abs_difference_from_source": {
+    "frozen background": {
+     "stock": [
+      9.8,
+      9.9,
+      9.9,
+      9.8,
+      9.7,
+      9.8,
+      22.2
+     ],
+     "kept by the phrase": [
+      9.8,
+      9.9,
+      9.9,
+      9.8,
+      9.7,
+      9.8,
+      21.4
+     ],
+     "kept with no name": [
+      9.8,
+      9.9,
+      9.9,
+      9.8,
+      9.7,
+      9.8,
+      22.2
+     ]
+    },
+    "face, above the kept patch": {
+     "stock": [
+      45.9,
+      47.3,
+      43.7,
+      38.4,
+      29.5,
+      18.1,
+      3.6
+     ],
+     "kept by the phrase": [
+      25.1,
+      19.2,
+      22.9,
+      32.7,
+      28.0,
+      16.8,
+      7.4
+     ],
+     "kept with no name": [
+      27.1,
+      24.4,
+      53.2,
+      49.9,
+      38.5,
+      22.3,
+      5.9
+     ]
+    },
+    "chest, below the hand": {
+     "stock": [
+      81.1,
+      76.8,
+      82.0,
+      80.5,
+      77.4,
+      86.1,
+      88.4
+     ],
+     "kept by the phrase": [
+      14.3,
+      40.3,
+      24.1,
+      20.6,
+      16.8,
+      12.8,
+      85.0
+     ],
+     "kept with no name": [
+      25.4,
+      41.4,
+      21.4,
+      20.7,
+      41.7,
+      79.3,
+      84.3
+     ]
+    }
+   }
+  },
+  "against_source_note": "fixed boxes on a moving camera, source decoded by ffmpeg and not by the lane's loader: the frozen-background row is the floor of this measure and it is high; read the chest row against it, the face box is confounded by headwear the render adds"
+ },
+ "owner_verdicts": {
+  "cache, upper recipe": "cannot tell stock from cached",
+  "switch": "a delay and a flicker in both switch arms, no difference between on and off the 17-frame boundary; a constant flicker at the margin in the later close-up in both switch arms that the always-on arm does not show",
+  "shadows sentence and bare-noun subject": "no real difference; the simpler text stays",
+  "keep": "the held thing is present in both kept arms and absent in stock; in both kept arms the person is the original while it is kept; the no-name arm turns back into the original late in the window; the phrase arm loses the subject at the end",
+  "rewritten prompt, two seeds": "better than stock on both seeds, the second nearly perfect; on the first seed the subject faces away from the camera at the cut to the second shot"
+ }
+}
