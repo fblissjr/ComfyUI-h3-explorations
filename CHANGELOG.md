@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.220.9
+<!-- changelog.d/mrdragon-wiki-sam3-presence-twice.md -->
+
+### Changed
+
+- **`docs/wiki/sam3_prompting.md` flags that Meta's image code appears to
+  apply the presence score twice**: inside the model where the class score
+  is written, and again in the processor before its threshold. Read at both
+  sites and not run. Today's records computed Meta's rule as one
+  multiplication; the page says what that leaves open.
+
 ## 0.220.8
 <!-- changelog.d/mrhen-gallery-span.md -->
 

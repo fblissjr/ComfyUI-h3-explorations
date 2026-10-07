@@ -70,7 +70,16 @@ Each matters more the longer or rarer the phrase.
   by a score for "is this thing in the picture at all" and removes
   overlapping detections; ComfyUI's node thresholds each detection alone.
   On a frame where the thing is barely present ComfyUI returns detections
-  Meta's rule drops. The precision record's third departure;
+  Meta's rule drops. **Read, not run (2026-10-07): Meta's released image
+  code appears to apply the presence score twice**, once inside the model
+  where the class score is written (`coderef/sam3/sam3/model/sam3_image.py`,
+  under `supervise_joint_box_scores`, which both builders set) and again in
+  the processor before its threshold
+  (`coderef/sam3/sam3/model/sam3_image_processor.py`). The records below
+  computed "Meta's rule" as one multiplication, so where the presence score
+  is well under one they may keep more than Meta's processor would; a
+  proposal to follow Meta has to say which of the two it means. The
+  precision record's third departure;
   [`2026-10-07_sam3_core_against_meta.md`](../../bench/results/2026-10-07_sam3_core_against_meta.md)
   has both rules over the same detections.
 - **The text encoder runs another activation than Meta built it with.** Nil
