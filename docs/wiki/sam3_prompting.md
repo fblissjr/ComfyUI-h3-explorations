@@ -75,10 +75,14 @@ Each matters more the longer or rarer the phrase.
   where the class score is written (`coderef/sam3/sam3/model/sam3_image.py`,
   under `supervise_joint_box_scores`, which both builders set) and again in
   the processor before its threshold
-  (`coderef/sam3/sam3/model/sam3_image_processor.py`). The records below
-  computed "Meta's rule" as one multiplication, so where the presence score
-  is well under one they may keep more than Meta's processor would; a
-  proposal to follow Meta has to say which of the two it means. The
+  (`coderef/sam3/sam3/model/sam3_image_processor.py`). That is Meta's
+  single-image path. Its video pipeline thresholds the model's joint score
+  as written, with no second factor
+  (`coderef/sam3/sam3/model/sam3_video_base.py`, where detections are read),
+  and that is the path the records below compare with, so their "Meta's
+  rule", one multiplication, is Meta's video rule. No record here ran the
+  image processor. A proposal to follow Meta has to say which path it
+  means. The
   precision record's third departure;
   [`2026-10-07_sam3_core_against_meta.md`](../../bench/results/2026-10-07_sam3_core_against_meta.md)
   has both rules over the same detections.

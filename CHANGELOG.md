@@ -7,6 +7,19 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.220.10
+<!-- changelog.d/mrdragon-wiki-sam3-presence-paths.md -->
+
+### Fixed
+
+- **`docs/wiki/sam3_prompting.md` says which of Meta's paths applies the
+  presence score twice.** The entry before this one left it open whether
+  today's records had under-applied Meta's rule. They had not: the second
+  multiplication is in Meta's single-image processor, the video pipeline
+  thresholds the joint score once, and the records compare with the video
+  pipeline. Read at the three sites by two sessions; the image processor
+  itself was not run.
+
 ## 0.220.9
 <!-- changelog.d/mrdragon-wiki-sam3-presence-twice.md -->
 
