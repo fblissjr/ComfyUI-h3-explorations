@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **Corrected: the upper-body recipe had rendered on the prompt node's
+  text.** Written into three places with the new graph (0.215.0): that the
+  node's wording for that region "has not been watched" and had rendered
+  only "on another clip" (`docs/wiki/masked_v2v.md`,
+  `prompt_bank/bank.json`, `docs/prompt_audit.md`), taken from the arms
+  record, whose rows predate the arm. It rendered on 2026-10-06 on the same
+  window and seed, beside the typed arm; the stacked pair is on the output
+  share and the record carries a dated note. The owner then watched the
+  pair: both good, not told apart, which confirms the node's wording for
+  the graph. Found when the owner asked on the board for samples.
+
 - **Corrected: a typed correction has run on a real clip.**
   `docs/wiki/masked_v2v.md`, "Known limits", said "not yet run on a clip",
   and the masking board's card said the same and held a demonstration for

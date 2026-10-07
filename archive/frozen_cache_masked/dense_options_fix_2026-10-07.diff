@@ -1,0 +1,50 @@
+477a478,501
+> def _dense_backend(override, depth=16):
+>     """The dense backend at the bottom of an attention override chain, or None.
+> 
+>     Sol-Attn's override closes over the override it was installed on as
+>     `previous` (`sol_attn_h3.make_override`); core's Model Attention Backend
+>     node installs the bottom one (`ModelPatcher.set_model_optimized_attention`),
+>     which closes over no `previous`. None when the bottom of the chain is an
+>     override with nothing under it to run dense on (Sol alone).
+>     """
+>     for _ in range(depth):
+>         cells = dict(zip(getattr(getattr(override, "__code__", None), "co_freevars", ()) or (),
+>                          getattr(override, "__closure__", None) or ()))
+>         if "previous" not in cells:
+>             return override
+>         try:
+>             below = cells["previous"].cell_contents
+>         except ValueError:
+>             below = None
+>         if below is None:
+>             return None
+>         override = below
+>     return None
+> 
+> 
+479c503
+<     """The options a cached step's attention runs with: no override.
+---
+>     """The options a cached step's attention runs with: the graph's dense backend, without Sol.
+481,484c505,511
+<     A cached step's queries are the live rows against every row's K/V. Sol
+<     declines a q/k length mismatch to dense anyway, and a sparse pattern over
+<     a few thousand queries buys nothing, so the call goes straight to the
+<     model's own backend (`preferred_attention`).
+---
+>     A cached step's queries are the live rows against every row's K/V, which
+>     Sol does not take (a q/k length mismatch). Until 2026-10-07 this removed
+>     the whole override, and with it the kitchen kernel the graph installs
+>     there, so the call fell to core's default, torch's SDPA
+>     (`bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`). It now
+>     hands the call to the backend under Sol, the kernel the stock dense steps
+>     run on.
+487c514,518
+<     opts.pop("optimized_attention_override", None)
+---
+>     override = opts.pop("optimized_attention_override", None)
+>     if override is not None:
+>         dense = _dense_backend(override)
+>         if dense is not None:
+>             opts["optimized_attention_override"] = dense

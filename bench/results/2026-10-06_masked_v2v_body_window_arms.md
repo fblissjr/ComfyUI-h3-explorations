@@ -325,6 +325,16 @@ the head's was proposed by the rendering session and is not built.
 A second seed, for any arm. The base chain on this window with the motion
 reference off, the recipe's region with the prompt node's text in place
 of the typed one, and a typed text with one block per shot: all three were
-queued when the rendering session closed and had not rendered. A motion
+queued when the rendering session closed and had not rendered. **Note,
+2026-10-07:** the second of those three did render that afternoon, by
+another session after this record's rows were taken: `body_345_p7_node`, the
+recipe arm's graph and patches with the prompt node wired, its role set to
+the head and upper body and the subject described. It and the typed arm are
+stacked on the output share
+(`Video/compare_stacked/body_345_p7_typed_beside_node_over_mask.mp4`). Seen
+on stills by that session, not judged; its row is in that session's
+untracked run folder, so no figure of it is in this record's json.
+(verdict) The owner watched the pair on playback on 2026-10-07: the
+node-text arm is good, and they could not tell it from the typed arm. A motion
 reference with no appearance in it, which is queued as one arm on the
 recipe. Any window of this clip but this one and the thirty-second stretch.

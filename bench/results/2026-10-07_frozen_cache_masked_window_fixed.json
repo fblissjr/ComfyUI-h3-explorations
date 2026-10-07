@@ -1,0 +1,374 @@
+{
+ "what": "the frozen-row cache on a masked window with the cached step on the kitchen kernel: the 2026-10-06 pair repeated with one function changed",
+ "window": "band_112s of bench/turn_metric_eye_verdicts.json, 1344x768, 345 frames, the graph's own seed, the patches of the 2026-10-06 run",
+ "server": {
+  "port": 8191,
+  "started": "2026-10-07 11:20",
+  "mode": "start.sh default",
+  "base": "a scratch base directory: every installed pack linked in, this pack as git archive of 25103f0e with frozen_video_cache._dense_options changed",
+  "core_commit": "b00c6e952"
+ },
+ "order": [
+  "preview",
+  "baseline",
+  "cache_plain",
+  "baseline_again"
+ ],
+ "arms": {
+  "preview": {
+   "total_s": 50.0,
+   "graph": "workflows/daily/h3_mask_ref2va_motion_api.json",
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thinkaboutthings_compressed.mp4"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 112.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/band"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a man"
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.preview",
+     "value": true
+    }
+   ],
+   "graph_sha256": "af837b109d939b22"
+  },
+  "baseline": {
+   "total_s": 578.4,
+   "graph": "workflows/daily/h3_mask_ref2va_motion_api.json",
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thinkaboutthings_compressed.mp4"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 112.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/band"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a man"
+    }
+   ],
+   "graph_sha256": "af837b109d939b22",
+   "stage_seconds": {
+    "sampling": 466.8,
+    "source encode": 46.2,
+    "decode": 17.7,
+    "composite": 13.2,
+    "mask review": 12.9,
+    "conditioning": 12.9,
+    "write": 4.0,
+    "motion reference": 2.6,
+    "join and mux": 0.4,
+    "track encode": 0.2,
+    "window setup": 0.0
+   },
+   "report_lines": [
+    "no stored window reused; 1 conditioning(s) encoded for 1 rendered window(s) with references",
+    "[1] source kept outside the mask: 23.0% of the window's video tokens regenerate",
+    "[1] composite keeps only what changed: 88% of the regenerated pixels, the source restored in the rest",
+    "mask review written beside the video: band_baseline_00001_with_mask.mp4, the render over what was regenerated"
+   ],
+   "output_sha256": "64fe29f36a9329b6000acef888fc97a0f363ff8d612547bb79d79cf1ca113677"
+  },
+  "cache_plain": {
+   "total_s": 317.7,
+   "graph": "workflows/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json",
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thinkaboutthings_compressed.mp4"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 112.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/band"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a man"
+    }
+   ],
+   "graph_sha256": "d46b956bfdfe355f",
+   "stage_seconds": {
+    "sampling": 267.1,
+    "decode": 17.9,
+    "mask review": 13.0,
+    "composite": 13.0,
+    "write": 4.0,
+    "source encode": 1.1,
+    "join and mux": 0.4,
+    "track encode": 0.2,
+    "conditioning": 0.1,
+    "window setup": 0.0
+   },
+   "report_lines": [
+    "[1] conditioning kept from an earlier run (not encoded)",
+    "no stored window reused; 0 conditioning(s) encoded and 1 kept from an earlier run for 1 rendered window(s) with references",
+    "[1] source kept outside the mask: 23.0% of the window's video tokens regenerate",
+    "[1] composite keeps only what changed: 91% of the regenerated pixels, the source restored in the rest",
+    "mask review written beside the video: band_cache_plain_00001_with_mask.mp4, the render over what was regenerated"
+   ],
+   "output_sha256": "ce2d856b1187cdf1358d72e83da78f6db1b79f230f8d3469127d5de199476c7d"
+  },
+  "baseline_again": {
+   "total_s": 513.2,
+   "graph": "workflows/daily/h3_mask_ref2va_motion_api.json",
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thinkaboutthings_compressed.mp4"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 112.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/band"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a man"
+    }
+   ],
+   "graph_sha256": "af837b109d939b22",
+   "stage_seconds": {
+    "sampling": 462.6,
+    "decode": 17.8,
+    "composite": 13.1,
+    "mask review": 13.1,
+    "write": 3.9,
+    "source encode": 1.1,
+    "join and mux": 0.4,
+    "track encode": 0.2,
+    "conditioning": 0.1,
+    "window setup": 0.0
+   },
+   "report_lines": [
+    "[1] conditioning kept from an earlier run (not encoded)",
+    "no stored window reused; 0 conditioning(s) encoded and 1 kept from an earlier run for 1 rendered window(s) with references",
+    "[1] source kept outside the mask: 23.0% of the window's video tokens regenerate",
+    "[1] composite keeps only what changed: 88% of the regenerated pixels, the source restored in the rest",
+    "mask review written beside the video: band_baseline_again_00001_with_mask.mp4, the render over what was regenerated"
+   ],
+   "output_sha256": "64fe29f36a9329b6000acef888fc97a0f363ff8d612547bb79d79cf1ca113677"
+  }
+ },
+ "cache_log_lines": [
+  "[WARNING] [h3] frozen video cache: the comfy compiler's malloc graph is off while this model samples, and restored after",
+  "0%|          | 0/12 [00:00<?, ?it/s,   Model Initializing ...  ][INFO] [h3] frozen video cache: built (no cache yet), 28689 of 113072 rows live (0 of them halo), int4, 14.60 GiB in RAM"
+ ],
+ "sampler_bar_rates_s_per_step": {
+  "note": "from the progress bar; the elapsed column of a cached arm misleads, the rates do not",
+  "all": [
+   "57.44",
+   "57.44",
+   "53.29",
+   "53.39",
+   "33.51",
+   "33.45",
+   "33.50",
+   "33.51",
+   "33.52",
+   "33.54",
+   "33.52",
+   "33.53",
+   "33.50",
+   "38.46",
+   "58.92",
+   "58.92",
+   "18.85",
+   "18.81",
+   "18.81",
+   "18.80",
+   "18.79",
+   "18.83",
+   "18.87",
+   "18.86",
+   "18.87",
+   "18.86",
+   "18.83",
+   "18.84",
+   "53.50",
+   "53.50",
+   "53.31",
+   "53.40",
+   "33.56",
+   "33.50",
+   "33.57",
+   "33.54",
+   "33.58",
+   "33.59",
+   "33.59",
+   "33.60",
+   "33.56",
+   "38.51"
+  ]
+ },
+ "yesterday": {
+  "record": "bench/results/2026-10-06_frozen_cache_masked_window.md",
+  "sampling_cached_s": 463.8,
+  "sampling_stock_s": 462.9,
+  "baseline_output_sha256_equal_to_today": true
+ },
+ "saving": {
+  "sampling_s": [
+   462.6,
+   267.1
+  ],
+  "share_of_sampling_saved": 0.423
+ }
+}

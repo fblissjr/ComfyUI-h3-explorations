@@ -67,7 +67,12 @@ Two more graphs since 2026-10-06, neither rendered yet:
   better at a smaller margin on a clip where the subject is small:
   `../../bench/results/2026-10-06_masked_v2v_body_window_arms.md`. That arm
   rendered a typed text; this graph renders the node's wording for the same
-  region, which has not been watched. Start here for a still that shows the
+  region. That wording rendered the same day on the same window and seed,
+  beside the typed arm, and the two are stacked on the output share
+  (`Video/compare_stacked/body_345_p7_typed_beside_node_over_mask.mp4`).
+  The owner watched the pair on 2026-10-07: both good, and not told apart.
+  (Said for a few hours that day that the wording had not been watched,
+  which was this page not knowing that arm existed.) Start here for a still that shows the
   person from the chest up. The same region on the fast chain was called
   broken in that record, so no fast graph carries it.
 

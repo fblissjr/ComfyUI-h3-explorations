@@ -7,6 +7,36 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.215.3
+<!-- changelog.d/mrdragon-cache-fixed-pair.md -->
+
+### Added
+
+- **A record of the frozen video cache on a masked window with its cached
+  step on the kitchen kernel**
+  (`bench/results/2026-10-07_frozen_cache_masked_window_fixed.md` and its
+  json): the 2026-10-06 pair repeated on a scratch server with one function
+  changed, the cached arm's sampling against the stock arm's, the build and
+  step rates, and what was not looked at. The change itself is kept as
+  `archive/frozen_cache_masked/dense_options_fix_2026-10-07.diff`. No node
+  code changes: the masked use stays retired until the owner says
+  otherwise. `archive/frozen_cache_masked/README.md` and
+  `docs/wiki/next_steps.md` point at the record.
+
+## 0.215.2
+<!-- changelog.d/mrdragon-upper-body-node-arm-existed.md -->
+
+### Fixed
+
+- The upper-body graph's notes no longer say the prompt node's wording for
+  that region had not rendered on the first clip: it rendered on 2026-10-06
+  on the same window and seed beside the typed arm, and the stacked pair is
+  on the output share. Corrected in `docs/wiki/masked_v2v.md`, the bank
+  entry `ref2va_masked_person_upper_motion` and its row in
+  `docs/prompt_audit.md`, with a dated note in
+  `bench/results/2026-10-06_masked_v2v_body_window_arms.md` and an entry in
+  `docs/wiki/decisions.md`.
+
 ## 0.215.1
 <!-- changelog.d/mregg-one-phrase-one-detection.md -->
 

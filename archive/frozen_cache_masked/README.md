@@ -84,6 +84,15 @@ The fix is in this module's `_cached_block`: send the call to the dense
 backend the override chain carries, not past it. Nothing here is changed;
 the retirement is the owner's decision and stands until they reopen it.
 
+**The same day, with the owner's go: the pair was run again with that fix.**
+`dense_options_fix_2026-10-07.diff` in this folder is the one change, against
+the module as archived. On the same window and seed the cached arm's
+sampling came in well under the stock arm's, in the band the design
+predicted, with one build and no rebuild
+(`bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`). The cached
+render's quality is the owner's eye on the stacked pair; until they say so
+this folder stays an archive and the live module stays as it is.
+
 ## For whoever reads this next
 
 mrhand's end-of-day note (`internal/claude/2026-10-06_mrhand/notes.md`,

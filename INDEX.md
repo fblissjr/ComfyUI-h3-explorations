@@ -135,9 +135,9 @@ with none is a helper the others import.
 | directory | tracked files | where its index is |
 |---|---|---|
 | `.claude/` | 2 | [below](#claude) |
-| `archive/` | 25 | [below](#archive) |
+| `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1247 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1249 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 166 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
@@ -164,6 +164,7 @@ with none is a helper the others import.
 | [`bench/check_single_frame.py`](archive/bench/check_single_frame.py) | Check the single-frame shim changes `length=1` and provably nothing else. |
 | [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06 |
 | [`frozen_cache_masked/check_frozen_video_cache.py`](archive/frozen_cache_masked/check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
+| [`frozen_cache_masked/dense_options_fix_2026-10-07.diff`](archive/frozen_cache_masked/dense_options_fix_2026-10-07.diff) | 477a478,501 |
 | [`frozen_cache_masked/frozen_video_cache.py`](archive/frozen_cache_masked/frozen_video_cache.py) | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
 | [`frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`](archive/frozen_cache_masked/h3_probe_v2v_masked_song_ref2va_motion_cache_api.json) | 20 nodes; checkpoint `minimax_h3_ref2va_pruned_int8_convrot.safetensors`; pack nodes AppendRefImage, AudioFreezeSong, EncoderLoader, FrozenVideoCache, MaskedPrompt, MaskedSource, Resolution, SigmaShift, Sol, SubjectTrack |
 | [`single_frame.py`](archive/single_frame.py) | TEMPORARY. Lifts ComfyUI's 5-frame floor on the stock H3 nodes, in memory. |

@@ -83,6 +83,11 @@ own below the rule.
   The retirement stands until the owner reopens it. What reopening would
   be: the archived module in a scratch copy with that one call routed to
   the dense backend, and the same like-for-like pair on the same window.
+  **That pair ran the same day** and the cache saves what its design
+  predicted (`../../bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`).
+  Owed before it returns to the tree: the owner's eye on the stacked pair,
+  then more windows (one that regenerates much more of the frame), and the
+  departure of a cached step measured on the right kernel.
 - Parked by the owner, 2026-10-04: two samplers. The node that restores the
   plate between them is written and held to core's sampler on a stub model
   (`../../plate_restore.py`, `../../bench/check_plate_restore.py`), is in no
