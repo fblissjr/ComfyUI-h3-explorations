@@ -201,7 +201,7 @@
       "video": "h3ref_diner_monologue_25fps_14s.mp4",
       "force_rate": 24.0,
       "custom_width": 1344,
-      "custom_height": 0,
+      "custom_height": 768,
       "frame_load_cap": 753,
       "start_time": 0.0,
       "format": "AnimateDiff"

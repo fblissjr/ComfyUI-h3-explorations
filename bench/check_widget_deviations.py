@@ -338,6 +338,12 @@ DECLARED: dict[tuple[str, str], tuple] = {
                 "held at render size and not at the file's "
                 "(build_workflows.py, freeze_song_source). The reference graphs "
                 "leave it at the node default: the reference compiler fits a clip."),
+    (h3_config.REF_VIDEO_LOADER, "custom_height"):
+        ("ARM", "the canvas height on the masked video-to-video graph, with the "
+                "width above: given both, the loader crops to the canvas's shape "
+                "and scales in its one ffmpeg pass, so the source reaches the "
+                "canvas through one resize and not two (build_workflows.py, "
+                "freeze_song_source; decisions.md, 2026-10-07)."),
     ("CheckpointLoaderSimple", "ckpt_name"):
         ("HOUSE", "h3_config.SEGMENTER, the SAM 3.1 checkpoint core's SAM3 nodes "
                   "track the masked subject with; the only checkpoint-loader "

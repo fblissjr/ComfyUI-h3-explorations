@@ -17,6 +17,23 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **The masked graphs load the source at the canvas in one resize** (the
+  owner, on reading the loader beside sglang's: "do it right", then "do it
+  now"). The generator gave the loader the canvas width alone, so a 16:9
+  file was scaled by the loader, then cropped and scaled again by the fit,
+  bilinear; it now gives the height as well, and the loader crops and scales
+  in the one ffmpeg pass that sets the frame rate
+  (`workflows/build_workflows.py`, `freeze_song_source`). Measured on a few
+  frames of one 16:9 clip, emulating both paths with ffmpeg: the two-step
+  path carries about a fifth less fine detail than one pass (mean absolute
+  Laplacian; the figures are in the changelog entry). sglang decodes a
+  reference video in one pass with Lanczos; the loader's scale is ffmpeg's
+  default, and Lanczos is left as a refinement the loader does not expose.
+  A 4:3 file loaded at a 4:3 canvas was never affected. **Every masked
+  render of a 16:9 clip before this had the softer source**, on both sides
+  of every comparison. The frames the tracker and the part model see change
+  size with it, so every kept mask is recomputed; what that does to SAM's
+  masks is measured after this entry, not before.
 - **The Masked Prompt node's upper-body text is rewritten in the vendor
   guide's form, at under half the length, and says nothing it cannot know**
   (the owner, on two seeds of one window:

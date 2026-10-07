@@ -2233,16 +2233,26 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                 chain = [list_id, 0]
             g["74"]["inputs"]["lists"] = chain
         if freeze_song_source:
-            # The video is the track: its frames at 24 fps and canvas width
+            # The video is the track: its frames at 24 fps and AT THE CANVAS
             # (the loader holds them all, so not at the file's own size), its
             # audio in place of LoadAudio. Ids 100-105, used by nothing else.
+            # Width AND height since 2026-10-07: given both, the loader crops to
+            # the canvas's shape and scales in the one ffmpeg pass that sets the
+            # rate, and `video_mask.fit_frames` then has nothing to do. With the
+            # width alone (until then) a 16:9 file was scaled by the loader and
+            # cropped and scaled again by the fit, bilinear: measured on one
+            # clip, about a fifth of its fine detail (decisions.md, that date).
+            # sglang decodes a reference video the same way, in one pass
+            # (`reference_encoding.py`, `minimax_h3_decode_reference_video_frames`).
+            # A canvas changed on the song node and not here brings the second
+            # resize back; nothing breaks.
             # The cap is the count the song node's plan reads for this extent, no more:
             # until 2026-10-06 it was the extent plus a whole window, and the tracker
             # worked on every frame of that (`bench/results/2026-10-06_masked_render_time_breakdown.md`).
             g.pop("48")
             g["28"] = {"class_type": REF_VIDEO_LOADER,
                        "inputs": {"video": PLACEHOLDER_VIDEO, "force_rate": REF_VIDEO_FORCE_RATE,
-                                  "custom_width": cv["width"], "custom_height": 0,
+                                  "custom_width": cv["width"], "custom_height": cv["height"],
                                   "frame_load_cap": _song_frames_read(freeze_song_seconds, length, freeze_context,
                                                                       freeze_song_timeline),
                                   "start_time": 0.0, "format": "AnimateDiff"}}
