@@ -53,6 +53,29 @@ not a property of the 17-frame grouping, and it is not one fixed length.
 Whether it follows the action or a property of the model is not known; the
 same switch at two other moments is the next render.
 
+**Added the same evening: the switch at two other moments.** Region on from
+frame 85 and from frame 221, both a multiple of 17 and the first frame of a
+latent step like 153; same control, same seed; not shown to the owner yet.
+Measured as the difference from the source on the pixels where the control's
+subject differs most from it:
+
+| region on from | lands at | late by | what is at the landing frame |
+|---|--:|--:|---|
+| 85 | 109 | 24 frames | nothing the shot table marks |
+| 153 | 165 | 12 frames | nothing the shot table marks |
+| 162 | 167 | 5 frames | nothing the shot table marks |
+| 221 | 237 | 16 frames | the window's first cut |
+
+In all four the arm leaves the source slowly for the first ten frames or so
+(a regenerated subject that still reads as the original) and then changes
+within one frame. **The delay is not a length that can be led by**: four
+switches land at three moments, and the one that had a cut ahead of it landed
+exactly on the cut. That fits "the model holds the subject it has been
+shown until something in the clip lets it change", which is a reading: the
+two landings with no cut were not looked at for what happens there. What it
+supports for a timed change: put the switch on a cut. A change in the middle
+of a shot needs something this test does not have.
+
 **The flicker** (`flicker` mode: the residual render minus source, and its
 change between frames, in bands read from the render's own overlay). In the
 second shot the band just inside the seam changes about three times as

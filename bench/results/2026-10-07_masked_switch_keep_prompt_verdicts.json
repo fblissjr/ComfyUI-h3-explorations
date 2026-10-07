@@ -305,6 +305,126 @@
     ],
     "mean_abs_residual": 1.669
    }
+  },
+  "second_run": {
+   "arms": {
+    "on_from_85": "N=85",
+    "on_from_221": "N=221; the window's first cut is at frame 237"
+   },
+   "how": "mean absolute difference from the decoded source on the pixels where the control's subject differs most from the source (the top 3 percent of each frame), per frame; the first frame of the single large step is the landing",
+   "difference_from_source_per_frame": {
+    "on_from_85": {
+     "first_frame": 83,
+     "values": [
+      2,
+      2,
+      4,
+      7,
+      9,
+      10,
+      11,
+      11,
+      11,
+      12,
+      13,
+      13,
+      13,
+      15,
+      16,
+      14,
+      14,
+      16,
+      16,
+      17,
+      15,
+      15,
+      15,
+      14,
+      15,
+      14,
+      27,
+      28,
+      30
+     ]
+    },
+    "on_from_153": {
+     "first_frame": 151,
+     "values": [
+      2,
+      2,
+      5,
+      8,
+      9,
+      10,
+      11,
+      11,
+      13,
+      13,
+      14,
+      14,
+      15,
+      16,
+      25,
+      26,
+      28
+     ]
+    },
+    "on_from_162": {
+     "first_frame": 160,
+     "values": [
+      2,
+      2,
+      6,
+      10,
+      12,
+      14,
+      15,
+      23,
+      24,
+      23
+     ]
+    },
+    "on_from_221": {
+     "first_frame": 219,
+     "values": [
+      2,
+      2,
+      4,
+      6,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      14,
+      14,
+      14,
+      14,
+      14,
+      14,
+      14,
+      14,
+      51,
+      49,
+      47,
+      50,
+      50
+     ]
+    }
+   },
+   "landing": {
+    "on_from_85": 109,
+    "on_from_153": 165,
+    "on_from_162": 167,
+    "on_from_221": 237
+   },
+   "late_by_frames": {
+    "on_from_85": 24,
+    "on_from_153": 12,
+    "on_from_162": 5,
+    "on_from_221": 16
+   }
   }
  },
  "keep": {

@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.221.3
+<!-- changelog.d/mrdragon-switch-two-more-moments.md -->
+
+### Changed
+
+- **`bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md` adds
+  the switch at two other moments.** With the two earlier arms, four
+  switches land 24, 12, 5 and 16 frames late, at three moments, and the one
+  with a cut ahead of it lands exactly on the cut. The delay is not a
+  length that can be led by; a timed change belongs on a cut. Not yet shown
+  to the owner.
+
 ## 0.221.2
 <!-- changelog.d/mrdragon-sav-frame-rate-and-track-scale.md -->
 
