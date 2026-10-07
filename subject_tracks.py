@@ -35,6 +35,9 @@ moved a regain's lead over the next person by about the lead the Subject Track r
 (`bench/results/2026-10-07_subject_track_under_nudge.md`), so likeness alone cannot settle the closest cases. Where the
 subject was when last trusted can: among candidates too close to call, the one nearest that place, of a like size and
 clearly nearer than the others, is taken; otherwise nobody is. Every number it used goes back for the report.
+`take_back_by_place` turns the order round, after the same day showed a clear leader by likeness standing somewhere
+else: a candidate has to stand where the subject last was, likeness only says who may be asked (over a line, or first by
+a margin), and the result says whether the detector returned as many as it was asked for.
 
 **Places in the clip** (`parse_notes`, `place_text`). A correction or a per-shot line names a place in the CLIP, as a
 time or a frame, not a shot number inside one load of frames, so one text serves every load of a long clip. Nobody
@@ -198,8 +201,9 @@ def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Un
                 overlap[f] = shared / max(area[f] + area[last] - shared, 1)
                 area_ratio[f] = area[f] / area[last]
                 box, was = box_of(t[f]), box_of(t[last])
-                box_ratio[f] = ((box[2] - box[0]) * (box[3] - box[1])) / max((was[2] - was[0]) * (was[3] - was[1]), 1e-9)
-                centre_step[f] = _away(box, was)[0]
+                if box is not None and was is not None:      # both frames have a mask, so both have a box
+                    box_ratio[f] = ((box[2] - box[0]) * (box[3] - box[1])) / max((was[2] - was[0]) * (was[3] - was[1]), 1e-9)
+                    centre_step[f] = _away(box, was)[0]
                 frames_apart[f] = abs(f - last)
             if stop is None and not area[f]:
                 stop, why = f, STOPPED_EMPTY
@@ -320,6 +324,87 @@ def take_back(scores: list[float], boxes: list, last_box, line: float, lead: flo
     if d <= NEAR_DIAGONALS and ratio <= SIZE_FACTOR and (len(away) == 1 or away[1][0] >= max(d * CLEARLY_NEARER, SAME_PLACE)):
         return i, TOOK_NEAREST, detail
     return None, TOO_CLOSE, detail
+
+
+# ---- taking a subject back by where they last were
+
+#: read off one stretch, not measured as a rule: a candidate is "where the subject last was" when its box overlaps the
+#: subject's last box by this much, by intersection over union. In the by-place table of
+#: `bench/results/2026-10-07_subject_regain_looks.md` the candidates over the likeness line fall in two groups with
+#: nothing between, at the picked figure's place and elsewhere, and this sits in the gap. Four labelled takes, one
+#: stretch, a figure who stays where they stand: the shape is supported and the number is not, so it is an argument.
+AT_THE_PLACE = 0.3
+
+OVER_THE_LINE, FIRST_BY_A_MARGIN = "over the line", "first, by a margin"
+TOOK_AT_THE_PLACE, NOBODY_THERE, TWO_THERE, NO_LAST_PLACE = ("the one where the subject last was", "nobody where the subject last was",
+                                                           "more than one where the subject last was", "no last place to judge by")
+
+
+def box_overlap(a, b) -> float:
+    """Intersection over union of two boxes (x0, y0, x1, y1); 0 when either is missing."""
+    if a is None or b is None:
+        return 0.0
+    shared = max(min(a[2], b[2]) - max(a[0], b[0]), 0.0) * max(min(a[3], b[3]) - max(a[1], b[1]), 0.0)
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - shared
+    return shared / union if union > 0 else 0.0
+
+
+def take_back_by_place(scores: list[float], boxes: list, last_box, asked: int, line: float, lead: float,
+                       likeness: str = OVER_THE_LINE, at_the_place: float = AT_THE_PLACE) -> tuple[int | None, str, dict]:
+    """Which candidate on a looked-at frame is the subject, after a loss inside a shot, judged by place before likeness.
+
+    `take_back` asks likeness first and place only to break a tie. On a crowd of alike figures a clear leader by
+    likeness was mostly a figure standing somewhere else, while by overlap with the subject's box the candidates over
+    the line fell in two groups with nothing between (`bench/results/2026-10-07_subject_regain_looks.md`, read off
+    recorded looks on one stretch; no labels beyond a strip looked at). So here a candidate has to stand where the
+    subject last was, and likeness only says who may be asked. Place is not identity either: two figures who change
+    places, or a subject who walks off while another steps in, are taken wrongly, and nothing here sees it.
+
+    `scores` are the candidates' likenesses, `boxes` their boxes (`box_of`), `last_box` the subject's box on the last
+    frame that is the subject's without doubt: the last frame of `gallery_span`, not the last frame of the track, which
+    can be a frame beside a jump lying on two figures. `asked` is how many detections the caller asked the detector
+    for; place only helps when the subject is among those returned, so the result says whether that cap was reached.
+
+    Who may be asked, by `likeness`:
+      `OVER_THE_LINE`      every candidate at or above `line`.
+      `FIRST_BY_A_MARGIN`  the candidate with the highest score, if it leads the next by `lead`; `line` is not asked.
+                           Against one signature of the subject a held track cleared a fixed line on under half its
+                           looks and was first on nearly all (`bench/results/2026-10-07_subject_likeness_in_a_group.md`:
+                           tracks compared, not detections; one pass).
+    Of those, the one whose box overlaps `last_box` by `at_the_place` is taken. Nobody is taken when none does, when
+    more than one does, or when there is no last place (across a cut, which is the match's to judge).
+
+    Returns (the index or None, the reason, the numbers behind it): which likeness rule ran, the count asked and
+    returned, how many candidates stand at the place at all, and for the one taken its score, its rank, its lead over
+    the best of the others and whether it is over the line, so the rule that did not run can be read off the same look.
+    """
+    if likeness not in (OVER_THE_LINE, FIRST_BY_A_MARGIN):
+        raise ValueError(f"take_back_by_place: likeness is `{OVER_THE_LINE}` or `{FIRST_BY_A_MARGIN}`, not {likeness!r}")
+    order = sorted(range(len(scores)), key=lambda i: -scores[i])
+    best = scores[order[0]] if order else -1.0
+    nxt = scores[order[1]] if len(order) > 1 else -1.0
+    detail = {"likeness": likeness, "line": line, "lead_required": lead, "at_the_place": at_the_place, "asked": int(asked),
+              "returned": len(scores), "cap_reached": len(scores) >= int(asked),
+              "best": round(float(best), 4), "next": round(float(nxt), 4), "lead": round(float(best - nxt), 4)}
+    if last_box is None:
+        return None, NO_LAST_PLACE, detail
+    overlaps = [box_overlap(b, last_box) for b in boxes]
+    there = [i for i in order if overlaps[i] >= at_the_place]
+    detail["candidates_at_the_place"] = len(there)
+    if likeness == OVER_THE_LINE:
+        may = [i for i in order if scores[i] >= line]
+    else:
+        may = [order[0]] if order and best - nxt >= lead else []
+    detail["may_be_asked"] = len(may)
+    here = [i for i in may if overlaps[i] >= at_the_place]
+    if len(here) != 1:
+        return None, (TWO_THERE if here else NOBODY_THERE), detail
+    i = here[0]
+    others = max((scores[k] for k in order if k != i), default=-1.0)
+    detail["taken"] = {"score": round(float(scores[i]), 4), "rank": order.index(i) + 1, "lead_over_the_others": round(float(scores[i] - others), 4),
+                       "over_the_line": bool(scores[i] >= line), "overlap_with_the_place": round(overlaps[i], 3),
+                       "next_overlap_with_the_place": round(max((overlaps[k] for k in order if k != i), default=0.0), 3)}
+    return i, TOOK_AT_THE_PLACE, detail
 
 
 # ---- places in the clip

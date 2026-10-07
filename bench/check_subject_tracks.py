@@ -49,6 +49,25 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   or of another size, is refused and the reason says so; near, it is taken; with no
                                   last place it is taken on likeness, as across a cut. THE CONTROL: without the option
                                   the far leader is taken, which is the swap today's node made on a crowd.
+  a_slow_move_off_passes_the_default  KNOWN LIMIT, asserted: a mask that leaves its figure in steps that each share
+                                  a little more than the default line, and then goes empty, is one run to the empty
+                                  frame and loses no frame to the gallery's span, though its last frame shares nothing
+                                  with its seed. Seen on 2026-10-07 in one arm (the largest figure on the crowd clip's
+                                  hard stretch, corrected, seeded with the three nearest, as fed; its twin with the
+                                  input moved one level stepped under the line and was cut):
+                                  `bench/results/2026-10-07_subject_alone_or_in_a_group.json`, "crowd, hard, the
+                                  largest". The line was not moved on it: the gap between that step and a held
+                                  figure's least step is thin on both sides, on one figure. A caller's higher line
+                                  cuts it, which the case also asserts.
+  taking_back_by_place_asks_where_first  the one candidate over the line who stands where the subject last was is
+                                  taken though another scores higher somewhere else; nobody is when none stands
+                                  there, when two who may be asked do, when the one who stands there may not be asked,
+                                  or when there is no last place. First by a margin takes a candidate under the line
+                                  and refuses one who is not first. The result names the likeness rule that ran, the
+                                  count asked and returned and whether the cap was reached, and the taken candidate's
+                                  rank and lead. THE CONTROL: `take_back`, likeness first, takes the higher score
+                                  standing somewhere else on the same candidates. KNOWN LIMIT, asserted: two figures
+                                  who have changed places are taken wrongly.
   notes_say_a_place_in_the_clip   the four forms of a corrections line read as written; a frame and its time are the
                                   same place; each kind of typo is refused with the line quoted, never skipped.
   a_note_lands_in_its_shot        a note is placed by where the load starts in the clip, the same text serves two
@@ -418,10 +437,75 @@ def a_clear_leader_elsewhere_is_refused():
     return "a clear leader far from the subject's last place, or of another size, is refused with its distance reported; without the option it is taken"
 
 
+def a_slow_move_off_passes_the_default():
+    # seven columns a frame on a figure twelve wide: each step shares 5 of 19 columns, a little over the default line
+    track = torch.stack([_figure(HERE_)] * 4 + [_figure(HERE_ + 7 * k) for k in (1, 2, 3)] + [_blank(64, 64)] * 3)
+    assert not bool((track[6] & track[0]).any()), "the last mask should share nothing with the seed's"
+    got = S.unbroken(track, seed=0)
+    steps = [v for v in got.overlap[4:7] if v is not None]
+    assert len(steps) == 3 and all(S.MOVED_OFF < v < 0.5 for v in steps), steps
+    # THE KNOWN LIMIT: one run up to the empty frame, and the span trims nothing because the run did not stop on a move
+    assert (got.first, got.end, got.after) == (0, 7, S.STOPPED_EMPTY), "the default line claimed to see a slow move-off; it does not"
+    assert S.gallery_span(got) == (0, 7), S.gallery_span(got)
+    # a caller's higher line cuts it at its first step, and the span then leaves out the frame before
+    higher = S.unbroken(track, seed=0, moved_off=0.5)
+    assert (higher.first, higher.end, higher.after) == (0, 4, S.STOPPED_MOVED) and S.gallery_span(higher) == (0, 3), (higher.first, higher.end, S.gallery_span(higher))
+    return f"KNOWN LIMIT: three steps of {steps[0]:.2f}, over the default {S.MOVED_OFF}, then empty: one run of 7 frames, all gallery material; a line of 0.5 cuts it at the first"
+
+
+def taking_back_by_place_asks_where_first():
+    last = _box(0.36, 0.77, 0.11, 0.28)
+    here, far, far2 = _box(0.34, 0.80, 0.12, 0.30), _box(0.88, 0.76, 0.13, 0.35), _box(0.60, 0.76, 0.12, 0.30)
+    rule = dict(asked=16, line=0.88, lead=0.03)
+    # the candidate at the place is taken though a clear leader stands somewhere else
+    which, why, detail = S.take_back_by_place([0.963, 0.90], [far, here], last, **rule)
+    assert (which, why) == (1, S.TOOK_AT_THE_PLACE), (which, why, detail)
+    took = detail["taken"]
+    assert took["rank"] == 2 and took["lead_over_the_others"] < 0 and took["over_the_line"] and took["overlap_with_the_place"] > S.AT_THE_PLACE > took["next_overlap_with_the_place"], took
+    assert (detail["likeness"], detail["asked"], detail["returned"], detail["cap_reached"]) == (S.OVER_THE_LINE, 16, 2, False), detail
+    # THE CONTROL: likeness first takes the leader, half the frame away, which is the swap today's node made
+    assert S.take_back([0.963, 0.90], [far, here], last, line=0.88, lead=0.03)[:2] == (0, S.TOOK_LEADER)
+    # nobody stands there: nobody, however clear the leader
+    assert S.take_back_by_place([0.963, 0.90], [far, far2], last, **rule)[:2] == (None, S.NOBODY_THERE)
+    # two who may be asked stand there: place cannot say which
+    assert S.take_back_by_place([0.92, 0.91], [here, _box(0.37, 0.78, 0.12, 0.29)], last, **rule)[:2] == (None, S.TWO_THERE)
+    # ... but a second figure there who is under the line is not asked, and does not block the first
+    assert S.take_back_by_place([0.92, 0.70], [here, _box(0.37, 0.78, 0.12, 0.29)], last, **rule)[:2] == (0, S.TOOK_AT_THE_PLACE)
+    # the one who stands there is under the line: not taken, and the report says somebody stood there
+    which, why, detail = S.take_back_by_place([0.95, 0.80], [far, here], last, **rule)
+    assert (which, why) == (None, S.NOBODY_THERE) and detail["candidates_at_the_place"] == 1 and detail["may_be_asked"] == 1, (which, why, detail)
+    # no last place (across a cut): nobody, and no box is read
+    assert S.take_back_by_place([0.963, 0.90], [far, here], None, **rule)[:2] == (None, S.NO_LAST_PLACE)
+    # FIRST BY A MARGIN: the line is not asked; the first by the margin is taken where they stand at the place
+    first = dict(rule, likeness=S.FIRST_BY_A_MARGIN)
+    which, why, detail = S.take_back_by_place([0.80, 0.70], [here, far], last, **first)
+    assert (which, why) == (0, S.TOOK_AT_THE_PLACE) and detail["likeness"] == S.FIRST_BY_A_MARGIN and not detail["taken"]["over_the_line"], (which, why, detail)
+    assert S.take_back_by_place([0.80, 0.70], [here, far], last, **rule)[:2] == (None, S.NOBODY_THERE), "over the line should refuse the same candidate"
+    # ... first, but not by the margin; and first by the margin, but somewhere else
+    assert S.take_back_by_place([0.80, 0.79], [here, far], last, **first)[:2] == (None, S.NOBODY_THERE)
+    assert S.take_back_by_place([0.90, 0.963], [here, far], last, **first)[:2] == (None, S.NOBODY_THERE)
+    # the cap: as many came back as were asked for, so the subject may not be among them
+    full = S.take_back_by_place([0.5] * 16, [far] * 16, last, **rule)[2]
+    assert full["cap_reached"] and full["returned"] == 16 and not S.take_back_by_place([0.5] * 9, [far] * 9, last, **rule)[2]["cap_reached"]
+    assert S.take_back_by_place([], [], last, **rule)[:2] == (None, S.NOBODY_THERE)
+    try:
+        S.take_back_by_place([0.9], [here], last, likeness="the best", **rule)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown likeness rule was accepted")
+    assert abs(S.box_overlap((0.0, 0.0, 0.2, 0.2), (0.1, 0.0, 0.3, 0.2)) - 1 / 3) < 1e-9 and S.box_overlap(None, last) == 0.0
+    # THE KNOWN LIMIT, asserted so it is never read as covered: the subject has walked off and another figure stands
+    # in their place. Place takes that figure, with every number in order.
+    which, why, _ = S.take_back_by_place([0.90, 0.95], [here, far], last, **rule)
+    assert (which, why) == (0, S.TOOK_AT_THE_PLACE), "place claimed to know who stands there; it cannot"
+    return "by place first: the one who may be asked and stands where the subject was; nobody when none or two do; KNOWN LIMIT: whoever stands there is taken"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               the_frame_beside_a_jump_is_no_gallery_frame, a_creep_is_not_caught, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

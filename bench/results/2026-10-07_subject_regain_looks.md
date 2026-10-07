@@ -182,6 +182,83 @@ higher count gains one take and, at sixty-four, loses two (more people
 over the line, a smaller lead); judged by place it is what puts the figure
 among the candidates at all.
 
+## By place, through the function (added the same evening, session mrhen)
+
+"What the by-place tables show" above was read off the data. The rule is now
+a function, `subject_tracks.take_back_by_place`, and the tool's `replay`
+puts every recorded look through it. Nothing is detected again and no track
+is seeded: this is still not a rule run in a loop.
+
+**The anchor is not the pick's box.** It is the subject's box on the last
+frame a gallery may use (`subject_tracks.gallery_span`): the track is cut
+where the mask moves off (`subject_tracks.unbroken`), and the frame beside
+the jump is left out. Here that is frame 18 in both runs, found by the rule
+on the RECORDED steps of the frame-by-frame track above, not on masks. The
+last column anchors on frame 19 instead, the frame the cut itself keeps,
+whose box spans both figures: it is the control for where the anchor is
+taken from.
+
+`lotsofpeopledance_0414_0720.mkv` from 138.0 s, 144 frames at 24.0 a second; pick `largest`; SAM 3.1 as ComfyUI ships it. Each recorded look through `subject_tracks.take_back_by_place`: the line 0.88, the lead 0.03, at the place from 0.3 of box overlap. Nothing was detected again: the candidates are the recorded ones over the line, with the look's recorded runner-up added, without a box, where it is not among them.
+
+The looks with sixteen asked, which hold the four takes the strip labels:
+
+| run | look, frame | asked | returned | cap reached | today's rule takes (overlap with the anchor) | by place, over the line | by place, first by a margin | the same anchored on the frame beside the jump |
+|---|---|---|---|---|---|---|---|---|
+| as fed | 23 | 16 | 16 | True | somebody (0.0) | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 71 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 83 | 16 | 16 | True | somebody (0.106) | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 92 | 16 | 16 | True | somebody (0.428) | 0.9227 | 0.9227 | nobody |
+| as fed | 105 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 117 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 129 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| as fed | 141 | 16 | 16 | True | somebody (0.064) | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 23 | 16 | 16 | True | somebody (0.0) | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 68 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 80 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 92 | 16 | 16 | True | somebody (0.385) | 0.9197 | 0.9197 | nobody |
+| nudged | 105 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 117 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 129 | 16 | 16 | True | nobody | nobody: nobody where the subject last was | nobody | nobody |
+| nudged | 141 | 16 | 16 | True | somebody (0.073) | nobody: nobody where the subject last was | nobody | nobody |
+
+Every look and count is printed by `replay`; the counts:
+
+| run | asked | looks | today's rule takes somebody | of them at the place | by place, over the line, takes | by place, first by a margin, takes | anchored on the frame beside the jump, takes |
+|---|---|---|---|---|---|---|---|
+| as fed | 16, the frame | 8 | 4 | 1 | 1 | 1 | 0 |
+| as fed | 32, the frame | 8 | 4 | 1 | 4 | 1 | 0 |
+| as fed | 64, the frame | 8 | 4 | 1 | 5 | 1 | 0 |
+| nudged | 16, the frame | 8 | 3 | 1 | 1 | 1 | 0 |
+| nudged | 32, the frame | 8 | 4 | 2 | 3 | 2 | 0 |
+| nudged | 64, the frame | 8 | 2 | 1 | 4 | 1 | 0 |
+
+- **On the labelled takes the rule does what the strip says** (measured on
+  recorded looks, both runs): with sixteen asked it takes somebody on one
+  look, the one take of today's rule that stands at the place, and refuses
+  the others today's rule makes, which stand elsewhere.
+- **Anchored on the frame beside the jump it takes nobody on any look**:
+  that frame's box runs from one figure to the other, so no single person's
+  box overlaps it enough. The anchor has to come from `gallery_span`.
+- **A higher count is what puts a candidate at the place**, as read above,
+  and with thirty-two asked the detector still returns as many as it was
+  asked for on every look; only at sixty-four does it return fewer.
+- **First by a margin takes far fewer**: one look in each run with sixteen
+  asked, and at most one more at a higher count. On the other added looks
+  the candidate at the place is over the line and is not first by the
+  margin.
+
+What this does not show, beyond the list above. The likenesses are the
+node's own, against a gallery that by then held two figures, so the
+likeness side is not what a gallery kept clean by `gallery_span` would
+give; the place side does not depend on it. Only candidates over the line
+were recorded, with each look's runner-up. The looks past the four takes
+have no label: "at the place" there is the rule's own measure. One
+stretch, one figure, who stays where they stand.
+
+```
+<python> bench/subject_regain_looks.py replay --json bench/results/2026-10-07_subject_regain_looks_largest.json --track bench/results/2026-10-07_subject_regain_looks_largest_track.json
+```
+
 ## What this does not show
 
 - **A rule by place working.** It was read off recorded candidates against

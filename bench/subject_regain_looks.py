@@ -25,6 +25,7 @@ value moved one level of 255.
 
     <python> bench/subject_regain_looks.py run --clip C --second S --seconds T --width W --rate R --pick P --json J [--corrected]
     <python> bench/subject_regain_looks.py render --json J
+    <python> bench/subject_regain_looks.py replay --json J [--track T]      no model: the recorded looks through `subject_tracks.take_back_by_place`
 
 THE READING, WRITTEN BEFORE THE FIRST RUN (2026-10-07). A higher count, the crop, or the centre region is worth a default or a setting only if
 it turns looks that today take nobody into looks that take somebody, in BOTH the plain and the nudged run, and the
@@ -101,6 +102,31 @@ def cmd_run(a):
         detect32, sign32, _ = st._sam_callables(model, clip, video, phrase, threshold, 32, head)
         cond = {k: clip.encode_from_tokens_scheduled(clip.tokenize(st.counted(p, few))) for k, p in (("person", phrase), ("head", head))}
         features = {}
+        calls = []
+
+        def tracked(start, end, seed_frame, mask, _track=track):
+            """The node's `track`, with each call's own frames put through `subject_tracks.unbroken` as they come back.
+
+            Judged here and not on the finished piece: a later take writes over part of an earlier call's frames
+            (`subject_track.py`, the regain), and where two calls meet reads as a jump."""
+            out = _track(start, end, seed_frame, mask)
+            run = S.unbroken(out > 0.5, int(seed_frame) - int(start))
+            lo, hi = S.gallery_span(run)
+
+            def at(i):
+                if not 0 <= i < len(run.overlap) or run.overlap[i] is None:
+                    return None
+                return {"frame": int(i + start), "frames_apart": run.frames_apart[i],
+                        **{k: (None if v[i] is None else round(v[i], 3)) for k, v in (("overlap", run.overlap), ("area_ratio", run.area_ratio),
+                                                                                       ("box_ratio", run.box_ratio), ("centre_step", run.centre_step))}}
+            inside = [v for v in run.overlap[run.first:run.end] if v is not None]
+            calls.append({"frames": [int(start), int(end)], "seeded_on": int(seed_frame), "moved_off": S.MOVED_OFF,
+                          "unbroken": [int(run.first + start), int(run.end + start)], "stops_before": run.before, "stops_after": run.after,
+                          "a_gallery_may_use": [int(lo + start), int(hi + start)], "least_overlap_inside": (round(min(inside), 3) if inside else None),
+                          "the_box_on_its_last_gallery_frame": (None if hi <= lo or S.box_of(out[hi - 1]) is None else [round(v, 3) for v in S.box_of(out[hi - 1])]),
+                          "the_frame_that_stops_it_before": at(run.first - 1), "its_first_frame": at(run.first),
+                          "its_last_frame": at(run.end - 1), "the_frame_that_stops_it_after": at(run.end)})
+            return out
 
         def trunk(f):
             if f not in features:
@@ -138,7 +164,7 @@ def cmd_run(a):
         with torch.no_grad():
             steps = st.cut_scores(video, {})
             cuts = st.find_cuts(steps, st.auto_cuts(steps))
-            found = st.follow(n, cuts, a.pick, None, None, detect16, sign16, track)
+            found = st.follow(n, cuts, a.pick, None, None, detect16, sign16, tracked)
             rows = []
             for number, shot in enumerate(found.shots, 1):
                 piece = found.pieces.get(shot.start)
@@ -229,6 +255,7 @@ def cmd_run(a):
         picked = next((s_ for s_ in found.shots if s_.picked), None)
         seed = found.pieces.get(picked.start) if picked is not None else None
         track_summary = None
+        fresh_looks = []
         if seed is not None:
             import torch.nn.functional as F
             on_ = seed > 0.5
@@ -257,17 +284,38 @@ def cmd_run(a):
                 # every frame, for "one jump or a creep through neighbours": the box, and the overlap with the frame before's mask
                 over_ = dict(steps)
                 track_every_frame = [{"frame": int(f_), "box": (None if S.box_of(seed[f_ - picked.start]) is None else [round(v_, 3) for v_ in S.box_of(seed[f_ - picked.start])]),
-                                      "overlap_with_the_frame_before": (None if f_ not in over_ else round(over_[f_], 3))}
+                                      "overlap_with_the_frame_before": (None if f_ not in over_ else round(over_[f_], 3)),
+                                      "share_of_the_frame": round(float(on_[f_ - picked.start].float().mean()), 5)}
                                      for f_ in range(picked.start, picked.start + int(seed.shape[0]))]
+                # at each frame the node would look on, what a fresh detect returns and how many of its detections lie on the
+                # finished track's mask there (mask against mask, `subject_tracks.AGREE_AT`): what a refresh would have to choose from
+                for f_ in range(picked.start, picked.start + int(seed.shape[0]), st.PROBE_STRIDE):
+                    fresh_, _ = detect16(f_)
+                    m_ = on_[f_ - picked.start]
+                    look_ = {"frame": int(f_), "asked": few, "detections": int(fresh_.shape[0]), "the_track_has_a_mask": bool(m_.any())}
+                    if look_["the_track_has_a_mask"] and fresh_.shape[0]:
+                        d_ = fresh_ > 0.5
+                        inter_ = (d_ & m_).flatten(1).sum(1).float()
+                        over_the_track = sorted((inter_ / (d_ | m_).flatten(1).sum(1).float().clamp(min=1)).tolist(), reverse=True)
+                        look_.update({"on_the_track": sum(v_ >= S.AGREE_AT for v_ in over_the_track), "best_overlap": round(over_the_track[0], 3),
+                                      "next_overlap": (round(over_the_track[1], 3) if len(over_the_track) > 1 else None)})
+                    fresh_looks.append(look_)
             track_summary["mask_overlap_with_the_frame_before"] = {
                 "pairs": len(steps), "least": None if not steps else round(min(v_ for _, v_ in steps), 3),
                 "median": None if not steps else round(sorted(v_ for _, v_ in steps)[len(steps) // 2], 3),
                 "under_a_half": [{"frame": int(f_), "overlap": round(v_, 3), "box_centre_before": centre_of(f_ - 1), "box_centre_after": centre_of(f_)} for f_, v_ in low]}
-        R["runs"][name] = {"cuts": [int(c) for c in cuts], "pick_frame": found.pick_frame,
+        # who each pick rule names on the pick frame, so a record can say whether two rules followed the same detection
+        rules_ = {}
+        if found.pick_frame is not None:
+            on_pick, scores_pick = detect16(found.pick_frame)
+            for rule_ in st.PICKS:
+                i_ = st.choose(on_pick, scores_pick, rule_)
+                rules_[rule_] = None if i_ is None or S.box_of(on_pick[i_]) is None else {"detection": int(i_), "box": [round(v_, 3) for v_ in S.box_of(on_pick[i_])]}
+        R["runs"][name] = {"cuts": [int(c) for c in cuts], "pick_frame": found.pick_frame, "each_pick_rule_on_the_pick_frame": rules_,
                            "the_picked_subjects_box_on_the_pick_frame": (None if seed is None or found.pick_frame is None else
                                                                         [round(v, 3) for v in (S.box_of(seed[found.pick_frame - picked.start]) or [])]),
-                           "the_track_handed_back": track_summary, "looks": rows,
-                           **({"track_only": True, "the_track_every_frame": track_every_frame} if a.track_only and seed is not None else {})}
+                           "the_track_handed_back": track_summary, "each_tracked_call": calls, "looks": rows,
+                           **({"track_only": True, "the_track_every_frame": track_every_frame, "a_fresh_detect_at_each_look": fresh_looks} if a.track_only and seed is not None else {})}
         Path(a.json).write_text(json.dumps(R, indent=1))
 
 
@@ -312,6 +360,28 @@ def cmd_render(a):
         print(f"### {name}\n\nPick frame {run['pick_frame']}, the picked subject's box there {run.get('the_picked_subjects_box_on_the_pick_frame')} (left, top, right, bottom as shares of the frame), "
               f"cuts {run['cuts']}. The track the node hands back: {t.get('with_a_mask')} of {t.get('frames')} frames with a mask, {t.get('plausible')} plausible, taken again at {t.get('taken_again_at')}; "
               f"its box centre every twelve frames: {t.get('box_centre_every_12_frames')}. Each frame's mask against the frame before's: {t.get('mask_overlap_with_the_frame_before')}.\n")
+        if run.get("each_tracked_call"):
+            def step(x):
+                return "none" if x is None else f"{x['frame']} (overlap {x['overlap']}, box ratio {x['box_ratio']}, centre step {x['centre_step']})"
+            print(f"Each call the node made to the tracker, its own frames through `subject_tracks.unbroken` (a step under {run['each_tracked_call'][0]['moved_off']} cuts) "
+                  "before any later take wrote over them. Frames are [first, one past the last).\n")
+            print("| frames tracked | seeded on | unbroken | it stops, before and after | a gallery may use | least step inside | its last frame | the frame that stops it after |\n|---|---|---|---|---|---|---|---|")
+            for c in run["each_tracked_call"]:
+                print(f"| {c['frames']} | {c['seeded_on']} | {c['unbroken']} | {c['stops_before']}; {c['stops_after']} | {c['a_gallery_may_use']} | {c['least_overlap_inside']} | "
+                      f"{step(c['its_last_frame'])} | {step(c['the_frame_that_stops_it_after'])} |")
+            print()
+        if run.get("the_track_every_frame"):
+            rows_ = [x for x in run["the_track_every_frame"] if x.get("share_of_the_frame") is not None]
+            first_ = next((x["share_of_the_frame"] for x in rows_ if x["frame"] == run["pick_frame"]), None)
+            if first_:
+                print("The mask's area against its area on the pick frame, every twelfth frame: "
+                      + ", ".join(f"{x['frame']}: {x['share_of_the_frame'] / first_:.2f}" for x in rows_ if (x["frame"] - run["pick_frame"]) % 12 == 0) + ".\n")
+        if run.get("a_fresh_detect_at_each_look"):
+            print("A fresh detect on every frame the node would look on, against the finished track's mask there:\n\n"
+                  "| frame | asked | detections | the track has a mask | detections on the track | best overlap | next |\n|---|---|---|---|---|---|---|")
+            for x in run["a_fresh_detect_at_each_look"]:
+                print(f"| {x['frame']} | {x['asked']} | {x['detections']} | {x['the_track_has_a_mask']} | {x.get('on_the_track', '')} | {x.get('best_overlap', '')} | {x.get('next_overlap', '')} |")
+            print()
         if not run["looks"]:
             print("The node made no look after a loss: the track has no empty run to search.\n")
             continue
@@ -324,6 +394,75 @@ def cmd_render(a):
                 print(f"| {row['frame']} | {way} | {v['detections']} | {v['over_the_line']} | {v['best']} | {v['next']} | {v['lead']} | {took(v['todays_rule_takes'])} | "
                       f"{took(v['take_back']['takes']) if 'take_back' in v else 'withdrawn'} | {(took(first['takes']) + ': ' + first['reason']) if first else 'withdrawn'} | {row['reproduces_the_node'] if way == '16, the frame' else ''} |")
         print()
+
+
+def _anchor(run: dict, track_run: dict | None, moved_off: float):
+    """Where a re-find is anchored for one run: the subject's box on the last frame a gallery may use, and how it is known.
+
+    From the run's own first tracked call when the json has it (`each_tracked_call`, judged on the masks). Otherwise from
+    a `--track-only` json's every-frame list, by the same rule applied to its RECORDED steps: walking on from the pick
+    frame, the run stops before the first frame with no mask or a step under the line, and the frame before a stop on
+    a step is left out.
+    """
+    calls = run.get("each_tracked_call") or []
+    if calls and calls[0].get("the_box_on_its_last_gallery_frame"):
+        return tuple(calls[0]["the_box_on_its_last_gallery_frame"]), calls[0]["a_gallery_may_use"][1] - 1, "the pick's own tracked call, on its masks"
+    if track_run is None:
+        return None, None, "no anchor: the json has no tracked calls and no --track was given"
+    rows = {x["frame"]: x for x in track_run["the_track_every_frame"]}
+    last, moved = track_run["pick_frame"], False
+    for f in range(track_run["pick_frame"] + 1, max(rows) + 1):
+        x = rows.get(f)
+        if x is None or x["box"] is None:
+            break
+        if x["overlap_with_the_frame_before"] is not None and x["overlap_with_the_frame_before"] < moved_off:
+            moved = True
+            break
+        last = f
+    if moved and last > track_run["pick_frame"]:
+        last -= 1
+    return tuple(rows[last]["box"]), last, "the recorded steps of a --track-only run"
+
+
+def cmd_replay(a):
+    """The recorded looks through `subject_tracks.take_back_by_place`, anchored where a gallery's last frame is."""
+    sys.path.insert(0, str(REPO))
+    import subject_tracks as S
+    D = json.loads(Path(a.json).read_text())
+    T = json.loads(Path(a.track).read_text()) if a.track else None
+    line, lead = D["lines"]["REGAIN_SAME"], D["lines"]["REGAIN_MARGIN"]
+    f = D["frames"]
+    print(f"`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second; pick `{D['settings']['pick']}`; SAM 3.1 {D['sam']}. Each recorded look through "
+          f"`subject_tracks.take_back_by_place`: the line {line}, the lead {lead}, at the place from {S.AT_THE_PLACE} of box overlap. Nothing was detected again: the candidates are the "
+          "recorded ones over the line, with the look's recorded runner-up added, without a box, where it is not among them.\n")
+    print("| run | look, frame | asked | returned | cap reached | today's rule takes (overlap with the anchor) | by place, over the line | by place, first by a margin | "
+          "the same anchored on the frame beside the jump |\n|---|---|---|---|---|---|---|---|---|")
+    tally = {}
+    for name, run in D["runs"].items():
+        track_run = None if T is None else T["runs"].get(name)
+        anchor, frame, how = _anchor(run, track_run, S.MOVED_OFF)
+        beside = None if track_run is None or frame is None else next((tuple(x["box"]) for x in track_run["the_track_every_frame"] if x["frame"] == frame + 1 and x["box"]), None)
+        print(f"<!-- {name}: anchored on frame {frame}, box {None if anchor is None else list(anchor)}, from {how}; the frame beside the jump: {None if beside is None else list(beside)} -->")
+        for row in run["looks"]:
+            for way, asked in (("16, the frame", 16), ("32, the frame", 32), ("64, the frame", 64)):
+                v = row["ways"][way]
+                cands = v.get("over_the_line_candidates", [])
+                scores, boxes = [c["likeness"] for c in cands], [tuple(c["box"]) if c["box"] else None for c in cands]
+                if v["next"] >= 0 and all(abs(v["next"] - s_) > 1e-4 for s_ in scores):
+                    scores, boxes = scores + [v["next"]], boxes + [None]          # the runner-up, under the line: it decides "first, by a margin"
+
+                def by(last_box, likeness):
+                    i, why, _ = S.take_back_by_place(scores, boxes, last_box, asked=asked, line=line, lead=lead, likeness=likeness)
+                    return (None, why) if i is None else (scores[i], why)
+                over, first, at_beside = by(anchor, S.OVER_THE_LINE), by(anchor, S.FIRST_BY_A_MARGIN), by(beside, S.OVER_THE_LINE)
+                today = v["todays_rule_takes"]
+                today_at = None if today is None else round(S.box_overlap(tuple(today["box"]), anchor), 3)
+                tally.setdefault((name, way), []).append((today is not None, today_at is not None and today_at >= S.AT_THE_PLACE, over[0] is not None, first[0] is not None, at_beside[0] is not None))
+                print(f"| {name} | {row['frame']} | {asked} | {v['detections']} | {v['detections'] >= asked} | {'nobody' if today is None else f'somebody ({today_at})'} | "
+                      f"{over[0] if over[0] is not None else 'nobody: ' + over[1]} | {first[0] if first[0] is not None else 'nobody'} | {at_beside[0] if at_beside[0] is not None else 'nobody'} |")
+    print("\n| run | asked | looks | today's rule takes somebody | of them at the place | by place, over the line, takes | by place, first by a margin, takes | anchored on the frame beside the jump, takes |\n|---|---|---|---|---|---|---|---|")
+    for (name, way), rows_ in tally.items():
+        print(f"| {name} | {way} | {len(rows_)} | {sum(r[0] for r in rows_)} | {sum(r[1] for r in rows_)} | {sum(r[2] for r in rows_)} | {sum(r[3] for r in rows_)} | {sum(r[4] for r in rows_)} |")
 
 
 def main():
@@ -344,6 +483,10 @@ def main():
     s = sub.add_parser("render")
     s.set_defaults(fn=cmd_render)
     s.add_argument("--json", required=True)
+    s = sub.add_parser("replay", help="the recorded looks through subject_tracks.take_back_by_place; no model, no card")
+    s.set_defaults(fn=cmd_replay)
+    s.add_argument("--json", required=True, help="a `run` json with its looks")
+    s.add_argument("--track", help="a `run --track-only` json of the same window and pick, for the anchor when --json has no tracked calls")
     a = ap.parse_args()
     a.fn(a)
 
