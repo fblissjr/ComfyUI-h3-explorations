@@ -1,0 +1,547 @@
+{
+ "what": "the frozen video cache on the upper-body masked recipe, one window, stock against cached, on the main server restarted on 0.216.0",
+ "date": "2026-10-07",
+ "commit_served": "cccdcb22",
+ "server": "port 8188, started 12:40:40, launch script and flags unchanged; dynamic VRAM as the server runs it",
+ "window": {
+  "clip": "thrill_2160.mkv",
+  "start_s": 67.0,
+  "frames": 345,
+  "canvas": "1024x768",
+  "shots_in_the_load": 4,
+  "typed_corrections": 2,
+  "tokens_regenerating_pct": 35.2,
+  "note": "the window, patches and corrections of bench/results/2026-10-06_masked_v2v_body_window_arms.md's body_345_p7 arm on the prompt node's text"
+ },
+ "order": [
+  "preview",
+  "baseline",
+  "cache_plain",
+  "baseline_again"
+ ],
+ "arms": [
+  {
+   "label": "preview",
+   "graph": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json",
+   "graph_sha256": "9388420e50fdc8e4",
+   "prompt_id": "548b10ab-4090-4797-8826-61f2b8dbd32e",
+   "whole_prompt_s": 143.4,
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/upper/preview"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.corrections",
+     "value": "shot 2: person 3\nshot 3: person 6"
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.picture_gives",
+     "value": "the head and upper body"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a typed description of the subject (not recorded in the tree)"
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.preview",
+     "value": true
+    }
+   ],
+   "stage_seconds": null,
+   "sampler_steps": null,
+   "output_sha256_16": null,
+   "composite_keeps_pct_of_regenerated_pixels": null
+  },
+  {
+   "label": "baseline",
+   "graph": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json",
+   "graph_sha256": "9388420e50fdc8e4",
+   "prompt_id": "d8119855-85d3-4c10-a815-b598c9aeb126",
+   "whole_prompt_s": 404.9,
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/upper/baseline"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.corrections",
+     "value": "shot 2: person 3\nshot 3: person 6"
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.picture_gives",
+     "value": "the head and upper body"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a typed description of the subject (not recorded in the tree)"
+    }
+   ],
+   "stage_seconds": {
+    "sampling": 317.6,
+    "source_encode": 33.5,
+    "conditioning": 13.1,
+    "decode": 12.8,
+    "composite": 10.3,
+    "mask_review": 10.2,
+    "write": 2.8,
+    "motion_reference": 2.5,
+    "all": 403
+   },
+   "sampler_steps": "three near 34.5 s, then nine near 23.2 s (the last 26.0)",
+   "output_sha256_16": "b496d766c9a4d892",
+   "composite_keeps_pct_of_regenerated_pixels": 83
+  },
+  {
+   "label": "cache_plain",
+   "graph": "workflows/h3_probe_v2v_masked_upper_song_ref2va_motion_cache_api.json",
+   "graph_sha256": "2e94e4c6837d009d",
+   "prompt_id": "7b26ef48-5bb4-4acd-8651-0eddbb7f10dc",
+   "whole_prompt_s": 257.0,
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/upper/cache_plain"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.corrections",
+     "value": "shot 2: person 3\nshot 3: person 6"
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.picture_gives",
+     "value": "the head and upper body"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a typed description of the subject (not recorded in the tree)"
+    }
+   ],
+   "stage_seconds": {
+    "sampling": 218.5,
+    "source_encode": 1.1,
+    "conditioning": 0.1,
+    "decode": 13.0,
+    "composite": 10.1,
+    "mask_review": 10.0,
+    "write": 2.8,
+    "all": 256
+   },
+   "sampler_steps": "the build 39.1 s, then eleven at 16.2 s",
+   "output_sha256_16": "44022dc430758014",
+   "composite_keeps_pct_of_regenerated_pixels": 85
+  },
+  {
+   "label": "baseline_again",
+   "graph": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json",
+   "graph_sha256": "9388420e50fdc8e4",
+   "prompt_id": "7bfdf606-7fcc-4187-8190-59344c16938f",
+   "whole_prompt_s": 351.6,
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/cache/upper/baseline_again"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.corrections",
+     "value": "shot 2: person 3\nshot 3: person 6"
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.picture_gives",
+     "value": "the head and upper body"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a typed description of the subject (not recorded in the tree)"
+    }
+   ],
+   "stage_seconds": {
+    "sampling": 313.4,
+    "source_encode": 1.1,
+    "conditioning": 0.1,
+    "decode": 12.9,
+    "composite": 10.1,
+    "mask_review": 9.8,
+    "write": 2.8,
+    "all": 351
+   },
+   "sampler_steps": "three near 34.5 s, then nine near 23.2 s (the last 26.0)",
+   "output_sha256_16": "b496d766c9a4d892",
+   "composite_keeps_pct_of_regenerated_pixels": 83
+  }
+ ],
+ "cache_log": [
+  "built (no cache yet), 31743 of 87721 rows live (0 of them halo), int4, 11.32 GiB in RAM",
+  "no rebuild, no decline"
+ ],
+ "comparison": {
+  "pair": "cache_plain against baseline_again",
+  "sampling_saved_s": 94.9,
+  "sampling_saved_pct": 30.3,
+  "whole_render_saved_pct": 27.1
+ },
+ "earlier_window_for_scale": {
+  "record": "bench/results/2026-10-07_frozen_cache_masked_window_fixed.md",
+  "tokens_regenerating_pct": 23,
+  "sampling_saved_pct": 42
+ },
+ "cpu_note": "nothing else was on the card during the pair; a niced CPU analysis of another session's may have run during part of it; the two stock arms' sampling differ by about four seconds, the first being the cold one"
+}

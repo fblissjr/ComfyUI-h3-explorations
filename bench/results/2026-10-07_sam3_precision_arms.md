@@ -14,6 +14,20 @@ was also checking. This record is assembled from its report and result
 files. The tool is `bench/sam3_precision_arms.py`; every figure is in
 [`2026-10-07_sam3_precision_arms.json`](2026-10-07_sam3_precision_arms.json).
 
+**Corrected the same day, by the session that measured it, on reading this
+record against its own files.** Three wordings below say more than was
+measured. (1) Departure 2 says the detections are "visibly different": no
+picture was looked at; read "measurably". (2) The verdict and "Where the arms
+part" say every arm loses everyone "on the same frame": the float16 and
+float32 arms do; the nudged arm loses them one frame earlier; read "within a
+frame". (3) "Exact from our file and rounded from Comfy-Org's" holds on the
+server's loading path only; on ComfyUI's other loading path both files give
+the same weights. Also not in this record: the same session's later run of
+the image range against a one-level floor, which found the range a lever on
+the tracked masks well above its floor and a failure a count of non-empty
+masks hides (a mask sliding onto the frame's edge); it is not yet in a
+tracked record.
+
 **How to read it.** Two floors and a yardstick, fixed before the run. Float16
 run twice is the run-to-run floor. True float32 against itself with every
 input pixel moved by one level of 8, at random sign, is the sensitivity

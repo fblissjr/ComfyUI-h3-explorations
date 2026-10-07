@@ -73,9 +73,11 @@ own below the rule.
   the owner could not tell the two renders apart, and they restored the
   masked use themselves the same day. It lives in one probe graph
   (`h3_config.FROZEN_VIDEO_CACHE`, the generator's `masked_cache`); no
-  shipped or daily graph carries it. Owed, in order: a window that
-  regenerates much more of the frame and a clip of several windows, each as
-  a like-for-like pair with the owner's eye on the stacked result; the
+  shipped or daily graph carries it. A second window, the upper-body recipe
+  with a third of the tokens regenerating, saves less, as the design says
+  (`../../bench/results/2026-10-07_frozen_cache_masked_upper_window.md`).
+  Owed, in order: the owner's eye on that pair; a clip of several windows
+  as a like-for-like pair; the
   departure of a cached step from a stock one measured on the right kernel
   (`verify`); the card's memory during a cached step; then whether a masked
   graph carries it by default, which is the owner's call. The refine pass's
