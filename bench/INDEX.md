@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 125 |
+| [the rest](#the-rest) | 126 |
 
 ## check
 
@@ -376,6 +376,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
 | [`sam31_corrections_queue_test.py`](sam31_corrections_queue_test.py) | The SAM 3.1 Corrections node's last acceptance: on a server's queue, with an H3 render between two reads. |
 | [`sam31_probe_node.py`](sam31_probe_node.py) | TEST CODE, in no node list of this pack: a node that calls ComfyUI's SAM 3 detect node and says what reached the model. |
+| [`sam3_dataset_phrases.py`](sam3_dataset_phrases.py) | What Meta's four SAM 3 datasets say about what a valid prompt is and how specific to be: counts from the annotation files. |
 | [`sam3_parity_ladder.py`](sam3_parity_ladder.py) | Is core's SAM 3.1 the model Meta released? The same weights and the same input through both, stage by stage. |
 | [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
@@ -530,7 +531,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-832 tracked files: [`results/INDEX.md`](results/INDEX.md).
+834 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
