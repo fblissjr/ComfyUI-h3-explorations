@@ -310,6 +310,22 @@ def check_counted(problems):
     if _parse_prompts("person") != [("person", 1)]:
         problems.append("the control failed: core no longer reads a bare phrase as one detection, so `counted` "
                         "may not be needed and this item is not testing what it says")
+    # one phrase, one detection: core's tokenizer encodes that text as typed, so it must reach it with no `:1`.
+    # Driven through core's own tokenizer: the tokens of what `counted` writes are the tokens of the bare phrase.
+    from comfy.text_encoders.sam3_clip import SAM3TokenizerWrapper
+    tokenizer = SAM3TokenizerWrapper()
+    bare = tokenizer.tokenize_with_weights("person")
+    for phrase, most in (("person", 1), ("person:1", 16), ("person : 1", 4)):
+        text = st.counted(phrase, most)
+        if text != "person" or tokenizer.tokenize_with_weights(text) != bare:
+            problems.append(f"counted({phrase!r}, {most}) is {text!r}: one phrase asking for one detection must reach core "
+                            "bare, or core's tokenizer encodes the `:1` as part of the phrase")
+    if tokenizer.tokenize_with_weights("person:1") == bare:
+        problems.append("the control failed: core's tokenizer now drops the `:1` of a lone phrase itself, so the bare "
+                        "form is no longer needed and this item is not testing what it says")
+    if st.counted("lead singer:1, drummer", 1) != "lead singer:1, drummer:1":
+        problems.append("two phrases asking for one each lost their counts: core encodes each part of a list separately, "
+                        "and only a lone phrase goes bare")
     try:
         st.counted(" , ", 4)
     except ValueError:

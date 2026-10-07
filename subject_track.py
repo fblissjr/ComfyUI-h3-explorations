@@ -298,10 +298,20 @@ def counted(phrase: str, most: int) -> str:
 
     A part that already carries its own `:N` keeps it. Core reads `name:N` as
     at most N detections of `name`, and a bare `name` as one.
+
+    One phrase asking for one detection is written bare. Core's tokenizer
+    takes a short cut for that case and encodes the text as typed
+    (`comfy/text_encoders/sam3_clip.py::SAM3TokenizerWrapper.tokenize_with_weights`),
+    so `person:1` would reach the text encoder with its `:1` in it.
     """
     parts = [p.strip() for p in str(phrase).split(",") if p.strip()]
     if not parts:
         raise ValueError("subject_phrase is empty: say what SAM 3 should look for, for instance `person`")
+    if len(parts) == 1:
+        own = re.match(r"^(.+?)\s*:\s*([\d.]+)\s*$", parts[0])
+        name, count = (own.group(1).strip(), max(1, round(float(own.group(2))))) if own else (parts[0], max(int(most), 1))
+        if count == 1:
+            return name
     return ", ".join(p if re.match(r"^.+?\s*:\s*[\d.]+\s*$", p) else f"{p}:{max(int(most), 1)}" for p in parts)
 
 
