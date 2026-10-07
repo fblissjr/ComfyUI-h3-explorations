@@ -3897,14 +3897,14 @@ def main():
               freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
               out_prefix="Video/h3_v2v_masked_upper_song_ref2va_motion"),
          "masked video to video on ref2va, the head and upper body: found by Sapiens2, replaced from a still, moving as the source's subject moved"),
-        # The graph above with the frozen video cache on the song node's
-        # model and nothing else changed (board card `use-frozen-row-cache`):
-        # the first step of a window runs stock and later steps compute only
-        # the regenerated rows and the text. A probe: no shipped or daily
-        # graph carries the cache. Timed on one window, where it saved no
-        # sampling time on this Sol-Attn chain
-        # (bench/results/2026-10-06_frozen_cache_masked_window.md); the graph
-        # stays as the arm that record ran.
+        # The ref2va motion graph with the frozen video cache on the song
+        # node's model and nothing else changed (board card
+        # `use-frozen-row-cache`): the first step of a window runs stock and
+        # later steps compute only the regenerated rows and the text. Probes:
+        # no shipped or daily graph carries the cache. Its first timed window
+        # saved nothing because the cached step's attention ran on torch's
+        # kernel; corrected, the same pair saves about what the design
+        # predicted (bench/results/2026-10-07_frozen_cache_masked_window_fixed.md).
         ("h3_probe_v2v_masked_song_ref2va_motion_cache.json", "v2v-masked-song-ref2va-motion-cache", "t2v",
          _bank_prompt("ref2va_masked_person_motion"),
          dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
@@ -3914,6 +3914,19 @@ def main():
               freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
               out_prefix="Video/h3_probe_v2v_masked_song_ref2va_motion_cache"),
          "masked video to video on ref2va with the frozen video cache on the song node's model: kept rows computed once a window"),
+        # The upper-body graph with the cache, the same one change: the
+        # recipe the owner called solid, on a region that regenerates more of
+        # the frame than the whole-subject window the cache was first timed on.
+        ("h3_probe_v2v_masked_upper_song_ref2va_motion_cache.json", "v2v-masked-upper-song-ref2va-motion-cache", "t2v",
+         _bank_prompt("ref2va_masked_person_upper_motion"),
+         dict(sampler_name="euler", unet=MODELS["unet_ref2va"], steps=MASKED_MOTION_STEPS,
+              freeze_song=True, freeze_song_seconds=30.0,
+              freeze_song_refs=(PLACEHOLDER_IMAGE_A,), freeze_song_source=True,
+              masked_source=MASKED_UPPER_SOURCE, masked_parts=MASKED_UPPER_PARTS,
+              masked_prompt=MASKED_UPPER_PROMPT, masked_cache=True,
+              freeze_mask=0.0, freeze_context=39, length=LONG_LENGTH,
+              out_prefix="Video/h3_probe_v2v_masked_upper_song_ref2va_motion_cache"),
+         "masked video to video on ref2va, the head and upper body, with the frozen video cache on the song node's model"),
         # The PDD8 freeze with the audio attention gain node in front of the
         # guider, inert as shipped; bench arms patch key_gain / value_gain.
         ("h3_candidate_t2v_pdd8_baked_audio_freeze_gain.json", "t2v-candidate-pdd8-baked-audio-freeze-gain",
