@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 93 |
+| [`check_*`](#check) | 96 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 121 |
+| [the rest](#the-rest) | 122 |
 
 ## check
 
@@ -90,6 +90,8 @@ this file is only a way to find a script by what it says it does.
 | [`check_released_encoder_is_stock.py`](check_released_encoder_is_stock.py) | Is the released H3 text encoder the stock Qwen3-VL-32B-Instruct, byte for byte? |
 | [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
+| [`check_sam31_corrections.py`](check_sam31_corrections.py) | The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card. |
+| [`check_sam31_corrections_on_card.py`](check_sam31_corrections_on_card.py) | The SAM 3.1 Corrections node on the real model, on the patcher class the server uses, with a stock pair in the same process. |
 | [`check_sam3d_body_conversion.py`](check_sam3d_body_conversion.py) | Hold `bench/convert_sam3d_body_checkpoint.py`'s mapping to core's SAM 3D Body model, without weights. |
 | [`check_sam3d_body_vith.py`](check_sam3d_body_vith.py) | Hold `sam3d_body_vith.py` to Meta's ViT-H SAM 3D Body: the key set, the six geometry rules, and the backbone's forward. |
 | [`check_schema_defaults.py`](check_schema_defaults.py) | Check every node's schema defaults match its `execute` signature defaults. |
@@ -105,6 +107,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
 | [`check_subject_parts.py`](check_subject_parts.py) | The Sapiens2 part node's geometry and bookkeeping, on stand-ins for the two models. |
 | [`check_subject_track.py`](check_subject_track.py) | Following one person across cuts: the node's own logic, with stand-ins for SAM 3. |
+| [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_typed_reference_consumers.py`](check_typed_reference_consumers.py) | Static consumers understand the typed ordered-reference chain. |
@@ -386,6 +389,7 @@ this file is only a way to find a script by what it says it does.
 | [`sol_observe_report.py`](sol_observe_report.py) | Read a Sol route record and say what it holds, per render, step and block. |
 | [`stack_eval_clips.py`](stack_eval_clips.py) | Side-by-side and top-to-bottom video stacking utility for paired evaluation. |
 | [`stack_labeled_clips.py`](stack_labeled_clips.py) | Stack N clips vertically with a caption on each, for side-by-side viewing. |
+| [`subject_track_under_nudge.py`](subject_track_under_nudge.py) | Does the Subject Track decide each shot the same way when every input pixel moves by one level of 255? |
 | [`sweep_routing_density.py`](sweep_routing_density.py) | Per-head routed density across the capture grid: where the routing structure is. |
 | [`sweep_sol_block_size_on_capture.py`](sweep_sol_block_size_on_capture.py) | Is 64 tokens per block the limit? Float reference, on captures. |
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |

@@ -77,6 +77,13 @@ with none is a helper the others import.
 | [`sol_observe.py`](sol_observe.py) |  | Record what the live Sol-Attn override actually did, one row per call. |
 | [`sol_tau_sweep.py`](sol_tau_sweep.py) |  | The tau sweep: Sol at every tau of a grid against the fallback, on the same q/k/v, per head and per segment, inside a live render. The calibration instrument behind `sparse_tables/` (`bench/calibrate_sparse_table.py`). |
 
+### subject_*
+
+| module | nodes it defines | what it says it does |
+|---|---|---|
+| [`subject_track.py`](subject_track.py) | `MiniMaxH3SubjectTrack` | One person, followed through a clip with cuts, as one mask per frame. |
+| [`subject_tracks.py`](subject_tracks.py) |  | What can be said about a tracked subject without a model: is a mask a subject at all, does anything still agree with a track, and where in the clip does a correction point. |
+
 ### the rest
 
 | module | nodes it defines | what it says it does |
@@ -104,12 +111,12 @@ with none is a helper the others import.
 | [`prompt_lists.py`](prompt_lists.py) | `MiniMaxH3PromptList`, `MiniMaxH3FillPromptLists` | Prompt lists: fill `__name__` placeholders, one value per use, no repeat before a list is used up. |
 | [`provenance.py`](provenance.py) | `MiniMaxH3ProvenanceStamp` | Bench-only: stamp what a render's settings actually RESOLVED to. |
 | [`resolution.py`](resolution.py) | `MiniMaxH3Resolution` | Pick a MiniMax H3 resolution by shape, and see what it costs before you render. |
+| [`sam31_corrections.py`](sam31_corrections.py) | `MiniMaxH3SAM31Corrections` | Two of ComfyUI's departures from Meta's SAM 3.1 code, corrected as ComfyUI patches on a loaded model and text encoder. |
 | [`sam3d_body_vith.py`](sam3d_body_vith.py) | `MiniMaxH3SAM3DBodyViTHLoader` | SAM 3D Body's ViT-H release behind core's heads, predictor and renderers. |
 | [`sapiens2_parts.py`](sapiens2_parts.py) | `MiniMaxH3Sapiens2Loader`, `MiniMaxH3SubjectParts` | Body parts and a soft matte on one tracked person, from Sapiens2. |
 | [`shot_table.py`](shot_table.py) | `MiniMaxH3SaveShotTable` | A clip's shots as a table a person can review once: who was found in each, who was taken, and why. |
 | [`sparse_table.py`](sparse_table.py) |  | Per-head tau tables for the sparse attention node: the format, the loader, the refusals. |
 | [`step_x0_observer.py`](step_x0_observer.py) | `MiniMaxH3StepX0Observer` | Save each sampling step's x0 prediction to disk, and change nothing. |
-| [`subject_track.py`](subject_track.py) | `MiniMaxH3SubjectTrack` | One person, followed through a clip with cuts, as one mask per frame. |
 | [`substrate.py`](substrate.py) |  | What produced a number: the substrate block, and nothing else. |
 | [`vae_precision.py`](vae_precision.py) | `MiniMaxH3VAEPrecision` | Split the H3 video VAE's encode precision from its decode precision. |
 | [`vendor_config.py`](vendor_config.py) |  | The release's own configuration, vendored, and the readers for it. |
@@ -137,7 +144,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1257 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1261 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 168 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
