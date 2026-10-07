@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.220.3
+<!-- changelog.d/mrdragon-wiki-sam3-research-links.md -->
+
+### Changed
+
+- **`docs/wiki/sam3_prompting.md` points at two more research pages** in its
+  evidence table: the stage table of ComfyUI's SAM 3.1 against Meta's
+  (`docs/research/masking/2026-10-07_mryolk_stage_table.md`) and the
+  2026-10-06 reading of Meta's video pipeline against the port
+  (`docs/research/masking/2026-10-06_mrsun.md`).
+
 ## 0.220.2
 <!-- changelog.d/mrdragon-next-steps-2026-10-07.md -->
 
