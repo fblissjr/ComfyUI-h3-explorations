@@ -81,6 +81,23 @@ Each matters more the longer or rarer the phrase.
   No shipped graph wires it yet. Even corrected, a descriptive phrase is
   still scored by ComfyUI's rule and not Meta's.
 
+- **On the CPU, and wherever ComfyUI does not use PyTorch's attention, the
+  detector does not hide the padding of a phrase.** The detector hands its
+  text mask to ComfyUI's attention as a true/false mask
+  (`comfy/ldm/sam3/detector.py`, the cross-attention's `mask`); PyTorch's
+  attention reads that as "attend where true", while the sub-quadratic and
+  split attention functions add it to the scores, which hides nothing
+  (`comfy/ldm/modules/sub_quadratic_attention.py`). ComfyUI picks those two
+  when PyTorch attention is not enabled (`comfy/ldm/modules/attention.py`,
+  where `optimized_attention` is chosen), which is the default in a `--cpu`
+  process. Found and localised by a session reviewing the upstream fix,
+  2026-10-07, on public images: with `--use-pytorch-cross-attention` a CPU
+  process gives the card's detections. Not reported upstream and not yet in
+  a tracked record. The server log line "Using pytorch attention" is the
+  observable for which path a process is on. **A detection score from a CPU
+  process run without that flag is evidence about the faulty path only**;
+  text features are not affected.
+
 ## How many, and for how long
 
 - Sixteen people for one phrase is inside what Meta's benchmarks cover;
@@ -100,15 +117,6 @@ Each matters more the longer or rarer the phrase.
 
 - Whether a box or a click through ComfyUI's detect node selects one person
   reliably here. Read in the code, not run.
-- Why ComfyUI's detector scores some descriptive-phrase boxes very
-  differently on the CPU and on the card, and which side is right. Seen on
-  2026-10-07 on the same unmodified ComfyUI at the same float32, on four
-  public images; it is not precision (float32, float16 and bf16 on the card
-  agree with each other, and float16 repeats exactly), and the text features
-  match on both devices. Not yet in a tracked record and not yet localised.
-  Until it is, **a detection score measured in a CPU process is evidence
-  about the CPU path only**: renders here run on the card.
-
 ## Where the evidence is
 
 | record or note | what it holds |
