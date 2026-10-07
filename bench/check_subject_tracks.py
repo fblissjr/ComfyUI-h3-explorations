@@ -30,6 +30,12 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   frames lie between.
   a_gallery_is_taken_inside_the_run  the Subject Track's own `gallery_frames` given the run takes no frame from after
                                   a jump. THE CONTROL: given the whole track, as today's node gives it, it does.
+  the_frame_beside_a_jump_is_no_gallery_frame  a frame that lies on its figure and has a small piece on the next,
+                                  one frame before the mask jumps there, is kept by the cut (it shares most of its
+                                  pixels with the frame before) and left out of the gallery's span; its box ratio and
+                                  centre step stand out and decide nothing. A run that ends on an empty frame or the
+                                  track's end loses no frame, and the seed is never left out. THE CONTROL: the Subject
+                                  Track's own `gallery_frames` given the run as the cut leaves it takes that frame.
   a_creep_is_not_caught           KNOWN LIMIT, asserted so it is never read as covered: a mask that grows from one
                                   figure over the next and shrinks onto it ends sharing nothing with its seed and is
                                   one run, because no single step shares too little; the area ratio shows the growth.
@@ -252,6 +258,42 @@ def a_gallery_is_taken_inside_the_run():
     return f"inside the run: frames {inside}; from the whole track, as today: {whole}, {sum(f >= 10 for f in whole)} of them after the jump"
 
 
+def _clip_with_a_straddle() -> torch.Tensor:
+    """Twenty frames, the shape of the jump seen on 2026-10-07: on one figure for frames 0 to 8; on frame 9 on that
+    figure with a small piece on the next; on the next figure alone from frame 10. No empty frame."""
+    straddle = _figure(HERE_)
+    straddle[40:48, THERE_:THERE_ + 4] = True
+    return torch.stack([_figure(HERE_)] * 9 + [straddle] + [_figure(THERE_)] * 10)
+
+
+def the_frame_beside_a_jump_is_no_gallery_frame():
+    track = _clip_with_a_straddle()
+    run = S.unbroken(track, seed=2)
+    assert (run.first, run.end, run.after) == (0, 10, S.STOPPED_MOVED), run
+    assert (run.overlap[9] or 0.0) > 0.9, f"the straddle frame should share most of its pixels with the frame before, got {run.overlap[9]}"
+    assert S.gallery_span(run) == (0, 9), S.gallery_span(run)
+    # what a report can show of that frame, and what nothing is decided on
+    assert (run.box_ratio[9] or 0.0) > 2 and (run.centre_step[9] or 0.0) > 0.3 and (run.area_ratio[9] or 9.0) < 1.2, (run.box_ratio[9], run.centre_step[9], run.area_ratio[9])
+    assert all(abs((v or 0.0) - 1.0) < 1e-6 for v in run.box_ratio[1:9] if v is not None), run.box_ratio
+    # tracked backward into the same jump: the run's first frame is the one left out
+    flipped = torch.flip(track, dims=[0])
+    back = S.unbroken(flipped, seed=17)
+    assert (back.first, back.end, back.before) == (10, 20, S.STOPPED_MOVED) and S.gallery_span(back) == (11, 20), (back, S.gallery_span(back))
+    # nothing is lost where the run did not stop on a move, and the seed is never left out
+    whole = S.unbroken(torch.stack([_figure(HERE_)] * 6 + [_blank(64, 64)] * 3), seed=0)
+    assert S.gallery_span(whole) == (0, 6) and whole.after == S.STOPPED_EMPTY, (S.gallery_span(whole), whole.after)
+    alone = S.unbroken(torch.stack([_figure(HERE_)] + [_figure(THERE_)] * 3), seed=0)
+    assert (alone.first, alone.end) == (0, 1) and S.gallery_span(alone) == (0, 1), "the seed frame was left out of its own gallery"
+    # THE CONTROL: the node's own gallery, given the run as the cut leaves it, takes the straddle frame
+    node = _subject_track()
+    as_cut = [f + run.first for f in node.gallery_frames(track[run.first:run.end].to(torch.float32))]
+    first, end = S.gallery_span(run)
+    spanned = [f + first for f in node.gallery_frames(track[first:end].to(torch.float32))]
+    assert 9 in as_cut, f"the control: the run as cut should put the straddle frame in the gallery, got {as_cut}"
+    assert 9 not in spanned and spanned, spanned
+    return f"the cut keeps frame 9 (overlap {run.overlap[9]:.2f}, box ratio {run.box_ratio[9]:.1f}); the gallery's span leaves it out; the node's gallery on the run as cut takes it: {as_cut}"
+
+
 def a_creep_is_not_caught():
     # the mask's right edge grows from one figure over the next, three columns a frame, then its left edge follows
     grow = [_figure(HERE_, right) for right in range(HERE_ + 12, THERE_ + 13, 3)]
@@ -379,7 +421,7 @@ def a_clear_leader_elsewhere_is_refused():
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               a_creep_is_not_caught, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_creep_is_not_caught, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

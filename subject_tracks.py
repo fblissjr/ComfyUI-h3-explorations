@@ -27,7 +27,8 @@ track is cut at the first empty frame or the first step that shares too little, 
 without a cut is the subject's: the only frames a gallery may be taken from. IT IS A TEST OF CONTINUITY, NOT OF IDENTITY.
 It sees a jump. It does not see a creep, a mask that grows over two figures and then shrinks onto the other, because
 every step of that shares most of its pixels with the one before; the area and the box centre are returned beside the
-overlap so a report can show one, and nothing is cut on them.
+overlap so a report can show one, and nothing is cut on them. `gallery_span` is the part of a run a gallery may be
+taken from: the run less the frame beside a jump, which was seen to lie on both figures at once.
 
 **Taking a subject back after a loss** (`take_back`). On hard crowd footage a change of the input too small to see
 moved a regain's lead over the next person by about the lead the Subject Track requires
@@ -146,12 +147,14 @@ class Unbroken:
     after the seed, the frame after for a frame before it. Each list has one entry per frame, None where there is no
     step: on the seed, on an empty frame, and where no frame on the seed's side has a mask.
     """
+    seed: int                        # the frame the call was seeded on
     first: int                       # the run's first frame
     end: int                         # one past its last; equal to `first` when the seed frame has no mask
     before: str                      # why the run starts where it does: one of the STOPPED_ reasons
     after: str                       # why it ends where it does
     overlap: list[float | None]      # intersection over union with that mask; the run is cut on this alone
     area_ratio: list[float | None]   # this mask's area over that mask's: above 1 it grew
+    box_ratio: list[float | None]    # this mask's box area over that mask's box area: a far piece moves this, not the area
     centre_step: list[float | None]  # how far the box centre moved, in diagonals of that mask's box
     frames_apart: list[int | None]   # how many frames away that mask is: 1 unless empty frames lie between
 
@@ -164,8 +167,9 @@ def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Un
     hold: a mask that comes back after a gap is a re-find's to judge, and its step across the gap is here for that
     (`overlap`, with `frames_apart` saying how old the mask it was compared with is).
 
-    A TEST OF CONTINUITY, NOT OF IDENTITY: see the module's note on what it cannot see. `area_ratio` and `centre_step`
-    are returned for the report and cut nothing.
+    A TEST OF CONTINUITY, NOT OF IDENTITY: see the module's note on what it cannot see. `area_ratio`, `box_ratio` and
+    `centre_step` are returned for the report and cut nothing. Frames for a gallery come from `gallery_span`, not from
+    the run as it stands.
 
     One tracked call, not a stitched piece. The Subject Track fills a run of empty frames backward as well as forward
     from the frame it takes somebody on (`subject_track.py`, the regain), so a finished piece has a seam where a later
@@ -180,6 +184,7 @@ def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Un
     area = [int(a) for a in flat.sum(1)]
     overlap: list[float | None] = [None] * n
     area_ratio: list[float | None] = [None] * n
+    box_ratio: list[float | None] = [None] * n
     centre_step: list[float | None] = [None] * n
     frames_apart: list[int | None] = [None] * n
 
@@ -192,7 +197,9 @@ def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Un
                 shared = int((flat[f] & flat[last]).sum())
                 overlap[f] = shared / max(area[f] + area[last] - shared, 1)
                 area_ratio[f] = area[f] / area[last]
-                centre_step[f] = _away(box_of(t[f]), box_of(t[last]))[0]
+                box, was = box_of(t[f]), box_of(t[last])
+                box_ratio[f] = ((box[2] - box[0]) * (box[3] - box[1])) / max((was[2] - was[0]) * (was[3] - was[1]), 1e-9)
+                centre_step[f] = _away(box, was)[0]
                 frames_apart[f] = abs(f - last)
             if stop is None and not area[f]:
                 stop, why = f, STOPPED_EMPTY
@@ -205,9 +212,32 @@ def unbroken(track: torch.Tensor, seed: int, moved_off: float = MOVED_OFF) -> Un
     late, after = walk(range(seed + 1, n))
     early, before = walk(range(seed - 1, -1, -1))
     if not area[seed]:
-        return Unbroken(seed, seed, STOPPED_EMPTY, STOPPED_EMPTY, overlap, area_ratio, centre_step, frames_apart)
-    return Unbroken(0 if early is None else early + 1, n if late is None else late, before, after,
-                    overlap, area_ratio, centre_step, frames_apart)
+        return Unbroken(seed, seed, seed, STOPPED_EMPTY, STOPPED_EMPTY, overlap, area_ratio, box_ratio, centre_step, frames_apart)
+    return Unbroken(seed, 0 if early is None else early + 1, n if late is None else late, before, after,
+                    overlap, area_ratio, box_ratio, centre_step, frames_apart)
+
+
+def gallery_span(run: Unbroken) -> tuple[int, int]:
+    """The frames of an unbroken run a gallery may be taken from, as (first, one past the last).
+
+    The run itself, less its outermost frame on a side where it stopped because the mask moved off. Reasoned from one
+    case, with no number in it: on 2026-10-07 the frame before a jump already lay on two figures at once, the one the
+    track was on and a small piece on the one it jumped to, while still sharing most of its pixels with the frame before
+    (`bench/results/2026-10-07_subject_regain_looks.md` and the per-frame track beside it; one stretch, as fed and with
+    the input moved one level, a figure the owner did not mean). `unbroken` keeps that frame, since by overlap it is
+    still the subject's mask; a gallery must not, because the Subject Track's `gallery_frames` takes the frame with the
+    largest mask by rule and that frame is the likeliest to be it. The seed frame is never left out: its mask was
+    picked, not tracked. A side that stopped on an empty frame or the track's end loses nothing.
+
+    `box_ratio` and `centre_step` on the frame left out say whether it was such a frame; nothing is decided on them
+    until there is more than one case.
+    """
+    first, end = run.first, run.end
+    if run.after == STOPPED_MOVED and end - 1 > run.seed:
+        end -= 1
+    if run.before == STOPPED_MOVED and first < run.seed:
+        first += 1
+    return first, end
 
 
 # ---- taking a subject back after a loss
