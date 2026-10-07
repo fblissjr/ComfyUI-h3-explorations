@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **Corrected: a typed correction has run on a real clip.**
+  `docs/wiki/masked_v2v.md`, "Known limits", said "not yet run on a clip",
+  and the masking board's card said the same and held a demonstration for
+  the owner's word. It ran on 2026-10-06 on the car window
+  (`bench/results/2026-10-06_subject_track_defaults.md`, "The correction").
+  Found when the owner asked on the board what became of the card. What is
+  still not built is a click or a box for a person the detector never
+  found.
+
 - **Corrected: the frozen-row cache's first masked run did not run its
   attention on the kitchen kernel** (`bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`).
   What the prose used to say: the 2026-10-06 record, "The call goes to the

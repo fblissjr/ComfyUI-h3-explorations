@@ -7,6 +7,16 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.214.2
+<!-- changelog.d/mrdragon-correction-ran-on-a-clip.md -->
+
+### Fixed
+
+- `docs/wiki/masked_v2v.md` no longer says a typed correction on the Subject
+  Track has not run on a clip: it took a missed shot on one real clip on
+  2026-10-06 (`bench/results/2026-10-06_subject_track_defaults.md`, "The
+  correction"). Logged in `docs/wiki/decisions.md`.
+
 ## 0.214.1
 <!-- changelog.d/mrdragon-cache-rectangle-kernel.md -->
 

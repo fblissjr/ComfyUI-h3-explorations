@@ -244,9 +244,11 @@ Each line names where the evidence is. "Seen" means on a render or a tile.
   the shot alone, with the shot's number and the person's number read off
   the preview. `subject_track.py`, "A correction";
   `../../bench/check_subject_track.py`, item 7. Checked on stand-ins for
-  SAM 3; not yet run on a clip. (This passage said until 2026-10-05 that
-  there was no way to correct one shot short of naming a frame or a value
-  for the whole clip.)
+  SAM 3, and run on one real clip, where a missed shot was taken by a typed
+  correction: `../../bench/results/2026-10-06_subject_track_defaults.md`,
+  "The correction". (This passage said until 2026-10-05 that there was no
+  way to correct one shot short of naming a frame or a value for the whole
+  clip, and until 2026-10-07 that a correction had not yet run on a clip.)
 - **Seen from behind the subject is not found.** A shot in which they never
   face the camera is left alone. `subject_track.py`, "How far the matching
   can be trusted".
