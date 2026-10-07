@@ -9,7 +9,7 @@ input was measured to move which masks the detector returns on crowded frames an
 change: the node's own functions (`cut_scores`, `auto_cuts`, `find_cuts`, `_sam_callables`, `follow`) at
 `h3_config.SUBJECT_TRACK`, on core's SAM 3.1 as core runs it, on the same frames as fed and nudged, each arm twice.
 
-    <python> bench/subject_track_under_nudge.py run --clip C --second S --seconds T --width W --rate R --json J
+    <python> bench/subject_track_under_nudge.py run --clip C --second S --seconds T --width W --rate R --pick P --json J
     <python> bench/subject_track_under_nudge.py render --json J
 
 THE READING, WRITTEN BEFORE THE FIRST RUN (2026-10-07):
@@ -90,7 +90,7 @@ def cmd_run(a):
     n, H, W = (int(v) for v in u8.shape[:3])
     core, clip = load_core(SEGMENTER)
     R = {"environment": environment(torch), "frames": {"clip": Path(a.clip).name, "second": a.second, "count": n, "rate": a.rate, "size": [W, H]},
-         "settings": dict(SUBJECT_TRACK), "core_dtype": str(core.model.get_dtype()),
+         "settings": {**SUBJECT_TRACK, "pick": a.pick}, "core_dtype": str(core.model.get_dtype()),
          "lines": {k: getattr(st, k) for k in ("MATCH_FLOOR", "PLAIN_FLOOR", "MATCH_THRESHOLD", "PLAIN_SAME", "REGAIN_SAME", "REGAIN_MARGIN", "MIN_GAP")},
          "arms": {}}
     packed = {}
@@ -103,7 +103,7 @@ def cmd_run(a):
         detect, sign, track = st._sam_callables(core, clip, video, SUBJECT_TRACK["subject_phrase"], SUBJECT_TRACK["detection_threshold"],
                                                 int(SUBJECT_TRACK["max_people"]), SUBJECT_TRACK["head_phrase"])
         with torch.no_grad():
-            found = st.follow(n, cuts, SUBJECT_TRACK["pick"], None, None, detect, sign, track)
+            found = st.follow(n, cuts, a.pick, None, None, detect, sign, track)
             mask = st.assemble(n, H, W, found.pieces) > 0.5
             # the likeness of every person on the frame each shot's tile shows, as `follow`'s `alike` computes it
             ranked = {}
@@ -252,6 +252,8 @@ def main():
     s.add_argument("--width", type=int, required=True, help="the loader's custom_width")
     s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
     s.add_argument("--json", required=True)
+    s.add_argument("--pick", required=True, choices=["largest", "most central", "best match for the phrase"],
+                   help="the node's `pick`. Always named and never read from h3_config: the shipped default changed on 2026-10-07 (it was `largest` for every run before that)")
     s.add_argument("--no-repeats", action="store_true", help="leave out the two repeat arms (repeats have been identical; they double the time)")
     s = sub.add_parser("render")
     s.set_defaults(fn=cmd_render)

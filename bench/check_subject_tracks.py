@@ -22,6 +22,10 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   subject last was, only if that one is near, like-sized and clearly nearer than the
                                   others. THE CONTROLS: with the place switched off, or with no last place, the same
                                   close call takes nobody, as today's node does.
+  a_clear_leader_elsewhere_is_refused  with `leader_must_be_near`, a clear leader far from where the subject last was,
+                                  or of another size, is refused and the reason says so; near, it is taken; with no
+                                  last place it is taken on likeness, as across a cut. THE CONTROL: without the option
+                                  the far leader is taken, which is the swap today's node made on a crowd.
   notes_say_a_place_in_the_clip   the four forms of a corrections line read as written; a frame and its time are the
                                   same place; each kind of typo is refused with the line quoted, never skipped.
   a_note_lands_in_its_shot        a note is placed by where the load starts in the clip, the same text serves two
@@ -171,7 +175,7 @@ def a_note_lands_in_its_shot():
 def the_text_to_type_round_trips():
     shots = [(0, 37), (37, 38), (38, 200), (200, 345)]
     for rate in (24.0, 25.0):
-        for first in (0.0, 14.375, 345 / rate):
+        for first in (0.0, 14.375, 345 / rate, 100.5 / rate, 101.5 / rate):      # the last two start on a half frame
             for start, end in shots:
                 for frame in (start, (start + end) // 2, end - 1):
                     text = S.place_text(frame, first, rate)
@@ -180,7 +184,12 @@ def the_text_to_type_round_trips():
                     assert not outside and list(placed) == [shots.index((start, end))], f"{text} at rate {rate}, start {first}: landed in {list(placed)}, outside {len(outside)}"
     sample = S.place_text(10, 54.2, 24.0)
     assert sample.startswith("frame ") and "(" in sample and ":" in sample, sample
-    return f"every shot's first, middle and last frame, at 24 and 25 a second and three starts; e.g. `{sample}`"
+    # a time that rounds up to the minute is written as the next minute, and what is written can be typed back
+    for frame in (1439, 1440, 2879):
+        text = S.place_text(frame, 0.0, 24.0)
+        assert ":60" not in text, text
+        S.parse_notes(text.split("(")[1].rstrip(")") + ": nobody", 24.0)
+    return f"every shot's first, middle and last frame, at 24 and 25 a second and five starts, two on a half frame; e.g. `{sample}`"
 
 
 def _box(cx: float, cy: float, w: float = 0.1, h: float = 0.3):
@@ -217,9 +226,30 @@ def taking_back_is_by_likeness_then_place():
     return "a clear leader by likeness; a close call by place, only when one candidate is near, like-sized and clearly nearer; nobody otherwise"
 
 
+def a_clear_leader_elsewhere_is_refused():
+    last = _box(0.36, 0.77, 0.11, 0.28)
+    far, near = _box(0.88, 0.76, 0.13, 0.35), _box(0.34, 0.83, 0.13, 0.30)
+    rule = dict(line=0.88, lead=0.03)
+    # THE CONTROL: the highest likeness and the widest lead, half the frame away, is taken by likeness alone
+    assert S.take_back([0.963, 0.874], [far, near], last, **rule)[:2] == (0, S.TOOK_LEADER)
+    which, why, detail = S.take_back([0.963, 0.874], [far, near], last, leader_must_be_near=True, **rule)
+    assert (which, why) == (None, S.LEADER_ELSEWHERE) and detail["leader_distance_in_diagonals"] > S.NEAR_DIAGONALS, (which, why, detail)
+    # the same scores with the leader where the subject was: taken, and the distance is in the report
+    which, why, detail = S.take_back([0.963, 0.874], [near, far], last, leader_must_be_near=True, **rule)
+    assert (which, why) == (0, S.TOOK_LEADER) and detail["leader_distance_in_diagonals"] < S.NEAR_DIAGONALS, (which, why, detail)
+    # a leader in the right place at three times the size is not the subject either
+    assert S.take_back([0.963, 0.874], [_box(0.36, 0.77, 0.33, 0.84), far], last, leader_must_be_near=True, **rule)[:2] == (None, S.LEADER_ELSEWHERE)
+    # no last place (the first look of a shot after a cut): likeness is all there is
+    assert S.take_back([0.963, 0.874], [far, near], None, leader_must_be_near=True, **rule)[:2] == (0, S.TOOK_LEADER)
+    # the option does not touch a close call or a refusal under the line
+    assert S.take_back([0.92, 0.91], [far, near], last, leader_must_be_near=True, **rule)[:2] == (1, S.TOOK_NEAREST)
+    assert S.take_back([0.87, 0.60], [near, far], last, leader_must_be_near=True, **rule)[:2] == (None, S.NOBODY_OVER)
+    return "a clear leader far from the subject's last place, or of another size, is refused with its distance reported; without the option it is taken"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
-               taking_back_is_by_likeness_then_place, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

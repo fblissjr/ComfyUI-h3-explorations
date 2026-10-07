@@ -123,9 +123,9 @@ Seed sets: {'alone': {'seeded': 1, 'second_masks_of_a_chosen_person_dropped': 0,
 ## Reproducing it
 
 ```
-<python> bench/subject_alone_or_in_a_group.py run --clip lotsofpeopledance_0414_0720.mkv --second 138 --seconds 6 --width 1344 --rate 24 --key "crowd, hard" --json J
-<python> bench/subject_alone_or_in_a_group.py run --clip lotsofpeopledance_0414_0720.mkv --second 16 --seconds 6 --width 1344 --rate 24 --key "crowd, calm" --json J
-<python> bench/subject_alone_or_in_a_group.py run --clip vma.mp4 --second 121.93 --seconds 3 --width 1344 --rate 24 --key "dense" --json J
+<python> bench/subject_alone_or_in_a_group.py run --clip lotsofpeopledance_0414_0720.mkv --second 138 --seconds 6 --width 1344 --rate 24 --subject largest --key "crowd, hard" --json J
+<python> bench/subject_alone_or_in_a_group.py run --clip lotsofpeopledance_0414_0720.mkv --second 16 --seconds 6 --width 1344 --rate 24 --subject largest --key "crowd, calm" --json J
+<python> bench/subject_alone_or_in_a_group.py run --clip vma.mp4 --second 121.93 --seconds 3 --width 1344 --rate 24 --subject largest --key "dense" --json J
 <python> bench/subject_alone_or_in_a_group.py render --json J
 ```
 

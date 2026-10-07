@@ -16,7 +16,7 @@ moved one level of 255, so a difference between arms is read against what that d
 SUBJECT's track only: frames with a mask, frames whose mask passes the shape test, frames that are trusted (shape, and
 not contradicted by the detector on the looked-at frames; `subject_tracks.py`), and the first frame it is lost on.
 
-    <python> bench/subject_alone_or_in_a_group.py run --clip C --second S --seconds T --width W --rate R --json J [--key K]
+    <python> bench/subject_alone_or_in_a_group.py run --clip C --second S --seconds T --width W --rate R --subject P --json J [--key K]
     <python> bench/subject_alone_or_in_a_group.py render --json J
 
 THE READING, WRITTEN BEFORE THE FIRST RUN (2026-10-07). "In a group" is the tracker node's design only if, on the hard
@@ -68,6 +68,11 @@ def cmd_run(a):
     from comfy.ldm.sam3.tracker import unpack_masks
     from comfy_extras.nodes_sam3 import SAM3_Detect, SAM3_VideoTrack
 
+    pkg = types.ModuleType("_h3pack")       # the node's module imports relatively; give it a package to live in
+    pkg.__path__ = [str(REPO)]
+    sys.modules.setdefault("_h3pack", pkg)
+    import _h3pack.subject_track as st
+
     import sam31_corrections
     import subject_tracks
     from h3_config import SEGMENTER
@@ -103,7 +108,11 @@ def cmd_run(a):
     if found.shape[0] == 0:
         raise SystemExit("nothing detected on the seed frame")
     area = found.flatten(1).sum(1)
-    subject = int(area.argmax())
+    # the subject by the node's own rule (`subject_track.choose`). The first runs of this tool took the largest, the
+    # shipped `pick`, and on all three windows that is a figure low in the frame or cut by its edge, not the central one
+    subject = int(st.choose(found, [], a.subject))
+    box = subject_tracks.box_of(found[subject])
+    R["subject"] = {"picked_by": a.subject, "box_on_the_seed_frame": None if box is None else [round(v, 3) for v in box]}
     ys, xs = torch.meshgrid(torch.arange(H, dtype=torch.float32), torch.arange(W, dtype=torch.float32), indexing="ij")
     cx, cy = (found * xs).flatten(1).sum(1) / area.clamp(min=1), (found * ys).flatten(1).sum(1) / area.clamp(min=1)
     by_distance = ((cx - cx[subject]) ** 2 + (cy - cy[subject]) ** 2).argsort().tolist()
@@ -202,8 +211,8 @@ def cmd_run(a):
 def cmd_render(a):
     for name, D in json.loads(Path(a.json).read_text()).items():
         f = D["frames"]
-        print(f"### {name}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second, {f['size'][0]}x{f['size'][1]}; the subject is the largest person "
-              f"on frame {D['seed_frame']} ({D.get('detections_on_the_seed_frame')} detections; {D.get('seeds', '')}), followed from there; the detector is asked again every {D['look_every']} frames. One run per arm.\n")
+        print(f"### {name}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second, {f['size'][0]}x{f['size'][1]}; the subject is the {D.get('subject', {}).get('picked_by', 'largest')} person "
+              f"on frame {D['seed_frame']}{', box ' + str(D['subject']['box_on_the_seed_frame']) + ' (left, top, right, bottom as shares of the frame)' if D.get('subject') else ''} ({D.get('detections_on_the_seed_frame')} detections; {D.get('seeds', '')}), followed from there; the detector is asked again every {D['look_every']} frames. One run per arm.\n")
         print(f"Seed sets: {D.get('seed_sets')}.\n")
         print("| SAM 3.1 | the subject is seeded | seeded | frames | with a mask | plausible | trusted | first frame lost | the same, nudged: with a mask, plausible, trusted | overlap with its nudged twin | against the alone arm where both have a mask: frames, mean overlap, frames under a half |\n|---|---|---|---|---|---|---|---|---|---|---|")
         for key, r in D["arms"].items():
@@ -229,6 +238,8 @@ def main():
     s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
     s.add_argument("--json", required=True)
     s.add_argument("--key", default="", help="the name of this run in the json; the clip and second when left out")
+    s.add_argument("--subject", required=True, choices=["largest", "most central"],
+                   help="the node's `pick` rule that chooses the subject on the seed frame. Always named: the first runs took the largest, the shipped default until 2026-10-07")
     s = sub.add_parser("render")
     s.set_defaults(fn=cmd_render)
     s.add_argument("--json", required=True)

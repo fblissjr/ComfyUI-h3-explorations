@@ -20,7 +20,13 @@ Meta's code under the bf16 autocast it enters itself. The trunk and
 detector rungs carry their own FLOOR rows: ComfyUI against itself at bf16,
 and ComfyUI against itself with the frame moved one level of 255. The
 tracker rungs compare outcomes, not tensors, with ComfyUI at its default
-precision. Outside the server, the card otherwise idle. Every number is in
+precision. Outside the server, the card otherwise idle. **Every model
+rung here ran on the card** (CUDA; only the tokens rung is on the CPU). That
+matters: another session found on 2026-10-07 that the same unmodified
+ComfyUI gives materially different detections for descriptive phrases in a
+CPU process and on the card at the same float32, with neither side known to
+be the right one, so nothing in this record says anything about ComfyUI's
+SAM 3.1 run on a CPU. Every number is in
 [`2026-10-07_sam3_core_against_meta.json`](2026-10-07_sam3_core_against_meta.json)
 and every table below is printed from it by the tool's `render`; where a
 sentence and the file disagree the file is right.

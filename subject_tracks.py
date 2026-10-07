@@ -33,6 +33,7 @@ Nothing here is specific to people: a subject is whatever the tracker's phrase a
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -129,6 +130,7 @@ CLEARLY_NEARER = 1.5
 SAME_PLACE = 0.15
 
 TOOK_LEADER, TOOK_BEST, TOOK_NEAREST, NOBODY_OVER, TOO_CLOSE = "a clear leader", "the best, whatever its lead", "the nearest of those too close to call", "nobody over the line", "too close to call"
+LEADER_ELSEWHERE = "a clear leader, but not where the subject last was"
 
 
 def box_of(mask: torch.Tensor) -> tuple[float, float, float, float] | None:
@@ -151,7 +153,7 @@ def _away(box, last) -> tuple[float, float]:
 
 
 def take_back(scores: list[float], boxes: list, last_box, line: float, lead: float,
-              take_best: bool = False, by_position: bool = True) -> tuple[int | None, str, dict]:
+              take_best: bool = False, by_position: bool = True, leader_must_be_near: bool = False) -> tuple[int | None, str, dict]:
     """Which candidate on a looked-at frame is the subject, after a loss inside a shot.
 
     `scores` are the candidates' likenesses to the subject, `boxes` their boxes (`box_of`), `last_box` the subject's
@@ -159,6 +161,11 @@ def take_back(scores: list[float], boxes: list, last_box, line: float, lead: flo
     `line`. The best is taken when it leads the next by `lead`, or whatever its lead with `take_best`. Otherwise the
     candidates within `lead` of the best are too close to call by likeness, and with `by_position` the one nearest
     `last_box` is taken if it is near, of a like size, and clearly nearer than the others; else nobody is.
+
+    `leader_must_be_near` also asks a clear leader to be near `last_box` and of a like size when there is one. Measured
+    2026-10-07 on a crowd of alike figures: of four clear leaders the Subject Track took after a loss, three stood
+    somewhere else, and the one with the highest likeness and the widest lead was the farthest
+    (`bench/results/2026-10-07_subject_regain_looks.md`). A clear leader by likeness does not by itself say who.
 
     Returns (the index or None, one of the reasons above, the numbers behind it for the report).
     """
@@ -169,6 +176,11 @@ def take_back(scores: list[float], boxes: list, last_box, line: float, lead: flo
     if not order or best < line:
         return None, NOBODY_OVER, detail
     if best - nxt >= lead:
+        if leader_must_be_near and last_box is not None and boxes[order[0]] is not None:
+            d, ratio = _away(boxes[order[0]], last_box)
+            detail["leader_distance_in_diagonals"], detail["leader_size_ratio"] = round(d, 3), round(ratio, 3)
+            if d > NEAR_DIAGONALS or ratio > SIZE_FACTOR:
+                return None, LEADER_ELSEWHERE, detail
         return order[0], TOOK_LEADER, detail
     if take_best:
         return order[0], TOOK_BEST, detail
@@ -252,6 +264,12 @@ def parse_notes(text: str, rate: float) -> list[Note]:
     return notes
 
 
+def _clip_frame(seconds: float, rate: float) -> int:
+    """The clip frame a time names: the nearest, a half going up. One rule for both directions, so a load that starts on
+    a half frame cannot put a typed place one frame off (`round` is half-to-even, and two separate rounds could part)."""
+    return int(math.floor(float(seconds) * float(rate) + 0.5))
+
+
 def notes_for_shots(notes: list[Note], shots: list[tuple[int, int]], first_seconds: float, rate: float) -> tuple[dict[int, list[Note]], list[Note]]:
     """Which notes land in which shot of this load, and which land in none.
 
@@ -261,7 +279,7 @@ def notes_for_shots(notes: list[Note], shots: list[tuple[int, int]], first_secon
     placed: dict[int, list[Note]] = {}
     outside = []
     for note in notes:
-        frame = int(round((note.seconds - float(first_seconds)) * float(rate)))
+        frame = _clip_frame(note.seconds, rate) - _clip_frame(first_seconds, rate)
         for i, (start, end) in enumerate(shots):
             if start <= frame < end:
                 placed.setdefault(i, []).append(note)
@@ -276,6 +294,6 @@ def place_text(frame_in_load: int, first_seconds: float, rate: float) -> str:
 
     The frame form is the one to type; it round-trips exactly through `parse_notes`. The time is for a reader.
     """
-    clip_frame = int(round(float(first_seconds) * float(rate))) + int(frame_in_load)
-    seconds = clip_frame / float(rate)
-    return f"frame {clip_frame} ({int(seconds // 60)}:{seconds % 60:04.1f})"
+    clip_frame = _clip_frame(first_seconds, rate) + int(frame_in_load)
+    tenths = int(math.floor(clip_frame / float(rate) * 10 + 0.5))        # rounded once, before the minutes are split off: never `0:60.0`
+    return f"frame {clip_frame} ({tenths // 600}:{tenths % 600 / 10:04.1f})"

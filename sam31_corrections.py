@@ -29,9 +29,10 @@ the first instance's layer would then compute with the wrong one.
 
 **A stock model and its corrected clone in one graph** share one model instance, and ComfyUI's
 `ModelPatcher.clone_has_same_weights` does not compare object patches. On the plain patcher the two were measured to
-switch correctly in both directions (2026-10-07, a CPU probe through ComfyUI's detect node). On the server's dynamic
-patcher that is this node's acceptance test, run as a graph on the queue, and the node is not registered until it
-passes.
+switch correctly in both directions (2026-10-07, a CPU probe through ComfyUI's detect node: evidence about the
+switching, and about detections on the CPU path only, which differ from the card's). On the server's dynamic
+patcher that is this node's acceptance test, run as a graph on the queue (`bench/sam31_corrections_queue_test.py`;
+`bench/results/2026-10-07_sam31_corrections_on_a_queue.md`).
 
 **It reads what is there and never corrects twice.** Neither correction is tied to a ComfyUI version. The activation
 is replaced only in MLPs that run the shipped one, so an encoder ComfyUI already builds with exact GELU is left alone and

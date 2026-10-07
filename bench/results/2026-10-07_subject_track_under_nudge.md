@@ -253,9 +253,9 @@ required.
 With `T` for `bench/subject_track_under_nudge.py` and `J` a json path:
 
 ```
-<python> T run --clip thrill_2160.mkv --second 56 --seconds 30 --width 1024 --rate 24 --json J
-<python> T run --clip lotsofpeopledance_0414_0720.mkv --second 16 --seconds 6 --width 1344 --rate 24 --json J
-<python> T run --clip lotsofpeopledance_0414_0720.mkv --second 138 --seconds 6 --width 1344 --rate 24 --no-repeats --json J
+<python> T run --clip thrill_2160.mkv --second 56 --seconds 30 --width 1024 --rate 24 --pick largest --json J
+<python> T run --clip lotsofpeopledance_0414_0720.mkv --second 16 --seconds 6 --width 1344 --rate 24 --pick largest --json J
+<python> T run --clip lotsofpeopledance_0414_0720.mkv --second 138 --seconds 6 --width 1344 --rate 24 --pick largest --no-repeats --json J
 <python> T render --json J
 ```
 
