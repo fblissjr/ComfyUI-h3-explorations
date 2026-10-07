@@ -1213,16 +1213,17 @@ PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 AUDIO_REFINE = dict(steps=6, sampler="euler", scheduler="simple", denoise=0.5,
                     video_mask=0.0, audio_mask=1.0)
 
-#: The frozen-video cache (`frozen_video_cache.py`), at the node's API inputs,
-#: on the refine pass's model (`refine_cache`), its one use. **Inherited**:
-#: int4 and no refresh are ComfyUI-H3-AudioRefine's node defaults; `verify`
-#: is off because it runs every cached step stock as well. The refine pass on
-#: the card: `bench/results/2026-09-25_frozen_cache_s1.md` (the sampler
-#: halved) and `bench/results/2026-10-06_frozen_cache_stage_split.md`. The
-#: masked-window use (`masked_cache`, `halo`) is retired, 2026-10-06:
-#: `bench/results/2026-10-06_frozen_cache_masked_window.md` and
-#: `archive/frozen_cache_masked/`.
-FROZEN_VIDEO_CACHE = dict(precision="int4", refresh=False, refresh_every=2, verify=False)
+#: The frozen-video cache (`frozen_video_cache.py`), at the node's API inputs:
+#: on the refine pass's model (`refine_cache`), and on the song node's model in
+#: the masked probe graph (`masked_cache`). **Inherited**: int4 and no refresh
+#: are ComfyUI-H3-AudioRefine's node defaults; `verify` is off because it runs
+#: every cached step stock as well. `halo` is **reasoned**, not measured: the
+#: node's own default, a width of no tokens, which recomputes no kept row; on
+#: the refine pass, where the video is frozen whole, it has nothing to widen.
+#: A width for a masked window is `verify`'s ring figure's to set. The refine
+#: pass on the card: `bench/results/2026-10-06_frozen_cache_stage_split.md`;
+#: a masked window: `bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`.
+FROZEN_VIDEO_CACHE = dict(precision="int4", refresh=False, refresh_every=2, verify=False, halo=0)
 FROZEN_VIDEO_CACHE_NODE = "MiniMaxH3FrozenVideoCache"
 
 # ---- Masked video-to-video on the song node ----------------------------------

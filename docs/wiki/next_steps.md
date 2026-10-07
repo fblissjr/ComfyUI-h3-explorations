@@ -62,32 +62,25 @@ own below the rule.
 - Owed, lower: the original subject's shadow stays in the plate; the source
   is resampled twice on its way to the canvas (the loader, then the fit); the
   margin as a share of the subject's size and not a pixel count.
-- **The frozen-row cache on a masked window: run once, it saved no time
-  on a Sol-Attn graph, and its masked use is retired (2026-10-06).** The
-  first masked run is
-  `../../bench/results/2026-10-06_frozen_cache_masked_window.md`: the cache
-  engaged cleanly and the cached step was slower than the Sol-Attn stock
-  step it replaced. The owner retired the masked use and kept the node for
-  the audio-refine pass, where it is measured to pay
-  (`../../bench/results/2026-09-25_frozen_cache_s1.md`); the module, the
-  check and the probe graph as they were are under
-  `../../archive/frozen_cache_masked/`, and `frozen_video_cache.py::_gate`
-  now sends any call that regenerates a video row stock. What would make it
-  worth reopening is in the archive's README: the owner's look at the
-  side-by-side, then an hour timing the kernel alone off the square.
-  **2026-10-07: that hour was spent, and the run did not test the cache on
-  the kernel the stock steps use.** The cached block's attention ran on
-  torch's own kernel, because the block drops the override that carries the
-  kitchen backend; the kitchen kernel on the same rectangle costs a fraction
-  of it (`../../bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`).
-  The retirement stands until the owner reopens it. What reopening would
-  be: the archived module in a scratch copy with that one call routed to
-  the dense backend, and the same like-for-like pair on the same window.
-  **That pair ran the same day** and the cache saves what its design
-  predicted (`../../bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`).
-  Owed before it returns to the tree: the owner's eye on the stacked pair,
-  then more windows (one that regenerates much more of the frame), and the
-  departure of a cached step measured on the right kernel.
+- **The frozen-row cache on a masked window: back in the tree, measured on
+  one window (2026-10-07).** Its first masked run saved no time and the
+  owner retired it (`../../bench/results/2026-10-06_frozen_cache_masked_window.md`).
+  The cause was one call: the cached block removed the attention override
+  that carries the kitchen backend, so its attention ran on torch's kernel
+  (`../../bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`). With
+  the override left in place the same pair saves what the design predicted
+  (`../../bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`),
+  the owner could not tell the two renders apart, and they restored the
+  masked use themselves the same day. It lives in one probe graph
+  (`h3_config.FROZEN_VIDEO_CACHE`, the generator's `masked_cache`); no
+  shipped or daily graph carries it. Owed, in order: a window that
+  regenerates much more of the frame and a clip of several windows, each as
+  a like-for-like pair with the owner's eye on the stacked result; the
+  departure of a cached step from a stock one measured on the right kernel
+  (`verify`); the card's memory during a cached step; then whether a masked
+  graph carries it by default, which is the owner's call. The refine pass's
+  cached steps run on the graph's backend through the same change and have
+  not been timed again.
 - Parked by the owner, 2026-10-04: two samplers. The node that restores the
   plate between them is written and held to core's sampler on a stub model
   (`../../plate_restore.py`, `../../bench/check_plate_restore.py`), is in no

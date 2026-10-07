@@ -1,6 +1,18 @@
-# The frozen-row cache's masked-window use, retired 2026-10-06
+# The frozen-row cache's masked-window use, retired 2026-10-06, restored 2026-10-07
 
-last updated: 2026-10-06
+last updated: 2026-10-07
+
+**2026-10-07: the masked use is live again.** The owner restored the
+module, the check, the generator's `masked_cache` and the probe graph from
+25103f0e, with one change on top (the cached block leaves the attention
+override in place). `frozen_video_cache.py` and
+`bench/check_frozen_video_cache.py` at the repo's root are the live files;
+this folder is the record of the retirement and of what was tried on the
+way back, and nothing reads it. "Why it was retired" below is history. The
+diff kept here, `dense_options_fix_2026-10-07.diff`, is the change the
+corrected pair ran with; it is not what landed: on Sol-Attn's real override
+its chain walk goes nowhere and it leaves the override in place, which is
+what the live module now does in one line.
 
 Not used, not imported, registered nowhere, in no workflow, walked by no
 check. `archive/` is the folder the wiki defines that way

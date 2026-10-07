@@ -1,18 +1,11 @@
 """Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only.
 
-The audio-refine pass (`audio_refine.py`, `h3_config.AUDIO_REFINE`) keeps the
-video exactly and reopens the audio, and every step still runs the whole
-packed sequence. **That pass is the cache's one use.** A masked video-to-video
-window, which keeps most of its video and regenerates a region, was the second
-use from 1d2d776d to 25103f0e and is retired: on the lane's most favourable
-window the cached step (36.75 s) lost to a Sol-Attn stock step (33.6 s) and
-beat only a dense one, so the window sampled in the same time as stock
-(`bench/results/2026-10-06_frozen_cache_masked_window.md`), while on the
-refine pass the sampler halves (`bench/results/2026-09-25_frozen_cache_s1.md`).
-The owner, 2026-10-06: deprecate what has negative value, cite why, and keep
-the code where it is plainly unused; `archive/frozen_cache_masked/` holds that
-version whole. A call whose video regenerates anywhere now runs stock, with
-the reason on its record. A row at mask 0 sees the same input
+Two passes freeze most of what they run. The audio-refine pass
+(`audio_refine.py`, `h3_config.AUDIO_REFINE`) keeps the video exactly and
+reopens the audio. A masked video-to-video window (`video_mask.py`,
+`audio_freeze_song.py`) keeps the audio, the previous window's tail and every
+video token outside the subject, and regenerates the rest. Either way every
+step still runs the whole packed sequence. A row at mask 0 sees the same input
 on every step (`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint` injects
 the same blend each call) at the same pinned timestep
 (`comfy/ldm/minimax/model.py::MiniMaxH3Model._forward`, `t_pin_v` and
@@ -31,10 +24,12 @@ waits for the card between stages.
 **Which rows are live** is read per row from the masks core hands the model
 (`_rows`): text always, a video row where core's own pooling
 (`mask_row_values`) leaves its mask above `FROZEN_BELOW`, an audio row the
-same. Conditioning and reference rows are cached. A call is left stock, with
-the reason on its record, when nothing is frozen, when nothing regenerates,
-when any video row regenerates, or when the live rows are more of the
-sequence than `LIVE_SHARE_LIMIT`.
+same. Conditioning and reference rows are cached. `halo` adds the kept video
+rows within that many tokens of a regenerated one: they are recomputed each
+cached step and never regenerated, so the subject is drawn against
+neighbours that have seen it. A call is left stock, with the reason on its
+record, when nothing is frozen, when nothing regenerates, or when the live
+rows are more of the sequence than `LIVE_SHARE_LIMIT`.
 
 **Ported from** Adudeguyman's ComfyUI-H3-AudioRefine (`frozen_cache.py`,
 `coderef/ComfyUI-H3-AudioRefine`), MIT, notice below. The codecs are theirs
@@ -117,16 +112,21 @@ MASKED_KINDS = ("video", "audio")
 FROZEN_BELOW = 1e-3
 
 #: A call whose live rows are more of the packed sequence than this runs
-#: stock. On the refine pass the live rows are the audio and the text, under
-#: a fiftieth of the sequence on every arm that has run
-#: (`bench/results/2026-09-25_frozen_cache_s1.md`,
-#: `bench/results/2026-10-06_frozen_cache_stage_split.md`), so this has never
-#: fired; it exists for a short clip with a long prompt. **Inherited** from
-#: the cost model of the retired masked use, which put break-even a little
-#: above it; the one whole-step measurement
-#: (`bench/results/2026-10-06_frozen_cache_masked_window.md`) found a cached
-#: step slower than a Sol-Attn stock step at a share of a quarter, so this is
-#: a bound above which the cache does not try, not a break-even.
+#: stock. A cached step pays for every row once (the store to the card, qkv,
+#: the attention call's own cost) and then for a dense rectangle of live
+#: queries against all keys, where the stock step with Sol-Attn pays for a
+#: sparse square. **Measured**: the first part, on the refine pass
+#: (`bench/results/2026-10-06_frozen_cache_stage_split.md`), and the whole
+#: step on one masked window
+#: (`bench/results/2026-10-06_frozen_cache_masked_window.md`). **This limit
+#: does not mark break-even.** The model that put break-even a little above
+#: it assumed the rectangle's time follows the number of query rows; on the
+#: masked window, at a live share well under this limit, the cached step is
+#: slower than a Sol-Attn stock step and faster only than a dense one. So on
+#: a Sol-Attn graph no share under this limit is known to gain. The limit is
+#: **kept as inherited from that model**, as the bound above which the cache
+#: does not try at all; where a cached step would have to get cheaper for a
+#: masked window to gain is in the second record, not in this number.
 LIVE_SHARE_LIMIT = 0.5
 
 #: How many cells of each kept input `_content_sample` keeps. **Reasoned**: a
@@ -134,6 +134,11 @@ LIVE_SHARE_LIMIT = 0.5
 #: thousand cells compared exactly tell two apart, and the gather is small
 #: beside a step.
 CONTENT_SAMPLE = 4096
+
+#: `verify`'s ring: regenerated video rows within this many tokens of a kept
+#: one, in time, height or width. **Reasoned**: the rows drawn against stale
+#: neighbours first.
+RING_TOKENS = 1
 
 #: int4 group size. **Inherited** from AudioRefine.
 INT4_GROUP = 128
@@ -255,25 +260,35 @@ def _dequantize_from_host(codec, payload, scales, out):
 # ---------------------------------------------------------------------------
 # live-row bookkeeping
 
+def _dilate(grid, tokens):
+    """A [t, h, w] bool grid widened by `tokens` cells along every axis."""
+    if tokens <= 0:
+        return grid
+    k = 2 * int(tokens) + 1
+    pooled = torch.nn.functional.max_pool3d(grid[None, None].to(torch.float32), k, stride=1, padding=int(tokens))
+    return pooled[0, 0] > 0.5
+
+
 class _Rows:
     """Which packed rows one call computes, and which of them it regenerates.
 
     `live` is every row a cached step computes. `regen` is the video token
     grid of rows the sampler regenerates and `audio` the audio rows it does:
-    `live` holds those and the always-live kinds. `text` marks the
+    `live` holds those, the always-live kinds and the halo. `text` marks the
     text rows, for `verify`'s text line. `sig` names the live set, so a slot
     built for other rows is not reused.
     """
 
-    def __init__(self, live, regen, audio, text):
+    def __init__(self, live, regen, audio, text, halo_rows):
         self.live, self.regen, self.audio, self.text = live, regen, audio, text
+        self.halo_rows = int(halo_rows)
         self.n_live = int(live.sum())
         self.share = self.n_live / max(int(live.numel()), 1)
         self.frozen_audio = not bool(audio.all())
         self.sig = hashlib.blake2b(live.numpy().tobytes(), digest_size=8).hexdigest()
 
 
-def _rows(layout, video_mask, audio_mask):
+def _rows(layout, video_mask, audio_mask, halo=0):
     """The live rows of a call from the masks core hands the model, or None when the layout does not fit them.
 
     A video row is read with core's own pooling, so it is frozen exactly when
@@ -299,6 +314,7 @@ def _rows(layout, video_mask, audio_mask):
     live = torch.zeros(layout.seq_len, dtype=torch.bool)
     text = torch.zeros(layout.seq_len, dtype=torch.bool)
     audio = None
+    halo_rows = 0
     for a, b, kind in layout.segments:
         if kind == "text":
             text[a:b] = True
@@ -307,7 +323,9 @@ def _rows(layout, video_mask, audio_mask):
         elif kind == "video":
             if b - a != regen.numel():
                 return None
-            live[a:b] = regen.reshape(-1)
+            widened = _dilate(regen, halo)
+            halo_rows = int(widened.sum()) - int(regen.sum())
+            live[a:b] = widened.reshape(-1)
         elif kind == "audio":
             audio = torch.ones(b - a, dtype=torch.bool)
             if audio_mask is not None:
@@ -318,7 +336,7 @@ def _rows(layout, video_mask, audio_mask):
             live[a:b] = audio
     if audio is None:
         return None
-    return _Rows(live, regen, audio, text)
+    return _Rows(live, regen, audio, text, halo_rows)
 
 
 def _live_segments(mod_segments, idx):
@@ -392,13 +410,14 @@ class _Slot:
 
 
 class _State:
-    def __init__(self, dm, precision, refresh, refresh_every, verify):
+    def __init__(self, dm, precision, refresh, refresh_every, verify, halo=0):
         self.dm = dm
         self.n_blocks = len(dm.blocks)
         self.codec = CODECS[precision]
         self.refresh = refresh
         self.refresh_every = refresh_every
         self.verify = verify
+        self.halo = int(halo)
         self.slots = {}
         self.replaces = {}
         self.mode = "off"                   # off | build | cached, per call
@@ -454,26 +473,6 @@ def _qkv_rope(attn, h, rope_freqs):
     comfy.quant_ops.ck.rms_rope_split_half_(
         q, k, rope_freqs, qw, kw, epsilon=attn.q_norm.eps, rot_dim=rot)
     return q[0], k[0], v
-
-
-def _dense_options(transformer_options):
-    """The options a cached step's attention runs with: no override.
-
-    A cached step's queries are the live rows against every row's K/V. Sol
-    declines a q/k length mismatch to dense anyway, and a sparse pattern over
-    a few thousand queries buys nothing, so the call goes straight to the
-    model's own backend (`preferred_attention`).
-
-    2026-10-07, measured: on the shipped checkpoints that backend is unset
-    (`ComfyAttention.function` is `None`), and the kitchen kernel lives in
-    the override this removes, so the call runs core's default, torch's
-    SDPA. `bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`. Left
-    as it is: routing it to the kitchen kernel changes the refine pass's
-    numbers and wants its own graded run.
-    """
-    opts = dict(transformer_options)
-    opts.pop("optimized_attention_override", None)
-    return opts
 
 
 #: The stages `verify` splits a cached step into, in the order a block meets
@@ -538,9 +537,17 @@ def _cached_block(state, i, args):
     q = AttentionTensorContainer(q.transpose(0, 1).unsqueeze(0))
     k = AttentionTensorContainer(k.transpose(0, 1).unsqueeze(0))
     v = AttentionTensorContainer(v.transpose(0, 1).unsqueeze(0))
+    # The options go in as the block got them, attention override included. A
+    # cached step's queries are the live rows against every row's K/V; Sol
+    # declines that (a q/k length mismatch) and hands it to the override it
+    # was installed on, which is where the graph's dense backend lives (core's
+    # Model Attention Backend node: the kitchen kernel). Until 2026-10-07 the
+    # override was removed here, the call fell to core's default, torch's
+    # SDPA, and a cached step cost more than a stock one
+    # (`bench/results/2026-10-07_frozen_cache_rectangle_kernel.md`).
     out = optimized_attention(q, k, v, attn.heads, preferred_attention=attn.comfy_attention,
                               mask=None, skip_reshape=True,
-                              transformer_options=_dense_options(args["transformer_options"]))
+                              transformer_options=args["transformer_options"])
     _lap(state, "attention", x.device)
     xl = mm_h3._mod_gate(xl, gate_msa, attn.out_proj(out.squeeze(0)), segs)
     h = mm_h3._mod_scale_shift(blk.norm2(xl), shift_mlp, scale_mlp, segs)
@@ -597,14 +604,14 @@ def _timesteps(state, timestep, transformer_options):
     return t_v, t_a
 
 
-def _gate(x, kwargs, transformer_options):
+def _gate(x, kwargs, transformer_options, halo=0):
     """(layout, rows, None) for a call the cache takes, else (None, rows or None, why not).
 
-    It takes a call on a packed layout whose video is frozen whole, whose
-    audio is open on some row, and whose live rows are at most
-    `LIVE_SHARE_LIMIT` of the sequence: the refine pass. A call whose video
-    regenerates anywhere is the retired masked use and runs stock (the
-    module docstring says why).
+    It takes a call on a packed layout that freezes some video or audio row,
+    regenerates some other, and whose live rows are at most
+    `LIVE_SHARE_LIMIT` of the sequence. The refine pass (video frozen whole,
+    audio open) and a masked window (audio and most video frozen) are both
+    that.
     """
     layout = (kwargs.get("minimax_payload") or {}).get("layout")
     video_mask = kwargs.get("denoise_mask")
@@ -624,15 +631,13 @@ def _gate(x, kwargs, transformer_options):
     kinds = {k for _, _, k in layout.segments}
     if not {"video", "audio"} <= kinds:
         return None, None, "no video or audio rows"
-    rows = _rows(layout, video_mask, audio_mask)
+    rows = _rows(layout, video_mask, audio_mask, halo)
     if rows is None:
         return None, None, "the masks do not fit the layout"
     if bool(rows.regen.all()) and not rows.frozen_audio:
         return None, rows, "nothing frozen"
     if not bool(rows.regen.any()) and not bool(rows.audio.any()):
         return None, rows, "nothing regenerates"
-    if bool(rows.regen.any()):
-        return None, rows, "a video row regenerates: the masked use is retired"
     if rows.share > LIVE_SHARE_LIMIT:
         return None, rows, "live share above the limit"
     return layout, rows, None
@@ -680,13 +685,28 @@ def _rel(a, b):
 
 
 def _compare(out, ref, rows):
-    """A cached step against the same step run stock, on the audio rows the sampler keeps from it.
+    """A cached step against the same step run stock, on the rows the sampler keeps from it.
 
-    Cosine and relative L2 over the live audio rows. Kept rows are left out:
-    core multiplies their output by a mask of 0. The video is never compared:
-    a call that regenerates a video row runs stock (`_gate`).
+    Video: cosine and relative L2 over the regenerated rows, and the L2 again
+    on the ring (`RING_TOKENS` from a kept row) and on the interior. Audio:
+    the same pair over its live rows. Kept rows are left out: core multiplies
+    their output by a mask of 0.
     """
     got = {}
+    if bool(rows.regen.any()):
+        a, b = out[0][0].float(), ref[0][0].float()
+        kept_near = _dilate(~rows.regen, RING_TOKENS)
+        ring = rows.regen & kept_near
+        inner = rows.regen & ~kept_near
+        whole = _regen_latent(rows, out[0]).to(a.device)
+        va, vb = a[:, whole].flatten(), b[:, whole].flatten()
+        got["video_cos"] = float(torch.nn.functional.cosine_similarity(va, vb, dim=0))
+        got["video_rel_l2"] = _rel(va, vb)
+        for name, grid in (("ring", ring), ("interior", inner)):
+            got[f"{name}_rows"] = int(grid.sum())
+            if got[f"{name}_rows"]:
+                sel = _regen_latent(_Rows(rows.live, grid, rows.audio, rows.text, 0), out[0]).to(a.device)
+                got[f"{name}_rel_l2"] = _rel(a[:, sel].flatten(), b[:, sel].flatten())
     if bool(rows.audio.any()):
         a, b = out[1][0].float(), ref[1][0].float()
         sel = rows.audio.reshape(a.shape[1:]).to(a.device)
@@ -702,11 +722,11 @@ def _make_diffusion_wrapper(state):
         state.counts = {"build": 0, "cached": 0, "stock": 0}
         record = {"mode": "off", "reason": None}
         try:
-            layout, rows, why = _gate(x, kwargs, transformer_options)
+            layout, rows, why = _gate(x, kwargs, transformer_options, state.halo)
             record["reason"] = why
             if rows is not None:
                 record.update(rows=int(rows.live.numel()), live_rows=rows.n_live, live_sig=rows.sig,
-                              live_share=rows.share)
+                              live_share=rows.share, halo_rows=rows.halo_rows)
             if layout is not None:
                 foreign = _foreign_patch(state, transformer_options)
                 if foreign is not None:
@@ -790,10 +810,30 @@ def _make_diffusion_wrapper(state):
             if state.mode == "build":
                 slot.complete = all(e is not None for e in slot.h)
                 record["cache_bytes"] = slot.nbytes()
-                log.info("[h3] frozen video cache: built (%s), %d of %d rows live, %s, %.2f GiB in RAM",
-                         reason, rows.n_live, layout.seq_len, slot.codec.name, slot.nbytes() / 2**30)
+                log.info("[h3] frozen video cache: built (%s), %d of %d rows live (%d of them halo), "
+                         "%s, %.2f GiB in RAM", reason, rows.n_live, layout.seq_len, rows.halo_rows,
+                         slot.codec.name, slot.nbytes() / 2**30)
             if ref is not None and state.mode == "cached":
                 verify = _compare(out, ref, rows)
+                if bool(rows.text.any()):
+                    # The same step once more with the text rows cached too: how much
+                    # of the departure text being live buys. The output is not used.
+                    kept = [t.detach().clone() for t in out]
+                    state.live = rows.live & ~rows.text
+                    counts = dict(state.counts)
+                    try:
+                        dead = executor(x, timestep, context, transformer_options, **kwargs)
+                    finally:
+                        slot.dq = None
+                        state.live = rows.live
+                        state.counts = counts
+                    if state.mode == "cached":
+                        text = _compare(dead, ref, rows)
+                        for k in ("video_rel_l2", "audio_rel_l2"):
+                            if k in text:
+                                verify[f"text_cached_{k}"] = text[k]
+                    state.mode = "cached"
+                    out = kept
                 record["verify"] = verify
                 state.verify_log.append(verify)
                 log.info("[h3] frozen video cache: verify, sigma %.4f, %d of %d rows live, against the "
@@ -844,7 +884,7 @@ def _make_outer_sample_wrapper(state):
     return wrapper
 
 
-def attach(model, precision="int4", refresh=False, refresh_every=2, verify=False):
+def attach(model, precision="int4", refresh=False, refresh_every=2, verify=False, halo=0):
     """Clone `model` with the cache attached. The node's body, and the check's entry."""
     dm = model.get_model_object("diffusion_model")
     if not isinstance(dm, mm_h3.MiniMaxH3Model):
@@ -858,7 +898,9 @@ def attach(model, precision="int4", refresh=False, refresh_every=2, verify=False
             f"core's sparse attention or FunControl. A cached step would skip "
             f"them, so the cache refuses to compose. Put it on a model without them.")
     m = model.clone()
-    state = _State(dm, precision, refresh, refresh_every, verify)
+    if int(halo) < 0:
+        raise ValueError(f"halo is a number of tokens and cannot be {halo}")
+    state = _State(dm, precision, refresh, refresh_every, verify, halo)
     for i in range(state.n_blocks):
         fn = _make_block_replace(state, i)
         state.replaces[("double_block", i)] = fn
@@ -877,15 +919,14 @@ class MiniMaxH3FrozenVideoCache(io.ComfyNode):
             display_name="MiniMax H3 Frozen Video Cache",
             category="MiniMax H3/audio",
             description=(
-                "For the audio-only refine pass (MiniMax H3 Audio Refine Mask), whose video is "
-                "frozen whole. The first "
+                "For a pass that keeps most of its rows: an audio-only refine pass "
+                "(MiniMax H3 Audio Refine Mask) or a masked video-to-video window. The first "
                 "step runs stock and keeps each block's attention input in RAM; later steps "
                 "compute only the rows being generated and the text against it. A call that "
-                "freezes nothing, regenerates any video row, or whose live rows are too much "
-                "of the sequence to gain, runs stock and the log says why. The kept rows stop "
-                "reacting to the generated ones, which `verify` measures. Ported from "
-                "ComfyUI-H3-AudioRefine (MIT); its masked-window use is retired "
-                "(archive/frozen_cache_masked/)."),
+                "freezes nothing, or whose live rows are too much of the sequence to gain, "
+                "runs stock and the log says why. The kept rows stop reacting to the "
+                "generated ones, which `verify` measures. Ported from ComfyUI-H3-AudioRefine "
+                "(MIT)."),
             inputs=[
                 io.Model.Input("model", tooltip="The pass's model. Sol-Attn and a LoRA applied at the "
                                                 "call can already be on it."),
@@ -898,13 +939,23 @@ class MiniMaxH3FrozenVideoCache(io.ComfyNode):
                              tooltip="Cached steps between rebuilds, when `refresh` is on."),
                 io.Boolean.Input("verify", default=False, advanced=True,
                                  tooltip="Also run each cached step stock and log how far the "
-                                         "generated audio rows are from it, and where the cached "
-                                         "step's time went. Costs more than a full step each."),
+                                         "generated rows are from it, the mask's edge apart from "
+                                         "its inside, and where the cached step's time went. "
+                                         "Costs more than a full step each."),
+                # 0 is a width, not a mode: no kept row is recomputed, and nothing else
+                # in this module switches on it.
+                io.Int.Input("halo", default=0, min=0, max=16, optional=True, advanced=True,
+                             tooltip="Kept video tokens this close to a regenerated one are "
+                                     "recomputed on every step, so the subject is drawn against "
+                                     "neighbours that have seen it. They are never regenerated. "
+                                     "Each token of width costs time, and the added rows count "
+                                     "toward the share at which a window is left uncached, so a "
+                                     "wide halo can switch the cache off for it."),
             ],
             outputs=[io.Model.Output(display_name="model")],
         )
 
     @classmethod
     def execute(cls, model, precision="int4", refresh=False, refresh_every=2,
-                verify=False) -> io.NodeOutput:
-        return io.NodeOutput(attach(model, precision, refresh, refresh_every, verify))
+                verify=False, halo=0) -> io.NodeOutput:
+        return io.NodeOutput(attach(model, precision, refresh, refresh_every, verify, halo))

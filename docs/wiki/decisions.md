@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **Reversed by the owner: the frozen-row cache's masked use is back in the
+  tree.** Retired on 2026-10-06 for saving no time; the next morning's
+  kernel record found the cached block's attention had run on torch's
+  kernel, the same pair with that corrected saved what the design predicted
+  (`bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`), and the
+  owner, having watched the pair, restored the module, its check, the
+  generator's `masked_cache` and the probe graph as they stood before the
+  retirement. One change on top: the cached block no longer removes the
+  attention override. `docs/wiki/masked_v2v.md`, `docs/wiki/next_steps.md`
+  and `archive/frozen_cache_masked/README.md` said "retired" and now say
+  this. **Also corrected:** the fixed-pair record said its change walked the
+  override chain to the backend under Sol-Attn. On Sol's real override it
+  walked nowhere and left the override in place, so what was measured is Sol
+  declining the call to the backend below it; the record carries a dated
+  note and the tree's code says what it does.
 - **Corrected: the upper-body recipe had rendered on the prompt node's
   text.** Written into three places with the new graph (0.215.0): that the
   node's wording for that region "has not been watched" and had rendered

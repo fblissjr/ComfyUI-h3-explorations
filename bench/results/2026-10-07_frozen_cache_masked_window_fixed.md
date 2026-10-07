@@ -12,6 +12,22 @@ kitchen backend, so its attention ran on torch's kernel. The owner, on the
 board that day: "if you see a path here with caching, go for it. Dont spin
 wheels for hours". This is the one run that tests the cache as designed.
 
+**Corrected the same day, after the run.** "What ran" below says the changed
+function "replaces [the override] with the override at the bottom of the
+chain" and that on chains built the way the graphs build them "it returns
+the backend under one Sol, under two". That was tested on a stand-in for
+Sol's override, and it is wrong for the real one: Sol-Attn's override does
+not close over the override below it directly, so the walk stopped at once
+and handed back Sol's own override. What the cached arm ran, then, is the
+override left in place: Sol-Attn receives the cached step's call, declines
+it (fewer queries than keys) and hands it to the kitchen backend it was
+installed on. The times, the files and the comparison are unaffected; only
+the description of the route was wrong. The live module now leaves the
+override in place and says so, and `bench/check_frozen_video_cache.py`
+holds it with the real `make_override`, red against the module as retired.
+The last bullet of "What this does and does not show" is also out of date:
+the masked use is back in the tree as of that commit.
+
 **How to read it.** One window, one seed, one render per arm. The comparison
 is `cache_plain` against `baseline_again`, which ran back to back with the
 models resident and the conditioning kept. Seconds are wall clock from the

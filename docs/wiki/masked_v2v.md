@@ -81,11 +81,16 @@ All five are in `workflows/daily/` too, as `h3_mask_pdd8_api.json`,
 `h3_mask_parts_pdd8_api.json` and `h3_mask_upper_ref2va_motion_api.json`
 (`h3_config.DAILY_GRAPHS`).
 
-Until 2026-10-06 one more generated graph wired a Masked Source: a probe
-with the frozen video cache on the song node's model. Its one run saved no
-time (`../../bench/results/2026-10-06_frozen_cache_masked_window.md`) and
-the owner retired the cache's masked use; the graph, the module and the
-check as they were are under `archive/frozen_cache_masked/`.
+One more generated graph wires a Masked Source, a probe and not a shipped
+graph: `h3_probe_v2v_masked_song_ref2va_motion_cache_api.json`, the ref2va
+motion graph with the frozen video cache (`MiniMaxH3FrozenVideoCache`) on
+the song node's model, so the rows a masked window keeps are computed once
+a window. Its first run saved no time and the owner retired it on
+2026-10-06; the cause was one call running on the wrong attention kernel,
+the corrected pair is
+`../../bench/results/2026-10-07_frozen_cache_masked_window_fixed.md`, and
+the owner brought the masked use back into the tree on 2026-10-07. It has
+run on one window. No shipped or daily graph carries it.
 
 It is not a trained task. The release trains t2va, fl2va and ref2va; a
 spatial mask on a base checkpoint is an inference-time method. The mechanism

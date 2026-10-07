@@ -147,7 +147,7 @@ with none is a helper the others import.
 | `vendor/` | 6 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 4 | [below](#vendor_guides) |
-| `workflows/` | 175 | [`workflows/INDEX.md`](workflows/INDEX.md) |
+| `workflows/` | 176 | [`workflows/INDEX.md`](workflows/INDEX.md) |
 
 ## .claude/
 
@@ -162,7 +162,7 @@ with none is a helper the others import.
 |---|---|
 | [`bench/bench_image_edit_refs.py`](archive/bench/bench_image_edit_refs.py) | What a single-frame edit can hold: reference count, sizing, and canvas. |
 | [`bench/check_single_frame.py`](archive/bench/check_single_frame.py) | Check the single-frame shim changes `length=1` and provably nothing else. |
-| [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06 |
+| [`frozen_cache_masked/README.md`](archive/frozen_cache_masked/README.md) | The frozen-row cache's masked-window use, retired 2026-10-06, restored 2026-10-07 |
 | [`frozen_cache_masked/check_frozen_video_cache.py`](archive/frozen_cache_masked/check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
 | [`frozen_cache_masked/dense_options_fix_2026-10-07.diff`](archive/frozen_cache_masked/dense_options_fix_2026-10-07.diff) | 477a478,501 |
 | [`frozen_cache_masked/frozen_video_cache.py`](archive/frozen_cache_masked/frozen_video_cache.py) | Cache the frozen rows of an H3 sampling run, so its steps run on the live rows only. |
