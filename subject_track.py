@@ -1190,9 +1190,9 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                 io.Clip.Input("segmenter_clip", tooltip="The SAM 3 checkpoint's text encoder."),
                 io.String.Input("subject_phrase", default=SUBJECT_PHRASE,
                                 tooltip="What SAM 3 is asked to find in each shot. `person` finds everyone."),
-                # the default is `most central` since 2026-10-07 (the owner): on the lane's crowd clip
-                # `largest` picked a figure at the frame's edge on all three test windows and
-                # `most central` the person meant (bench/results/2026-10-07_subject_track_under_nudge.md)
+                # the default is `most central` since 2026-10-07 (the owner): on the three windows tested
+                # `largest` and `most central` were different detections, and `most central` the person
+                # meant (docs/wiki/decisions.md, 2026-10-07, which says where the evidence is)
                 io.Combo.Input("pick", options=list(PICKS), default=PICK_CENTRAL,
                                tooltip=("Which of the people found is the subject: the one covering the most of "
                                         "the frame, the one nearest its centre, or SAM 3's highest score.")),

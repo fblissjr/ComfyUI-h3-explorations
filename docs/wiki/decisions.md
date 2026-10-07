@@ -18,12 +18,21 @@ Older history lives elsewhere and is not copied here:
 ## 2026-10-07
 
 - **The Subject Track picks the most central person by default, not the
-  largest** (the owner, on a measured difference). On the lane's crowd clip
-  the two rules name different people on all three windows tested, `largest`
-  a figure at the frame's edge and `most central` the person meant; with
-  `most central` today's node holds the subject on every frame of the
-  stretch that had been called hard
-  (`bench/results/2026-10-07_subject_track_under_nudge.md`). Changed
+  largest** (the owner, on a measured difference). On the three windows
+  tested, two stretches of the lane's crowd clip and one of a second clip,
+  the two rules name different detections; `largest` takes a figure low in
+  the frame on the crowd clip and one whose box touches two edges of the
+  frame on the second, and `most central` the person meant. With
+  `most central`, followed alone, the subject keeps a mask on every frame
+  of the stretch that had been called hard, each frame's mask overlapping
+  the one before: continuity, which no label confirms. **The evidence is
+  not yet in a tracked record**; the tracker lane's record of the central
+  figure is owed. *Corrected the same day on a fresh session's reading:
+  this entry, the 0.220.0 changelog entry and the comment beside the
+  default said "a figure at the frame's edge" on "the lane's crowd clip"
+  for all three windows and cited
+  `bench/results/2026-10-07_subject_track_under_nudge.md`, every arm of
+  which was picked with `largest`.* Changed
   together: the node's default (`subject_track.py`),
   `h3_config.SUBJECT_TRACK` and every generated masked graph. It was
   `largest` since the node was written; an arm recorded before this date
