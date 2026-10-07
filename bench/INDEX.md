@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 119 |
+| [the rest](#the-rest) | 120 |
 
 ## check
 
@@ -371,6 +371,7 @@ this file is only a way to find a script by what it says it does.
 | [`run_pruning_arms.py`](run_pruning_arms.py) | CLOSED RECORD since 2026-09-18. This runner renders bank prompts written for 345 frames at a fixed short length, which bench/run_graph_arms.py now refuses; it needs prompts written for its length before it runs again (its results are the ... |
 | [`run_shot_count_ablation.py`](run_shot_count_ablation.py) | CLOSED RECORD since 2026-09-18. This ablation computes cut times into shot headers by design, from a frozen out-of-bank base graph at 362 frames (on the grid, one step above the 345 every shipped graph now renders; ... |
 | [`run_tau_sweep.py`](run_tau_sweep.py) | Queue the scenes of a tau sweep on a server armed with `H3_SOL_SWEEP`. |
+| [`sam3_precision_arms.py`](sam3_precision_arms.py) | Compare SAM 3.1 at float16, bfloat16 and float32 through core's own nodes, on the same frames, with controls. |
 | [`scan_original_block49.py`](scan_original_block49.py) | Is block 49's oddity in the original MiniMax weights, before any conversion? |
 | [`score_clip_shots_loudness.py`](score_clip_shots_loudness.py) | Two things a finished clip can be checked for without anyone watching it: |
 | [`score_output_distance.py`](score_output_distance.py) | Score renders by their saved latents' distance from a reference render at the same seed. |
@@ -521,7 +522,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-820 tracked files: [`results/INDEX.md`](results/INDEX.md).
+822 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

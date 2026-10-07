@@ -7,7 +7,40 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.215.4
+<!-- changelog.d/mrdragon-sam3-precision-arms.md -->
+
+### Added
+
+- **`bench/sam3_precision_arms.py`, and the record of its first run**
+  (`bench/results/2026-10-07_sam3_precision_arms.md` and its json): SAM 3.1
+  through ComfyUI's own detect and track nodes at float16, bf16 and true
+  float32 on the same frames and the same seeds, with a repeated arm as the
+  run-to-run floor, a one-level nudge of the input as the sensitivity floor,
+  a larger nudge as the control the harness must see, a prediction written
+  before the comparison, and stacked mask videos with a row for where the
+  arms disagree. Written and run by an independent session working from the
+  primary sources only. The record's verdict is that precision is not a
+  lever for the tracker on the stretches tried, so the lane keeps ComfyUI's
+  default; it also carries that session's own measurement of three places
+  where ComfyUI's SAM 3.1 departs from Meta's code. No node, graph or
+  default changes.
+
 ## 0.215.3
+<!-- changelog.d/mrdragon-upper-body-node-arm-existed.md -->
+
+### Fixed
+
+- The upper-body graph's notes no longer say the prompt node's wording for
+  that region had not rendered on the first clip: it rendered on 2026-10-06
+  on the same window and seed beside the typed arm, and the stacked pair is
+  on the output share. Corrected in `docs/wiki/masked_v2v.md`, the bank
+  entry `ref2va_masked_person_upper_motion` and its row in
+  `docs/prompt_audit.md`, with a dated note in
+  `bench/results/2026-10-06_masked_v2v_body_window_arms.md` and an entry in
+  `docs/wiki/decisions.md`.
+
+## 0.215.2
 <!-- changelog.d/mrdragon-cache-fixed-pair.md -->
 
 ### Added
@@ -22,20 +55,6 @@ artifact.
   code changes: the masked use stays retired until the owner says
   otherwise. `archive/frozen_cache_masked/README.md` and
   `docs/wiki/next_steps.md` point at the record.
-
-## 0.215.2
-<!-- changelog.d/mrdragon-upper-body-node-arm-existed.md -->
-
-### Fixed
-
-- The upper-body graph's notes no longer say the prompt node's wording for
-  that region had not rendered on the first clip: it rendered on 2026-10-06
-  on the same window and seed beside the typed arm, and the stacked pair is
-  on the output share. Corrected in `docs/wiki/masked_v2v.md`, the bank
-  entry `ref2va_masked_person_upper_motion` and its row in
-  `docs/prompt_audit.md`, with a dated note in
-  `bench/results/2026-10-06_masked_v2v_body_window_arms.md` and an entry in
-  `docs/wiki/decisions.md`.
 
 ## 0.215.1
 <!-- changelog.d/mregg-one-phrase-one-detection.md -->
