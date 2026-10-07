@@ -1,0 +1,1521 @@
+{
+ "tokens": {
+  "parts": 31,
+  "differ": 0,
+  "meta_used_ftfy": false,
+  "rows": [
+   {
+    "typed": "person",
+    "part": "person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "a person",
+    "part": "a person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "Person",
+    "part": "Person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "PERSON",
+    "part": "PERSON",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "head",
+    "part": "head",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "hair",
+    "part": "hair",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "the tallest person",
+    "part": "the tallest person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 5,
+    "meta_tokens": 5
+   },
+   {
+    "typed": "person wearing a hat",
+    "part": "person wearing a hat",
+    "same": true,
+    "length": 32,
+    "core_tokens": 6,
+    "meta_tokens": 6
+   },
+   {
+    "typed": "man in a red shirt",
+    "part": "man in a red shirt",
+    "same": true,
+    "length": 32,
+    "core_tokens": 7,
+    "meta_tokens": 7
+   },
+   {
+    "typed": "person's hand",
+    "part": "person's hand",
+    "same": true,
+    "length": 32,
+    "core_tokens": 5,
+    "meta_tokens": 5
+   },
+   {
+    "typed": "t-shirt",
+    "part": "t-shirt",
+    "same": true,
+    "length": 32,
+    "core_tokens": 5,
+    "meta_tokens": 5
+   },
+   {
+    "typed": "dog/cat",
+    "part": "dog/cat",
+    "same": true,
+    "length": 32,
+    "core_tokens": 5,
+    "meta_tokens": 5
+   },
+   {
+    "typed": "  two   spaces  ",
+    "part": "  two   spaces  ",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "person.",
+    "part": "person.",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "person!",
+    "part": "person!",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "(person)",
+    "part": "(person)",
+    "same": true,
+    "length": 32,
+    "core_tokens": 5,
+    "meta_tokens": 5
+   },
+   {
+    "typed": "café table",
+    "part": "café table",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "naïve façade",
+    "part": "naïve façade",
+    "same": true,
+    "length": 32,
+    "core_tokens": 8,
+    "meta_tokens": 8
+   },
+   {
+    "typed": "ｆｕｌｌｗｉｄｔｈ person",
+    "part": "ｆｕｌｌｗｉｄｔｈ person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 30,
+    "meta_tokens": 30
+   },
+   {
+    "typed": "personne âgée",
+    "part": "personne âgée",
+    "same": true,
+    "length": 32,
+    "core_tokens": 7,
+    "meta_tokens": 7
+   },
+   {
+    "typed": "人",
+    "part": "人",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "person 🙂",
+    "part": "person 🙂",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "person\tholding\na cup",
+    "part": "person\tholding\na cup",
+    "same": true,
+    "length": 32,
+    "core_tokens": 6,
+    "meta_tokens": 6
+   },
+   {
+    "typed": "3 people",
+    "part": "3 people",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "person:2",
+    "part": "person",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "eye:2, window panels:4",
+    "part": "eye",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "eye:2, window panels:4",
+    "part": "window panels",
+    "same": true,
+    "length": 32,
+    "core_tokens": 4,
+    "meta_tokens": 4
+   },
+   {
+    "typed": "hair, head",
+    "part": "hair",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "hair, head",
+    "part": "head",
+    "same": true,
+    "length": 32,
+    "core_tokens": 3,
+    "meta_tokens": 3
+   },
+   {
+    "typed": "a person standing next to another person in a very large roo",
+    "part": "a person standing next to another person in a very large roo",
+    "same": true,
+    "length": 32,
+    "core_tokens": 32,
+    "meta_tokens": 32
+   },
+   {
+    "typed": "",
+    "part": "",
+    "same": true,
+    "length": 32,
+    "core_tokens": 2,
+    "meta_tokens": 2
+   }
+  ]
+ },
+ "files": {
+  "theirs": "sam3.1_multiplex_fp16.safetensors",
+  "ours": "sam3.1_multiplex_fp32.safetensors",
+  "shape_differs": [],
+  "differs": [],
+  "equal": 1590,
+  "only_theirs": [],
+  "only_ours": [
+   "detector.backbone.language_backbone.encoder.text_projection"
+  ],
+  "theirs_dtypes": [
+   "F16"
+  ],
+  "differs_count": 0
+ },
+ "text": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   }
+  },
+  "core_text_mlps": 24,
+  "core_ships_quick_gelu": true,
+  "phrases": {
+   "person": {
+    "real_tokens": 3,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.04818,
+      "cosine": 0.99887,
+      "max_abs_diff": 2.0157
+     },
+     "after_resizer": {
+      "relative_l2": 0.03706,
+      "cosine": 0.99943,
+      "max_abs_diff": 0.1637
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.0026,
+      "cosine": 1.0,
+      "max_abs_diff": 0.028
+     },
+     "after_resizer": {
+      "relative_l2": 0.00337,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0141
+     }
+    }
+   },
+   "head": {
+    "real_tokens": 3,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.06481,
+      "cosine": 0.99793,
+      "max_abs_diff": 2.6394
+     },
+     "after_resizer": {
+      "relative_l2": 0.04233,
+      "cosine": 0.99914,
+      "max_abs_diff": 0.1946
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00278,
+      "cosine": 1.0,
+      "max_abs_diff": 0.0219
+     },
+     "after_resizer": {
+      "relative_l2": 0.00332,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0192
+     }
+    }
+   },
+   "a person": {
+    "real_tokens": 4,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.06024,
+      "cosine": 0.99824,
+      "max_abs_diff": 2.8501
+     },
+     "after_resizer": {
+      "relative_l2": 0.04677,
+      "cosine": 0.99912,
+      "max_abs_diff": 0.2167
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00247,
+      "cosine": 1.0,
+      "max_abs_diff": 0.0219
+     },
+     "after_resizer": {
+      "relative_l2": 0.00351,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.024
+     }
+    }
+   },
+   "person wearing a hat": {
+    "real_tokens": 6,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.14886,
+      "cosine": 0.98896,
+      "max_abs_diff": 5.3289
+     },
+     "after_resizer": {
+      "relative_l2": 0.11074,
+      "cosine": 0.99395,
+      "max_abs_diff": 0.7353
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00906,
+      "cosine": 0.99996,
+      "max_abs_diff": 0.0754
+     },
+     "after_resizer": {
+      "relative_l2": 0.00762,
+      "cosine": 0.99997,
+      "max_abs_diff": 0.0496
+     }
+    }
+   },
+   "the tallest person": {
+    "real_tokens": 5,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.14784,
+      "cosine": 0.98912,
+      "max_abs_diff": 3.3824
+     },
+     "after_resizer": {
+      "relative_l2": 0.11928,
+      "cosine": 0.99293,
+      "max_abs_diff": 0.6133
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00734,
+      "cosine": 0.99997,
+      "max_abs_diff": 0.1134
+     },
+     "after_resizer": {
+      "relative_l2": 0.00663,
+      "cosine": 0.99998,
+      "max_abs_diff": 0.0363
+     }
+    }
+   },
+   "man in a red shirt": {
+    "real_tokens": 7,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.10987,
+      "cosine": 0.9941,
+      "max_abs_diff": 3.5215
+     },
+     "after_resizer": {
+      "relative_l2": 0.07871,
+      "cosine": 0.99704,
+      "max_abs_diff": 0.4577
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00469,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0494
+     },
+     "after_resizer": {
+      "relative_l2": 0.00454,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0291
+     }
+    }
+   },
+   "hair": {
+    "real_tokens": 3,
+    "as shipped": {
+     "encoder": {
+      "relative_l2": 0.08571,
+      "cosine": 0.99638,
+      "max_abs_diff": 3.6504
+     },
+     "after_resizer": {
+      "relative_l2": 0.06019,
+      "cosine": 0.99827,
+      "max_abs_diff": 0.3081
+     }
+    },
+    "exact GELU": {
+     "encoder": {
+      "relative_l2": 0.00363,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0241
+     },
+     "after_resizer": {
+      "relative_l2": 0.00402,
+      "cosine": 0.99999,
+      "max_abs_diff": 0.0245
+     }
+    }
+   }
+  },
+  "frame": {
+   "clip": "thrill_2160.mkv",
+   "second": 56.5,
+   "decoded_at": 56.5,
+   "size": [
+    1024,
+    768
+   ]
+  },
+  "detect": {
+   "person": {
+    "as shipped": {
+     "detections": 2,
+     "presence": 0.9744,
+     "top_scores": [
+      0.99,
+      0.621,
+      0.477,
+      0.086
+     ]
+    },
+    "exact GELU": {
+     "detections": 2,
+     "presence": 0.9718,
+     "top_scores": [
+      0.99,
+      0.617,
+      0.475,
+      0.085
+     ]
+    },
+    "lowest_best_iou_between_the_two": 1.0
+   },
+   "head": {
+    "as shipped": {
+     "detections": 1,
+     "presence": 0.9855,
+     "top_scores": [
+      0.935,
+      0.454,
+      0.239,
+      0.17
+     ]
+    },
+    "exact GELU": {
+     "detections": 1,
+     "presence": 0.9839,
+     "top_scores": [
+      0.933,
+      0.46,
+      0.241,
+      0.173
+     ]
+    },
+    "lowest_best_iou_between_the_two": 1.0
+   },
+   "a describing phrase (text not recorded)": {
+    "as shipped": {
+     "detections": 3,
+     "presence": 0.061,
+     "top_scores": [
+      0.897,
+      0.581,
+      0.504,
+      0.097
+     ]
+    },
+    "exact GELU": {
+     "detections": 3,
+     "presence": 0.0319,
+     "top_scores": [
+      0.861,
+      0.625,
+      0.545,
+      0.075
+     ]
+    },
+    "lowest_best_iou_between_the_two": 0.994
+   }
+  }
+ },
+ "trunk": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   }
+  },
+  "frame": {
+   "clip": "thrill_2160.mkv",
+   "second": 56.5,
+   "decoded_at": 56.5,
+   "size": [
+    1024,
+    768
+   ]
+  },
+  "weights_into_meta": {
+   "missing": 96,
+   "unexpected": 0
+  },
+  "core_dtype": "torch.float32",
+  "input": {
+   "core_range": [
+    0.0,
+    1.0
+   ],
+   "meta_range": [
+    -1.0,
+    1.0
+   ],
+   "core_as_fed_vs_meta": {
+    "relative_l2": 1.09639,
+    "cosine": -0.60118,
+    "max_abs_diff": 1.0078
+   },
+   "core_mapped_to_metas_range_vs_meta": {
+    "relative_l2": 0.00235,
+    "cosine": 1.00032,
+    "max_abs_diff": 0.1552
+   }
+  },
+  "trunk": {
+   "shape": [
+    1,
+    1024,
+    72,
+    72
+   ],
+   "equal_tensor_core_vs_meta": {
+    "relative_l2": 0.04907,
+    "cosine": 0.99922,
+    "max_abs_diff": 56.3707
+   },
+   "core_as_its_node_feeds_vs_meta": {
+    "relative_l2": 0.65114,
+    "cosine": 0.78773,
+    "max_abs_diff": 209.8129
+   },
+   "core_resize_in_metas_range_vs_meta": {
+    "relative_l2": 0.21544,
+    "cosine": 0.97722,
+    "max_abs_diff": 166.5269
+   },
+   "meta_given_the_unmapped_image_vs_meta": {
+    "relative_l2": 0.65054,
+    "cosine": 0.788,
+    "max_abs_diff": 209.9703
+   },
+   "core_as_fed_vs_meta_given_the_same_unmapped_image": {
+    "relative_l2": 0.03654,
+    "cosine": 0.99975,
+    "max_abs_diff": 62.5824
+   }
+  },
+  "patch_embedding": {
+   "max_abs_diff_of_weights": 0.0,
+   "core_has_bias": false,
+   "meta_has_bias": false
+  }
+ },
+ "detector": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   }
+  },
+  "frame": {
+   "clip": "thrill_2160.mkv",
+   "second": 56.5,
+   "decoded_at": 56.5,
+   "size": [
+    1024,
+    768
+   ]
+  },
+  "phrase": "person",
+  "core_dtype": "torch.float32",
+  "meta_trunk_input_range": [
+   -1.0,
+   1.0
+  ],
+  "exact GELU": {
+   "presence_logit": {
+    "core": 3.4538,
+    "meta": 3.4375
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.09377,
+    "cosine": 0.99562,
+    "max_abs_diff": 1.6267
+   },
+   "queries": 200,
+   "kept_over_half": {
+    "core": 2,
+    "meta": 2
+   },
+   "top10_by_meta": {
+    "meta": [
+     0.957,
+     0.554,
+     0.492,
+     0.094,
+     0.067,
+     0.056,
+     0.055,
+     0.055,
+     0.054,
+     0.051
+    ],
+    "core": [
+     0.959,
+     0.561,
+     0.456,
+     0.092,
+     0.07,
+     0.059,
+     0.053,
+     0.079,
+     0.038,
+     0.046
+    ],
+    "mask_iou": [
+     0.999,
+     1.0,
+     0.997,
+     0.833,
+     0.992,
+     0.995,
+     0.972,
+     0.686,
+     0.365,
+     0.998
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.73595
+  },
+  "as shipped": {
+   "presence_logit": {
+    "core": 3.5553,
+    "meta": 3.4375
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.09509,
+    "cosine": 0.9955,
+    "max_abs_diff": 1.6222
+   },
+   "queries": 200,
+   "kept_over_half": {
+    "core": 2,
+    "meta": 2
+   },
+   "top10_by_meta": {
+    "meta": [
+     0.957,
+     0.554,
+     0.492,
+     0.094,
+     0.067,
+     0.056,
+     0.055,
+     0.055,
+     0.054,
+     0.051
+    ],
+    "core": [
+     0.962,
+     0.565,
+     0.459,
+     0.093,
+     0.069,
+     0.059,
+     0.055,
+     0.08,
+     0.039,
+     0.046
+    ],
+    "mask_iou": [
+     0.999,
+     1.0,
+     0.997,
+     0.84,
+     0.994,
+     0.995,
+     0.972,
+     0.697,
+     0.396,
+     1.0
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.73845
+  }
+ },
+ "tracker, seeds node": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "vma.mp4",
+   "second": 121.93,
+   "count": 72,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "core_dtype": "torch.float16",
+  "arms": {
+   "core, frames as its node gets them | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     3
+    ],
+    "object_score_first_frames": [
+     10.0,
+     4.45,
+     2.53,
+     0.31,
+     -0.39,
+     -1.77,
+     -2.47,
+     -2.5
+    ]
+   },
+   "core, frames as its node gets them | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 1,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     16,
+     18
+    ]
+   },
+   "core, frames as its node gets them | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     5
+    ]
+   },
+   "core, frames as its node gets them | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 31,
+     "54": 19,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     38,
+     64,
+     62,
+     41,
+     38,
+     43,
+     38,
+     50,
+     56,
+     39,
+     51,
+     51,
+     60,
+     32,
+     40,
+     40
+    ]
+   },
+   "core, frames in the trained range | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     3
+    ],
+    "object_score_first_frames": [
+     10.0,
+     4.52,
+     2.0,
+     0.02,
+     -0.53,
+     -1.79,
+     -2.57,
+     -2.6
+    ]
+   },
+   "core, frames in the trained range | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 2,
+     "36": 2,
+     "54": 2,
+     "71": 2
+    },
+    "last_frame_each_is_on": [
+     71,
+     71
+    ]
+   },
+   "core, frames in the trained range | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     6
+    ]
+   },
+   "core, frames in the trained range | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 32,
+     "54": 22,
+     "71": 20
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     55,
+     71,
+     71,
+     54,
+     52,
+     61,
+     52,
+     52,
+     71,
+     50,
+     61,
+     56,
+     71,
+     38,
+     50,
+     51
+    ]
+   },
+   "Meta's tracker | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     2
+    ],
+    "object_score_first_frames": [
+     10.0,
+     4.19,
+     1.48,
+     -0.49,
+     -1.9,
+     -2.5,
+     -3.02,
+     -2.88
+    ]
+   },
+   "Meta's tracker | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 2,
+     "36": 2,
+     "54": 2,
+     "71": 2
+    },
+    "last_frame_each_is_on": [
+     71,
+     71
+    ]
+   },
+   "Meta's tracker | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     6
+    ]
+   },
+   "Meta's tracker | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 32,
+     "54": 31,
+     "71": 31
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     66,
+     71,
+     71,
+     71,
+     71
+    ]
+   }
+  },
+  "caution": "with several people Meta's tracker-only path applies neither of its two between-people rules; core applies both",
+  "seeds_from": "one detect by core on the first frame, as its node gets it",
+  "detections_on_the_seed_frame": 64
+ },
+ "tracker, seeds trained": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": true
+   }
+  },
+  "frames": {
+   "clip": "vma.mp4",
+   "second": 121.93,
+   "count": 72,
+   "rate": 24.0,
+   "size": [
+    1344,
+    760
+   ]
+  },
+  "core_dtype": "torch.float16",
+  "arms": {
+   "core, frames as its node gets them | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     2
+    ],
+    "object_score_first_frames": [
+     10.0,
+     2.97,
+     1.27,
+     -0.08,
+     -1.63,
+     -2.67,
+     -2.8,
+     -2.82
+    ]
+   },
+   "core, frames as its node gets them | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     8,
+     9
+    ]
+   },
+   "core, frames as its node gets them | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     12
+    ]
+   },
+   "core, frames as its node gets them | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 22,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     38,
+     37,
+     36,
+     36,
+     32,
+     32,
+     37,
+     32,
+     31,
+     32,
+     32,
+     39,
+     32,
+     30,
+     40,
+     34
+    ]
+   },
+   "core, frames in the trained range | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     2
+    ],
+    "object_score_first_frames": [
+     10.0,
+     2.66,
+     0.74,
+     -0.57,
+     -2.05,
+     -3.02,
+     -3.16,
+     -3.48
+    ]
+   },
+   "core, frames in the trained range | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     8,
+     8
+    ]
+   },
+   "core, frames in the trained range | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     17
+    ]
+   },
+   "core, frames in the trained range | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 31,
+     "54": 32,
+     "71": 18
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     60,
+     64,
+     61,
+     62,
+     60,
+     56,
+     71,
+     60,
+     57,
+     56,
+     60,
+     63,
+     57,
+     56,
+     71,
+     59
+    ]
+   },
+   "Meta's tracker | alone": {
+    "seeded": 1,
+    "with_a_mask_at": {
+     "0": 1,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     2
+    ],
+    "object_score_first_frames": [
+     10.0,
+     2.64,
+     0.82,
+     -0.33,
+     -1.76,
+     -2.64,
+     -2.67,
+     -2.97
+    ]
+   },
+   "Meta's tracker | with one neighbour": {
+    "seeded": 2,
+    "with_a_mask_at": {
+     "0": 2,
+     "18": 0,
+     "36": 0,
+     "54": 0,
+     "71": 0
+    },
+    "last_frame_each_is_on": [
+     8,
+     8
+    ]
+   },
+   "Meta's tracker | 17": {
+    "seeded": 17,
+    "with_a_mask_at": {
+     "0": 17,
+     "18": 16,
+     "36": 16,
+     "54": 16,
+     "71": 16
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     8
+    ]
+   },
+   "Meta's tracker | 32": {
+    "seeded": 32,
+    "with_a_mask_at": {
+     "0": 32,
+     "18": 32,
+     "36": 32,
+     "54": 32,
+     "71": 32
+    },
+    "last_frame_each_is_on": [
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71,
+     71
+    ]
+   }
+  },
+  "caution": "with several people Meta's tracker-only path applies neither of its two between-people rules; core applies both",
+  "seeds_from": "one detect by core on the first frame, in the trained range",
+  "detections_on_the_seed_frame": 63
+ },
+ "earlier_run_other_decode": {
+  "what": "the same window, seeds and core arms from a scratch probe run earlier the same day, NOT by this tool; its frames were decoded by calling ffmpeg directly (fps, crop, scale) where the tool uses the loader node",
+  "frames_against_the_tools": {
+   "same_frames_in_time": true,
+   "mean_abs_pixel_difference_in_levels_of_255": [
+    1.76,
+    1.74,
+    1.74,
+    1.8,
+    1.79
+   ],
+   "at_frames": [
+    0,
+    1,
+    2,
+    30,
+    71
+   ],
+   "for_scale_frame_10_against_its_neighbours_in_levels": [
+    9.08,
+    11.51
+   ]
+  },
+  "seeds": "one detect by core on the first frame as its node gets it",
+  "32_seeded_with_a_mask_at_the_last_frame": {
+   "core, frames as its node gets them": 16,
+   "core, frames in the trained range": 32
+  },
+  "17_seeded_last_frame_the_seventeenth_is_on": {
+   "core, frames as its node gets them": 14,
+   "core, frames in the trained range": 71
+  },
+  "alone_frames_on": {
+   "core, frames as its node gets them": 5,
+   "core, frames in the trained range": 3
+  }
+ }
+}
