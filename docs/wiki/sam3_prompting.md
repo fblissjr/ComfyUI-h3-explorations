@@ -1,6 +1,6 @@
 # Asking SAM 3.1 for something: what a valid phrase is, and what to do when a phrase is not enough
 
-last updated: 2026-10-07 (first written, from the day's reading of Meta's code and benchmark annotations)
+last updated: 2026-10-07 (first written, from the day's reading of Meta's code and benchmark annotations; later the same day, what each ComfyUI difference does to a plain noun with one modifier)
 
 Written by hand. This page is the operative form: one rule a line, and a
 pointer to the record that holds the count behind it. It carries no numbers
@@ -74,7 +74,10 @@ Each matters more the longer or rarer the phrase.
   [`2026-10-07_sam3_core_against_meta.md`](../../bench/results/2026-10-07_sam3_core_against_meta.md)
   has both rules over the same detections.
 - **The text encoder runs another activation than Meta built it with.** Nil
-  to small for `person` and `head`, larger for phrases. The corrections node
+  to small for `person` and `head` and for a plain noun with one modifier
+  (the shape the rules above ask for; a session preparing the upstream fix,
+  2026-10-07, on public images, reported and not in a tracked record),
+  larger for longer phrases. The corrections node
   (`sam31_corrections.py`, `MiniMaxH3SAM31Corrections`) sets it right at run
   time for whatever loader feeds it, and corrects the image's value range as
   well: [`2026-10-07_sam31_corrections_on_a_queue.md`](../../bench/results/2026-10-07_sam31_corrections_on_a_queue.md).
@@ -93,7 +96,9 @@ Each matters more the longer or rarer the phrase.
   process. Found and localised by a session reviewing the upstream fix,
   2026-10-07, on public images: with `--use-pytorch-cross-attention` a CPU
   process gives the card's detections. Not reported upstream and not yet in
-  a tracked record. The server log line "Using pytorch attention" is the
+  a tracked record. It is not only long phrases: the same session reports
+  a plain modifier-and-noun phrase gaining detections of other things on
+  that path. The server log line "Using pytorch attention" is the
   observable for which path a process is on. **A detection score from a CPU
   process run without that flag is evidence about the faulty path only**;
   text features are not affected.

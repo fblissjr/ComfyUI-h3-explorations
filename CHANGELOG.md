@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.220.5
+<!-- changelog.d/mrdragon-wiki-sam3-plain-phrases.md -->
+
+### Changed
+
+- **`docs/wiki/sam3_prompting.md` says what two of ComfyUI's differences do
+  to the phrase shape the page recommends** (a plain noun with one
+  modifier): the activation moves it little, and the unhidden padding on the
+  CPU path reaches it as well as long phrases. Both as reported by the
+  session preparing the upstream fix, on public images, and marked as not in
+  a tracked record.
+
 ## 0.220.4
 <!-- changelog.d/mrdragon-pick-decision-evidence-corrected.md -->
 
