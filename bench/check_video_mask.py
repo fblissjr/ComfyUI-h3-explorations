@@ -106,6 +106,59 @@ from comfy.ldm.minimax.model import FRAME_PER_TOKEN, mask_row_values  # noqa: E4
 import h3_config  # noqa: E402
 
 
+def check_keep(problems):
+    """The optional `keep` mask (2026-10-07): it wins over the region after the grow, in whole tokens, and unwired
+    nothing changes. The control: the same keep applied BEFORE the grow, which the grow then runs back over."""
+    frames = torch.rand(FRAMES, 72, 128, 3)
+    mask = torch.zeros(FRAMES, 72, 128)
+    mask[:, 20:44, 40:72] = 1.0
+    keep = torch.zeros(FRAMES, 72, 128)
+    keep[:, 30:34, 50:54] = 1.0                       # a small thing inside the subject, on every frame
+    base = {"frames": frames, "mask": mask, "grow_pixels": 8, "feather_pixels": 0}
+    plain = vm.window(base, 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    none = vm.window(dict(base, keep=None), 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    if not torch.equal(plain, none):
+        problems.append("keep: an unwired keep changed the token mask")
+    held = vm.token_mask(vm.fit_mask(keep, W, H), LATENT_T, LAT_H, LAT_W)
+    got = vm.window(dict(base, keep=keep), 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    if float(held.sum()) == 0.0 or float((plain * held).sum()) == 0.0:
+        problems.append("keep: the case does not put the kept thing inside the region; it tests nothing")
+    if float((got * held).max()) != 0.0:
+        problems.append("keep: a token the keep mask touches still regenerates")
+    if not torch.equal(got, plain * (1.0 - held)):
+        problems.append("keep: tokens the keep mask does not touch changed")
+    if float(got.sum()) == 0.0:
+        problems.append("keep: nothing regenerates with a small keep inside a large region")
+    # the control: subtracted before the grow, the 8 px margin covers a 4 px hole again and nothing is kept
+    before = vm.token_mask(vm.grow(vm.fit_mask(mask * (1.0 - keep), W, H), 8), LATENT_T, LAT_H, LAT_W)
+    if float((before * held).max()) == 0.0:
+        problems.append("keep: the control (keep taken out before the grow) also kept the tokens; the case "
+                        "cannot tell after from before")
+    # in time: kept on some frames only, a token is kept for the whole latent step that holds a kept frame
+    runs = vm.run_lengths(LATENT_T)
+    some = torch.zeros_like(keep)
+    some[sum(runs[:2]):sum(runs[:2]) + 1] = keep[0]   # one frame, the first of the third latent step
+    t = vm.window(dict(base, keep=some), 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    kept_steps = [k for k in range(LATENT_T) if float((plain[k] - t[k]).abs().sum()) > 0.0]
+    if kept_steps != [2]:
+        problems.append(f"keep on one frame of latent step 2 changed steps {kept_steps}")
+    # the node: shape and the two settings that change the pixels under the subject are refused
+    for label, kw, bad in (("another size", {}, torch.zeros(FRAMES, 36, 64)),
+                           ("paint_out", {"paint_out": True}, keep),
+                           ("a softened start", {"start_from": vm.START_TOP}, keep)):
+        try:
+            vm.MiniMaxH3MaskedSource.execute(frames, mask, reuse_mask=False, keep=bad, **kw)
+            problems.append(f"keep: {label} was accepted")
+        except ValueError:
+            pass
+    out = vm.MiniMaxH3MaskedSource.execute(frames, mask, reuse_mask=False, keep=keep.unsqueeze(-1))
+    src = out.args[0] if hasattr(out, "args") else out[0]
+    if src.get("keep") is None or tuple(src["keep"].shape) != tuple(keep.shape):
+        problems.append("keep: the node did not carry a [N, H, W, 1] keep mask onto the source as [N, H, W]")
+    if "keep" not in vm.MASK_KEY_SKIP:
+        problems.append("keep: it is applied after the subject's mask is final and must not be in the kept mask's key")
+
+
 def _fail(problems, text: str) -> None:
     """Record a failed case. `check_motion_reference` called this from 0.190.7 on with nothing
     defining it here, so a failing case there was a NameError that ended the run before the checks
@@ -999,12 +1052,13 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
     if not problems:
-        print("ok    the masked source keeps every subject frame, sits on core's token grid, feathers off the "
+        print("ok    the masked source keeps every subject frame, sits on core's token grid, takes a keep mask out "
+              "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
               "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, and the mask review shows what regenerates")

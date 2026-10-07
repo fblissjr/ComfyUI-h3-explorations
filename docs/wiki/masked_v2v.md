@@ -166,6 +166,18 @@ where in core.
   mask (`grow`, `token_mask`). A token is regenerated or kept whole, in
   space and in time: the video VAE packs frames in runs (`run_lengths`), so
   a token covers several frames.
+- **`keep`** (optional, 2026-10-07). A second mask, from any node, of what
+  must stay the original even inside the region: something the subject
+  holds, a person standing close, anything passing in front. It is taken out
+  of the token mask after the grow (`window`), so the margin cannot run back
+  over it, and in whole tokens: a token that holds any kept pixel on any of
+  its frames is kept, so a little of what surrounds a small object stays
+  too. The model is given those tokens clean, as it is the rest of the
+  plate, and draws around them; the composite shows the source there.
+  Refused together with `paint_out` or a softened start, which change the
+  pixels under the subject. Unwired, nothing changes. The owner's first use:
+  a prop the original holds is otherwise under the noise and comes back as
+  whatever the model guesses. Not yet rendered.
 - **`replace`.** `whole subject`, or `head and hair`, which keeps the body's
   pixels and finds the part with SAM 3 from `part_phrases`.
 - **What is encoded.** The source frames themselves; with `paint_out`, a copy

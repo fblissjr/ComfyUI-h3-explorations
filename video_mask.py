@@ -161,6 +161,16 @@ max per run; it protects where this regenerates) and
 `coderef/ComfyUI-H3-Motion-Context-MultiRef/h3_v2v_fractional.py::_mask_to_video_latent`
 (the per-run reduction). Neither feathers a composite.
 
+**What stays the original inside the region** (`keep`, 2026-10-07). The
+region is everything the mask and its margin cover, and a mask of one person
+covers what that person holds. Under the noise a prop is gone: the model sees
+it only in the motion reference, small and at two frames a second, and draws
+what the prompt makes likely. An optional second mask names what to keep. It
+is taken out of the token mask after the grow, in whole tokens (`window`),
+so those tokens reach the model clean like the rest of the plate, and the
+composite, which reads the same tokens, shows the source there. Reasoned,
+not yet rendered.
+
 Nothing here patches core.
 """
 
@@ -232,7 +242,7 @@ PART_THRESHOLD = 0.5
 #: holds both directions.
 MASK_KEY_SKIP = ("grow_pixels", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
-                 "start_from", "start_top", "start_blur", "start_knots", "shot_table")
+                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep")
 #: `start_from` choices: what the regenerated tokens start from.
 #:
 #: `noise` is the shipped render: the schedule runs from its first knot and
@@ -1040,6 +1050,10 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
            latent_t: int, lat_h: int, lat_w: int):
     """One window of a source: its fitted frames, the frames to encode, its token mask, its fitted mask, frames held.
 
+    With a `keep` mask on the source the token mask is the grown region less
+    every token the keep mask touches: the model is given those tokens clean,
+    as it is the rest of the plate, and regenerates around them.
+
     The frames to encode are the fitted frames themselves, or with `paint_out`
     a copy with the subject filled in: the mask widened by half of
     `grow_pixels`, which takes the soft edge SAM leaves on a fast limb and
@@ -1056,6 +1070,15 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     """
     pixels, mask, short = window_frames(source, first_frame, frames, width, height)
     tokens = token_mask(grow(mask, source["grow_pixels"]), latent_t, lat_h, lat_w)
+    if source.get("keep") is not None:
+        # After the grow, so the margin cannot run back over what is kept, and in whole tokens: a token
+        # that holds any kept pixel on any of its frames is kept. The composite and the review read
+        # `tokens`, so the source's own pixels are what is shown there.
+        held = fit_mask(source["keep"][int(first_frame):int(first_frame) + int(frames)], width, height)
+        if short > 0:
+            held = torch.cat([held, torch.zeros((short,) + tuple(held.shape[1:]), dtype=held.dtype,
+                                                device=held.device)], dim=0)
+        tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w))
     encode = pixels
     if source.get("paint_out"):
         encode = fill_subject(pixels, grow(mask, int(source["grow_pixels"]) // 2))
@@ -1231,6 +1254,19 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                 tooltip=("The Subject Track's `shot_table` output. It is kept with the mask, "
                                          "so a render that reuses a kept mask still has it, and the song node "
                                          "writes it next to the video.")),
+                # appended 2026-10-07 (the owner: "keep the prop rather than describe it"). A plain mask
+                # from any node; unwired, nothing changes.
+                io.Mask.Input("keep", optional=True,
+                              tooltip=("Optional. One mask per source frame of what must stay the original even "
+                                       "inside the region: something the subject holds, a person standing close, "
+                                       "anything passing in front. It wins over the region after grow_pixels, so "
+                                       "the margin cannot grow back over it, and the source's own pixels are "
+                                       "shown there. The model sees what is kept and draws around it.\n\n"
+                                       "Kept in whole tokens: a block of the picture that holds any kept pixel "
+                                       "is kept, for the few frames that block spans, so a little of what "
+                                       "surrounds a small object stays too.\n\n"
+                                       "Example: a second Subject Track with the phrase `cigarette`, its mask "
+                                       "wired here.")),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
@@ -1278,7 +1314,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 change_threshold=CHANGE_THRESHOLD, reuse_mask=True, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
-                shot_table=None, parts=None) -> io.NodeOutput:
+                shot_table=None, parts=None, keep=None) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if int(feather_pixels) > int(grow_pixels):
@@ -1297,6 +1333,19 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown composite {composite!r}; one of {[COMPOSITE_REGION, COMPOSITE_CHANGED]}")
         if motion_reference not in MOTIONS:
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
+        if keep is not None:
+            if keep.ndim == 4 and int(keep.shape[-1]) == 1:
+                keep = keep[..., 0]
+            if tuple(keep.shape) != tuple(frames.shape[:3]):
+                raise ValueError(
+                    f"`keep` is {tuple(keep.shape)} and the frames {tuple(frames.shape[:3])}: it needs one mask "
+                    "per source frame at the frames' own size, from a node that ran on the same `frames`")
+            if paint_out or start_from != START_NOISE:
+                # both show a changed copy of the source under the subject, which a kept token would put on screen
+                raise ValueError(
+                    "`keep` shows the source's own pixels inside the region, and paint_out and a softened start "
+                    "both change those pixels before the encode: turn them off, or unwire `keep`")
+            keep = (keep > 0.5).to(torch.float32)
         key = cls._mask_key(frames, reuse_mask)
         kept = None
         if key is not None:
@@ -1339,6 +1388,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                     "frame over the clip, grow %d px, feather %d px%s, composite keeps the %s", int(frames.shape[0]),
                     replace, note, 100.0 * covered, int(grow_pixels), int(feather_pixels),
                     ", subject painted out before the encode" if paint_out else "", composite)
+        if keep is not None:
+            both = (grow(mask.to(torch.float32), int(grow_pixels)) > 0.5) & (keep > 0.5)
+            logger.info("[h3] MiniMaxH3MaskedSource: keep is wired: it lies inside the grown region on %d of %d "
+                        "frames, and those tokens stay the source's", int(both.flatten(1).any(dim=1).sum()),
+                        int(frames.shape[0]))
         if motion_reference != MOTION_NONE:
             logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s", motion_reference,
                         int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only")
@@ -1356,6 +1410,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "composite": composite, "change_threshold": float(change_threshold),
                               "motion_reference": motion_reference, "motion_short_edge": int(motion_short_edge),
                               "motion_vae": bool(motion_vae),
+                              # [N, H, W] of 0 or 1, or None: what stays the source's inside the region (`window`)
+                              "keep": keep,
                               # the part mask's coverage of the tracked subject, when it is in doubt
                               # (`part_coverage.py`); shown by the song node and the prompt node
                               PART_WARNING: part_warning,
