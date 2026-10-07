@@ -89,18 +89,25 @@ Each matters more the longer or rarer the phrase.
   3.1's tracker (`RELEASE_SAM3p1.md`, Object Multiplex).
 - Benchmark clips are short. A phrase held over minutes, across cuts, is
   this pack's own machinery and not something the model was tested on.
+- A small object in the video benchmark leaves and returns often, and is
+  usually gone only briefly in third-person footage and for much longer in
+  egocentric footage. A regain should expect short dropouts as normal:
+  [`2026-10-07_sam3_benchmark_targets.md`](../../bench/results/2026-10-07_sam3_benchmark_targets.md),
+  which also has how many instances a pair holds for the words this lane
+  asks (`person`, `head`, `hand`, `hair`).
 
 ## What is not known
 
 - Whether a box or a click through ComfyUI's detect node selects one person
   reliably here. Read in the code, not run.
-- Whether detections for descriptive phrases depend on the device or the
-  precision. One session saw the same unmodified ComfyUI score some
-  descriptive-phrase boxes very differently on the CPU and on the card
-  (2026-10-07, four public images, not in a tracked record, cause not yet
-  separated). The precision record's verdict was measured with `person`
-  and should not be stretched to descriptions.
-- How long a small object is typically out of view in the video benchmark.
+- Why ComfyUI's detector scores some descriptive-phrase boxes very
+  differently on the CPU and on the card, and which side is right. Seen on
+  2026-10-07 on the same unmodified ComfyUI at the same float32, on four
+  public images; it is not precision (float32, float16 and bf16 on the card
+  agree with each other, and float16 repeats exactly), and the text features
+  match on both devices. Not yet in a tracked record and not yet localised.
+  Until it is, **a detection score measured in a CPU process is evidence
+  about the CPU path only**: renders here run on the card.
 
 ## Where the evidence is
 

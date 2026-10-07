@@ -148,6 +148,7 @@ def _features(phrase, lex):
         form = "other three or more"
     f["form"] = form
     f["exact_person"] = c in (["person"], ["people"])
+    f["content_tokens"] = c
     return f
 
 
@@ -808,6 +809,198 @@ def render_video(name, S):
         print(f"- {k}: pairs whose num_masklets equals the annotation rows {sh(c['pairs_whose_num_masklets_equals_annotation_rows'])}; annotation phrase equals its category name {sh(c['annotation_phrase_equals_its_category_name'])}; annotation fields {c['annotation_fields']}")
 
 
+
+# ---- the lane's own targets: how many instances per pair, and how long an object is gone ------------------------------------------
+# Added at the lead's request (2026-10-07) for this pack's masked lane. Command `targets`; its own small json.
+
+#: the bare words the lane asks SAM for, matched on the content words (a leading article is ignored). Provenance: the lead's list (person, head, a hand, hair)
+TARGETS = {"person": [["person"], ["people"]], "head": [["head"], ["heads"]], "hand": [["hand"], ["hands"]], "hair": [["hair"]]}
+#: a "small thing" is a pair whose annotations sit under this share of the image (images) or a masklet whose median frame box does (video).
+#: Provenance: the lead's "under a thousandth of the image"; it is SIZE_THRESHOLDS[1]
+SMALL = SIZE_THRESHOLDS[1]
+#: gap lengths a regain test might care about, in seconds. Provenance: reasoned (a quarter second to five seconds)
+GAP_SECONDS = (0.25, 0.5, 1.0, 2.0, 5.0)
+
+
+def target_of(phrase, lex):
+    c = features(phrase, lex)["content_tokens"]
+    for name, forms in TARGETS.items():
+        if c in forms:
+            return name
+    return None
+
+
+def image_targets(d, lex):
+    img = {i["id"]: i["text_input"] for i in d["images"]}
+    shares = defaultdict(list)
+    for a in d["annotations"]:
+        shares[a["image_id"]].append(a["bbox"][2] * a["bbox"][3])
+    classes = defaultdict(lambda: {"asked": 0, "negative": 0, "counts": []})
+    for i, ph in img.items():
+        names = [t for t in (target_of(ph, lex),) if t]
+        pos = i in shares
+        if pos and float(np.median(shares[i])) <= SMALL:
+            names.append("small thing")
+        if not names:
+            continue
+        for n in names:
+            c = classes[n]
+            if n != "small thing":
+                c["asked"] += 1
+                c["negative"] += 0 if pos else 1
+            if pos:
+                c["counts"].append(len(shares[i]))
+    out = {}
+    for n, c in classes.items():
+        out[n] = {"pairs": c["asked"] or None, "negative": share(c["negative"], c["asked"]) if c["asked"] else None, "instances_per_positive_pair": instance_stats(c["counts"])}
+    return out
+
+
+def absence_record(bboxes):
+    """Frames present, frames before the first and after the last appearance, and the gap lengths between appearances."""
+    idx = [i for i, b in enumerate(bboxes) if b is not None]
+    if not idx:
+        return None
+    gaps = [j - i - 1 for i, j in zip(idx, idx[1:]) if j - i > 1]
+    rec = {"n": len(bboxes), "present": len(idx), "lead": idx[0], "trail": len(bboxes) - 1 - idx[-1], "gaps": gaps}
+    assert rec["present"] + rec["lead"] + rec["trail"] + sum(gaps) == rec["n"]          # control: every frame is counted once
+    return rec
+
+
+def absence_stats(recs, fps):
+    out = {"masklets": len(recs)}
+    qs = (0.05, 0.25, 0.5, 0.75, 0.95)
+    out["fraction_of_video_present"] = quantiles([r["present"] / r["n"] for r in recs], qs)
+    out["absent_share_of_own_span"] = quantiles([1 - r["present"] / (r["n"] - r["lead"] - r["trail"]) for r in recs], qs)
+    leaves = [r for r in recs if r["gaps"]]
+    out["leaves_and_returns"] = share(len(leaves), len(recs))
+    out["returns_per_masklet_that_returns"] = quantiles([len(r["gaps"]) for r in leaves], (0.25, 0.5, 0.75, 0.95)) if leaves else None
+    gaps = [g for r in recs for g in r["gaps"]]
+    out["gaps"] = len(gaps)
+    out["gap_frames"] = quantiles(gaps, qs) if gaps else None
+    out["gap_seconds"] = quantiles([g / fps for g in gaps], qs) if gaps else None
+    for sec in GAP_SECONDS:
+        out[f"gap <= {sec:g} s"] = share(sum(1 for g in gaps if g / fps <= sec), len(gaps))
+    out["enters_after_the_first_frame"] = share(sum(1 for r in recs if r["lead"] > 0), len(recs))
+    out["gone_at_the_last_frame"] = share(sum(1 for r in recs if r["trail"] > 0), len(recs))
+    return out
+
+
+def video_targets(d, lex, fps):
+    cat = {c["id"]: c["name"] for c in d["categories"]}
+    pairs = d["video_np_pairs"]
+    out = {"pairs": {}, "masklets": {}}
+    per_class_pairs = defaultdict(lambda: {"asked": 0, "negative": 0, "counts": []})
+    for p in pairs:
+        t = target_of(p["noun_phrase"], lex)
+        if t:
+            c = per_class_pairs[t]
+            c["asked"] += 1
+            c["negative"] += 0 if p["num_masklets"] else 1
+            if p["num_masklets"]:
+                c["counts"].append(p["num_masklets"])
+    recs, ctrl_runs = defaultdict(list), 0
+    small_per_pair = Counter()
+    for a in d["annotations"]:
+        r = absence_record(a["bboxes"])
+        if r is None:
+            continue
+        ctrl_runs += 1 if runs_of([b is not None for b in a["bboxes"]]) > 1 else 0
+        area_px = float(a["width"]) * float(a["height"])
+        med = float(np.median([(b[2] * b[3]) / area_px for b in a["bboxes"] if b is not None]))
+        names = ["all masklets"]
+        t = target_of(cat[a["category_id"]], lex)
+        if t:
+            names.append(t)
+        if med <= SMALL:
+            names.append("small thing")
+            small_per_pair[(a["video_id"], a["category_id"])] += 1
+        for n in names:
+            recs[n].append(r)
+    for n, rs in recs.items():
+        out["masklets"][n] = absence_stats(rs, fps)
+    # control: the masklets that leave and return, counted here, equal the count the committed record carries from runs_of
+    out["control_leaves_and_returns_equals_runs_of"] = {"here": out["masklets"]["all masklets"]["leaves_and_returns"]["k"], "runs_of": ctrl_runs,
+                                                         "equal": out["masklets"]["all masklets"]["leaves_and_returns"]["k"] == ctrl_runs}
+    for n, c in per_class_pairs.items():
+        out["pairs"][n] = {"pairs": c["asked"], "negative": share(c["negative"], c["asked"]), "instances_per_positive_pair": instance_stats(c["counts"])}
+    if small_per_pair:
+        out["pairs"]["small thing"] = {"pairs": len(small_per_pair), "instances_per_positive_pair": instance_stats(list(small_per_pair.values()))}
+    out["fps_of_frames"] = fps
+    return out
+
+
+def cmd_targets(a):
+    out = {"tool": "bench/sam3_dataset_phrases.py targets", "note": "aggregates only; the datasets are gated and are not in the repository",
+           "small_thing_means": f"pair or masklet whose annotated box share is at most {SMALL:g} (median over its annotations or its frames)"}
+    holder = {}
+    if a.gold:
+        first = load_json(os.path.join(a.gold, "gold_attributes_merged_a_release_test.json"))
+        holder["lex"] = Lexicon.learn([i["text_input"] for i in first["images"]])
+    lex = holder.get("lex") or Lexicon()
+    if a.gold:
+        out["gold"] = {}
+        for sub in GOLD_SUBSETS:
+            print("gold", sub, file=sys.stderr, flush=True)
+            d = first if sub == "attributes" else load_json(os.path.join(a.gold, f"gold_{sub}_merged_a_release_test.json"))
+            out["gold"][sub] = image_targets(d, lex)
+    if a.silver:
+        out["silver"] = {}
+        for f in sorted(glob.glob(os.path.join(a.silver, "silver_*.json"))):
+            key = re.sub(r"^silver_|(_merged)?_test\.json$", "", os.path.basename(f))
+            if key in ("fathomnet", "inaturalist") and not a.with_species:
+                continue                                  # scientific names: none of the lane's targets, and the two largest files
+            print("silver", key, file=sys.stderr, flush=True)
+            out["silver"][key] = image_targets(load_json(f), lex)
+    if a.veval:
+        out["veval"] = {}
+        for name, path in veval_files(a.veval):
+            print("veval", name, file=sys.stderr, flush=True)
+            out["veval"][name] = video_targets(load_json(path), lex, VEVAL_FPS[name.split("_")[0]])
+    json.dump(out, open(a.out, "w"), separators=(",", ":"), default=lambda x: x.item() if hasattr(x, "item") else str(x))
+    print(f"wrote {a.out} ({os.path.getsize(a.out)} bytes)", file=sys.stderr)
+    render_targets(out)
+
+
+def render_targets(D):
+    names = ["person", "head", "hand", "hair", "small thing"]
+    for key, title in (("gold", "Gold"), ("silver", "Silver")):
+        if key not in D:
+            continue
+        print(f"\n#### {title}: instances per positive pair for the lane's targets (annotator a)\n")
+        print("| set | target | pairs asked | negative | positive pairs | instances median | p90 | max | >= 2 | >= 5 | >= 16 |\n|---|---|---|---|---|---|---|---|---|---|---|")
+        for k, S in D[key].items():
+            for n in names:
+                v = S.get(n)
+                if not v or not v["instances_per_positive_pair"]:
+                    continue
+                i = v["instances_per_positive_pair"]
+                print(f"| {k} | {n} | {v['pairs'] if v['pairs'] else ''} | {sh(v['negative'])} | {i['positive_pairs']} | {i['median']} | {i['p90']} | {i['max']} | "
+                      f"{sh(i['>= 2'])} | {sh(i['>= 5'])} | {sh(i['>= 16'])} |")
+    if "veval" in D:
+        print("\n#### VEval: instances per positive pair for the lane's targets\n")
+        print("| split | target | pairs asked | negative | positive pairs | instances median | p90 | max | >= 2 | >= 5 |\n|---|---|---|---|---|---|---|---|---|---|")
+        for k, S in D["veval"].items():
+            for n in names:
+                v = S["pairs"].get(n)
+                if not v or not v["instances_per_positive_pair"]:
+                    continue
+                i = v["instances_per_positive_pair"]
+                print(f"| {k} | {n} | {v['pairs']} | {sh(v.get('negative'))} | {i['positive_pairs']} | {i['median']} | {i['p90']} | {i['max']} | {sh(i['>= 2'])} | {sh(i['>= 5'])} |")
+        print("\n#### VEval: how long a masklet is gone (frames are 24 a second in SA-V, 6 in the others)\n")
+        print("| split | class | masklets | present, median fraction of the video | absent, median share of its own span | leaves and returns | gaps | gap seconds: median / p95 / max | gaps <= 0.5 s | <= 1 s | <= 2 s | <= 5 s | gone at the last frame |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        for k, S in D["veval"].items():
+            for n in ["all masklets"] + names:
+                v = S["masklets"].get(n)
+                if not v:
+                    continue
+                g = v["gap_seconds"] or {}
+                print(f"| {k} | {n} | {v['masklets']} | {v['fraction_of_video_present']['p50']:.2f} | {v['absent_share_of_own_span']['p50']:.2f} | {sh(v['leaves_and_returns'])} | {v['gaps']} | "
+                      f"{g.get('p50', float('nan')):.2f} / {g.get('p95', float('nan')):.2f} / {g.get('max', float('nan')):.2f} | {sh(v['gap <= 0.5 s'])} | {sh(v['gap <= 1 s'])} | {sh(v['gap <= 2 s'])} | {sh(v['gap <= 5 s'])} | {sh(v['gone_at_the_last_frame'])} |")
+        print("\nControls: every masklet's present, leading, trailing and gap frames add up to its video length (asserted); the masklets that leave and return, counted here, equal the committed count: " +
+              ", ".join(f"{k} {c['control_leaves_and_returns_equals_runs_of']['equal']}" for k, c in D["veval"].items()))
+
+
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -823,6 +1016,16 @@ def main():
     p = sub.add_parser("render")
     p.add_argument("--json", required=True)
     p.set_defaults(fn=cmd_render)
+    t = sub.add_parser("targets", help="instances per pair and how long an object is gone, for the lane's own targets (person, head, hand, hair, small things)")
+    t.add_argument("--gold")
+    t.add_argument("--silver")
+    t.add_argument("--veval")
+    t.add_argument("--with-species", action="store_true", help="Silver: also read the two species-name sources (large, no target in them)")
+    t.add_argument("--out", required=True, help="the targets json to write")
+    t.set_defaults(fn=cmd_targets)
+    rt = sub.add_parser("render-targets", help="print the tables of a targets json")
+    rt.add_argument("--json", required=True)
+    rt.set_defaults(fn=lambda a: render_targets(json.load(open(a.json))))
     a = ap.parse_args()
     a.fn(a)
 
