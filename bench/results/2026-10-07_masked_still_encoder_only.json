@@ -1,0 +1,477 @@
+{
+ "what": "the reference still given to the text encoder alone (MiniMaxH3AppendRefImage.use_vae off) in the masked lane, two windows, with the owner's verdicts",
+ "date": "2026-10-07",
+ "server": "port 8188, the process started 12:40:40 on cccdcb22 (every arm and both controls ran in it)",
+ "clip": "thrill_2160.mkv from 67.0 s on the 1024x768 canvas",
+ "windows": {
+  "body141": "141 frames, the whole subject (the 2026-10-06 arm choose_body_base's patches)",
+  "upper": "345 frames, the upper-body recipe (the 2026-10-06 arm body_345_p7 on the prompt node's text)"
+ },
+ "arms": [
+  {
+   "label": "body141",
+   "graph": "workflows/h3_video_to_video_masked_song_ref2va_motion_api.json",
+   "still": "both models, encoder view separate at 512",
+   "whole_prompt_s": 173.8,
+   "stage_seconds": {
+    "sampling": 99.7,
+    "all": 139
+   },
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/encoder_only/body141"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 160
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.window_frames",
+     "value": 141
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 5.875
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "man"
+    }
+   ]
+  },
+  {
+   "label": "body141_enc512",
+   "graph": "body_still_encoder_only_512.json",
+   "still": "encoder alone, view separate at 512",
+   "whole_prompt_s": 103.5,
+   "stage_seconds": {
+    "sampling": 79.5,
+    "all": 103
+   },
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/encoder_only/body141_enc512"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 160
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.window_frames",
+     "value": 141
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 5.875
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "man"
+    }
+   ]
+  },
+  {
+   "label": "body141_enc2048",
+   "graph": "body_still_encoder_only_shared.json",
+   "still": "encoder alone, shared view (2048 short edge)",
+   "whole_prompt_s": 130.9,
+   "stage_seconds": {
+    "sampling": 97.5,
+    "all": 130
+   },
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/encoder_only/body141_enc2048"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 160
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.window_frames",
+     "value": 141
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 5.875
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "man"
+    }
+   ]
+  },
+  {
+   "label": "upper_enc512",
+   "graph": "upper_still_encoder_only_512.json",
+   "still": "encoder alone, view separate at 512",
+   "whole_prompt_s": 371.7,
+   "stage_seconds": {
+    "sampling": null,
+    "sampler_bar": "4:35",
+    "all": null,
+    "note": "the server was restarted before this arm's stage seconds were read from its history; the sampler's bar is from the server log"
+   },
+   "patches": [
+    {
+     "nodes": [
+      "15"
+     ],
+     "field": "LoadImage.image",
+     "value": "f_img_outside_nomark.png"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.video",
+     "value": "thrill_2160.mkv"
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.start_time",
+     "value": 67.0
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.custom_width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.width",
+     "value": 1024
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.height",
+     "value": 768
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.filename_prefix",
+     "value": "Video/mrdragon/encoder_only/upper_enc512"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on",
+     "value": "a frame I name"
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.pick_on.pick_frame",
+     "value": 12
+    },
+    {
+     "nodes": [
+      "104"
+     ],
+     "field": "MiniMaxH3MaskedSource.grow_pixels",
+     "value": 64
+    },
+    {
+     "nodes": [
+      "28"
+     ],
+     "field": "VHS_LoadVideoFFmpeg.frame_load_cap",
+     "value": 360
+    },
+    {
+     "nodes": [
+      "74"
+     ],
+     "field": "MiniMaxH3AudioFreezeSong.extent.seconds",
+     "value": 14.375
+    },
+    {
+     "nodes": [
+      "105"
+     ],
+     "field": "MiniMaxH3SubjectTrack.corrections",
+     "value": "shot 2: person 3\nshot 3: person 6"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.picture_gives",
+     "value": "the head and upper body"
+    },
+    {
+     "nodes": [
+      "106"
+     ],
+     "field": "MiniMaxH3MaskedPrompt.subject",
+     "value": "a typed description of the subject (not recorded in the tree)"
+    }
+   ]
+  }
+ ],
+ "control_for_upper": {
+  "record": "bench/results/2026-10-07_frozen_cache_masked_upper_window.md",
+  "arm": "baseline_again",
+  "sampling": 313.4,
+  "sampler_bar": "5:12"
+ },
+ "owner_verdicts": [
+  {
+   "video": "Video/compare_stacked/upper_still_both_vs_encoder_only_512.mp4",
+   "words": "looks like encoder only is worse - it seems brighter and lighting isnt correct with the scene. looks more superimposed"
+  },
+  {
+   "video": "Video/compare_stacked/body141_still_both_vs_encoder_only_512_vs_large.mp4",
+   "words": "has the head superimposed in the middle on all 3 clips, just fyi. but only the stock one actually LOOKS like and carries the identity of the original ref image. the middle one and one on the right (encoder only and encoder large view) both botch the facial identity"
+  }
+ ]
+}

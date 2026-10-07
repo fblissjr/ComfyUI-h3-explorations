@@ -144,7 +144,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1275 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1277 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 170 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |

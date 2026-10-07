@@ -182,7 +182,7 @@ ALONE_MARGIN = 8
 #: calls background is something attached to them that is not them. It is
 #: taken only near the lips or a hand (`HELD_ANCHORS`), where a thing is held.
 #: The owner's idea and Gemini's hand-anchor sketch, 2026-10-07; the mouth is
-#: here because the owner's first example starts with a cigarette in it.
+#: here because the owner's first example starts there.
 HELD_ANCHORS = _MOUTH + ("Left_Hand", "Right_Hand")
 #: The default of `held_near`, in pixels of the source frame: how far from the
 #: lips or a hand a held thing may reach. Reasoned, not measured: about a

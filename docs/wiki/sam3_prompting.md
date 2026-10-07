@@ -117,6 +117,7 @@ Each matters more the longer or rarer the phrase.
 
 - Whether a box or a click through ComfyUI's detect node selects one person
   reliably here. Read in the code, not run.
+
 ## Where the evidence is
 
 | record or note | what it holds |
