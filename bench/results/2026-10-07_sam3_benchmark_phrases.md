@@ -225,7 +225,7 @@ Silver: the owner's props (annotations whose phrase has the words; box share med
 | yt1b_test | 387 | 2330 | 16 / 30 / 39 | 0.67 | 5.0 | 33.8% (788/2330) | 0.014 | 9.8% (6984/71347) | 7.0 / 15.0 / 33 |
 | yt1b_val | 345 | 2162 | 17 / 31 / 41 | 0.72 | 5.2 | 36.5% (789/2162) | 0.0091 | 14.6% (10088/69042) | 7.0 / 14.6 / 30 |
 
-VEval: clip lengths
+VEval: clip lengths. **Corrected 2026-10-07, later the same day: SA-V is annotated at six frames a second, not twenty-four, so the two `sav` rows' seconds are a quarter of what they are (a median clip is about eighteen seconds, not four and a half). Frames stand. Any other SA-V duration in this record is low by the same factor.**
 - sav_test: frames p05 57 / median 110 / p95 148; seconds p05 2.4 / median 4.6 / p95 6.2 / max 9.0; frames are 24 a second
 - sav_val: frames p05 43 / median 100 / p95 166; seconds p05 1.8 / median 4.1 / p95 6.9 / max 8.0; frames are 24 a second
 - smartglasses_test: frames p05 120 / median 120 / p95 120; seconds p05 20.0 / median 20.0 / p95 20.0 / max 29.7; frames are 6 a second

@@ -74,7 +74,10 @@ README_GOLD_STATS = {"metaclip": (33393, 20144), "sa1b": (13258, 30306), "attrib
                      "wiki_common": (65502, 6448), "fg_food": (13951, 9825), "fg_sports_equipment": (12166, 5075)}
 #: VEval's global phrase map size as counted by mryolk (docs/research/masking/2026-10-07_mryolk_phrases.md) and the shares it recorded
 MRYOLK_MAP = {"phrases": 51248, "1": 0.04, "2": 0.23, "3": 0.39, "4": 0.20, "7+": 0.015}
-VEVAL_FPS = {"sav": 24, "smartglasses": 6, "yt1b": 6, "sa_fari": 6}       # README: JPEGImages_24fps / _6fps
+# Annotated frames a second. Measured for SA-V (2026-10-07): its frames live in a `JPEGImages_24fps` folder, but the
+# annotation's `file_names` step by four (00000, 00004, ...), so one annotated frame is a sixth of a second like the
+# others. It was 24 here until then, which made every SA-V figure in seconds a quarter of what it is.
+VEVAL_FPS = {"sav": 6, "smartglasses": 6, "yt1b": 6, "sa_fari": 6}
 FORMS = ("plain noun", "other two words", "modifier + noun", "two modifiers + noun", "of-phrase", "relational", "positional", "other three or more")
 DESCRIPTIVE = {"modifier + noun", "two modifiers + noun", "of-phrase", "relational", "positional", "other three or more"}
 

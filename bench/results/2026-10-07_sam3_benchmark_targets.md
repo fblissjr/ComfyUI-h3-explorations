@@ -1,7 +1,18 @@
 # Instances per pair and how long an object is gone, for the lane's own targets, from Meta's benchmark annotations (2026-10-07)
 
 lane: masked
-verdict: in the video benchmark a small object (annotated box under a thousandth of the frame) is typically gone only briefly when it is gone: the median gap is 0.12 to 0.17 s in SA-V (24 frames a second), 0.5 s in YT-1B and about 1 to 1.2 s in the egocentric SmartGlasses, and 91% to 93% of SA-V's gaps, 75% to 79% of YT-1B's and about half of SmartGlasses' last one second or less (98%, 87% to 88% and 66% to 72% last two seconds or less); but half or more of the small masklets leave and return at least once (50% to 71%), so a regain has to expect it, and the egocentric footage has gaps of ten seconds and more; the bare words the lane asks for are asked with a median of one to a few instances per pair, more in crowded scenes and for `person` in YT-1B video
+verdict: in the video benchmark a small object (annotated box under a thousandth of the frame) is typically gone only briefly when it is gone: the median gap is 0.12 to 0.17 s in SA-V as first printed (CORRECTED below: SA-V's seconds are four times these, so about 0.5 to 0.7 s), 0.5 s in YT-1B and about 1 to 1.2 s in the egocentric SmartGlasses, and 91% to 93% of SA-V's gaps, 75% to 79% of YT-1B's and about half of SmartGlasses' last one second or less (98%, 87% to 88% and 66% to 72% last two seconds or less); but half or more of the small masklets leave and return at least once (50% to 71%), so a regain has to expect it, and the egocentric footage has gaps of ten seconds and more; the bare words the lane asks for are asked with a median of one to a few instances per pair, more in crowded scenes and for `person` in YT-1B video
+
+**Corrected 2026-10-07, later the same day: every SA-V figure in SECONDS in
+this record is a quarter of what it is.** SA-V is annotated at six frames a
+second, not twenty-four (its annotation's file names step by four inside a
+24-frames-a-second folder; found by a recount of the same files, and the
+tool's constant is corrected). Counts in frames, shares of masklets and every
+YT-1B and SmartGlasses figure stand. For SA-V read each printed duration
+times four, and each "gaps <= N s" column as "<= 4N s": the verdict's "0.12
+to 0.17 s" median gap is about half to two thirds of a second, and its share
+within one second is the share within four. The tables below are as first
+printed and have not been regenerated.
 
 An addendum to [`2026-10-07_sam3_benchmark_phrases.md`](2026-10-07_sam3_benchmark_phrases.md): same tool (`bench/sam3_dataset_phrases.py`, command `targets`), same datasets, same licence handling (aggregates only, no phrase listed; the datasets are gated and not in the repository; SAM License, with CC-BY-NC 4.0 for SA-V and YT-Temporal-1B in VEval).
 

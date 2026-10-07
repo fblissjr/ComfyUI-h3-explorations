@@ -124,6 +124,18 @@ Each matters more the longer or rarer the phrase.
   3.1's tracker (`RELEASE_SAM3p1.md`, Object Multiplex).
 - Benchmark clips are short. A phrase held over minutes, across cuts, is
   this pack's own machinery and not something the model was tested on.
+- **A subject who shrinks a great deal through one long shot is outside what
+  the video benchmark covers.** A wide spread between a track's largest and
+  smallest annotated frame is common there, but most of it is an object
+  entering, leaving or being cut by the frame's edge; a sustained shrink of
+  that order with no gap, over a long track, is all but absent for people
+  and for vehicles, and growing is commoner than shrinking (counted from
+  the annotation files by a helper of the lead session, 2026-10-07; the
+  script and its aggregates are not yet tracked). Untested is not failing:
+  on the one such window measured here the shipped track held as one mask
+  ([`2026-10-07_subject_track_calls_on_masks.md`](../../bench/results/2026-10-07_subject_track_calls_on_masks.md)).
+  The annotation files keep slivers of a few pixels and do not say why a
+  frame is unannotated.
 - A small object in the video benchmark leaves and returns often, and is
   usually gone only briefly in third-person footage and for much longer in
   egocentric footage. A regain should expect short dropouts as normal:
