@@ -648,141 +648,6 @@
    "meta_has_bias": false
   }
  },
- "detector": {
-  "environment": {
-   "torch": "2.14.1+cu132",
-   "core_commit": "b00c6e952",
-   "tf32": {
-    "matmul": false,
-    "cudnn": false
-   }
-  },
-  "frame": {
-   "clip": "thrill_2160.mkv",
-   "second": 56.5,
-   "decoded_at": 56.5,
-   "size": [
-    1024,
-    768
-   ]
-  },
-  "phrase": "person",
-  "core_dtype": "torch.float32",
-  "meta_trunk_input_range": [
-   -1.0,
-   1.0
-  ],
-  "exact GELU": {
-   "presence_logit": {
-    "core": 3.4538,
-    "meta": 3.4375
-   },
-   "joint_score_logits_all_queries": {
-    "relative_l2": 0.09377,
-    "cosine": 0.99562,
-    "max_abs_diff": 1.6267
-   },
-   "queries": 200,
-   "kept_over_half": {
-    "core": 2,
-    "meta": 2
-   },
-   "top10_by_meta": {
-    "meta": [
-     0.957,
-     0.554,
-     0.492,
-     0.094,
-     0.067,
-     0.056,
-     0.055,
-     0.055,
-     0.054,
-     0.051
-    ],
-    "core": [
-     0.959,
-     0.561,
-     0.456,
-     0.092,
-     0.07,
-     0.059,
-     0.053,
-     0.079,
-     0.038,
-     0.046
-    ],
-    "mask_iou": [
-     0.999,
-     1.0,
-     0.997,
-     0.833,
-     0.992,
-     0.995,
-     0.972,
-     0.686,
-     0.365,
-     0.998
-    ]
-   },
-   "boxes_top10_max_abs_diff": 0.73595
-  },
-  "as shipped": {
-   "presence_logit": {
-    "core": 3.5553,
-    "meta": 3.4375
-   },
-   "joint_score_logits_all_queries": {
-    "relative_l2": 0.09509,
-    "cosine": 0.9955,
-    "max_abs_diff": 1.6222
-   },
-   "queries": 200,
-   "kept_over_half": {
-    "core": 2,
-    "meta": 2
-   },
-   "top10_by_meta": {
-    "meta": [
-     0.957,
-     0.554,
-     0.492,
-     0.094,
-     0.067,
-     0.056,
-     0.055,
-     0.055,
-     0.054,
-     0.051
-    ],
-    "core": [
-     0.962,
-     0.565,
-     0.459,
-     0.093,
-     0.069,
-     0.059,
-     0.055,
-     0.08,
-     0.039,
-     0.046
-    ],
-    "mask_iou": [
-     0.999,
-     1.0,
-     0.997,
-     0.84,
-     0.994,
-     0.995,
-     0.972,
-     0.697,
-     0.396,
-     1.0
-    ]
-   },
-   "boxes_top10_max_abs_diff": 0.73845
-  }
- },
  "tracker, seeds node": {
   "environment": {
    "torch": "2.14.1+cu132",
@@ -2792,5 +2657,247 @@
   },
   "caution": "with several subjects Meta's tracker-only path applies neither of its two between-subject rules; core applies both",
   "detections_on_the_seed_frame": 64
+ },
+ "detector, thrill_2160.mkv": {
+  "environment": {
+   "torch": "2.14.1+cu132",
+   "core_commit": "b00c6e952",
+   "tf32": {
+    "matmul": false,
+    "cudnn": false
+   },
+   "tf32_selftest": {
+    "conv_relative_error": 7.283508511330061e-07,
+    "matmul_relative_error": 4.226398171043584e-07
+   }
+  },
+  "phrase": "person",
+  "core_dtype": "torch.float32",
+  "rules": {
+   "node": "class score over 0.5",
+   "meta": "class times presence over 0.4, then overlap removal at 0.1 on the smaller mask"
+  },
+  "frame": {
+   "clip": "thrill_2160.mkv",
+   "second": 56.5,
+   "decoded_at": 56.5,
+   "size": [
+    1024,
+    768
+   ]
+  },
+  "meta_trunk_input_range": [
+   -1.0,
+   1.0
+  ],
+  "exact GELU": {
+   "presence_logit": {
+    "core": 3.4538,
+    "meta": 3.4375
+   },
+   "core_outputs": {
+    "node_rule": 2,
+    "metas_rule": 3
+   },
+   "meta_outputs": {
+    "metas_rule": 3
+   },
+   "queries_over_half_joint": {
+    "core": 2,
+    "meta": 2
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.09377,
+    "cosine": 0.99562,
+    "max_abs_diff": 1.6267
+   },
+   "queries": 200,
+   "top10_by_meta": {
+    "meta": [
+     0.957,
+     0.554,
+     0.492,
+     0.094,
+     0.067,
+     0.056,
+     0.055,
+     0.055,
+     0.054,
+     0.051
+    ],
+    "core": [
+     0.959,
+     0.561,
+     0.456,
+     0.092,
+     0.07,
+     0.059,
+     0.053,
+     0.079,
+     0.038,
+     0.046
+    ],
+    "mask_iou": [
+     0.999,
+     1.0,
+     0.997,
+     0.833,
+     0.992,
+     0.995,
+     0.972,
+     0.686,
+     0.365,
+     0.998
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.73595
+  },
+  "as shipped": {
+   "presence_logit": {
+    "core": 3.5553,
+    "meta": 3.4375
+   },
+   "core_outputs": {
+    "node_rule": 2,
+    "metas_rule": 3
+   },
+   "meta_outputs": {
+    "metas_rule": 3
+   },
+   "queries_over_half_joint": {
+    "core": 2,
+    "meta": 2
+   },
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.09509,
+    "cosine": 0.9955,
+    "max_abs_diff": 1.6222
+   },
+   "queries": 200,
+   "top10_by_meta": {
+    "meta": [
+     0.957,
+     0.554,
+     0.492,
+     0.094,
+     0.067,
+     0.056,
+     0.055,
+     0.055,
+     0.054,
+     0.051
+    ],
+    "core": [
+     0.962,
+     0.565,
+     0.459,
+     0.093,
+     0.069,
+     0.059,
+     0.055,
+     0.08,
+     0.039,
+     0.046
+    ],
+    "mask_iou": [
+     0.999,
+     1.0,
+     0.997,
+     0.84,
+     0.994,
+     0.995,
+     0.972,
+     0.697,
+     0.396,
+     1.0
+    ]
+   },
+   "boxes_top10_max_abs_diff": 0.73845
+  },
+  "FLOOR_core_same_frame_moved_one_level": {
+   "presence_logit": [
+    3.4538,
+    3.3304
+   ],
+   "joint_score_logits_all_queries": {
+    "relative_l2": 0.05904,
+    "cosine": 0.99833,
+    "max_abs_diff": 1.2036
+   }
+  },
+  "more_frames": {
+   "60.0": {
+    "decoded_at": 60.0,
+    "presence_logit": {
+     "core": 3.0591,
+     "meta": 3.0625
+    },
+    "core_outputs": {
+     "node_rule": 2,
+     "metas_rule": 2
+    },
+    "meta_outputs": {
+     "metas_rule": 3
+    },
+    "queries_over_half_joint": {
+     "core": 2,
+     "meta": 3
+    }
+   },
+   "66.0": {
+    "decoded_at": 66.0,
+    "presence_logit": {
+     "core": 1.7997,
+     "meta": 1.7891
+    },
+    "core_outputs": {
+     "node_rule": 11,
+     "metas_rule": 10
+    },
+    "meta_outputs": {
+     "metas_rule": 11
+    },
+    "queries_over_half_joint": {
+     "core": 11,
+     "meta": 10
+    }
+   },
+   "72.0": {
+    "decoded_at": 72.0,
+    "presence_logit": {
+     "core": 1.0601,
+     "meta": 0.9883
+    },
+    "core_outputs": {
+     "node_rule": 23,
+     "metas_rule": 17
+    },
+    "meta_outputs": {
+     "metas_rule": 20
+    },
+    "queries_over_half_joint": {
+     "core": 13,
+     "meta": 13
+    }
+   },
+   "80.0": {
+    "decoded_at": 80.0,
+    "presence_logit": {
+     "core": 1.5804,
+     "meta": 1.5234
+    },
+    "core_outputs": {
+     "node_rule": 11,
+     "metas_rule": 11
+    },
+    "meta_outputs": {
+     "metas_rule": 11
+    },
+    "queries_over_half_joint": {
+     "core": 11,
+     "meta": 11
+    }
+   }
+  }
  }
 }

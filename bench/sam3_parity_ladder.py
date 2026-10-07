@@ -640,6 +640,9 @@ BOX_FILL_LEAST = 0.1
 #: inherited: `bench/sam3_precision_arms.py::NUDGE_SEED`, so the nudge is the independent session's, frame for frame.
 NUDGE_SEED = 1234
 THERE_AND_BACK_SEEDS = (("alone", 1), ("with one neighbour", 2), ("16", 16), ("32", 32))
+#: inherited: core's own line for "the same object" between detections (`comfy/ldm/sam3/tracker.py`, its mask overlap removal),
+#: on the larger of intersection over union and intersection over the smaller mask.
+SAME_SUBJECT = 0.5
 
 
 def nudged(u8, levels: int):
@@ -735,7 +738,26 @@ def cmd_there_and_back(a):
     subject = int(area.argmax())
     near = ((cx - cx[subject]) ** 2 + (cy - cy[subject]) ** 2).argsort().tolist()       # the largest subject first, then by distance from it
     R["detections_on_the_seed_frame"] = int(masks.shape[0])
-    seed_sets = {name: (masks[near[:k]] if k <= 2 else masks[:k]) for name, k in THERE_AND_BACK_SEEDS if masks.shape[0] >= k}
+    # Core's detect node removes no overlapping detections, so two of its masks can be one subject. Seeded both, core's
+    # rules between objects would suppress one by design while Meta's tracker-only path keeps both, which would read as
+    # "core keeps fewer". So the seeds are counted for such pairs, and `--distinct-seeds` leaves the second of each out.
+    flat = (masks > 0.5).flatten(1).float()
+    inter = flat @ flat.T
+    sizes = flat.sum(1)
+    same = torch.maximum(inter / (sizes[:, None] + sizes[None] - inter).clamp(min=1), inter / torch.minimum(sizes[:, None], sizes[None]).clamp(min=1))
+    same.fill_diagonal_(0)
+    R["seeds_that_are_a_second_mask_of_an_earlier_one"] = {str(k): int((same[:k, :k].triu(1) >= SAME_SUBJECT).any(0).sum())
+                                                            for _, k in THERE_AND_BACK_SEEDS if k > 2 and masks.shape[0] >= k}
+    order = list(range(int(masks.shape[0])))
+    if a.distinct_seeds:
+        order = []
+        for i in [subject] + [i for i in range(int(masks.shape[0])) if i != subject]:     # the subject is never the one left out
+            if not any(float(same[i, j]) >= SAME_SUBJECT for j in order):
+                order.append(i)
+        order = sorted(order)
+        near = [i for i in near if i in order]
+    R["distinct_seeds"] = bool(a.distinct_seeds)
+    seed_sets = {name: (masks[near[:k]] if k <= 2 else masks[order[:k]]) for name, k in THERE_AND_BACK_SEEDS if len(order) >= k}
 
     def small(x):
         """[N, h, w] bool or float masks to [N, SMALL, SMALL] bool: a cell is on if any pixel under it is."""
@@ -823,6 +845,8 @@ def cmd_there_and_back(a):
     ARMS = (("core, as its node gets the frames", "core", as_it_is, False), ("core, mapped before the node", "core", as_it_is, True),
             ("core, corrected at the first layer", "core", corrected, False), ("Meta's tracker", "meta", None, False))
     for name, seed in seed_sets.items():
+        if a.only and name != a.only:
+            continue
         seed_small = small(seed)
         kept, rows = {}, {}
         for arm, which, how, mapped in ARMS:
@@ -849,7 +873,7 @@ def cmd_there_and_back(a):
         R["sets"][name] = rows
         for key, row in rows.items():
             print(f"{name} | {key}", json.dumps(row), flush=True)
-    put(a.json, "there and back, seeds " + a.seeds_from, R)
+    put(a.json, "there and back, seeds " + a.seeds_from + (", distinct" if a.distinct_seeds else ""), R)
 
 
 # ---- render
@@ -947,7 +971,9 @@ def cmd_render(a):
         f = t["frames"]
         print(f"### There and back: seeds from {t['seeds_from']}\n\n`{f['clip']}` from {f['second']} s, {f['count']} frames at {f['rate']} a second played forward and then in reverse "
               f"({f['played']} frames, the last being the first), {f['size'][0]}x{f['size'][1]}; {t['detections_on_the_seed_frame']} detections on the seed frame. One run per arm. "
-              f"A subject is PLAUSIBLE when its mask passes the shape test ({t['shape_test']}); shape, not identity. {t['caution'].capitalize()}.\n")
+              f"A subject is PLAUSIBLE when its mask passes the shape test ({t['shape_test']}); shape, not identity. {t['caution'].capitalize()}. "
+              f"Seeds that are a second mask of an earlier seed, among the first 16 and 32: {t.get('seeds_that_are_a_second_mask_of_an_earlier_one', 'not counted in this run')}"
+              f"{'; such seeds were left out' if t.get('distinct_seeds') else ''}.\n")
         for name, rows in t["sets"].items():
             print(f"Seeded: {name}.\n")
             print("| arm | with a mask, end of forward | plausible, end of forward | plausible, back at the start | back on its own seed | on another's seed | plausible subject-frames | against itself nudged: at a half or more, median | against Meta's tracker: at a half or more, median |\n|---|---|---|---|---|---|---|---|---|")
@@ -1007,6 +1033,8 @@ def main():
     s.add_argument("--rate", type=float, required=True, help="the loader's force_rate")
     s.add_argument("--seeds-from", choices=("node", "corrected"), required=True,
                    help="the seed masks come from one detect on the first frame as core's node gets it, or with the range corrected at the first layer")
+    s.add_argument("--distinct-seeds", action="store_true", help="leave out a seed that is a second mask of an earlier one (overlap of a half or more)")
+    s.add_argument("--only", default="", help="run only this seed set, by its name (alone, with one neighbour, 16, 32)")
     cmd("render", cmd_render)
     a = ap.parse_args()
     a.fn(a)

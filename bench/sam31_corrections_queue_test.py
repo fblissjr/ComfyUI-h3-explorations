@@ -13,7 +13,10 @@ tool runs that, without putting an unaccepted node on the main server:
             the main server's own launch script and `--port P --base-directory BASE`.
     run     against that server: (1) one graph in which ComfyUI's stock checkpoint loader feeds a chain of probes in
             the order stock, corrected, stock, corrected twice over, corrected, stock; (2) an H3 text-to-video prompt
-            that really samples, so the video model takes the card; (3) the chain again. Each probe reports, from
+            that really samples, so the video model takes the card; (3) the chain again; (4) after freeing all models
+            the chain a third time; (5) the node run AGAIN, as a second node on the same stock loader output, while
+            its first corrected output is still loaded (added 2026-10-07 after a fault on exactly that path was found
+            by review: the first acceptance never ran the node while a corrected clip was loaded). Each probe reports, from
             inside the server, the range that reached SAM's first layer, the activation the text encoder ran, the
             patcher class and whether SAM was on the card before its call. Results come back through `/history`.
     render  print the record's table from the json `run` wrote.
@@ -130,6 +133,27 @@ def probe_graph(nonce: int) -> dict:
     return g
 
 
+def rerun_graphs(nonce: int) -> tuple[dict, dict]:
+    """Two prompts for the node run AGAIN while its first corrected output is still loaded.
+
+    The text encoder is one module shared by every clone, and while a corrected clip is loaded its patch is what the
+    module shows. The first prompt ends on a probe of the corrected pair, so that is what is loaded. The second adds a
+    second Corrections node on the same stock loader output (a new node, so the executor runs it) and probes ITS
+    output. A node that decided what to patch from the live module would attach nothing there.
+    """
+    from h3_config import SEGMENTER
+    base = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": SEGMENTER}},
+            "2": {"class_type": "MiniMaxH3SAM31Corrections", "inputs": {"segmenter": ["1", 0], "segmenter_clip": ["1", 1],
+                                                                          "correct_image_range": True, "correct_text_activation": True}}}
+    first = dict(base, **{"30": {"class_type": "H3TestSAM31FirstLayer", "inputs": {"segmenter": ["2", 0], "segmenter_clip": ["2", 1],
+                                                                                   "label": "corrected, left loaded", "nonce": nonce}}})
+    second = dict(base, **{"20": {"class_type": "MiniMaxH3SAM31Corrections", "inputs": {"segmenter": ["1", 0], "segmenter_clip": ["1", 1],
+                                                                                        "correct_image_range": True, "correct_text_activation": True}},
+                           "31": {"class_type": "H3TestSAM31FirstLayer", "inputs": {"segmenter": ["20", 0], "segmenter_clip": ["20", 1],
+                                                                                    "label": "the node run again, while its first output is loaded", "nonce": nonce}}})
+    return first, second
+
+
 def h3_graph(seed: int) -> dict:
     g = json.loads((REPO / "workflows" / H3_GRAPH).read_text())
     for node in g.values():
@@ -195,6 +219,18 @@ def cmd_run(a):
     chain("after the H3 prompt", 2)
     _post(server, "/free", {"unload_models": True, "free_memory": True})
     chain("after /free", 3)
+    # the node run again while its first corrected output is still loaded
+    first, second = rerun_graphs(4)
+    probes = []
+    for graph, node in ((first, "30"), (second, "31")):
+        entry = _wait(server, _post(server, "/prompt", {"prompt": graph})["prompt_id"], 600)
+        got = entry.get("outputs", {}).get(node, {})
+        text = next((v[0] if isinstance(v, list) and v else v for k, v in got.items() if k in ("text", "string", "result")), None)
+        p = json.loads(text) if isinstance(text, str) else {"label": node, "missing": True, "raw": got}
+        p["verdict"] = verdict(p, "corrected")
+        probes.append(p)
+        print("the node run again", json.dumps(p), flush=True)
+    R["rounds"].append({"round": "the node run again while its first output is loaded", "status": entry.get("status", {}).get("status_str"), "probes": probes})
     R["passed"] = (R["h3_prompt"]["status"] == "success"
                    and all(p.get("verdict") == "ok" for r in R["rounds"] for p in r["probes"]))
     Path(a.json).write_text(json.dumps(R, indent=1))

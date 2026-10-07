@@ -30,6 +30,10 @@ range nobody meant:
                                   wired twice in a row it corrects once; and the stock patcher and the corrected clone,
                                   which share one model, each give the layer their own range when applied in turn, in
                                   both orders. (On the plain patcher, applied by hand: not ComfyUI's loading decision.)
+  a_loaded_sibling_changes_nothing  the node run again on the stock pair WHILE its first corrected pair is loaded still
+                                  attaches the activation patch (the modules then show the loaded clone's patch, not what
+                                  they were built with: found by review on 2026-10-07, after the node was served), the
+                                  stock pair still reads stock, and a clone of a patch that has seen mapped frames knows it.
   switches_and_report             each correction alone, neither, and both: `corrections` reads exactly what was
                                   attached, and the report says so in words, naming what is never corrected.
 
@@ -320,10 +324,37 @@ def the_input_pair_stays_stock():
     return "the pair handed in reads stock; twice in a row is one correction; stock and corrected in turn each see their own range"
 
 
+def a_loaded_sibling_changes_nothing():
+    """The encoder and the model are shared by every clone, and a loaded clone's patches are what the modules show."""
+    clip = _clip()
+    model = _model()
+    p = _patcher(model)
+    stand_in = types.SimpleNamespace(patcher=clip.patcher, cond_stage_model=clip.cond_stage_model,
+                                     clone=lambda: types.SimpleNamespace(patcher=clip.patcher.clone(), cond_stage_model=clip.cond_stage_model))
+    m1, c1 = L.corrected(p, stand_in)
+    c1.patcher.patch_model(load_weights=False)             # the first corrected pair is LOADED when the node runs again
+    m1.patch_model(load_weights=False)
+    try:
+        assert all(layer.mlp.activation is F.gelu for layer in clip.cond_stage_model.layers), "the stand-in's patch is not applied"
+        m2, c2 = L.corrected(p, stand_in)                  # ... on the stock pair, as a re-run of the node would
+        got = L.corrections(m2, c2)
+        assert got["text_activation_layers"] == 2 and got["text_activation_already_exact"] == 0, \
+            f"with a corrected sibling loaded, a new corrected pair reads as {got}: the live activation was mistaken for the build's"
+        assert got["image_range"], got
+        assert not any(L.corrections(p, stand_in).values()), "the stock pair reads as corrected while a sibling is loaded"
+        _embed(model)(_frame() * 2 - 1)                    # the loaded clone sees a frame that is already mapped ...
+        assert L.corrections(m1, c1)["frames_arrive_mapped"]
+        assert L.corrections(m1.clone(), c1)["frames_arrive_mapped"], "a clone forgot that frames arrive mapped"
+    finally:
+        m1.unpatch_model(unpatch_weights=False)
+        c1.patcher.unpatch_model(unpatch_weights=False)
+    return "a second run of the node while the first pair is loaded still corrects; what the patch has seen is shared by its clones"
+
+
 def main() -> int:
     for fn in (the_path_is_cores, a_frame_arrives_in_range, applied_and_undone_by_comfyui, never_twice,
                a_clone_gets_its_own_layer, never_corrects_what_is_right, the_activation_is_swapped, switches_and_report,
-               the_input_pair_stays_stock):
+               the_input_pair_stays_stock, a_loaded_sibling_changes_nothing):
         case(fn.__name__, fn)
     return finish()
 

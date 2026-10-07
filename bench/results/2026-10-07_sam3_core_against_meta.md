@@ -47,8 +47,10 @@ floors are measured now and the resize sits UNDER the one-level floor. It
 said no difference between the trackers beyond sixteen was established,
 because single runs moved by a dozen people with a two-level change of
 input; the there-and-back rung has a nudged twin of every arm, and the
-difference is read against it. The first run's tables are kept below as
-they were.
+difference is read against it. The first run's two tracker tables are kept
+below as they were; its detector table was run again on the same frame in
+the tool's present form and gave the same numbers, now with a floor and
+both detection rules beside them.
 
 ## The rungs
 
@@ -114,15 +116,6 @@ TF32 flags {'matmul': False, 'cudnn': False}; self-test relative error against f
 
 TF32 flags {'matmul': False, 'cudnn': False}; self-test relative error against float64: convolution 7.3e-07, matmul 4.2e-07.
 
-### Detector, on Meta's image tensor: the first run
-
-`thrill_2160.mkv` at 56.5 s, phrase `person`, 200 queries. "Over 0.5" counts queries over 0.5 on the joint score, before any overlap removal: it is not what either side returns.
-
-| core's text | presence logit core / Meta | joint score logits: relative L2, cosine | queries over 0.5 core / Meta | top ten by Meta: Meta | the same queries: core | their mask IoU |
-|---|---|---|---|---|---|---|
-| exact GELU | 3.4538 / 3.4375 | 0.09377, 0.99562 | 2 / 2 | [0.957, 0.554, 0.492, 0.094, 0.067, 0.056, 0.055, 0.055, 0.054, 0.051] | [0.959, 0.561, 0.456, 0.092, 0.07, 0.059, 0.053, 0.079, 0.038, 0.046] | [0.999, 1.0, 0.997, 0.833, 0.992, 0.995, 0.972, 0.686, 0.365, 0.998] |
-| as shipped | 3.5553 / 3.4375 | 0.09509, 0.9955 | 2 / 2 | [0.957, 0.554, 0.492, 0.094, 0.067, 0.056, 0.055, 0.055, 0.054, 0.051] | [0.962, 0.565, 0.459, 0.093, 0.069, 0.059, 0.055, 0.08, 0.039, 0.046] | [0.999, 1.0, 0.997, 0.84, 0.994, 0.995, 0.972, 0.697, 0.396, 1.0] |
-
 ### Detector, on Meta's image tensor
 
 `lotsofpeopledance_0414_0720.mkv` at 16.0 s, phrase `person`, 200 queries. Rules: the node's is class score over 0.5; Meta's is class times presence over 0.4, then overlap removal at 0.1 on the smaller mask.
@@ -145,6 +138,29 @@ What each rule keeps of the same queries (core's text with exact GELU):
 | 142.0 | 0.188 / 0.1221 | 30 | 1 | 0 |
 | 147.13 | 1.139 / 1.1328 | 41 | 34 | 40 |
 | 150.0 | 1.1084 / 1.2188 | 52 | 44 | 49 |
+
+TF32 flags {'matmul': False, 'cudnn': False}; self-test relative error against float64: convolution 7.3e-07, matmul 4.2e-07.
+
+### Detector, on Meta's image tensor
+
+`thrill_2160.mkv` at 56.5 s, phrase `person`, 200 queries. Rules: the node's is class score over 0.5; Meta's is class times presence over 0.4, then overlap removal at 0.1 on the smaller mask.
+
+| core's text | presence logit core / Meta | joint score logits: relative L2, cosine | queries over 0.5 on the joint score, core / Meta | top ten by Meta: Meta | the same queries: core | their mask IoU |
+|---|---|---|---|---|---|---|
+| exact GELU | 3.4538 / 3.4375 | 0.09377, 0.99562 | 2 / 2 | [0.957, 0.554, 0.492, 0.094, 0.067, 0.056, 0.055, 0.055, 0.054, 0.051] | [0.959, 0.561, 0.456, 0.092, 0.07, 0.059, 0.053, 0.079, 0.038, 0.046] | [0.999, 1.0, 0.997, 0.833, 0.992, 0.995, 0.972, 0.686, 0.365, 0.998] |
+| as shipped | 3.5553 / 3.4375 | 0.09509, 0.9955 | 2 / 2 | [0.957, 0.554, 0.492, 0.094, 0.067, 0.056, 0.055, 0.055, 0.054, 0.051] | [0.962, 0.565, 0.459, 0.093, 0.069, 0.059, 0.055, 0.08, 0.039, 0.046] | [0.999, 1.0, 0.997, 0.84, 0.994, 0.995, 0.972, 0.697, 0.396, 1.0] |
+
+The floor for that row: core against itself with the frame moved one level of 255: presence logit 3.4538 and 3.3304; joint score logits relative L2 0.05904, cosine 0.99833.
+
+What each rule keeps of the same queries (core's text with exact GELU):
+
+| frame, s | presence logit core / Meta | core's outputs, the node's rule | core's outputs, Meta's rule | Meta's outputs, Meta's rule |
+|---|---|---|---|---|
+| 56.5 | 3.4538 / 3.4375 | 2 | 3 | 3 |
+| 60.0 | 3.0591 / 3.0625 | 2 | 2 | 3 |
+| 66.0 | 1.7997 / 1.7891 | 11 | 10 | 11 |
+| 72.0 | 1.0601 / 0.9883 | 23 | 17 | 20 |
+| 80.0 | 1.5804 / 1.5234 | 11 | 11 | 11 |
 
 TF32 flags {'matmul': False, 'cudnn': False}; self-test relative error against float64: convolution 7.3e-07, matmul 4.2e-07.
 
@@ -355,6 +371,7 @@ From ComfyUI's environment, outside the server, the card free, with `T` for
 <python> T text --clip thrill_2160.mkv --second 56.5 --width 1024 --json J --describing "<a phrase>"
 <python> T trunk --clip thrill_2160.mkv --second 56.5 --width 1024 --json J
 <python> T trunk --clip lotsofpeopledance_0414_0720.mkv --second 16 --width 0 --json J
+<python> T detector --clip thrill_2160.mkv --second 56.5 --width 1024 --more-seconds 60 66 72 80 --json J
 <python> T detector --clip lotsofpeopledance_0414_0720.mkv --second 16 --width 0 --more-seconds 18 138 140 142 147.13 150 --json J
 <python> T there-and-back --clip vma.mp4 --second 121.93 --seconds 3 --width 1344 --rate 24 --seeds-from corrected --json J
 <python> T tracker --clip vma.mp4 --second 121.93 --seconds 3 --width 1344 --rate 24 --seeds-from node --json J
@@ -364,7 +381,7 @@ From ComfyUI's environment, outside the server, the card free, with `T` for
 ## Files
 
 - `2026-10-07_sam3_core_against_meta.json`: one key per rung as the tool
-  wrote it, each with its environment. `detector` (no clip in its key) and
-  the two `tracker, seeds ...` keys are the first run's, kept in the shape
-  they were recorded in; `earlier_run_other_decode` holds the few counts of
-  a scratch run the last table names.
+  wrote it, each with its environment. The two `tracker, seeds ...` keys
+  are the first run's, kept in the shape they were recorded in;
+  `earlier_run_other_decode` holds the few counts of a scratch run the last
+  table names.

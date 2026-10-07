@@ -11,10 +11,19 @@ hundred pixels. A count of non-empty masks scores those as subjects held. A mask
 fragment, not mostly inside a band along the frame's border, and not a sparse scatter inside its own box. It is a test of
 shape, not of identity: a mask on the wrong person passes.
 
-**The watch** (`doubted`). The tracker never checks a track against anything; a track that slides onto a neighbour, or
-onto nothing, stays non-empty. The detector's answer on a frame is an independent look. A track is doubted on a looked-at
-frame when it has a mask there and no detection overlaps it, and a doubt lasts until a later look agrees again.
+**The watch** (`doubted`). The tracker never checks a track against anything; a track that slides onto nothing (a wall,
+the frame's edge, a blur) stays non-empty. The detector's answer on a frame is an independent look. A track is doubted
+when a look finds no detection overlapping its mask, and the doubt reaches back to the look before, since nobody knows
+where between the two it went wrong. WHAT IT CANNOT SEE: a track that slid onto a NEIGHBOUR. The neighbour is detected,
+so the detector agrees with the mask. Catching that takes a likeness test against the subject, which is the tracker
+node's to make, not this function's.
 `trusted` is the two together, per frame: what the report shows, and the only frames a motion reference may be built from.
+
+**Taking a subject back after a loss** (`take_back`). On hard crowd footage a change of the input too small to see
+moved a regain's lead over the next person by about the lead the Subject Track requires
+(`bench/results/2026-10-07_subject_track_under_nudge.md`), so likeness alone cannot settle the closest cases. Where the
+subject was when last trusted can: among candidates too close to call, the one nearest that place, of a like size and
+clearly nearer than the others, is taken; otherwise nobody is. Every number it used goes back for the report.
 
 **Places in the clip** (`parse_notes`, `place_text`). A correction or a per-shot line names a place in the CLIP, as a
 time or a frame, not a shot number inside one load of frames, so one text serves every load of a long clip. Nobody
@@ -76,9 +85,10 @@ def doubted(track: torch.Tensor, looks: dict[int, torch.Tensor], agree_at: float
     """[F, H, W] track and {frame: [N, H, W] detections on it} to [F] bool: the frames the detector does not vouch for.
 
     On a looked-at frame the track is doubted when it has a mask and no detection overlaps it by `agree_at`. The doubt
-    covers every frame from that look up to the next look, or up to the first frame the track is empty, whichever comes
-    first: an empty track claims nothing, and a track seeded again after a loss starts with no doubt against it. Frames
-    before the first look are not doubted.
+    covers every frame after the look before (the last time the detector was asked, whatever it said) up to the next
+    look, or up to the first frame the track is empty, whichever comes first: an empty track claims nothing, and a
+    track seeded again after a loss starts with no doubt against it. With no look before, the doubt starts at the
+    disagreeing look itself. A detection of somebody else under the mask counts as agreement: see the module's note.
     """
     t = track if track.dtype == torch.bool else track > 0.5
     out = torch.zeros(t.shape[0], dtype=torch.bool)
@@ -87,11 +97,15 @@ def doubted(track: torch.Tensor, looks: dict[int, torch.Tensor], agree_at: float
     for i, f in enumerate(frames):
         if not bool(on[f]) or best_overlap(t[f], looks[f]) >= agree_at:
             continue
+        start = frames[i - 1] + 1 if i else f
+        gone = (~on[start:f]).nonzero()
+        if gone.numel():                       # the track was empty between the two looks: the doubt starts after that
+            start = start + int(gone[-1]) + 1
         until = frames[i + 1] if i + 1 < len(frames) else int(t.shape[0])
         empty = (~on[f:until]).nonzero()
         if empty.numel():
             until = f + int(empty[0])
-        out[f:until] = True
+        out[start:until] = True
     return out
 
 
@@ -99,6 +113,77 @@ def trusted(track: torch.Tensor, looks: dict[int, torch.Tensor], agree_at: float
     """[F] bool: the frames where the track has a mask that passes the shape test and the detector does not contradict."""
     t = track if track.dtype == torch.bool else track > 0.5
     return plausible(t).cpu() & ~doubted(t, looks, agree_at)
+
+
+# ---- taking a subject back after a loss
+
+#: reasoned, not measured: a candidate is "where the subject was" when its box centre is within this many diagonals of
+#: the subject's last trusted box. One diagonal is a person moving about their own size.
+NEAR_DIAGONALS = 1.0
+#: reasoned, not measured: and when its box area is within this factor of the subject's last trusted box.
+SIZE_FACTOR = 2.0
+#: reasoned, not measured: and when no other close candidate is nearer than this many times its distance.
+CLEARLY_NEARER = 1.5
+#: reasoned, not measured: two candidates both within this many diagonals of the place stand in the same place, and
+#: place cannot tell them apart whatever the ratio of two small distances says. About half a person's width.
+SAME_PLACE = 0.15
+
+TOOK_LEADER, TOOK_BEST, TOOK_NEAREST, NOBODY_OVER, TOO_CLOSE = "a clear leader", "the best, whatever its lead", "the nearest of those too close to call", "nobody over the line", "too close to call"
+
+
+def box_of(mask: torch.Tensor) -> tuple[float, float, float, float] | None:
+    """(x0, y0, x1, y1) of an [H, W] mask in shares of the frame, or None when it is empty."""
+    m = mask if mask.dtype == torch.bool else mask > 0.5
+    if not bool(m.any()):
+        return None
+    rows, cols = m.any(1).nonzero(), m.any(0).nonzero()
+    h, w = float(m.shape[0]), float(m.shape[1])
+    return float(cols[0]) / w, float(rows[0]) / h, (float(cols[-1]) + 1) / w, (float(rows[-1]) + 1) / h
+
+
+def _away(box, last) -> tuple[float, float]:
+    """How far `box` is from `last` in diagonals of `last`, and the ratio of their areas (never under 1)."""
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    lx, ly = (last[0] + last[2]) / 2, (last[1] + last[3]) / 2
+    diagonal = max(((last[2] - last[0]) ** 2 + (last[3] - last[1]) ** 2) ** 0.5, 1e-6)
+    area, was = max((box[2] - box[0]) * (box[3] - box[1]), 1e-9), max((last[2] - last[0]) * (last[3] - last[1]), 1e-9)
+    return (((cx - lx) ** 2 + (cy - ly) ** 2) ** 0.5) / diagonal, max(area / was, was / area)
+
+
+def take_back(scores: list[float], boxes: list, last_box, line: float, lead: float,
+              take_best: bool = False, by_position: bool = True) -> tuple[int | None, str, dict]:
+    """Which candidate on a looked-at frame is the subject, after a loss inside a shot.
+
+    `scores` are the candidates' likenesses to the subject, `boxes` their boxes (`box_of`), `last_box` the subject's
+    box on the last frame its track was trusted (None when there is none, as across a cut). A candidate must reach
+    `line`. The best is taken when it leads the next by `lead`, or whatever its lead with `take_best`. Otherwise the
+    candidates within `lead` of the best are too close to call by likeness, and with `by_position` the one nearest
+    `last_box` is taken if it is near, of a like size, and clearly nearer than the others; else nobody is.
+
+    Returns (the index or None, one of the reasons above, the numbers behind it for the report).
+    """
+    order = sorted(range(len(scores)), key=lambda i: -scores[i])
+    best = scores[order[0]] if order else -1.0
+    nxt = scores[order[1]] if len(order) > 1 else -1.0
+    detail = {"best": round(float(best), 4), "next": round(float(nxt), 4), "lead": round(float(best - nxt), 4), "line": line, "lead_required": lead}
+    if not order or best < line:
+        return None, NOBODY_OVER, detail
+    if best - nxt >= lead:
+        return order[0], TOOK_LEADER, detail
+    if take_best:
+        return order[0], TOOK_BEST, detail
+    if not by_position or last_box is None:
+        return None, TOO_CLOSE, detail
+    close = [i for i in order if scores[i] >= line and best - scores[i] < lead and boxes[i] is not None]
+    away = sorted((_away(boxes[i], last_box) + (i,) for i in close), key=lambda t: t[0])
+    detail["distances_in_diagonals"] = [round(d, 3) for d, _, _ in away]
+    detail["size_ratios"] = [round(r, 3) for _, r, _ in away]
+    if not away:
+        return None, TOO_CLOSE, detail
+    d, ratio, i = away[0]
+    if d <= NEAR_DIAGONALS and ratio <= SIZE_FACTOR and (len(away) == 1 or away[1][0] >= max(d * CLEARLY_NEARER, SAME_PLACE)):
+        return i, TOOK_NEAREST, detail
+    return None, TOO_CLOSE, detail
 
 
 # ---- places in the clip

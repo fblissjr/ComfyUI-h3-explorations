@@ -137,7 +137,10 @@ def cmd_run(a):
                           "runner_up_note": "" if agrees or s.picked or s.index is None else "the recomputed best does not equal the node's",
                           "regained": [{"empty_from": x[0], "seeded_on": x[1], "detections": x[2], "best": round(x[3], 4), "next": round(x[4], 4)} for x in s.regained],
                           "searched_and_found_nobody": [list(x) for x in s.searched],
-                          "probes_after_a_loss": len(s.probes), "frames_with_a_mask": int(mask[s.start:s.end].flatten(1).any(1).sum())})
+                          "probes_after_a_loss": len(s.probes),
+                          # every frame looked at after a loss, taken or not: (frame, detections, best, the next person's)
+                          "probes": [[int(x[0]), int(x[1]), round(float(x[2]), 4), round(float(x[3]), 4)] for x in s.probes],
+                          "frames_with_a_mask": int(mask[s.start:s.end].flatten(1).any(1).sum())})
         return {"cut_line": round(float(cut_at), 4), "cuts": [int(c) for c in cuts], "pick_frame": found.pick_frame, "others_on_the_pick_frame": found.others,
                 "match_line": round(float(found.match), 4), "shots": shots}, np.packbits(mask.numpy(), axis=-1)
 
@@ -221,6 +224,14 @@ def cmd_render(a):
         for s in row["shots"]:
             print(f"| {s['shot']} | {s['decision'][0]} / {s['decision'][1]} | {s['same_decision']} | {s['best'][0]} / {s['best'][1]} | {s['best_moved']} | "
                   f"{s['distance_to_the_match_line']} | {s['runner_up'][0]} / {s['runner_up'][1]} | {s['regained'][0]} / {s['regained'][1]} | {s['mask_overlap']} | {s['frames_either_has_a_mask']} |")
+        for arm in (x_name for x_name in pair.split(" | ")):
+            looked = [(sh["shot"], p) for sh in D["arms"][arm]["shots"] for p in sh.get("probes", [])]
+            if looked:
+                print(f"\nEvery frame the `{arm}` arm looked at after a loss (the line is {D['lines']['REGAIN_SAME']}, the lead required {D['lines']['REGAIN_MARGIN']}):\n")
+                print("| shot | frame | detections | best | next person | lead | taken |\n|---|---|---|---|---|---|---|")
+                for shot, (frame, found, best, nxt) in looked:
+                    took = best >= D["lines"]["REGAIN_SAME"] and best - nxt >= D["lines"]["REGAIN_MARGIN"]
+                    print(f"| {shot} | {frame} | {found} | {best} | {nxt} | {round(best - nxt, 4)} | {'yes' if took else 'no'} |")
         if row.get("regains"):
             print(f"\nEach time an arm seeded the track again (the line is {D['lines']['REGAIN_SAME']}, the lead required {D['lines']['REGAIN_MARGIN']}):\n")
             print("| shot | arm | empty from | seeded on | best | next person | lead | the other arm seeded within a stride | overlap of the two arms over the next second | frames compared |\n|---|---|---|---|---|---|---|---|---|---|")

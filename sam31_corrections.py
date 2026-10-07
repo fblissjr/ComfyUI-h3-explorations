@@ -37,7 +37,8 @@ passes.
 is replaced only in MLPs that run the shipped one, so an encoder ComfyUI already builds with exact GELU is left alone and
 the report says "already exact". The range patch looks at what arrives: a frame with values far below zero is already
 in the trained range (ComfyUI's nodes changed, or something upstream in the graph mapped it), so from then on the patch
-passes every frame through untouched and the report says so. That test is best effort before the first such frame: a
+passes every frame through untouched, and `corrections` says so to whoever asks after frames have gone through (the
+node's own report is written before any have). That test is best effort before the first such frame: a
 bright frame that was already mapped has nothing low enough to give it away. `bench/check_sam31_corrections_on_card.py`
 reads the stock pair's first layer, so a ComfyUI that starts mapping the range turns that check red.
 
@@ -81,14 +82,20 @@ class NotSAM3(ValueError):
 class CorrectedRange:
     """`forward` for the trunk's patch embedding: the frame clamped to 0..1, mapped to -1..1, then the stock forward."""
 
-    def __init__(self, module):
+    def __init__(self, module, seen: dict | None = None):
         self.module = module
         self.stock = type(module).forward      # the class's, so a forward patched on the instance is never wrapped twice
-        self.arrives_mapped = False            # set by the first frame that is clearly in -1..1 already; then nothing is mapped
+        # what the patch has seen, shared by every clone's copy of it (a clone gets its own `CorrectedRange`, bound to
+        # its own module): `arrives_mapped` is set by the first frame that is clearly in -1..1 already; then nothing is mapped
+        self.seen = {"arrives_mapped": False} if seen is None else seen
+
+    @property
+    def arrives_mapped(self) -> bool:
+        return bool(self.seen["arrives_mapped"])
 
     def __call__(self, x, *args, **kwargs):
         if not self.arrives_mapped and float(x.amin()) < ALREADY_MAPPED_BELOW:
-            self.arrives_mapped = True
+            self.seen["arrives_mapped"] = True
             logger.warning("[h3] SAM 3.1 Corrections: a frame reached the model already in -1..1 (lowest value %.2f), so the "
                            "image range is left as it arrives from here on. ComfyUI's SAM nodes may map it themselves now, or "
                            "something upstream in the graph does.", float(x.amin()))
@@ -97,27 +104,34 @@ class CorrectedRange:
         return self.stock(self.module, x.clamp(0.0, 1.0) * 2.0 - 1.0, *args, **kwargs)
 
 
-def _attach_range(patcher) -> None:
+def _attach_range(patcher, seen: dict | None = None) -> None:
     import comfy.utils
     try:
         module = comfy.utils.get_attr(patcher.model, PATCH_EMBED)
     except AttributeError as exc:
         raise NotSAM3(f"SAM 3.1 Corrections: this checkpoint's model has no `{PATCH_EMBED}`; it is not a SAM 3 checkpoint.") from exc
-    patcher.add_object_patch(RANGE_PATCH, CorrectedRange(module))
+    patcher.add_object_patch(RANGE_PATCH, CorrectedRange(module, seen))
 
 
 def _rebind_range(parent, clone) -> None:
     """`CallbacksMP.ON_CLONE`: bind the range patch to the clone's own model instance, which need not be the parent's."""
-    if isinstance(clone.object_patches.get(RANGE_PATCH), CorrectedRange):
-        _attach_range(clone)
+    patch = clone.object_patches.get(RANGE_PATCH)
+    if isinstance(patch, CorrectedRange):
+        _attach_range(clone, patch.seen)
 
 
 def text_mlps(clip, shipped_only: bool = True) -> list[str]:
-    """The names, under the CLIP patcher's model, of the text encoder's MLPs: those that run the shipped activation, or all."""
+    """The names, under the CLIP patcher's model, of the text encoder's MLPs: those BUILT with the shipped activation, or all.
+
+    "Built with" is read under any patch: the encoder is one module shared by every clone, and while a corrected
+    clone is loaded its patch is what `mlp.activation` shows. The activation the module was built with is then in the
+    patchers' shared backup, which is read first.
+    """
     import comfy.clip_model
     shipped = comfy.clip_model.ACTIVATIONS[SHIPPED_ACTIVATION]
+    backup = clip.patcher.object_patches_backup
     return [name for name, m in clip.patcher.model.named_modules()
-            if isinstance(m, comfy.clip_model.CLIPMLP) and (m.activation is shipped or not shipped_only)]
+            if isinstance(m, comfy.clip_model.CLIPMLP) and (backup.get(name + ".activation", m.activation) is shipped or not shipped_only)]
 
 
 def attach(model, clip, image_range: bool = True, text_activation: bool = True) -> None:
@@ -148,9 +162,7 @@ def corrections(model, clip) -> dict:
         out["frames_arrive_mapped"] = bool(out["image_range"] and patch.arrives_mapped)
     if clip is not None:
         out["text_activation_layers"] = sum(1 for k, v in clip.patcher.object_patches.items() if k.endswith(".activation") and v is F.gelu)
-        exact_now = len(text_mlps(clip, shipped_only=False)) - len(text_mlps(clip))
-        # while the encoder is loaded with these patches on, every MLP reads as exact; those are ours, not ComfyUI's build
-        out["text_activation_already_exact"] = max(exact_now - out["text_activation_layers"], 0)
+        out["text_activation_already_exact"] = len(text_mlps(clip, shipped_only=False)) - len(text_mlps(clip))
     return out
 
 

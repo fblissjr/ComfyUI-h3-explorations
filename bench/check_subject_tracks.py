@@ -10,11 +10,18 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   of them a subject.
   the_same_at_any_size            every shape gets the same verdict on a 1008 grid, a 252 grid and a 1344 x 760 frame.
   a_slid_track_is_doubted         a track that leaves its person for the frame's edge while the detector still sees
-                                  the person is doubted from the first look that disagrees until a look agrees again;
+                                  the person is doubted from just after the look before the one that disagrees until
+                                  the next look or the first empty frame; KNOWN LIMIT, asserted: a swap onto a
+                                  neighbour the detector also sees is not doubted;
                                   a track the detector agrees with is never doubted; an empty stretch is never
                                   doubted; a track seeded again after a loss starts with no doubt against it; frames
                                   before the first look are not doubted.
   trusted_is_both                 a frame is trusted only with a plausible mask the detector does not contradict.
+  taking_back_is_by_likeness_then_place  after a loss, a clear leader is taken on likeness wherever they stand and
+                                  nobody under the line is; a call too close by likeness goes to the candidate where the
+                                  subject last was, only if that one is near, like-sized and clearly nearer than the
+                                  others. THE CONTROLS: with the place switched off, or with no last place, the same
+                                  close call takes nobody, as today's node does.
   notes_say_a_place_in_the_clip   the four forms of a corrections line read as written; a frame and its time are the
                                   same place; each kind of typo is refused with the line quoted, never skipped.
   a_note_lands_in_its_shot        a note is placed by where the load starts in the clip, the same text serves two
@@ -103,24 +110,32 @@ def a_slid_track_is_doubted():
     track, person = _clip_with_a_slide()
     looks = {f: person[None] for f in (2, 5, 8, 10)}
     got = S.doubted(track, looks).tolist()
-    want = [False] * 5 + [True] * 3 + [False] * 4      # doubted from the look on frame 5 to the look on frame 8, where it is empty
+    want = [False] * 3 + [True] * 5 + [False] * 4      # from after the last look (frame 2) to the look on frame 8, where it is empty
     assert got == want, f"doubted frames: {[i for i, d in enumerate(got) if d]}"
     assert not S.doubted(torch.stack([person] * 12), looks).any(), "a track the detector agrees with was doubted"
     late = S.doubted(track, {5: person[None]}).tolist()
     assert late == [False] * 5 + [True] * 3 + [False] * 4, f"with one look, doubted frames: {[i for i, d in enumerate(late) if d]}"
     nobody = S.doubted(track, {1: torch.zeros((0, 64, 64), dtype=torch.bool)}).tolist()
     assert nobody[:8] == [False] + [True] * 7 and not any(nobody[8:10]), "a look that finds nobody should doubt the track from there, and never an empty frame"
-    return "doubted on frames 5 to 7 only; a regained track starts clean"
+    # THE KNOWN LIMIT, asserted so it is never read as covered: a track that slid onto a NEIGHBOUR the detector also sees
+    neighbour = _blank(64, 64)
+    neighbour[16:48, 44:56] = True
+    swapped = torch.stack([person] * 4 + [neighbour] * 8)
+    both = torch.stack([person, neighbour])
+    assert not S.doubted(swapped, {f: both for f in (2, 5, 8, 10)}).any(), "the watch claimed to see a swap onto a detected neighbour; it cannot"
+    return "doubted on frames 3 to 7 (back to the look before); a regained track starts clean; KNOWN LIMIT: a swap onto a detected neighbour is not seen"
 
 
 def trusted_is_both():
     track, person = _clip_with_a_slide()
     looks = {f: person[None] for f in (2, 5, 8, 10)}
     got = S.trusted(track, looks).tolist()
-    assert got == [True] * 4 + [False] * 6 + [True] * 2, f"trusted frames: {[i for i, t in enumerate(got) if t]}"
-    # frame 4 is the strip before any look disagrees: the shape test alone has to catch it
-    assert not got[4] and not S.doubted(track, looks)[4], "frame 4 should fail on shape, not on the watch"
-    return "trusted on frames 0 to 3 and 10, 11; frame 4 fails on shape alone, 5 to 7 on both, 8 and 9 are empty"
+    assert got == [True] * 3 + [False] * 7 + [True] * 2, f"trusted frames: {[i for i, t in enumerate(got) if t]}"
+    # frame 3 is still on the person: only the watch's reach back to the look before distrusts it
+    assert bool(S.plausible(track[3])) and bool(S.doubted(track, looks)[3]), "frame 3 should be plausible and doubted"
+    # with no look at all the strip frames fail on shape alone
+    assert S.trusted(track, {}).tolist() == [True] * 4 + [False] * 6 + [True] * 2, "with no looks, trust should be the shape test"
+    return "trusted on frames 0 to 2 and 10, 11; frame 3 is doubted though plausible, 4 to 7 fail on shape, 8 and 9 are empty"
 
 
 def notes_say_a_place_in_the_clip():
@@ -168,9 +183,44 @@ def the_text_to_type_round_trips():
     return f"every shot's first, middle and last frame, at 24 and 25 a second and three starts; e.g. `{sample}`"
 
 
+def _box(cx: float, cy: float, w: float = 0.1, h: float = 0.3):
+    return (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+
+
+def taking_back_is_by_likeness_then_place():
+    last = _box(0.5, 0.5)
+    here, there, far = _box(0.52, 0.5), _box(0.2, 0.5), _box(0.9, 0.5)
+    rule = dict(line=0.88, lead=0.03)
+    # a clear leader is taken on likeness alone, wherever they stand
+    assert S.take_back([0.95, 0.90], [far, here], last, **rule)[:2] == (0, S.TOOK_LEADER)
+    # nobody over the line: nobody, however near
+    assert S.take_back([0.87, 0.60], [here, far], last, **rule)[:2] == (None, S.NOBODY_OVER)
+    # too close to call by likeness: the one where the subject was, whichever of the two scored higher
+    assert S.take_back([0.92, 0.91], [there, here], last, **rule)[:2] == (1, S.TOOK_NEAREST)
+    assert S.take_back([0.91, 0.92], [there, here], last, **rule)[:2] == (1, S.TOOK_NEAREST)
+    # ... but not when both stand where the subject was, or the near one is another size, or nobody is near
+    assert S.take_back([0.92, 0.91], [_box(0.47, 0.5), here], last, **rule)[:2] == (None, S.TOO_CLOSE), "two candidates equally near were told apart by place"
+    assert S.take_back([0.92, 0.91], [there, _box(0.52, 0.5, 0.3, 0.9)], last, **rule)[:2] == (None, S.TOO_CLOSE), "a candidate three times the size was taken as the subject"
+    assert S.take_back([0.92, 0.91], [there, far], last, **rule)[:2] == (None, S.TOO_CLOSE), "a candidate far from where the subject was was taken"
+    # a third person who is near but under the line, or not close in likeness, does not enter the tie
+    assert S.take_back([0.92, 0.91, 0.70], [there, here, _box(0.5, 0.5)], last, **rule)[:2] == (1, S.TOOK_NEAREST)
+    # THE CONTROLS: with the place switched off, or no last place (across a cut), the same close call takes nobody,
+    # which is what today's node does; and `take_best` takes the higher score
+    assert S.take_back([0.92, 0.91], [there, here], last, by_position=False, **rule)[:2] == (None, S.TOO_CLOSE)
+    assert S.take_back([0.92, 0.91], [there, here], None, **rule)[:2] == (None, S.TOO_CLOSE)
+    assert S.take_back([0.92, 0.91], [there, here], last, take_best=True, **rule)[:2] == (0, S.TOOK_BEST)
+    detail = S.take_back([0.92, 0.91], [there, here], last, **rule)[2]
+    assert detail["lead"] == 0.01 and detail["distances_in_diagonals"][0] < 0.1 and len(detail["distances_in_diagonals"]) == 2, detail
+    m = _blank(100, 200)
+    m[20:60, 50:90] = True
+    assert S.box_of(m) == (0.25, 0.2, 0.45, 0.6) and S.box_of(_blank(4, 4)) is None
+    return "a clear leader by likeness; a close call by place, only when one candidate is near, like-sized and clearly nearer; nobody otherwise"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
-               notes_say_a_place_in_the_clip, a_note_lands_in_its_shot, the_text_to_type_round_trips):
+               taking_back_is_by_likeness_then_place, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()
 

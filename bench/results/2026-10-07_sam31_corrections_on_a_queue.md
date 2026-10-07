@@ -58,6 +58,49 @@ The H3 prompt between the rounds: `h3_text_to_video_api.json` at 2 steps and 73 
 | after /free | corrected again | ModelPatcherDynamic | True | [-1.0, 1.0] | True | ok |
 | after /free | stock last | ModelPatcherDynamic | True | [0.0, 1.0] | False | ok |
 
+## On the main server
+
+After the node was registered and the main server restarted on that
+commit, one graph on its queue (2026-10-07, status success): ComfyUI's
+`CheckpointLoaderSimple`, the node, `CLIPTextEncode` on the node's text
+encoder, ComfyUI's `SAM3_Detect` on the node's model, and the node's report
+read back from `/history`. The report as served:
+
+```
+SAM 3.1, as loaded by the checkpoint loader wired in:
+image range: corrected at the model's first layer (clamped to 0..1, mapped to -1..1)
+text encoder activation: corrected to exact GELU in 24 layers
+left as ComfyUI computes them: the resize; the detection rule (class score alone, no overlap removal); the detect node's refinement passes; the hole-fill value; the pointer token; the rules between tracked objects; threshold before resize on output
+```
+
+The first-layer read is not repeated there: the probe is in no node list
+of the pack, and the scratch server ran the same code.
+
+## What this acceptance missed, found the same day (a dated note, 2026-10-07)
+
+A code review (mryolk) found a fault on a path this test did not take, in
+the node as it was accepted and first served. The node chose which text
+MLPs to patch by reading each MLP's live activation. The text encoder is
+one module shared by every clone, and while a corrected clip is loaded its
+patch is what the module shows. So when the node ran AGAIN on the stock
+encoder while an earlier corrected clip was still loaded, it found nothing
+on the shipped activation, attached no patch, and reported "already exact"
+while the new clip would run the shipped activation: under-correcting,
+silently, with a false report. The image-range correction was not
+affected.
+
+Why the three rounds above passed: in each prompt the executor ran the
+node once, before any model of that prompt was loaded, and afterwards
+served its output from the cache; the node never executed while a
+corrected clip was on the card. The fix reads what an MLP was built with
+from the patchers' shared backup before the live attribute
+(`sam31_corrections.py::text_mlps`); `bench/check_sam31_corrections.py`'s
+case `a_loaded_sibling_changes_nothing` is red on the node as first served
+and green on the fix; and the queue test has a fifth step for that path
+(the node as a second node on the same loader output, run while the first
+corrected output is loaded). That step's result is added below when it has
+run on a server.
+
 ## What this shows
 
 - **The corrections are not lost when ComfyUI evicts SAM and loads it
