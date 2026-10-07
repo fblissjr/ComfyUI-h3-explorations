@@ -1190,7 +1190,10 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                 io.Clip.Input("segmenter_clip", tooltip="The SAM 3 checkpoint's text encoder."),
                 io.String.Input("subject_phrase", default=SUBJECT_PHRASE,
                                 tooltip="What SAM 3 is asked to find in each shot. `person` finds everyone."),
-                io.Combo.Input("pick", options=list(PICKS), default=PICK_LARGEST,
+                # the default is `most central` since 2026-10-07 (the owner): on the lane's crowd clip
+                # `largest` picked a figure at the frame's edge on all three test windows and
+                # `most central` the person meant (bench/results/2026-10-07_subject_track_under_nudge.md)
+                io.Combo.Input("pick", options=list(PICKS), default=PICK_CENTRAL,
                                tooltip=("Which of the people found is the subject: the one covering the most of "
                                         "the frame, the one nearest its centre, or SAM 3's highest score.")),
                 io.DynamicCombo.Input(
@@ -1259,7 +1262,7 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
 
     @classmethod
     def execute(cls, frames, segmenter, segmenter_clip, pick_on, match, cuts, subject_phrase=SUBJECT_PHRASE,
-                pick=PICK_LARGEST, detection_threshold=DETECTION_THRESHOLD, max_people=MAX_PEOPLE,
+                pick=PICK_CENTRAL, detection_threshold=DETECTION_THRESHOLD, max_people=MAX_PEOPLE,
                 head_phrase=HEAD_PHRASE, corrections="", subject_from="") -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")

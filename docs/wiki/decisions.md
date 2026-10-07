@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **The Subject Track picks the most central person by default, not the
+  largest** (the owner, on a measured difference). On the lane's crowd clip
+  the two rules name different people on all three windows tested, `largest`
+  a figure at the frame's edge and `most central` the person meant; with
+  `most central` today's node holds the subject on every frame of the
+  stretch that had been called hard
+  (`bench/results/2026-10-07_subject_track_under_nudge.md`). Changed
+  together: the node's default (`subject_track.py`),
+  `h3_config.SUBJECT_TRACK` and every generated masked graph. It was
+  `largest` since the node was written; an arm recorded before this date
+  was picked with `largest`, and reproducing one needs `pick` set to that.
 - **Reversed by the owner: the frozen-row cache's masked use is back in the
   tree.** Retired on 2026-10-06 for saving no time; the next morning's
   kernel record found the cached block's attention had run on torch's

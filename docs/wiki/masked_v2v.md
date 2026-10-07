@@ -116,7 +116,9 @@ docstring is the authority and lists the steps; `follow` is the function.
   detector is asked for `subject_phrase` with a count (`counted`), because
   core returns one detection per phrase without one.
 - **The pick.** `pick` is a rule (largest, most central, best match for the
-  phrase). On a named frame it is applied there. Left automatic,
+  phrase); the shipped default is `most central` since 2026-10-07
+  (`h3_config.SUBJECT_TRACK`, `decisions.md`), and it was `largest` for
+  every render before that date. On a named frame it is applied there. Left automatic,
   `main_subject` takes the person the rule favours for most of the clip's
   frames.
 - **The match.** A person in another shot is compared with the subject in

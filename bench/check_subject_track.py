@@ -984,7 +984,7 @@ def check_schema(problems):
     inputs = {i.id: i for i in schema.inputs}
     for name, default in (("subject_phrase", st.SUBJECT_PHRASE), ("head_phrase", st.HEAD_PHRASE),
                           ("max_people", st.MAX_PEOPLE), ("detection_threshold", st.DETECTION_THRESHOLD),
-                          ("pick", st.PICK_LARGEST)):
+                          ("pick", st.PICK_CENTRAL)):     # the default since 2026-10-07 (the owner)
         if name not in inputs:
             problems.append(f"the node has no `{name}` input: what SAM is asked and how it is judged must be visible")
         elif getattr(inputs[name], "default", None) != default:

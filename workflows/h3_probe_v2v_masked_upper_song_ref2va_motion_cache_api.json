@@ -229,7 +229,7 @@
         1
       ],
       "subject_phrase": "person",
-      "pick": "largest",
+      "pick": "most central",
       "pick_on": "automatic",
       "match": "automatic",
       "cuts": "automatic",

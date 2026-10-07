@@ -1242,7 +1242,13 @@ SEGMENTER = "sam3.1_multiplex_fp32.safetensors"
 #: graph shows the one input a clip with many cuts needs, and a runner can
 #: patch it: on the first clip with a crowd the match carried the subject
 #: across one cut in six and every other shot took a typed line.
-SUBJECT_TRACK = dict(subject_phrase="person", pick="largest", pick_on="automatic", match="automatic",
+#: `pick` is `most central` since 2026-10-07, the owner's decision on a
+#: measured difference: on the lane's crowd clip `largest` and `most central`
+#: are different people on all three test windows, `largest` a figure at the
+#: frame's edge and `most central` the person meant
+#: (`bench/results/2026-10-07_subject_track_under_nudge.md`). It was
+#: `largest`; an arm recorded before that date was picked with `largest`.
+SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="automatic", match="automatic",
                      cuts="automatic", detection_threshold=0.5, max_people=16, head_phrase="head",
                      corrections="")
 #: `MiniMaxH3MaskedSource`'s inputs, equal to the node's defaults
