@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **The fix for a corrected shot did not run on its first render, and
+  `most central` is measured in the frame's own proportions.** The
+  confirmation render of the corrected-shot search (the entry below) loaded
+  the kept mask of the render before the fix: `MiniMaxH3SubjectTrack`'s
+  `MASK_VERSION` had not been bumped, so the same inputs found the same key
+  and nothing was tracked (the server's log says "mask kept from an earlier
+  run"). It is 10 now. With the same bump, `subject_track.choose` measures
+  `most central` with both axes in units of the frame's width; each axis
+  ran alike before, which treats a wide frame as square. **That is a
+  correction of the measure and not a fix of a known miss**: on the two
+  frames of one clip where the subject's detection is known, both measures
+  rank him alike (second of twelve on one, first of sixteen on the other),
+  and measuring from the head and shoulders ranks him worse on the second.
+  Tried at the owner's word; the figures are in the changelog entry.
 - **A shot corrected by hand is looked for again when its track lets go**
   (the owner: "lets fix that now"). A corrected shot was tracked once from
   the corrected seed and left empty from the frame the tracker let go; a

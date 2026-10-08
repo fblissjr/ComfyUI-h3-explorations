@@ -446,7 +446,12 @@ def choose(masks: torch.Tensor, scores: list[float], pick: str) -> int | None:
         return int(on.flatten(1).sum(dim=1).argmax())
     if pick == PICK_CENTRAL:
         h, w = masks.shape[-2:]
-        ys = torch.arange(h, dtype=torch.float32).view(1, h, 1) / max(h - 1, 1) - 0.5
+        # Distance from the centre in the frame's own proportions: both axes in units of the frame's width. Until
+        # 2026-10-07 each axis ran -0.5 to 0.5, which measures a 16:9 frame as if it were square and counts a step
+        # up or down about 1.8 times a step sideways. On the two frames where the subject's detection is known
+        # this changes neither pick (`decisions.md`, that date), so it is a correction of the measure, not a
+        # fix of a known miss. Measuring from the head and shoulders was tried on the same frames and was worse.
+        ys = (torch.arange(h, dtype=torch.float32).view(1, h, 1) / max(h - 1, 1) - 0.5) * (h / w)
         xs = torch.arange(w, dtype=torch.float32).view(1, 1, w) / max(w - 1, 1) - 0.5
         area = on.flatten(1).sum(dim=1).clamp(min=1).to(torch.float32)
         cy = (on * ys).flatten(1).sum(dim=1) / area
@@ -1182,8 +1187,10 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     #: under the line when the pick frame shows nobody else. 6: a match has to
     #: hold on the head as well, and the lone person has to have a head. 7: a
     #: shot's favourite with no head is not counted for the automatic pick. 8:
-    #: the cut score leaves a clip's flat borders out.
-    MASK_VERSION = 9
+    #: the cut score leaves a clip's flat borders out. 9: the search for a subject
+    #: the track let go, and the hand-over. 10: a corrected shot is searched too,
+    #: and `most central` is measured in the frame's own proportions.
+    MASK_VERSION = 10
 
     @classmethod
     def define_schema(cls):

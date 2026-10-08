@@ -120,7 +120,18 @@ docstring is the authority and lists the steps; `follow` is the function.
   (`h3_config.SUBJECT_TRACK`, `decisions.md`), and it was `largest` for
   every render before that date. On a named frame it is applied there. Left automatic,
   `main_subject` takes the person the rule favours for most of the clip's
-  frames.
+  frames. **How each rule measures** (`subject_track.choose`): `largest` is
+  the mask with the most pixels; `most central` is the mask whose centre of
+  mass is nearest the frame's centre, in the frame's own proportions since
+  2026-10-07 (before that each axis was scaled alike, which measures a wide
+  frame as if it were square). **No rule is right everywhere**: on one clip
+  each of the two was right on one window and wrong on another, and on a
+  window that opens with the subject small the automatic pick named
+  somebody else under both
+  (`../../bench/results/2026-10-07_subject_track_calls_on_masks.md`;
+  `../../bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`,
+  section 5). The pick is a first guess for each shot; the preview tile
+  shows who was taken and a correction settles it.
 - **The match.** A person in another shot is compared with the subject in
   two places, and the lower counts: the trunk's features under the top third
   of their mask (`top_third`, `signature`), and under the head SAM 3 finds
@@ -135,7 +146,12 @@ docstring is the authority and lists the steps; `follow` is the function.
 - **Corrections.** `corrections` overrides one shot at a time, after the
   automatic pass and on the frame that shot's tile shows: a person by the
   number on their outline, or nobody (`parse_corrections`, `_correct`). The
-  other shots and the frames the tiles show do not move.
+  other shots and the frames the tiles show do not move. A corrected shot
+  is followed from the person named and, since 2026-10-07, looked for again
+  like any other shot when the tracker lets go of them (the next item);
+  before that it was tracked once and left empty from the frame of the
+  loss. A correction says who the subject is, not that the tracker will
+  hold them.
 - **A subject let go inside a shot.** A tracker call is seeded once, so a
   subject the tracker let go was lost for the rest of the shot.
   A run of frames the track leaves empty is probed every `PROBE_STRIDE`
