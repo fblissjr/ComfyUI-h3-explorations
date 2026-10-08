@@ -46,6 +46,24 @@ together. The motion reference's widening does not follow: it stays half of
 `grow_pixels` on every frame (`motion_widening` says why). The token grid still
 rounds the region out to whole tokens, which a small margin cannot go under.
 
+**The people round the subject** (`others`, 2026-10-08). A mask of people who
+are not the subject. The margin does not grow over them: a token that holds
+any of their pixels and none of the subject's own mask stays the source's. A
+token that holds any pixel of the subject's own mask still regenerates,
+whoever else is in it. That is the difference from `keep`, which wins over the
+subject too and is for a thing the subject holds: on a subject who is small,
+most of their own mask lies in tokens they share with somebody, and `keep` on
+a neighbour would hand those back to the source, original subject and all
+(`bench/check_video_mask.py` item 14 holds the two apart). "The subject's own
+mask" is the mask this node settled on, so under `the wired parts` it is the
+part and not the person: a mask of everybody that includes the subject then
+takes the margin off their own body beside the part, and the subject is to be
+left out of it. Whether the rule should read the tracked subject as their own
+is open. Why it exists: with two
+people inside the region the model drew the new subject on the other one
+(`bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`, section 5).
+Not rendered.
+
 **What gets replaced** (`replace`, owner 2026-10-04: "it should be a choice on
 a node"). `whole subject` regenerates the tracked person. `head and hair`
 keeps the body below the hair, its clothes and its movement as the source's
@@ -281,7 +299,7 @@ MASK_REUSE_ENABLED = False
 
 MASK_KEY_SKIP = ("grow_pixels", "grow_by", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
-                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep")
+                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others")
 #: `start_from` choices: what the regenerated tokens start from.
 #:
 #: `noise` is the shipped render: the schedule runs from its first knot and
@@ -1154,7 +1172,7 @@ PREVIEW_HEIGHT = 192
 
 
 def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion: str, short_edge: int,
-                  margin, boxes: torch.Tensor | None = None) -> torch.Tensor:
+                  margin, boxes: torch.Tensor | None = None, others: torch.Tensor | None = None) -> torch.Tensor:
     """[1, H, W, 3]: sampled frames down the strip, the regenerated region tinted red on the plate, and, when a
     motion reference is on, what the encoder is shown beside each. The dry-run review looks at this and the
     tracker's tiles before anything samples.
@@ -1163,7 +1181,11 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
     outline, so the picture beside it can be found on the frame. The boxes here are each shot's over the whole
     clip; a window takes its own from its own frames (`window_boxes`), which is never larger.
 
-    `grow_pixels` and `margin` are one number each, or every frame's own over the clip (`margins`)."""
+    `grow_pixels` and `margin` are one number each, or every frame's own over the clip (`margins`).
+
+    With `others` (the people the margin does not grow over) their pixels are tinted blue and taken out of the
+    red wherever they are not the subject's own. Pixel for pixel, where the model works in whole tokens
+    (`window`): a look at who is kept out, not the token mask."""
     n = int(frames.shape[0])
     idx = torch.linspace(0, n - 1, steps=min(PREVIEW_ROWS, n)).round().long()
     f = frames[idx, ..., :3].to(torch.float32)
@@ -1171,7 +1193,14 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
     margin = margin[idx] if torch.is_tensor(margin) else margin
     region = (grow(mask[idx].to(torch.float32), grow_pixels) > 0.5).unsqueeze(-1).to(f.dtype)
     red = torch.tensor([1.0, 0.0, 0.0], dtype=f.dtype, device=f.device)
+    away = None
+    if others is not None:
+        away = ((others[idx] > 0.5) & ~(mask[idx] > 0.5)).unsqueeze(-1).to(f.dtype)
+        region = region * (1.0 - away)
     plate = f * (1.0 - region) + (0.5 * f + 0.5 * red) * region
+    if away is not None:
+        blue = torch.tensor([0.0, 0.3, 1.0], dtype=f.dtype, device=f.device)
+        plate = plate * (1.0 - away) + (0.5 * f + 0.5 * blue) * away
     shown = None if boxes is None else boxes[idx]
     if shown is not None:
         cyan = torch.tensor([0.0, 1.0, 1.0], dtype=f.dtype, device=f.device)
@@ -1206,6 +1235,11 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     every token the keep mask touches: the model is given those tokens clean,
     as it is the rest of the plate, and regenerates around them.
 
+    With an `others` mask it is the grown region less every token that holds
+    a pixel of the others and none of the subject's own mask: the margin does
+    not grow over them, and no token of the subject is given up. Taken out
+    before `keep`, which still wins over everything.
+
     The frames to encode are the fitted frames themselves, or with `paint_out`
     a copy with the subject filled in: the mask widened by half of
     the margin (`source_margins`: `grow_pixels`, or under `grow_by` the
@@ -1224,6 +1258,15 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     pixels, mask, short = window_frames(source, first_frame, frames, width, height)
     margin = source_margins(source, first_frame, frames, int(width) * int(height))
     tokens = token_mask(grow(mask, margin), latent_t, lat_h, lat_w)
+    if source.get("others") is not None:
+        away = fit_mask(source["others"][int(first_frame):int(first_frame) + int(frames)], width, height)
+        if short > 0:
+            away = torch.cat([away, torch.zeros((short,) + tuple(away.shape[1:]), dtype=away.dtype,
+                                                device=away.device)], dim=0)
+        # In whole tokens, as the region is: a token the others touch is the source's unless the subject's own
+        # mask, before any margin, has a pixel in it on one of its frames.
+        theirs = token_mask(away, latent_t, lat_h, lat_w)
+        tokens = tokens * (1.0 - theirs * (1.0 - token_mask(mask, latent_t, lat_h, lat_w)))
     if source.get("keep") is not None:
         # After the grow, so the margin cannot run back over what is kept, and in whole tokens: a token
         # that holds any kept pixel on any of its frames is kept. The composite and the review read
@@ -1435,6 +1478,21 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "model may then draw the new subject on one of those people. The motion "
                                         "reference is not changed by this. The song node's report gives the "
                                         "margin each window used.")),
+                # appended 2026-10-08: with two people inside the region the model drew the new subject on the
+                # other one. A plain mask from any node; unwired, nothing changes.
+                io.Mask.Input("others", optional=True,
+                              tooltip=("Optional. People who are not the subject: the margin does not grow over "
+                                       "them. One mask per source frame, at the frames' own size, of everyone "
+                                       "the region should leave alone; a mask of another length or size is "
+                                       "refused.\n\n"
+                                       "A block of the picture that holds any of them and none of the subject "
+                                       "stays the original. A block that holds any of what is replaced is "
+                                       "still regenerated, so none of it is given up.\n\n"
+                                       "Leave the subject out of this mask. Where only a part of them is "
+                                       "replaced, a mask that covers the rest of their body takes the margin "
+                                       "off it.\n\n"
+                                       "Use `keep` for a thing the subject holds; use this for the people "
+                                       "standing round them. The preview shows them in blue.")),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
@@ -1482,7 +1540,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 change_threshold=CHANGE_THRESHOLD, reuse_mask=False, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
-                shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED) -> io.NodeOutput:
+                shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if int(feather_pixels) > int(grow_pixels):
@@ -1516,6 +1574,25 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                     "`keep` shows the source's own pixels inside the region, and paint_out and a softened start "
                     "both change those pixels before the encode: turn them off, or unwire `keep`")
             keep = (keep > 0.5).to(torch.float32)
+        if others is not None:
+            if others.ndim == 4 and int(others.shape[-1]) == 1:
+                others = others[..., 0]
+            if others.ndim != 3 or int(others.shape[0]) != int(frames.shape[0]):
+                raise ValueError(
+                    f"`others` has {int(others.shape[0])} masks and the source {int(frames.shape[0])} frames: it "
+                    "needs one mask per source frame, made on the same `frames` this node takes. Nothing is "
+                    "stretched or cut to fit, since a mask on the wrong frame keeps the wrong people out")
+            if tuple(others.shape[1:]) != tuple(frames.shape[1:3]):
+                raise ValueError(
+                    f"`others` is {int(others.shape[2])}x{int(others.shape[1])} and the frames are "
+                    f"{int(frames.shape[2])}x{int(frames.shape[1])}: it needs the frames' own size")
+            if paint_out or start_from != START_NOISE:
+                # as for `keep`: a token left to the source would show the changed copy of it
+                raise ValueError(
+                    "`others` leaves the source's own pixels where the margin would have grown, and paint_out "
+                    "and a softened start both change those pixels before the encode: turn them off, or unwire "
+                    "`others`")
+            others = (others > 0.5).to(torch.float32)
         key = cls._mask_key(frames, reuse_mask)
         kept = None
         if key is not None:
@@ -1567,6 +1644,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             logger.info("[h3] MiniMaxH3MaskedSource: keep is wired: it lies inside the grown region on %d of %d "
                         "frames, and those tokens stay the source's", int(both.flatten(1).any(dim=1).sum()),
                         int(frames.shape[0]))
+        if others is not None:
+            reach = (grow(mask.to(torch.float32), each) > 0.5) & (others > 0.5) & ~(mask > 0.5)
+            logger.info("[h3] MiniMaxH3MaskedSource: others is wired: the margin would have reached them on %d of %d "
+                        "frames; those tokens stay the source's unless the subject's own mask is in them",
+                        int(reach.flatten(1).any(dim=1).sum()), int(frames.shape[0]))
         if motion_reference != MOTION_NONE:
             logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s", motion_reference,
                         int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only")
@@ -1588,6 +1670,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "motion_vae": bool(motion_vae),
                               # [N, H, W] of 0 or 1, or None: what stays the source's inside the region (`window`)
                               "keep": keep,
+                              # [N, H, W] of 0 or 1, or None: people the margin does not grow over (`window`)
+                              "others": others,
                               # the part mask's coverage of the tracked subject, when it is in doubt
                               # (`part_coverage.py`); shown by the song node and the prompt node
                               PART_WARNING: part_warning,
@@ -1600,7 +1684,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "shot_table": table, "replace": replace},
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
-                                           int(motion_short_edge), int(grow_pixels) // 2, zoomed))
+                                           int(motion_short_edge), int(grow_pixels) // 2, zoomed, others))
 
     @classmethod
     def _settle_mask(cls, frames, mask, replace, segmenter, segmenter_clip, part_phrases, part_threshold,

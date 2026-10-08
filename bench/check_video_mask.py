@@ -100,6 +100,18 @@ that could happen.
    area on its record, refuses an unknown choice, keeps it out of the kept
    mask's key, and the shared config holds the default.
 
+14. **The margin stays off the people round the subject, and the subject
+   loses nothing.** `others` (2026-10-08). With a neighbour standing against
+   the subject: no token that holds the subject's own mask is given up; no
+   token that holds the neighbour and none of the subject regenerates; every
+   other token is as it was. The control is the same mask on `keep`, which
+   must cost the subject tokens, or the two inputs are not told apart. A mask
+   that also covers the mask the region is grown from changes nothing (which
+   is the whole subject only when that mask is); `keep` still wins where both
+   are wired; a neighbour on one frame acts on that latent step only; the
+   node refuses another frame count or size and the two settings `keep`
+   refuses, by name; unwired nothing changes; the preview shows them.
+
 No model, no CUDA, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_video_mask.py
@@ -354,13 +366,98 @@ def check_grow_by(problems):
         problems.append("grow_by: an unknown choice was accepted")
     except ValueError:
         pass
-    last = vm.MiniMaxH3MaskedSource.define_schema().inputs[-1]
-    if last.id != "grow_by" or not last.optional or last.default != vm.GROW_FIXED or list(last.options) != list(vm.GROW_BY):
-        problems.append("grow_by: it is not the node's last input, optional, with the fixed margin as its default")
+    last = [i for i in vm.MiniMaxH3MaskedSource.define_schema().inputs if i.id == "grow_by"]
+    if len(last) != 1 or not last[0].optional or last[0].default != vm.GROW_FIXED or list(last[0].options) != list(vm.GROW_BY):
+        problems.append("grow_by: it is not an optional input of the node with the fixed margin as its default")
     if "grow_by" not in vm.MASK_KEY_SKIP:
         problems.append("grow_by: it acts after the mask is final and must not be in the kept mask's key")
     if h3_config.MASKED_SOURCE.get("grow_by") != vm.GROW_FIXED:
         problems.append("grow_by: h3_config.MASKED_SOURCE does not hold the node's default")
+
+
+def check_others(problems):
+    """Item 14. A subject with a neighbour standing against them: the margin stays off the neighbour and the
+    subject loses no token. The control: the same mask on `keep`, which gives the subject holes."""
+    n, h, w = FRAMES, 128, 192
+    frames = torch.rand(n, h, w, 3)
+    mask = torch.zeros(n, h, w)
+    mask[:, 40:88, 72:104] = 1.0                       # the subject: one token column and a bit, 48 by 32
+    others = torch.zeros(n, h, w)
+    others[:, 56:120, 100:150] = 1.0                    # a neighbour overlapping the subject's right edge and below
+    base = {"frames": frames, "mask": mask, "grow_pixels": 32, "feather_pixels": 0}
+    shape = (LATENT_T, h // 16, w // 16)
+    args = (0, n, w, h) + shape
+    plain = vm.window(base, *args)[2]
+    if not torch.equal(vm.window(dict(base, others=None), *args)[2], plain):
+        problems.append("others: unwired, the token mask changed")
+    mine = vm.token_mask(mask, *shape)
+    theirs = vm.token_mask(others, *shape)
+    got = vm.window(dict(base, others=others), *args)[2]
+    shared, only_theirs = mine * theirs, theirs * (1.0 - mine)
+    if float(shared.sum()) == 0.0 or float((plain * only_theirs).sum()) == 0.0:
+        problems.append("others: the case puts no neighbour in the subject's tokens or in the margin; it tests nothing")
+    if float((mine * (1.0 - got)).max()) != 0.0:
+        problems.append("others: a token that holds the subject's own mask was given up")
+    if float((got * only_theirs).max()) != 0.0:
+        problems.append("others: the margin grew over a token that holds a neighbour and none of the subject")
+    if not torch.equal(got, plain * (1.0 - only_theirs)):
+        problems.append("others: tokens the neighbour does not touch changed")
+    # the control: the same mask on `keep` hands tokens of the subject back to the source
+    kept = vm.window(dict(base, keep=others), *args)[2]
+    if float((mine * (1.0 - kept)).sum()) == 0.0:
+        problems.append("others: the control (the neighbour's mask on `keep`) cost the subject no token; the case "
+                        "cannot tell the two inputs apart")
+    # a mask that also covers the mask the region is grown from changes nothing; under `the wired parts` that
+    # mask is the part, so this is not a promise about a mask that covers the whole person
+    if not torch.equal(vm.window(dict(base, others=torch.maximum(others, mask)), *args)[2], got):
+        problems.append("others: a mask that also covers the subject's own mask changed the tokens")
+    # with `keep` wired too, keep still wins over everything it touches
+    held = torch.zeros(n, h, w)
+    held[:, 60:64, 80:84] = 1.0
+    both = vm.window(dict(base, others=others, keep=held), *args)[2]
+    if not torch.equal(both, got * (1.0 - vm.token_mask(held, *shape))):
+        problems.append("others: with keep wired too, keep does not win over the tokens it touches")
+    # in time: a neighbour on one frame of a step keeps the margin off for that step only
+    runs = vm.run_lengths(LATENT_T)
+    once = torch.zeros_like(others)
+    once[sum(runs[:2])] = others[0]
+    t = vm.window(dict(base, others=once), *args)[2]
+    if [k for k in range(LATENT_T) if not torch.equal(t[k], plain[k])] != [2]:
+        problems.append("others: a neighbour on one frame of latent step 2 changed other steps")
+    # a window reads its own frames of it: a neighbour who is there in the clip's second half only
+    twice = {"frames": torch.cat([frames, frames]), "mask": torch.cat([mask, mask]), "grow_pixels": 32,
+             "feather_pixels": 0, "others": torch.cat([torch.zeros_like(others), others])}
+    if not torch.equal(vm.window(twice, 0, n, w, h, *shape)[2], plain)             or not torch.equal(vm.window(twice, n, n, w, h, *shape)[2], got):
+        problems.append("others: a window did not read its own frames of the mask")
+    # a window past the source's end: the held frames have no mask and no others
+    late = vm.window(dict(base, others=others), n - 5, n, w, h, *shape)
+    if late[4] != n - 5 or float(late[2][-1].max()) != 0.0:
+        problems.append("others: a window past the source's end did not hold its last frame unmasked")
+    # the node: its record, its refusals by name, the key, the schema, the preview
+    out = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=32, feather_pixels=0, others=others.unsqueeze(-1))
+    src = out.args[0] if hasattr(out, "args") else out[0]
+    if src.get("others") is None or tuple(src["others"].shape) != tuple(others.shape):
+        problems.append("others: the node did not carry a [N, H, W, 1] mask onto the source as [N, H, W]")
+    strip = (out.args if hasattr(out, "args") else out)[2]
+    bare = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=32, feather_pixels=0)
+    bare_src, bare_strip = (bare.args if hasattr(bare, "args") else bare)[0], (bare.args if hasattr(bare, "args") else bare)[2]
+    if bare_src.get("others") is not None or torch.equal(strip, bare_strip):
+        problems.append("others: unwired the record carries one, or the preview does not show the people kept out")
+    for label, bad, kw, word in (("another frame count", others[:-1], {}, f"{n - 1} masks"),
+                                 ("another size", torch.zeros(n, h // 2, w // 2), {}, "size"),
+                                 ("paint_out", others, {"paint_out": True}, "paint_out"),
+                                 ("a softened start", others, {"start_from": vm.START_TOP}, "softened")):
+        try:
+            vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=32, feather_pixels=0, others=bad, **kw)
+            problems.append(f"others: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"others: the refusal of {label} does not say so: {exc}")
+    inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
+    if inputs[-1].id != "others" or not inputs[-1].optional:
+        problems.append("others: it is not the node's last input and optional")
+    if "others" not in vm.MASK_KEY_SKIP:
+        problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
 
 
 def _fail(problems, text: str) -> None:
@@ -1256,7 +1353,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1265,7 +1362,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token")
     return 1 if problems else 0
 
 
