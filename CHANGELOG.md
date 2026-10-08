@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.226.1
+<!-- changelog.d/mrdragon-next-steps-evening.md -->
+
+### Changed
+
+- **`docs/wiki/next_steps.md` says where the masked lane stands after the
+  evening of 2026-10-07**, as pointers in the order to pick them up: the
+  disabled disk stores and the key that would re-enable them, the small
+  subject, the one-resize load, the corrected-shot search and the pick, and
+  what was asked for and not done.
+
 ## 0.226.0
 <!-- changelog.d/mrdragon-kept-mask-off-by-default.md -->
 

@@ -56,16 +56,36 @@ own below the rule.
   - *The reference still to the text encoder alone*: tried and closed for
     the masked graphs
     (`../../bench/results/2026-10-07_masked_still_encoder_only.md`).
-  - *The prompt node's text against the vendor's guide*: one render of a
-    rewrite in the guide's form was judged better by the owner on the
-    upper-body recipe's window; a second seed and a version that follows the
-    house rule on shot headers are owed before the node's text changes, and
-    so is the record.
-  - *A region switched on partway through a window*: rendered on and off the
-    video model's frame grouping; the owner's look is owed (the masking
-    board, "videos that need your eye").
-  - *Owed, not started*: the kept mask on disk is still to be removed
-    (the owner's ask of 2026-10-06; the masking board, `build-remove-kept-mask`).
+  - *The prompt node's upper-body text* is in the vendor guide's form and
+    says nothing it cannot know (`decisions.md`, 2026-10-07;
+    `masked_v2v.md`, the prompt). The head and whole-person roles have not
+    been judged in that form.
+  - *A region switched on partway through a window* lands late and not by a
+    fixed amount, and on a cut when one is ahead; *a patch of the source
+    kept inside the region* brings the original person back:
+    `../../bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`.
+  - **The evening of 2026-10-07, in the order to pick it up:**
+    1. *Nothing kept on disk is reused* (kept masks, stored windows): both
+       are off in code until a key changes when the code does. That key, and
+       a sweep check for it, is the first build (`masked_v2v.md`, "What is
+       kept between runs, and what can go stale").
+    2. *A subject who is small*: the part mask collapses, the fixed margin
+       swamps him and the motion reference barely shows him; with the mask
+       continuous over a window that starts with him small, the render does
+       not show the new subject (the record above, section 5; the captured
+       masks are in the untracked `data/` folder, with their own READMEs).
+       Owed: the part step and the margin scaled to the subject, the zoomed
+       motion reference on the upper-body recipe, then that window again.
+    3. *The source is loaded in one resize* (`decisions.md`); what that does
+       to SAM's masks is not measured.
+    4. *A corrected shot is searched again* after a loss; the search is by
+       likeness, and the search by place in `subject_tracks.py` is not wired
+       in. *The pick*: no rule is right everywhere (`masked_v2v.md`, the
+       pick).
+    5. Asked for and not done: the still shared with the text encoder at
+       full size on the masked graphs; a trace written by the workflow
+       (the masking board, `plan-trace-through-the-workflow`); the benchmark
+       records' SA-V tables regenerated at the corrected frame rate.
 - How it works, its limits and the wider set of directions:
   [`masked_v2v.md`](masked_v2v.md). The dated account:
   [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4. What was
