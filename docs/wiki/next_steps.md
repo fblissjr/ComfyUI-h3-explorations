@@ -65,6 +65,21 @@ own below the rule.
     kept inside the region* brings the original person back:
     `../../bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`.
   - **The evening of 2026-10-07, in the order to pick it up:**
+    0. **FIRST: the region is too big for a small subject.** The mask is on
+       the right person; the margin added round it is a fixed pixel count,
+       so when the subject is small most of the region is other people. On a
+       window that starts with the subject small and has the region open on
+       every frame, the render put the new subject on the person standing in
+       front and filled the subject's own place with crowd (the owner, on
+       playback; the pick and the mask were checked and are the same as in
+       the render before it: the record below, section 5, and
+       `data/2026-10-07_capture_windows/README.md` for how often the margin
+       swamps the subject across four clips). In order: the margin as a
+       share of the subject, capped at today's value
+       (`h3_config.MASKED_SOURCE`, `grow_pixels`); the person in front kept
+       out of the region (`subject_tracks.in_the_way`, not wired, into the
+       Masked Source's `keep`); then that window again beside the last
+       render of it. One render, one seed: a reading until that pair exists.
     1. *Nothing kept on disk is reused* (kept masks, stored windows): both
        are off in code until a key changes when the code does. That key, and
        a sweep check for it, is the first build (`masked_v2v.md`, "What is

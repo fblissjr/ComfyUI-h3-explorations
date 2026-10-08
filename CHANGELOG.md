@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.226.2
+<!-- changelog.d/mrdragon-next-steps-region-too-big.md -->
+
+### Changed
+
+- **`docs/wiki/next_steps.md` puts the oversized region first.** The owner's
+  reading of the last render of 2026-10-07: with the region open on every
+  frame of a window that starts with the subject small, the new subject
+  appears on the person in front. The pick and the mask were checked and
+  are unchanged; the fixed margin is the suspect. The page names the two
+  changes to make and the render that tests them.
+
 ## 0.226.1
 <!-- changelog.d/mrdragon-next-steps-evening.md -->
 
