@@ -129,6 +129,16 @@ from . import window_keep
 
 logger = logging.getLogger(__name__)
 
+#: Reuse of a rendered window stored on disk, as a whole: only while this is True. **False since 2026-10-07 by the
+#: owner's decision, and to be turned on by a code change and nothing else**; `reuse_windows` on the node cannot
+#: turn it on. A stored window's key (`loop_resume.py`) is built from the queued graph, the track, the text and the
+#: seed, and from nothing derived from this pack's code, so a window rendered before a fix is handed back after it
+#: when the settings are the same. The kept mask had the same blind spot and hid a fix that evening
+#: (`video_mask.MASK_REUSE_ENABLED`). **Before either is turned back on, the key has to change when the code does.**
+#: Windows are still written (`keep_windows`), and what a session keeps in memory (`window_keep.py`) is not affected:
+#: a restart clears it, and a code change needs a restart.
+WINDOW_REUSE_ENABLED = False
+
 #: The inputs a preview does not ask for: every one runs a loader or a model.
 LAZY = ("model", "clip", "vae", "audio_vae", "sampler", "sigmas", "references", "source")
 
@@ -292,13 +302,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                    tooltip=("Reference stills from an Append Ref Image chain, presented with every "
                                             "window's prompt and encoded once per distinct prompt. The prompt then "
                                             "names them as <Picture N>.")),
-                io.Boolean.Input("reuse_windows", default=True,
-                                 tooltip=("Reuse the stored windows whose inputs have not changed, in order, and "
-                                          "render from the first that has. A window that renders again also reuses "
-                                          "its source encode and its prompt encode from an earlier run in this "
-                                          "session, when nothing they are made from has changed. Off renders every "
-                                          "window from nothing: use it after replacing a model, LoRA or reference "
-                                          "file under the same name.")),
+                io.Boolean.Input("reuse_windows", default=False,
+                                 tooltip=("STORED WINDOWS ARE NOT REUSED FOR NOW, whatever this is set to: every "
+                                          "window renders, until that is turned back on in the code.\n\n"
+                                          "What it still does when on: a window that renders again reuses its "
+                                          "source encode and its prompt encode from an earlier run in this "
+                                          "session, when nothing they are made from has changed. A restart clears "
+                                          "those.\n\nWhat it does when stored windows are enabled: reuse the "
+                                          "stored windows whose inputs have not changed, in order, and render from "
+                                          "the first that has.")),
                 H3PromptLists.Input("lists", optional=True,
                                     tooltip=("Prompt List nodes filling __name__ placeholders in the prompt: one "
                                              "value per timeline entry, or per window with no timeline.")),
@@ -343,7 +355,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
     def execute(cls, model, clip, vae, audio_vae, audio, sampler, sigmas, prompt, timeline, preview,
                 width, height, window_frames, context_frames, extent, seed, audio_mask, level,
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
-                reuse_windows=True, lists=None, source=None, save_mask_review=True,
+                reuse_windows=False, lists=None, source=None, save_mask_review=True,
                 continue_from="") -> io.NodeOutput:
         import folder_paths
         # A DynamicCombo arrives as one nested dict (the selection under its own
@@ -399,7 +411,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         kept_frames = loop_plan.frames_kept(total, track_seconds)
         writes = loop_plan.frames_written([w.frames for w in windows], context_frames, kept_frames, head)
         again = None
-        if reuse_windows and root is not None:
+        if WINDOW_REUSE_ENABLED and reuse_windows and root is not None:
             for w in windows:
                 stored = loop_resume.read_window(work_dir, filename, w.number)
                 if stored is None or stored["key"] != keys[w.number - 1]:

@@ -2195,7 +2195,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                               "filename_prefix": out_prefix or "Video/h3_song", "crf": 19,
                               "timeline": freeze_song_timeline, "preview": False,
                               "save_metadata_png": True, "keep_windows": True,
-                              "reuse_windows": True}}
+                              # off since 2026-10-07 with the node's default: stored windows are
+                              # disabled in code (`audio_freeze_song.WINDOW_REUSE_ENABLED`)
+                              "reuse_windows": False}}
         # The node's report on a Preview as Text, so the plan a `preview` run
         # prints shows on the canvas in the editor.
         g["75"] = {"class_type": "PreviewAny", "inputs": {"source": ["74", 1]}}

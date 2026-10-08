@@ -140,7 +140,7 @@
       "preview": false,
       "save_metadata_png": true,
       "keep_windows": true,
-      "reuse_windows": true,
+      "reuse_windows": false,
       "references": [
         "50",
         0
@@ -245,7 +245,7 @@
       "part_margin": 8,
       "composite": "only what changed",
       "change_threshold": 0.05,
-      "reuse_mask": true,
+      "reuse_mask": false,
       "motion_reference": "subject only",
       "motion_short_edge": 384,
       "motion_vae": false,

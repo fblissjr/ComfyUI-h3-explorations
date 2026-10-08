@@ -216,7 +216,33 @@ where in core.
   stats and every upstream node's `MASK_VERSION` (`mask_key`). On a hit the
   Masked Source never asks
   for its `mask` input, so the tracker does not run. `MASK_KEY_SKIP` names
-  the settings that do not change the mask.
+  the settings that do not change the mask. **Disabled in code since
+  2026-10-07** (`video_mask.MASK_REUSE_ENABLED` is False; `reuse_mask` on
+  the node defaults to off and cannot turn it on): every run tracks afresh.
+  See "What is kept between runs, and what can go stale" below.
+
+**What is kept between runs, and what can go stale.** Three things are
+written by one run and read by a later one, and a fourth lives in memory:
+
+| what | where | its key or version | reused today |
+|---|---|---|---|
+| the finished mask | `output/masks/` (`mask_store.py`) | the queued graph, the frames, the files' stats, each upstream node's `MASK_VERSION` | no: `video_mask.MASK_REUSE_ENABLED` |
+| a rendered window | beside the render, `<prefix>_windows/` (`loop_resume.py`) | the queued graph upstream of the song node, the track, the window's text, length, start and seed, the window before it | no: `audio_freeze_song.WINDOW_REUSE_ENABLED` |
+| the shot table | `<prefix>_NNNNN_shots.json`, and the Subject Track's `shot_table` output | `TABLE_VERSION`, the file's format | read only when wired into `subject_from` |
+| a window's source encode and prompt encode | the server's memory (`window_keep.py`) | the identity of the live objects they were made from | yes, under `reuse_windows`; a restart clears it |
+
+**None of the first three keys holds anything derived from this pack's
+code.** A result made before a change to how a subject is followed, or to
+anything else the key does not name, is handed back after it when the
+settings are the same; the only guard is a number somebody has to remember
+to bump. That happened on 2026-10-07 (`decisions.md`), and the owner had
+both disk stores switched off in code that evening. The two inputs stay on
+their nodes so saved graphs still load, and their tooltips say they have no
+effect on what is stored. To turn them back on: a fingerprint of the pack's
+code in each key (and in the shot table), and a check in the sweep that
+every key that reaches disk carries it. Not built.
+`bench/check_mask_store.py` holds the shipped state of both switches and
+still exercises the mask store with its switch on.
 
 **Three things called a version, and none is the other.** The pack's
 version is the newest heading in `CHANGELOG.md`, assigned by
@@ -244,6 +270,18 @@ a motion reference is on, in which case it writes the `<Video 1>` lines. So
 the text and the Masked Source cannot disagree. `add_to_shot` adds
 sentences to the shot as written. On every run the node shows one line per
 input saying what it did with it, then the text.
+
+**The text says nothing it cannot know** (the owner, 2026-10-07). The node
+writes without seeing the clip, and H3 acts on words: a clause written to
+cover a case ("turning when they turn", a description of how a mouth
+moves) is read as an instruction. The upper-body role is in the vendor
+guide's form at under half its earlier length: who the subject is in the
+user's words, said in the definition, the retention line and the shot; the
+scene as finished, not as an edit; movement as one relationship to
+`<Video 1>`; the voice in one sentence; one shot paragraph, because the node
+does not know which window of a clip a render takes. The head and
+whole-person roles share the movement sentence and are otherwise as they
+were (`decisions.md`, 2026-10-07; `masked_prompt_text.py`).
 
 - **Set `subject` to match the still.** The shipped graphs say "person"
   because their still is a placeholder. On the one pair rendered, the motion
@@ -323,7 +361,8 @@ Each line names where the evidence is. "Seen" means on a render or a tile.
 - **Cuts.** A dissolve or a jump cut inside a cutaway can score under the
   threshold. The report prints the highest steps with the threshold marked.
 - **Cost.** Two detector passes on every frame looked at, and a tracker pass
-  per shot. The kept mask removes it from every later run.
+  per shot. The kept mask removed it from every later run; with the kept
+  mask disabled in code (2026-10-07) every run pays it.
 
 **Replacing the person**
 
@@ -407,7 +446,8 @@ wider set, with what each would buy and what is known about it.
 **The render**
 
 - The mask through two samplers, with the plate restored between them.
-- The kept mask across a server restart, which no run has exercised.
+- The kept mask across a server restart, which no run has exercised (and
+  none will while it is disabled in code).
 
 ## Where to look
 

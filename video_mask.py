@@ -240,6 +240,15 @@ PART_THRESHOLD = 0.5
 #: kept mask is found by (`mask_store.mask_key`). Reasoned, from `execute`: the
 #: mask is final before any of these is read. `bench/check_mask_store.py`
 #: holds both directions.
+#: The kept mask on disk, as a whole: read and written only while this is True. **False since 2026-10-07 by the
+#: owner's decision, and to be turned on by a code change and nothing else**: `reuse_mask` on the node has no effect
+#: while it is False. A kept mask is only as fresh as the `MASK_VERSION` of the nodes that made it; a change to how a
+#: subject is followed that forgot to bump one was served the old mask that evening, and the fix it carried looked
+#: like it had failed. **Before it is turned back on, the store has to detect that the code changed**: the key holds
+#: the inputs and hand-bumped version numbers, and nothing derived from the code that makes the mask, so it cannot
+#: tell a mask made by yesterday's logic from today's (the owner, the same evening).
+MASK_REUSE_ENABLED = False
+
 MASK_KEY_SKIP = ("grow_pixels", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
                  "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep")
@@ -1223,13 +1232,17 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "of the new subject go missing; raise it if flicker around the subject "
                                         "remains.")),
                 # appended 2026-10-04 (`mask_store.py`)
-                io.Boolean.Input("reuse_mask", default=True, optional=True,
-                                 tooltip=("On (default): the finished mask is kept on disk, and a later run with "
-                                          "the same video and the same mask settings uses it without tracking "
-                                          "again, also after a restart. Any change to the video or to a setting "
-                                          "that affects the mask tracks afresh.\n\n"
-                                          "Off: track every time and keep nothing. Costs the tracker, and the "
-                                          "part detection for `head and hair`, on every run after a restart.")),
+                # Off by default since 2026-10-07 (the owner: off until this lane is ready for production). A kept
+                # mask is only as fresh as the `MASK_VERSION` of the nodes that made it, and a change to how a
+                # subject is followed that forgets to bump one is served the old mask with no sign of it: that
+                # evening a fix's confirmation render showed the unfixed result for exactly that reason.
+                io.Boolean.Input("reuse_mask", default=False, optional=True,
+                                 tooltip=("DISABLED FOR NOW: this switch has no effect. Every run tracks afresh "
+                                          "and keeps nothing, whatever it is set to, until kept masks are turned "
+                                          "back on in the code.\n\n"
+                                          "What it does when enabled: the finished mask is kept on disk, and a later "
+                                          "run with the same video and the same mask settings uses it without "
+                                          "tracking again, also after a restart.")),
                 # appended 2026-10-05: the per-token late start (`START_TOP`)
                 io.Combo.Input("start_from", options=[START_NOISE, START_TOP], default=START_NOISE, optional=True,
                                tooltip=("What the new subject starts from. `noise` (default): nothing of the "
@@ -1284,13 +1297,13 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         """The key this node's mask is kept under, or None: turned off, or no queued prompt to read (a direct call)."""
         hidden = getattr(cls, "hidden", None)
         prompt, node_id = getattr(hidden, "prompt", None), getattr(hidden, "unique_id", None)
-        if not reuse_mask or frames is None or not isinstance(prompt, dict) or node_id is None:
+        if not MASK_REUSE_ENABLED or not reuse_mask or frames is None or not isinstance(prompt, dict) or node_id is None:
             return None
         from . import mask_store
         return mask_store.mask_key(prompt, node_id, frames, skip=MASK_KEY_SKIP)
 
     @classmethod
-    def check_lazy_status(cls, frames=None, replace=REPLACE_WHOLE, reuse_mask=True, **kwargs):
+    def check_lazy_status(cls, frames=None, replace=REPLACE_WHOLE, reuse_mask=False, **kwargs):
         # None is a connected input core has not run yet; an unconnected
         # optional input is absent. `frames` is not lazy, so it is here.
         wanted = {REPLACE_PART: LAZY_FOR_MASK, REPLACE_PARTS: (LAZY_FOR_MASK[0], LAZY_FOR_PARTS)}.get(replace, LAZY_FOR_MASK[:1]) + (LAZY_FOR_TABLE,)
@@ -1311,7 +1324,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
     def execute(cls, frames, mask, grow_pixels=GROW_PIXELS, feather_pixels=8, replace=REPLACE_WHOLE, paint_out=False,
                 segmenter=None, segmenter_clip=None, part_phrases=PART_PHRASES,
                 part_threshold=PART_THRESHOLD, part_margin=PART_MARGIN, composite=COMPOSITE_CHANGED,
-                change_threshold=CHANGE_THRESHOLD, reuse_mask=True, motion_reference=MOTION_NONE,
+                change_threshold=CHANGE_THRESHOLD, reuse_mask=False, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None) -> io.NodeOutput:

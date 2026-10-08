@@ -144,7 +144,7 @@
       "preview": false,
       "save_metadata_png": true,
       "keep_windows": true,
-      "reuse_windows": true,
+      "reuse_windows": false,
       "references": [
         "50",
         0

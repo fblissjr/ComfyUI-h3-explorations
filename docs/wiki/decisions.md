@@ -17,6 +17,29 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **Nothing kept on disk is reused until its key changes when the code
+  does** (the owner, the same evening, on both stores): kept masks
+  (`video_mask.MASK_REUSE_ENABLED`) and stored rendered windows
+  (`audio_freeze_song.WINDOW_REUSE_ENABLED`) are False in the code, and the
+  nodes' `reuse_mask` and `reuse_windows` inputs default to off and cannot
+  turn either on. Both keys are built from inputs and hand-bumped numbers,
+  and neither can tell a result made by earlier code. What a session keeps
+  in memory is unaffected. To turn them back on: a fingerprint of the pack's
+  code in both keys, and a check in the sweep that every key that reaches
+  disk carries it. Not built. The entry on `reuse_mask` below was written an
+  hour earlier, when the default alone had moved.
+- **The kept mask on disk is off by default until the masked lane is ready
+  for production** (the owner, the same evening they had said it could
+  stay). `MiniMaxH3MaskedSource.reuse_mask` defaults to off in the node,
+  `h3_config.MASKED_SOURCE` and every generated masked graph; the store and
+  the input remain. A kept mask is only as fresh as the `MASK_VERSION` of
+  the nodes that made it, and the entry above is what a forgotten bump
+  costs. **Checked in the day's server logs**: of the day's renders, eleven
+  loaded a kept mask from disk; one of them, the first confirmation render
+  of the corrected-shot fix, loaded a mask the current code would not have
+  made. The other ten are judged safe by reading which commits changed
+  mask-making code between the mask's writing and its reuse, not by
+  recomputing them. It costs the tracker and the part model on every run.
 - **The fix for a corrected shot did not run on its first render, and
   `most central` is measured in the frame's own proportions.** The
   confirmation render of the corrected-shot search (the entry below) loaded

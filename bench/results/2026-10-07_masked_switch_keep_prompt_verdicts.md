@@ -206,6 +206,26 @@ loader at its size before 0.222.0.
   because the video model groups frames 1, 4, 4, 4, 4 and frames 200 to 203
   are one group. Fixed in the node the same evening (`decisions.md`).
 
+- **The fix, confirmed in the node and not in the picture.** With a
+  corrected shot searched again (0.224.0, and 0.225.0's version bump without
+  which the kept mask of the earlier run was loaded and nothing was
+  tracked), the same window's shot table reads: lost from frame 203, taken
+  back on frame 203 at a likeness of 0.97 against 0.869 for the next person,
+  sixteen detections there, the subject on all 360 frames. **The render with
+  that continuous mask does not show the new subject**: in seven stills
+  (frames 190 to 340, not judged on playback) the place where the subject
+  stands is filled with more of the crowd from frame 190 on, where the
+  render before the fix showed the new subject clearly up to frame 203 and
+  the original after it. Not explained. One reading: before the fix the
+  frames after 203 were frozen source with a person standing in that place,
+  and the two-window render had frozen frames of the new subject before the
+  region; with the region open on every frame of a window in which he is
+  small, nothing but the still, the prompt and a near-empty motion reference
+  says a person is there. The small-subject faults of
+  `data/2026-10-07_zoomout_window/README.md` (a margin many times his size,
+  a collapsing part mask) apply to every frame of this window. One render,
+  one seed; no second attempt was made.
+
 ## Also answered the same day
 
 - **The cache on the upper-body recipe:** the owner cannot tell stock from

@@ -75,6 +75,11 @@ pkg = types.ModuleType("_h3pack")
 pkg.__path__ = [str(REPO)]
 sys.modules.setdefault("_h3pack", pkg)
 vm = importlib.import_module("_h3pack.video_mask")
+#: The pack ships with kept masks disabled in code (`video_mask.MASK_REUSE_ENABLED`, 2026-10-07). The store's own
+#: behaviour is still checked here, as it will be when the switch is turned back on, so the cases below run with
+#: it on; `check_disabled` is the case for the shipped state.
+SHIPPED_ENABLED = vm.MASK_REUSE_ENABLED
+vm.MASK_REUSE_ENABLED = True
 ms = importlib.import_module("_h3pack.mask_store")
 
 NODE = "104"
@@ -93,7 +98,8 @@ def _prompt(video="clip.mp4"):
         "103": {"class_type": "SAM3_TrackToMask", "inputs": {"track_data": ["102", 0], "object_indices": ""}},
         NODE: {"class_type": "MiniMaxH3MaskedSource",
                "inputs": {"frames": ["28", 0], "mask": ["103", 0], "segmenter": ["100", 0],
-                          "segmenter_clip": ["100", 1], **h3_config.MASKED_SOURCE}},
+                          # `reuse_mask` on, which the shipped config no longer is: this file checks the store
+                          "segmenter_clip": ["100", 1], **{**h3_config.MASKED_SOURCE, "reuse_mask": True}}},
     }
 
 
@@ -370,8 +376,9 @@ def check_node(problems):
     schema = vm.MiniMaxH3MaskedSource.define_schema()
     ids = [i.id for i in schema.inputs]
     switch = schema.inputs[ids.index("reuse_mask")] if "reuse_mask" in ids else None
-    if switch is None or switch.default is not True or not switch.optional:
-        problems.append("reuse_mask is not an optional input, on by default")
+    if switch is None or switch.default is not False or not switch.optional:
+        problems.append("reuse_mask is not an optional input, off by default (kept masks are disabled in code since "
+                        "2026-10-07; the default goes back on with `video_mask.MASK_REUSE_ENABLED`)")
     # Inputs appended after the switch (the motion reference, 2026-10-05) must be
     # optional, so a saved graph keeps running, and must not reach the kept
     # mask's key, since they do not change the mask.
@@ -385,6 +392,34 @@ def check_node(problems):
     expected_lazy = sorted(vm.LAZY_FOR_MASK + (vm.LAZY_FOR_TABLE, vm.LAZY_FOR_PARTS))
     if lazy != expected_lazy:
         problems.append(f"the lazy inputs are {lazy}, expected {expected_lazy}; `frames` must not be lazy")
+
+
+def check_disabled(problems):
+    """As shipped: no key, so nothing is read and nothing is written, whatever the node's `reuse_mask` says."""
+    if SHIPPED_ENABLED is not False:
+        problems.append(f"video_mask.MASK_REUSE_ENABLED ships as {SHIPPED_ENABLED!r}; it is False until the masked lane is "
+                        "ready for production, by the owner's decision of 2026-10-07, and is turned on by a code change")
+    node, frames = _node(_prompt()), _frames()
+    on = node._mask_key(frames, True)
+    vm.MASK_REUSE_ENABLED = False
+    try:
+        off = node._mask_key(frames, True)
+    finally:
+        vm.MASK_REUSE_ENABLED = True
+    if on is None or off is not None:
+        problems.append(f"with the switch on the key is {on!r} and with it off {off!r}: off must give no key with "
+                        "`reuse_mask` on, and on must give one, or the switch is not what gates the store")
+    text = next((str(i.tooltip) for i in vm.MiniMaxH3MaskedSource.define_schema().inputs if i.id == "reuse_mask"), "")
+    if not SHIPPED_ENABLED and "no effect" not in text:
+        problems.append("`reuse_mask`'s tooltip does not say that it has no effect while kept masks are disabled in code")
+    # the other result kept on disk, a rendered window, is gated the same way (`audio_freeze_song.WINDOW_REUSE_ENABLED`)
+    song = importlib.import_module("_h3pack.audio_freeze_song")
+    if song.WINDOW_REUSE_ENABLED is not False:
+        problems.append(f"audio_freeze_song.WINDOW_REUSE_ENABLED ships as {song.WINDOW_REUSE_ENABLED!r}; it is False until a "
+                        "stored window's key changes when the code does (the owner, 2026-10-07)")
+    source = Path(song.__file__).read_text()
+    if "if WINDOW_REUSE_ENABLED and reuse_windows and root is not None:" not in source:
+        problems.append("the song node's reuse of stored windows is not gated by WINDOW_REUSE_ENABLED")
 
 
 def check_graphs(problems):
@@ -412,6 +447,7 @@ def main() -> int:
             check_key(problems)
             check_store(problems, real)
             check_node(problems)
+            check_disabled(problems)
         finally:
             ms.root = real
     check_graphs(problems)

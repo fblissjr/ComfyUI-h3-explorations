@@ -1261,13 +1261,16 @@ SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="auto
 #: gave an oversized head on a long-haired original, and painting out was
 #: judged worse. `reuse_mask` on keeps the finished mask across runs
 #: (`mask_store.py`); a kept mask is the tracked one's bytes, so it changes
-#: how long a run takes and not what it renders.
+#: how long a run takes and not what it renders. **Off since 2026-10-07 (the
+#: owner: off until the lane is ready for production)**: it does change what
+#: a run renders when the code that makes the mask changed and no
+#: `MASK_VERSION` was bumped, which hid a fix that evening.
 #: `motion_reference` and its two settings (2026-10-05) are the shipped render
 #: as it was: no motion reference. `subject only` with `motion_vae` off is the
 #: masking board's route 1, rendered as an arm before any default moves.
 MASKED_SOURCE = dict(grow_pixels=64, feather_pixels=8, replace="whole subject", paint_out=False,
                      part_phrases="hair, head", part_threshold=0.5, part_margin=8,
-                     composite="only what changed", change_threshold=0.05, reuse_mask=True,
+                     composite="only what changed", change_threshold=0.05, reuse_mask=False,
                      motion_reference="none", motion_short_edge=384, motion_vae=False,
                      start_from="noise", start_top=0.3, start_blur=16, start_knots=1)
 #: **Measured** 2026-10-05 (`bench/results/2026-10-05_masked_v2v_motion_arms.md`):
