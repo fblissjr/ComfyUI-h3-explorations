@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 129 |
+| [the rest](#the-rest) | 130 |
 
 ## check
 
@@ -345,6 +345,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
+| [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
 | [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_encoder_ab_compare.py`](prepare_encoder_ab_compare.py) | Stage two generated clips and build the requested side-by-side API graph. |
