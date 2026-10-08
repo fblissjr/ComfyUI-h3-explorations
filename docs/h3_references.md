@@ -4,7 +4,7 @@
 is, what ComfyUI actually does to it, what it costs, and how to write the
 prompt so the model uses it the way you meant.
 
-last updated: 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
+last updated: 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
 
 Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
 own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
@@ -499,6 +499,25 @@ downstream of the resize matches" until the posterior row below was added.
 | packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:274-320`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
 | condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
 | condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py:499-511`) | **recipe yes, draw no** -- corrected 2026-08-28, see the note below |
+
+**The condition noise level is a setting on both sides (2026-10-08, sglang
+`214347891a`).** sglang takes it per request
+(`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams`,
+`imgvid_cond_noise_aug_for_inference`; the default is resolved in
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/denoising.py::minimax_h3_condition_noise_aug`).
+Core takes it from the conditioning key `minimax_visual_cond_noise_aug`
+(`comfy/model_base.py::MiniMaxH3`, `extra_conds`) and uses the one value as
+the mixing weight and as the timestep label of every visual condition alike:
+keyframes, reference stills and reference video
+(`comfy/ldm/minimax/model.py::MiniMaxH3Model`, `_cond_video_rows` and the
+`seg_t` table of `_forward`). No node of this pack wrote that key at
+`90d5543e`. Since `c7fcae2f` one node sets the level,
+`reference_noise.py::MiniMaxH3ReferenceNoise`, and it does so on the model
+side: a wrapper hands core the payload value directly and the
+conditioning key stays unwritten. A lower value mixes more noise into the
+reference rows and labels them less clean, so it is a way to weaken a
+visual reference without touching the prompt (reasoned from the two
+recipes, not rendered here).
 
 **Four consequences worth carrying away.**
 
@@ -1185,6 +1204,35 @@ retention_analysis:
 
 Graph: `h3_ref_video_edit.json`.
 
+**The vendor's serving path has no edit task (read 2026-10-08, sglang
+`214347891a`).** An edit there is this same request: a reference video and
+a prompt that says it is the source. Its tasks are text, keyframes
+and references (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`),
+a condition is a keyframe or a reference and carries nothing else
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::_ALLOWED_CONDITION_KEYS`),
+and nothing in its own pipeline starts from the source's latent, masks it
+or anchors a frame from it. What follows for anyone reading an edit's
+render:
+
+- **The source's frames are not at the target's time positions.** Every
+  reference block is placed before the target on the time axis, a video
+  block with its soundtrack at one shared origin, and the target starts
+  where the last block ends
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::minimax_h3_packed_sequence_ref2va_blocks`;
+  core's `comfy/ldm/minimax/model.py::PackedLayout` does the same). Frame
+  for frame correspondence is something the model does through attention,
+  not something the layout states.
+- **In space the source does lie over the target when the two have one
+  aspect ratio.** A frame's rows are spread over a span set by its aspect
+  ratio alone, at any resolution
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py::_axis_from_sqrt_area`,
+  and `comfy/ldm/minimax/model.py::_axis_from_sqrt_area`), so a source at
+  the canvas's shape covers the same coordinates as the target, and one of
+  another shape does not.
+
+[`research/sglang_comparison.md`](research/sglang_comparison.md), "Ninth
+read", has the rest of that read.
+
 ### Replace a character, keeping the video as the plate
 
 The same sockets as the edit above, pointed at the opposite question: there
@@ -1396,9 +1444,13 @@ rather than the typed chain, and one loads `fl2va`.
   material.** ComfyUI matches `ref_video_audio_N` to `ref_video_N` on the name
   suffix (`comfy_extras/nodes_minimax_h3.py:313`), so a mis-numbered socket
   silently pairs the wrong track. sglang routes the video material itself into
-  the audio encoder (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:193-202`) and represents an
-  absent soundtrack as a zero-length audio condition to keep block order, so
-  the mistake is not expressible there. This repo's typed video record replaces
+  the audio encoder (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`,
+  the `video` reference rule's `audio_tokenizer_encode`) and represents an
+  absent soundtrack as a zero-length audio condition to keep block order
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py::MiniMaxH3AudioEncodingStage`), so
+  the mistake is not expressible there. *2026-10-08: this cited
+  lines 193-202 of that file, which is no longer where the rule is; the
+  citation is by name now. Re-read at `214347891a`.* This repo's typed video record replaces
   suffix pairing with explicit ownership; native core remains unchanged.
 - **No trim offset.** sglang takes a `start_time_seconds` on every material,
   video and audio alike. ComfyUI has no equivalent; trim upstream.
@@ -1441,8 +1493,12 @@ rather than the typed chain, and one loads `fl2va`.
 - **Confirmed identical, so nobody re-checks it**: the 2 fps subsample for the
   conditioner, including the pad of the index list to the temporal patch with
   the last value, and the merged-pair timestamp
-  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:706-718` against
-  `comfy/text_encoders/minimax.py:170-179`).
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_sample_reference_video_frames` against
+  `comfy/text_encoders/minimax.py`, the `video` branch of the reference
+  items). *2026-10-08: both line ranges cited here had moved (706-718 and
+  170-179), so both citations are by name now. Re-read at sglang
+  `214347891a`: the pad and the pair's mean timestamp are still the same
+  on both sides, and so is the stride.*
 
 **Read but not verified**, from the 2026-08-21 re-derivation and cheap to
 close if it ever matters: what sglang does when a reference video is

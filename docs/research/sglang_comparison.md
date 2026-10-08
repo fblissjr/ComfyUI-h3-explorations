@@ -1,6 +1,7 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-10-02 (closing section "Eighth read" added, with dated
+last updated: 2026-10-08 (closing section "Ninth read" added: frozen audio
+and video inputs, with a dated note in the eighth read); 2026-10-02 (closing section "Eighth read" added, with dated
 notes on the seventh read's ComfyUI sentence, the `kitchen_int8` name and our
 dense-blocks cell); 2026-09-25 (closing section "Seventh read" added); 2026-09-19 (closing section "Sixth read" added, and a dated
 note under the Sol-Attn defaults table); 2026-09-11 (subsection "Sol-Attn
@@ -795,6 +796,9 @@ layout and the sampler. Two consequences:
   it does not multiply the output by the denoise mask, which core does. Its
   only audio test checks shapes. If anyone compares this mode against a stock
   graph, these are the first two places to look.
+  *2026-10-08: this bullet says what the adapter leaves out and not what the
+  worker does with a mask, which is in the ninth read below. Both
+  departures were read again at `214347891a` and stand.*
 
 **Spectrum skip-step (`ae47bcd4da`, #35684) is opt-in**
 (`SamplingParams.enable_spectrum` is False). It forecasts the
@@ -849,3 +853,115 @@ auto-detected. Nothing to adopt.
   `bf8adf9602` puts int64 offsets in the SubBlock router kernels.
 - Everything else is Qwen-Image, Flux 3, other models, NPU, MiniMax-M3 and
   docs, read at the title.
+
+## Ninth read, 2026-10-08
+
+A scoped read, not a walk of commits. The owner asked whether sglang does
+anything with frozen audio, or anything special with a video that is edited,
+continued or rendered in windows. Read at `214347891a`, the clone's head on
+the day, in the H3 stage folder and the files named below; what was not read
+is listed at the end. It is not a read of what landed since the eighth
+read's `89f21671bb`. No renders.
+
+**The answer is no, in sglang's own pipeline.** Each of these was already on
+record and holds at this head:
+
+- **A source track that is reused is a reference audio block and nothing
+  else.** The target's audio starts as noise
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/latent_preparation.py::MiniMaxH3LatentPreparationStage`),
+  is updated like any target row while the reference rows stay pinned
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py::minimax_h3_denoise_loop`),
+  and the file's track is the decoded latent, with no mux of the source's
+  audio (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/decoding.py::MiniMaxH3DecodingStage`).
+  [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 8 owns this; its
+  dated note says which of its items were checked again.
+- **There is no edit, continuation, window or partial-strength path.** One
+  request is one clip inside the duration limits. The newest file in the
+  folder with a promising name, `minimax_h3_rollout.py`, is the t2va RL
+  rollout of the eighth read.
+- **Sampling does not differ by task.** Every task row carries the same
+  shifts
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`),
+  and guidance and the negative prompt are refused at the door
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py::MiniMaxH3VideoModelAdapter`).
+  [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) sections 1 and 8 have the
+  detail.
+
+**What moved: the stage that runs a DiT step for ComfyUI handles denoise
+masks.** The eighth read described that stage and left this out. ComfyUI's
+side forwards the video mask and the audio mask with each step
+(`coderef/sglang/python/sglang/multimodal_gen/apps/ComfyUI_SGLDiffusion/executors/minimax_h3.py::MiniMaxH3Adapter`),
+and the worker turns them into per-row timesteps with core's own formula, on
+target rows only
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/comfyui_step.py::comfyui_payload_to_branch_inputs`,
+`::_overlay_per_row_timesteps`). An audio mask that is one everywhere is
+ignored (`::_audio_mask_values`), as in core. So a row frozen by a mask is
+labelled clean there as it is under core's
+`comfy/ldm/minimax/model.py::MiniMaxH3Model`. What the adapter still does not
+do is scale the returned velocity by the mask, which core does; the eighth
+read's bullet on that stands, so the labels agree and the output scaling
+does not (reasoned, not run). This is core's rule carried over so a ComfyUI
+sampler can drive sglang's DiT. Nothing in sglang's request, task table or
+native loop reaches it, so it is no evidence about training.
+[`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 8 said no mask path
+existed anywhere in the serving code; it is corrected there.
+
+**How its edit-shaped request differs from the whole-frame edit rendered
+here** (a reference video at the canvas size, the source's audio frozen in
+the target rows by a mask, a long clip in windows whose head frames are
+frozen):
+
+- **A sounded reference video always brings its soundtrack as an audio
+  block, with its own label ahead of the video's.** The task table routes
+  the video into the audio encoder with no switch
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_TASK_PROFILES`),
+  and the label is emitted whenever the file has an audio stream
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py::MiniMaxH3TextEncodingStage`).
+  Here the soundtrack is a block only when it is wired. A reference video
+  with no audio block beside a frozen target track is therefore a state
+  sglang cannot produce. The arm that carries both is the hybrid row of
+  [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 2.
+- **Its only way to pin a frame of the target is a still keyframe at the
+  first frame, the last, or both**, and ref2va admits those beside its
+  references
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py::MINIMAX_H3_FL2VA_KEYFRAME_SIGNATURES`).
+  Core's layout places a keyframe or guide at any frame index
+  (`comfy/ldm/minimax/model.py::PackedLayout`), and the window carry here
+  freezes frames by mask, which is ComfyUI's mechanism and not the
+  vendor's.
+- **A reference video is resized to its own shape at the vendor's short
+  edge, whatever the target's, and cut to the target's frame count.** The
+  shape comes from the same resolver the canvas uses, called with the
+  constant and not the request's short edge
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py::minimax_h3_prepare_for_queue`,
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/resolved_plan.py::minimax_h3_resolve_spatial_shape`);
+  one ffmpeg pass sets the rate, the scale, the start offset and the frame
+  cap
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py::minimax_h3_decode_reference_video_frames`).
+  A source with the canvas's aspect ratio, handed in at the canvas size and
+  the window's own length, is what that path would have made of it.
+- **A request may leave the duration out and take it from its one
+  audio-bearing reference**, snapped to the frame grid
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py::_resolve_deferred_temporal_shape`).
+  Length is set by hand here.
+
+The rest belongs to the reference comparison and is written up where that
+lives, [`../h3_references.md`](../h3_references.md): where a reference
+video's rows sit against the target's in time and space ("Edit a source
+video"), and the condition noise level as a setting that both sides have,
+set here by one node since `c7fcae2f` ("The vendor image path, stage by
+stage").
+
+**No default moved, and the adopt-upstream rule does not fire.** Nothing in
+this read is a default of ours that sglang and core agree against.
+
+**Not read:** `stages/visual_encoding.py`, `stages/replica_broadcast.py`,
+`keyframe_encoding.py`, `packed_tokens.py`, `release_metadata.py`, most of
+`video_adapter.py` and `resolved_plan.py`, the DiT forward beyond its mask
+lines, the scheduler, the release's video processor config, and the ComfyUI
+app beyond the H3 executor's pack and unpack. What happens to a reference
+video shorter than the target is still untraced
+([`../h3_references.md`](../h3_references.md), "Known limitations,
+collected"). Line-number citations in the older sections of this file and
+of [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) were not re-verified;
+several have moved.

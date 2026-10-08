@@ -1,6 +1,6 @@
 # Freezing a known audio track: audio-driven video on MiniMax H3
 
-last updated: 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
+last updated: 2026-10-08 (section 8 re-read at a newer sglang head, one sentence narrowed with a dated note); 2026-10-04 (section 4, the song node's `source`: masked video to video; `docs/wiki/masked_v2v.md` is the lane's current map); 2026-09-27 (section 5 idea 9, the TaoMate adapter, removed with that lane); 2026-09-25 (dated notes in sections 3 and 5); 2026-09-15
 
 **The owner of this lane.** Opened 2026-09-12 by the owner: drop a song of any
 length, keep it exactly, and have the picture move to it, the way the owner's
@@ -501,6 +501,19 @@ stage-by-stage authority and this section records only what bears on this
 lane. sglang is where the model's authors work, so what it has and what it
 lacks are both evidence.
 
+*Re-read in part 2026-10-08 at `214347891a`, for the owner's question
+whether sglang does anything with frozen audio. Checked again at that head
+and still so, for sglang's own pipeline: reference audio rows clean and
+pinned, the shared origin of target audio and video, reference audio
+placed before the target, the unused audio mask hook in the DiT forward,
+the per-stream seeding, the duration limits at validation, and the absence
+of any edit, continuation or chunking path. Not checked again: the Video
+DeltaNet layout, the scheduler's two sigma grids, the unit tests and the
+web app named below. One sentence had stopped being true and carries a
+dated note where it stands; the read is
+[`research/sglang_comparison.md`](research/sglang_comparison.md), "Ninth
+read".*
+
 **Reinforced.**
 
 - **Audio rows are always fully visible to every video token.** The Video
@@ -538,11 +551,23 @@ lacks are both evidence.
 **Contradicted, or absent.**
 
 - **No inpainting, retake, mask, extension, continuation, prefix, chunking,
-  looping or streaming path exists anywhere in the H3 serving code.** One
+  looping or streaming path exists in sglang's own H3 pipeline.** One
   request is one clip through a flat stage list. The pipeline's own reject
   list names trajectory output as unsupported "for its coupled video/audio
   denoise state". The web app exposes audio only as a `reference` condition
   and has no target-track input.
+  *2026-10-08: until this date the sentence said "anywhere in the H3 serving
+  code", which one file now contradicts. sglang can run its DiT as the model
+  of a ComfyUI graph, one step per call, and the stage that does it takes
+  ComfyUI's video and audio denoise masks and gives each masked target row
+  the timestep core gives it
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/comfyui_step.py::_audio_mask_values`,
+  `::_overlay_per_row_timesteps`; core's rule is the `audio_denoise_mask`
+  branch of `comfy/ldm/minimax/model.py::MiniMaxH3Model`). An audio row
+  frozen by a mask is therefore labelled clean there as it is here. It is
+  core's rule carried across so that a ComfyUI sampler can drive sglang's
+  DiT: no request field, task or native loop of sglang's can ask for it, so
+  it says nothing about what the checkpoint was trained on.*
 - **Reference audio is not in register with the target.** A reference audio
   block advances the time cursor by its length, and the target audio and
   video start at the new cursor (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py`, the ref2va

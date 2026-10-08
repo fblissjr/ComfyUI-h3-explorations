@@ -15,6 +15,30 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-08
+
+- **sglang's serving code does have one mask path, in the stage a ComfyUI
+  sampler drives; three statements about it are corrected** (a scoped
+  re-read at sglang `214347891a`, asked for by the owner: does sglang do
+  anything with frozen audio or with video inputs).
+  `docs/h3_audio_freeze.md` section 8 used to say "No inpainting, retake,
+  mask, extension, continuation, prefix, chunking, looping or streaming path
+  exists anywhere in the H3 serving code". That holds for sglang's own
+  pipeline and no longer for the whole tree: the stage that runs one DiT
+  step for a ComfyUI graph takes core's video and audio denoise masks and
+  labels masked target rows as core does. The sentence now says "in sglang's
+  own H3 pipeline" and keeps a dated note. `docs/research/sglang_comparison.md`,
+  "Eighth read", described that stage and did not mention its masks; the
+  "Ninth read" there has it, with the rest of the read. Two line citations
+  in `docs/h3_references.md` had moved with their files and are by name now:
+  the soundtrack rule was cited at lines 193-202 of sglang's task
+  profiles and the frame sampling at lines 706-718 of its reference
+  encoding, against lines 170-179 of `comfy/text_encoders/minimax.py`.
+  Nothing else that was checked again in section 8 had moved (its dated
+  note lists what was and was not);
+  the answer to the owner's question is no, and where it is written is
+  `docs/research/sglang_comparison.md`, "Ninth read".
+
 ## 2026-10-07
 
 - **Nothing kept on disk is reused until its key changes when the code
