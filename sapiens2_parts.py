@@ -63,6 +63,15 @@ Reasoned and checked on a painted frame; not yet run on a clip.
    that has one, moved from that frame's subject box to this one's and cut to
    this frame's subject. A frame the subject is not in stays empty: holding a
    part into it would regenerate pixels of a shot they are not in.
+   **A frame in doubt is held too** (2026-10-08). "Found" is one pixel, so a
+   frame where the labels are a sliver of the subject, or lie mostly off
+   their mask, counted as found and kept that sliver: the region downstream
+   was then the sliver and its margin, on whoever stood there, and the
+   subject's own head and chest stayed the original's. `part_coverage.py`
+   already names those frames (nothing on the subject, mostly outside, far
+   under the clip's median); with `hold_missing` on they are treated as not
+   found, and the same hold gives each the nearest trusted frame's part. A
+   clip with no trusted frame is left as it was found.
 
 Nothing is temporal in the model, so a label map can flicker from frame to
 frame. The report says on how many frames each class was seen, which frames
@@ -336,6 +345,7 @@ class Found:
     found: torch.Tensor                      # [N] bool, a chosen class was found on them there
     seen: torch.Tensor                       # [N, classes] long, pixels of each class on the subject
     held: list[int] = field(default_factory=list)       # frames given a neighbour's part
+    doubted: list[int] = field(default_factory=list)    # of those, frames whose own part was found and not trusted
     boxes: dict[int, tuple] = field(default_factory=dict)        # the crop box of each frame run
     labels: dict[int, torch.Tensor] = field(default_factory=dict)  # the label map of each frame in `keep`
     coverage: Coverage | None = None         # how much of the subject `parts` covers, per frame
@@ -424,6 +434,14 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
             "Sapiens2 found none of " + ", ".join(CLASS_NAMES[c] for c in classes) + " on the subject in any frame: "
             "choose other parts, or check that `subject_mask` is the mask of these frames' subject")
     if hold_missing:
+        # One pixel is "found", so a sliver of the subject or labels lying mostly off them got this far. The
+        # frames `part_coverage` doubts by its own rule are treated as not found, and held like the rest
+        # below. Not when that would leave no frame to hold from.
+        doubted = [f for f in summarise(coverage(subject, out.parts)).suspect if bool(out.found[f])]
+        if doubted and len(doubted) < int(out.found.sum()):
+            out.found[doubted] = False
+            out.holds[doubted] = 0.0        # what a hand or the lips held there was read off somebody else's labels
+            out.doubted = doubted
         have = out.found.nonzero().flatten()
         for f in (present & ~out.found).nonzero().flatten().tolist():
             g = int(have[(have - f).abs().argmin()])
@@ -459,7 +477,12 @@ def report(found: Found, classes: tuple[int, ...], crop_margin: int, subject_mar
         lines.append("a taken class was found on every frame the subject is in (one pixel counts; the coverage "
                      "lines say how much)")
     elif hold_missing:
-        lines.append(f"not found on {len(missed)} frames, which took the nearest found frame's part: {ranges(found.held)}")
+        absent = [f for f in missed if f not in set(found.doubted)]
+        if absent:
+            lines.append(f"not found on {len(absent)} frames, which took the nearest found frame's part: {ranges(absent)}")
+        if found.doubted:
+            lines.append(f"found but not trusted on {len(found.doubted)} frames (a sliver of the subject, or mostly "
+                         f"off their mask), which took the nearest trusted frame's part: {ranges(found.doubted)}")
     else:
         lines.append(f"not found on {len(missed)} frames, left empty (hold_missing is off): {ranges(missed)}")
     on_frames = (found.seen > 0).sum(dim=0).tolist()
@@ -671,7 +694,8 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
     #: Source (`mask_store.mask_versions`). Raise it when the same inputs and
     #: settings would give a different mask: the crop, the map back, the cut to
     #: the subject, the menu's classes, the matte's region, how a frame is held.
-    MASK_VERSION = 2
+    #: 3 (2026-10-08): a frame `part_coverage` doubts is held from the nearest trusted frame.
+    MASK_VERSION = 3
 
     @classmethod
     def define_schema(cls):
@@ -717,7 +741,10 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
                 io.Boolean.Input("hold_missing", default=True,
                                  tooltip=("On: a frame where the subject is on screen and none of the chosen parts "
                                           "is found on them takes the part of the nearest frame that has one, "
-                                          "moved to where the subject is. Off: that frame's mask is left empty.")),
+                                          "moved to where the subject is. So does a frame where what was found is "
+                                          "a sliver of the subject or lies mostly off them, which is usually "
+                                          "somebody else's; the report names those frames. Off: every frame's "
+                                          "mask is left as it was found, empty where nothing was.")),
                 # appended 2026-10-07 with the `held` output; saved graphs keep running
                 io.Int.Input("held_near", default=HELD_NEAR, min=1, max=512, optional=True,
                              tooltip=("For the `held` output: how far from the lips or a hand a held thing may "

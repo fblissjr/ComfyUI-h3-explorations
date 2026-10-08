@@ -29,6 +29,14 @@ is graded is everything around the forward pass and nothing in it.
    never leaves the subject.** A frame the subject is not in stays empty.
    Turned off, the missed frame is left empty. With the part found nowhere
    the node refuses; with the subject nowhere it returns empty masks.
+   **A frame in doubt is held as a missed one is** (2026-10-08). A frame
+   whose own labels are a sliver of the subject, and one whose labels lie
+   mostly off the subject's mask, each take the nearest trusted frame's part
+   at this frame's subject; they are named apart from the missed frames, in
+   `Found.doubted` and in the report; nothing they held is kept. The control
+   is the node as it was: with `hold_missing` off the sliver is what comes
+   back, and `part_coverage` doubts the frame. A clip on which every found
+   frame is in doubt has nothing to hold from and is left as found.
 6. **The matte is soft only at the person's edge.** It is the alpha on the
    part and on background within `matte_reach` of it, inside the widened
    subject; a different part beside it gets nothing; with no matting model it
@@ -317,6 +325,53 @@ def check_hold(problems):
         problems.append("hold changed the frame's shape")
 
 
+def check_hold_doubted(problems):
+    """Item 5, second half. Frames 1 and 2 are found (one pixel is) and are not the subject's part."""
+    frames, mask = scene(5)
+    person(frames[0], mask[0], LEFT)
+    # frame 1: the subject is there, and all the model labels on them is two rows of hair: a sliver
+    mask[1, TOP:TOP + TALL, LEFT + 10:LEFT + 10 + WIDE] = 1.0
+    frames[1, TOP + 4:TOP + 6, LEFT + 10:LEFT + 10 + WIDE] = RED
+    # frame 2: the labels lie on a neighbour's edge, in the margin beside the subject's mask, one column on them
+    mask[2, TOP:TOP + TALL, LEFT + 14:LEFT + 14 + WIDE] = 1.0
+    frames[2, TOP:TOP + 24, LEFT + 12:LEFT + 15] = RED
+    person(frames[3], mask[3], LEFT + 20)
+    person(frames[4], mask[4], LEFT + 20)
+    was = run(frames, mask, (HAIR, FACE), hold_missing=False)                 # the control: the node as it was
+    doubt = sp.summarise(sp.coverage(mask, was.parts)).suspect
+    if doubt != [1, 2] or not all(was.found[[1, 2]].tolist()):
+        problems.append(f"the control does not hold two found frames in doubt (doubted {doubt}, found "
+                        f"{was.found.tolist()}); the case tests nothing")
+    if was.doubted or int(was.parts[1].sum()) != 2 * WIDE:
+        problems.append("with hold_missing off a doubted frame did not keep the part it was found with")
+    held = run(frames, mask, (HAIR, FACE), hold_missing=True)
+    if held.doubted != [1, 2] or held.held != [1, 2] or held.found.tolist() != [True, False, False, True, True]:
+        problems.append(f"doubted {held.doubted}, held {held.held}, found {held.found.tolist()}: not the two frames in doubt")
+    for f, left in ((1, LEFT + 10), (2, LEFT + 14)):
+        want = torch.zeros(H, W)
+        want[TOP:TOP + 24, left:left + WIDE] = 1.0
+        if not torch.equal(held.parts[f], want):
+            problems.append(f"a doubted frame ({f}) did not take the nearest trusted frame's part at its own subject")
+        if bool((held.parts[f] * (1.0 - (sp.grow(mask[f:f + 1], 2)[0] > 0.5).float())).any()):
+            problems.append(f"a doubted frame's held part ({f}) reaches outside its subject")
+    if sp.summarise(held.coverage).suspect:
+        problems.append(f"after the hold the node's own coverage still doubts {sp.summarise(held.coverage).suspect}")
+    for f in (0, 3, 4):
+        if not torch.equal(held.parts[f], was.parts[f]):
+            problems.append(f"a trusted frame ({f}) changed when its neighbours were held")
+    text = sp.report(held, (HAIR, FACE), MARGIN, 2, sp.MATTE_REACH, True, SIZE, "stand-in")
+    if "found but not trusted on 2 frames" not in text or "1-2" not in text or "not found on" in text:
+        problems.append("the report does not name the two doubted frames apart from missed ones")
+    # every found frame in doubt (all of them mostly off the subject): nothing to hold from, left as found
+    lone_frames, lone_mask = scene(2)
+    for f in range(2):
+        lone_mask[f, TOP:TOP + TALL, LEFT + 14:LEFT + 14 + WIDE] = 1.0
+        lone_frames[f, TOP:TOP + 24, LEFT + 12:LEFT + 15] = RED
+    lone = run(lone_frames, lone_mask, (HAIR, FACE), hold_missing=True)
+    if lone.doubted or lone.held or not all(lone.found.tolist()):
+        problems.append("a clip whose every found frame is in doubt was not left as found")
+
+
 def check_matte(problems):
     frames, mask = scene()
     person(frames[0], mask[0], LEFT)
@@ -484,14 +539,15 @@ def check_coverage(problems):
     person(frames[1], mask[1], LEFT + 10)
     person(frames[2], mask[2], LEFT + 20, hair=False)
     frames[2, TOP:TOP + 1, LEFT + 20:LEFT + 22] = RED          # two pixels of hair on the third frame
-    found = run(frames, mask, (HAIR,), use_matting=False)
+    # with the hold off, so the frame comes back as it was found: with it on the frame is held (item 5)
+    found = run(frames, mask, (HAIR,), use_matting=False, hold_missing=False)
     again = pc.coverage(mask, found.parts)
     if found.coverage is None or not (torch.equal(found.coverage.covered, again.covered)
                                       and torch.equal(found.coverage.outside, again.outside)):
         problems.append("the node's coverage is not coverage() of the subject mask and the part mask it returns")
     if found.found.tolist() != [True, True, True] or found.held:
         problems.append("the sliver frame is not a found frame, so this case does not hold the fault it is for")
-    text = sp.report(found, (HAIR,), MARGIN, 2, 8, True, SIZE, None)
+    text = sp.report(found, (HAIR,), MARGIN, 2, 8, False, SIZE, None)
     if "under 0.25 of the median on 1 frames: 2" not in text:
         problems.append(f"a part that covers two pixels of the subject on a frame is reported as found and nothing else:\n{text}")
     if "labelled a median of" not in text:
@@ -642,6 +698,7 @@ def main() -> int:
             ("a neighbour inside the crop gives nothing", check_neighbour),
             ("the menu names the classes it says", check_menu),
             ("a missed frame takes its neighbour's part, moved with the subject", check_hold),
+            ("a frame in doubt is held as a missed one is", check_hold_doubted),
             ("the matte is soft only at the person's edge", check_matte),
             ("a mask that is not the frames' is refused by name", check_refusals),
             ("the result does not depend on the batch size", check_batch),
