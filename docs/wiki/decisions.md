@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **A shot corrected by hand is looked for again when its track lets go**
+  (the owner: "lets fix that now"). A corrected shot was tracked once from
+  the corrected seed and left empty from the frame the tracker let go; a
+  window that starts with the subject small, where the automatic pick names
+  somebody else and a correction is the only way to follow him, rendered the
+  original person from that frame to its end. `subject_track.follow` now
+  runs its search on corrected shots as on any other, with the corrected
+  track's own frames as the gallery. The search is still by likeness with a
+  margin; the search by place built the same day is not wired in.
+- **Twelve steps again on the masked ref2va motion graphs: the sixteen of
+  earlier this evening is reversed by the owner on the pair it was waiting
+  for.** Twelve and sixteen on the pull-out window, one seed, everything
+  else the same: "exactly the same" to the owner, a ghosting artifact near
+  five seconds included. `h3_config.MASKED_MOTION_STEPS` is 12 with that
+  verdict as its provenance. The entry below is kept as written.
 - **The masked ref2va motion graphs run sixteen steps, the base count; they
   ran twelve** (the owner: twelve "was set too early in this effort", and it
   is "not time to optimize yet"). `h3_config.MASKED_MOTION_STEPS` now reads

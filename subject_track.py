@@ -120,7 +120,12 @@ core's `initial_mask` path and has none of the three behaviours above.
    person is not put right by this; a subject who comes back looking
    unlike every gallery frame (turned away, far smaller) is not found; and
    a subject who has really left costs a probe every `PROBE_STRIDE` frames
-   to the shot's end. A shot corrected by hand is not searched.
+   to the shot's end. A shot corrected by hand is searched the same way
+   (since 2026-10-07): the correction says who the subject is on the frame
+   the tile shows, not that the tracker will hold them to the shot's end.
+   Until then a corrected shot was tracked once and left empty from the
+   frame the tracker let go, which the first render to pin a small subject
+   by hand showed as the original person for the rest of the window.
 
 **How far the matching can be trusted.** SAM 3's trunk is trained to say what
 a thing is, not who, so people in the same clothes score close together. On
@@ -161,7 +166,8 @@ print; the person number is the one drawn on that shot's tile
 the mask the node already holds there, so the numbers a person reads are the
 numbers that apply, and nothing is detected again. The automatic pass still
 decides which frame each tile shows, and does so the same way with or without
-corrections; a corrected shot is tracked once, from the corrected seed. The
+corrections; a corrected shot is tracked from the corrected seed and, where
+that track lets go, looked for again like any other shot. The
 design is mrhf's (2026-10-05, on the masking board: number the outlines the
 tile already draws, and a correction is two numbers typed off it), and the
 numbering is mrteal's (`shot_table.py`). The owner's ask: the car clip's wrong
@@ -753,7 +759,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     for number in corrections:
         if not 1 <= int(number) <= len(shots):
             raise ValueError(f"corrections: shot {number} is named, and the clip has {len(shots)} shot(s)")
-    by_hand = {id(shots[int(number) - 1]) for number in corrections}   # tracked once, from the corrected seed
+    by_hand = {id(shots[int(number) - 1]) for number in corrections}   # tracked from the corrected seed, below
     result = Followed(shots)
     given = list(gallery or [])
     result.gallery_given = len(given)
@@ -903,6 +909,11 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
             result.pieces[shot.start] = track(shot.start, shot.end, seed, seeds[i])
             regain(shot)
     _correct(result, corrections, detect, track)
+    # A correction says who, not that the tracker will hold them: where the corrected track lets go, look again as
+    # for any other shot. The gallery is the corrected track's own frames (`regain`), so the search is for that person.
+    for number, person in sorted(corrections.items()):
+        if person is not None:
+            regain(result.shots[int(number) - 1])
     return result
 
 
@@ -1014,7 +1025,7 @@ def report(found: Followed, cuts: list[int], pick: str, phrase: str, named_frame
         span = f"[{n}] frames {s.start}-{s.end - 1}"
         if s.corrected:
             lines.append(f"{span}: corrected by hand, {s.corrected} of the {s.candidates} detection(s) on frame {s.shown}"
-                         if s.seed is not None else f"{span}: corrected by hand, nobody taken")
+                         f"{_regained(s)}" if s.seed is not None else f"{span}: corrected by hand, nobody taken")
         elif s.picked:
             lines.append(f"{span}: the picked shot, {s.candidates} detection(s) on frame {s.seed}{_regained(s)}")
         elif s.seed is not None:

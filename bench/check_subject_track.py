@@ -777,6 +777,28 @@ def check_regain(problems):
         problems.append(f"two people within the margin of each other (1.00 and 0.985): tracked {tracked}, regained "
                         f"{got.shots[0].regained}; closer than REGAIN_MARGIN = {st.REGAIN_MARGIN} is a gap, not a guess")
 
+    # A CORRECTED SHOT IS SEARCHED TOO (2026-10-07): the subject named by hand, hidden on 20-23, is taken back at 24.
+    # Left to right the other person is 1 and the subject 2. Before this the corrected track was the only one, and
+    # the shot was empty from frame 20 to its end.
+    gone = lambda f: 20 <= f < 24
+    subject, detect, sign, track, calls = _lost_world(lambda f: not gone(f))
+    got = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, corrections={1: 2})
+    shot = got.shots[0]
+    if calls["track"] != [(0, 48, 3, "subject"), (20, 48, 24, "subject")] or not _near(shot.regained, [(20, 24, 2, 1.0, 0.0)]):
+        problems.append(f"`shot 1: person 2`, hidden on 20-23: tracked {calls['track']}, regained {shot.regained}; a corrected "
+                        "shot is looked for again where its track lets go, like any other")
+    mask = st.assemble(48, H, W, got.pieces)
+    if float(mask[20:24].sum()) or not all(torch.equal(mask[f], subject) for f in (19, 24, 47)) or st._state(shot) != "taken (corrected)":
+        problems.append("the corrected shot's mask is not the subject's on 0-19 and 24-47 with 20-23 empty")
+    if "corrected by hand, person 2" not in (text := st.report(got, [], st.PICK_LARGEST, "person", True, True, 1.0)) \
+            or "found again on frame 24" not in text:
+        problems.append("the report of a corrected shot does not say where the subject was found again")
+    # and a correction to somebody the tracker holds throughout costs no search
+    subject, detect, sign, track, calls = _lost_world(lambda f: True)
+    got = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, corrections={1: 1})
+    if calls["track"] != [(0, 48, 3, "other")] or got.shots[0].regained or got.shots[0].probes:
+        problems.append(f"`shot 1: person 1` in a world where nobody is ever hidden: tracked {calls['track']}, probes {got.shots[0].probes}")
+
     # THE HAND-OVER: an earlier run's gallery picks the subject here, where the pick rule would take somebody else
     subject, detect, sign, track, calls = _lost_world(lambda f: True)
     first = st.follow(48, [], st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1)
