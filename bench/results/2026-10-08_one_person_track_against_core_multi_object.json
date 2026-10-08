@@ -1,0 +1,622 @@
+{
+ "record": "2026-10-08_one_person_track_against_core_multi_object",
+ "date": "2026-10-08",
+ "what": "One load of one clip, tracked twice on the same server: by core's SAM3_VideoTrack with the phrase alone, and by this pack's MiniMaxH3SubjectTrack told which person on a named frame.",
+ "load": {
+  "node": "VHS_LoadVideoFFmpeg",
+  "video": "lotsofpeopledance_0414_0720.mkv",
+  "start_time": 4.0,
+  "frame_load_cap": 855,
+  "force_rate": 24.0,
+  "custom_width": 1344,
+  "custom_height": 768,
+  "format": "AnimateDiff"
+ },
+ "checkpoint": "sam3.1_multiplex_fp32.safetensors",
+ "host": {
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "driver": "615.71.09",
+  "cpu": "13th Gen Intel(R) Core(TM) i9-13900K",
+  "from": "bench/hwinfo.py, 2026-10-08, during a render"
+ },
+ "versions": {
+  "comfyui": "v0.39.0-20-gb00c6e952",
+  "core_pass": {
+   "prompt_started_local": "10:07:43",
+   "server_started_local": "08:58",
+   "pack_head_then": "c0f909ab",
+   "note": "core's nodes only; no code of this pack runs in that graph"
+  },
+  "our_pass": {
+   "prompt_started_local": "10:16:59",
+   "server_started_local": "10:16:45",
+   "pack_head_then": "683bd73d",
+   "note": "the first prompt after a restart, so the checkpoint was loaded cold"
+  },
+  "our_mask_the_objects_were_compared_against": {
+   "prompt_started_local": "09:37:13",
+   "server_started_local": "08:58",
+   "pack_head_then": "c0f909ab"
+  },
+  "subject_track_last_changed_in": "5c7e963b",
+  "subject_track_note": "subject_track.py is the same file at c0f909ab and 683bd73d (git diff is empty), and was not among the files with uncommitted work when the earlier server started",
+  "subject_track_mask_version": 10
+ },
+ "core": {
+  "node": "SAM3_VideoTrack",
+  "inputs": {
+   "phrase_through_CLIPTextEncode": "person",
+   "detection_threshold": 0.5,
+   "max_objects": 0,
+   "detect_interval": 1
+  },
+  "internal_object_cap": 64,
+  "internal_object_cap_from": "comfy/ldm/sam3/tracker.py::INTERNAL_MAX_OBJECTS, which max_objects 0 selects",
+  "prompt_id": "db5d555c-a8ea-4655-976f-3c0fd209d2b6",
+  "whole_prompt_seconds": 148.6,
+  "whole_prompt_seconds_covers": "the whole queued graph by /history's start and success times: the video load, the checkpoint, the tracking and the preview's encode. No node output was reused from an earlier prompt (execution_cached lists none); whether the checkpoint's weights were already in memory is not known.",
+  "preview": {
+   "file": "sam3_track_preview_814fe779.mp4, core's SAM3_TrackPreview, in the server's temp folder (wiped at the restart; a copy is in a session scratchpad, not kept)",
+   "filled_share_is": "pixels where the preview differs from the source at the loader's framing by more than 48 levels in any channel, as a share of the frame; it covers every object id the tracker held, not only those written as masks",
+   "frames_with_a_fill": 526,
+   "last_frame_with_a_fill": 525,
+   "filled_share_of_the_picture_every_25th_frame": {
+    "0": 0.7992,
+    "25": 0.7943,
+    "50": 0.8404,
+    "75": 0.8026,
+    "100": 0.8372,
+    "125": 0.836,
+    "150": 0.828,
+    "175": 0.8543,
+    "200": 0.8427,
+    "225": 0.8367,
+    "250": 0.8393,
+    "275": 0.8387,
+    "300": 0.8396,
+    "325": 0.8403,
+    "350": 0.8471,
+    "375": 0.8404,
+    "400": 0.7992,
+    "425": 0.7873,
+    "450": 0.7959,
+    "475": 0.8406,
+    "500": 0.8288,
+    "525": 0.0441,
+    "550": 0.0,
+    "575": 0.0,
+    "600": 0.0,
+    "625": 0.0,
+    "650": 0.0,
+    "675": 0.0,
+    "700": 0.0,
+    "725": 0.0,
+    "750": 0.0,
+    "775": 0.0,
+    "800": 0.0,
+    "825": 0.0,
+    "850": 0.0
+   },
+   "filled_share_on_frames_505_to_530_every_5th": {
+    "505": 0.7907,
+    "510": 0.7427,
+    "515": 0.336,
+    "520": 0.0464,
+    "525": 0.0441,
+    "530": 0.0
+   }
+  },
+  "object_ids_written_as_masks": [0, 31],
+  "object_ids_not_written": "ids from 32 up exist (numbers up to 63 were read off the preview on one frame, 514) and were not written as masks; everything below that is per id covers ids 0 to 31 only",
+  "per_id": {
+   "0": {
+    "frames_with_a_mask": 526,
+    "first": 0,
+    "last": 525,
+    "spans": [
+     [0, 525]
+    ]
+   },
+   "1": {
+    "frames_with_a_mask": 512,
+    "first": 0,
+    "last": 511,
+    "spans": [
+     [0, 511]
+    ]
+   },
+   "2": {
+    "frames_with_a_mask": 271,
+    "first": 0,
+    "last": 504,
+    "spans": [
+     [0, 64],
+     [81, 87],
+     [264, 446],
+     [448, 450],
+     [492, 504]
+    ]
+   },
+   "3": {
+    "frames_with_a_mask": 513,
+    "first": 0,
+    "last": 512,
+    "spans": [
+     [0, 512]
+    ]
+   },
+   "4": {
+    "frames_with_a_mask": 512,
+    "first": 0,
+    "last": 511,
+    "spans": [
+     [0, 511]
+    ]
+   },
+   "5": {
+    "frames_with_a_mask": 512,
+    "first": 0,
+    "last": 511,
+    "spans": [
+     [0, 511]
+    ]
+   },
+   "6": {
+    "frames_with_a_mask": 511,
+    "first": 0,
+    "last": 510,
+    "spans": [
+     [0, 510]
+    ]
+   },
+   "7": {
+    "frames_with_a_mask": 501,
+    "first": 0,
+    "last": 512,
+    "spans": [
+     [0, 58],
+     [69, 69],
+     [71, 75],
+     [77, 512]
+    ]
+   },
+   "8": {
+    "frames_with_a_mask": 512,
+    "first": 0,
+    "last": 511,
+    "spans": [
+     [0, 511]
+    ]
+   },
+   "9": {
+    "frames_with_a_mask": 510,
+    "first": 0,
+    "last": 512,
+    "spans": [
+     [0, 93],
+     [95, 128],
+     [131, 512]
+    ]
+   },
+   "10": {
+    "frames_with_a_mask": 510,
+    "first": 0,
+    "last": 509,
+    "spans": [
+     [0, 509]
+    ]
+   },
+   "11": {
+    "frames_with_a_mask": 512,
+    "first": 0,
+    "last": 511,
+    "spans": [
+     [0, 511]
+    ]
+   },
+   "12": {
+    "frames_with_a_mask": 16,
+    "first": 8,
+    "last": 254,
+    "spans": [
+     [8, 8],
+     [44, 46],
+     [69, 69],
+     [71, 75],
+     [248, 252],
+     [254, 254]
+    ]
+   },
+   "13": {
+    "frames_with_a_mask": 456,
+    "first": 47,
+    "last": 512,
+    "spans": [
+     [47, 48],
+     [59, 512]
+    ]
+   },
+   "14": {
+    "frames_with_a_mask": 8,
+    "first": 49,
+    "last": 376,
+    "spans": [
+     [49, 49],
+     [368, 370],
+     [372, 373],
+     [375, 376]
+    ]
+   },
+   "15": {
+    "frames_with_a_mask": 183,
+    "first": 50,
+    "last": 509,
+    "spans": [
+     [50, 50],
+     [56, 64],
+     [71, 104],
+     [250, 250],
+     [252, 312],
+     [433, 509]
+    ]
+   },
+   "16": {
+    "frames_with_a_mask": 351,
+    "first": 66,
+    "last": 509,
+    "spans": [
+     [66, 66],
+     [68, 72],
+     [74, 74],
+     [165, 165],
+     [167, 509]
+    ]
+   },
+   "17": {
+    "frames_with_a_mask": 362,
+    "first": 149,
+    "last": 510,
+    "spans": [
+     [149, 510]
+    ]
+   },
+   "18": {
+    "frames_with_a_mask": 303,
+    "first": 162,
+    "last": 511,
+    "spans": [
+     [162, 170],
+     [174, 193],
+     [238, 511]
+    ]
+   },
+   "19": {
+    "frames_with_a_mask": 248,
+    "first": 178,
+    "last": 512,
+    "spans": [
+     [178, 386],
+     [473, 473],
+     [475, 512]
+    ]
+   },
+   "20": {
+    "frames_with_a_mask": 313,
+    "first": 199,
+    "last": 511,
+    "spans": [
+     [199, 511]
+    ]
+   },
+   "21": {
+    "frames_with_a_mask": 296,
+    "first": 211,
+    "last": 509,
+    "spans": [
+     [211, 225],
+     [227, 227],
+     [229, 257],
+     [259, 509]
+    ]
+   },
+   "22": {
+    "frames_with_a_mask": 295,
+    "first": 216,
+    "last": 510,
+    "spans": [
+     [216, 510]
+    ]
+   },
+   "23": {
+    "frames_with_a_mask": 276,
+    "first": 232,
+    "last": 510,
+    "spans": [
+     [232, 232],
+     [236, 510]
+    ]
+   },
+   "24": {
+    "frames_with_a_mask": 236,
+    "first": 242,
+    "last": 490,
+    "spans": [
+     [242, 421],
+     [434, 434],
+     [436, 490]
+    ]
+   },
+   "25": {
+    "frames_with_a_mask": 259,
+    "first": 243,
+    "last": 510,
+    "spans": [
+     [243, 245],
+     [247, 247],
+     [251, 251],
+     [257, 510]
+    ]
+   },
+   "26": {
+    "frames_with_a_mask": 250,
+    "first": 261,
+    "last": 510,
+    "spans": [
+     [261, 510]
+    ]
+   },
+   "27": {
+    "frames_with_a_mask": 236,
+    "first": 269,
+    "last": 511,
+    "spans": [
+     [269, 269],
+     [277, 511]
+    ]
+   },
+   "28": {
+    "frames_with_a_mask": 224,
+    "first": 286,
+    "last": 509,
+    "spans": [
+     [286, 509]
+    ]
+   },
+   "29": {
+    "frames_with_a_mask": 157,
+    "first": 296,
+    "last": 487,
+    "spans": [
+     [296, 296],
+     [311, 317],
+     [334, 336],
+     [338, 413],
+     [415, 423],
+     [425, 478],
+     [481, 487]
+    ]
+   },
+   "30": {
+    "frames_with_a_mask": 212,
+    "first": 300,
+    "last": 511,
+    "spans": [
+     [300, 511]
+    ]
+   },
+   "31": {
+    "frames_with_a_mask": 183,
+    "first": 300,
+    "last": 511,
+    "spans": [
+     [300, 300],
+     [302, 338],
+     [349, 349],
+     [351, 423],
+     [427, 445],
+     [453, 456],
+     [464, 511]
+    ]
+   }
+  },
+  "id_on_our_subject": {
+   "rule": "the written object that covers the largest share of this pack's own mask of the subject on that frame, when that share is at least 0.3",
+   "runs": [
+    {
+     "id": 0,
+     "from": 0,
+     "to": 525
+    },
+    {
+     "id": null,
+     "from": 526,
+     "to": 854
+    }
+   ],
+   "share_of_our_mask_id_0_covers_over_its_run": {
+    "lowest": 0.744,
+    "on_frame": 274,
+    "median": 0.991
+   }
+  },
+  "the_person_in_front_275_to_315": {
+   "id": 9,
+   "id_from": "the lead read it off the preview at frame 303; this record's script found id 9 next to the subject on every frame of the range",
+   "frames_in_range": 41,
+   "frames_id_9_holds_a_mask": 41,
+   "frames_id_0_holds_a_mask": 41,
+   "other_ids_within_16_px_of_the_subject_by_frames": {
+    "3": 41,
+    "6": 41,
+    "8": 41,
+    "9": 41,
+    "13": 41,
+    "11": 39,
+    "2": 27
+   }
+  },
+  "objects_0_to_31_holding_a_mask": {
+   "as_runs_of_frames": "[count, first frame, last frame]",
+   "runs": [
+    [12, 0, 7],
+    [13, 8, 8],
+    [12, 9, 43],
+    [13, 44, 50],
+    [12, 51, 55],
+    [13, 56, 64],
+    [11, 65, 65],
+    [12, 66, 66],
+    [11, 67, 67],
+    [12, 68, 68],
+    [14, 69, 69],
+    [12, 70, 70],
+    [15, 71, 72],
+    [14, 73, 73],
+    [15, 74, 74],
+    [14, 75, 75],
+    [12, 76, 76],
+    [13, 77, 80],
+    [14, 81, 87],
+    [13, 88, 93],
+    [12, 94, 94],
+    [13, 95, 104],
+    [12, 105, 128],
+    [11, 129, 130],
+    [12, 131, 148],
+    [13, 149, 161],
+    [14, 162, 164],
+    [15, 165, 165],
+    [14, 166, 166],
+    [15, 167, 170],
+    [14, 171, 173],
+    [15, 174, 177],
+    [16, 178, 193],
+    [15, 194, 198],
+    [16, 199, 210],
+    [17, 211, 215],
+    [18, 216, 225],
+    [17, 226, 226],
+    [18, 227, 227],
+    [17, 228, 228],
+    [18, 229, 231],
+    [19, 232, 232],
+    [18, 233, 235],
+    [19, 236, 237],
+    [20, 238, 241],
+    [21, 242, 242],
+    [22, 243, 245],
+    [21, 246, 246],
+    [22, 247, 249],
+    [23, 250, 252],
+    [22, 253, 253],
+    [23, 254, 254],
+    [22, 255, 256],
+    [23, 257, 257],
+    [22, 258, 258],
+    [23, 259, 260],
+    [24, 261, 263],
+    [25, 264, 268],
+    [26, 269, 269],
+    [25, 270, 276],
+    [26, 277, 285],
+    [27, 286, 295],
+    [28, 296, 296],
+    [27, 297, 299],
+    [29, 300, 300],
+    [28, 301, 301],
+    [29, 302, 310],
+    [30, 311, 312],
+    [29, 313, 317],
+    [28, 318, 333],
+    [29, 334, 336],
+    [28, 337, 337],
+    [29, 338, 338],
+    [28, 339, 348],
+    [29, 349, 349],
+    [28, 350, 350],
+    [29, 351, 367],
+    [30, 368, 370],
+    [29, 371, 371],
+    [30, 372, 373],
+    [29, 374, 374],
+    [30, 375, 376],
+    [29, 377, 386],
+    [28, 387, 413],
+    [27, 414, 414],
+    [28, 415, 421],
+    [27, 422, 423],
+    [25, 424, 424],
+    [26, 425, 426],
+    [27, 427, 432],
+    [28, 433, 433],
+    [29, 434, 434],
+    [28, 435, 435],
+    [29, 436, 445],
+    [28, 446, 446],
+    [27, 447, 447],
+    [28, 448, 450],
+    [27, 451, 452],
+    [28, 453, 456],
+    [27, 457, 463],
+    [28, 464, 472],
+    [29, 473, 473],
+    [28, 474, 474],
+    [29, 475, 478],
+    [28, 479, 480],
+    [29, 481, 487],
+    [28, 488, 490],
+    [27, 491, 491],
+    [28, 492, 504],
+    [27, 505, 509],
+    [22, 510, 510],
+    [16, 511, 511],
+    [6, 512, 512],
+    [1, 513, 525],
+    [0, 526, 854]
+   ],
+   "most_on_one_frame": 30
+  }
+ },
+ "ours": {
+  "node": "MiniMaxH3SubjectTrack",
+  "inputs": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "a frame I name",
+   "pick_frame": 4,
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": ""
+  },
+  "prompt_id": "89ed211e-2a37-4b64-83d1-2a322bea80b3",
+  "node_report": {
+   "shots": 1,
+   "frames": 855,
+   "subject_on_screen_frames": 855,
+   "detections_on_the_pick_frame": 12,
+   "let_go_on_frame": 207,
+   "found_again_on_frame": 207,
+   "similarity_to_the_shots_own_track": 0.99,
+   "next_person_there": 0.81,
+   "detections_there": 16,
+   "seconds": 108
+  },
+  "seconds_covers": "the node's own figure in its report: its cut scores, detections, tracking and the search after the let-go. Not the whole prompt, which also ran the part model and wrote previews (296.7 s by /history).",
+  "mask_compared_against": {
+   "file": "the track mask of prompt 78ca36e7-8997-438a-9f7a-78301172f531: the same node and inputs on a 957-frame load of the same clip from the same start; its first 855 frames were used",
+   "frames_with_a_mask_of_the_first_855": 855
+  }
+ },
+ "produced_by": "scratch scripts, not kept: one that reads each object's lossless grey video against this pack's track mask, one that compares core's preview with the source. The figures above are their whole output.",
+ "not_shown": [
+  "One clip, one load, one detection threshold, one phrase, one run of each; nothing was repeated.",
+  "Core ran at its own cap of 64 objects with detection on every frame; a higher cap does not exist in the node, and no other detect_interval was tried.",
+  "The two were not given the same task: core was given the phrase and tracks everyone; this pack's node was told which person, by a rule on a frame a person named, and tracks only that one.",
+  "The two times do not cover the same work and cache state is not known for either; they are not a speed comparison.",
+  "Whether either mask is on the right pixels was not graded: the figures say an id held a mask and how much of this pack's mask it covered, not that either outline is correct.",
+  "Nothing here says which is the better tracker in general."
+ ]
+}
