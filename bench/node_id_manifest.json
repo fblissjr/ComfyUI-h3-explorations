@@ -326,7 +326,8 @@
       "start_blur",
       "start_knots",
       "shot_table",
-      "keep"
+      "keep",
+      "grow_by"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

@@ -237,6 +237,7 @@
         0
       ],
       "grow_pixels": 64,
+      "grow_by": "a fixed margin",
       "feather_pixels": 8,
       "replace": "the wired parts",
       "paint_out": false,

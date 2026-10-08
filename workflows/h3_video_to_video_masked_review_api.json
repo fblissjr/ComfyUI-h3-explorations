@@ -239,6 +239,7 @@
         0
       ],
       "grow_pixels": 64,
+      "grow_by": "a fixed margin",
       "feather_pixels": 8,
       "replace": "whole subject",
       "paint_out": false,

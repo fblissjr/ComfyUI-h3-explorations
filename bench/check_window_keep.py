@@ -242,6 +242,20 @@ def main() -> int:
             assert not hits(wk.latent_key(src, vae, 0, 5, 64, 32), wk.latent_key(a, vae, 0, 5, 64, 32))
     case("the latent key holds the mask only under paint_out or a late start", latent_mask_only_when_encoded)
 
+    def latent_margin_rule():
+        vae = Vae()
+        fixed = source(paint_out=True, grow_by=wk.GROW_FIXED, feather_pixels=2)
+        scaled = dict(fixed, grow_by=wk.GROW_SUBJECT)
+        key = lambda s: wk.latent_key(s, vae, 0, 5, 64, 32)
+        assert not hits(key(fixed), key(scaled)), "an encode painted out under one margin rule was handed to the other"
+        assert not hits(key(scaled), key(dict(scaled, feather_pixels=12))), \
+            "under the subject's size the feather is the margin's floor, and another feather still hit"
+        assert hits(key(fixed), key(dict(fixed, feather_pixels=12))), "under a fixed margin the feather does not move the hole"
+        plain = source(grow_by=wk.GROW_FIXED, feather_pixels=2)
+        assert hits(key(plain), key(dict(plain, grow_by=wk.GROW_SUBJECT))), \
+            "with nothing painted out the plate's encode does not depend on the margin"
+    case("the latent key holds the margin's rule, and its floor when the rule reads the subject", latent_margin_rule)
+
     def latent_window_canvas_vae():
         vae, src = Vae(), source()
         base = wk.latent_key(src, vae, 0, 5, 64, 32)
@@ -334,6 +348,7 @@ def main() -> int:
     def constants():
         vm = load("video_mask")
         assert wk.START_NOISE == vm.START_NOISE and wk.MOTION_NONE == vm.MOTION_NONE and wk.MOTION_ZOOM == vm.MOTION_ZOOM
+        assert wk.GROW_FIXED == vm.GROW_FIXED and wk.GROW_SUBJECT == vm.GROW_SUBJECT
         return f"{wk.START_NOISE!r}, {wk.MOTION_NONE!r}, {wk.MOTION_ZOOM!r}"
     case("START_NOISE, MOTION_NONE and MOTION_ZOOM are video_mask.py's", constants)
 

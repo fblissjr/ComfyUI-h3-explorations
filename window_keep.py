@@ -214,11 +214,13 @@ class Keep:
 LATENTS = Keep("source latent", LATENT_BYTES)
 CONDS = Keep("conditioning", COND_BYTES)
 
-#: `video_mask.START_NOISE`, `video_mask.MOTION_NONE` and `video_mask.MOTION_ZOOM`, restated so this
+#: `video_mask.START_NOISE`, `MOTION_NONE`, `MOTION_ZOOM`, `GROW_FIXED` and `GROW_SUBJECT`, restated so this
 #: module imports nothing from the pack at load; `bench/check_window_keep.py` holds them to the originals.
 START_NOISE = "noise"
 MOTION_NONE = "none"
 MOTION_ZOOM = "subject only, zoomed in"
+GROW_FIXED = "a fixed margin"
+GROW_SUBJECT = "the subject's size"
 
 
 def _vae_dtypes(vae) -> tuple:
@@ -241,7 +243,11 @@ def latent_key(source: dict, vae, first_frame: int, frames: int, width: int, hei
     static = ("latent", int(first_frame), int(frames), int(width), int(height), _vae_dtypes(vae),
               bool(source.get("paint_out")), source.get("start_from", START_NOISE) if late else None,
               int(source["start_blur"]) if late else None,
-              int(source["grow_pixels"]) if masked else None)
+              # what the hole is widened by: the cap, the rule, and under the subject's size the feather,
+              # which is that margin's floor (`video_mask.margins`); the mask it reads is among `alive`
+              (int(source["grow_pixels"]), source.get("grow_by"),
+               int(source.get("feather_pixels", 0)) if source.get("grow_by") == GROW_SUBJECT else None)
+              if masked else None)
     alive = (source["frames"], vae) + ((source["mask"],) if masked else ())
     return static, alive
 
@@ -266,6 +272,8 @@ def cond_key(clip, text: str, frames: int, width: int, height: int, references, 
             framed = (None if rows is None
                       else tuple(rows[int(first_frame):int(first_frame) + int(frames)].flatten().tolist()),
                       str(source.get("shot_table") or ""))
+        # the widening is half of `grow_pixels` under either `grow_by` (`video_mask.motion_widening`), so the
+        # choice is not in this key; it is in the latent's above, where the region's margin is
         moving = (source["motion_reference"], int(source["motion_short_edge"]), int(source["grow_pixels"]) // 2,
                   bool(source.get("motion_vae", False)), int(first_frame), framed)
         with_source = (source["frames"], source["mask"])

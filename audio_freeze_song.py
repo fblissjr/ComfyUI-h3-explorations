@@ -483,8 +483,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 raise ValueError(
                     f"the source video has {have} frames and window {beyond[0]} of {n_windows} starts past "
                     f"its end: load more of it at {FPS} fps (the loader's frame cap), or shorten `extent`")
-            lines.append(f"source video: {have} frames, mask grown {source['grow_pixels']} px, "
-                         f"blend {source['feather_pixels']} px"
+            grown = video_mask.source_margins(source, 0, have, int(width) * int(height))
+            lines.append(f"source video: {have} frames, mask grown {video_mask.margin_note(grown)}"
+                         + (f" ({source['grow_by']}, at most {source['grow_pixels']} px)"
+                            if torch.is_tensor(grown) else "")
+                         + f", blend {source['feather_pixels']} px"
                          + (", subject painted out before the encode" if source.get("paint_out") else "")
                          + ((f", sampling starts {int(source['start_knots'])} knot(s) late: the top "
                              f"{100.0 * float(source['start_top']):.0f}% of the subject from the original blurred by "
@@ -555,8 +558,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
                     boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
                              if motion == video_mask.MOTION_ZOOM else None)
+                    # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
+                    # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
                     ref_frames = video_mask.motion_reference(
-                        pixels, mask, motion, int(source["motion_short_edge"]), int(source["grow_pixels"]) // 2, boxes)
+                        pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source),
+                        boxes)
                     if boxes is not None:
                         reports.append(f"[{w.number}] motion reference zoomed in: "
                                        + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
@@ -610,6 +616,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 empty_video, empty_audio = latent["samples"].unbind()
                 src_pixels, src_encode, src_tokens, src_mask, held = video_mask.window(
                     source, int(round(w.start * FPS)), w.frames, width, height, *empty_video.shape[2:])
+                # the margin `window` grew the region by, for the report and the composite below
+                margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames,
+                                                   int(width) * int(height))
                 if held:
                     # of the frames the source cannot give, those past the track are sampled on and dropped
                     past = min(int(held), w.frames - (context_frames if i or head else 0) - writes[i])
@@ -632,7 +641,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                         f"the video VAE returned {tuple(z.shape)} for a {w.frames}-frame window; the "
                         f"window's latent is {tuple(empty_video.shape)}")
                 z = z.to(device=empty_video.device, dtype=empty_video.dtype)
-                empty = video_mask.start_zero_tokens(source, src_mask, src_tokens)
+                empty = video_mask.start_zero_tokens(source, src_mask, src_tokens, int(round(w.start * FPS)))
                 if empty is not None:
                     # H3's latent has no shift and a scale of one (`comfy/latent_formats.py::MiniMaxH3Video`),
                     # so a zero here is a zero for the model: these tokens carry no source into a late start
@@ -655,7 +664,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 wlatent["noise_mask"] = comfy.nested_tensor.NestedTensor(
                     (torch.minimum(frozen_video, src_tokens[None, None].to(frozen_video)), frozen_audio))
                 reports.append(f"[{w.number}] source kept outside the mask: "
-                               f"{100.0 * float(src_tokens.mean()):.1f}% of the window's video tokens regenerate")
+                               f"{100.0 * float(src_tokens.mean()):.1f}% of the window's video tokens regenerate"
+                               + (f"; the region's margin is {video_mask.margin_note(margin)} over the window "
+                                  f"({source['grow_by']})" if torch.is_tensor(margin) else ""))
 
             mark("window setup")
             untouched = src_tokens is not None and not bool(src_tokens.any())
@@ -698,7 +709,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 if source.get("composite") == video_mask.COMPOSITE_CHANGED:
                     # the render is kept only where it changed the picture or the old subject stood
                     alpha = video_mask.changed_alpha(images, src_pixels, src_tokens, src_mask,
-                                                     source["feather_pixels"], int(source["grow_pixels"]) // 2,
+                                                     source["feather_pixels"], margin // 2,
                                                      source["change_threshold"])
                     whole = float(video_mask.pixel_alpha(src_tokens, height, width, 0).mean())
                     reports.append(f"[{w.number}] composite keeps only what changed: "

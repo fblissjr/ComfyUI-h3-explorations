@@ -34,6 +34,18 @@ source's own pixels go back, with the boundary feathered. `grow_pixels` is
 what keeps the feather on background: the blend reaches `feather_pixels` into
 the regenerated region, and the subject sits at least `grow_pixels` inside it.
 
+**The margin's size** (`grow_by`, 2026-10-08). `a fixed margin` is
+`grow_pixels` on every frame. `the subject's size` takes it per frame from the
+mask's own area (`margins`: a share of its square root, steadied over time by
+a running median, capped at `grow_pixels`, never under `feather_pixels`), for
+a subject who is small in the frame: a fixed margin there is several times
+their own area and the region holds the people round them. Every place that
+widens a source's mask reads `source_margins`, half of it where half was read
+before, so the region, the preview, the report and the composite move
+together. The motion reference's widening does not follow: it stays half of
+`grow_pixels` on every frame (`motion_widening` says why). The token grid still
+rounds the region out to whole tokens, which a small margin cannot go under.
+
 **What gets replaced** (`replace`, owner 2026-10-04: "it should be a choice on
 a node"). `whole subject` regenerates the tracked person. `head and hair`
 keeps the body below the hair, its clothes and its movement as the source's
@@ -208,6 +220,24 @@ REPLACE_PARTS = "the wired parts"
 #: twice a DiT token of canvas "preserved identity better" than one, which
 #: was the first, reasoned value. One seed each.
 GROW_PIXELS = 64
+#: The `grow_by` choices. The first is the node as it was: `grow_pixels` on every frame. The second takes the
+#: margin from the subject's own size on each frame, with `grow_pixels` as its cap, because a margin fixed in
+#: pixels is a thin border round a close subject and several times a small one's own area: the region then
+#: holds the people round them (`bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`, section 5;
+#: the owner, 2026-10-07: "so we made the hole too big"). Not the default until a pair has been judged.
+GROW_FIXED = "a fixed margin"
+GROW_SUBJECT = "the subject's size"
+GROW_BY = (GROW_FIXED, GROW_SUBJECT)
+#: Under `the subject's size`: the margin as a share of the square root of the mask's area on the frame.
+#: Reasoned, 2026-10-08, not rendered: a little over `GROW_PIXELS` against that root on the close subject the
+#: fixed margin was chosen on, so a subject that close keeps the margin it has today.
+GROW_SHARE = 0.15
+#: Frames to each side that the area's running median reads before the margin is taken from it (`steady`).
+#: Reasoned: a median is not moved by outliers that number under half its window, so a part mask that collapses
+#: on fewer than this many frames of any stretch that long cannot pull the margin down with it. On the clip this
+#: was written for the frames a part report put in doubt stay under that in every such stretch, with little to
+#: spare; the part node now holds those frames (`sapiens2_parts.py`), so the area seldom collapses there at all.
+GROW_STEADY = 24
 #: The `composite` choices. The second is the default: it is the composite of
 #: the render the owner called the best (2026-10-04, one clip).
 COMPOSITE_REGION = "whole region"
@@ -249,7 +279,7 @@ PART_THRESHOLD = 0.5
 #: tell a mask made by yesterday's logic from today's (the owner, the same evening).
 MASK_REUSE_ENABLED = False
 
-MASK_KEY_SKIP = ("grow_pixels", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
+MASK_KEY_SKIP = ("grow_pixels", "grow_by", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
                  "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep")
 #: `start_from` choices: what the regenerated tokens start from.
@@ -372,13 +402,29 @@ GROW_COARSE_FROM = 16
 GROW_COARSE = 4
 
 
-def grow(mask: torch.Tensor, pixels: int) -> torch.Tensor:
+def grow(mask: torch.Tensor, pixels) -> torch.Tensor:
     """Dilate a [N, H, W] mask by at least `pixels` in every direction (a square max-pool).
 
     Exact below `GROW_COARSE_FROM`. From there the mask is max-pooled down by
     `GROW_COARSE`, dilated there and brought back, so it never covers less
     than asked and the cost stays flat as the distance grows.
+
+    `pixels` is one number for every frame, or a [N] tensor with each frame's
+    own (`margins`): frames that share a distance are dilated together, and a
+    frame's result does not depend on which others it was given with.
     """
+    if torch.is_tensor(pixels):
+        each = pixels.to(torch.long).flatten()
+        if int(each.shape[0]) != int(mask.shape[0]):
+            raise ValueError(f"{int(each.shape[0])} margins for a mask of {int(mask.shape[0])} frames")
+        out = None
+        for p in each.unique().tolist():
+            rows = (each == p).nonzero()[:, 0].to(mask.device)
+            grown = grow(mask[rows], int(p))
+            if out is None:
+                out = grown.new_zeros(tuple(mask.shape))
+            out[rows] = grown
+        return mask.clone() if out is None else out
     p = int(pixels)  # zero is a kernel of one, which returns the mask
     coarse = p >= GROW_COARSE_FROM
     k = -(-p // GROW_COARSE) if coarse else p
@@ -394,6 +440,93 @@ def grow(mask: torch.Tensor, pixels: int) -> torch.Tensor:
             m = m[..., :mask.shape[-2], :mask.shape[-1]]
         parts.append(m[:, 0])
     return torch.cat(parts, dim=0)
+
+
+def area_share(mask: torch.Tensor) -> torch.Tensor:
+    """The share of the frame a [N, H, W] mask covers on each frame, [N] in 0..1.
+
+    Counted a chunk of frames at a time and never as a float copy of the clip: the node takes this on every
+    run, whatever `grow_by` is.
+    """
+    pixels = float(int(mask.shape[1]) * int(mask.shape[2]))
+    counts = [(mask[i:i + CHUNK] > 0.5).flatten(1).sum(dim=1) for i in range(0, int(mask.shape[0]), CHUNK)]
+    return (torch.cat(counts).to(torch.float32) / pixels) if counts else torch.zeros(0, dtype=torch.float32)
+
+
+def steady(values: torch.Tensor, reach: int = GROW_STEADY) -> torch.Tensor:
+    """A [N] series' running median over `reach` frames to each side, read from the frames above zero only.
+
+    A median, not a mean: a run of outliers shorter than half the window does not move it, and a step (a cut
+    to a shot where the subject is another size) stays a step on the frame it falls on. A frame with nothing
+    on it takes its neighbours' value, which nothing reads, since there is no mask there to grow; a stretch
+    with nothing anywhere in reach is zero.
+    """
+    r = int(reach)
+    v = values.to(torch.float32).clone()
+    v[v <= 0] = float("nan")
+    padded = F.pad(v[None, None], (r, r), value=float("nan"))[0, 0]
+    return torch.nan_to_num(padded.unfold(0, 2 * r + 1, 1).nanmedian(dim=1).values, nan=0.0)
+
+
+def margins(area: torch.Tensor | None, pixels: int, grow_pixels: int, feather_pixels: int, grow_by: str):
+    """How far the mask is widened on each frame, in pixels of a frame that holds `pixels` of them.
+
+    `a fixed margin` is `grow_pixels`, returned as the number it is, so `grow` does exactly what it did before
+    the choice existed. `the subject's size` is `GROW_SHARE` of the square root of the mask's steadied area
+    (`area`: `area_share` of the mask the region is grown from, over the whole clip), a [N] tensor, never above
+    `grow_pixels` and never below `feather_pixels`: the node refuses a feather wider than the margin because
+    the blend would reach the subject's own pixels, and that has to hold on every frame.
+
+    The area is a share of the frame, so the same record gives the margin on the source's own frames (the
+    preview) and on the render canvas (a window). The fit's centre crop changes that share by the little it
+    crops; nothing corrects for it.
+    """
+    if grow_by not in GROW_BY:
+        raise ValueError(f"unknown grow_by {grow_by!r}; one of {list(GROW_BY)}")
+    cap = int(grow_pixels)
+    if grow_by == GROW_FIXED or area is None:
+        return cap
+    side = (steady(area) * float(pixels)).sqrt()
+    return (GROW_SHARE * side).ceil().long().clamp(min=min(int(feather_pixels), cap), max=cap)
+
+
+def source_margins(source: dict, first_frame: int, frames: int, pixels: int):
+    """The margin on each of `frames` frames of a source from `first_frame`, for a frame of `pixels` pixels.
+
+    Every place that widens a source's mask reads it here, so the region the model regenerates, the preview,
+    the report and the composite cannot disagree. One number under `a fixed margin`. Frames past the source's
+    end take the cap: the mask is empty there (`window_frames`).
+    """
+    each = margins(source.get("subject_area"), pixels, source["grow_pixels"], source.get("feather_pixels", 0),
+                   source.get("grow_by", GROW_FIXED))
+    if not torch.is_tensor(each):
+        return each
+    each = each[int(first_frame):int(first_frame) + int(frames)]
+    short = int(frames) - int(each.shape[0])
+    if short > 0:
+        each = torch.cat([each, each.new_full((short,), int(source["grow_pixels"]))])
+    return each
+
+
+def motion_widening(source: dict) -> int:
+    """How far the motion reference widens the subject before the rest goes grey: half of `grow_pixels`, on
+    every frame, under either `grow_by`.
+
+    Not `source_margins`. **Measured** 2026-10-08 on one clip's masks, outside the node: taken from the
+    subject's size, the widening greyed part of the tracked subject above the part's lowest row on some
+    frames of the windows where the subject is small, and the fixed half-margin far less of it (the masking
+    board, finding `mhi-04`, has the figures). A reference that hides a raised arm is worse than one that
+    shows a neighbour's edge, so only the region scales.
+    """
+    return int(source["grow_pixels"]) // 2
+
+
+def margin_note(each) -> str:
+    """A margin for a report: `64 px`, or its range over the frames it was taken on."""
+    if not torch.is_tensor(each):
+        return f"{int(each)} px"
+    low, high = int(each.min()), int(each.max())
+    return f"{low} px" if low == high else f"{low} to {high} px"
 
 
 def token_mask(mask: torch.Tensor, latent_t: int, lat_h: int, lat_w: int) -> torch.Tensor:
@@ -750,18 +883,23 @@ def top_of(hole: torch.Tensor, share: float) -> torch.Tensor:
     return (on & (index < cut.unsqueeze(1)).unsqueeze(2)).to(torch.float32)
 
 
-def start_zero_tokens(source: dict, mask: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor | None:
+def start_zero_tokens(source: dict, mask: torch.Tensor, tokens: torch.Tensor,
+                      first_frame: int) -> torch.Tensor | None:
     """The regenerated tokens whose latent starts from nothing, [latent_t, lat_h, lat_w] of 0 or 1. None when the start is noise.
 
     `mask` is the window's fitted mask and `tokens` its token mask, as
-    `window` returns them. The subject's tokens (the mask widened by half of
-    `grow_pixels`, where the softening is) are zeroed except those the top
+    `window` returns them, and `first_frame` where the window starts in the
+    source, which the margin is read by (`source_margins`); it has no default,
+    so a caller cannot read another window's margins by leaving it out. The subject's
+    tokens (the mask widened by half of the margin, where the softening is)
+    are zeroed except those the top
     share touches. Tokens of the margin beyond that keep the source: they are
     background, and what they hold is what the composite wants there anyway.
     """
     if source.get("start_from", START_NOISE) == START_NOISE:
         return None
-    hole = grow(mask, int(source["grow_pixels"]) // 2)
+    hole = grow(mask, source_margins(source, first_frame, int(mask.shape[0]),
+                                     int(mask.shape[1]) * int(mask.shape[2])) // 2)
     shape = tuple(int(n) for n in tokens.shape)
     body = token_mask(hole, *shape)
     keep = token_mask(top_of(hole, float(source["start_top"])), *shape)
@@ -950,11 +1088,12 @@ def zoom_note(boxes: torch.Tensor, h: int, w: int, short_edge: int) -> str:
             + f"; the picture is {out_w}x{out_h}")
 
 
-def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_edge: int, margin: int,
+def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_edge: int, margin,
                      boxes: torch.Tensor | None = None):
     """The window as the model is shown it as a video reference, [F, h, w, 3], or None for `none`.
 
-    `subject only` keeps the pixels under the mask widened by `margin` and sets
+    `subject only` keeps the pixels under the mask widened by `margin` (one
+    number, or each frame's own as `grow` takes it) and sets
     the rest to mid grey, so the reference carries how the subject moves and
     nothing of the scene the kept rows already hold. `whole frame` keeps the
     window as it is. Either is scaled so its shorter side is `short_edge`,
@@ -973,7 +1112,7 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
         raise ValueError(f"unknown motion_reference {mode!r}; one of {list(MOTIONS)}")
     n, h, w = int(pixels.shape[0]), int(pixels.shape[1]), int(pixels.shape[2])
     th, tw = _reference_size(h, w, short_edge)
-    keep = grow(mask.to(torch.float32), int(margin)) if mode in (MOTION_SUBJECT, MOTION_ZOOM) else None
+    keep = grow(mask.to(torch.float32), margin) if mode in (MOTION_SUBJECT, MOTION_ZOOM) else None
     plan = None
     if mode == MOTION_ZOOM:
         if boxes is None or int(boxes.shape[0]) != n:
@@ -1014,19 +1153,23 @@ PREVIEW_ROWS = 6
 PREVIEW_HEIGHT = 192
 
 
-def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels: int, motion: str, short_edge: int,
-                  margin: int, boxes: torch.Tensor | None = None) -> torch.Tensor:
+def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion: str, short_edge: int,
+                  margin, boxes: torch.Tensor | None = None) -> torch.Tensor:
     """[1, H, W, 3]: sampled frames down the strip, the regenerated region tinted red on the plate, and, when a
     motion reference is on, what the encoder is shown beside each. The dry-run review looks at this and the
     tracker's tiles before anything samples.
 
     With `boxes` (the zoomed reference's box on every frame of the clip) each plate also carries its box as an
     outline, so the picture beside it can be found on the frame. The boxes here are each shot's over the whole
-    clip; a window takes its own from its own frames (`window_boxes`), which is never larger."""
+    clip; a window takes its own from its own frames (`window_boxes`), which is never larger.
+
+    `grow_pixels` and `margin` are one number each, or every frame's own over the clip (`margins`)."""
     n = int(frames.shape[0])
     idx = torch.linspace(0, n - 1, steps=min(PREVIEW_ROWS, n)).round().long()
     f = frames[idx, ..., :3].to(torch.float32)
-    region = (grow(mask[idx].to(torch.float32), int(grow_pixels)) > 0.5).unsqueeze(-1).to(f.dtype)
+    grow_pixels = grow_pixels[idx] if torch.is_tensor(grow_pixels) else grow_pixels
+    margin = margin[idx] if torch.is_tensor(margin) else margin
+    region = (grow(mask[idx].to(torch.float32), grow_pixels) > 0.5).unsqueeze(-1).to(f.dtype)
     red = torch.tensor([1.0, 0.0, 0.0], dtype=f.dtype, device=f.device)
     plate = f * (1.0 - region) + (0.5 * f + 0.5 * red) * region
     shown = None if boxes is None else boxes[idx]
@@ -1065,7 +1208,8 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
 
     The frames to encode are the fitted frames themselves, or with `paint_out`
     a copy with the subject filled in: the mask widened by half of
-    `grow_pixels`, which takes the soft edge SAM leaves on a fast limb and
+    the margin (`source_margins`: `grow_pixels`, or under `grow_by` the
+    subject's size each frame's own), which takes the soft edge SAM leaves on a fast limb and
     keeps the other half of the margin real background for the kept tokens.
     That hole is inside the regenerated tokens, so no filled pixel is shown.
 
@@ -1078,7 +1222,8 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     that does not belong to this track.
     """
     pixels, mask, short = window_frames(source, first_frame, frames, width, height)
-    tokens = token_mask(grow(mask, source["grow_pixels"]), latent_t, lat_h, lat_w)
+    margin = source_margins(source, first_frame, frames, int(width) * int(height))
+    tokens = token_mask(grow(mask, margin), latent_t, lat_h, lat_w)
     if source.get("keep") is not None:
         # After the grow, so the margin cannot run back over what is kept, and in whole tokens: a token
         # that holds any kept pixel on any of its frames is kept. The composite and the review read
@@ -1090,10 +1235,10 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
         tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w))
     encode = pixels
     if source.get("paint_out"):
-        encode = fill_subject(pixels, grow(mask, int(source["grow_pixels"]) // 2))
+        encode = fill_subject(pixels, grow(mask, margin // 2))
     elif source.get("start_from", START_NOISE) != START_NOISE:
         # a late start shows what is encoded here; `start_zero_tokens` then empties the body's tokens
-        encode = soften_subject(pixels, grow(mask, int(source["grow_pixels"]) // 2), int(source["start_blur"]))
+        encode = soften_subject(pixels, grow(mask, margin // 2), int(source["start_blur"]))
     return pixels, encode, tokens, mask, short
 
 
@@ -1280,6 +1425,16 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                        "surrounds a small object stays too.\n\n"
                                        "Example: a second Subject Track with the phrase `cigarette`, its mask "
                                        "wired here.")),
+                # appended 2026-10-08: a margin fixed in pixels is several times a small subject's own area
+                io.Combo.Input("grow_by", options=list(GROW_BY), default=GROW_FIXED, optional=True,
+                               tooltip=("How wide the margin round the mask is.\n\n"
+                                        "a fixed margin: grow_pixels on every frame.\n\n"
+                                        "the subject's size: the margin shrinks with the subject, frame by "
+                                        "frame, and is never more than grow_pixels. Use it when the subject is "
+                                        "small in the frame and the region takes in the people round them: the "
+                                        "model may then draw the new subject on one of those people. The motion "
+                                        "reference is not changed by this. The song node's report gives the "
+                                        "margin each window used.")),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
@@ -1327,13 +1482,15 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 change_threshold=CHANGE_THRESHOLD, reuse_mask=False, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
-                shot_table=None, parts=None, keep=None) -> io.NodeOutput:
+                shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if int(feather_pixels) > int(grow_pixels):
             raise ValueError(
                 f"feather_pixels {int(feather_pixels)} is wider than grow_pixels {int(grow_pixels)}: the blend "
                 "would reach the subject's own pixels and bring the original back at its edge")
+        if grow_by not in GROW_BY:
+            raise ValueError(f"unknown grow_by {grow_by!r}; one of {list(GROW_BY)}")
         if replace not in (REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS):
             raise ValueError(f"unknown replace {replace!r}; one of {[REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS]}")
         if start_from not in (START_NOISE, START_TOP):
@@ -1397,12 +1554,16 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 seconds = mask_store.save(key, mask, table)
                 note += f", mask kept for the next run ({seconds:.0f} s to write)"
         covered = float((mask > 0.5).any(dim=0).float().mean())
+        # The mask's area on each frame as a share of the frame: what `grow_by` takes the margin from, here on
+        # the source's own frames and in every window on the canvas (`source_margins`).
+        area = area_share(mask)
+        each = margins(area, int(frames.shape[1]) * int(frames.shape[2]), grow_pixels, feather_pixels, grow_by)
         logger.info("[h3] MiniMaxH3MaskedSource: %d frames, replace `%s`%s, the mask touches %.1f%% of the "
-                    "frame over the clip, grow %d px, feather %d px%s, composite keeps the %s", int(frames.shape[0]),
-                    replace, note, 100.0 * covered, int(grow_pixels), int(feather_pixels),
+                    "frame over the clip, grow %s (%s), feather %d px%s, composite keeps the %s", int(frames.shape[0]),
+                    replace, note, 100.0 * covered, margin_note(each), grow_by, int(feather_pixels),
                     ", subject painted out before the encode" if paint_out else "", composite)
         if keep is not None:
-            both = (grow(mask.to(torch.float32), int(grow_pixels)) > 0.5) & (keep > 0.5)
+            both = (grow(mask.to(torch.float32), each) > 0.5) & (keep > 0.5)
             logger.info("[h3] MiniMaxH3MaskedSource: keep is wired: it lies inside the grown region on %d of %d "
                         "frames, and those tokens stay the source's", int(both.flatten(1).any(dim=1).sum()),
                         int(frames.shape[0]))
@@ -1419,6 +1580,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                         ", ".join(f"{bw}x{bh}" for bw, bh in sizes) or "no box (the subject is in no frame)",
                         int(frames.shape[2]), int(frames.shape[1]))
         return io.NodeOutput({"frames": frames, "mask": mask, "grow_pixels": int(grow_pixels),
+                              # the margin's rule and what it reads (`source_margins`): [N] in 0..1
+                              "grow_by": grow_by, "subject_area": area,
                               "feather_pixels": int(feather_pixels), "paint_out": bool(paint_out),
                               "composite": composite, "change_threshold": float(change_threshold),
                               "motion_reference": motion_reference, "motion_short_edge": int(motion_short_edge),
@@ -1436,7 +1599,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # read by the prompt node (`masked_prompt.py`), which describes what is replaced
                               "shot_table": table, "replace": replace},
                              mask.to(torch.float32),
-                             preview_strip(frames, mask, int(grow_pixels), motion_reference,
+                             preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed))
 
     @classmethod

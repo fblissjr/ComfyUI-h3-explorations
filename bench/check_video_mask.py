@@ -76,6 +76,30 @@ that could happen.
    2026-10-06). A cap under it would hold the last frame where the plan
    expects picture. The count is the planner's own, not restated here.
 
+13. **A margin taken from the subject's size holds the region to the
+   subject, and a fixed one is untouched.** `grow_by` (2026-10-08). Under `a
+   fixed margin` the margin is the number `grow_pixels` and a per-frame
+   margin of that number grows the same mask, bit for bit. Under `the
+   subject's size`, on a subject that shrinks through a clip: the region on
+   the close frames is the fixed margin's; on the small frames the region
+   over the subject's own area is under `GROW_REGION_BOUND`, where the fixed
+   margin's is over it (the control, or the bound proves nothing); the margin
+   never passes `grow_pixels` and never goes under `feather_pixels`; a run of
+   frames on which the mask collapses to a sliver moves the margin by no more
+   than `GROW_STEP`, where the same rule with no steadying drops it to the
+   floor (the second control); a window's tokens under it lie inside the
+   fixed margin's; a window reads its own frames' margins and a window past
+   the source's end takes the cap; on a canvas of another size than the
+   frames, from a start where the margins are not the clip's first, the
+   tokens, the paint-out's hole and the late start's softened hole and
+   emptied tokens are all the canvas's margins on the window's own frames,
+   and `start_zero_tokens` cannot be called without the window's start; the
+   floor is the feather; the song node hands the composite the window's own
+   margin; the motion reference's widening stays half
+   of `grow_pixels` under either choice; and the node carries the choice and the
+   area on its record, refuses an unknown choice, keeps it out of the kept
+   mask's key, and the shared config holds the default.
+
 No model, no CUDA, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_video_mask.py
@@ -157,6 +181,186 @@ def check_keep(problems):
         problems.append("keep: the node did not carry a [N, H, W, 1] keep mask onto the source as [N, H, W]")
     if "keep" not in vm.MASK_KEY_SKIP:
         problems.append("keep: it is applied after the subject's mask is final and must not be in the kept mask's key")
+
+
+#: Item 13's bound on the pixel region over the subject's own area where the subject is small, before the token
+#: grid rounds it out. Reasoned: a square subject of side s with a margin of `GROW_SHARE` of s on every side is
+#: (1 + 2 x 0.15) squared, about 1.7 times its area; the feather's floor and the coarse grow's rounding lift that
+#: on a subject a few tokens across, and 4 leaves room for both while staying under what the fixed margin gives.
+GROW_REGION_BOUND = 4.0
+#: How far, in pixels, a collapsed stretch may move the steadied margin on any frame. Reasoned: one quantum of
+#: the coarse grow (`GROW_COARSE`), under which two margins dilate alike.
+GROW_STEP = 4
+
+
+def check_grow_by(problems):
+    """Item 13. A square subject that is close, shrinks, and stays small, with a stretch where its mask collapses."""
+    n, h, w, cap, feather = 150, 192, 320, 16, 2
+    side = [120] * 40 + [int(round(120 - (120 - 8) * i / 59)) for i in range(60)] + [8] * 50
+    mask = torch.zeros(n, h, w)
+    cy, cx = 112, 176                                    # the middle of a token, so a small region can sit in one
+    for i, s_ in enumerate(side):
+        y0, x0 = cy - s_ // 2, cx - s_ // 2
+        mask[i, y0:y0 + s_, x0:x0 + s_] = 1.0
+    clean = mask.clone()
+    doubt = range(60, 70)                                # the part mask on a sliver, as a part report puts in doubt
+    for i in doubt:
+        mask[i] = 0.0
+        mask[i, cy:cy + 2, cx:cx + 2] = 1.0
+    px = h * w
+    fixed = vm.margins(vm.area_share(mask), px, cap, feather, vm.GROW_FIXED)
+    if fixed != cap or torch.is_tensor(fixed):
+        problems.append(f"grow_by: a fixed margin is {fixed!r}, not the number grow_pixels")
+    if not torch.equal(vm.grow(mask, torch.full((n,), cap)), vm.grow(mask, cap)):
+        problems.append("grow_by: a per-frame margin of grow_pixels on every frame does not grow what the number does")
+    mixed = torch.tensor([0, 3, 16, 40] * 2)
+    by_frame = torch.stack([vm.grow(clean[i:i + 1], int(p))[0] for i, p in zip(range(36, 44), mixed.tolist())])
+    if not torch.equal(vm.grow(clean[36:44], mixed), by_frame):
+        problems.append("grow_by: frames grown together by their own margins differ from each grown alone")
+    try:
+        vm.grow(mask, torch.full((n - 1,), cap))
+        problems.append("grow_by: a margin per frame for the wrong number of frames was accepted")
+    except ValueError:
+        pass
+
+    each = vm.margins(vm.area_share(mask), px, cap, feather, vm.GROW_SUBJECT)
+    if not torch.is_tensor(each) or tuple(each.shape) != (n,):
+        problems.append(f"grow_by: the subject's size gave {type(each).__name__}, not one margin per frame")
+        return
+    if int(each.max()) > cap or int(each.min()) < feather:
+        problems.append(f"grow_by: margins run {int(each.min())} to {int(each.max())}, outside feather {feather} "
+                        f"to grow_pixels {cap}")
+    close, small = slice(0, 30), slice(120, 150)
+    if not torch.equal(vm.grow(mask[close], each[close]), vm.grow(mask[close], cap)):
+        problems.append("grow_by: on the close frames the region is not the fixed margin's")
+
+    def over_subject(grown, frames):
+        return float((grown > 0.5).flatten(1).sum(dim=1).float().div(mask[frames].flatten(1).sum(dim=1)).max())
+    scaled_ratio = over_subject(vm.grow(mask[small], each[small]), small)
+    fixed_ratio = over_subject(vm.grow(mask[small], cap), small)
+    if fixed_ratio <= GROW_REGION_BOUND:
+        problems.append(f"grow_by: the control (the fixed margin on the small frames) is {fixed_ratio:.1f} times "
+                        f"the subject, not over the bound {GROW_REGION_BOUND}; the case tests nothing")
+    if scaled_ratio >= GROW_REGION_BOUND:
+        problems.append(f"grow_by: on the small frames the region is {scaled_ratio:.1f} times the subject, "
+                        f"the bound is {GROW_REGION_BOUND}")
+    # steadied: the collapsed stretch moves no frame's margin by more than a quantum; unsteadied it does
+    calm = vm.margins(vm.area_share(clean), px, cap, feather, vm.GROW_SUBJECT)
+    moved = int((each - calm).abs().max())
+    if moved > GROW_STEP:
+        problems.append(f"grow_by: ten collapsed frames moved the margin by {moved} px, more than {GROW_STEP}")
+
+    def unsteadied(m):
+        return (vm.GROW_SHARE * (vm.steady(vm.area_share(m), 0) * px).sqrt()).ceil().long().clamp(min=feather, max=cap)
+    if int((unsteadied(mask) - unsteadied(clean)).abs().max()) <= GROW_STEP:
+        problems.append("grow_by: the control (no steadying) was not moved by the collapsed frames either; the "
+                        "case cannot tell a steadied margin from a raw one")
+    step = int((each[1:] - each[:-1]).abs().max())
+    if step > GROW_STEP:
+        problems.append(f"grow_by: the margin jumps {step} px between two frames of one shot")
+    # a cut: the size steps, and the margin steps on the same frame, not smeared over the window
+    cut = torch.cat([vm.area_share(clean[:1]).expand(60), vm.area_share(clean[-1:]).expand(60)])
+    m_cut = vm.margins(cut, px, cap, feather, vm.GROW_SUBJECT)
+    if len(set(m_cut[:60].tolist())) != 1 or len(set(m_cut[60:].tolist())) != 1 or int(m_cut[59]) == int(m_cut[60]):
+        problems.append("grow_by: a step in the subject's size (a cut) is not a step in the margin on that frame")
+    # frames with nobody: no margin to take, and they do not drag their neighbours' down
+    gap = vm.area_share(clean).clone()
+    gap[125:135] = 0.0
+    if not torch.equal(vm.margins(gap, px, cap, feather, vm.GROW_SUBJECT)[:125], calm[:125]):
+        problems.append("grow_by: frames with no subject changed the margin of the frames before them")
+
+    # a window: its own frames' margins, inside the fixed margin's tokens; past the source's end the cap
+    frames = torch.rand(n, h, w, 3)
+    base = {"frames": frames, "mask": mask, "grow_pixels": cap, "feather_pixels": feather}
+    record = dict(base, grow_by=vm.GROW_SUBJECT, subject_area=vm.area_share(mask))
+    lat_t = 7
+    span = sum(vm.run_lengths(lat_t))
+    for first in (0, 120):
+        t_fixed = vm.window(base, first, span, w, h, lat_t, h // 16, w // 16)[2]
+        t_scaled = vm.window(record, first, span, w, h, lat_t, h // 16, w // 16)[2]
+        if float((t_scaled * (1.0 - t_fixed)).max()) != 0.0:
+            problems.append(f"grow_by: a window from frame {first} regenerates a token the fixed margin does not")
+        if first == 0 and not torch.equal(t_scaled, t_fixed):
+            problems.append("grow_by: a window on the close frames does not regenerate the fixed margin's tokens")
+        if first == 120 and float(t_scaled.sum()) >= float(t_fixed.sum()):
+            problems.append("grow_by: a window on the small frames regenerates as many tokens as the fixed margin")
+    got = vm.source_margins(record, 120, 40, px)
+    if tuple(got.shape) != (40,) or not torch.equal(got[:30], each[120:150]) or set(got[30:].tolist()) != {cap}:
+        problems.append("grow_by: a window's margins are not its own frames', held at the cap past the source's end")
+    if vm.source_margins(base, 120, 40, px) != cap or vm.source_margins({"mask": mask, "grow_pixels": cap}, 0, 4, px) != cap:
+        problems.append("grow_by: a record without the choice does not take the fixed margin")
+    if vm.margin_note(cap) != f"{cap} px" or vm.margin_note(each) != f"{int(each.min())} to {int(each.max())} px":
+        problems.append("grow_by: the report's margin is not the number or the range")
+    # A window on a canvas of another size than its frames, from a start where the margins differ from the
+    # clip's first frames: every hole and the tokens are the canvas's margins on the window's own frames.
+    cw, ch, first = 2 * w, 2 * h, 60
+    want = vm.margins(vm.area_share(mask), cw * ch, cap, feather, vm.GROW_SUBJECT)[first:first + span]
+    if torch.equal(want, vm.margins(vm.area_share(mask), px, cap, feather, vm.GROW_SUBJECT)[first:first + span]) \
+            or torch.equal(want, vm.margins(vm.area_share(mask), cw * ch, cap, feather, vm.GROW_SUBJECT)[:span]) \
+            or torch.equal(want // 2, torch.full_like(want, cap // 2)):
+        problems.append("grow_by: the canvas case's margins equal the source's, the first frames' or the fixed "
+                        "half; it cannot tell them apart")
+    fitted = vm.fit_mask(mask[first:first + span], cw, ch)
+    shape = (lat_t, ch // 16, cw // 16)
+    got = vm.window(record, first, span, cw, ch, *shape)
+    if not torch.equal(got[2], vm.token_mask(vm.grow(fitted, want), *shape)):
+        problems.append("grow_by: a window's tokens on another canvas are not the canvas's margins on its own frames")
+    painted = vm.window(dict(record, paint_out=True), first, span, cw, ch, *shape)
+    if not torch.equal(painted[1], vm.fill_subject(painted[0], vm.grow(fitted, want // 2))):
+        problems.append("grow_by: the paint-out's hole is not half the window's own margins")
+    late = dict(record, start_from=vm.START_TOP, start_top=0.3, start_blur=4, start_knots=1)
+    soft = vm.window(late, first, span, cw, ch, *shape)
+    if not torch.equal(soft[1], vm.soften_subject(soft[0], vm.grow(fitted, want // 2), 4)):
+        problems.append("grow_by: the late start's softened hole is not half the window's own margins")
+    hole = vm.grow(fitted, want // 2)
+    by_hand = (soft[2] > 0.5).float() * vm.token_mask(hole, *shape) * (1.0 - vm.token_mask(vm.top_of(hole, 0.3), *shape))
+    if not torch.equal(vm.start_zero_tokens(late, fitted, soft[2], first), by_hand):
+        problems.append("grow_by: the late start's emptied tokens are not from the window's own margins")
+    if torch.equal(vm.start_zero_tokens(late, fitted, soft[2], 0), by_hand):
+        problems.append("grow_by: the late start's tokens do not depend on where the window starts; the case tests nothing")
+    try:
+        vm.start_zero_tokens(late, fitted, soft[2])
+        problems.append("grow_by: start_zero_tokens ran without being told where its window starts")
+    except TypeError:
+        pass
+    # the floor is the feather, and it is the floor that lifts a small subject's margin
+    if int(vm.margins(vm.area_share(clean), px, cap, 6, vm.GROW_SUBJECT).min()) != 6 \
+            or int(vm.margins(vm.area_share(clean), px, cap, 0, vm.GROW_SUBJECT).min()) >= 6:
+        problems.append("grow_by: the margin's floor is not feather_pixels")
+    # the composite's old-subject margin is half the window's own, read where the window starts
+    song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if 'source["feather_pixels"], margin // 2,' not in song_text \
+            or "margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames," not in song_text \
+            or "video_mask.start_zero_tokens(source, src_mask, src_tokens, int(round(w.start * FPS)))" not in song_text:
+        problems.append("grow_by: the song node does not hand the composite and the late start the window's own margins")
+    # the motion reference's widening does not follow the choice: half of grow_pixels under either
+    if vm.motion_widening(record) != cap // 2 or vm.motion_widening(base) != cap // 2:
+        problems.append("grow_by: the motion reference's widening is not half of grow_pixels under both choices")
+    song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if "video_mask.motion_widening(source)" not in song:
+        problems.append("grow_by: the song node does not take the motion reference's widening from motion_widening")
+
+    # the node, its schema and the shared config
+    out = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=cap, feather_pixels=feather, grow_by=vm.GROW_SUBJECT)
+    src = out.args[0] if hasattr(out, "args") else out[0]
+    if src.get("grow_by") != vm.GROW_SUBJECT or not torch.equal(src.get("subject_area"), vm.area_share(mask)):
+        problems.append("grow_by: the node's record does not carry the choice and the mask's area per frame")
+    plain = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=cap, feather_pixels=feather)
+    plain = plain.args[0] if hasattr(plain, "args") else plain[0]
+    if plain.get("grow_by") != vm.GROW_FIXED or vm.source_margins(plain, 0, n, px) != cap:
+        problems.append("grow_by: the node's default is not the fixed margin")
+    try:
+        vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_by="a guess")
+        problems.append("grow_by: an unknown choice was accepted")
+    except ValueError:
+        pass
+    last = vm.MiniMaxH3MaskedSource.define_schema().inputs[-1]
+    if last.id != "grow_by" or not last.optional or last.default != vm.GROW_FIXED or list(last.options) != list(vm.GROW_BY):
+        problems.append("grow_by: it is not the node's last input, optional, with the fixed margin as its default")
+    if "grow_by" not in vm.MASK_KEY_SKIP:
+        problems.append("grow_by: it acts after the mask is final and must not be in the kept mask's key")
+    if h3_config.MASKED_SOURCE.get("grow_by") != vm.GROW_FIXED:
+        problems.append("grow_by: h3_config.MASKED_SOURCE does not hold the node's default")
 
 
 def _fail(problems, text: str) -> None:
@@ -723,7 +927,7 @@ def check_motion_zoom(problems):
         _fail(problems, "zoom: MOTIONS must list the four choices once each")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
-            or 'int(source["motion_short_edge"]), int(source["grow_pixels"]) // 2, boxes)' not in song:
+            or 'int(source["motion_short_edge"]), video_mask.motion_widening(source),' not in song:
         _fail(problems, "zoom: the song node no longer builds the window's boxes and hands them to the motion reference")
 
 
@@ -745,7 +949,7 @@ def check_late_start(problems):
     pixels, encode, tokens, fitted, _held = vm.window({**base, "start_from": vm.START_NOISE}, 0, FRAMES, w, h, LATENT_T, lat_h, lat_w)
     if not torch.equal(pixels, encode):
         problems.append("start_from `noise` changed the frames to encode")
-    if vm.start_zero_tokens({**base, "start_from": vm.START_NOISE}, fitted, tokens) is not None or vm.start_zero_tokens(base, fitted, tokens) is not None:
+    if vm.start_zero_tokens({**base, "start_from": vm.START_NOISE}, fitted, tokens, 0) is not None or vm.start_zero_tokens(base, fitted, tokens, 0) is not None:
         problems.append("start_from `noise`, or a source without the key, empties tokens")
 
     pixels, encode, tokens, fitted, _held = vm.window(start(), 0, FRAMES, w, h, LATENT_T, lat_h, lat_w)
@@ -757,7 +961,7 @@ def check_late_start(problems):
     changed = (encode != pixels).any(dim=-1)
     if bool((changed & ~(vm.grow(mask, grow_px // 2) > 0.5)).any()):
         problems.append("a softened start changed pixels outside the subject's hole")
-    empty = vm.start_zero_tokens(start(), fitted, tokens)
+    empty = vm.start_zero_tokens(start(), fitted, tokens, 0)
     if tuple(empty.shape) != (LATENT_T, lat_h, lat_w):
         problems.append(f"the emptied tokens are {tuple(empty.shape)}, not the window's token grid")
         return
@@ -773,7 +977,7 @@ def check_late_start(problems):
         problems.append("margin tokens beside the subject are emptied; they hold background and must keep it")
     if float(tokens[:, :, :4].sum() + tokens[:, :, 12:].sum()) == 0.0:
         problems.append("the control failed: this canvas has no regenerated margin tokens beside the subject to leave alone")
-    if float(vm.start_zero_tokens(start(start_top=1.0), fitted, tokens).sum()) != 0.0:
+    if float(vm.start_zero_tokens(start(start_top=1.0), fitted, tokens, 0).sum()) != 0.0:
         problems.append("with the whole subject kept, tokens are still emptied")
     if float(empty.sum()) == 0.0:
         problems.append("the control failed: nothing is emptied at the default share either")
@@ -1052,7 +1256,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1061,7 +1265,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, and the mask review shows what regenerates")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not")
     return 1 if problems else 0
 
 

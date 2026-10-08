@@ -288,9 +288,12 @@ def check_node(problems):
             vm.detect_part = real
         if not torch.equal(kept[1], tracked[1]) or not torch.equal(kept[0]["mask"], tracked[0]["mask"]):
             problems.append(f"{replace}: the run on a kept mask does not return the tracked run's mask")
-        tensors = ("frames", "mask", "subject_boxes")
+        tensors = ("frames", "mask", "subject_boxes", "subject_area")
         if {k: v for k, v in kept[0].items() if k not in tensors} != {k: v for k, v in tracked[0].items() if k not in tensors}:
             problems.append(f"{replace}: the source bundle differs between a kept and a tracked run")
+        # the mask's area per frame is read off the mask the run settled on, kept or tracked (`grow_by`)
+        if not torch.equal(kept[0]["subject_area"], tracked[0]["subject_area"]):
+            problems.append(f"{replace}: the mask's area per frame differs between a kept and a tracked run")
         # the subject's boxes: the tracker's on a tracked run; on a kept run the tracker did not run, so they
         # are the kept region's, which is the same thing only when the whole subject is replaced
         if not torch.equal(tracked[0]["subject_boxes"], vm._tracked_boxes(mask)):
