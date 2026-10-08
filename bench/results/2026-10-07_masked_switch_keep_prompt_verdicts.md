@@ -170,6 +170,42 @@ rewrite on the first seed without two phrases that may invite a back view;
 the stock text has similar words and does not turn, so the wording is a
 guess and the seed may be the cause.
 
+## 5. Sol on against off, twelve against sixteen steps, and what comes after the window (added the same evening)
+
+All on `lotsofpeopledance_0414_0720.mkv` from 4.0 s, the shipped upper-body
+graph on the prompt node's text as of 0.221.0, pick `largest`, one seed, the
+loader at its size before 0.222.0.
+
+- **Sol-Attn on against off.** The owner cannot tell them apart and calls
+  both near perfect. Measured the same: the difference from the source on
+  the tracked person, in the margin and far outside agree within a few
+  percent in every stretch of the window (the scratch run's figures are not
+  kept in the json).
+- **Twelve against sixteen steps.** The owner: exactly the same, a ghosting
+  artifact near five seconds included. The masked graphs stay at twelve
+  (`decisions.md`).
+- **The render already holds the held thing.** On the new text the subject
+  raises a hand and holds the thing himself with nothing kept and nothing
+  pasted; pasted over that render it shows twice, and pasted over the
+  earlier render (old text, no raised hand) the owner sees it float. So the
+  paste-back is not the default route; `keep` inside the region stays ruled
+  out by section 2.
+- **A second window, carried over.** The same render continued to about 27 s
+  of the trim: one shot of 700 frames by the node's report, the subject on
+  screen on every frame, the join measured smooth, the region still replaced
+  to the end. The owner: he does not disappear; in the late half of the
+  second window he is motionless. Not explained.
+- **One window that starts with him small** (from 16.75 s, nothing carried
+  over). The automatic pick names somebody else under both rules; pinned by
+  a correction (`shot 1: person 8`, the detection overlapping his continuous
+  track's box by 0.99) he renders clearly for about eight seconds and then
+  the original is back. Cause, measured: the tracker let him go at frame 203
+  of the window, at the peak of a burst of movement by everyone around him
+  (no cut; he is the same size and standing still), and a corrected shot was
+  not searched again. The render shows him through frame 203 and not 204
+  because the video model groups frames 1, 4, 4, 4, 4 and frames 200 to 203
+  are one group. Fixed in the node the same evening (`decisions.md`).
+
 ## Also answered the same day
 
 - **The cache on the upper-body recipe:** the owner cannot tell stock from

@@ -39,7 +39,7 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 16,
+      "steps": 12,
       "denoise": 1.0
     }
   },
