@@ -63,6 +63,7 @@ with none is a helper the others import.
 | [`reference_conditioning.py`](reference_conditioning.py) | `MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, `MiniMaxH3AppendRefAudio`, `MiniMaxH3ReferenceConditioning` | Typed, ordered reference conditioning for MiniMax H3. |
 | [`reference_encode.py`](reference_encode.py) | `MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences` | Encode an H3 reference list once, and write prompts on top of it. |
 | [`reference_geometry.py`](reference_geometry.py) |  | The one implementation of H3 reference-image sizing. |
+| [`reference_noise.py`](reference_noise.py) | `MiniMaxH3ReferenceNoise` | Set how clean the model is shown its picture and video references. |
 | [`reference_order.py`](reference_order.py) |  | The ordered-reference model, and the one place labels are assigned. |
 | [`reference_report.py`](reference_report.py) |  | What an ordered H3 reference list costs, before anything is encoded. |
 

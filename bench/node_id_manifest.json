@@ -441,6 +441,16 @@
       "Output"
     ]
   },
+  "MiniMaxH3ReferenceNoise": {
+    "inputs": [
+      "model",
+      "clean_level"
+    ],
+    "node_id": "MiniMaxH3ReferenceNoise",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Resolution": {
     "inputs": [
       "shape",

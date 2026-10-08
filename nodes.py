@@ -53,6 +53,7 @@ from .shot_table import MiniMaxH3SaveShotTable
 from .sam31_corrections import MiniMaxH3SAM31Corrections
 from .masked_prompt import MiniMaxH3MaskedPrompt
 from .step_x0_observer import MiniMaxH3StepX0Observer
+from .reference_noise import MiniMaxH3ReferenceNoise
 from .core_sparse_capture import MiniMaxH3CoreSparseCapture
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
@@ -374,7 +375,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3MaskedPrompt,
                 # appended 2026-10-07, two of ComfyUI's departures from Meta's SAM 3.1 code
                 # corrected as patches on a loaded model and text encoder (sam31_corrections.py)
-                MiniMaxH3SAM31Corrections]
+                MiniMaxH3SAM31Corrections,
+                # appended 2026-10-08, how clean the model is shown its visual references
+                # (reference_noise.py)
+                MiniMaxH3ReferenceNoise]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
