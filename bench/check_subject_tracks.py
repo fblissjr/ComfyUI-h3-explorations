@@ -75,6 +75,13 @@ Each case is a way a track nobody should trust could be reported as held, or a c
                                   rank and lead. THE CONTROL: `take_back`, likeness first, takes the higher score
                                   standing somewhere else on the same candidates. KNOWN LIMIT, asserted: two figures
                                   who have changed places are taken wrongly.
+  stray_specks_go_and_the_subject_stays_whole  a piece of a tracked mask that is tiny beside the frame's largest piece
+                                  AND away from it is removed, and the frames and pixels are counted; a large piece far
+                                  away (an arm past somebody's head), a few pixels beside the subject, a frame's only
+                                  piece and an empty frame are untouched; each test alone removes nothing; the reach
+                                  follows the subject's size; a speck straight above goes; a diagonal tail off the
+                                  subject's corner stays theirs; the input is not written to unless asked, and in
+                                  place gives the same answer. THE CONTROL: the input mask holds the speck.
   the_one_in_the_way_is_named_by_the_box  of the detections on a frame that are not the subject, the one whose mask
                                   covers most of the subject's box is named, whether or not the detector also returned
                                   the subject; a neighbour whose edge touches the box is not; with nobody in the box
@@ -552,10 +559,65 @@ def the_one_in_the_way_is_named_by_the_box():
     return "named by the share of the subject's box a detection covers; the subject set aside; a neighbour at the edge is not named; mask against mask says nobody"
 
 
+def stray_specks_go_and_the_subject_stays_whole():
+    h, w = 256, 448
+    body = _blank(h, w)
+    body[60:200, 180:260] = True                       # the subject: 140 by 80
+    arm = _blank(h, w)
+    arm[70:110, 300:330] = True                        # a large piece of them past somebody's head: detached, kept
+    sliver = _blank(h, w)
+    sliver[120:124, 262:265] = True                    # a few pixels just off their outline: tiny, near, kept
+    speck = _blank(h, w)
+    speck[20, 430] = True                              # one pixel far away, on somebody else
+    fleck = _blank(h, w)
+    fleck[230:236, 20:28] = True                       # a larger stray, still tiny beside the subject and far
+    clip = torch.stack([body, body | speck, body | arm | speck, body | sliver | fleck, _blank(h, w), speck]).to(torch.float32)
+    out, frames, pixels = S.drop_specks(clip)
+    # THE CONTROL: today's mask carries the speck, and what is downstream widens it into a block
+    assert bool(clip[1, 20, 430]) and bool(clip[3, 232, 24]), "the case holds no speck; it tests nothing"
+    assert frames == [1, 2, 3] and pixels == 1 + 1 + 48, (frames, pixels)
+    assert torch.equal(out[0], clip[0]) and torch.equal(out[1], body.float()), "a lone subject changed, or the speck stayed"
+    assert torch.equal(out[2], (body | arm).float()), "a large detached piece of the subject was dropped with the speck"
+    assert torch.equal(out[3], (body | sliver).float()), "a small piece beside the subject was dropped, or a far fleck kept"
+    assert not bool(out[4].any()) and torch.equal(out[5], clip[5]), "an empty frame changed, or a frame's only piece was removed"
+    assert out.dtype == clip.dtype and not bool((out > clip).any()), "the mask gained pixels or changed type"
+    # up and down as well as across: a speck straight above the subject's head, beyond the reach, goes
+    above = _blank(h, w)
+    above[2, 220] = True                               # 58 px above the body's top row, inside its columns
+    got, hit, _n = S.drop_specks((body | above).float()[None])
+    assert hit == [0] and not bool(got[0, 2, 220]), "a speck straight above the subject was kept: the gap is measured across only"
+    # eight neighbours: a one-pixel diagonal tail off the subject's corner is part of them, however far it runs
+    tail = _blank(h, w)
+    for k in range(1, 51):                             # fifty pixels: its far end is beyond the reach
+        tail[200 + k - 1, 260 + k - 1] = True          # from the corner pixel beyond (199, 259), down and to the right
+    whole = (body | tail).float()[None]
+    assert S.drop_specks(whole)[1] == [] and torch.equal(S.drop_specks(whole)[0], whole), \
+        "a diagonal tail joined to the subject by a corner was split off and dropped: four neighbours were used"
+    # the mask given is not written to, unless the caller says nothing else holds it
+    before = clip.clone()
+    S.drop_specks(clip)
+    assert torch.equal(clip, before), "the input mask was written to"
+    mine = clip.clone()
+    same, frames_in_place, pixels_in_place = S.drop_specks(mine, in_place=True)
+    assert same is mine and torch.equal(mine, out) and (frames_in_place, pixels_in_place) == (frames, pixels), "in place gave another answer"
+    # each test alone keeps a piece: a tiny piece inside the reach, and a far piece that is not tiny
+    near = S.drop_specks((body | sliver).float()[None])[1]
+    big_far = _blank(h, w)
+    big_far[10:40, 400:440] = True                     # 1,200 px, a tenth of the subject, far away
+    assert near == [] and S.drop_specks((body | big_far).float()[None])[1] == [], "one test alone removed a piece"
+    # the reach scales with the subject: the same speck at the same distance from a subject a tenth the size is far
+    small = _blank(h, w)
+    small[100:130, 200:216] = True
+    close = _blank(h, w)
+    close[100, 250] = True                             # 34 px from the small subject, 0 px inside the large one's reach
+    assert S.drop_specks((small | close).float()[None])[1] == [0] and S.drop_specks((body | close).float()[None])[1] == []
+    return "a far speck goes; a large detached piece, a small near piece, a lone piece and an empty frame stay; the reach follows the subject's size"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, stray_specks_go_and_the_subject_stays_whole, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

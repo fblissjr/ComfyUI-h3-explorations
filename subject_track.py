@@ -194,7 +194,7 @@ import torch.nn.functional as F
 from comfy_api.latest import io, ui
 from PIL import Image, ImageDraw, ImageFont
 
-from . import shot_table
+from . import shot_table, subject_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -941,6 +941,12 @@ def _correct(result: Followed, corrections: dict[int, int | None], detect, track
         result.pieces[shot.start] = track(shot.start, shot.end, shot.shown, people[which])
 
 
+def _frame_list(frames: list[int], most: int = 16) -> str:
+    """Frames for a report line: the first `most`, and how many more."""
+    shown = ", ".join(str(f) for f in frames[:most])
+    return shown if len(frames) <= most else f"{shown} and {len(frames) - most} more"
+
+
 def assemble(n_frames: int, height: int, width: int, pieces: dict[int, torch.Tensor]) -> torch.Tensor:
     """[n_frames, height, width] of 0 or 1: the tracked pieces in place, zeros where the subject is absent."""
     out = torch.zeros((int(n_frames), int(height), int(width)), dtype=torch.float32)
@@ -1189,8 +1195,9 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     #: shot's favourite with no head is not counted for the automatic pick. 8:
     #: the cut score leaves a clip's flat borders out. 9: the search for a subject
     #: the track let go, and the hand-over. 10: a corrected shot is searched too,
-    #: and `most central` is measured in the frame's own proportions.
-    MASK_VERSION = 10
+    #: and `most central` is measured in the frame's own proportions. 11: stray
+    #: specks are dropped from the mask (`subject_tracks.drop_specks`).
+    MASK_VERSION = 11
 
     @classmethod
     def define_schema(cls):
@@ -1310,9 +1317,15 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
                            gallery=handed)
-        mask = assemble(n, h, w, found.pieces)
+        # Stray specks of the tracker's go before anything reads the mask: the tiles, the shot table and every node
+        # after this one widen what they are given (`subject_tracks.drop_specks`).
+        # In place: `assemble` returns a tensor nothing else holds, and a copy of a clip's mask is gigabytes.
+        mask, speck_frames, speck_pixels = subject_tracks.drop_specks(assemble(n, h, w, found.pieces), in_place=True)
         text = report(found, found_cuts, pick, subject_phrase, named_frame, named_value, time.perf_counter() - began,
                       cutting="\n".join(filter(None, [cuts_line(steps, cut_at, named_cut), borders_line(seen, w, h)])))
+        if speck_frames:
+            text += (f"\nstray specks removed from the mask: {speck_pixels} px on {len(speck_frames)} frame(s), "
+                     f"each tiny beside the subject and away from them: {_frame_list(speck_frames)}")
         logger.info("[h3] MiniMaxH3SubjectTrack: %s", text.replace("\n", "; "))
         tiles = preview(frames, mask, found.shots, detect)
         table = shot_table.build(found, detect, mask, state=_state, phrase=subject_phrase, pick=pick,

@@ -1038,6 +1038,10 @@ def check_schema(problems):
         problems.append("the node's outputs are not mask, preview, report, shot_table with the mask first")
     if getattr(schema, "is_output_node", False):
         problems.append("the node is an output node: core would run the tracker on every queue, kept mask or not")
+    source = (REPO / "subject_track.py").read_text(encoding="utf-8")
+    if "subject_tracks.drop_specks(assemble(n, h, w, found.pieces), in_place=True)" not in source:
+        problems.append("the node's mask is not `drop_specks` of the assembled pieces: a stray speck of the tracker's "
+                        "would reach the tiles, the shot table and every node after it")
     if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
         problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
     fix, last = schema.inputs[-2], schema.inputs[-1]

@@ -43,6 +43,15 @@ a margin), and the result says whether the detector returned as many as it was a
 time or a frame, not a shot number inside one load of frames, so one text serves every load of a long clip. Nobody
 computes an address: `place_text` writes the exact words to type for a shot.
 
+**Stray specks** (`drop_specks`, 2026-10-08). A tracked mask can carry a few pixels far from its subject on a frame:
+one to a few hundred, on somebody else's jacket. Everything downstream widens what it is given (the part node shows the
+model the mask widened, the Masked Source grows the part by its margin and rounds it out to whole tokens for a latent
+step's frames), so a speck of a few pixels became a block of the crowd regenerated for several frames, nowhere near the
+subject. Per frame the largest connected piece is the subject; another piece is dropped only when it is BOTH tiny beside
+that piece and away from it. Either alone keeps it, because a subject is often in several pieces: an arm seen past the
+head of the person in front, a hand between two people. A hand at arm's length is kept by its size however far it is; a
+sliver of sleeve is kept by being near however small.
+
 Nothing here is specific to people: a subject is whatever the tracker's phrase asked for.
 """
 from __future__ import annotations
@@ -67,6 +76,66 @@ BOX_FILL_LEAST = 0.1
 #: track's mask. Tracker and detector masks of one person differ at the edges, so the line is well under 1. To be read
 #: against the base rate `bench/` measures (how often a track nobody doubts has no detection behind it).
 AGREE_AT = 0.3
+
+
+#: A piece of a tracked mask is a speck only under this share of the frame's largest piece. Measured on one load, the
+#: tracker's own mask as a no-sampling preview wrote it (2026-10-08; the masking board, finding `mhi-08`, has the
+#: figures): every stray piece was under it and every detached piece that was the subject and lay off the largest
+#: piece's box was several times over it.
+SPECK_SHARE = 0.005
+#: ...and only when its box lies farther than this from the largest piece's box, as a share of the square root of the
+#: largest piece's area, so it scales with the subject. Measured on the same load: every stray lay beyond it; the small
+#: pieces that were the subject lay inside the largest piece's own box.
+SPECK_REACH = 0.4
+
+
+def drop_specks(mask: torch.Tensor, share: float = SPECK_SHARE, reach: float = SPECK_REACH, in_place: bool = False):
+    """A [N, H, W] tracked mask without its stray specks: (the mask, the frames changed, the pixels removed in all).
+
+    Per frame the largest connected piece (eight neighbours) is taken as the subject. Another piece is removed when its
+    area is under `share` of that piece's AND its box is more than `reach` x the square root of that piece's area from
+    that piece's box on either axis. Nothing else changes: a frame of one piece, an empty frame and every piece that is
+    large or near come back as they were. The largest piece is never removed, so a frame that holds only a speck keeps
+    it: whether the subject is there at all is not this function's question.
+
+    The mask given is not written to unless `in_place`, which a caller sets when nothing else holds the tensor: a
+    clip's mask at the canvas is gigabytes, and a copy of it on every run buys nothing there. It is read a frame at a
+    time for the same reason.
+    """
+    import numpy as np                 # here: the two uses in this module
+    from scipy import ndimage          # core's own dependency; imported here so the rest of the module needs none
+    out = mask if in_place else mask.clone()
+    eight = np.ones((3, 3), dtype=bool)
+    frames, pixels = [], 0
+    for f in range(int(mask.shape[0])):
+        on = (mask[f] > 0.5).cpu().numpy()
+        rows = np.flatnonzero(on.any(axis=1))
+        if not rows.size:
+            continue
+        cols = np.flatnonzero(on.any(axis=0))
+        y0, x0 = int(rows[0]), int(cols[0])
+        labels, count = ndimage.label(on[y0:int(rows[-1]) + 1, x0:int(cols[-1]) + 1], structure=eight)
+        if count < 2:
+            continue
+        areas = np.bincount(labels.ravel())[1:]
+        big = int(areas.argmax())
+        boxes = ndimage.find_objects(labels)
+        by, bx = boxes[big]
+        far = float(reach) * math.sqrt(float(areas[big]))
+        gone = []
+        for i in range(count):
+            if i == big or areas[i] >= float(share) * areas[big]:
+                continue
+            sy, sx = boxes[i]
+            gap = max(by.start - sy.stop, sy.start - by.stop, bx.start - sx.stop, sx.start - bx.stop, 0)
+            if gap > far:
+                gone.append(i + 1)
+        if gone:
+            kill = np.isin(labels, gone)
+            out[f, y0:y0 + kill.shape[0], x0:x0 + kill.shape[1]][torch.from_numpy(kill)] = 0
+            frames.append(f)
+            pixels += int(kill.sum())
+    return out, frames, pixels
 
 
 def plausible(masks: torch.Tensor) -> torch.Tensor:
