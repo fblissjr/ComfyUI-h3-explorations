@@ -1277,7 +1277,15 @@ MASKED_SOURCE = dict(grow_pixels=64, feather_pixels=8, replace="whole subject", 
 #: lowest count seen to carry it, one seed on that ladder; the shipped fl2va
 #: PDD8 graph stays the default for shots that need no movement from the
 #: source.
-MASKED_MOTION_STEPS = 12
+#: **Sixteen since 2026-10-07 (the owner's decision): the base count,
+#: `SAMPLING["steps"]`, read from there so there is one copy.** Twelve was the
+#: lowest count the ladder above saw carry the turn, chosen for speed early in
+#: the masked lane and before any masked render had been judged against
+#: sixteen; the note beside `SAMPLING` records that twelve was rejected for the
+#: base graphs because it stops following the prompt. Decided, not measured: a
+#: twelve-against-sixteen pair on two masked windows was rendering when this
+#: was set, and a later eval showing twelve as good reverses it.
+MASKED_MOTION_STEPS = SAMPLING["steps"]
 #: The Masked Source as the ref2va motion graph ships it: the subject's own
 #: frames on grey as the encoder-only motion reference (the masking board's
 #: route 1, measured above), every other value `MASKED_SOURCE`'s.

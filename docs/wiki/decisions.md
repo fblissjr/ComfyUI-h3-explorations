@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-07
 
+- **The masked ref2va motion graphs run sixteen steps, the base count; they
+  ran twelve** (the owner: twelve "was set too early in this effort", and it
+  is "not time to optimize yet"). `h3_config.MASKED_MOTION_STEPS` now reads
+  `SAMPLING["steps"]`, and the six generated graphs that carry it are
+  rebuilt. Twelve was the lowest count the 2026-10-05 ladder saw carry the
+  source's movement, taken for speed before any masked render had been
+  judged against sixteen; the base graphs had already rejected twelve for
+  not following the prompt (the note beside `SAMPLING`). **Decided, not
+  measured**: a twelve-against-sixteen pair on two masked windows was
+  rendering when this was set. Sampler (Euler), scheduler (`simple`) and
+  the shifts are unchanged and match the base recipe and the release's own
+  config. Every masked ref2va render before this ran twelve steps.
 - **The masked graphs load the source at the canvas in one resize** (the
   owner, on reading the loader beside sglang's: "do it right", then "do it
   now"). The generator gave the loader the canvas width alone, so a 16:9
