@@ -7,6 +7,15 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.234.1
+<!-- changelog.d/mrship-next-steps-whole-frame.md -->
+
+### Changed
+
+- `docs/wiki/next_steps.md`: a whole-frame video-to-video entry: where the
+  2026-10-09 record is, and the one render owed (the swimmers clip by text
+  with a men's suit, texts and graphs written and not rendered).
+
 ## 0.234.0
 <!-- changelog.d/mrfetch-masked-source-edge.md -->
 

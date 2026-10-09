@@ -13,6 +13,22 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**Whole-frame video to video (2026-10-09): two full clips on one source; what is owed.**
+- What was rendered, what each showed and what is unexplained:
+  `../../bench/results/2026-10-09_whole_frame_text_and_copy_size.md`. Not
+  judged on playback beyond the owner's remarks on single renders.
+- **Owed, the owner's "another day": the swimmers clip by text with a men's
+  suit.** The rendered text drew the rows in a women's one-piece. The
+  replacement texts (swim shorts by their look, plain caps, how much of each
+  body shows pinned in the second and third windows) and their graphs are
+  written and not rendered: `internal/claude/2026-10-09_mrship/`,
+  `prompt_swim3_*.txt`, `swim3_copy384_*_api.json`, built by
+  `make_swim3_prompts.py` and `make_swim3_graphs.py` there. Each window is
+  its own run, continued from the one before; the session's notes beside
+  them say how they were queued.
+- Open with the owner: whether the rule the text pairs point at goes into
+  `../prompting.md`; a repair for the one held frame.
+
 **Masked video to video (owner, 2026-10-04): version one shipped; movement from the source is answered on ref2va (2026-10-05) and open on fl2va.**
 - A shot that needs the original's movement renders on
   `workflows/h3_video_to_video_masked_song_ref2va_motion_api.json`; why, and
