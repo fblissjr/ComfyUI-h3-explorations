@@ -102,6 +102,50 @@ shirt and a tie, a face that is not the source's, and the turn a few frames
 ahead of the source's. The text render on the same frames keeps the cap and
 T-shirt through the turn; whether its face is the lead's is for playback.
 
+Later the same evening the owner watched the other two. The text render
+walks the right way and holds, with one fault: on the first frames the right
+half of the black cap is missing (frames 0 to 2 on stills, whole by frame
+5). The edge render is the control, and as bad. The owner's summary: every
+one of the three has a glaring fault, and a default graph whose failure is
+not understood is not a good default.
+
+**The track held; the redraw lost him.** On the control's mask review the
+subject's mask and the region sit on the source's man on every frame looked
+at, through the turn. What changes at five seconds is who is drawn inside
+the region.
+
+**The cap: a reading, not shown.** The missing half is inside the
+regenerated region on the mask review, so it is not the region's edge. The
+graph composites `only what changed` at the `change_threshold` the json
+gives; on frame 0 the source behind the missing half and the kept part of
+the cap differ in brightness by less than that threshold (the json has the
+figures), so a black cap over that background cannot be kept by that rule
+except where it covers the source's lighter head, and that is where it
+survives. Not explained: it is whole by frame 5 over much the same
+background. The frames before the composite were not kept
+(`keep_windows` was off in this trial, on in the final), so whether the
+model drew the whole cap is not known. One render with them kept decides it.
+
+## What each model was given (audited after the renders, not before)
+
+- **Frame rate.** The source is 25 frames a second; the copy relabels every
+  frame at 24 and resamples none. The loader's `force_rate` is off. The
+  tracker and the part model run on every loaded frame and have no rate of
+  their own. The renders are written at 24.
+- **Which frames.** Measured against the copy, the renders' first and last
+  frames line up with one frame earlier than intended: clip frames 119 to
+  361, not 120 to 362, the same in all three (the loader's start time fell
+  just short of the frame boundary). The stills above were set against the
+  source one frame late, which changes no reading.
+- **Size.** One resize, in the loader: a centre crop to the canvas's shape
+  and a scale to the canvas, which loses a narrow strip at each side and
+  stretches nothing (read in the loader's code and confirmed by measure).
+  The video model, the motion reference and the tracker are all given that
+  one picture. How the tracker's own network fits it to its input side
+  (`subject_track.TRUNK_SIDE`) was not read.
+- **Joins.** None: one window, no context frames, nothing trimmed.
+- **After sampling.** One correction, the composite above.
+
 ## Where the graph comes from, and what is not the final's
 
 The 2026-10-08 final is the shipped graph

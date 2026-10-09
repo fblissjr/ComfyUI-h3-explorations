@@ -24,6 +24,29 @@
     "force_rate": 0.0,
     "custom_width": 1344,
     "custom_height": 768
+   },
+   "measured": {
+    "clip_frames": [
+     119,
+     361
+    ],
+    "how": "mean absolute difference of the render's first and last frames against the copy's frames, on the columns clear of the subject; lowest at copy frames 219 and 461",
+    "by_copy_frame": {
+     "render_0_vs_218_to_222": [
+      0.0211,
+      0.0209,
+      0.0225,
+      0.0246,
+      0.0262
+     ],
+     "render_242_vs_460_to_464": [
+      0.0105,
+      0.0095,
+      0.013,
+      0.0177,
+      0.0226
+     ]
+    }
    }
   },
   "subject_share_of_frame_percent": {
@@ -169,12 +192,26 @@
  "not_run": "the crop arm: one fixed box gains almost nothing on a window whose subject starts at a quarter of the frame; deferred to a window where the subject is small throughout, with its own control",
  "playback": {
   "control": "the owner, 2026-10-09: faces the wrong way and walks backward at the start; becomes the other man at about five seconds and never the owner's likeness again; a third person at the end when he turns",
-  "text": "not watched",
-  "edge": "not watched"
+  "text": "the owner, 2026-10-09: walks the right way and everything else looks fine; on the first frames the right half of the black cap is missing",
+  "edge": "the owner, 2026-10-09: the same as the control, and as bad"
  },
  "reuse": {
   "pack": "none: WINDOW_REUSE_ENABLED and MASK_REUSE_ENABLED are off; reports say 0 reused, no stored window reused, 1 conditioning encoded a render",
   "comfyui": "the track and parts came from ComfyUI's node cache of the pick preview (read from timings: each render's wall time is the Song node's own total to within a few seconds)"
  },
- "origin": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json, as the 2026-10-08 final changed it: typed per-window text for the prompt node, a path loader, pick largest on frame 4, motion_short_edge 768"
+ "origin": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json, as the 2026-10-08 final changed it: typed per-window text for the prompt node, a path loader, pick largest on frame 4, motion_short_edge 768",
+ "audit": {
+  "frame_rate": "source 25 fps; copy relabelled to 24, no frame resampled; loader force_rate 0; tracker and part model per loaded frame; renders 24 fps, 243 frames",
+  "resize": "one, in the loader: centre crop to 7:4 then scale to 1344x768 (the difference against a crop-then-scale copy is under half that against a stretch or a pad)",
+  "joins": "none",
+  "after_sampling": "composite `only what changed`, change_threshold 0.05",
+  "not_read": "how the tracker's network fits the frame to subject_track.TRUNK_SIDE"
+ },
+ "cap": {
+  "frame": 0,
+  "source_brightness_behind_missing_half": 0.084,
+  "render_brightness_of_kept_cap": 0.093,
+  "change_threshold": 0.05,
+  "status": "a reading, not shown: the frames before the composite were not kept"
+ }
 }
