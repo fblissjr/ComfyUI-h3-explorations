@@ -1,0 +1,169 @@
+{
+ "date": "2026-10-09",
+ "session": "mrfetch",
+ "lane": "masked video to video",
+ "judged": "not judged; the readings in the record are from stills",
+ "code": {
+  "pack_commit": "413f6700",
+  "server": "started 16:44 local from start.sh defaults; H3_CAPTURE_ROOT the only H3_ key in its environment",
+  "wall_times": "rough: not a timed run, a peer's CPU decodes ran beside the later renders, and the first render loaded the models"
+ },
+ "source": {
+  "clip": "lotsofpeopledance_0414_0720.mkv (the input folder on the share), 25 fps",
+  "copy": "a 24 fps stream copy holding every frame, remade in the session's scratch folder by the recipe of the 2026-10-08 record",
+  "window": {
+   "clip_frames": [
+    120,
+    362
+   ],
+   "frames": 243,
+   "note": "clip frame n is frame 100 + n of the trim",
+   "loader": {
+    "start_time": 9.15,
+    "frame_load_cap": 243,
+    "force_rate": 0.0,
+    "custom_width": 1344,
+    "custom_height": 768
+   }
+  },
+  "subject_share_of_frame_percent": {
+   "120": 23.4,
+   "180": 15.7,
+   "240": 10.0,
+   "260": 7.5,
+   "300": 3.6,
+   "340_on": 3.0
+  },
+  "subject_share_source": "the owner's numbered review video of the clip, read off its overlay"
+ },
+ "base_graph": "the final masked graph of 2026-10-08 (the workflow stored in Video/mryo/v2/v2_00001.png), cut to one window",
+ "changed_from_base": [
+  "one 243-frame window instead of the whole clip",
+  "the still is f_img_outside_nomark_centered_lighting_fix_2.png_4K.jpg",
+  "grow_by is `the subject's size` in every render (the base used a fixed margin)"
+ ],
+ "shared": {
+  "song": {
+   "window_frames": 243,
+   "context_frames": 90,
+   "seed": 730451892,
+   "extent": "first_seconds",
+   "extent.seconds": 10.125
+  },
+  "masked_source": {
+   "grow_pixels": 64,
+   "grow_by": "the subject's size",
+   "feather_pixels": 8,
+   "replace": "the wired parts",
+   "paint_out": false,
+   "part_phrases": "hair, head",
+   "part_threshold": 0.5,
+   "part_margin": 8,
+   "composite": "only what changed",
+   "change_threshold": 0.05,
+   "reuse_mask": false,
+   "motion_reference": "subject only",
+   "motion_short_edge": 768,
+   "motion_vae": false,
+   "start_from": "noise",
+   "start_top": 0.3,
+   "start_blur": 16,
+   "start_knots": 1
+  },
+  "subject_track": {
+   "subject_phrase": "person",
+   "pick": "largest",
+   "pick_on": "a frame I name",
+   "match": "automatic",
+   "cuts": "automatic",
+   "detection_threshold": 0.5,
+   "max_people": 16,
+   "head_phrase": "head",
+   "corrections": "",
+   "pick_on.pick_frame": 4
+  },
+  "sol": {
+   "tau": 1.0,
+   "start_percent": 0.2,
+   "end_percent": 1.0,
+   "min_tokens": 12288,
+   "sink_conditioning": "exact_kv_and_all_rows",
+   "verbose": true,
+   "dense_blocks": "38,39,40,41,42,49",
+   "quantizer": "rotated",
+   "token_routing": "off"
+  },
+  "scheduler": {
+   "scheduler": "simple",
+   "steps": 12,
+   "denoise": 1.0
+  },
+  "reference_still": {
+   "size_policy": "max",
+   "size_policy.dit_short_edge": 2048,
+   "size_policy.allow_upscale": true,
+   "qwen_view": "shared"
+  }
+ },
+ "pick": "the largest `person` on frame 4, person 5 of 12, on screen 243 of 243 frames; confirmed on the tracker's tile before queueing",
+ "part_model": "found but not trusted on 24 frames (166-170, 188, 190-202, 204-208), which took the nearest trusted frame's part; the same in all three renders",
+ "renders": [
+  {
+   "name": "control",
+   "prompt_id": "eec802a8-3f37-46d5-9ae8-696f499c2dd1",
+   "differs_from_control": null,
+   "file": "Video/mrfetch/trial_120_362/control_00001.mp4",
+   "tokens_regenerated_percent": 23.7,
+   "composite_kept_percent_of_regenerated": 80,
+   "seconds": 509,
+   "sampling_seconds": 390.0
+  },
+  {
+   "name": "text",
+   "prompt_id": "50adb3c6-9b49-4c29-91ed-549269ddbc30",
+   "differs_from_control": "the Song node's prompt",
+   "file": "Video/mrfetch/trial_120_362/text_00001.mp4",
+   "tokens_regenerated_percent": 23.7,
+   "composite_kept_percent_of_regenerated": 80,
+   "seconds": 504,
+   "sampling_seconds": 386.7
+  },
+  {
+   "name": "edge",
+   "prompt_id": "76d85385-10d8-4d07-924c-f11a685c7f60",
+   "differs_from_control": "MiniMaxH3MaskedSource edge = latent cells",
+   "file": "Video/mrfetch/trial_120_362/edge_00001.mp4",
+   "tokens_regenerated_percent": 22.4,
+   "composite_kept_percent_of_regenerated": 84,
+   "seconds": 508,
+   "sampling_seconds": 388.2
+  }
+ ],
+ "stills_read": {
+  "frames": [
+   0,
+   30,
+   90,
+   96,
+   104,
+   112,
+   120,
+   128,
+   136,
+   144,
+   150,
+   200,
+   242
+  ],
+  "against": "the source's frame of the same number",
+  "control": "faces the camera on 0 and 30 where the source shows a back; a back in the cap and blue T-shirt on 90 to 128; on 136 and after, a bare head and a white shirt",
+  "text": "a back in the cap and blue T-shirt on 0 to 128; the cap and blue T-shirt on every later frame read, turned to the side on 136 and 144, facing the camera on 242",
+  "edge": "as the control on every frame read"
+ },
+ "texts": {
+  "control": "subject_definitions:\n<Subject 1> is the man in a black baseball cap, with short dark stubble and a blue T-shirt shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.\n<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.\n\nsummary:\n[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. From the waist up <Subject 1> is as <Picture 1> shows him, without speaking or singing.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the man in a black baseball cap, with short dark stubble and a blue T-shirt: his face and everything <Picture 1> shows of him from the waist up are retained in every frame.\n<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.\n\ndetailed_description:\nThe target video is photorealistic live-action.\n[Shot 1] <Subject 1>, the man in a black baseball cap, with short dark stubble and a blue T-shirt, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. The scene's own light falls on <Subject 1> as it falls on everything around him, from the same direction and in the same colour, and changes on him when it changes there. <Subject 1> does not speak or sing at any point, and none of the voices on the track belongs to <Subject 1>. The framing and every movement of the camera are the scene's own and do not change.\n\noverall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.\n\nnon_diegetic_music: N/A",
+  "text": "subject_definitions:\n<Subject 1> is the man in a black baseball cap, with short dark stubble and a blue T-shirt shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.\n<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.\n\nsummary:\n[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. He is seen from behind for most of it and faces the camera only at its end. From the waist up <Subject 1> is as <Picture 1> shows him, without speaking or singing.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the man in a black baseball cap, with short dark stubble and a blue T-shirt: everything <Picture 1> shows of him from the waist up is retained in every frame, and his face where it shows at the end of the shot.\n<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.\n\ndetailed_description:\nThe target video is photorealistic live-action.\n[Shot 1] <Subject 1>, the man in a black baseball cap, with short dark stubble and a blue T-shirt, is in the scene. He has his back to the camera as he walks to the rows of standing people: the back of the cap and the back and shoulders of the T-shirt face the camera. He stays seen from behind, and partly from the side, as he steps in among the rows, where the people standing in front of him hide part of him. At the end of the shot he has turned to face the camera, his head bowed. <Subject 1> moves as the person in <Video 1> moves, at the same moments, and is the same size in the frame as the person in <Video 1> at every moment. The scene's own light falls on <Subject 1> as it falls on everything around him, from the same direction and in the same colour, and changes on him when it changes there. <Subject 1> does not speak or sing at any point, and none of the voices on the track belongs to <Subject 1>. The framing and every movement of the camera are the scene's own and do not change.\n\noverall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.\n\nnon_diegetic_music: N/A",
+  "control_made_by": "masked_prompt_text.assemble(subject=..., voice=VOICE_SILENT, picture_gives=GIVES_UPPER, replace=REPLACE_PARTS, motion_reference='subject only')"
+ },
+ "not_run": "the crop arm: one fixed box gains almost nothing on a window whose subject starts at a quarter of the frame; deferred to a window where the subject is small throughout, with its own control"
+}
