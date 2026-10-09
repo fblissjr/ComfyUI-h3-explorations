@@ -7,6 +7,21 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.232.7
+<!-- changelog.d/mrfetch-medium-wording-and-index.md -->
+
+### Changed
+
+- `docs/research/masking/2026-10-09_mrfetch.md`: how the vendor's guide
+  words a change of medium in a video edit (the style sentence before the
+  first shot, the retention marker that says whether the look stays, the
+  change written on each subject, a style picture cited inside a subject),
+  and its sentence that a shot describes a subject within what is visible
+  in it.
+- `INDEX.md` rebuilt: its count of files under `docs/` was one short since
+  that note was added, which `bench/check_doc_inventory.py` reported in the
+  day's last full sweep.
+
 ## 0.232.6
 <!-- changelog.d/mrfetch-last-block-ruled-out.md -->
 
