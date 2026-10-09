@@ -3,7 +3,10 @@
 lane: masked video to video
 verdict: not judged. One window, one seed, three renders, read from stills only: the control and the finer-edge render show the lead facing the camera at the start, where the source shows a back, and a bare-headed figure in a white shirt from about the middle; the render whose text names only what the window shows keeps the cap and T-shirt on every still read. Nothing here is a default.
 
-**Read this first.** One window of one clip, one seed, one render a cell. Every
+**Read this first.** One window of one clip, one seed, one render a cell: one
+source video, one lead (one still, one set of clothing) and one scene. What
+it shows is about this window; whether it holds on another clip, another
+person or another setting is not known and is not claimed. Every
 reading below is from stills on thirteen frame numbers, set against the
 source's frame of the same number. The owner has watched none of these; a
 still cannot show what must hold over time, so no line here is a verdict on a
@@ -104,7 +107,9 @@ control of its own (owner, 2026-10-09).
 
 Nothing does yet. The owner set the bar on 2026-10-09: no default moves
 unless a pair is a marked improvement on playback, and the pairs have not
-been watched. If the text pair holds on playback, the next question is which
-of its sentences did it, and whether the node can write them from what the
-tracker already knows (which way the subject faces, and when the face
+been watched. If the text pair holds on playback, it has held on one clip
+with one lead in one scene; it would need to repeat on a different clip and
+a different lead before the node's text changes. Then the questions are
+which of its sentences did it, and whether the node can write them from what
+the tracker already knows (which way the subject faces, and when the face
 shows).
