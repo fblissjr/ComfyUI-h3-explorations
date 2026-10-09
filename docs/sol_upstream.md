@@ -1,6 +1,6 @@
 # What upstream says: the paper, Sol-Engine, Sol-H3, and the other packs
 
-Last updated: 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
+Last updated: 2026-10-09 (section "comfy-kitchen and core, 2026-10-09", a pointer); 2026-10-03 (a dated note under "Kitchen: current" in the 2026-10-02
 section: the installed build has moved); 2026-10-02 (section "comfy-kitchen and core, 2026-10-02"; a
 superseded note on the 2026-09-25 INT8 VAE paragraph; core's model.py line
 citations re-read); 2026-09-27 (core's model.py line citations and the chunked
@@ -49,6 +49,18 @@ Every `coderef/Sana/...` pointer below resolves against a checkout at
 `757d902`. The branch `release/sol-h3-spark` has the same tree as that tip.
 
 ---
+
+## comfy-kitchen and core, 2026-10-09
+
+Read with the ComfyUI checkout at `08ff3c11`, against `65787d66`, and with
+`gh` for kitchen. The account is in
+[`wiki/references.md`](wiki/references.md), "What moved by 2026-10-09",
+under "ComfyUI core" and "comfy-kitchen". The one thing a reader of this
+page needs from it: **core can now run kitchen's Sol-Attn with no node in
+the graph**, on a model file's or a LoRA's say-so (`b26625f2`, #16831;
+`f49c531e`, #16880), at kitchen's defaults but for the threshold. "ComfyUI
+core's own Sol node" below describes `BlockSparseAttention`, which is a
+different door to the same kernel and did not change.
 
 ## comfy-kitchen and core, 2026-10-02
 

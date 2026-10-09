@@ -83,12 +83,18 @@ the ordered tuple of `frame_index` values and must be one of `(0,)`, `(-1,)`,
 `(0,-1)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:72-76`), enforced at validation, plan
 resolution, canvas preparation and text encoding alike.
 
-**Canonical request** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:278-378`):
+**Canonical request** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::minimax_h3_validate_canonical_request`):
 `{schema, task, prompt, conditions, target[, flow_shift, audio_flow_shift, seed]}`.
 `target` is `{short_edge, aspect_ratio, duration_seconds}`; unknown `target`
-keys are **silently dropped** before validation (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py:189-198`),
-while an unknown key in a `conditions[]` entry is an error (`:41-43,190-192`).
+keys are **silently dropped** before validation (`coderef/sglang/python/sglang/multimodal_gen/configs/sample/minimax_h3.py::MiniMaxH3SamplingParams._validate`),
+while an unknown key in a `conditions[]` entry is an error
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py::_validate_conditions`, against `_ALLOWED_CONDITION_KEYS`).
 `seed` is in `[0, 2^63-1]`.
+
+*2026-10-09: these three citations were line ranges from the 2026-08-25 read.
+sglang's `17b2f35ae7` shortened the file and the first fell off its end, so
+they name symbols now. The other line citations on this page are still that
+read's and drift the same way: find the symbol before quoting one.*
 
 **What the HTTP layer refuses outright** (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/video_adapter.py:119-167`):
 explicit `num_frames` or `fps`; `guidance_scale`, `guidance_scale_2`,

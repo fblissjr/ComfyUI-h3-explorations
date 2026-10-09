@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-09 (a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -96,7 +96,14 @@ It is not a trained task. The release trains t2va, fl2va and ref2va; a
 spatial mask on a base checkpoint is an inference-time method. The mechanism
 is core's: a latent noise mask on H3 is a per-token timestep
 (`comfy/ldm/minimax/model.py::mask_row_values`), and the clean latent is put
-back into the kept tokens every step.
+back into the kept tokens every step. *2026-10-09: what the model is shown
+in a kept token is the clean latent mixed with noise at the level core uses
+for a reference, labelled at that level
+(`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint`); "clean" on this page
+means that. How vllm-omni's mask editing and the third-party masking packs
+compare with this lane, and what they do that it has not tried:
+[`references.md`](references.md), "Masks and edited video upstream, beside
+the masked lane".*
 
 ## The pieces, in the order a render meets them
 

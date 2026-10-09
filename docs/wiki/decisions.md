@@ -15,6 +15,25 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-09
+
+- **An upstream read across the sister checkouts, core and kitchen; no
+  default moved, and three line citations became symbols.**
+  `docs/research/sglang_h3_pipeline.md` cited sglang's canonical request,
+  its dropped `target` keys and its unknown condition key by line range
+  (lines 278 to 378 of the request validation file for the first), all
+  from its 2026-08-25 read. sglang's `17b2f35ae7` shortened that file and
+  `bench/check_doc_links.py` went red on the first range; the other two
+  had drifted without tripping it. All three
+  name symbols now, with a dated note that the page's other line citations
+  are that read's. `docs/wiki/masked_v2v.md` said the model "is given those
+  tokens clean"; it keeps the word and a dated note says what core shows
+  there (`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint`). The read
+  itself, with what core's new attention preference means for a graph on
+  stock attention and how upstream's mask editing compares with the masked
+  lane: [`references.md`](references.md), "What moved by 2026-10-09".
+  Nothing was decided by the owner in it.
+
 ## 2026-10-08
 
 - **sglang's serving code does have one mask path, in the stage a ComfyUI
