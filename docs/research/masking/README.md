@@ -30,6 +30,13 @@ that were rendered are `bench/masked_v2v_arms.json` and
 
 ## Notes
 
+- [`2026-10-09_mrfetch.md`](2026-10-09_mrfetch.md): three questions from
+  the whole-frame lane answered from core's code and this pack's: the first
+  sigmas of a late start and why a small share of the source holds the
+  coarse picture; why the last latent frame of a window can let go of the
+  source's look when the reference reaches the text encoder only (a
+  candidate, with its test); and what one fraction as the mask over the
+  whole frame does on each step. A reading; nothing was rendered.
 - [`2026-10-07_mryolk.md`](2026-10-07_mryolk.md): SAM 3.1 in ComfyUI from input to output, stage by
   stage, for someone who knows ComfyUI and not SAM: what goes in and comes
   out of each stage, which file does it, what Meta's code does at the same

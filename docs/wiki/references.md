@@ -1155,6 +1155,11 @@ The lane's own map is [`masked_v2v.md`](masked_v2v.md).
   composite. Whether core's per-token label and a per-step threshold
   compose on H3 is not known.
 
+Three questions the whole-frame lane asked the same day (the first sigmas
+of a late start, the last latent frame of a window, one fraction as the
+mask over the whole frame) are answered from code in
+[`../research/masking/2026-10-09_mrfetch.md`](../research/masking/2026-10-09_mrfetch.md).
+
 ---
 
 ## The streaming references: TaoMate
