@@ -91,6 +91,42 @@ Three things a reader should not take from this table:
   where the video model has its own copy of the source; here it sees the
   source only outside the mask, so this is the rule on a different arm.
 
+## The owner's playback of the control (2026-10-09)
+
+Only the control has been watched. At the start he faces the wrong way and
+walks backward. At about the five-second mark the lead becomes the other
+man, and never becomes the owner's likeness again. At the end, when he turns
+to the camera, he is a third person, neither the lead nor the source's man.
+A close sheet of the last two seconds agrees on stills: bare head, white
+shirt and a tie, a face that is not the source's, and the turn a few frames
+ahead of the source's. The text render on the same frames keeps the cap and
+T-shirt through the turn; whether its face is the lead's is for playback.
+
+## Where the graph comes from, and what is not the final's
+
+The 2026-10-08 final is the shipped graph
+`workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json` with
+its prompt node swapped for a typed text per window and its loader for a
+path loader, the pick set to the largest person on a named frame, and the
+motion reference at the canvas's short edge. The tracker, the part model,
+the Masked Source's other settings, Sol and the schedule are the shipped
+graph's. This trial keeps all of that. Beside the prompt, its control
+differs from the final in: one shorter window that opens on his back (the
+final's first window opens on his face, and each later one continues from
+the one before); the newer still; the margin rule; a newer core
+(`git reflog` in the ComfyUI checkout has the two pulls); and one tracker
+change that landed after the final rendered (`git log -- subject_track.py`).
+So the control is not the final with a different prompt, and its failure is
+not shown to be the prompt's alone. The text render shares every one of
+those with the control and differs from it only in the prompt.
+
+Nothing was reused by this pack: `audio_freeze_song.WINDOW_REUSE_ENABLED`
+and `video_mask.MASK_REUSE_ENABLED` are off and each render's report says so
+(the json has the lines). ComfyUI's own node cache served the track and the
+parts to all three renders from the pick preview run before them, which is
+read from the timings, the server's history being gone; all three therefore
+rendered from one and the same mask.
+
 ## Caveats
 
 - The text render carries several changes at once: the view, the garments

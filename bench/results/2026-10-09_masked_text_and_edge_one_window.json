@@ -168,6 +168,13 @@
  },
  "not_run": "the crop arm: one fixed box gains almost nothing on a window whose subject starts at a quarter of the frame; deferred to a window where the subject is small throughout, with its own control",
  "playback": {
-  "control": "the owner, 2026-10-09: at the start he faces the wrong way and walks backward; nothing else is judged"
- }
+  "control": "the owner, 2026-10-09: faces the wrong way and walks backward at the start; becomes the other man at about five seconds and never the owner's likeness again; a third person at the end when he turns",
+  "text": "not watched",
+  "edge": "not watched"
+ },
+ "reuse": {
+  "pack": "none: WINDOW_REUSE_ENABLED and MASK_REUSE_ENABLED are off; reports say 0 reused, no stored window reused, 1 conditioning encoded a render",
+  "comfyui": "the track and parts came from ComfyUI's node cache of the pick preview (read from timings: each render's wall time is the Song node's own total to within a few seconds)"
+ },
+ "origin": "workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json, as the 2026-10-08 final changed it: typed per-window text for the prompt node, a path loader, pick largest on frame 4, motion_short_edge 768"
 }
