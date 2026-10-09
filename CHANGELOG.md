@@ -7,6 +7,19 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.234.4
+<!-- changelog.d/mrfetch-masked-text-edge-record-control.md -->
+
+### Fixed
+
+- **The record of the three masked renders says what its control is not**
+  (`bench/results/2026-10-09_masked_text_and_edge_one_window.md`, and the
+  json's `changed_from_base`): the 2026-10-08 final it was cut from carries
+  a hand-written text per window that says which way the lead faces, and the
+  control drops those for the node's own text. The record did not say so, and
+  read as if the final had rendered with the node's text. It also gains the
+  owner's one playback note on the control.
+
 ## 0.234.3
 <!-- changelog.d/mrfetch-masked-text-edge-record-scope.md -->
 

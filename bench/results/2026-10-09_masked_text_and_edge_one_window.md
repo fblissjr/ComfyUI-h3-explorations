@@ -29,7 +29,19 @@ the window, the settings the three renders share, one row a render, both
 texts in full, and the stills read. In short: the final masked graph of
 2026-10-08, cut to one window of the length the json gives, with the newer
 still and the margin set by the subject's size in every render. The control
-carries the text `masked_prompt_text.assemble` writes for that recipe. The
+carries the text `masked_prompt_text.assemble` writes for that recipe.
+
+*Added later on 2026-10-09: the control is not what that final graph
+rendered with.* The graph stored in the 2026-10-08 final carries a
+hand-written text for each of its windows, several hundred words apiece,
+and each says which way he faces and when he turns; its first window also
+opens on his face. The control here drops those texts for the node's own,
+which says nothing about the view and keeps the face "in every frame", on a
+window that opens on his back. So the control asks what the node's text does
+by itself on such a window, and the text render puts back, in a few
+sentences, what the final's texts already said at length. The owner, on
+playback of the control: he faces the wrong way at the start and walks
+backward. The
 subject was picked the way that graph picks, and the pick was confirmed on
 the tracker's tile before anything was queued.
 

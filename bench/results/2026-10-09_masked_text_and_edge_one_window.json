@@ -40,7 +40,8 @@
  "changed_from_base": [
   "one 243-frame window instead of the whole clip",
   "the still is f_img_outside_nomark_centered_lighting_fix_2.png_4K.jpg",
-  "grow_by is `the subject's size` in every render (the base used a fixed margin)"
+  "grow_by is `the subject's size` in every render (the base used a fixed margin)",
+  "the prompt: the base carries a hand-written text per window (timeline sections a to d) that says which way he faces and when he turns, and its first window opens on his face; the control replaces them with the text masked_prompt_text.assemble writes, and the text render with a short text written from this window's frames"
  ],
  "shared": {
   "song": {
@@ -165,5 +166,8 @@
   "text": "subject_definitions:\n<Subject 1> is the man in a black baseball cap, with short dark stubble and a blue T-shirt shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.\n<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.\n\nsummary:\n[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. He is seen from behind for most of it and faces the camera only at its end. From the waist up <Subject 1> is as <Picture 1> shows him, without speaking or singing.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - the man in a black baseball cap, with short dark stubble and a blue T-shirt: everything <Picture 1> shows of him from the waist up is retained in every frame, and his face where it shows at the end of the shot.\n<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.\n\ndetailed_description:\nThe target video is photorealistic live-action.\n[Shot 1] <Subject 1>, the man in a black baseball cap, with short dark stubble and a blue T-shirt, is in the scene. He has his back to the camera as he walks to the rows of standing people: the back of the cap and the back and shoulders of the T-shirt face the camera. He stays seen from behind, and partly from the side, as he steps in among the rows, where the people standing in front of him hide part of him. At the end of the shot he has turned to face the camera, his head bowed. <Subject 1> moves as the person in <Video 1> moves, at the same moments, and is the same size in the frame as the person in <Video 1> at every moment. The scene's own light falls on <Subject 1> as it falls on everything around him, from the same direction and in the same colour, and changes on him when it changes there. <Subject 1> does not speak or sing at any point, and none of the voices on the track belongs to <Subject 1>. The framing and every movement of the camera are the scene's own and do not change.\n\noverall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.\n\nnon_diegetic_music: N/A",
   "control_made_by": "masked_prompt_text.assemble(subject=..., voice=VOICE_SILENT, picture_gives=GIVES_UPPER, replace=REPLACE_PARTS, motion_reference='subject only')"
  },
- "not_run": "the crop arm: one fixed box gains almost nothing on a window whose subject starts at a quarter of the frame; deferred to a window where the subject is small throughout, with its own control"
+ "not_run": "the crop arm: one fixed box gains almost nothing on a window whose subject starts at a quarter of the frame; deferred to a window where the subject is small throughout, with its own control",
+ "playback": {
+  "control": "the owner, 2026-10-09: at the start he faces the wrong way and walks backward; nothing else is judged"
+ }
 }
