@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-09 (a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -194,6 +194,15 @@ where in core.
   mask (`grow`, `token_mask`). A token is regenerated or kept whole, in
   space and in time: the video VAE packs frames in runs (`run_lengths`), so
   a token covers several frames.
+- **`edge`** (optional, 2026-10-09; a trial, off by default). `whole tokens` is the
+  rule above. `latent cells` hands the sampler the mask per latent cell, half a
+  token's side: core labels a token by the most regenerated of its cells and
+  puts the source back cell by cell, so a kept cell inside a regenerated token
+  is the source's in the result (`video_mask.EDGES` has the provenance). It is
+  aimed at the rounding that keeps the region near twice a small subject's own
+  area with no margin at all. Nothing has rendered with it;
+  `bench/check_video_mask.py` item 15 holds that it loses no subject pixel and
+  moves no label.
 - **`keep`** (optional, 2026-10-07). A second mask, from any node, of what
   must stay the original even inside the region: something the subject
   holds, a person standing close, anything passing in front. The part node's

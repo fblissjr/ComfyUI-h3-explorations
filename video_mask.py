@@ -246,6 +246,16 @@ GROW_PIXELS = 64
 GROW_FIXED = "a fixed margin"
 GROW_SUBJECT = "the subject's size"
 GROW_BY = (GROW_FIXED, GROW_SUBJECT)
+#: The `edge` choices: how fine the region's edge is. The first is the node as it was: a token is regenerated or
+#: kept whole. The second hands the sampler the mask per latent cell, half a token's side. Core labels a token by
+#: the most regenerated of its cells and puts the source back cell by cell (`comfy/model_base.py`,
+#: `MiniMaxH3.scale_latent_inpaint` and `_token_grid_masks`; read 2026-10-09), so a kept cell inside a regenerated
+#: token is the source's in the result. vllm-omni's mask editing does the same. Why it is here: rounding out to
+#: whole tokens is what keeps the region at about twice a small subject's own area with no margin at all (the
+#: masking board, finding mhi-03). Not the default until a pair has been judged (the owner, 2026-10-09).
+EDGE_TOKENS = "whole tokens"
+EDGE_CELLS = "latent cells"
+EDGES = (EDGE_TOKENS, EDGE_CELLS)
 #: Under `the subject's size`: the margin as a share of the square root of the mask's area on the frame.
 #: Reasoned, 2026-10-08, not rendered: a little over `GROW_PIXELS` against that root on the close subject the
 #: fixed margin was chosen on, so a subject that close keeps the margin it has today.
@@ -299,7 +309,7 @@ MASK_REUSE_ENABLED = False
 
 MASK_KEY_SKIP = ("grow_pixels", "grow_by", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
-                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others")
+                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others", "edge")
 #: `start_from` choices: what the regenerated tokens start from.
 #:
 #: `noise` is the shipped render: the schedule runs from its first knot and
@@ -547,12 +557,14 @@ def margin_note(each) -> str:
     return f"{low} px" if low == high else f"{low} to {high} px"
 
 
-def token_mask(mask: torch.Tensor, latent_t: int, lat_h: int, lat_w: int) -> torch.Tensor:
+def token_mask(mask: torch.Tensor, latent_t: int, lat_h: int, lat_w: int, whole_tokens: bool = True) -> torch.Tensor:
     """A [F, H, W] pixel mask (above 0.5 = regenerate) to [latent_t, lat_h, lat_w] of 0 or 1.
 
     F must be the window's frame count, the sum of `run_lengths(latent_t)`.
     Every value in a 2x2 patch is the same, which is what core's own pooling
-    would make of it.
+    would make of it. With `whole_tokens` off the mask is left per latent
+    cell (`EDGE_CELLS`): a cell is regenerated when any pixel under it on any
+    frame of its run is, and core does the pooling to tokens itself.
     """
     runs = run_lengths(latent_t)
     if int(mask.shape[0]) != sum(runs):
@@ -565,6 +577,8 @@ def token_mask(mask: torch.Tensor, latent_t: int, lat_h: int, lat_w: int) -> tor
         steps.append(cells[at:at + n].amax(dim=0))
         at += n
     m = torch.stack(steps, dim=0)
+    if not whole_tokens:
+        return m.contiguous()
     # core's patch pooling (`mask_row_values`): replicate-pad to even, max per 2x2
     m = F.pad(m.unsqueeze(1), (0, lat_w % 2, 0, lat_h % 2), mode="replicate")[:, 0]
     tokens = m.reshape(latent_t, m.shape[-2] // 2, 2, m.shape[-1] // 2, 2).amax(dim=(2, 4))
@@ -1257,7 +1271,8 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     """
     pixels, mask, short = window_frames(source, first_frame, frames, width, height)
     margin = source_margins(source, first_frame, frames, int(width) * int(height))
-    tokens = token_mask(grow(mask, margin), latent_t, lat_h, lat_w)
+    whole = source.get("edge", EDGE_TOKENS) == EDGE_TOKENS
+    tokens = token_mask(grow(mask, margin), latent_t, lat_h, lat_w, whole)
     if source.get("others") is not None:
         away = fit_mask(source["others"][int(first_frame):int(first_frame) + int(frames)], width, height)
         if short > 0:
@@ -1265,8 +1280,8 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
                                                 device=away.device)], dim=0)
         # In whole tokens, as the region is: a token the others touch is the source's unless the subject's own
         # mask, before any margin, has a pixel in it on one of its frames.
-        theirs = token_mask(away, latent_t, lat_h, lat_w)
-        tokens = tokens * (1.0 - theirs * (1.0 - token_mask(mask, latent_t, lat_h, lat_w)))
+        theirs = token_mask(away, latent_t, lat_h, lat_w, whole)
+        tokens = tokens * (1.0 - theirs * (1.0 - token_mask(mask, latent_t, lat_h, lat_w, whole)))
     if source.get("keep") is not None:
         # After the grow, so the margin cannot run back over what is kept, and in whole tokens: a token
         # that holds any kept pixel on any of its frames is kept. The composite and the review read
@@ -1275,7 +1290,7 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
         if short > 0:
             held = torch.cat([held, torch.zeros((short,) + tuple(held.shape[1:]), dtype=held.dtype,
                                                 device=held.device)], dim=0)
-        tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w))
+        tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w, whole))
     encode = pixels
     if source.get("paint_out"):
         encode = fill_subject(pixels, grow(mask, margin // 2))
@@ -1493,6 +1508,15 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                        "off it.\n\n"
                                        "Use `keep` for a thing the subject holds; use this for the people "
                                        "standing round them. The preview shows them in blue.")),
+                # appended 2026-10-09: a trial of a finer edge, the provenance beside `EDGES`
+                io.Combo.Input("edge", options=list(EDGES), default=EDGE_TOKENS, optional=True,
+                               tooltip=("How fine the edge of the replaced region is.\n\n"
+                                        "whole tokens: the region is rounded out to the model's blocks of 32 "
+                                        "pixels. A block is regenerated or kept whole.\n\n"
+                                        "latent cells: the region is rounded out to 16 pixels. Inside a "
+                                        "block that is regenerated, the cells outside the region come back as "
+                                        "the original. Use it when the subject is small and the region takes "
+                                        "in the people round them. Untested on playback.")),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
@@ -1540,7 +1564,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 change_threshold=CHANGE_THRESHOLD, reuse_mask=False, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
-                shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None) -> io.NodeOutput:
+                shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
+                edge=EDGE_TOKENS) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if int(feather_pixels) > int(grow_pixels):
@@ -1549,6 +1574,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 "would reach the subject's own pixels and bring the original back at its edge")
         if grow_by not in GROW_BY:
             raise ValueError(f"unknown grow_by {grow_by!r}; one of {list(GROW_BY)}")
+        if edge not in EDGES:
+            raise ValueError(f"unknown edge {edge!r}; one of {list(EDGES)}")
         if replace not in (REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS):
             raise ValueError(f"unknown replace {replace!r}; one of {[REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS]}")
         if start_from not in (START_NOISE, START_TOP):
@@ -1664,6 +1691,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         return io.NodeOutput({"frames": frames, "mask": mask, "grow_pixels": int(grow_pixels),
                               # the margin's rule and what it reads (`source_margins`): [N] in 0..1
                               "grow_by": grow_by, "subject_area": area,
+                              # how fine the region's edge is (`EDGES`; `window`)
+                              "edge": edge,
                               "feather_pixels": int(feather_pixels), "paint_out": bool(paint_out),
                               "composite": composite, "change_threshold": float(change_threshold),
                               "motion_reference": motion_reference, "motion_short_edge": int(motion_short_edge),

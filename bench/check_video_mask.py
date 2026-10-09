@@ -112,6 +112,17 @@ that could happen.
    node refuses another frame count or size and the two settings `keep`
    refuses, by name; unwired nothing changes; the preview shows them.
 
+15. **The finer edge loses no subject pixel and changes no label.** `edge`
+   (2026-10-09). With `latent cells` the mask is left per latent cell: every
+   masked pixel is still under a regenerated cell on its run; the cells are
+   inside the tokens the default makes, and fewer on a mask of single pixels
+   (the control: a mask that already fills whole tokens gives the same
+   answer both ways, so the saving comes from the rounding and nothing
+   else); core's own pooling of the cell mask gives the rows the default's
+   tokens give, so the model's labels do not move and only what is put back
+   does. `window` reads the choice from the record, an unset record is the
+   default bit for bit, and the node refuses an unknown choice.
+
 No model, no CUDA, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_video_mask.py
@@ -375,6 +386,66 @@ def check_grow_by(problems):
         problems.append("grow_by: h3_config.MASKED_SOURCE does not hold the node's default")
 
 
+def check_edge(problems):
+    torch.manual_seed(0)
+    mask = torch.zeros(FRAMES, LAT_H * 16, LAT_W * 16)
+    for _ in range(6):
+        f, y, x = (int(torch.randint(0, n, (1,))) for n in mask.shape)
+        mask[f, y, x] = 1.0
+    tokens = vm.token_mask(mask, LATENT_T, LAT_H, LAT_W)
+    cells = vm.token_mask(mask, LATENT_T, LAT_H, LAT_W, whole_tokens=False)
+    if tuple(cells.shape) != tuple(tokens.shape) or not bool(((cells == 0) | (cells == 1)).all()):
+        problems.append(f"the cell mask is {tuple(cells.shape)} with values outside 0 and 1")
+        return
+    # no subject pixel is lost: each masked pixel sits under a regenerated cell on its run
+    at = 0
+    for step, run in enumerate(vm.run_lengths(LATENT_T)):
+        under = cells[step].repeat_interleave(16, dim=-2).repeat_interleave(16, dim=-1)
+        if bool((mask[at:at + run].amax(dim=0) > under).any()):
+            problems.append(f"latent step {step}: a masked pixel is not under a regenerated cell")
+        at += run
+    if bool((cells > tokens).any()):
+        problems.append("a cell is regenerated outside the token the default regenerates")
+    if not float(cells.sum()) < float(tokens.sum()):
+        problems.append("on a mask of single pixels the cell edge regenerates no less than whole tokens")
+    # the control: a mask that already fills whole tokens is the same both ways
+    full = torch.zeros(FRAMES, LAT_H * 16, LAT_W * 16)
+    full[:, 32:96, 64:128] = 1.0
+    if not torch.equal(vm.token_mask(full, LATENT_T, LAT_H, LAT_W),
+                       vm.token_mask(full, LATENT_T, LAT_H, LAT_W, whole_tokens=False)):
+        problems.append("a mask that fills whole tokens differs between the two edges: the saving is not the rounding")
+    # core labels the same rows from either mask
+    rows_cells = mask_row_values(cells, LATENT_T, LAT_H, LAT_W)
+    rows_tokens = mask_row_values(tokens, LATENT_T, LAT_H, LAT_W)
+    if rows_cells is None or rows_tokens is None or not torch.equal(rows_cells, rows_tokens):
+        problems.append("core's pooling labels different rows from the cell mask and from the token mask")
+    # the window reads the record; an unset record is the default
+    frames = torch.rand(FRAMES, H, W, 3)
+    small = torch.zeros(FRAMES, H, W)
+    small[:, 20:27, 40:45] = 1.0
+    base = {"frames": frames, "mask": small, "grow_pixels": 0, "feather_pixels": 0}
+    plain = vm.window(base, 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    named = vm.window(dict(base, edge=vm.EDGE_TOKENS), 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    fine = vm.window(dict(base, edge=vm.EDGE_CELLS), 0, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)[2]
+    if not torch.equal(plain, named):
+        problems.append("a record that names `whole tokens` differs from one that names no edge")
+    if not torch.equal(plain, vm.token_mask(vm.fit_mask(small, W, H), LATENT_T, LAT_H, LAT_W)):
+        problems.append("a record with no edge is not the default token mask")
+    if not torch.equal(fine, vm.token_mask(vm.fit_mask(small, W, H), LATENT_T, LAT_H, LAT_W, whole_tokens=False)):
+        problems.append("`latent cells` on the record is not the cell mask in the window")
+    try:
+        vm.MiniMaxH3MaskedSource.execute(frames, small, edge="something else")
+        problems.append("an unknown edge was accepted by the node")
+    except ValueError as err:
+        if "edge" not in str(err):
+            problems.append(f"an unknown edge was refused without naming it: {err}")
+    inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
+    if inputs[-1].id != "edge" or not inputs[-1].optional or inputs[-1].default != vm.EDGE_TOKENS:
+        problems.append("edge: it is not the node's last input, optional, defaulting to whole tokens")
+    if "edge" not in vm.MASK_KEY_SKIP:
+        problems.append("`edge` is not in MASK_KEY_SKIP: a change of edge would track the subject again")
+
+
 def check_others(problems):
     """Item 14. A subject with a neighbour standing against them: the margin stays off the neighbour and the
     subject loses no token. The control: the same mask on `keep`, which gives the subject holes."""
@@ -454,8 +525,9 @@ def check_others(problems):
             if word not in str(exc):
                 problems.append(f"others: the refusal of {label} does not say so: {exc}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    if inputs[-1].id != "others" or not inputs[-1].optional:
-        problems.append("others: it is not the node's last input and optional")
+    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next)
+    if inputs[-2].id != "others" or not inputs[-2].optional:
+        problems.append("others: it is not where it was appended (the input before `edge`) and optional")
     if "others" not in vm.MASK_KEY_SKIP:
         problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
 
@@ -1353,7 +1425,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

@@ -328,7 +328,8 @@
       "shot_table",
       "keep",
       "grow_by",
-      "others"
+      "others",
+      "edge"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [
