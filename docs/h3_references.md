@@ -4,7 +4,7 @@
 is, what ComfyUI actually does to it, what it costs, and how to write the
 prompt so the model uses it the way you meant.
 
-last updated: 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
+last updated: 2026-10-09 (when the source already shows the person, under "Edit a source video"); 2026-10-08 (dated notes from a re-read of sglang: the vendor path under "Edit a source video", the condition noise level as a setting, two citations moved to names); 2026-10-03 (the section "Encoding references apart from the prompt", the append nodes showing their label, `use_vae` on the still's append node, and dated notes where `qwen_view`'s default is stated: it is `separate` at 512 again); 2026-08-25; the reference policies, the append node's defaults and the reference-view ablation corrected 2026-09-13 (`docs/wiki/decisions.md`); the retired concise swap twin corrected 2026-09-14
 
 Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
 own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
@@ -1232,6 +1232,19 @@ render:
 
 [`research/sglang_comparison.md`](research/sglang_comparison.md), "Ninth
 read", has the rest of that read.
+
+**When the source already shows the person, leave the still out (owner,
+2026-10-09).** A reference still is there to give the model a face. A source
+video that already shows that face gives it too, provided the video model
+has its own copy of the source: `use_vae` on the reference video, or
+`motion_vae` on a `MiniMaxH3MaskedSource` whose mask covers the whole frame.
+In that case wire no still: one input fewer, and its rows with it. Wire the
+still when the person is not in the source, which is the ordinary first
+pass, or when the source reaches the text encoder only, where the lead came
+out as someone else. This rests on stills from two renders of one clip
+against one, not on playback, and no default moved:
+[`bench/results/2026-10-09_whole_frame_text_and_copy_size.md`](../bench/results/2026-10-09_whole_frame_text_and_copy_size.md),
+"The lead without a still".
 
 ### Replace a character, keeping the video as the plate
 

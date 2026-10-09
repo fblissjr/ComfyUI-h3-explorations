@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-09
 
+- **In whole-frame video to video the still is left out when the source
+  already shows the person and the video model has its own copy of the
+  source.** Recorded as a rule at the owner's word, in that narrowed form:
+  it is a choice a clip makes, not a default, and no graph or default
+  changed. `docs/h3_references.md`, "Edit a source video", states it.
+  `bench/results/2026-10-09_whole_frame_text_and_copy_size.md` holds the
+  renders it rests on (stills from two renders of one clip against one) and,
+  kept as a tracked file at the owner's decision the same day, every
+  whole-frame render of that session: the pairs in which a window's text
+  decided whether it kept its source's framing, the sizes the video model's
+  copy held at, and what was ruled out for a held frame and a timing lead
+  that are still unexplained.
 - **An upstream read across the sister checkouts, core and kitchen; no
   default moved, and three line citations became symbols.**
   `docs/research/sglang_h3_pipeline.md` cited sglang's canonical request,
