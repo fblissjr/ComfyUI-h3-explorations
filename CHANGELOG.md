@@ -7,6 +7,19 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.232.4
+<!-- changelog.d/mrfetch-encoder-sampling-survey.md -->
+
+### Changed
+
+- `docs/research/masking/2026-10-09_mrfetch.md`, section 2: how a reference
+  video is sampled for the text encoder, read in sglang, FastVideo,
+  vllm-omni, LightX2V and core. All five use one rule, the odd count padded
+  by repeating the last sample included, so the repeated block the section
+  names as a candidate is the release's own presentation and not a fault in
+  this pack's sampling. Two results mrship reported that day are added,
+  marked as reported and not judged.
+
 ## 0.232.3
 <!-- changelog.d/mrfetch-whole-frame-test-length.md -->
 
