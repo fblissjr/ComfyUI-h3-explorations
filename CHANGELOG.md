@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.232.3
+<!-- changelog.d/mrfetch-whole-frame-test-length.md -->
+
+### Changed
+
+- `docs/research/masking/2026-10-09_mrfetch.md`, section 2: the test it
+  named for the last latent frame used a window length the Song node does
+  not take. A dated correction says which accepted lengths sample to an
+  even count, that no input sets the sampling stride, and what a test at
+  the original length would need.
+
 ## 0.232.2
 <!-- changelog.d/mrfetch-whole-frame-questions.md -->
 
