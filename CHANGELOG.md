@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.232.6
+<!-- changelog.d/mrfetch-last-block-ruled-out.md -->
+
+### Changed
+
+- `docs/research/masking/2026-10-09_mrfetch.md`, section 2: the candidate
+  it named for the last latent frame of a window (the text encoder's
+  repeated last block) is marked ruled out by run, with what another
+  session reported in its place: a place the text names and the window's
+  source does not show. The candidate is kept and marked, as the folder's
+  rule asks.
+
 ## 0.232.5
 <!-- changelog.d/mrfetch-reads-for-the-whole-frame-lane.md -->
 
