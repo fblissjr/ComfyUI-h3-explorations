@@ -78,13 +78,7 @@ map covers the frame, wherever that subject owns the pixel. It is for a pass
 on one person whose region took in part of another: whatever it changed of the other person goes back to the
 source, and where the two masks both claim a pixel the piece keeps it. `restore=<subject>:whole` takes nothing
 out: the piece is laid nowhere inside that subject's mask, for a pass that has no business there whoever is in
-front (a face pass and anybody else). `restore=<subject>:contested` is between the two, for a frame an owner map
-covers: what the map gives that subject, and also what the map calls CONTESTED inside that subject's tracked mask;
-what the map gives the row's own subject stays the piece's. It is for a whole-person pass beside a subject NOBODY
-is rendering on those frames: a pixel in dispute would otherwise stay as this pass drew it, on a person no row
-answers for. Where the other subject has a row of their own, leave it off, and the dispute falls to the later row
-as before. On a frame no owner map covers it is `:whole`: there the overlap of the two masks is the dispute. The
-record counts what it gave back (`contested_px_given_back`).
+front (a face pass and anybody else).
 
 **`--size source`** writes the file at the SOURCE's size and not the canvas's. Every frame is the source's own
 picture, never scaled, and only what a piece changed is put back over it, scaled up from the canvas to the
@@ -403,11 +397,10 @@ def read_table(path) -> list[dict]:
             label, dot, classes = value.partition(".")
             if not dot:
                 label, colon, how = label.partition(":")
-                if colon and how not in ("whole", "contested"):
-                    raise SystemExit(f"{path}: `{token}`: after the colon only `whole` and `contested` are known")
-                # the subject's tracked mask: less the piece's own subject (None), with nothing taken out ("whole"),
-                # or what an owner map gives the subject and what it leaves in dispute inside their mask ("contested")
-                row["restore"].append((label, how if colon else None))
+                if colon and how != "whole":
+                    raise SystemExit(f"{path}: `{token}`: after the colon only `whole` is known")
+                # the subject's tracked mask: less the piece's own subject (None), or with nothing taken out ("whole")
+                row["restore"].append((label, "whole" if colon else None))
                 continue
             names = class_names()
             wanted = []
@@ -483,8 +476,8 @@ def run_for(row, captures):
 
 
 def restore_text(label, wanted) -> str:
-    if wanted is None or isinstance(wanted, str):
-        return label + (":" + wanted if wanted else "")
+    if wanted is None or wanted == "whole":
+        return label + (":whole" if wanted else "")
     return f"{label}." + "+".join(class_names()[c] for c in wanted)
 
 
@@ -624,7 +617,6 @@ class Captures:
         self.alias = dict(alias or {})
         self.folders, self.masks, self.used_owner_map = [], {}, set()
         self.class_px_left = {}       # (row's piece, subject, frame) -> class pixels a restore left as the row's own subject's
-        self.contested_given = {}     # (row's piece, subject, frame) -> contested pixels a `:contested` restore gave back
         for folder in folders:
             folder = Path(folder)
             m = json.loads((folder / "manifest.json").read_text())
@@ -711,10 +703,9 @@ class Captures:
                                        "state": (x.get("subject") or {}).get("state")} for x in table.get("shots", [])]})
         return out
 
-    def owned(self, label, frame, prefer=None, disputed=False):
+    def owned(self, label, frame, prefer=None):
         """The pixels a subject OWNS on a source frame by a capture's `owners.npz`, or None where no capture given
-        holds an owner map that lists the subject and covers the frame. With `disputed`, the pixels that same map
-        calls contested, whoever between.
+        holds an owner map that lists the subject and covers the frame.
 
         The capture of the row's own run (`prefer`) has the word on its frames. With none, or where that one does
         not cover the frame, it is the first capture whose map gives the subject ANY pixel there: two captures can
@@ -729,15 +720,11 @@ class Captures:
             if key not in self.masks:
                 z = np.load(folder / "owners.npz")
                 self.masks[key] = (z["owner"], [self.alias.get(str(x), str(x)) for x in z["labels"]], int(z["nobody"]))
-                self.masks[(folder, "contested")] = int(z["contested"]) if "contested" in z.files else None
             owner, labels, _nobody = self.masks[key]
             if label in labels:
                 got = owner[k] == labels.index(label)
                 if folder == prefer or got.any():
                     self.used_owner_map.add(str(folder))
-                    if disputed:
-                        mark = self.masks[(folder, "contested")]
-                        return owner[k] == mark if mark is not None else np.zeros_like(got)
                     return got
                 fallback = fallback if fallback is not None else (str(folder), got)
         if fallback is not None:
@@ -844,21 +831,16 @@ def restore_weight(row, captures, run, frame, shape):
     hard, grown = np.zeros(shape, bool), np.zeros(shape, bool)
     prefer = run[0] if run else None
     for label, wanted in row["restore"]:
-        if wanted is None or isinstance(wanted, str):
+        if wanted is None or wanted == "whole":
             # another subject's tracked mask; less the piece's own unless the row says whole, so that where both
             # masks claim a pixel the piece keeps it
             mask = captures.mask(label, frame, prefer=prefer) if captures else None
             if mask is None:
                 return np.zeros(shape, np.float32), None
-            owns = captures.owned(label, frame, prefer=prefer) if wanted != "whole" else None
+            owns = captures.owned(label, frame, prefer=prefer) if wanted is None else None
             if owns is not None:
                 # an owner map covers this frame: what the subject owns, which already leaves out what the piece's
                 # own subject owns and what is contested
-                if wanted == "contested":
-                    # and, when the row says so, what the map leaves in dispute inside this subject's own track
-                    both = captures.owned(label, frame, prefer=prefer, disputed=True) & mask
-                    captures.contested_given[(row["piece"], label, frame)] = int(both.sum())
-                    owns = owns | both
                 hard |= owns
                 grown |= cv2.dilate(owns.astype(np.uint8), disc(RESTORE_GROW)).astype(bool) & (owns | ~mask_of_anyone(captures, frame, prefer, shape))
                 continue
@@ -1920,12 +1902,6 @@ def check(args, segs, canvas, span, src, rows, captures):
         result["class_restores_kept_off_the_rows_own_subject"] = {
             "px_left_because_the_rows_own_subject_owns_them": int(sum(left.values())), "frames": sum(1 for v in left.values() if v),
             "by_subject": {label: int(sum(v for (_p, who, _f), v in left.items() if who == label)) for label in sorted({k[1] for k in left})}}
-    if captures and captures.contested_given:
-        gave = captures.contested_given
-        result["contested_px_given_back"] = {
-            "px": int(sum(gave.values())), "frames": sum(1 for v in gave.values() if v),
-            "most_on_a_frame": (lambda k: [int(gave[k]), k[2], os.path.basename(k[0]), k[1]])(max(gave, key=gave.get)),
-            "by_subject": {label: int(sum(v for (_p, who, _f), v in gave.items() if who == label)) for label in sorted({k[1] for k in gave})}}
     if captures:
         result["written_to_captures"] = write_to_captures(captures, record, rows, result["flags"], args.out, canvas)
     result["verdict"] = "passes" if not result["failures"] else "FAILS"

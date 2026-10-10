@@ -446,3 +446,17 @@ flag reads the source's own frame-to-frame change for it.
   and the dispute inside that subject's track, and the record counts it
   (`contested_px_given_back`). The table uses it on the rows where the
   other subject has no row; nothing else changes.
+- 2026-10-10, later the same evening: **`restore=<subject>:contested` is
+  taken back out** (the line above describes a form the tool no longer
+  has). The owner's ruling, relayed by the lead session: complexity that
+  reads more exact than it is does not earn a place here, and an edge is
+  accepted. The form was per-pixel bookkeeping resting on two trackers'
+  guesses: it could put the original on a disputed pixel, and could not
+  know which of the two people is in front there, which is the only thing
+  that says whether the original is the right picture. It was asked for
+  to cover sixteen frames of one shot. The plain rule stands alone again:
+  a row gives back what the owner map gives the other subject and nothing
+  else. For source frames 1403-1418 the choice is between two things the
+  tool already had: the third's row runs through with the plain restore
+  and is looked at, or it stops at 1402 and those frames are the source.
+  The capture session's counts above stay as the measurement they are.
