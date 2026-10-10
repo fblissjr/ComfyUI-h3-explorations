@@ -143,6 +143,14 @@ that could happen.
     refused by name; the preview strip shows the wired video beside the
     plate; `motion_video` is the node's last input, optional, and not in the
     kept mask's key; and the song node takes the wired branch.
+18. **A tracked mask becomes one box a frame, and none where the subject is
+    not.** `subject_boxes.frame_boxes` (2026-10-10), for a node that takes
+    boxes: the box is the mask's own bounds, widened by the margin and held
+    inside the frame; a frame with an empty mask gets an empty list, never the
+    whole frame (the control: core's own fallback for an empty mask is the
+    whole frame, which is the body drawn where nobody is); and the list has
+    the shape core's SAM 3D Body prediction reads, checked through core's own
+    reader when it imports.
 
 No model, no CUDA, no server.
 
@@ -562,6 +570,42 @@ def check_wired_motion(problems):
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song:
         problems.append("wired motion: the song node does not cut the wired video at the window's own start")
+
+
+def check_subject_boxes(problems):
+    spec = importlib.util.spec_from_file_location("_h3pack.subject_boxes", REPO / "subject_boxes.py")
+    sb = importlib.util.module_from_spec(spec)
+    sys.modules["_h3pack.subject_boxes"] = sb
+    spec.loader.exec_module(sb)
+    mask = torch.zeros(4, H, W)
+    mask[0, 20:40, 30:50] = 1.0
+    mask[1, 0:10, 0:12] = 1.0                    # against the frame's corner
+    mask[3, H - 6:H, W - 9:W] = 1.0             # against the far corner; frame 2 is empty
+    plain = sb.frame_boxes(mask)
+    if plain != [[{"x": 30, "y": 20, "width": 20, "height": 20}], [{"x": 0, "y": 0, "width": 12, "height": 10}], [],
+                 [{"x": W - 9, "y": H - 6, "width": 9, "height": 6}]]:
+        problems.append(f"subject boxes: the boxes are not the masks' bounds, or an empty frame has one: {plain}")
+    wide = sb.frame_boxes(mask, 8)
+    if wide[0] != [{"x": 22, "y": 12, "width": 36, "height": 36}] or wide[1] != [{"x": 0, "y": 0, "width": 20, "height": 18}] \
+            or wide[3] != [{"x": W - 17, "y": H - 14, "width": 17, "height": 14}] or wide[2] != []:
+        problems.append(f"subject boxes: a margin does not widen the box and stop at the frame's edge: {wide}")
+    if sb.frame_boxes(mask.unsqueeze(-1)) != plain:
+        problems.append("subject boxes: a mask with a trailing channel is read differently")
+    out = sb.MiniMaxH3SubjectBoxes.execute(mask, 0)
+    if out.args[0] != plain or "3 of 4 frames" not in out.args[1] or "frame 2" not in out.args[1]:
+        problems.append(f"subject boxes: the node's boxes or its report are not the function's: {out.args[1]}")
+    try:
+        from comfy_extras.nodes_sam3d_body import _per_frame_bboxes_from_detections
+        read = _per_frame_bboxes_from_detections(plain, 4)
+        if [tuple(b.shape) for b in read] != [(1, 4), (1, 4), (0, 4), (1, 4)] or read[0].tolist() != [[30.0, 20.0, 50.0, 40.0]]:
+            problems.append("subject boxes: core's own reader does not read the list as one box a frame and none "
+                            "on the empty one")
+        from comfy_extras.sam3d_body.utils import _bbox_from_mask
+        if _bbox_from_mask(mask[2]).tolist() != [0.0, 0.0, float(W), float(H)]:
+            print("note  core's fallback for an empty mask is no longer the whole frame: the control in item 18 "
+                  "has nothing to stand against")
+    except ImportError as exc:
+        print(f"note  core's SAM 3D Body reader did not import ({exc}): the list's shape was not checked against it")
 
 
 def check_others(problems):
@@ -1545,7 +1589,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1554,7 +1598,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not")
     return 1 if problems else 0
 
 

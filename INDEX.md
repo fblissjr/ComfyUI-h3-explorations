@@ -82,6 +82,7 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
+| [`subject_boxes.py`](subject_boxes.py) | `MiniMaxH3SubjectBoxes` | A tracked subject's mask as one box a frame, for a node that takes boxes and not masks. |
 | [`subject_track.py`](subject_track.py) | `MiniMaxH3SubjectTrack` | One person, followed through a clip with cuts, as one mask per frame. |
 | [`subject_tracks.py`](subject_tracks.py) |  | What can be said about a tracked subject without a model: is a mask a subject at all, does anything still agree with a track, and where in the clip does a correction point. |
 

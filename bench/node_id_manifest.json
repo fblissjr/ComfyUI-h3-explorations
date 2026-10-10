@@ -577,6 +577,17 @@
       "model"
     ]
   },
+  "MiniMaxH3SubjectBoxes": {
+    "inputs": [
+      "mask",
+      "margin"
+    ],
+    "node_id": "MiniMaxH3SubjectBoxes",
+    "outputs": [
+      "boxes",
+      "report"
+    ]
+  },
   "MiniMaxH3SubjectParts": {
     "inputs": [
       "sapiens2",
