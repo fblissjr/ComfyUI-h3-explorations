@@ -333,6 +333,27 @@ def main() -> int:
             "boxes moved a key that does not read them"
     case("zoomed in, the conditioning key holds the window's boxes and the shot table: a changed box misses, an unchanged one hits", cond_key_zoom)
 
+    def cond_key_wired():
+        clip, vae, still = Clip(), Vae(), Thing()
+        boxes = torch.tensor([[2, 1, 6, 7]] * 6)
+        table = '{"shots": [{"first_frame": 0, "last_frame": 5}]}'
+        video = torch.rand(6, 8, 8, 3)
+        args = lambda s: (clip, "a prompt", 6, 64, 32, (still,), vae, None, s, 0)
+        for mode in wk.WIRED:
+            src = source(motion_reference=mode, subject_boxes=boxes, shot_table=table, motion_frames=video)
+            base = wk.cond_key(*args(src))
+            assert hits(base, wk.cond_key(*args(dict(src)))), f"{mode}: the same wired video missed"
+            assert not hits(base, wk.cond_key(*args(dict(src, motion_frames=torch.rand(6, 8, 8, 3))))), \
+                f"{mode}: another wired video on the same source still hit"
+            moved = boxes.clone(); moved[3, 2] = 7
+            reads_boxes = mode in wk.ZOOMED
+            assert hits(base, wk.cond_key(*args(dict(src, subject_boxes=moved)))) != reads_boxes, \
+                f"{mode}: a moved box {'still hit' if reads_boxes else 'missed, though this choice does not read boxes'}"
+        one, two = (wk.cond_key(*args(source(motion_reference=m, subject_boxes=boxes, shot_table=table, motion_frames=video)))
+                    for m in wk.WIRED)
+        assert not hits(one, two), "the wired video whole and zoomed share a key"
+    case("a wired motion video is in the conditioning key itself, and zoomed in so are the boxes and the shot table", cond_key_wired)
+
     def cond_key_no_source():
         # a song graph with no Masked Source, and one with no references either
         clip, vae = Clip(), Vae()
@@ -348,6 +369,7 @@ def main() -> int:
     def constants():
         vm = load("video_mask")
         assert wk.START_NOISE == vm.START_NOISE and wk.MOTION_NONE == vm.MOTION_NONE and wk.MOTION_ZOOM == vm.MOTION_ZOOM
+        assert wk.ZOOMED == vm.ZOOMED and wk.WIRED == vm.WIRED, (wk.ZOOMED, vm.ZOOMED, wk.WIRED, vm.WIRED)
         assert wk.GROW_FIXED == vm.GROW_FIXED and wk.GROW_SUBJECT == vm.GROW_SUBJECT
         return f"{wk.START_NOISE!r}, {wk.MOTION_NONE!r}, {wk.MOTION_ZOOM!r}"
     case("START_NOISE, MOTION_NONE and MOTION_ZOOM are video_mask.py's", constants)

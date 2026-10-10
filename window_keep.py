@@ -214,11 +214,15 @@ class Keep:
 LATENTS = Keep("source latent", LATENT_BYTES)
 CONDS = Keep("conditioning", COND_BYTES)
 
-#: `video_mask.START_NOISE`, `MOTION_NONE`, `MOTION_ZOOM`, `GROW_FIXED` and `GROW_SUBJECT`, restated so this
+#: `video_mask.START_NOISE`, `MOTION_NONE`, `ZOOMED`, `WIRED`, `GROW_FIXED` and `GROW_SUBJECT`, restated so this
 #: module imports nothing from the pack at load; `bench/check_window_keep.py` holds them to the originals.
 START_NOISE = "noise"
 MOTION_NONE = "none"
 MOTION_ZOOM = "subject only, zoomed in"
+MOTION_WIRED = "a video I wire"
+MOTION_WIRED_ZOOM = "a video I wire, zoomed in"
+ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
+WIRED = (MOTION_WIRED, MOTION_WIRED_ZOOM)
 GROW_FIXED = "a fixed margin"
 GROW_SUBJECT = "the subject's size"
 
@@ -267,7 +271,7 @@ def cond_key(clip, text: str, frames: int, width: int, height: int, references, 
     moving, with_source = None, ()
     if source is not None and source.get("motion_reference", MOTION_NONE) != MOTION_NONE:
         framed = None
-        if source["motion_reference"] == MOTION_ZOOM:
+        if source["motion_reference"] in ZOOMED:
             rows = source.get("subject_boxes")
             framed = (None if rows is None
                       else tuple(rows[int(first_frame):int(first_frame) + int(frames)].flatten().tolist()),
@@ -277,6 +281,10 @@ def cond_key(clip, text: str, frames: int, width: int, height: int, references, 
         moving = (source["motion_reference"], int(source["motion_short_edge"]), int(source["grow_pixels"]) // 2,
                   bool(source.get("motion_vae", False)), int(first_frame), framed)
         with_source = (source["frames"], source["mask"])
+        if source["motion_reference"] in WIRED and source.get("motion_frames") is not None:
+            # the wired video is what the reference is cut from: another video on the same source is another
+            # conditioning (until 2026-10-10 it was not in the key, and a kept one would have been handed back)
+            with_source += (source["motion_frames"],)
     static = ("cond", str(text), int(frames), int(width), int(height),
               str(clip.patcher.patches_uuid), clip.layer_idx, len(records),
               None if vae is None else _vae_dtypes(vae), audio_vae is not None, moving)

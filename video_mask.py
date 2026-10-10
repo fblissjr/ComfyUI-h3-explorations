@@ -367,7 +367,15 @@ MOTION_ZOOM = "subject only, zoomed in"
 #: way drew an action the same text did not draw from the subject-on-grey reference. Appended, so the choices
 #: before it keep their place.
 MOTION_WIRED = "a video I wire"
-MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
+#: The wired video shown in the subject's box of each shot and not in the whole frame, by the layout
+#: `subject only, zoomed in` uses (`zoom_plan`): the same rows, spent on the subject. Nothing is greyed: a
+#: wired video is already only the movement. Lead, 2026-10-10: a body mesh at the frame's size gives a head a
+#: handful of the model's tokens. Reasoned and untested when written. Appended, so the choices keep their place.
+MOTION_WIRED_ZOOM = "a video I wire, zoomed in"
+MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED, MOTION_WIRED_ZOOM)
+#: The choices that show the video on `motion_video`, and those that show a reference in the subject's boxes.
+WIRED = (MOTION_WIRED, MOTION_WIRED_ZOOM)
+ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
 #: Room left around the subject's box on each side, in canvas pixels, before
 #: it is taken out to the canvas multiple. Reasoned: one of the encoder's
 #: merged tokens (patch 16 by merge 2), so a limb at the edge of the box is
@@ -1108,10 +1116,15 @@ def wired_motion(source: dict, first_frame: int, frames: int, width: int, height
     the wired video from frame k: the same slice `window_frames` takes of the source. It is fitted to the canvas
     as the source's frames are and then scaled to `motion_short_edge`, like every other motion reference; a
     source that runs out inside the last window repeats its last frame, as the source's own frames do.
+
+    Under `a video I wire, zoomed in` it is shown in the window's subject boxes (`window_boxes`, one a shot)
+    by `motion_reference`'s zoom layout, with nothing greyed: every pixel of the wired video inside a box is
+    kept. A source that carries no boxes is refused.
     """
     video = source.get("motion_frames")
     if video is None:
-        raise ValueError(f"motion_reference `{MOTION_WIRED}` and no `motion_video` on the source: wire one")
+        raise ValueError(f"motion_reference `{source.get('motion_reference', MOTION_WIRED)}` and no `motion_video` "
+                         "on the source: wire one")
     have = int(video.shape[0])
     first_frame, frames = int(first_frame), int(frames)
     if first_frame >= have:
@@ -1120,6 +1133,14 @@ def wired_motion(source: dict, first_frame: int, frames: int, width: int, height
     short = frames - int(pixels.shape[0])
     if short > 0:
         pixels = torch.cat([pixels, pixels[-1:].expand(short, -1, -1, -1)], dim=0)
+    if source.get("motion_reference") == MOTION_WIRED_ZOOM:
+        boxes = window_boxes(source, first_frame, frames, width, height)
+        if boxes is None:
+            raise ValueError(f"motion_reference `{MOTION_WIRED_ZOOM}` needs the subject's box on each frame, and this "
+                             "source carries none: it was not made by a Masked Source that tracked a subject")
+        whole = torch.ones(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
+        return motion_reference(pixels, whole, MOTION_ZOOM, int(source["motion_short_edge"]), 0, boxes,
+                                wired_ground(pixels))
     blank = torch.zeros(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
     return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge"]), 0)
 
@@ -1190,6 +1211,13 @@ def shot_boxes(boxes: torch.Tensor, ranges: list[tuple[int, int]], width: int, h
         x1, y1 = min(-(-x1 // multiple) * multiple, width), min(-(-y1 // multiple) * multiple, height)
         out[a:b] = torch.tensor([x0, y0, x1, y1], dtype=torch.long)
     return out
+
+
+def wired_ground(pixels: torch.Tensor) -> torch.Tensor:
+    """The colour a wired video stands on, [F, 3], one a frame: the lower median of the frame's four corner
+    pixels, so one corner the subject reaches does not move it."""
+    corners = torch.stack([pixels[:, 0, 0, :3], pixels[:, 0, -1, :3], pixels[:, -1, 0, :3], pixels[:, -1, -1, :3]], dim=1)
+    return corners.to(torch.float32).median(dim=1).values
 
 
 def window_boxes(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor | None:
@@ -1285,7 +1313,7 @@ def zoom_note(boxes: torch.Tensor, h: int, w: int, short_edge: int) -> str:
 
 
 def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_edge: int, margin,
-                     boxes: torch.Tensor | None = None):
+                     boxes: torch.Tensor | None = None, ground: torch.Tensor | None = None):
     """The window as the model is shown it as a video reference, [F, h, w, 3], or None for `none`.
 
     `subject only` keeps the pixels under the mask widened by `margin` (one
@@ -1301,6 +1329,10 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
     frame. `zoom_plan` lays it out and states the rule: never more pixels than
     `subject only` at this `short_edge`, never a smaller subject, the same
     picture when the box is the frame, never enlarged past the canvas.
+
+    `ground` ([F, 3], one colour a frame) is what the zoomed picture is filled with around a box and on a
+    frame with none, in place of the lane's mid grey: a wired video's own ground (`wired_ground`), so a body
+    mesh on black stays on black and a frame with nobody in it reads as nobody, not as another picture.
     """
     if mode == MOTION_NONE:
         return None
@@ -1319,6 +1351,8 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
     if plan is not None:
         out_h, out_w, runs = plan
         shown = torch.full((n, out_h, out_w, 3), 0.5, dtype=torch.float32, device=pixels.device)
+        if ground is not None:
+            shown = ground.to(shown).view(n, 1, 1, 3).expand(n, out_h, out_w, 3).clone()
         for first, stop, (x0, y0, x1, y1), _scale, (sh, sw) in runs:
             top, left = (out_h - sh) // 2, (out_w - sw) // 2
             for i in range(first, stop, CHUNK):
@@ -1392,11 +1426,17 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
             plate[row, y0:y1, x0:x0 + line] = cyan
             plate[row, y0:y1, max(x1 - line, x0):x1] = cyan
     tiles = [plate]
-    if motion == MOTION_WIRED:
-        # the wired video's own frames, fitted as the plate is: what the model is shown as movement
-        ref = (None if wired is None else
-               motion_reference(fit_frames(wired[idx], int(f.shape[2]), int(f.shape[1])), mask[idx], MOTION_FRAME,
-                                short_edge, 0))
+    if motion in WIRED:
+        # the wired video's own frames, fitted as the plate is: what the model is shown as movement; zoomed in,
+        # in the boxes the plate carries as outlines, with nothing greyed (`wired_motion`)
+        shown_wired = None if wired is None else fit_frames(wired[idx], int(f.shape[2]), int(f.shape[1]))
+        if shown_wired is None:
+            ref = None
+        elif motion == MOTION_WIRED_ZOOM:
+            ref = motion_reference(shown_wired, torch.ones_like(mask[idx], dtype=torch.float32), MOTION_ZOOM,
+                                   short_edge, 0, shown, wired_ground(shown_wired))
+        else:
+            ref = motion_reference(shown_wired, mask[idx], MOTION_FRAME, short_edge, 0)
     else:
         ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown)
     if ref is not None:
@@ -1571,6 +1611,10 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "source frame for frame: a body mesh, a pose, a map of a mouth. It says "
                                         "how the subject moves without showing the original, and each window "
                                         "is shown its own part of it.\n\n"
+                                        "a video I wire, zoomed in: that video shown in the box around the "
+                                        "tracked subject, as `subject only, zoomed in` shows the source: the "
+                                        "subject is seen larger for the same cost, and nothing is greyed. Use "
+                                        "it when the wired video's subject is small in the frame.\n\n"
                                         "The prompt has to say what the video provides, for example that the "
                                         "subject's motion and timing come from <Video 1>. Costs text-encoder "
                                         "tokens on every window, and with motion_vae on, rows on every "
@@ -1810,13 +1854,14 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown composite {composite!r}; one of {[COMPOSITE_REGION, COMPOSITE_CHANGED]}")
         if motion_reference not in MOTIONS:
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
-        if motion_reference == MOTION_WIRED and motion_video is None:
-            raise ValueError(f"motion_reference is `{MOTION_WIRED}` and nothing is wired to `motion_video`: wire the "
+        if motion_reference in WIRED and motion_video is None:
+            raise ValueError(f"motion_reference is `{motion_reference}` and nothing is wired to `motion_video`: wire the "
                              "video that shows the movement, or choose another motion_reference")
         if motion_video is not None:
-            if motion_reference != MOTION_WIRED:
+            if motion_reference not in WIRED:
                 raise ValueError(f"`motion_video` is wired and motion_reference is `{motion_reference}`: set it to "
-                                 f"`{MOTION_WIRED}` to use the video, or unwire it. It is never used in silence")
+                                 f"`{MOTION_WIRED}` or `{MOTION_WIRED_ZOOM}` to use the video, or unwire it. It is "
+                                 "never used in silence")
             if motion_video.ndim != 4 or int(motion_video.shape[0]) != int(frames.shape[0]):
                 raise ValueError(
                     f"`motion_video` is {tuple(motion_video.shape)} and the source has {int(frames.shape[0])} "
@@ -1866,7 +1911,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             # The tracker did not run, so the subject's boxes are the kept REGION's. This branch goes with
             # the kept mask's removal (`reuse_mask`, `mask_store`): delete it with them.
             boxes = _tracked_boxes(mask)
-            if motion_reference == MOTION_ZOOM and replace != REPLACE_WHOLE:
+            if motion_reference in ZOOMED and replace != REPLACE_WHOLE:
                 note += ", the zoom framed on the kept region and not the whole subject"
             if table:
                 # the tracker ran for its table alone: the kept file had none (kept before the
@@ -1914,7 +1959,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s", motion_reference,
                         int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only")
         zoomed = None
-        if motion_reference == MOTION_ZOOM:
+        if motion_reference in ZOOMED:
             # for the preview and the log: each shot's box over the whole clip, at the frames' own size
             zoomed = shot_boxes(boxes, shot_ranges({"shot_table": table}), int(frames.shape[2]), int(frames.shape[1]))
             sizes = sorted({(x1 - x0, y1 - y0) for x0, y0, x1, y1 in zoomed.tolist() if x0 >= 0})

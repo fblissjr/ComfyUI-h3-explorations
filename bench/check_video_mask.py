@@ -622,6 +622,54 @@ def check_wired_motion(problems):
     if int(strip.shape[2]) <= int(plain.shape[2]):
         problems.append("wired motion: the preview strip is no wider than with no motion reference: the wired "
                         "video is not shown beside the plate")
+    # `a video I wire, zoomed in` (2026-10-10): the wired video in the subject's box, by the zoom's own layout,
+    # with nothing greyed. The wired video here carries a bright block where the subject is.
+    marked = video.clone()
+    marked[:, 10:20, 15:25] = 1.0                 # the subject's place, on the wired video's own half-size frames
+    zoom = node.execute(frames, mask, motion_reference=vm.MOTION_WIRED_ZOOM, motion_video=marked, motion_short_edge=SHORT).args[0]
+    whole = dict(zoom, motion_reference=vm.MOTION_WIRED)
+    near, far = vm.wired_motion(zoom, first, count, W, H), vm.wired_motion(whole, first, count, W, H)
+    boxes = vm.window_boxes(zoom, first, count, W, H)
+    fitted = vm.fit_frames(marked[first:first + count], W, H)
+    want = vm.motion_reference(fitted, torch.ones(count, H, W), vm.MOTION_ZOOM, SHORT, 0, boxes, vm.wired_ground(fitted))
+    if boxes is None or not torch.equal(near, want):
+        problems.append("wired motion, zoomed in: the reference is not the wired video laid out in the window's subject boxes")
+    # what is not a box is the wired video's own ground, never the lane's grey: a frame with no subject in its
+    # shot, here made by a record whose boxes say the subject is on no frame, is the video's ground whole
+    two_shots = json.dumps({"shots": [{"first_frame": 0, "last_frame": 3}, {"first_frame": 4, "last_frame": n - 1}]})
+    gone = dict(zoom, subject_boxes=zoom["subject_boxes"].clone(), shot_table=two_shots)
+    gone["subject_boxes"][4:] = -1                                 # the second shot has no subject in it
+    black = marked.clone() * 0.0
+    black[:, 10:20, 15:25] = 1.0
+    empty = vm.wired_motion(dict(gone, motion_frames=black), 0, count, W, H)
+    if float(empty[4:].abs().max()) != 0.0 or bool(((empty[:4] - 0.5).abs() < 1e-6).all(dim=-1).any()) \
+            or float(empty[:4].max()) != 1.0:
+        problems.append("wired motion, zoomed in: around a box and on a frame with no subject the picture must be the wired "
+                        "video's own ground (black here), not the lane's grey")
+    if not torch.equal(vm.wired_ground(black), torch.zeros(n, 3)) or not torch.allclose(vm.wired_ground(video), levels.view(n, 1).expand(n, 3)):
+        problems.append("wired ground: a video's ground is not its corners' colour")
+    else:
+        share = lambda x: float((x > 0.99).float().mean())
+        if not share(near) > 2.0 * share(far) or int(near.shape[1]) * int(near.shape[2]) > int(far.shape[1]) * int(far.shape[2]):
+            problems.append(f"wired motion, zoomed in: the subject's block is {share(near):.3f} of the zoomed picture and "
+                            f"{share(far):.3f} of the whole one; zoomed it must be much more of a picture that is no larger")
+        if bool(((near - 0.5).abs() < 1e-6).all(dim=-1).any()) and tuple(near.shape[1:3]) == tuple(vm.zoom_plan(boxes, H, W, SHORT)[:2]) \
+                and vm.zoom_plan(boxes, H, W, SHORT)[2][0][4] == tuple(near.shape[1:3]):
+            problems.append("wired motion, zoomed in: a box that fills the picture has grey in it; nothing of a wired video is greyed")
+    if not torch.equal(far, vm.wired_motion(dict(src, motion_frames=marked), first, count, W, H)):
+        problems.append("wired motion: the whole-frame choice changed when the record carries boxes")
+    for label, call, word in (
+            ("the zoomed choice on a source with no boxes",
+             lambda: vm.wired_motion(dict(src, motion_reference=vm.MOTION_WIRED_ZOOM), first, count, W, H), "subject's box"),
+            ("the zoomed choice with nothing wired", lambda: node.execute(frames, mask, motion_reference=vm.MOTION_WIRED_ZOOM), "motion_video")):
+        try:
+            call()
+            problems.append(f"wired motion: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"wired motion: the refusal of {label} does not say so: {exc}")
+    if vm.MOTIONS[-1] != vm.MOTION_WIRED_ZOOM or vm.MOTIONS[:5] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME, vm.MOTION_WIRED):
+        problems.append(f"motion_reference: the zoomed wired choice must be appended, the choices before it in place: {vm.MOTIONS}")
     inputs = node.define_schema().inputs
     if inputs[-1].id != "motion_video" or not inputs[-1].optional:
         problems.append("motion_video: it is not the node's last input and optional")
@@ -629,8 +677,9 @@ def check_wired_motion(problems):
         problems.append("motion_video: it is shown to the model and does not make the mask, so it must not be in the "
                         "kept mask's key")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song:
-        problems.append("wired motion: the song node does not cut the wired video at the window's own start")
+    if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
+            or "if motion in video_mask.WIRED:" not in song:
+        problems.append("wired motion: the song node does not cut the wired video at the window's own start, for both wired choices")
 
 
 def check_subject_boxes(problems):
