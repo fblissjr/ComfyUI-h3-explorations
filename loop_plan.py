@@ -262,6 +262,26 @@ def frames_read(total_frames: int, window_frames: int, context_frames: int, time
     return frames_covered([n for _entry, lengths in segments for n in lengths], context_frames)
 
 
+#: A track this much longer than a whole number of frames runs that number of frames. A track cut to a load's
+#: length seldom ends on a whole sample (33 frames at 44.1 kHz is half a sample over one), and which way the
+#: loader rounded then decided whether a load wrote its own frames or one more: on 2026-10-10 one load of
+#: twelve wrote a 34th frame, a held copy of its last, where the next shot begins. Reasoned: a millisecond is
+#: many samples at any rate a track comes in. WHAT IT COSTS: a track whose end has nothing to do with frame
+#: edges (a whole song) and happens to stop within the slack past one loses the frame it had barely begun,
+#: where it used to be written with under a millisecond of sound and silence after; nothing reports it. The
+#: slack is a fortieth of a frame, so that is about one such track in forty (a second session's cold read).
+TRACK_SLACK_SECONDS = 0.001
+
+
+def track_frames(seconds: float) -> int:
+    """How many frames a track of `seconds` runs: on to the next whole frame, less `TRACK_SLACK_SECONDS`;
+    never none of a track that has any length."""
+    seconds = float(seconds)
+    if seconds <= 0.0:
+        return 0
+    return max(1, int(math.ceil((seconds - TRACK_SLACK_SECONDS) * FPS)))
+
+
 def frames_kept(covered: int, track_seconds: float) -> int:
     """How many of the frames a run's windows cover are written: all of them, or as many as the
     track runs when it ends first.
@@ -274,7 +294,7 @@ def frames_kept(covered: int, track_seconds: float) -> int:
     window that a run before 2026-10-06 stored holds its tail still, under a key that still
     matches: it is not reused, and renders once more (`loop_resume.stored_frames`).
     """
-    return min(int(covered), int(math.ceil(float(track_seconds) * FPS)))
+    return min(int(covered), track_frames(track_seconds))
 
 
 def frames_written(lengths: list[int], context_frames: int, kept: int, head: int = 0) -> list[int]:

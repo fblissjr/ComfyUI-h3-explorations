@@ -546,7 +546,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         track_seconds = seconds = waveform.shape[-1] / rate
         if max_seconds is not None:
             seconds = min(seconds, max_seconds)
-        total_frames = int(math.ceil(seconds * FPS))
+        # the track's length in frames, with the slack that keeps a fraction of a sample from being a frame
+        total_frames = loop_plan.track_frames(seconds)
         context_frames = int(context_frames)
         plan = loop_plan.plan_song(total_frames, int(window_frames), context_frames, prompt, timeline)
         # filled before anything is keyed or encoded: resume and the encode

@@ -1010,6 +1010,20 @@ def check_song_plan(problems):
         if lp.frames_kept(covered, track) != want:
             _fail(problems, f"frames kept: {covered} frames under a {track}s track keeps "
                             f"{lp.frames_kept(covered, track)}, not {want}")
+    # A track cut to a load's length ends a fraction of a sample off a whole frame, and that fraction is not a
+    # frame (`track_frames`, 2026-10-10: a 33-frame load whose track came one sample long wrote 34). The loads
+    # are the ones a job cut that day, at the rate their track came in; a real part of a frame still counts.
+    import math
+    for frames, rate in ((33, 44100), (41, 44100), (22, 44100), (33, 48000), (47, 32000), (113, 22050)):
+        exact = frames / lp.FPS * rate
+        for samples in (math.floor(exact), math.ceil(exact), math.ceil(exact) + 1):
+            if lp.track_frames(samples / rate) != frames or lp.frames_kept(141, samples / rate) != frames:
+                _fail(problems, f"track frames: a {frames}-frame load whose track is {samples} samples at {rate} Hz counts as "
+                                f"{lp.track_frames(samples / rate)} frames and keeps {lp.frames_kept(141, samples / rate)}")
+    for seconds, want in ((33 / lp.FPS, 33), (33 / lp.FPS + 0.002, 34), (34 / lp.FPS, 34), (33.5 / lp.FPS, 34),
+                          (0.0, 0), (0.0004, 1), (1 / lp.FPS, 1)):
+        if lp.track_frames(seconds) != want:
+            _fail(problems, f"track frames: a track of {seconds!r}s runs {lp.track_frames(seconds)} frames, not {want}")
     # What each window's file holds (`frames_written`), and that the cut the song node makes on a
     # short track's last window, AFTER its head trim, never reaches what that window writes: a
     # planner property, held for every window length, three contexts and a spread of track lengths
