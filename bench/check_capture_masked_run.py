@@ -22,8 +22,9 @@ overlaps and margins can be counted by hand and reads the rows back.
    left out; a token the other subject touches is left out unless the subject's own mask is in it; with
    nobody kept out the margin reaches them (the control); and a region in whole tokens holds no part token.
 7. **The preflight's rules**, each with the case that must NOT raise it: a shot taken just above the line
-   against one well above it; a shot called absent just under the line against one far under; a shot taken in
-   frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
+   against one well above it; a shot called absent with somebody on screen, which is a shot to look at
+   whatever it scored, against the same shot inside frames the caller says the subject is not in; a shot
+   taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
 9. **Segments.** From a class map: the classes a part mask is made of are read back from the mask; each
@@ -194,7 +195,9 @@ def shot_rules() -> str:
     flags, shots = cap.flag_shots("a", "run1", table, 100, [])
     got = {(f["rule"], f["source_frames"][0][0]): f["level"] for f in flags}
     assert got == {("taken_near_the_line", 110): "iffy", ("absent_with_people_on_screen", 130): "iffy",
-                   ("absent_with_people_on_screen", 140): "likely fine"}, got
+                   ("absent_with_people_on_screen", 140): "iffy"}, got
+    said, _ = cap.flag_shots("a", "run1", table, 100, [[140, 149]])
+    assert {f["source_frames"][0][0]: f["level"] for f in said if f["rule"].startswith("absent")} == {130: "iffy", 140: "likely fine"}, said
     assert len(shots) == 6 and shots[2]["level"] == "likely fine", shots
     barred, _ = cap.flag_shots("a", "run1", table, 100, [[120, 125]])
     assert [(f["rule"], f["level"]) for f in barred if f["source_frames"] == [[120, 129]]] == [("taken_where_not_expected", "likely to fail")], barred
@@ -277,6 +280,23 @@ def segments() -> str:
     return "a part's classes read back from its mask; hair and a neighbour's hand inside the region counted; none once kept out"
 
 
+def under_a_doubted_part() -> str:
+    classes = np.zeros((4, H, W), np.uint8)
+    classes[0, 32:48, 32:64] = 1                    # the part itself
+    classes[1, 32:48, 32:64] = 2                    # hair where the part should be
+    classes[2, 32:48, 32:64] = 3                    # a hand there; frame 3 has nothing labelled
+    filled = np.zeros((4, H, W), bool)
+    filled[:, 32:48, 32:64] = True
+    other = np.zeros((4, H, W), bool)
+    what = cap.under_doubted([1], 2, filled, [0, 1, 2, 3], classes, [other])
+    assert [what[f]["mostly"] for f in range(4)] == ["the part", "their own hair", "their other classes", "nothing labelled"], what
+    other[3, 32:48, 32:64] = True
+    assert cap.under_doubted([1], 2, filled, [3], classes, [other])[3]["mostly"] in ("another subject", "nothing labelled")
+    classes[3, 32:48, 32:64] = 3
+    assert cap.under_doubted([1], 2, filled, [3], classes, [other])[3]["another subject"] == 1.0
+    return "the part, hair, another class and nothing are each named from what lies under the fill"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -300,5 +320,6 @@ case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
 case("the held part", held_part)
 case("segments and what is inside a region", segments)
+case("what lies under a doubted part", under_a_doubted_part)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())

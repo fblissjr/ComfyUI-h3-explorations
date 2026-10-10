@@ -60,7 +60,8 @@ did not, in which render, who looked. That is how a threshold's provenance goes 
 subject and run, with the flags that were raised on those frames: the first step after a bad render.
 
 **status.json** says how the folder came to be: `running`, `done` or `failed`, with the message and the inputs
-that were missing. A folder without it was never finished. Every mask is also saved as a lossless video
+that were missing. A folder without it was never finished. A finished folder is not rebuilt in place unless
+`--overwrite` is given, since a queued render may be loading its masks. Every mask is also saved as a lossless video
 (`track__<by>.mkv`, `parts__<by>.mkv`, `runs/<run>/region.mkv` and `carried.mkv`: ffv1, grey, white on the
 mask, frame 0 the span's first frame), so a render can load exactly what was looked at. `parts__<by>.mkv` is
 the part as the preview saved it; `parts_held__<by>.mkv` is the same with the frames the gate doubts (empty on
@@ -134,8 +135,9 @@ TOKEN_CELLS = 2
 #: How close to the match line a taken or absent shot is flagged. Measured on one clip, 2026-10-10: two wrong
 #: takes sat 0.011 and 0.016 above the line and the nearest right one 0.029 above, so this flags that one too.
 NEAR_LINE = 0.05
-#: How far UNDER the line a shot called absent is still flagged as possibly the subject. Measured on the same
-#: clip: one wrong absence scored 0.052 under the line, the three right ones 0.20 to 0.37 under.
+#: How far UNDER the line a shot called absent is worded as "close enough to be them". It no longer sets the
+#: level: on the same clip a second wrong absence scored 0.133 under, past this, so the level is the caller's
+#: word (`flag_shots`). Measured: wrong absences at 0.052 and 0.133 under, right ones 0.20 to 0.37 under.
 NEAR_UNDER = 0.10
 #: A part mask with under this share of itself inside its subject's mask has spilled. Inherited: the
 #: 2026-10-07 captures' own line for a spill (`data/2026-10-07_capture_windows/README.md`).
@@ -555,6 +557,12 @@ def write_status(out: Path, state: str, **more) -> None:
 
 def files(a: argparse.Namespace) -> Path:
     out = Path(a.out) / f"{a.date}_{a.name}"
+    done = out / "status.json"
+    if done.is_file() and json.loads(done.read_text()).get("state") == "done" and not a.overwrite:
+        # a render may be loading this folder's mask videos: on 2026-10-10 a rebuild rewrote them forty seconds
+        # after a queued render had read them
+        raise SystemExit(f"{out} is a finished capture; a render may be reading its masks. Give another --name, "
+                         "or --overwrite when nothing queued reads it")
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held") if m.get(k)] + [a.source]
@@ -621,6 +629,17 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             if all(r["covered"] for r in mine):
                 only = [[int(x) for x in (span.split("-") * 2)[:2]] for span in m["hold"].split("+")] if m.get("hold") else None
                 held, held_frames, left_frames = held_parts(track, parts, mine, only, first)
+                if label in class_maps:
+                    names = _pack("sapiens2_parts").CLASS_NAMES
+                    every, doubted, _ = held_parts(track, parts, mine)
+                    made = [names.index(c) for c in made_of.get(label, [])]
+                    others_now = [t for other, seen in sightings.items() if other != label and other in class_maps
+                                  for t in [next(iter(seen.values()))[0]]]
+                    what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
+                    (folder / "doubted_frames.json").write_text(json.dumps(
+                        {"subject": label, "seen_by": by, "what_each_means": UNDER,
+                         "frames": [{"source_frame": first + f, "filled_in_parts_held": f in held_frames, **v} for f, v in sorted(what.items())]},
+                        indent=1) + "\n")
                 for span in (m["drop"].split("+") if m.get("drop") else []):
                     lo, hi = (int(x) for x in (span.split("-") * 2)[:2])
                     held[max(lo - first, 0):max(hi - first + 1, 0)] = False
@@ -788,6 +807,8 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
         state, sim, people = shot["subject"]["state"], shot["subject"].get("similarity"), len(shot.get("people", []))
         level = LEVELS[0]
         barred = [x for x in not_in if x[0] <= b and a <= x[1]]
+        if state == "absent" and people:
+            barred = [x for x in not_in if x[0] <= a and b <= x[1]]      # the whole shot, for an absence to be "as said"
         if state in ("taken", "picked") and barred:
             level = LEVELS[2]
             flags.append({"rule": "taken_where_not_expected", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
@@ -799,12 +820,17 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
                                  "it may be somebody else", "figures": {"similarity": sim, "line": line},
                           "threshold": {"NEAR_LINE": NEAR_LINE}})
         elif state == "absent" and people:
+            # The score cannot settle this one. Measured on one clip, 2026-10-10: the subject was on screen in
+            # two shots called absent, at 0.052 and 0.133 under the line (a cut to another framing lowers the
+            # same person's score), and truly absent in three at 0.20 to 0.37 under. So the caller's word does:
+            # a shot inside --not-in is fine, any other is a shot to look at, with the distance said.
             near = sim is not None and line - sim < NEAR_UNDER
-            level = LEVELS[1] if near else LEVELS[0]
+            level = LEVELS[0] if barred else LEVELS[1]
             flags.append({"rule": "absent_with_people_on_screen", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
                           "why": f"{label} is called absent with {people} detected; the closest scored "
                                  + (f"{sim:.3f} against a line of {line:.3f}" if sim is not None else "nothing")
-                                 + (": close enough to be them" if near else ""),
+                                 + (": as the caller says" if barred else (": close enough to be them" if near else
+                                    ": look at the shot, or say with --not-in that they are not in it")),
                           "figures": {"similarity": sim, "line": line, "people": people}, "threshold": {"NEAR_UNDER": NEAR_UNDER}})
         shots.append({"subject": label, "seen_by": by, "source_frames": [a, b], "state": state, "similarity": sim, "level": level})
     return flags, shots
@@ -899,6 +925,37 @@ def held_parts(track: np.ndarray, parts: np.ndarray, rows: list[dict], only: lis
         out[f] = moved & on_subject
         held.append(f)
     return out, held, left
+
+
+#: What a doubted part frame shows where the part should be, and what that says. Provenance: sixteen doubted
+#: frames of one preview read by eye, 2026-10-10 (a face on a moving subject); the split named the right one of
+#: "the model lost it", "turned away" and "something of theirs is in front" on fourteen. The two it got wrong
+#: were the subject entering and leaving at the frame's edge, read as lost.
+UNDER = {"the part": "the part is there; its size or place changed. Leave it as saved",
+         "nothing labelled": "the part model labelled nothing there: it lost the part. A fill is likely right",
+         "their own hair": "their own hair is there: turned away. Do not fill",
+         "their other classes": "something else of theirs is there (a hand, clothing): covered or moved. Do not fill",
+         "another subject": "another subject is there: hidden behind them. Do not fill"}
+
+
+def under_doubted(parts_made_of: list[int], hair: int, filled: np.ndarray, frames: list[int], classes: np.ndarray,
+                  others: list[np.ndarray]) -> dict[int, dict]:
+    """For each doubted frame, what the class map shows under the shape a fill would put there (`held_parts`
+    run with no limit): shares of the part's own classes, hair, the subject's other classes, another subject,
+    and nothing. The largest names the frame (`UNDER`)."""
+    out = {}
+    for f in frames:
+        where = filled[f]
+        if not where.any():
+            continue
+        c = classes[f][where]
+        mine = np.isin(c, parts_made_of)
+        share = {"the part": float(mine.mean()), "their own hair": float((c == hair).mean()),
+                 "their other classes": float(((c > 0) & ~mine & (c != hair)).mean()),
+                 "another subject": max([float(o[f][where].mean()) for o in others], default=0.0),
+                 "nothing labelled": float((c == 0).mean())}
+        out[f] = {"mostly": max(share, key=share.get), **{k: round(v, 3) for k, v in share.items()}}
+    return out
 
 
 def flag_parts(label: str, by: str, rows: list[dict]) -> list[dict]:
@@ -1074,6 +1131,17 @@ def preflight(a: argparse.Namespace) -> None:
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
     flags += flag_runs(m, folder) + flag_segments(m, folder)
+    for s in m["subjects"]:
+        path = folder / "subjects" / s["label"] / "doubted_frames.json"
+        if path.is_file():
+            doubted = json.loads(path.read_text())
+            for kind, meaning in UNDER.items():
+                hit = [x["source_frame"] for x in doubted["frames"] if x["mostly"] == kind]
+                if hit:
+                    flags.append({"rule": "doubted_part_" + kind.replace(" ", "_"), "level": LEVELS[1] if kind == "nothing labelled" else LEVELS[0],
+                                  "subject": s["label"], "seen_by": doubted["seen_by"], "source_frames": frame_spans(hit),
+                                  "why": f"on {len(hit)} doubted frame(s) of {s['label']}'s part, {meaning.lower()}",
+                                  "figures": {"frames": len(hit), "filled_in_parts_held": sum(x["filled_in_parts_held"] for x in doubted["frames"] if x["mostly"] == kind)}})
     if a.text and a.voice_spans:
         spans = json.loads(Path(a.voice_spans).read_text())["voiced_spans_inclusive"]
         flags += flag_text(Path(a.text).read_text(), spans, m["first_frame"], m["frames"])
@@ -1450,6 +1518,8 @@ def main() -> None:
                    help="a run that has not rendered: its region is worked out from the masks; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))
+    f.add_argument("--overwrite", action="store_true", help="rebuild a finished capture folder in place; only when "
+                   "no queued render loads its mask videos")
     v = sub.add_parser("video", help="the stacked, frame-numbered video from a capture folder")
     v.add_argument("capture")
     v.add_argument("--source", required=True, help="the clip the capture was made from")
