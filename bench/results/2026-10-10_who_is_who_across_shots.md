@@ -215,6 +215,76 @@ which is no margin. So:
   and the lead is left with nobody. Nothing here says what happens when a
   stranger stands in that frame.
 
+## One scale: every person signed from a crop (run the same evening)
+
+The question, from the owner's follow-up: a signature is the trunk's
+features under a mask at the FRAME's scale, so a distant person is a
+handful of cells; would signing each person from a crop of their box,
+resized to one size, make a distant look and a close one comparable? One
+CPU run on the same load: the middle shot's five looks and two of the last
+shot's, every person also signed from a square crop around their box (1.2
+times its longer side, resized to the trunk's own input size), the top
+third and the whole mask, with the galleries made the same way on their
+own frames.
+
+    <python> bench/who_is_who_across_shots.py looks --cpu --crops ... --look 406,410,418,426,434,439,446 --json J
+
+Data: [`2026-10-10_who_is_who_across_shots_crops.json`](2026-10-10_who_is_who_across_shots_crops.json).
+The reading was written in the tool's docstring before the run: worth a
+place only if, on the middle shot, the small subject's lead over the other
+subject and the lead of the right hand-out are WIDER than at the frame's
+scale on the looks where they were nothing, and no wider lead elsewhere is
+lost.
+
+**The small subject, her own gallery less the other subject's** (top third;
+positive is right):
+
+| frame | at the frame's scale | from a crop |
+|---|---|---|
+| 406 | -0.044 | -0.003 |
+| 410 | +0.050 | +0.025 |
+| 418 | +0.049 | +0.007 |
+| 426 | +0.015 | +0.005 |
+| 434 | -0.034 | -0.002 |
+
+**The lead of the right hand-out over the wrong one:**
+
+| frame | top third, frame | top third, crop | whole, frame | whole, crop | both summed, frame | both summed, crop |
+|---|---|---|---|---|---|---|
+| 406 | 0.004 | 0.023 | 0.068 | 0.047 | 0.072 | 0.071 |
+| 410 | 0.098 | 0.060 | 0.066 | 0.034 | 0.164 | 0.094 |
+| 418 | 0.110 | 0.024 | 0.035 | 0.038 | 0.144 | 0.062 |
+| 426 | 0.082 | 0.042 | 0.002 | 0.046 | 0.084 | 0.088 |
+| 434 | 0.023 | 0.025 | 0.032 | 0.030 | 0.055 | 0.055 |
+| 439 | 0.079 | 0.040 | 0.056 | 0.031 | 0.135 | 0.071 |
+| 446 | 0.049 | 0.028 | 0.058 | 0.033 | 0.107 | 0.061 |
+
+**By the reading written first: not worth a place.** The crop does what
+was hoped on the two looks where the frame's scale had nothing or the
+wrong sign: the small subject's gap goes from clearly wrong to about zero,
+and the top third's weakest lead rises from 0.004 to 0.023. It pays for
+that everywhere else: the leads that were wide are roughly halved, and the
+two views summed, which is what the decision uses, have the same weakest
+lead (0.055) and a much lower strongest one. Over the middle shot's five
+looks the summed lead is 0.519 at the frame's scale and 0.370 from crops.
+
+What the crop does to the scores explains it: it raises EVERY likeness.
+By the top third the small subject scores 0.51 to 0.86 against her own
+gallery at the frame's scale and 0.73 to 0.94 from a crop; but against
+the OTHER subject's gallery she rises just as far (0.73 to 0.91), and the
+lead's person rises against the second's gallery too (0.90 on three looks
+of five).
+At one scale everybody looks more like everybody: the wrong answers stop
+being wrong by much, the right answers stop being right by much, and a
+line is further from usable than before. The right hand-out is still on
+top on seven looks of seven either way.
+
+So a look is NOT changed to a crop on this evidence, and the cast file's
+looks stay at the frame's scale. Two things it leaves open: one load of
+soft film; and a crop was tried only for both sides at once (the person
+and the gallery), not for a small person against a gallery kept at the
+frame's scale.
+
 ## The joint decision on real tables (the acceptance, the same evening)
 
 The preview of the same load queued again on the server once it served the
@@ -435,8 +505,9 @@ None of this is built, and none of it can come from a clip's first shot:
 there is nothing confirmed yet, so the first shot runs on the starting
 values and says so.
 
-Order: the joint decision read on real tables first; then the one-scale
-run, since it could change what a look IS before any are stored; then the
+Order: the joint decision read on real tables first (done); then the
+one-scale run, since it could change what a look IS before any are stored
+(done: it does not, see "One scale"); then the
 file, its seeding, add and remove, and the decision reading it, all
 without a model; then the leave-one-shot-out measurement on a second clip;
 only then a tracker that reads it.
