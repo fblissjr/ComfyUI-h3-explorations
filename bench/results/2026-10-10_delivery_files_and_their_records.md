@@ -328,3 +328,36 @@ flag reads the source's own frame-to-frame change for it.
   the change line still separates kept from changed pixels, and the first
   zoomed delivery's region is read against its plate for grain
   (`bench/region_against_plate.py`).
+- 2026-10-10, a rule of this tool had gone quiet and nothing said so: "a
+  row lays nothing on a frame its run carried no mask on" acted only when a
+  capture's run entry carried one exact sentence (`carried_is`: "the mask
+  each window saved"). The capture tool reworded that sentence the same day
+  ("the mask each window was given"), and on every capture written since
+  the rule did nothing. Found by reading a new capture before building from
+  it; the next file would have laid 450 and 456-458 again. The rule is now
+  keyed on the run entry's list of window files the mask was read from
+  (`files`), present on every capture where the mask is the node's own and
+  absent where it was read off a review; the capture tool now also writes a
+  plain field for it (`carried_from_the_node`) on captures from its commit
+  df7b7810 on.
+- 2026-10-10, a new file: **`fun_0000_1050_b.mp4`**, beside `_a`. One
+  table: `_a`'s, with the street row 438-483 taken from a render made again
+  with its tail open, and two rows added on 1010-1038 (the second subject
+  whole with the lead given back; the lead's face with her Apparel class and
+  the second subject given back), each a per-shot load with its tail open.
+  What its record was expected to say was written to the lead session
+  before the build, and it says it: passes; the two failures on 1010-1038
+  and the one on 480-483 gone; something laid for both subjects on 29 and
+  28 of the 29 frames of 1010-1038 (1017 is the source's for the lead's
+  face: its carried mask is empty there); every row on a share of 1; no
+  square over the bound (largest 2.84); 1,888 audio packets of the
+  source's. The three new rows under the mask each run carried, outermost
+  frame over the middle: 1.21, 1.14 and 1.18 at their ends, 0.95, 0.91 and
+  1.19 at their starts; the capture session's reading of the same renders
+  says neither end is on the source. Measured on the built file at the
+  canvas against `_a`: outside 438-483 and 1010-1038 two frames differ, by
+  one and two pixels; inside, 37 frames of the street shot differ (450-458
+  are the source's in both) and all 29 of 1010-1038. Known and in its note:
+  the second subject's piece on 1010-1038 comes from the reference still
+  that carries a bag strap. md5 `5e6aef1df5ef80d9f44b09835dc4d56c`. `_a`
+  and the locked file are untouched.

@@ -132,8 +132,8 @@ row's.
 is several frames: on a frame where the subject's part was emptied (turned away, behind a hat's brim) the sampler
 still drew a region if another frame of the same step had one, and the render carries a face nobody asked for,
 for a frame. A run's capture holds the mask each window carried (`runs/<run>/region.npz`, `carried`). Where the
-run's manifest says that mask is the one each window saved (`CARRIED_SAVED`), a row lays NOTHING on a frame whose
-carried mask is empty: the frame is the source's for that row, and the record counts the pixels the piece had
+run's entry lists the window files that mask was read from (`files`: the node's own mask, not a reading of a
+review picture), a row lays NOTHING on a frame whose carried mask is empty: the frame is the source's for that row, and the record counts the pixels the piece had
 changed there (`piece_changed_where_its_run_carried_no_mask`, with `left_as_the_source` true). Where the carried
 mask was only read back off a review picture, nothing is dropped on its word and the same flag says so with
 `left_as_the_source` false. Found on the first street file: six such frames, one of them a face under a hat's
@@ -881,7 +881,10 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
             # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
             bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
-            unmasked = [(int(m.sum()), run[2].get("carried_is") == CARRIED_SAVED, run[2].get("carried_is")) if e else None
+            # the node's own when the run's entry lists the window files it was read from. Keyed on that list and not
+            # on the capture's sentence for it (`carried_is`): the sentence was reworded the day this rule was written,
+            # and a rule keyed on the old words went quiet on every new capture without a sign
+            unmasked = [(int(m.sum()), bool(run[2].get("files")), run[2].get("carried_is")) if e else None
                         for m, e, run in zip(hard, bare, runs)]
             hard = [np.zeros_like(m) if u and u[1] else m for m, u in zip(hard, unmasked)]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
@@ -1171,7 +1174,7 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                     + ("Those frames are left as the source's for this row" if left else
                                        "Nothing was dropped: the capture calls that mask `"
                                        + str(next(v["no_mask"]["carried_is"] for v in area.values() if v.get("no_mask") and not v["no_mask"]["left_as_the_source"]))
-                                       + f"`, and only `{CARRIED_SAVED}` is acted on")),
+                                       + "` and lists no window files it was read from: a reading of a review picture is not acted on")),
                             "figures": {"frames": len(bare), "worst_px": max(bare.values()), "left_as_the_source": left},
                             "threshold": {"SPECK": SPECK}})
         idle = [n for n, v in area.items() if not v["px"] and not (v.get("no_mask") and v["no_mask"]["left_as_the_source"] and v["no_mask"]["px"] > SPECK)]
@@ -1773,7 +1776,6 @@ END_LAST = 1 / 3   # of the middle's level: the outermost frame under it, and th
 END_RUN = 2 / 3    # of the middle's level: the frames from that end that stay under it are the run that is named
 TAIL = 12          # frames at an end whose mean is written beside the middle's, for a slide too slow to trip END_LAST
 READ_LEAST = 12    # frames of a row in a shot under which an end is not read; the capture tool's own (`END_LEAST`)
-CARRIED_SAVED = "the mask each window saved"   # a run's `carried_is` in a capture's manifest when its carried mask is the node's own
 PEOPLE_FLAG = "absent_with_people_on_screen"   # the capture's rule name (`bench/capture_masked_run.py`), read from its flags.json
 LOCKS = "LOCKED.md"   # beside the files it names
 LOCK_LINE = re.compile(r"^\s*[-*]\s+`([^`]+)`(?:\s+md5\s+([0-9a-fA-F]{32}))?")

@@ -965,8 +965,10 @@ with tempfile.TemporaryDirectory() as _tmp:
             return float(np.abs(x[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3] - y[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3]).mean())
         assert box_mean(a_in, o_in, RECT_A) > 20, "the piece does not differ from the original where it is painted"
         results = {}
-        for name, said in (("saved", tool.CARRIED_SAVED), ("review", "read from the review"), ("none", None)):
-            run = {"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16, **({"carried_is": said} if said else {})}
+        # the node's own carried mask is known by the window files the run's entry lists, whatever words describe it
+        for name, said in (("saved", {"carried_is": "the mask each window was given", "files": ["piece_a_window_1_region.npz"]}),
+                           ("review", {"carried_is": "read from the review"}), ("none", None)):
+            run = {"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16, **(said or {})}
             folder = capture(TMP / f"cap_carried_{name}", 10, 30, {"a": on}, [run], carried={"run_a": held} if said else None)
             code, r, out = deliver(TMP, f"carried_{name}", [(10, 39, PIECE_A, 10)], "10-39", "--capture", str(folder))
             flag = [f for f in r["flags"] if f["rule"] == "piece_changed_where_its_run_carried_no_mask"]
