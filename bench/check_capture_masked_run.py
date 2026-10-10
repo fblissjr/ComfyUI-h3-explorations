@@ -703,6 +703,20 @@ def verifying() -> str:
     assert by(cap.verify_checks(manifest(good, [plan_run]), []))["class_map_for_a_planned_part"]["ok"] is True
     empty = {"rule": "track_empty_in_a_taken_shot", "subject": "a", "seen_by": "p", "source_frames": [[104, 105]], "why": "no mask"}
     assert by(cap.verify_checks(manifest(good, [run]), [empty]))["track_where_the_shot_table_says_taken"]["ok"] is False
+    # a person's statement accounts for an empty frame it covers, by subject; a frame it does not cover still fails
+    gone = {**empty, "source_frames": [[104, 109]], "figures": {"frames": 5, "each": [104, 105, 107, 108, 109]}}
+    walked = {"subject": "a", "source_frames": [104, 109], "why": "walks out of the shot", "by": "someone"}
+    told = by(cap.verify_checks(manifest(good, [run]), [gone], [walked]))["track_where_the_shot_table_says_taken"]
+    assert told["ok"] is True and "walks out of the shot" in told["why"] and told["accounted_for"] == [walked], told
+    part = by(cap.verify_checks(manifest(good, [run]), [gone], [{**walked, "source_frames": [104, 107]}]))["track_where_the_shot_table_says_taken"]
+    assert part["ok"] is False and part["source_frames"] == [[108, 109]], part
+    over = {"name": "pl", "planned": True, "subject": "a", "carried_is": "the track", "load": {"first_frame": 100, "frames": 8}}
+    clash = by(cap.verify_checks(manifest(good, [over]), [gone], [walked]))
+    assert clash["no_mask_statement_against_a_load"]["ok"] is False and clash["no_mask_statement_against_a_load"]["source_frames"] == [[104, 105], [107, 107]], clash
+    short = by(cap.verify_checks(manifest(good, [{**over, "load": {"first_frame": 100, "frames": 4}}]), [gone], [walked]))
+    assert "no_mask_statement_against_a_load" not in short, "a load that ends before the excused frames was refused"
+    other = by(cap.verify_checks(manifest(good, [run]), [gone], [{**walked, "subject": "b"}]))["track_where_the_shot_table_says_taken"]
+    assert other["ok"] is False and "accounted_for" not in other, "another subject's statement accounted for this one's frames"
     assert by(cap.verify_checks(manifest({k: v for k, v in good.items() if k != "shots"}, [run], shots=False), []))[
         "track_where_the_shot_table_says_taken"]["ok"] is None
     # the comparison itself: one cell and a shaved mask

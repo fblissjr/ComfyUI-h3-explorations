@@ -7,6 +7,7 @@
         --run pass_a:render=A.mp4,subject=a,others=b [--voice voice_per_frame.csv]
     <python> bench/capture_masked_run.py files --name NAME ... --mask a:... --mask b:... \
         --plan pass_a:subject=a,others=b,margin=64          # before anything samples: the region a run WOULD take
+    <python> bench/capture_masked_run.py verify data/<date>_<NAME> [--no-mask b:1632-1729="walks out of the shot" --by WHO]
     <python> bench/capture_masked_run.py preflight data/<date>_<NAME> [--not-in a:294-414] [--text P.txt --voice-spans V.json]
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
     <python> bench/capture_masked_run.py shots data/<date>_<NAME>             # the gate per shot and subject: clear or blocked
@@ -1358,10 +1359,14 @@ def readers_agreement(saved: tuple, review: tuple) -> dict:
             "carried_overlap_min": round(float(min(overlap)), 4) if overlap else None}
 
 
-def verify_checks(manifest: dict, track_flags: list[dict]) -> list[dict]:
+def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict] | tuple = ()) -> list[dict]:
     """Every check `verify` makes, each `{"check", "about", "ok", "why"}`; `ok` is None when it could not be made.
 
-    `track_flags` are `flag_track`'s for every sighting: a track empty inside a shot it was taken in."""
+    `track_flags` are `flag_track`'s for every sighting: a track empty inside a shot it was taken in.
+    `statements` are a person's, kept in the capture (`no_mask_statements.json`): a subject has no mask from
+    one source frame to another and that is known (they walk out of the shot; no load is made for them there).
+    An empty frame a statement covers is accounted for, with who said it and why; one that no statement covers
+    still fails. A subject who leaves a shot is not a capture that misread its files."""
     out = []
 
     def add(check: str, about: str, ok: bool | None, why: str, **more) -> None:
@@ -1391,11 +1396,41 @@ def verify_checks(manifest: dict, track_flags: list[dict]) -> list[dict]:
             add("inputs_reach_the_span", about, not short and at <= first, ("; ".join(short) or f"the masks start on source frame {at}")
                 + f"; the span is {first}-{first + frames - 1}" if short or at > first else f"every mask video covers {first}-{first + frames - 1}")
     for f in track_flags:
-        add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", False, f["why"], source_frames=f["source_frames"])
+        each = f.get("figures", {}).get("each") or [n for a, b in f["source_frames"] for n in range(a, b + 1)]
+        said = [s for s in statements if s["subject"] == f["subject"]]
+        used = [s for s in said if any(s["source_frames"][0] <= n <= s["source_frames"][1] for n in each)]
+        left = [n for n in each if not any(s["source_frames"][0] <= n <= s["source_frames"][1] for s in used)]
+        told = "; ".join(f"{s['source_frames'][0]}-{s['source_frames'][1]} \"{s['why']}\" ({s['by']})" for s in used)
+        if not used:
+            add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", False, f["why"], source_frames=f["source_frames"])
+        elif left:
+            add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", False,
+                f"{f['subject']} has no mask on {len(each)} frame(s) of shots they were taken in; {len(each) - len(left)} are accounted for "
+                f"({told}) and {len(left)} are not: nothing regenerates there", source_frames=frame_spans(left, join=1), accounted_for=used)
+        else:
+            add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", True,
+                f"{f['subject']} has no mask on {len(each)} frame(s) of shots they were taken in, every one accounted for by a person: {told}",
+                source_frames=f["source_frames"], accounted_for=used)
     if not track_flags:
         tables = [s["label"] for s in manifest["subjects"] if any(x.get("shots") for x in s["sightings"])]
         add("track_where_the_shot_table_says_taken", ", ".join(tables) or "no subject", True if tables else None,
             "no track is empty inside a shot it was taken in" if tables else "no sighting has a shot table: nothing says where a track should be")
+    # a statement excuses frames no load covers. A load of that subject over frames it excused is the two said at once
+    for run in manifest["runs"]:
+        at, count = (run["load"]["first_frame"], run["load"]["frames"]) if run.get("load") else (run.get("first_source_frame"), run.get("frames_read"))
+        if at is None or not count:
+            continue
+        for f in track_flags:
+            if f["subject"] != run["subject"]:
+                continue
+            each = f.get("figures", {}).get("each") or [n for a, b in f["source_frames"] for n in range(a, b + 1)]
+            for st in statements:
+                hit = [n for n in each if st["subject"] == run["subject"] and st["source_frames"][0] <= n <= st["source_frames"][1] and at <= n < at + count]
+                if hit:
+                    add("no_mask_statement_against_a_load", run["name"], False,
+                        f"{st['by']} said {st['subject']} has no mask on {st['source_frames'][0]}-{st['source_frames'][1]} and that this is known "
+                        f"(\"{st['why']}\"); load {run['name']} regenerates {st['subject']} on {at}-{at + count - 1} and {len(hit)} of those frames "
+                        "have no mask: end the load before them or take the statement back", source_frames=frame_spans(hit, join=1))
     classed = {s["label"] for s in manifest["subjects"] if any(x.get("classes") for x in s["sightings"])}
     for run in manifest["runs"]:
         if run.get("planned") and run.get("carried_is") in ("the part", "the held part"):
@@ -1439,11 +1474,30 @@ def verify(a: argparse.Namespace) -> None:
             if path.is_file():
                 track_flags += flag_track(s["label"], seen["by"], [r for r in rows if r["seen_by"] == seen["by"]],
                                           json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
-    checks = verify_checks(m, track_flags)
+    kept = folder / "no_mask_statements.json"
+    statements = json.loads(kept.read_text())["statements"] if kept.is_file() else []
+    if a.no_mask:
+        if not a.by:
+            raise SystemExit("--no-mask is a person's statement: say who makes it with --by")
+        labels = {s["label"] for s in m["subjects"]}
+        for item in a.no_mask:
+            head, _, why = item.partition("=")
+            label, _, rng = head.partition(":")
+            if label not in labels or not why.strip() or "-" not in rng:
+                raise SystemExit(f"--no-mask {item!r}: LABEL:FIRST-LAST=WHY, with a subject of this capture ({', '.join(sorted(labels))}) and a reason")
+            span = [int(x) for x in rng.split("-")]
+            statements = [s for s in statements if (s["subject"], s["source_frames"]) != (label, span)]
+            statements.append({"subject": label, "source_frames": span, "why": why.strip(), "by": a.by,
+                               "said": datetime.datetime.now().isoformat(timespec="seconds")})
+        # kept in the capture: the builder runs `verify` again with no arguments before it queues a render
+        kept.write_text(json.dumps({"what": "a person's statements that a subject has no mask on a stretch and that this is known; "
+                                            "read by every later `verify` of this capture", "statements": statements}, indent=1) + "\n")
+    checks = verify_checks(m, track_flags, statements)
     failed, unmade = [c for c in checks if c["ok"] is False], [c for c in checks if c["ok"] is None]
     verdict = "does not read what the nodes wrote" if failed else "not verified: a check could not be made" if unmade else "reads what the nodes wrote"
     (folder / "verify.json").write_text(json.dumps({"capture": m["name"], "verdict": verdict, "failed": len(failed), "not_made": len(unmade),
-                                                    "written": datetime.datetime.now().isoformat(timespec="seconds"), "checks": checks}, indent=1) + "\n")
+                                                    "written": datetime.datetime.now().isoformat(timespec="seconds"),
+                                                    "no_mask_statements": statements, "checks": checks}, indent=1) + "\n")
     for c in checks:
         print(f"{'ok  ' if c['ok'] else 'FAIL' if c['ok'] is False else '??  '}  {c['check']}  [{c['about']}]\n      {c['why']}")
     print(f"verify: {verdict}; wrote {folder / 'verify.json'}")
@@ -1982,7 +2036,7 @@ def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: in
         return []
     return [{"rule": "track_empty_in_a_taken_shot", "level": LEVELS[2], "subject": label, "seen_by": by,
              "source_frames": frame_spans(empty), "why": f"{label} has no mask on {len(empty)} frame(s) of shots they were taken in: "
-             "nothing regenerates there", "figures": {"frames": len(empty)}}]
+             "nothing regenerates there", "figures": {"frames": len(empty), "each": empty}}]
 
 
 def part_faults(rows: list[dict]) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -3801,6 +3855,10 @@ def main() -> None:
     v.add_argument("--out")
     v = sub.add_parser("verify", help=f"does the capture read what the nodes wrote: writes verify.json, exits {VERIFY_FAILED} when not")
     v.add_argument("capture")
+    v.add_argument("--no-mask", action="append", default=[], metavar="LABEL:FIRST-LAST=WHY",
+                   help="a person's statement: this subject has no mask on these source frames and that is known (walks out of the shot; "
+                        "no load is made there). Kept in the capture; an empty frame it does not cover still fails")
+    v.add_argument("--by", default="", help="who makes the --no-mask statements")
     g = sub.add_parser("preflight", help="the risks in a capture folder, before a render: writes flags.json")
     g.add_argument("capture")
     g.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST",
