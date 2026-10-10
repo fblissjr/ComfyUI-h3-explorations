@@ -1112,8 +1112,8 @@ def who_is_who() -> str:
 
 def gate_by_shot() -> str:
     """The gate's answer per shot and subject is built from the capture's own two files, and a clear cell still says what was taken."""
-    def subject(state, likeness, share, masked, whose=None) -> dict:
-        return {"on_screen": {"state": state, "likeness": likeness}, "share_of_the_frame": None if share is None else {"median": share},
+    def subject(state, likeness, share, masked, whose=None, typed=False) -> dict:
+        return {"on_screen": {"state": state, "likeness": likeness, "typed": typed}, "share_of_the_frame": None if share is None else {"median": share},
                 "frames_with_a_mask": masked, "frames": 10, "part_pixels_owned_by": whose}
 
     crossing = {"frames_on_another_or_contested": 2, "source_frames_on_another_or_contested": [[108, 109]], "most_px_on_one_frame": 40, "shares": {}}
@@ -1121,7 +1121,7 @@ def gate_by_shot() -> str:
         {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "agrees"},
          "subjects": {"a": subject("taken", 0.86, 0.48, 10, crossing), "b": subject("absent", None, None, 0)}},
         {"shot": 2, "source_frames": [110, 119], "who_is_who": None,
-         "subjects": {"a": subject("absent", 0.7, None, 0), "b": subject("taken", 0.9, 0.2, 10)}}]}
+         "subjects": {"a": subject("absent", 0.7, None, 0), "b": subject("taken", 0.9, 0.2, 10, typed=True)}}]}
     flags = {"blocking": ["f001", "f003", "f004"], "flags": [
         {"id": "f001", "rule": "absent_with_people_on_screen", "subject": "a", "source_frames": [[110, 119]]},
         {"id": "f002", "rule": "part_empty_on_the_subject", "subject": "a", "source_frames": [[104, 104]]},      # overridden: not in `blocking`
@@ -1133,6 +1133,7 @@ def gate_by_shot() -> str:
     assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "agrees", one
     assert two["subjects"]["a"]["blocked_by"] == ["absent_with_people_on_screen"] and two["subjects"]["b"]["blocked_by"] == [], two
     assert two["every_subject"] == ["who_is_who_unanswered"] and two["who_is_who"] is None, two
+    assert two["subjects"]["b"]["typed"] and not one["subjects"]["a"]["typed"], "a typed state was not told from the tracker's own"
     return ("a flag counts on the shots its frames touch and only while it blocks; a flag with no subject is the shot's; "
             "a clear cell carries the take's state, likeness and size")
 

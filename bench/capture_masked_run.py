@@ -1555,7 +1555,7 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
             mine = [r for r in per[label] if a <= r["source_frame"] <= b]
             masked = [r for r in mine if r.get("track_share")]
             entry = {"frames_with_a_mask": len(masked), "frames": len(mine), "share_of_the_frame": q([r["track_share"] for r in masked], digits=5)}
-            said, state, sim, line = "nobody: this subject has no shot table", None, None, None
+            said, state, sim, line, typed = "nobody: this subject has no shot table", None, None, None, False
             if label in tables:
                 table, at = tables[label]
                 hit = next((x for x in table["shots"] if at + x["first_frame"] <= a <= at + x["last_frame"]), None)
@@ -1564,7 +1564,7 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                     said = "a correction typed on the tracker" if typed else "the tracker"
             if any(x[0] <= a and b <= x[1] for x in (not_in or {}).get(label, [])):
                 said = "the caller's --not-in" if state in (None, "absent") else said + "; the caller's --not-in says they are not in it"
-            entry["on_screen"] = {"state": state, "said_by": said, "likeness": sim, "line": line}
+            entry["on_screen"] = {"state": state, "said_by": said, "typed": typed, "likeness": sim, "line": line}
             tall = [r["parts_height_px"] for r in mine if r.get("parts_height_px")]
             entry["part_height"] = None if not tall else {"px": q(tall), "cells": q(tall, CELL), "tokens": q(tall, TOKEN_PX, 2)}
             if not tall:
@@ -1675,7 +1675,9 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
     touch the shot, and only while it blocks (an overridden flag does not). A flag with no subject (one about
     the shot itself, as an unanswered who-is-who row) is under `every_subject`. Each subject's cell also says
     what the tracker called, at what likeness, how large the subject is and on how many frames it has a mask:
-    "clear" says no rule blocks, never that the take is right, and those four are what a reader checks it by."""
+    "clear" says no rule blocks, never that the take is right, and those four are what a reader checks it by.
+    A state a person typed on the tracker is marked `typed`, and its likeness is not printed: the table's
+    figure there is the tracker's own best in the shot, which need not be the person who was typed."""
     blocking = [f for f in flags["flags"] if f["id"] in set(flags.get("blocking", []))]
     out = []
     for shot in record["shots"]:
@@ -1688,6 +1690,7 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
             share = e.get("share_of_the_frame")
             one["subjects"][label] = {"blocked_by": sorted({f["rule"] for f in here if f.get("subject") == label}),
                                       "state": e["on_screen"]["state"], "likeness": e["on_screen"]["likeness"],
+                                      "typed": bool(e["on_screen"].get("typed")),
                                       "share_of_the_frame": None if not share else share["median"],
                                       "frames_with_a_mask": e["frames_with_a_mask"], "frames": e["frames"]}
             whose = e.get("part_pixels_owned_by")
@@ -1715,7 +1718,7 @@ def shots(a: argparse.Namespace) -> None:
               + (f"; who-is-who {row['who_is_who']}" if row["who_is_who"] else "")
               + (f"; BLOCKED for every subject: {', '.join(row['every_subject'])}" if row["every_subject"] else ""))
         for label, c in row["subjects"].items():
-            said = (c["state"] or "no shot table") + ("" if c["likeness"] is None else f" {c['likeness']:.2f}") \
+            said = (c["state"] or "no shot table") + (", typed" if c["typed"] else "" if c["likeness"] is None else f" {c['likeness']:.2f}") \
                 + ("" if c["share_of_the_frame"] is None else f", {100 * c['share_of_the_frame']:.1f}% of the frame") \
                 + f", mask on {c['frames_with_a_mask']} of {c['frames']}"
             print(f"    {label}: " + (f"BLOCKED {', '.join(c['blocked_by'])}" if c["blocked_by"] else "clear") + f" ({said})")
