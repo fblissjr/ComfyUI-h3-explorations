@@ -286,6 +286,54 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   the grey mesh's on two seeds AND a state the mesh cannot carry comes
   through (a mouth, a held thing, hair). All reasoned; nothing rendered.
 
+## A mouth open with no voice
+
+Added 2026-10-10 (mrwolf), at the lead's ask, before the case is measured.
+
+- **The case (mrpop, eight stills of one shot, not measured, not judged on
+  playback):** a face-only pass with no motion video, on a shot with no
+  voice on the track. The source has the mouth wide open over a run of
+  frames; the render's face is calm with the mouth closed. mrdeer is
+  measuring it with the capture's `mouth` (`bench/capture_masked_run.py`,
+  `mouth_openings`).
+- **Why it has no channel today:** the table below gives the mouth to the
+  audio. With no voice the audio says nothing, the mesh has no mouth, and a
+  face pass wires no motion video.
+- **Which frames, by measurement and not by eye:** the runs where the
+  source's mouth opening is in its top share for the shot AND the voice
+  table says unvoiced (`voice_per_frame.csv`, `voiced`), a dozen frames or
+  longer. Both columns exist; nothing joins them yet.
+- **First test, reasoned, nothing rendered: the owner's degraded original,
+  on the head.** The source's head cut out, zoomed to fill the reference
+  (the zoomed mode exists for the source's own pixels in
+  `video_mask.motion_reference`), blurred, to the video model. The reason
+  it goes first: an open mouth is about twice the size of the features that
+  carry who a face is (a mouth's opening against an eye or the line of the
+  lips), so there is a blur that removes the second and keeps the first,
+  and it is narrow. By the Gaussian's own falloff a width of about a
+  sixteenth of the head's width leaves the fine features a few percent of
+  their contrast and the open mouth about half of its; at an eighth of the
+  head's width the open mouth is gone too. So two renders: the sixteenth,
+  which should open the mouth, and the eighth as the control that should
+  not. If the mouth opens at the eighth, something other than the blurred
+  mouth is carrying it. One field each against the pass that exists (no
+  motion video). Read `look` first (does the original's face come back),
+  then `mouth`. This is also the degraded original's first arm on a FACE:
+  the whole-person arms on the opening shot do not ask whether a blur hides
+  a face, and the width has to be a share of the head, not of a token,
+  because the margin is that narrow.
+- **Second, if the blur leaks at the width that keeps the mouth: a mouth
+  map.** The part model's lip, teeth and tongue classes drawn as flat
+  shapes on grey, zoomed to the head. It cannot bring a face back, since it
+  has none. What is unknown is whether the model reads a drawing as "open
+  the mouth". One was tried on 2026-10-10 on a stretch whose track has a
+  voice, from a session's script, with the lip sync of the three arms
+  (audio alone, the mouth map, the separated voice) inside each other's
+  noise; it has no tracked record and the script is not in the tree, so it
+  says nothing yet about a shot with no voice.
+- **Not a candidate:** a sentence. "Mouth open" is an event with a time,
+  and a laugh written from stills is on record as drawn on every frame.
+
 ## The states a text has been made to carry
 
 Added 2026-10-10 (mrwolf). The rows are every kind of state the hand-written
