@@ -94,3 +94,27 @@ renders after it.
   frames it named, and the outcome was recorded afterwards
   (`KEPT_IN_PART` was lowered from that measurement, 96f204f6). The
   override exists since 0.266.0.
+- **2026-10-10 (mrpop): two faults found by the owner on playback of the
+  first joined file, which no reading of ours had named.**
+  (1) A small face is replaced and does not read as the reference's person.
+  On the two street shots the face differs from the source on every frame
+  (`changed`, and crops at the source's size), and a viewer saw no swap. What
+  would have said so before: the face part's height on the canvas, in the
+  model's tokens, which was in the gate's own table for those shots and
+  about half the height of the face on the stretch the owner had accepted.
+  We had it; no rule reads it. And the wider gap: every outcome reading here
+  says a region differs from the source, none says it looks like the
+  reference. Rule: not built. Remedy being scoped: render the subject in a
+  crop round her at the canvas's size and lay the region back (the masking
+  board, `build-render-a-small-subject-zoomed-in`).
+  (2) A whole-person pass moves the hands off what they are doing and draws
+  what the reference picture holds. On the opening shot the hand does not
+  reach the bowl; on a later shot a strap from the reference picture is
+  drawn on the subject. What would have said so before: partly, the gate's
+  list of what lies inside a whole-person region (her hands, the things on
+  the table); nothing compares what the reference picture shows with what
+  the scene needs, and nothing measures a hand against what it touches.
+  Remedy, the owner's decision: that subject is replaced as face and hair
+  only (the board, `route-second-person-as-face-and-hair-only`). The strap
+  was visible in stills a session had looked at and reported "as seen":
+  a still read for one question does not answer another.
