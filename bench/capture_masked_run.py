@@ -700,6 +700,11 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         if last is not None and end >= last:
             break
         got = vm.load_window_region(str(f))
+        if got.get("zoom"):
+            # a window rendered zoomed in holds its mask and tokens in the zoomed picture's space: read on the canvas
+            # grid they would land in the wrong place. Refused until this reader maps them through the file's box
+            return None, None, None, {"refused": f"{f.name} is of a run rendered zoomed in (box {got['zoom'].get('box')}); this reader "
+                                                 "does not map a zoomed region back to the frame yet", "zoomed": True}
         start, trim, mask, tokens = got["first_frame"], got["trim"], got["mask"], got["tokens"]
         count = int(mask.shape[0])
         if start + trim != end:
@@ -794,6 +799,9 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     plan = json.loads(plan_path.read_text())
     if plan.get("plan") != "h3 song plan":
         raise SystemExit(f"{plan_path.name} is not a song node plan (its `plan` is {plan.get('plan')!r})")
+    if plan.get("zoom"):
+        return None, None, None, {"refused": f"the plan is for a load rendered zoomed in (box {plan['zoom'].get('box')}); its regions are in "
+                                             "the zoomed picture's space and this reader does not map them back to the frame yet"}
     w, h = size
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
@@ -1116,6 +1124,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             region = None
             if saved:
                 region, carried, read, how = read_saved_regions(saved, first, frames, size, r.get("at"), probe(r["render"])[2])
+                if region is None and how.get("zoomed"):
+                    # the review of a zoomed run is not on the canvas's cell grid either: there is nothing right to fall back to
+                    raise SystemExit(f"run {name!r}: {how['refused']}; its review cannot be read back either")
                 if region is None:
                     print(f"run {name}: the windows' saved regions are not this render's ({how['refused']}); reading the review")
                 elif Path(r["render"][:-len(".mp4")] + "_with_mask.mp4").is_file():

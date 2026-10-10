@@ -588,6 +588,14 @@ def saved_regions() -> str:
         region, carried, read, how = cap.read_saved_regions(with_stale, 100, 13, (W, H), render_frames=13)
         assert read.all() and how["files_of_another_run_left_unread"] == ["pass_window_3_region.npz"], how
         assert cap.read_saved_regions(with_stale, 100, 13, (W, H))[0] is None, "with no render length, a gap before a stale window was read"
+        # a window rendered zoomed in holds its region in the zoomed picture's space: refused, not read on the canvas's grid
+        real = vm.load_window_region
+        vm.load_window_region = lambda path: {**real(path), "zoom": {"box": [0, 0, 80, 48], "scale": 2.0}}
+        try:
+            refused = cap.read_saved_regions(found, 100, 13, (W, H), render_frames=13)
+        finally:
+            vm.load_window_region = real
+        assert refused[0] is None and refused[3]["zoomed"] and "zoomed in" in refused[3]["refused"], refused[3]
         # files that do not reach the render's end, or leave a gap, are not this render's
         assert cap.read_saved_regions(found, 100, 13, (W, H), render_frames=21)[0] is None, "a longer render, and its region read"
         assert cap.read_saved_regions(found[1:], 100, 13, (W, H))[0] is None, "a window missing from the front, and its region read"
