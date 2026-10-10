@@ -218,6 +218,23 @@ them.
   (`video_mask.unlaid_frames`), so the first held frame no longer carries
   the render its latent step lent it. Under the open tail the held frames
   carry the last frame's mask and are laid as before. Not served yet.
+- 2026-10-10, the open tail measured on all three loads that had ended on
+  the source (a peer's captures,
+  `data/2026-10-10_fun_face_street_0438_tail` and
+  `data/2026-10-10_fun_kitchen_shot2_tails_1010`; one seed each; the
+  figures are that session's to record): the fall at the end of the load is
+  gone on every one, the back half of the two face loads is lifted as well,
+  and nothing reads worse. The job builder takes the open tail as its
+  default.
+- 2026-10-10, judged on playback by the owner: in the joined file with the
+  three open-tail pieces in it the street face reads as swapped, where the
+  file before it had not. That earlier verdict had been read as "the face
+  is too small to be drawn as the reference's"; one of its two pieces is
+  unchanged between the files, so part of it was the fading tail and the
+  shots not yet attempted, and how much is the size of the face is not
+  settled. A render zoomed in on a small subject (`render_region`, built
+  the same day, not served when this was written) is to be judged against
+  the open-tail render that was accepted, not against a failure.
 
 ## Results, dated
 
