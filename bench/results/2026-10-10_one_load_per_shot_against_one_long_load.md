@@ -20,8 +20,9 @@ body mesh), and set against the long load's frames of the same shots.
 
 Each shot is a capture folder (`bench/capture_masked_run.py files`,
 untracked `data/`) with both renders as runs, the region read from each
-render's own review. The numbers are in the json beside this file
-([`2026-10-10_one_load_per_shot_against_one_long_load.json`](2026-10-10_one_load_per_shot_against_one_long_load.json)),
+render's own review. The numbers are in a json kept out of the
+tree
+(`data/2026-10-10_one_load_per_shot_against_one_long_load/2026-10-10_one_load_per_shot_against_one_long_load.json` (untracked)),
 one row a shot and render: the region's share of the frame; the share of
 the region more than a threshold from the source; the mean difference from
 the source on the subject's mask and in a fixed box beside it that holds

@@ -21,9 +21,9 @@ frames; the second from the graded mask. That makes the first a control.
 ## How
 
 Both renders are one load of the same frames, same still, text, seed and
-settings; the masks differ on four frames only. The numbers are in the json
-beside this file
-([`2026-10-10_face_part_kept_or_emptied_on_a_turn.json`](2026-10-10_face_part_kept_or_emptied_on_a_turn.json)):
+settings; the masks differ on four frames only. The numbers are in a json kept out of the
+tree
+(`data/2026-10-10_face_part_kept_or_emptied_on_a_turn/2026-10-10_face_part_kept_or_emptied_on_a_turn.json` (untracked)):
 the grade's scores on the emptied frames; per frame around the turn, the
 difference of each render from the source in the part's area and of the two
 renders from each other; the floor far from any part; and the same over

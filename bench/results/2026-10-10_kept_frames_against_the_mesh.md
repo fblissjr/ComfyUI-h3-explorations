@@ -22,9 +22,9 @@ the kept frames?
 
 `bench/measure_subject_yaw.py` on the card for the source, the mesh video
 and every render of the stretch, the subject's box from her tracked mask;
-then `bench/measure_subject_motion.py`. The numbers are in the json beside
-this file
-([`2026-10-10_kept_frames_against_the_mesh.json`](2026-10-10_kept_frames_against_the_mesh.json)):
+then `bench/measure_subject_motion.py`. The numbers are in a json kept out of the
+tree
+(`data/2026-10-10_kept_frames_against_the_mesh/2026-10-10_kept_frames_against_the_mesh.json` (untracked)):
 one entry a render with what it is, the head's distance from the source's
 on the turn and after it, the chin's angle and the nearer wrist's distance
 from the nose where the source lowers the head and raises the hand, and

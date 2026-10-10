@@ -27,7 +27,7 @@ shot table, the subject's share of the frame over the shot, the same
 figure on the shot its table calls picked, and every detected person's
 share on the shot's tile. The rows, with where each column comes from,
 are in
-[`2026-10-10_take_size_and_likeness_against_known_answers.json`](2026-10-10_take_size_and_likeness_against_known_answers.json).
+`data/2026-10-10_take_size_and_likeness_against_known_answers/2026-10-10_take_size_and_likeness_against_known_answers.json` (untracked).
 
 ## What the eighteen takes say
 

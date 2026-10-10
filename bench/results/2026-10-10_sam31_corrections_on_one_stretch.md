@@ -25,8 +25,9 @@ only in the corrections node; each turned into a capture folder by
 `bench/capture_masked_run.py files` (untracked `data/`), and the lead's
 shot tables, per-frame mask rows and the rows across subjects read from
 there. "What is there by eye" is from a sheet of eleven frames with both
-tracks outlined. The numbers are in the json beside this file
-([`2026-10-10_sam31_corrections_on_one_stretch.json`](2026-10-10_sam31_corrections_on_one_stretch.json)):
+tracks outlined. The numbers are in a json kept out of the
+tree
+(`data/2026-10-10_sam31_corrections_on_one_stretch/2026-10-10_sam31_corrections_on_one_stretch.json` (untracked)):
 one row a shot with the call, the similarity, the detections and the mask's
 median area on each path; the agreement of the two paths' masks; the
 separation figures; and the second tracker.
