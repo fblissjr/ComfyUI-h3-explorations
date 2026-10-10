@@ -357,6 +357,8 @@ def owners() -> str:
     assert (f[48:56, 48:64] == 1).all(), "named by two's class map alone, and not two's"
     assert (f[40:48, 48:64] == cap.CONTESTED).all() and (f[56:64, 48:64] == cap.CONTESTED).all(), "named by both or by neither, and guessed"
     assert (f[0:32] == cap.NOBODY).all() and contested[0] == 2 * 8 * 16, contested[0]
+    lent = cap.owned_class_mask(map_one, owner, 0, ["Hand"], ("Background", "a", "b", "c", "d", "Hand"))
+    assert lent.sum() == N * 8 * 16 and (lent[0] == (f == 0) & (map_one[0] == 5)).all(), "a class taken where its subject does not own the pixel"
     bare, _, _, left = cap.owner_map({"one": one, "two": two}, {})
     assert left[0] == 16 * 32, "with no class map every pixel both claim is contested"
     return "one claimant owns; of two, the one whose class map names the pixel; named by both or neither is contested, never guessed"

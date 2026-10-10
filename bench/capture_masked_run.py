@@ -1699,8 +1699,19 @@ def class_mask_of(classes: np.ndarray, wanted: list[str], names: tuple[str, ...]
     return np.isin(classes, [names.index(c) for c in wanted])
 
 
+def owned_class_mask(classes: np.ndarray, owner: np.ndarray, index: int, wanted: list[str], names: tuple[str, ...]) -> np.ndarray:
+    """The pixels of the classes named that the owner map gives to subject `index`: nothing in the margin round
+    the subject's outline, where a class map labels a neighbour's things, and nothing two tracks contest."""
+    return class_mask_of(classes, wanted, names) & (owner == index)
+
+
 def mask(a: argparse.Namespace) -> None:
-    """Write some of a subject's classes as a lossless mask video a graph can load (for `keep`, `others`, a region)."""
+    """Write some of a subject's classes as a lossless mask video a graph can load (for `keep`, `others`, a region).
+
+    `--classes` takes them as the class map has them, the margin round the outline included: right for a class
+    that is the subject's own wherever it is labelled (a face, hair). `--classes-owned` takes only the pixels
+    the capture's owner map gives the subject: right for a class a neighbour can lend (a hand, apparel, a held
+    thing). The two are joined. This is the `keep` mask for a pass on ANOTHER subject."""
     folder = Path(a.capture)
     m = json.loads((folder / "manifest.json").read_text())
     subject = next((s for s in m["subjects"] if s["label"] == a.subject), None)
@@ -1710,9 +1721,19 @@ def mask(a: argparse.Namespace) -> None:
     if not path.is_file():
         raise SystemExit(f"{a.subject} has no class map in this capture (give classes= on its --mask when capturing)")
     names = _pack("sapiens2_parts").CLASS_NAMES
-    out = class_mask_of(np.load(path)["classes"], a.classes.split("+"), names)
+    classes = np.load(path)["classes"]
+    out = class_mask_of(classes, a.classes.split("+"), names) if a.classes else np.zeros(classes.shape, bool)
+    if a.classes_owned:
+        if not (folder / "owners.npz").is_file():
+            raise SystemExit("--classes-owned needs the capture's owners.npz (a capture with more than one subject and class maps)")
+        owners = np.load(folder / "owners.npz")
+        out |= owned_class_mask(classes, owners["owner"], list(owners["labels"]).index(a.subject), a.classes_owned.split("+"), names)
+    if not out.any():
+        raise SystemExit("the mask would be empty on every frame: nothing was written")
     write_mask_video(Path(a.out), out)
-    print(f"wrote {a.out}: {a.subject}'s {a.classes.replace('+', ', ')}, {len(out)} frames from source frame {m['first_frame']}, "
+    said = " and ".join(x for x in ((a.classes or "").replace("+", ", "), (a.classes_owned or "").replace("+", ", ") + " where the owner map gives them the pixel"
+                                    if a.classes_owned else "") if x)
+    print(f"wrote {a.out}: {a.subject}'s {said}, {len(out)} frames from source frame {m['first_frame']}, "
           f"on {int(out.reshape(len(out), -1).any(1).sum())} of them")
 
 
@@ -2202,7 +2223,8 @@ def main() -> None:
     x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
     x.add_argument("capture")
     x.add_argument("--subject", required=True)
-    x.add_argument("--classes", required=True, metavar="Class+Class", help="names from the part model's class list, joined by +")
+    x.add_argument("--classes", metavar="Class+Class", help="classes as the class map has them, joined by +")
+    x.add_argument("--classes-owned", metavar="Class+Class", help="classes taken only where the owner map gives the subject the pixel")
     x.add_argument("--out", required=True, help="the .mkv to write: ffv1, grey, white on the mask, frame 0 the span's first frame")
     d = sub.add_parser("diagnose", help="everything the capture says about a stretch marked as wrong")
     d.add_argument("capture")

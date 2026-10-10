@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.259.1
+<!-- changelog.d/mrdeer-capture-mask-owned.md -->
+
+### Added
+
+- `bench/capture_masked_run.py mask --classes-owned`: classes taken only where the capture's owner map gives the subject the pixel, joined with `--classes` (taken as labelled). It is the `keep` mask for a pass on another subject: a face and hair as the class map has them, apparel and hands only where they are that subject's. Against a session's hand-built keep mask for the same rule it differs on no pixel in 447 frames.
+
 ## 0.259.0
 <!-- changelog.d/mrdeer-frame-sheet-and-voice-spans.md -->
 
