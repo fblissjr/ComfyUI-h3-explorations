@@ -419,3 +419,13 @@ flag reads the source's own frame-to-frame change for it.
   pair, and the record says by how much. Not measured: the grain of the
   laid region against its plate (the reading promised for the first zoomed
   delivery; none has been built), and anything on a second pair.
+- 2026-10-10, `--alias LABEL=NAME`. The captures of the clip's last stretch
+  (source frames 1039-1919) label the three subjects `lead`, `second` and
+  `third`; the captures of everything before label the same first two by
+  other words. Every rule of this tool knows a subject by its label, so one
+  table over both would have had five subjects for three people, each with
+  "nothing laid" on the other label's shots, and the verdict line's count
+  would have been mostly that. A capture's labels are now read as the
+  table's names where the command says so, and the record lists which
+  (`labels_read_as`). Found reading the new captures' manifests before the
+  first row from them was laid.

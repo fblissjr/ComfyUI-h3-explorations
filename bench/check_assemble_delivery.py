@@ -43,7 +43,9 @@ of known place and size into them, and reads the tool's answers back.
     rectangle, the piece's own subject and another, overlapping: where only the other's mask is, the file is the
     original; where both are, and where only the piece's own is, it is the piece. Without a run for the piece
     in the capture nothing is taken out of the other's mask, so the overlap goes back too; and with
-    `restore=<subject>:whole` it goes back whether or not there is a run.
+    `restore=<subject>:whole` it goes back whether or not there is a run. The same capture written with other
+    labels for the two people gives the same picture when read through `--alias`, with its owner map and its own
+    flag under the table's names; two labels of one capture read as one subject are refused.
 11. **A piece that spills over a cut.** A second clip with a hard cut in it and no audio. A piece painted up to
     one frame past the cut raises the flag on that frame; painted up to the cut, or on well past it (a subject who
     is in both shots), it raises nothing; and a piece given as several rows raises each of its flags once. The
@@ -575,6 +577,24 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, o, both) < 1.0 and box_mean(got, o, only_other) < 1.0, "`:whole` did not give back what both masks claim"
         assert box_mean(got, a, only_own) < 1.0, "`:whole` gave back the piece's own subject where the other is not"
         assert tool.read_table(table(TMP / "whole_row.txt", [(10, 39, PIECE_A, "10 restore=b:whole")]))[0]["restore"] == [("b", "whole")]
+        # the same capture written with other labels for the same two people, read through --alias: the same picture,
+        # the owner map and the capture's own flag under the table's names
+        other_words = capture(TMP / "cap_subject_other_words", 10, 30, {"lead": masks["a"], "second": masks["b"]},
+                              [{"name": "run_a", "render": "piece_a.mp4", "subject": "lead", "margin_px": 16}],
+                              flags=[{"id": "f001", "rule": tool.PEOPLE_FLAG, "subject": "second", "source_frames": [[10, 12]], "figures": {"people": 1}}])
+        np.savez_compressed(other_words / "owners.npz", owner=np.where(masks["b"], 1, np.where(masks["a"], 0, 255)).astype(np.uint8),
+                            labels=np.array(["lead", "second"]), nobody=255, contested=254)
+        renamed = tool.Captures([other_words], (W, H), {"lead": "a", "second": "b"})
+        got_alias, _ = frame_planes(SOURCE, [dict(row)], 20, renamed)
+        assert box_mean(got_alias, o, only_other) < 1.0 and box_mean(got_alias, a, only_own) < 1.0, "through --alias the other subject was not given back"
+        assert renamed.run_of(PIECE_A)[2]["subject"] == "a" and renamed.mask("b", 20).any() and renamed.owned("b", 20).any() \
+            and renamed.said_absent_with_people()[0]["subject"] == "b" and renamed.mask("second", 20) is None, "a label was not read as the table's name"
+        try:
+            tool.Captures([other_words], (W, H), {"lead": "a", "second": "a"})
+        except SystemExit as exc:
+            assert "same subject" in str(exc), exc
+        else:
+            raise AssertionError("two labels of one capture read as one subject were accepted")
         return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's, and goes back with `:whole`"
 
     def a_clip_with_a_cut(cut_at: int, frames: int) -> Path:

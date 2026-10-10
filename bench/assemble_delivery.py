@@ -39,6 +39,11 @@ loses to another person's pass on its own subject. A piece whose subject is not 
 given, and no `subject=` on its row) is never ruled out by a mask it was not asked about: it can take every
 pixel it changed. Either way the frames are flagged.
 
+**`--alias LABEL=NAME`** when captures of one job label one person differently (two loads tracked as `lead` and as
+`singer`): every rule here knows a subject by its label, so without it they are two subjects and each has
+"nothing laid" on the other's shots. The table then uses NAME throughout, and the record says which labels were
+read as which.
+
 **`subject=<label>`** on a row says whose a piece is when no capture holds it as a run: a patch of a render, made
 from that render, has no run of its own. The first delivery built with a patch row and captures (2026-10-10)
 gave the patched frames back to the piece they replaced, inside its subject's mask, because the piece's subject
@@ -605,7 +610,11 @@ def disc(radius):
 class Captures:
     """The capture folders given: which run made a piece, and each subject's tracked mask by source frame."""
 
-    def __init__(self, folders, canvas):
+    def __init__(self, folders, canvas, alias=None):
+        # `alias` is {a label as some capture writes it: the name the table uses for that subject}. Two loads of
+        # one job were captured with different labels for the same person; without this they are two subjects to
+        # every rule here, and every shot of each is "nothing laid" for the other.
+        self.alias = dict(alias or {})
         self.folders, self.masks, self.used_owner_map = [], {}, set()
         self.class_px_left = {}       # (row's piece, subject, frame) -> class pixels a restore left as the row's own subject's
         for folder in folders:
@@ -613,6 +622,14 @@ class Captures:
             m = json.loads((folder / "manifest.json").read_text())
             if tuple(m["size"]) != tuple(canvas):
                 raise SystemExit(f"{folder} was captured at {m['size']}, the pieces are {list(canvas)}")
+            for sub in m["subjects"]:
+                sub["dir"] = sub["label"]                      # the capture's own word, which its files are under
+                sub["label"] = self.alias.get(sub["label"], sub["label"])
+            for run in m["runs"]:
+                run["subject"] = self.alias.get(run["subject"], run["subject"])
+            names = [sub["label"] for sub in m["subjects"]]
+            if len(set(names)) != len(names):
+                raise SystemExit(f"{folder}: two of its subjects are the same subject under --alias ({names})")
             self.folders.append((folder, m))
 
     def run_of(self, piece):
@@ -664,7 +681,7 @@ class Captures:
             held = json.loads(path.read_text())
             for flag in (held if isinstance(held, list) else held.get("flags", [])):
                 if flag.get("rule") == PEOPLE_FLAG and flag.get("subject"):
-                    out.append({"subject": flag["subject"], "spans": [list(x) for x in flag.get("source_frames", [])],
+                    out.append({"subject": self.alias.get(flag["subject"], flag["subject"]), "spans": [list(x) for x in flag.get("source_frames", [])],
                                 "people": (flag.get("figures") or {}).get("people"), "figures": flag.get("figures") or {},
                                 "capture": folder.name, "id": flag.get("id")})
         return out
@@ -676,7 +693,7 @@ class Captures:
         for folder, m in self.folders:
             for s in m["subjects"]:
                 sight = s["sightings"][0]
-                path = folder / "subjects" / s["label"] / f"shots__{sight['by']}.json"
+                path = folder / "subjects" / s["dir"] / f"shots__{sight['by']}.json"
                 if not path.is_file():
                     continue
                 at = int(sight.get("shots_first_source_frame", sight.get("first_source_frame", m["first_frame"])))
@@ -702,7 +719,7 @@ class Captures:
             key = (folder, "owners")
             if key not in self.masks:
                 z = np.load(folder / "owners.npz")
-                self.masks[key] = (z["owner"], [str(x) for x in z["labels"]], int(z["nobody"]))
+                self.masks[key] = (z["owner"], [self.alias.get(str(x), str(x)) for x in z["labels"]], int(z["nobody"]))
             owner, labels, _nobody = self.masks[key]
             if label in labels:
                 got = owner[k] == labels.index(label)
@@ -722,7 +739,7 @@ class Captures:
             if not 0 <= k < m["frames"]:
                 continue
             for s in m["subjects"]:
-                path = folder / "subjects" / label / f"classes__{s['sightings'][0]['by']}.npz"
+                path = folder / "subjects" / s["dir"] / f"classes__{s['sightings'][0]['by']}.npz"
                 if s["label"] != label or not path.is_file():
                     continue
                 key = (folder, label, "classes")
@@ -746,7 +763,7 @@ class Captures:
                     continue
                 key = (folder, label)
                 if key not in self.masks:
-                    z = np.load(folder / "subjects" / label / f"masks__{s['sightings'][0]['by']}.npz")
+                    z = np.load(folder / "subjects" / s["dir"] / f"masks__{s['sightings'][0]['by']}.npz")
                     self.masks[key] = (z["track"], z["covered"])
                 track, covered = self.masks[key]
                 if covered[k]:
@@ -1676,6 +1693,7 @@ def check(args, segs, canvas, span, src, rows, captures):
               "table": [{"frames": [r["first"], r["last"]], "piece": r["piece"], "piece_first": r["piece_first"],
                          "restore": [restore_text(label, wanted) for label, wanted in r.get("restore") or []]} for r in rows],
               "captures": [str(folder) for folder, _ in captures.folders] if captures else [],
+              "labels_read_as": dict(captures.alias) if captures else {},
               "checked": datetime.datetime.now().isoformat(timespec="seconds"), **({"note": args.note} if args.note else {})}
     if full:
         cw, ch, x0, y0 = crop_of(*full, w, h)
@@ -1966,6 +1984,8 @@ def main():
     p.add_argument("--size", choices=("canvas", "source"), default="canvas",
                    help="canvas: the pieces' size. source: the source's own size, with only what the pieces changed put back over it")
     p.add_argument("--capture", action="append", default=[], help="a capture folder of bench/capture_masked_run.py; repeatable")
+    p.add_argument("--alias", action="append", default=[], metavar="LABEL=NAME",
+                   help="a subject's label as some capture writes it, and the name the table uses for that subject; repeatable")
     p.add_argument("--crf", type=int, default=12)
     p.add_argument("--soften", type=float, default=0.0, help="sigma in pixels of a luma blur inside what the pieces changed")
     p.add_argument("--note", help="a sentence written into the check record: why this file was built or rebuilt")
@@ -2009,7 +2029,13 @@ def main():
             raise SystemExit(f"{args.source} is tagged {src['matrix']}; a file at the source's size needs a BT.709 source, as the pieces are")
     if any(r["restore"] for r in rows) and not args.capture:
         raise SystemExit("a row asks for a restore and no --capture was given: the mask or class map comes from a capture folder")
-    captures = Captures(args.capture, canvas) if args.capture else None
+    alias = {}
+    for pair in args.alias:
+        label, eq, name = pair.partition("=")
+        if not (label and eq and name):
+            raise SystemExit(f"--alias `{pair}` is not LABEL=NAME")
+        alias[label] = name
+    captures = Captures(args.capture, canvas, alias) if args.capture else None
     segs = segments(rows, span)
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(
