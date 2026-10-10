@@ -1,38 +1,52 @@
 #!/usr/bin/env python3
-"""The cast file: what a person answered about who is on a frame, kept so it is typed once.
+"""The cast file: what a person answered about who the outlined people on a frame are, kept so it is typed once.
 
 The least thing that stores a typed answer. A person looks at one tile of a preview's shot table, on which
-everybody on that frame is outlined and numbered, and says for a named subject "person 2" or "nobody". This
-file keeps that as one line: the subject, the frame of the source copy, and either the person's BOX on that
-frame or "not on this frame". Nothing here compares anybody with anybody; there is no likeness in it and it
-decides nothing.
+every detection on that frame is outlined and numbered, and says WHO THE NUMBERED PEOPLE ARE: "2 is the lead",
+or "nobody of ours". This file keeps that as one line a named subject: the subject, the frame of the source
+copy, and either that person's BOX on the frame or the words `none of the outlined people`. Nothing here
+compares anybody with anybody; there is no likeness in it and it decides nothing.
 
-Four rules, each a fault of 2026-10-10 that this file exists to not repeat:
+The question is asked of the PEOPLE, never of the subjects, and nothing a tracker concluded is shown or
+pre-filled. A default drawn from the trackers' takes would have been wrong on exactly the two shots of
+2026-10-10 where a wrong take hid a subject (the lead's tracker holding the second subject; two trackers
+holding the only two outlines of a shot the lead was in).
 
-- AN ANSWER IS OF A FRAME, NOT OF A SHOT. A tile shows one frame. "Nobody" on it is stored as `not on this
-  frame`; a subject who walks out half way through a shot is not "not in the shot". Whoever needs the stronger
-  statement makes it knowingly (`seeds`' `not_on_frame` has no default).
+Rules, each a fault of that day this file exists to not repeat:
+
+- AN ANSWER IS OF A FRAME, NOT OF A SHOT. A tile shows one frame, and a subject who walks out half way through a
+  shot is not "not in the shot".
+- AN UNNAMED SUBJECT IS STORED AS WHAT THE PERSON SAID: `none of the outlined people` on this frame is them. It is
+  NOT "not on this frame": a subject small in an inset, turned away or half hidden may be on the frame with no
+  outline, and the person was only shown outlines. So `seeds` leaves such a shot unseeded unless the caller
+  takes the strong reading in words (`none_outlined`, no default).
 - THE NUMBER BECOMES A BOX WHEN THE ANSWER IS GIVEN, from the table the tile was drawn from, and the line names
   that table. No tile number is stored, so a tile made again cannot renumber an old answer.
-- THE TILE MUST SHOW EVERYBODY. `answer` refuses a table whose shot says another tracker's people were left out
-  on the shown frame: those numbers are not everybody. A preview with one subject and no `others` is such a
-  pass, and the job builder already makes it.
-- ONE WRITER. `append` writes one whole line under a lock and nothing is ever rewritten; taking an answer back
-  is another line. The latest line for a subject and a frame is the answer.
+- THE TILE MUST SHOW EVERYBODY THE DETECTOR FOUND. `answer` refuses a table that says another tracker's people
+  were left out on the shown frame, and one that does not say. A preview with one subject and no `others` (a
+  census) is such a pass, and the job builder already makes it. A detection with no head is still numbered on
+  it, and may be named: a subject seen from behind is one.
+- A TILE IS STORED WHOLE OR NOT AT ALL, by one writer: every line of an answer is checked, then all are written
+  in one write under a lock. Nothing is ever rewritten; taking an answer back is another line. The latest line
+  in the file for a subject and a frame is the answer.
 
-    <python> bench/cast_file.py answer --cast CAST --table SHOTS.json --first-frame N --shot K --subject lead --person 2 --by NAME
-    <python> bench/cast_file.py answer --cast CAST --table SHOTS.json --first-frame N --shot K --subject lead --nobody --by NAME
+    <python> bench/cast_file.py answer --cast CAST --table CENSUS_SHOTS.json --first-frame N --shot K \\
+        --subjects lead,second,third --is 2=lead [--is 5=third] --by NAME
+    <python> bench/cast_file.py answer ... --subjects lead,second,third --nobody-of-ours --by NAME
     <python> bench/cast_file.py withdraw --cast CAST --subject lead --frame F --by NAME
-    <python> bench/cast_file.py seeds --cast CAST --subject lead --table LOAD_SHOTS.json --first-frame N --not-on-frame leave|empty
+    <python> bench/cast_file.py seeds --cast CAST --subject lead --table LOAD_SHOTS.json --first-frame N --none-outlined leave|empty
     <python> bench/cast_file.py show --cast CAST
 
-`--first-frame` is the frame of the source copy that the table's frame 0 is on. It is TYPED, and a shot table holds
-nothing to check it against: a wrong value stores a true box on a wrong frame and nothing refuses. A session has
-to remember to take it from the job that made the table (`job.first`). `seeds` prints the text the
-Subject Track's `seeds` input takes for one load (`subject_track.py::parse_seeds`), one line a shot that has an
-answer inside it, and says what it did with every answer of that subject: used, unused and why, in no shot of the table, or outside
-the load. An answer outside the load is never moved to a frame inside it. A box is scaled only to a picture of the
-same shape; another shape is refused, since the loader crops before it scales.
+`--subjects` is every subject the job names: each one not given a number is stored as `none of the outlined
+people`. `--first-frame` is the frame of the source copy that the table's frame 0 is on. It is TYPED, and a shot
+table holds nothing to check it against: a wrong value stores a true box on a wrong frame and nothing refuses.
+A session has to remember to take it from the job that made the table (`job.first`).
+
+`seeds` prints the text the Subject Track's `seeds` input takes for one load (`subject_track.py::parse_seeds`),
+one line a shot that has an answer inside it, and says what it did with every answer of that subject: used,
+unused and why, in no shot of the table, or outside the load. An answer outside the load is never moved to a
+frame inside it. A box is scaled only to a picture of the same shape; another shape is refused, since the
+loader crops before it scales.
 
 A cast file lives under the untracked `data/`, one a source video. No model, no card.
 """
@@ -48,15 +62,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA = "h3_cast/1"
-HERE, NOT_ON_FRAME, WITHDRAWN = "here", "not on this frame", "withdrawn"
-ANSWERS = (HERE, NOT_ON_FRAME, WITHDRAWN)
-#: What `seeds` may do with a `not on this frame` answer. No default: one frame does not say a subject is out of
-#: a shot, and the caller says in words which reading it takes.
+HERE, NONE_OUTLINED, WITHDRAWN = "here", "none of the outlined people", "withdrawn"
+ANSWERS = (HERE, NONE_OUTLINED, WITHDRAWN)
+#: What `seeds` may do with a `none of the outlined people` answer. No default: the person was shown outlines on
+#: one frame, which says neither that the subject is off that frame nor that they are out of the shot, and the
+#: caller says in words which reading it takes. `leave` is the safe one.
 LEAVE, EMPTY = "leave", "empty"
-NOT_ON_FRAME_MEANS = {LEAVE: "the shot is left unseeded, for the tracker to judge",
-                      EMPTY: "the shot is emptied from that one frame (`frame k: none`)"}
+NONE_OUTLINED_MEANS = {
+    LEAVE: "the shot is left unseeded, for the tracker to judge",
+    EMPTY: "the shot is emptied (`frame k: none`): the STRONG reading, that a subject who is none of the people outlined on "
+           "one frame is not in the shot at all"}
 #: A subject's label, as the job builder's (`workflows/masked_job_graph.py::NAME`): it goes into file names.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_]*\Z")
+FIELDS = ("subject", "frame", "answer", "by", "box", "size", "table", "at")
 
 
 def entry(subject: str, frame: int, answer: str, *, by: str, box=None, size=None, table: str = "", at: str | None = None) -> dict:
@@ -85,12 +103,14 @@ def entry(subject: str, frame: int, answer: str, *, by: str, box=None, size=None
             "at": at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
-def append(path, line: dict) -> None:
-    """Add one line. The only way anything is written: one whole line, in one write, under a lock.
+def append(path, lines: list[dict]) -> None:
+    """Add the lines of one answer. The only way anything is written: every line checked, then all in one write, under a lock.
 
-    A file whose last line was cut short (a writer that died) is refused, so a new line is never glued to it."""
-    data = (json.dumps(entry(**{k: line[k] for k in ("subject", "frame", "answer", "by", "box", "size", "table", "at")}),
-                       sort_keys=True) + "\n").encode()
+    A tile's lines are stored whole or not at all. A file whose last line was cut short (a writer that died) is
+    refused, so new lines are never glued to it."""
+    if not lines:
+        raise ValueError("cast: nothing to add")
+    data = "".join(json.dumps(entry(**{k: line[k] for k in FIELDS}), sort_keys=True) + "\n" for line in lines).encode()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(path, os.O_RDWR | os.O_APPEND | os.O_CREAT, 0o644)
@@ -117,22 +137,25 @@ def read(path) -> list[dict]:
             line = json.loads(text)
             if line.get("schema") != SCHEMA:
                 raise ValueError(f"schema {line.get('schema')!r}")
-            out.append(entry(**{k: line.get(k) for k in ("subject", "frame", "answer", "by", "box", "size", "table", "at")}))
+            out.append(entry(**{k: line.get(k) for k in FIELDS}))
         except (ValueError, TypeError, AttributeError) as e:
             raise ValueError(f"cast: {path} line {number} cannot be read: {e}") from None
     return out
 
 
 def current(lines: list[dict]) -> dict[tuple[str, int], dict]:
-    """The answer that stands for each (subject, frame): the latest line, and none where that line takes it back."""
+    """The answer that stands for each (subject, frame): the latest line in the file, and none where that line takes it back."""
     latest = {(line["subject"], line["frame"]): line for line in lines}
     return {key: line for key, line in latest.items() if line["answer"] != WITHDRAWN}
 
 
-def from_table(table: dict, table_name: str, first: int, shot: int, subject: str, person: int | None, by: str) -> dict:
-    """A person's answer about one tile, as a line: the tile's frame and, for a number, that person's box.
+def from_tile(table: dict, table_name: str, first: int, shot: int, subjects: list[str], named: list[tuple[int, str]], by: str) -> list[dict]:
+    """A person's answer about one tile, as the lines to store: who each numbered person they named is.
 
-    `person` is the number on the tile, or None for nobody. `first` is the source-copy frame of the table's frame 0."""
+    `subjects` is every subject the job names; `named` is (number on the tile, subject) for each person the answer
+    names, and empty for "nobody of ours". Each named subject gets `here` with that person's box; every other
+    subject gets `none of the outlined people`. All on the tile's frame, with one time. `first` is the source-copy
+    frame of the table's frame 0. Nothing is returned unless every line can be."""
     found = next((s for s in table.get("shots", []) if int(s["shot"]) == int(shot)), None)
     if found is None:
         raise ValueError(f"cast: {table_name} has no shot {shot}")
@@ -149,32 +172,45 @@ def from_table(table: dict, table_name: str, first: int, shot: int, subject: str
     if left:
         raise ValueError(f"cast: {table_name}, shot {shot}: {left} detection(s) were left out of this tile as another tracker's "
                          "people, so its numbers are not everybody on the frame. Answer from a preview with one subject and no `others`.")
+    subjects = [str(s) for s in subjects]
+    if not subjects or len(set(subjects)) != len(subjects):
+        raise ValueError(f"cast: `subjects` is every subject the job names, each once: {subjects}")
+    numbers, people = [int(n) for n, _ in named], [str(s) for _, s in named]
+    on_tile = {int(p["person"]): p for p in found.get("people", [])}
+    for n in numbers:
+        if n not in on_tile:
+            raise ValueError(f"cast: {table_name}, shot {shot}: the tile has no person {n}; it shows {len(on_tile)}")
+    for s in people:
+        if s not in subjects:
+            raise ValueError(f"cast: `{s}` is not one of the job's subjects, {subjects}")
+    if len(set(numbers)) != len(numbers):
+        raise ValueError(f"cast: shot {shot}: one numbered person is given to two subjects: {named}")
+    if len(set(people)) != len(people):
+        raise ValueError(f"cast: shot {shot}: one subject is given two numbered people: {named}")
     frame = int(first) + int(found["shown_frame"])
-    if person is None:
-        return entry(subject, frame, NOT_ON_FRAME, by=by, table=table_name)
-    one = next((p for p in found.get("people", []) if int(p["person"]) == int(person)), None)
-    if one is None:
-        raise ValueError(f"cast: {table_name}, shot {shot}: the tile has no person {person}; it shows {len(found.get('people', []))}")
-    return entry(subject, frame, HERE, by=by, box=one["box"], size=table["size"], table=table_name)
+    at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    is_person = dict(zip(people, numbers))
+    return [entry(s, frame, HERE, by=by, box=on_tile[is_person[s]]["box"], size=table["size"], table=table_name, at=at)
+            if s in is_person else entry(s, frame, NONE_OUTLINED, by=by, table=table_name, at=at) for s in subjects]
 
 
 def _number(v: float) -> str:
     return str(int(v)) if float(v).is_integer() else f"{v:.2f}"
 
 
-def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[int, int]], not_on_frame: str) -> dict:
+def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[int, int]], none_outlined: str) -> dict:
     """The Subject Track's `seeds` text for one load of one subject, and what became of every answer.
 
     `first` is the source-copy frame of the load's frame 0, `size` its picture (width, height), `shots` its
-    (first frame, one past the last) per shot in the load's own frames. `not_on_frame` is `LEAVE` or `EMPTY`.
-    In a shot with several answers a box is used before a `not on this frame`, and among boxes the one later in the
-    file: the file's order is the only order nobody can type wrong, so `at` is never sorted on (it is the same order
-    `current` uses).
-    That is a tie-break and not a judgement: each box is true of its own frame, a shot takes one seed, and the newer
-    answer did not correct the older. What the caller chose for `not_on_frame` is in the result, in words."""
-    if not_on_frame not in NOT_ON_FRAME_MEANS:
-        raise ValueError("cast: say what a `not on this frame` answer does to its shot: "
-                         + "; ".join(f"`{k}`: {v}" for k, v in NOT_ON_FRAME_MEANS.items()))
+    (first frame, one past the last) per shot in the load's own frames. `none_outlined` is `LEAVE` or `EMPTY`.
+    In a shot with several answers a box is used before a `none of the outlined people`, and among boxes the one
+    later in the file: the file's order is the only order nobody can type wrong, so `at` is never sorted on (it is
+    the same order `current` uses). That is a tie-break and not a judgement: each box is true of its own frame, a
+    shot takes one seed, and the newer answer did not correct the older. What the caller chose for
+    `none_outlined` is in the result, in words."""
+    if none_outlined not in NONE_OUTLINED_MEANS:
+        raise ValueError("cast: say what a `none of the outlined people` answer does to its shot: "
+                         + "; ".join(f"`{k}`: {v}" for k, v in NONE_OUTLINED_MEANS.items()))
     last = shots[-1][1] if shots else 0
     mine = [line for (who, _), line in current(lines).items() if who == subject]
     inside = [line for line in mine if 0 <= line["frame"] - first < last]
@@ -198,11 +234,13 @@ def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[i
                 factor = size[0] / used["size"][0]
                 row["seed"] = f"frame {k}: " + ", ".join(_number(v * factor) for v in used["box"])
                 row["why"] = f"{used['by']}'s answer of {used['at']}"
-            elif not_on_frame == EMPTY:
+            elif none_outlined == EMPTY:
                 row["seed"] = f"frame {k}: none"
-                row["why"] = f"{used['by']} said not on frame {used['frame']}; the caller asked that this empty the shot"
+                row["why"] = (f"{used['by']} said none of the people outlined on frame {used['frame']} is {subject}; the caller took the "
+                              "strong reading, that this empties the shot")
             else:
-                row["why"] = f"{used['by']} said not on frame {used['frame']}, which does not say not in the shot; left unseeded"
+                row["why"] = (f"{used['by']} said none of the people outlined on frame {used['frame']} is {subject}, which does not say "
+                              f"{subject} is not in the shot; left unseeded")
             row["from_frame"] = used["frame"]
             for other in here[:-1]:
                 unused.append({"frame": other["frame"], "answer": other["answer"],
@@ -212,53 +250,62 @@ def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[i
                 text.append(row["seed"])
         rows.append(row)
     return {"subject": subject, "first_source_frame": int(first), "size": [int(size[0]), int(size[1])], "text": "\n".join(text),
-            "not_on_frame": not_on_frame, "not_on_frame_means": NOT_ON_FRAME_MEANS[not_on_frame], "shots": rows, "unused": unused, "outside_this_load": outside,
-            "inside_the_load_in_no_shot": in_no_shot}
+            "none_outlined": none_outlined, "none_outlined_means": NONE_OUTLINED_MEANS[none_outlined], "shots": rows, "unused": unused,
+            "outside_this_load": outside, "inside_the_load_in_no_shot": in_no_shot}
 
 
 def _table(path: str) -> dict:
     return json.loads(Path(path).read_text())
 
 
+def _pair(text: str) -> tuple[int, str]:
+    number, _, subject = text.partition("=")
+    if not number.strip().isdigit() or not subject.strip():
+        raise argparse.ArgumentTypeError(f"`{text}`: write NUMBER=SUBJECT, as in 2=lead")
+    return int(number), subject.strip()
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=str(__doc__).splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
-    a = sub.add_parser("answer", help="store what a person said about one tile")
+    a = sub.add_parser("answer", help="store who the numbered people on one tile are")
     a.add_argument("--table", required=True)
     a.add_argument("--first-frame", type=int, required=True)
     a.add_argument("--shot", type=int, required=True)
+    a.add_argument("--subjects", required=True, help="every subject the job names, with commas")
     who = a.add_mutually_exclusive_group(required=True)
-    who.add_argument("--person", type=int)
-    who.add_argument("--nobody", action="store_true")
+    who.add_argument("--is", dest="named", action="append", type=_pair, metavar="NUMBER=SUBJECT")
+    who.add_argument("--nobody-of-ours", action="store_true")
     w = sub.add_parser("withdraw", help="take an answer back")
     w.add_argument("--frame", type=int, required=True)
     s = sub.add_parser("seeds", help="the Subject Track's seeds text for one load")
     s.add_argument("--table", required=True, help="a shot table of the load: its shots and its picture size are read")
     s.add_argument("--first-frame", type=int, required=True)
-    s.add_argument("--not-on-frame", required=True, choices=sorted(NOT_ON_FRAME_MEANS))
+    s.add_argument("--none-outlined", required=True, choices=sorted(NONE_OUTLINED_MEANS))
     show = sub.add_parser("show", help="the answers that stand")
     for one in (a, w, s, show):
         one.add_argument("--cast", required=True)
-    for one in (a, w, s):
+    for one in (w, s):
         one.add_argument("--subject", required=True)
     for one in (a, w):
         one.add_argument("--by", required=True)
     args = p.parse_args()
     if args.cmd == "answer":
-        line = from_table(_table(args.table), args.table, args.first_frame, args.shot, args.subject,
-                          None if args.nobody else args.person, args.by)
-        append(args.cast, line)
-        print(json.dumps(line, sort_keys=True))
+        lines = from_tile(_table(args.table), args.table, args.first_frame, args.shot,
+                          [x.strip() for x in args.subjects.split(",") if x.strip()], args.named or [], args.by)
+        append(args.cast, lines)
+        for line in lines:
+            print(json.dumps(line, sort_keys=True))
     elif args.cmd == "withdraw":
         if (args.subject, args.frame) not in current(read(args.cast)):
             raise SystemExit(f"cast: no answer stands for {args.subject} on frame {args.frame}")
-        append(args.cast, entry(args.subject, args.frame, WITHDRAWN, by=args.by))
+        append(args.cast, [entry(args.subject, args.frame, WITHDRAWN, by=args.by)])
     elif args.cmd == "seeds":
         table = _table(args.table)
         out = seeds(read(args.cast), args.subject, args.first_frame, table["size"],
-                    [(int(x["first_frame"]), int(x["last_frame"]) + 1) for x in table["shots"]], args.not_on_frame)
+                    [(int(x["first_frame"]), int(x["last_frame"]) + 1) for x in table["shots"]], args.none_outlined)
         print(out["text"])
-        print(f"# a `not on this frame` answer: {out['not_on_frame_means']} (--not-on-frame {out['not_on_frame']})", file=sys.stderr)
+        print(f"# a `{NONE_OUTLINED}` answer: {out['none_outlined_means']} (--none-outlined {out['none_outlined']})", file=sys.stderr)
         for row in out["shots"]:
             print(f"# shot {row['shot']} (frames {row['frames'][0]}-{row['frames'][1]}): {row['seed'] or 'no seed'}; {row['why']}", file=sys.stderr)
         for one in out["unused"]:
@@ -269,7 +316,7 @@ def main() -> int:
             print(f"# outside this load, not moved: {args.subject}'s answers on frames {out['outside_this_load']}", file=sys.stderr)
     else:
         for (subject, frame), line in sorted(current(read(args.cast)).items()):
-            print(f"{subject:12s} frame {frame:6d}  {line['answer']:18s} {'' if line['box'] is None else line['box']}  by {line['by']} {line['at']}")
+            print(f"{subject:12s} frame {frame:6d}  {line['answer']:28s} {'' if line['box'] is None else line['box']}  by {line['by']} {line['at']}")
     return 0
 
 
