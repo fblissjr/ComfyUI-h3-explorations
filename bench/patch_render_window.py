@@ -8,7 +8,9 @@ any other: its hole mask is a cut of the subject's track read by a plan capture 
 its graph comes from the job builder, and the frame-group arithmetic `build` prints is the capture's latent-step
 note. `build` has no check for that reason (decided 2026-10-10, sessions mrcorn and mrpop) and goes, with its
 prose, when the tracked job builder lands; its two refusals (a hole not inside its window, a length the planner
-would not render as one window) carry into that builder. **`join` stays**: it is one row of
+would not render as one window) carry into that builder. It also remakes a motion clip only for the Masked
+Source's own choices as they were on 2026-10-08: a render whose motion reference is a wired video laid in the
+subject's boxes (`video_mask.MOTION_WIRED_ZOOM`, added since) is not reproduced by it. **`join` stays**: it is one row of
 `bench/assemble_delivery.py` and `bench/check_patch_render_window.py` holds it.
 
     <python> bench/patch_render_window.py build --render R.mp4 --graph R.json --source SRC24.mov --source-first 100 \\

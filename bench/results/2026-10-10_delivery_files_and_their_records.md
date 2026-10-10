@@ -145,3 +145,17 @@ flag reads the source's own frame-to-frame change for it.
   another subject's count (only the lead has a shot table in that day's
   kitchen captures); a dissolve is not a cut; with no capture no subject is
   named and nothing is asked.
+- 2026-10-10, a rule changed: **a class given back keeps off what an owner
+  map gives another subject.** A class restore read the named subject's
+  class map and nothing else. Measured on one two-person shot of 29 frames
+  (a capture of source frames 1010-1038): one subject's class map put 19.7%
+  of its lower clothing class, 18.7% of a hand and 24.9% of its upper
+  clothing on pixels the owner map gives the other subject; the other
+  subject's map put 0.1% and 1.2% of the two classes its rows give back on
+  the first's. Where an owner map covers the frame the class is now kept
+  off those pixels; pixels no track claims and contested ones are still
+  given back; with no owner map nothing changes. The locked file's bytes
+  still match its table under the changed rule (a re-read of the same bytes
+  in scratch: no square over the bound, largest 2.27 as before): the 6,695
+  class pixels the rule now leaves, on 51 frames, are pixels its face row
+  gives back anyway as the other subject's whole.

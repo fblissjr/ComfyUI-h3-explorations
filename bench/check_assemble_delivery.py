@@ -54,7 +54,9 @@ of known place and size into them, and reads the tool's answers back.
     that gives half the strip to the other subject and marks the rest contested. `restore=<subject>` gives back
     what that subject owns, the half of the strip included, and not the contested half, which the plain tracked
     masks would have left to the piece whole; and two pieces that both changed the strip each show on the half
-    their subject owns. The record says an owner map was used.
+    their subject owns. The record says an owner map was used. A class restore whose class map reaches onto the
+    other subject keeps off what the map gives that subject and still gives back its own pixels and the contested
+    ones; with no owner map it gives back wherever the class map has the class, as before.
 13. **What the record says the file did to a subject.** A second subject whose tracked mask lies half on the
     painted rectangle, with a class map that puts one class on the painted half and another on the rest: the
     record's `subjects` table reads about half of its tracked pixels off the source, all of the one class and none
@@ -645,6 +647,29 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, o, only_other) < 1.0 and box_mean(got, o, b_half) < 1.0, "what the other subject owns was not given back"
         assert box_mean(got, a, disputed) < 1.0 and box_mean(got, a, only_own) < 1.0, "a contested pixel, or the piece's own, was given back"
         assert caps.used_owner_map, "the owner map was not read"
+        # a class restore keeps off what the map gives to another subject: b's class map calls the whole rectangle
+        # its apparel, a's side included, as a class map cut to a track and its margin does beside another person
+        apparel = tool.class_names().index("Apparel")
+        reaching = np.zeros((30, H, W), np.uint8)
+        reaching[:, RECT_A[1]:RECT_A[3], RECT_A[0]:RECT_A[2]] = apparel
+        runs = [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}]
+        with_map = capture(TMP / "cap_class_owned", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)}, runs, {"b": reaching})
+        np.savez_compressed(with_map / "owners.npz", owner=owner, labels=np.array(["a", "b"]), nobody=255, contested=254)
+        no_map = capture(TMP / "cap_class_unowned", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)}, runs, {"b": reaching})
+        row = [{"piece": PIECE_A, "piece_first": 10, "restore": [("b", [apparel])]}]
+        kept_to = tool.Captures([with_map], (W, H))
+        got, rec = frame_planes(SOURCE, [dict(row[0])], 20, kept_to)
+        assert box_mean(got, a, only_own) < 1.0, "a class restore gave back pixels the map says another subject owns"
+        edge = (62, 46, 64, 74)          # a's last two columns beside b's half of the strip: the restore's grown rim must not reach them
+        assert box_mean(got, a, edge) < box_mean(got, o, edge), "the restore's rim was grown onto pixels the map gives another subject"
+        whole_class = (RECT_A[3] - RECT_A[1]) * (RECT_A[2] - RECT_A[0])
+        counted = rec["rows"][PIECE_A][20]["class_px"]
+        assert counted == whole_class - (RECT_A[3] - RECT_A[1]) * 24, f"the record counts {counted} class pixels given back, of a class map of {whole_class} with 1920 on another's"
+        assert box_mean(got, o, only_other) < 1.0 and box_mean(got, o, disputed) < 1.0, "the class was not given back on its own subject's pixels, or on contested ones"
+        left = kept_to.class_px_left[(PIECE_A, "b", 20)]
+        assert left == (RECT_A[3] - RECT_A[1]) * 24, f"{left} class pixels were left as another subject's; a's side of the rectangle is 24 wide"
+        got, _ = frame_planes(SOURCE, [dict(row[0])], 20, tool.Captures([no_map], (W, H)))
+        assert box_mean(got, o, only_own) < 1.0, "with no owner map the class is given back wherever the class map has it, as before"
         # two pieces that both changed the strip: RECT_C is x 80-150, y 80-150, so use a piece painted on the strip itself
         strip = write("strip", painted(WHOLE[10:40], (60, 40, 84, 120)))
         s_ = planes_of(strip, 20)
@@ -657,7 +682,7 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, s_, b_half) < 1.0, "a pixel both pieces changed and the first row's subject owns went to the later row"
         assert box_mean(got, a, disputed) < 1.0, "a contested pixel both pieces changed did not fall to the later row"
         assert record["shared"][20]["by_mask"] > 0 and record["shared"][20]["by_order"] > 0, record["shared"][20]
-        return f"a restore gives back what the map says the other owns and not what it calls contested; of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order"
+        return f"a restore gives back what the map says the other owns and not what it calls contested; of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order; a class restore leaves {left} px the map gives to another subject"
 
     def the_subjects_table() -> str:
         # subject b: x 80-128, y 50-110. RECT_A covers x 40-104, so its left half (x 80-104) is painted, the right is not.

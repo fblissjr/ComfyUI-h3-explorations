@@ -57,7 +57,10 @@ says which it was (`whose_pixels`).
 after the row's three fields, the class one of the part model's (`sapiens2_parts.CLASS_NAMES`) or its index,
 the subject a capture's label whose class map the capture holds (`classes__<by>.npz`). Wherever that class is
 on the source frame, grown by `RESTORE_GROW` and feathered, the piece is not laid: the source's own pixels
-show there, or an earlier row's. It is for a thing that sits inside a region and should not have been redrawn
+show there, or an earlier row's. Where an owner map covers the frame, the class is kept off whatever the map gives
+to ANOTHER subject: a class map says what a thing is and not whose, and beside another person it names some of
+their things too (`class_restores_kept_to_their_subject` in the record counts what was left). Pixels no track
+claims, and contested ones, are still given back. It is for a thing that sits inside a region and should not have been redrawn
 (an earring inside a face), given back here because asking the sampler to keep it changes what the sampler
 draws beside it (measured 2026-10-10 on one render, by another session: the redrawn face went back toward the
 original's). The table reports per frame how many changed pixels were given back, and a frame where the
@@ -513,6 +516,7 @@ class Captures:
 
     def __init__(self, folders, canvas):
         self.folders, self.masks, self.used_owner_map = [], {}, set()
+        self.class_px_left = {}       # (row's piece, subject, frame) -> class pixels a restore left because another owns them
         for folder in folders:
             folder = Path(folder)
             m = json.loads((folder / "manifest.json").read_text())
@@ -575,6 +579,19 @@ class Captures:
             if label in labels:
                 self.used_owner_map.add(str(folder))
                 return owner[k] == labels.index(label)
+        return None
+
+    def owned_by_another(self, label, frame, prefer=None):
+        """The pixels an owner map gives to a subject OTHER than `label` on a source frame (not the contested ones,
+        not nobody's), or None where no capture given holds an owner map that lists the subject and covers the frame."""
+        for folder, m in sorted(self.folders, key=lambda fm: fm[0] != prefer):
+            k = frame - m["first_frame"]
+            if not 0 <= k < m["frames"] or not (folder / "owners.npz").is_file():
+                continue
+            if self.owned(label, frame, prefer=folder) is None:
+                continue
+            owner, labels, _nobody = self.masks[(folder, "owners")]
+            return (owner[k] < len(labels)) & (owner[k] != labels.index(label))
         return None
 
     def classes(self, label, frame, prefer=None):
@@ -694,8 +711,18 @@ def restore_weight(row, captures, run, frame, shape):
         if cmap is None:
             return np.zeros(shape, np.float32), None
         mask = np.isin(cmap, wanted)
+        # a class map says what a thing is, not whose: it is cut to its subject's track and margin, and beside
+        # another person it calls some of their things by the class too. Where an owner map covers the frame, what
+        # it gives to ANOTHER subject is not this subject's to give back; pixels no track claims, and contested
+        # ones, stay (measured 2026-10-10 on one two-person shot: a quarter of one subject's upper clothing class
+        # lay on what the other owned)
+        theirs = captures.owned_by_another(label, frame, prefer=prefer)
+        if theirs is not None:
+            captures.class_px_left[(row["piece"], label, frame)] = int((mask & theirs).sum())
+            mask = mask & ~theirs
         hard |= mask
-        grown |= cv2.dilate(mask.astype(np.uint8), disc(RESTORE_GROW)).astype(bool)
+        wide = cv2.dilate(mask.astype(np.uint8), disc(RESTORE_GROW)).astype(bool)
+        grown |= wide & ~theirs if theirs is not None else wide
     return cv2.GaussianBlur(grown.astype(np.float32), (0, 0), RESTORE_FEATHER), hard
 
 
@@ -1539,6 +1566,11 @@ def check(args, segs, canvas, span, src, rows, captures):
     result["whose_pixels"] = ("no capture given: the table's order" if not captures else
                               "owners.npz of " + ", ".join(sorted(os.path.basename(f) for f in captures.used_owner_map))
                               if captures.used_owner_map else "tracked masks (no owner map covered a frame that asked)")
+    if captures and captures.class_px_left:
+        left = captures.class_px_left
+        result["class_restores_kept_to_their_subject"] = {
+            "px_left_because_another_subject_owns_them": int(sum(left.values())), "frames": sum(1 for v in left.values() if v),
+            "by_subject": {label: int(sum(v for (_p, who, _f), v in left.items() if who == label)) for label in sorted({k[1] for k in left})}}
     if captures:
         result["written_to_captures"] = write_to_captures(captures, record, rows, result["flags"], args.out, canvas)
     result["verdict"] = "passes" if not result["failures"] else "FAILS"
