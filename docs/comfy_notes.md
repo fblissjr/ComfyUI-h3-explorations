@@ -182,6 +182,18 @@ It lasts for the server's life and no longer. What that means here:
   bytes (`calculate_file_hash` in VideoHelperSuite's `utils` module), and a model loader
   has none, so a model file replaced under the same name needs a restart.
 - An identical graph queued twice runs nothing the second time.
+- A traceback in the server's log that is NOT a fault (2026-10-10): "VHS
+  failed to extract audio from ..." for a mask video, under core's "Could
+  not size cache entry ...; evicting it first". The RAM-pressure cache
+  sizes every cached output (`comfy_execution/caching.py`, where that
+  warning is logged). A VHS video loader's audio output is lazy: it runs
+  ffmpeg for the sound only when something touches it, and sizing touches
+  it (`LazyAudioMap` in VideoHelperSuite's `utils` module). A mask video
+  has no sound, so the loader raises, core logs it and evicts that entry
+  first. It happens once per mask loader each time memory is sized, on an
+  output nothing wired, and never on a render's path. Nothing here is
+  built to silence it; a mask loader of our own would, and is not worth it
+  for the log alone.
 - `bench/record_render_substrate.py` reads `/history` and reports, per
   prompt, how many nodes were served from it; `/history`'s
   `execution_cached` message names them. Read it before believing a time.
