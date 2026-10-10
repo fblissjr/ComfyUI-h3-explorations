@@ -50,8 +50,10 @@ entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carr
 `context`, `feather`, `motion` (`mesh`, `mesh zoomed` or `none`; without it a whole-subject pass of a subject
 with a pose pass takes the mesh and any other load takes none), `continue_from`, `context_noise`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
-place of the capture's own), `motion_edge` (the motion video's short edge) and `held_tail` (`open` or `plate`,
-for a load shorter than its window). A default that was measured on one clip is a starting value for
+place of the capture's own), `motion_edge` (the motion video's short edge), `held_tail` (`open` or `plate`,
+for a load shorter than its window), and `render_region` with `largest_zoom`: `subject` or `part` renders
+the load zoomed in on the tracked subject or on what is replaced and lays it back (`RENDER_REGIONS`; for a
+subject or a part that is small in the frame), where `frame`, the default, renders the whole frame. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
 which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
 part as the capture filled and graded it. One job file makes a whole-person pass or a part pass of the same
@@ -289,7 +291,11 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "held_tail", "seed")
+            "held_tail", "render_region", "largest_zoom", "seed")
+#: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
+#: `frame` is the node's own default and sets nothing. A zoomed load must be one shot: the node refuses a
+#: cut inside the loaded frames, and the tool refuses it first, from the capture's cuts.
+RENDER_REGIONS = {"frame": None, "subject": "zoomed in on the tracked subject", "part": "zoomed in on what is replaced"}
 #: What a load's `held_tail` may say.
 TAILS = ("open", "plate")
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
@@ -368,6 +374,14 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r}: motion {one['motion']!r}; one of {tuple(MOTIONS)}")
     if one.get("edge", "tokens") not in MASKED_JOB_EDGE:
         raise ValueError(f"load {name!r}: edge {one['edge']!r}; one of {tuple(MASKED_JOB_EDGE)}")
+    region = one.get("render_region", "frame")
+    if region not in RENDER_REGIONS:
+        raise ValueError(f"load {name!r}: render_region {region!r}; one of {tuple(RENDER_REGIONS)}")
+    if region == "part" and one.get("carried", "track") != "held":
+        raise ValueError(f"load {name!r}: render_region `part` on a load that takes the whole subject; zoom in on "
+                         f"the `subject`, or take a part (`carried: held`)")
+    if "largest_zoom" in one and region == "frame":
+        raise ValueError(f"load {name!r}: largest_zoom with no zoomed render_region")
     if one.get("held_tail", "open") not in TAILS:
         raise ValueError(f"load {name!r}: held_tail {one['held_tail']!r}; one of {TAILS}")
     if "window" in one and one["window"] not in windows:
@@ -462,6 +476,12 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         if part and motion == "mesh zoomed":
             src["motion_box"] = MASKED_JOB_PART_BOX
     window = one.get("window", window_for(frames, windows))
+    for theirs in ("render_region", "largest_zoom"):
+        src.pop(theirs, None)
+    if RENDER_REGIONS[one.get("render_region", "frame")]:
+        src["render_region"] = RENDER_REGIONS[one["render_region"]]
+        if "largest_zoom" in one:
+            src["largest_zoom"] = float(one["largest_zoom"])
     src.pop("held_tail", None)
     if frames < window and one.get("held_tail", "open") == "open":
         src["held_tail"] = MASKED_JOB_HELD_TAIL

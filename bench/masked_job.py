@@ -59,12 +59,17 @@ only an "absent" on every row of a table nobody opens.
 
 **What it refuses**, each with exit status `REFUSED`:
 
+- a job whose video has no analysis folder, or one that is another file's or stale: every stage is built on
+  `data/<stem>/` of the input video (`clip_folder.py`), found from the name of the file the job renders from
+  and held to the identity recorded there; the refusal prints the `bench/clip_analysis.py init` command. A
+  build record carries the folder's name and fingerprint (`analysis`);
+
 - a job folder that exists, or an output folder that exists: a new name for every run (the order's step 1 has
   what a reused preview folder nearly did on 2026-10-10);
 - a `corrections` line whose `corrections_at` is not the tracker's mask version today. A correction names a
   person by the number on a tile, and the numbers are that version's;
 - a load whose capture is not finished, did not pass `verify`, lacks a file the load needs or does not reach
-  the load's frames; a load with no text; a feather wider than its margin; a render with no still, or a still
+  the load's frames; a load rendered zoomed in that holds a cut; a load with no text; a feather wider than its margin; a render with no still, or a still
   the server's input folder does not hold (`H3_INPUT_DIR`);
 - at `queue`: a graph that was queued before; an input the server does not serve; and node code in the tree
   that is not committed, unless `--override "WHO: WHY"` is given, which is written into the record. The server
@@ -98,6 +103,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import COMFY, REPO  # noqa: E402
+
+sys.path.insert(0, str(REPO))
+import clip_folder  # noqa: E402
 
 sys.path.insert(0, str(REPO / "workflows"))
 import h3_config  # noqa: E402
@@ -145,6 +153,23 @@ def check_corrections(job: dict, version: int) -> None:
                 + ("and no `corrections_at`" if at is None else f"read at the tracker's mask version {at}")
                 + f"; the tracker is at {version}. A correction names a person by the number on a tile: read the "
                   f"numbers off a tile this version made, then set corrections_at to {version}.")
+
+
+def analysed(job: dict, data: Path) -> dict:
+    """The analysis folder of the video a job renders from, checked to be that file's: its name and fingerprint.
+
+    A job is built on an input video's analysis folder (`clip_folder.py`; made by `bench/clip_analysis.py`)
+    or it is not built: the folder is found from the name of the file the job renders from, and the file is
+    held to the identity the folder recorded, so a folder that is another file's, or older than the file, is
+    as good as none."""
+    try:
+        folder = clip_folder.folder_of_file(Path(job["source"]).name, data)
+        manifest = clip_folder.read_manifest(folder)
+        clip_folder.verify(manifest, Path(job["source"]))
+    except (clip_folder.Refused, OSError) as e:
+        raise Refused(f"{e}\n  (the job renders from {job['source']}; the command is `bench/clip_analysis.py init "
+                      f"<the input video's file name> --copy {Path(job['source']).name}`)") from e
+    return {"folder": folder.name, "fingerprint": manifest["fingerprint"]}
 
 
 def job_folder(job: dict, date: str, data: Path) -> Path:
@@ -359,7 +384,10 @@ def settings_of(one: dict, graph: dict) -> dict:
             "edge": src.get("edge", "the node's own"), "window": run["window_frames"], "context": run["context_frames"],
             "context_noise": run.get("context_noise", "none: the load keeps no frames"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
-            "held_tail": src.get("held_tail", "the node's own: the source's last frame, shut"), "seed": run["seed"]}
+            "held_tail": src.get("held_tail", "the node's own: the source's last frame, shut"),
+            "render_region": src.get("render_region", "the node's own: the whole frame"),
+            "largest_zoom": src.get("largest_zoom", "the node's own" if "render_region" in src else "no zoomed render"),
+            "seed": run["seed"]}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
             for key in graphs.SETTINGS}
 
@@ -413,12 +441,18 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
 
 
 def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data: Path, output: Path,
-                inputs: Path, repo: Path = REPO) -> list[Path]:
+                inputs: Path, repo: Path = REPO, analysis=analysed) -> list[Path]:
     """Write the plan or render graph of each chosen load into the job folder; returns the graph files."""
     given = json.loads(job_file.read_text())
     if "job" not in given:
         raise Refused(f"{job_file} has no `job` block")
-    job, every = given["job"], loads_of(given)
+    job = given["job"]
+    try:
+        graphs.check_job(job)
+    except ValueError as e:
+        raise Refused(f"{job_file}: {e}") from e
+    made_from = analysis(job, data)
+    every = loads_of(given)
     stills = {s["label"]: s["still"] for s in job.get("subjects", []) if s.get("still")}
     for one in every:
         # a subject's still, given once in the job block, is every load's of that subject unless a load names its own
@@ -443,26 +477,30 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
             files = capture_files(job, one, capture, preview_mesh(folder, job, output))
             graph = graphs.load(base, job, one, files, text, windows=windows, plan=stage == "plan")
             says = shown(job, one, files, graph, inputs)
+            seen = measured(job, one, capture, graph)
         except ValueError as e:
             raise Refused(f"{job_file}: {e}") from e
+        if "render_region" in graph[graphs._the(graph, graphs.SOURCE)]["inputs"] and seen.get("cuts_inside_this_load"):
+            raise Refused(f"load {one['name']!r} is rendered zoomed in and holds a cut on source frame(s) "
+                          f"{seen['cuts_inside_this_load']}: a zoomed load is one shot. Split the load at the cut.")
         saves_to = (output / graphs.run_prefix(job, one, stage == "plan")).parent
         graph_file = folder / f"{one['name']}.{stage}.json"
         for path, what in ((graph_file, "graph"), (saves_to, "output folder")):
             if path.exists():
                 raise Refused(f"the {what} {path} exists. A run never reuses a name: give the load a new `name`.")
-        todo.append((one, graph, graph_file, saves_to, files, text, text_file, says))
+        todo.append((one, graph, graph_file, saves_to, files, text, text_file, says, seen))
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"job.{stage}.json").write_bytes(job_file.read_bytes())
-    for one, graph, graph_file, saves_to, files, text, text_file, says in todo:
+    for one, graph, graph_file, saves_to, files, text, text_file, says, seen in todo:
         graph_file.write_text(json.dumps(graph, indent=1) + "\n")
         (folder / f"{one['name']}.{stage}.txt").write_text(text + "\n")
         record = {"stage": stage, "load": one, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-                  "commit": head(repo), "builder_not_committed": builder_not_committed(repo),
+                  "commit": head(repo), "builder_not_committed": builder_not_committed(repo), "analysis": made_from,
                   "uncommitted_node_code": uncommitted_node_code(repo), "job_file": str(job_file),
                   "capture": str(capture), "files": files, "text_file": text_file, "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says, "settings": settings_of(one, graph), "left_out_on_purpose": on_purpose,
-                  "what_this_clips_preview_measured": measured(job, one, capture, graph)}
+                  "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")
         written.append(graph_file)
     return written
@@ -500,7 +538,8 @@ def gate(built: dict, folder: Path, verify=run_verify) -> dict:
             "plan_read": runs[name][READ_FROM_THE_NODE]}
 
 
-def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, repo: Path = REPO) -> Path:
+def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, repo: Path = REPO,
+          analysis=analysed) -> Path:
     """Write a stage's graph and its record into a new job folder; returns the folder."""
     given = json.loads(job_file.read_text())
     if "job" not in given:
@@ -513,6 +552,7 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
         raise Refused(f"{job_file}: {e}") from e
     version = tracker_mask_version(repo)
     check_corrections(job, version)
+    made_from = analysis(job, data)
     folder, saves_to = job_folder(job, date, data), output_folder(job, output)
     for path, what in ((folder, "job folder"), (saves_to, "output folder")):
         if path.exists():
@@ -521,7 +561,7 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
     (folder / "job.json").write_bytes(job_file.read_bytes())
     (folder / f"{stage}.json").write_text(json.dumps(graph, indent=1) + "\n")
     record = {"stage": stage, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-              "commit": head(repo), "builder_not_committed": builder_not_committed(repo),
+              "commit": head(repo), "builder_not_committed": builder_not_committed(repo), "analysis": made_from,
               "uncommitted_node_code": uncommitted_node_code(repo),
               "tracker_mask_version": version, "job_file": str(job_file), "output_folder": str(saves_to),
               "output": str(output), "expects": expected_files(job)}

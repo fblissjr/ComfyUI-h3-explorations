@@ -43,6 +43,10 @@ Claims, i.e. what breaks if a case is deleted:
                         job with no pick; a stage queued twice; node code not
                         committed, with and without an override; an input the
                         server does not serve
+  a job is built on its video's analysis folder    no folder for the file the job renders from, a file that
+                        changed since the folder was made and a folder that is another video's are each
+                        refused with the command that makes one, for a preview and for loads; a build
+                        record names the folder and carries its fingerprint
   a load lands on the inputs it names    a whole-subject load and a part load,
                         each traced from the Masked Source and the song node
                         back to the file and the frame it should read: the
@@ -416,6 +420,13 @@ def a_load_lands_on_the_inputs_it_names():
     plate = _a_load({**WHOLE, "held_tail": "plate", "motion_edge": 512})
     assert "held_tail" not in plate[graphs._the(plate, graphs.SOURCE)]["inputs"], "a load that asks for the plate is given an open tail"
     assert plate[graphs._the(plate, graphs.SOURCE)]["inputs"]["motion_short_edge"] == 512, "a load's own motion_edge is not used"
+    close = _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)
+    src = close[graphs._the(close, graphs.SOURCE)]["inputs"]
+    assert src["render_region"] == graphs.RENDER_REGIONS["part"] and src["largest_zoom"] == 3.0, "a zoomed part load"
+    near = _a_load({**WHOLE, "render_region": "subject"})
+    src = near[graphs._the(near, graphs.SOURCE)]["inputs"]
+    assert src["render_region"] == graphs.RENDER_REGIONS["subject"] and "largest_zoom" not in src, "a zoomed subject load with the node's own limit"
+    assert "render_region" not in g[graphs._the(g, graphs.SOURCE)]["inputs"], "a load that asks for no zoom is given one"
     quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
     assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
     zoomed = _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
@@ -459,7 +470,9 @@ def the_nodes_schemas_accept_a_load():
     import build_workflows
     oi = declared()
     for label, g in (("whole", _a_load()), ("whole plan", _a_load(plan=True)), ("part", _a_load(PART, FILES_PART)),
-                     ("part, zoomed mesh", _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)}))):
+                     ("part, zoomed mesh", _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})),
+                     ("part, rendered zoomed in", _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)),
+                     ("whole, rendered zoomed in", _a_load({**WHOLE, "render_region": "subject"}))):
         ours = ours_only(g, oi)
         assert {graphs.SOURCE, graphs.SONG, "MiniMaxH3AppendRefImage"} <= {n["class_type"] for n in ours.values()}, \
             f"{label}: the nodes a load changes were not found to grade, only {sorted({n['class_type'] for n in ours.values()})}"
@@ -487,6 +500,9 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("edge", {**WHOLE, "edge": "pixels"})
     _unbuildable("window", {**WHOLE, "window": 100})
     _unbuildable("held_tail", {**WHOLE, "held_tail": "shut"})
+    _unbuildable("render_region", {**WHOLE, "render_region": "face"})
+    _unbuildable("render_region|whole subject", {**WHOLE, "render_region": "part"})
+    _unbuildable("largest_zoom", {**WHOLE, "largest_zoom": 2})
     _unbuildable("context", {**WHOLE, "context": 40})
     _unbuildable("context", {**WHOLE, "context": WINDOWS[0]})               # a context as long as its window
     _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
@@ -552,7 +568,8 @@ def loads_from_a_capture():
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
         capture = _a_capture(tmp)
-        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input")
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
         (tmp / "output").mkdir()
         # no mesh saved yet: the whole-subject load takes one by default and is refused, and nothing is written
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture), "plan", [], **where), "'b_0700'", "mesh")
@@ -605,6 +622,9 @@ def loads_from_a_capture():
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"
+        # a zoomed load is one shot: the capture's cut inside the whole-subject load refuses it
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_zoomed", "render_region": "subject"},)),
+                                          "plan", [], **where), "b_zoomed", "cut", str(CAPTURE_FIRST + 90))
         # a subject's still stands for its loads; a load's own wins; a stretch left out on purpose is carried
         no_still = {k: v for k, v in WHOLE.items() if k != "still"}
         subjects = [dict(s, still="a.png") if s["label"] == "b" else s for s in LOAD_JOB["subjects"]]
@@ -717,7 +737,8 @@ def build_refuses_what_it_must():
     assert version == _pack()["MiniMaxH3SubjectTrack"].MASK_VERSION, "the version read from the source is not the node's"
     with tempfile.TemporaryDirectory() as t:
         tmp = Path(t)
-        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output")
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
         (tmp / "output").mkdir()
         # a correction with no version, with another version, and then with today's
         _refused(lambda: tool.build(_job_file(tmp, JOB), "preview", **where), "'b'", "corrections_at", str(version))
@@ -783,6 +804,37 @@ def build_refuses_what_it_must():
         _refused(lambda: tool.build(tmp / "bare.json", "preview", **where), "`job` block")
 
 
+def a_job_is_built_on_its_videos_analysis_folder():
+    import clip_folder as cf
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        video, copy = tmp / "input" / "fun.mkv", tmp / "input" / "fun_24p.mkv"
+        video.parent.mkdir()
+        video.write_bytes(b"the input video")
+        copy.write_bytes(b"the copy a job renders from")
+
+        def about(path: Path, frames: int) -> dict:
+            return {"name": path.name, "bytes": path.stat().st_size, "frames": frames, "rate": 24.0, "size": [32, 16],
+                    "head_sha256": cf.head_hash(path)}
+        job = dict(_without_corrections(), source=str(copy))
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output")
+        (tmp / "output").mkdir()
+        # no folder: refused, with the command that makes one, and nothing written
+        _refused(lambda: tool.build(_job_file(tmp, job), "preview", **where), "not been analysed", "clip_analysis.py init", "fun_24p.mkv")
+        assert not list((tmp / "data").glob("*_job")), "a refused build left a job folder behind"
+        made = cf.write_manifest(tmp / "data" / "fun", {"source": about(video, 30), "derived": about(copy, 24)})
+        folder = tool.build(_job_file(tmp, job), "preview", **where)
+        assert json.loads((folder / "preview.built.json").read_text())["analysis"] == {"folder": "fun", "fingerprint": made["fingerprint"]}, \
+            "the build record does not say which analysis it was built on"
+        # the file changed since the folder was made; then: a folder that is another video's
+        copy.write_bytes(b"the copy, made again and not the same")
+        _refused(lambda: tool.build(_job_file(tmp, dict(job, name="check_b")), "preview", **where), "not the file", "clip_analysis.py init")
+        _refused(lambda: tool.build(_job_file(tmp, dict(job, name="check_c", source=str(tmp / "input" / "sun_24p.mkv"))), "preview", **where),
+                 "sun_24p.mkv", "not been analysed")
+        # the loads are held to it too, before any capture is read
+        _refused(lambda: tool.build_loads(_job_file(tmp, dict(job, name="check_d")), "plan", [], inputs=tmp / "input", **where), "not the file")
+
+
 def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), "-c", "user.name=check", "-c", "user.email=check@example.invalid",
                     "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
@@ -800,7 +852,8 @@ def queue_refuses_what_it_must():
         _git(repo, "init", "-q")
         _git(repo, "add", "-A")
         _git(repo, "commit", "-q", "-m", "a")
-        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output")
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
         (tmp / "output").mkdir()
         job = _without_corrections()
         folder = tool.build(_job_file(tmp, job), "preview", **where)
@@ -843,7 +896,7 @@ def main() -> int:
                every_job_value_lands_on_the_input_it_names, a_later_tracker_is_told_who_the_earlier_ones_hold,
                a_preview_samples_nothing, no_two_saves_share_a_name, the_capture_command_reads_what_the_preview_saves,
                the_seek_lands_on_the_frame,
-               build_refuses_what_it_must, queue_refuses_what_it_must,
+               build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
                a_load_the_graph_cannot_be_built_from, loads_from_a_capture, the_gate_before_a_render):
