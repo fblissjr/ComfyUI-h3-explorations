@@ -560,7 +560,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     reports.append(f"[{w.number}] conditioning kept from an earlier run (not encoded)")
                     continue
                 refs_w = references
-                if motion != video_mask.MOTION_NONE:
+                if motion == video_mask.MOTION_WIRED:
+                    # a video the user wired beside the source: this window's own frames of it
+                    ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
+                    refs_w = tuple(references or ()) + (RuntimeVideoReference(
+                        frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+                        use_vae=bool(source.get("motion_vae", False))),)
+                    motion_label = assign_labels(_order_records(refs_w))[-1]
+                    mark("motion reference")
+                elif motion != video_mask.MOTION_NONE:
                     pixels, mask, _held = video_mask.window_frames(
                         source, int(round(w.start * FPS)), w.frames, width, height)
                     # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)

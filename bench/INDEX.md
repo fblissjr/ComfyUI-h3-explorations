@@ -8,19 +8,20 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 97 |
+| [`check_*`](#check) | 98 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 131 |
+| [the rest](#the-rest) | 132 |
 
 ## check
 
 | script | what it says it does |
 |---|---|
+| [`check_assemble_delivery.py`](check_assemble_delivery.py) | The delivery assembler against a clip and pieces whose answers are known by construction. |
 | [`check_attention_defaults.py`](check_attention_defaults.py) | Check every shipped graph carries the attention configuration `h3_config` declares. |
 | [`check_audio_carry_inversion.py`](check_audio_carry_inversion.py) | The audio carry probe's inversion is exact, and its ablation actually moves. |
 | [`check_audio_freeze.py`](check_audio_freeze.py) | The audio-freeze node's contract, and the two ways a graph can silently unfreeze. |
@@ -285,6 +286,7 @@ this file is only a way to find a script by what it says it does.
 | [`_live_sol.py`](_live_sol.py) | Import the Sol-Attn node that ACTUALLY RUNS, for scripts that need its code. |
 | [`_paths.py`](_paths.py) | Where ComfyUI's media and this box's captures live, resolved rather than typed. |
 | [`_sol_attn_reference.py`](_sol_attn_reference.py) | Sol-Attn eager reference, vendored from upstream comfy-kitchen. |
+| [`assemble_delivery.py`](assemble_delivery.py) | One delivery file from masked renders and the untouched original: the source's own rate and audio packets, passes over the same frames merged by what each changed, and a check by decode that every frame is there once. |
 | [`audit_audio_freeze_control.py`](audit_audio_freeze_control.py) | The control for the audio-freeze node: the sibling pack's song node, bit for bit. |
 | [`audit_h3_marker_tokenization.py`](audit_h3_marker_tokenization.py) | What ComfyUI's tokenizer does to the seven markers the release declares, scene by scene. |
 | [`audit_h3_token_embeddings.py`](audit_h3_token_embeddings.py) | Do the seven H3 marker rows carry trained values, or are they init noise? |

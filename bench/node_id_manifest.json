@@ -329,7 +329,8 @@
       "keep",
       "grow_by",
       "others",
-      "edge"
+      "edge",
+      "motion_video"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

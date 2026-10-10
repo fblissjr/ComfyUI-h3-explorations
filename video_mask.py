@@ -309,7 +309,8 @@ MASK_REUSE_ENABLED = False
 
 MASK_KEY_SKIP = ("grow_pixels", "grow_by", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
                  "motion_reference", "motion_short_edge", "motion_vae",
-                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others", "edge")
+                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others", "edge",
+                 "motion_video")
 #: `start_from` choices: what the regenerated tokens start from.
 #:
 #: `noise` is the shipped render: the schedule runs from its first knot and
@@ -354,7 +355,13 @@ MOTION_FRAME = "whole frame"
 #: subject on a 16:9 canvas did not have its movement followed: zoom in.
 #: `motion_reference` has the rule.
 MOTION_ZOOM = "subject only, zoomed in"
-MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME)
+#: A video the user wires, one frame per source frame, shown as the movement in place of anything cut from
+#: the source: a body mesh, a pose, a map of a mouth. Owner, 2026-10-10: a signal can say how a person moves
+#: without the text saying it, and without the original's look. On one shot, one seed, a body mesh given this
+#: way drew an action the same text did not draw from the subject-on-grey reference. Appended, so the choices
+#: before it keep their place.
+MOTION_WIRED = "a video I wire"
+MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: Room left around the subject's box on each side, in canvas pixels, before
 #: it is taken out to the canvas multiple. Reasoned: one of the encoder's
 #: merged tokens (patch 16 by merge 2), so a limb at the edge of the box is
@@ -960,6 +967,29 @@ def window_frames(source: dict, first_frame: int, frames: int, width: int, heigh
     return pixels, mask, short
 
 
+def wired_motion(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor:
+    """One window of the video wired as the motion reference, [F, h, w, 3], cut where the window is cut.
+
+    The wired video runs beside the source, frame for frame, so a window that starts at source frame k is shown
+    the wired video from frame k: the same slice `window_frames` takes of the source. It is fitted to the canvas
+    as the source's frames are and then scaled to `motion_short_edge`, like every other motion reference; a
+    source that runs out inside the last window repeats its last frame, as the source's own frames do.
+    """
+    video = source.get("motion_frames")
+    if video is None:
+        raise ValueError(f"motion_reference `{MOTION_WIRED}` and no `motion_video` on the source: wire one")
+    have = int(video.shape[0])
+    first_frame, frames = int(first_frame), int(frames)
+    if first_frame >= have:
+        raise ValueError(f"the wired motion video has {have} frames and this window starts at frame {first_frame}")
+    pixels = fit_frames(video[first_frame:first_frame + frames], width, height)
+    short = frames - int(pixels.shape[0])
+    if short > 0:
+        pixels = torch.cat([pixels, pixels[-1:].expand(short, -1, -1, -1)], dim=0)
+    blank = torch.zeros(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
+    return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge"]), 0)
+
+
 def _tracked_boxes(mask: torch.Tensor) -> torch.Tensor:
     """The subject's box on each frame of a [N, H, W] mask: [N, 4] long, (x0, y0, x1, y1) with the far side
     exclusive, a row of -1 where the mask is empty. The pack's one box function, `sapiens2_parts.mask_boxes`.
@@ -1186,7 +1216,8 @@ PREVIEW_HEIGHT = 192
 
 
 def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion: str, short_edge: int,
-                  margin, boxes: torch.Tensor | None = None, others: torch.Tensor | None = None) -> torch.Tensor:
+                  margin, boxes: torch.Tensor | None = None, others: torch.Tensor | None = None,
+                  wired: torch.Tensor | None = None) -> torch.Tensor:
     """[1, H, W, 3]: sampled frames down the strip, the regenerated region tinted red on the plate, and, when a
     motion reference is on, what the encoder is shown beside each. The dry-run review looks at this and the
     tracker's tiles before anything samples.
@@ -1227,7 +1258,13 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
             plate[row, y0:y1, x0:x0 + line] = cyan
             plate[row, y0:y1, max(x1 - line, x0):x1] = cyan
     tiles = [plate]
-    ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown)
+    if motion == MOTION_WIRED:
+        # the wired video's own frames, fitted as the plate is: what the model is shown as movement
+        ref = (None if wired is None else
+               motion_reference(fit_frames(wired[idx], int(f.shape[2]), int(f.shape[1])), mask[idx], MOTION_FRAME,
+                                short_edge, 0))
+    else:
+        ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown)
     if ref is not None:
         tiles.append(ref.to(f.dtype).to(f.device))
     h = PREVIEW_HEIGHT
@@ -1396,6 +1433,10 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "picture on grey. Use it when the model does not follow a small "
                                         "subject's movement.\n\n"
                                         "whole frame: the source window as it is.\n\n"
+                                        "a video I wire: the video on `motion_video`, which runs beside the "
+                                        "source frame for frame: a body mesh, a pose, a map of a mouth. It says "
+                                        "how the subject moves without showing the original, and each window "
+                                        "is shown its own part of it.\n\n"
                                         "The prompt has to say what the video provides, for example that the "
                                         "subject's motion and timing come from <Video 1>. Costs text-encoder "
                                         "tokens on every window, and with motion_vae on, rows on every "
@@ -1541,6 +1582,15 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "block that is regenerated, the cells outside the region come back as "
                                         "the original. Use it when the subject is small and the region takes "
                                         "in the people round them. Untested on playback.")),
+                # appended 2026-10-10 (the owner: a signal for the movement, not words for it)
+                io.Image.Input("motion_video", optional=True,
+                               tooltip=("Optional, for motion_reference `a video I wire`. One frame per source "
+                                        "frame, any size: it is fitted to the render's canvas as the source "
+                                        "is. What the model is shown as the movement, in place of anything cut "
+                                        "from the source: a body mesh of the original, a pose, a map of where "
+                                        "a mouth opens. The prompt has to say what <Video 1> is and what is "
+                                        "taken from it. With motion_vae on, the video model gets its own copy "
+                                        "at every frame; off, the text encoder sees two frames a second.")),
             ],
             hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
@@ -1608,7 +1658,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
-                edge=EDGE_TOKENS) -> io.NodeOutput:
+                edge=EDGE_TOKENS, motion_video=None) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -1626,6 +1676,18 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown composite {composite!r}; one of {[COMPOSITE_REGION, COMPOSITE_CHANGED]}")
         if motion_reference not in MOTIONS:
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
+        if motion_reference == MOTION_WIRED and motion_video is None:
+            raise ValueError(f"motion_reference is `{MOTION_WIRED}` and nothing is wired to `motion_video`: wire the "
+                             "video that shows the movement, or choose another motion_reference")
+        if motion_video is not None:
+            if motion_reference != MOTION_WIRED:
+                raise ValueError(f"`motion_video` is wired and motion_reference is `{motion_reference}`: set it to "
+                                 f"`{MOTION_WIRED}` to use the video, or unwire it. It is never used in silence")
+            if motion_video.ndim != 4 or int(motion_video.shape[0]) != int(frames.shape[0]):
+                raise ValueError(
+                    f"`motion_video` is {tuple(motion_video.shape)} and the source has {int(frames.shape[0])} "
+                    "frames: it needs one frame per source frame, made from the same `frames`, so that a window "
+                    "is shown the movement of its own frames")
         if keep is not None:
             if keep.ndim == 4 and int(keep.shape[-1]) == 1:
                 keep = keep[..., 0]
@@ -1735,6 +1797,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "composite": composite, "change_threshold": float(change_threshold),
                               "motion_reference": motion_reference, "motion_short_edge": int(motion_short_edge),
                               "motion_vae": bool(motion_vae),
+                              # [N, h, w, 3] or None: the video wired as the movement (`wired_motion`)
+                              "motion_frames": motion_video,
                               # [N, H, W] of 0 or 1, or None: what stays the source's inside the region (`window`)
                               "keep": keep,
                               # [N, H, W] of 0 or 1, or None: people the margin does not grow over (`window`)
@@ -1751,7 +1815,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "shot_table": table, "replace": replace},
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
-                                           int(motion_short_edge), int(grow_pixels) // 2, zoomed, others))
+                                           int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,
+                                           motion_video))
 
     @classmethod
     def _settle_mask(cls, frames, mask, replace, segmenter, segmenter_clip, part_phrases, part_threshold,

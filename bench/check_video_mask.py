@@ -131,6 +131,18 @@ that could happen.
     the schema allows (core stops testing an input a validation function
     names, so the range is tested there). The control: `execute` still raises
     the same message, for a value that only arrives through a link.
+17. **A wired motion video is cut where the window is cut.** `motion_video`
+    (2026-10-10): with `a video I wire`, a window that starts at source frame
+    k is shown the wired video from frame k, fitted to the canvas and scaled
+    to the short edge asked, and a window that runs past the video's end
+    repeats its last frame. The control: a second window's reference is not
+    the first window's, and equals the wired video's later frames, so the
+    cut is by the window and not from frame zero (which is what a reference
+    video appended to the chain gets). The choice with nothing wired, a video
+    wired under another choice, and a video of another length are each
+    refused by name; the preview strip shows the wired video beside the
+    plate; `motion_video` is the node's last input, optional, and not in the
+    kept mask's key; and the song node takes the wired branch.
 
 No model, no CUDA, no server.
 
@@ -449,8 +461,10 @@ def check_edge(problems):
         if "edge" not in str(err):
             problems.append(f"an unknown edge was refused without naming it: {err}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    if inputs[-1].id != "edge" or not inputs[-1].optional or inputs[-1].default != vm.EDGE_TOKENS:
-        problems.append("edge: it is not the node's last input, optional, defaulting to whole tokens")
+    # appended inputs keep their place: `motion_video` (2026-10-10) came after it
+    if inputs[-2].id != "edge" or not inputs[-2].optional or inputs[-2].default != vm.EDGE_TOKENS:
+        problems.append("edge: it is not where it was appended (the input before `motion_video`), optional, "
+                        "defaulting to whole tokens")
     if "edge" not in vm.MASK_KEY_SKIP:
         problems.append("`edge` is not in MASK_KEY_SKIP: a change of edge would track the subject again")
 
@@ -491,6 +505,63 @@ def check_queue_time_refusals(problems):
     except ValueError as e:
         if str(e) != wide:
             problems.append(f"execute refuses a feather wider than the margin in other words: {e}")
+
+
+def check_wired_motion(problems):
+    node = vm.MiniMaxH3MaskedSource
+    SHORT = 64                                   # half the canvas's short side, so the scale-down is exercised
+    n = FRAMES
+    frames = torch.rand(n, H, W, 3)
+    mask = torch.zeros(n, H, W)
+    mask[:, 20:40, 30:50] = 1.0
+    # a video whose every frame is one flat level, its own frame number: any slice of it names its frames
+    levels = (torch.arange(n, dtype=torch.float32) + 1.0) / (n + 1.0)
+    video = levels.view(n, 1, 1, 1).expand(n, H // 2, W // 2, 3).contiguous()
+    src = {"frames": frames, "mask": mask, "motion_reference": vm.MOTION_WIRED, "motion_short_edge": SHORT,
+           "motion_frames": video}
+    first, count = 5, 9
+    got = vm.wired_motion(src, first, count, W, H)
+    th, tw = vm._reference_size(H, W, SHORT)
+    if tuple(got.shape) != (count, th, tw, 3):
+        problems.append(f"wired motion: a window's reference is {tuple(got.shape)}, not {(count, th, tw, 3)}")
+        return
+    seen = got.mean(dim=(1, 2, 3))
+    if not torch.allclose(seen, levels[first:first + count], atol=1e-4):
+        problems.append("wired motion: a window starting at frame 5 is not shown the wired video from frame 5")
+    zero = vm.wired_motion(src, 0, count, W, H).mean(dim=(1, 2, 3))
+    if torch.allclose(seen, zero, atol=1e-4):
+        problems.append("control failed: the window at frame 5 and the window at frame 0 are shown the same frames, "
+                        "so the cut is not by the window")
+    tail = vm.wired_motion(src, n - 3, count, W, H).mean(dim=(1, 2, 3))
+    if not torch.allclose(tail[:3], levels[n - 3:], atol=1e-4) or not torch.allclose(tail[3:], levels[-1].expand(count - 3), atol=1e-4):
+        problems.append("wired motion: a window that runs past the video's end does not repeat its last frame")
+    for label, kwargs, word in (
+            ("the choice with nothing wired", dict(motion_reference=vm.MOTION_WIRED), "motion_video"),
+            ("a video under another choice", dict(motion_reference=vm.MOTION_SUBJECT, motion_video=video), "never used in silence"),
+            ("a video of another length", dict(motion_reference=vm.MOTION_WIRED, motion_video=video[:-1]), "one frame per source frame")):
+        try:
+            node.execute(frames, mask, **kwargs)
+            problems.append(f"wired motion: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"wired motion: the refusal of {label} does not say so: {exc}")
+    out = node.execute(frames, mask, motion_reference=vm.MOTION_WIRED, motion_video=video, motion_short_edge=SHORT)
+    record, strip = out.args[0], out.args[2]
+    if record.get("motion_frames") is not video or record.get("motion_reference") != vm.MOTION_WIRED:
+        problems.append("wired motion: the source record does not carry the wired video and its choice")
+    plain = node.execute(frames, mask).args[2]
+    if int(strip.shape[2]) <= int(plain.shape[2]):
+        problems.append("wired motion: the preview strip is no wider than with no motion reference: the wired "
+                        "video is not shown beside the plate")
+    inputs = node.define_schema().inputs
+    if inputs[-1].id != "motion_video" or not inputs[-1].optional:
+        problems.append("motion_video: it is not the node's last input and optional")
+    if "motion_video" not in vm.MASK_KEY_SKIP:
+        problems.append("motion_video: it is shown to the model and does not make the mask, so it must not be in the "
+                        "kept mask's key")
+    song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song:
+        problems.append("wired motion: the song node does not cut the wired video at the window's own start")
 
 
 def check_others(problems):
@@ -572,8 +643,9 @@ def check_others(problems):
             if word not in str(exc):
                 problems.append(f"others: the refusal of {label} does not say so: {exc}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next)
-    if inputs[-2].id != "others" or not inputs[-2].optional:
+    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next,
+    # then `motion_video`, 2026-10-10)
+    if inputs[-3].id != "others" or not inputs[-3].optional:
         problems.append("others: it is not where it was appended (the input before `edge`) and optional")
     if "others" not in vm.MASK_KEY_SKIP:
         problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
@@ -1139,8 +1211,9 @@ def check_motion_zoom(problems):
         _fail(problems, "zoom: the preview's plate must carry the box as an outline, and only when zoomed in")
     if "box" not in vm.zoom_note(per_shot, H, W, SHORT) or "whole frame" not in vm.zoom_note(full, H, W, SHORT):
         _fail(problems, "zoom: the report's clause must say the boxes, or that the whole frame is shown")
-    if vm.MOTION_ZOOM not in vm.MOTIONS or len(set(vm.MOTIONS)) != 4:
-        _fail(problems, "zoom: MOTIONS must list the four choices once each")
+    if vm.MOTION_ZOOM not in vm.MOTIONS or len(set(vm.MOTIONS)) != len(vm.MOTIONS) \
+            or vm.MOTIONS[:4] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME):
+        _fail(problems, "zoom: MOTIONS must list each choice once, the first four in the place they shipped in")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
             or 'int(source["motion_short_edge"]), video_mask.motion_widening(source),' not in song:
@@ -1472,7 +1545,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1481,7 +1554,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut")
     return 1 if problems else 0
 
 
