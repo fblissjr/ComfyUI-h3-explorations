@@ -965,8 +965,33 @@ def held_tails() -> str:
         blind = cap.flag_held_tail(manifest(), folder)
         assert [(f["rule"], f["level"]) for f in blind] == [("held_tail_not_checked", cap.LEVELS[1])], "an estimate with no windows was passed in silence"
         assert cap.flag_held_tail(manifest(plate, planned=False), folder) == [], "a rendered run was gated as a plan"
+    # a continuation: the head faces away on the last kept frame and turns to the camera over the new frames
+    def at(frame: int, yaw: float, lift: float = 0.0, wrist: float = 0.9) -> dict:
+        return {"source_frame": frame, "head_yaw": yaw, "head_lift": lift, "left_wrist_to_nose": wrist, "right_wrist_to_nose": 1.2}
+
+    table = {f: at(f, -76.0) for f in range(100, 110)}
+    table.update({110 + i: at(110 + i, -76.0 + 8.0 * i, -3.0 * i, 0.9 - 0.06 * i) for i in range(10)})
+    found = cap.turn_from_kept(table, 109, (110, 119))
+    assert found == {"head_turn_degrees": 72.0, "reached_on_source_frame": 119, "chin_change_degrees": 27.0, "a_wrist_nearer_the_nose_by": 0.54}, found
+    assert cap.turn_from_kept(table, 105, (106, 109))["head_turn_degrees"] == 0.0, "a subject who does not turn"
+    assert cap.turn_from_kept({170: at(170, 170.0), 171: at(171, -170.0)}, 170, (171, 171))["head_turn_degrees"] == 20.0, "the turn went the long way round"
+    assert cap.turn_from_kept({}, 109, (110, 119)) is None and cap.turn_from_kept({109: {"source_frame": 109}}, 109, (110, 119)) is None
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "subjects" / "a").mkdir(parents=True)
+        win = {"window": 2, "first_frame": 100, "kept_frames": 10, "writes_source_frames": [110, 119]}
+        m = {"subjects": [{"label": "a", "sightings": [{"by": "p"}]}],
+             "runs": [{"name": "pl", "planned": True, "subject": "a", "planned_windows": [{"window": 1, "kept_frames": 0}, win]}]}
+        blind = cap.flag_kept(m, folder)
+        assert [f["rule"] for f in blind] == ["kept_frames_not_checked"], "no pose table, and the continuation passed in silence"
+        (folder / "subjects" / "a" / "pose__p.json").write_text(json.dumps({"rows": list(table.values())}))
+        far = cap.flag_kept(m, folder)
+        assert [(f["rule"], f["level"], f["source_frames"]) for f in far] == [("kept_frames_far_from_the_pose_ahead", cap.LEVELS[1], [[110, 119]])], far
+        still = {**m, "runs": [{**m["runs"][0], "planned_windows": [{**win, "first_frame": 96, "writes_source_frames": [106, 109]}]}]}
+        assert cap.flag_kept(still, folder) == [], "a continuation whose source holds its pose was flagged"
     return ("a load's last frame held past its end and shown clean with the subject on it blocks; a tail with its region open, "
-            "a load that fills its window and a last frame without the subject do not; an estimate with no windows says it was not checked")
+            "a load that fills its window and a last frame without the subject do not; an estimate with no windows says it was not checked; "
+            "a continuation whose source turns away from its kept frames' pose is named, one that holds its pose is not")
 
 
 def text_rules() -> str:

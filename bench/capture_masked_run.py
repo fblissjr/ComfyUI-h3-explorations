@@ -1919,6 +1919,98 @@ def flag_held_tail(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+#: A continuation whose source turns its head this far from where it faces on the last kept frame, within the
+#: window's new frames, is asked to leave its kept frames' pose. Inherited: `bench/measure_subject_yaw.py`'s
+#: tolerance for "faces where the source faces". Measured once (2026-10-10): a turn of about 75 degrees starting
+#: on a window's first new frames was missed by every render that kept frames of the subject turned away, at
+#: two sizes of motion video and with two patches, and made by the one load with no kept frames.
+KEPT_TURN = 45.0
+
+
+def turn_from_kept(pose: dict[int, dict], last_kept: int, new: tuple[int, int]) -> dict | None:
+    """How far the source's pose over a window's new frames is from its pose on the last kept frame.
+
+    `pose` is `pose_rows` by source frame (with `pose_state`'s columns); `new` the first and last new source
+    frame. None when the table has no facing on the last kept frame or on any new frame. Returns the largest
+    turn of the head (and the frame it is reached on), the largest change of the chin's lift, and how much
+    nearer the nose either wrist comes."""
+    at = pose.get(last_kept, {})
+    ahead = [pose[f] for f in range(new[0], new[1] + 1) if f in pose and pose[f].get("head_yaw") is not None]
+    if at.get("head_yaw") is None or not ahead:
+        return None
+    turn = [abs((r["head_yaw"] - at["head_yaw"] + 180.0) % 360.0 - 180.0) for r in ahead]
+    hand = lambda r: min(r["left_wrist_to_nose"], r["right_wrist_to_nose"])      # noqa: E731
+    return {"head_turn_degrees": round(max(turn), 1), "reached_on_source_frame": ahead[int(np.argmax(turn))]["source_frame"],
+            "chin_change_degrees": round(max(abs(r["head_lift"] - at["head_lift"]) for r in ahead), 1),
+            "a_wrist_nearer_the_nose_by": round(hand(at) - min(hand(r) for r in ahead), 2)}
+
+
+def flag_kept(manifest: dict, folder: Path) -> list[dict]:
+    """A planned continuation whose kept frames show the subject in a pose the motion ahead leaves.
+
+    Kept frames show the NEW subject, so they are not the original in the picture; what they pin is the pose.
+    From the node's plan (which window keeps how many frames) and the subject's pose table: the source's head
+    on the window's new frames against the last kept frame. Iffy at `KEPT_TURN` or more, with the chin and
+    the wrists as figures. Without a pose table that carries 3D keypoints it cannot be checked, and says so."""
+    out = []
+    for run in manifest["runs"]:
+        wins = [x for x in run.get("planned_windows") or [] if x.get("kept_frames")]
+        if not run.get("planned") or not wins:
+            continue
+        seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]["by"]
+        path = folder / "subjects" / run["subject"] / f"pose__{seen}.json"
+        pose = {r["source_frame"]: r for r in json.loads(path.read_text())["rows"]} if path.is_file() else {}
+        for win in wins:
+            last_kept = win["first_frame"] + win["kept_frames"] - 1
+            found = turn_from_kept(pose, last_kept, tuple(win["writes_source_frames"]))
+            if found is None:
+                out.append({"rule": "kept_frames_not_checked", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                            "source_frames": [[last_kept, last_kept]],
+                            "why": f"plan {run['name']} window {win['window']} keeps {win['kept_frames']} frames and {run['subject']} has no "
+                                   "pose table with 3D keypoints over them (`pose=` on --mask): whether the motion ahead leaves the "
+                                   "kept frames' pose cannot be checked",
+                            "figures": {"window": win["window"], "kept_frames": win["kept_frames"]}})
+            elif found["head_turn_degrees"] >= KEPT_TURN:
+                out.append({"rule": "kept_frames_far_from_the_pose_ahead", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                            "source_frames": [[win["writes_source_frames"][0], found["reached_on_source_frame"]]],
+                            "why": f"plan {run['name']} window {win['window']} keeps {win['kept_frames']} frames ending on source frame {last_kept}, "
+                                   f"and over its new frames the source's head turns {found['head_turn_degrees']:.0f} degrees from where it faces "
+                                   f"there (by source frame {found['reached_on_source_frame']}; the chin moves {found['chin_change_degrees']:.0f} "
+                                   f"degrees, a wrist comes {found['a_wrist_nearer_the_nose_by']} torso lengths nearer the nose). A render "
+                                   "follows its kept frames over its motion video: start a load of its own at the turn, keep fewer "
+                                   "frames, or noise the kept ones (`context_noise`)",
+                            "figures": {"window": win["window"], "kept_frames": win["kept_frames"], **found}, "threshold": {"KEPT_TURN": KEPT_TURN}})
+    return out
+
+
+def flag_mouth(manifest: dict, folder: Path) -> list[dict]:
+    """A subject of a run whose mouth is open with no voice on a run of frames: a state a pass has no channel for.
+
+    The source's own openings (`mouth_openings` on its class map) against the capture's voice table, by
+    `open_runs`. Iffy: measured once (2026-10-10), a face-only render kept the mouth's timing and reached
+    about six tenths of the source's opening on such a run. Needs the subject's class map and `--voice`."""
+    out, w, first = [], manifest["size"][0], manifest["first_frame"]
+    cross = json.loads((folder / "frames.json").read_text())["rows"]
+    voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
+    names = _pack("sapiens2_parts").CLASS_NAMES
+    for label in sorted({run["subject"] for run in manifest["runs"]}):
+        seen = next(s for s in manifest["subjects"] if s["label"] == label)["sightings"][0]["by"]
+        classes = folder / "subjects" / label / f"classes__{seen}.npz"
+        if not classes.is_file() or not (voiced == 0).any():
+            continue
+        saved = np.load(folder / "subjects" / label / f"masks__{seen}.npz")
+        face = np.unpackbits(saved["parts" if "parts" in saved.files else "track"], axis=-1)[..., :w].astype(bool)
+        opening, _ = mouth_openings(class_mask_of(np.load(classes)["classes"], list(MOUTH_CLASSES), names), face)
+        for run in open_runs(opening, voiced, {}, first)["runs"]:
+            out.append({"rule": "mouth_open_with_no_voice", "level": LEVELS[1], "subject": label, "source_frames": [run["source_frames"]],
+                        "why": f"{label}'s mouth is open on {run['frames']} frames with no voice on the track (opening "
+                               f"{run['source_opening_median']} at the median): nothing a pass is given says so unless a motion "
+                               "video carries the mouth. Expect the timing kept and the opening smaller",
+                        "figures": {"frames": run["frames"], "source_opening_median": run["source_opening_median"]},
+                        "threshold": {"OPEN_SHARE": OPEN_SHARE, "OPEN_RUN": OPEN_RUN}})
+    return out
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2158,7 +2250,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
