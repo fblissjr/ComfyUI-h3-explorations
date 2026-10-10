@@ -108,3 +108,40 @@ flag reads the source's own frame-to-frame change for it.
   a share of 1; largest square 2.79 levels (frame 579), none over the bound. Its record
   now carries the present proofs. Built with no capture, so no mask rule is
   read for it.
+- 2026-10-10, later still: **the locked file shows the source's own picture
+  for a whole shot, and every proof had passed.** On source frames 1010-1038
+  (29 frames) nothing is laid for either subject: both trackers had called
+  their subject absent there, with two people detected. A viewer found it.
+  The data had said so twice and nothing made anyone answer it: the record's
+  own flag `piece_changes_nothing` named those frames for the whole-person
+  row, and the capture's flag `absent_with_people_on_screen` named them for
+  the lead (the closest person at 0.667 against a line of 0.80). I had read
+  "0 px changed on 1010-1038" as the cut gate holding. A second witness,
+  measured by the lead session on the file against the source: about 51 dB
+  on every frame of 1010-1038 (one more encode of the same picture), against
+  about 22 dB before the cut and about 24 dB on 1039-1050.
+- 2026-10-10, the same change: **a proof for it**, `shots` in the record
+  ("shots where a named subject is the source's own"). The span is cut into
+  shots by the source's own cuts; for every subject a row names, a shot with
+  nothing laid fails the build when the subject is tracked there or when
+  people are detected who are not other named subjects laid or tracked
+  there, and is listed and counted otherwise (the people are another
+  subject's, nobody was detected, or nothing is known). The table answers it
+  with a `source first-last subject=<label> words` line, whose words are
+  kept. Runs of frames inside a laid shot where the subject is tracked and
+  nothing is laid are listed with the longest. `verdict_line` in the record
+  carries the count, and the frames when any fail.
+- 2026-10-10, the locked file read again under that proof (`--check-only`;
+  md5 unchanged): **FAILS**, on 1010-1038 for both subjects (not tracked,
+  people detected: 2); 1039-1050 is by intent for the lead (a `source` line
+  added to the table read, in the lead session's words: not in this shot).
+  Its other proofs read as before. Also in that record, said and not failed:
+  inside the first shot the lead is tracked with nothing laid on 45 frames,
+  the longest run 25 (974-998; the other is 606-625). The file, its md5 and
+  its lock stand; `LOCKED.md` carries a dated note of the fault; a version
+  with rows on that shot is to be built beside it as `fun_0604_1050_b.mp4`.
+- 2026-10-10, what the new proof cannot know, as its record says: a shot's
+  people count is one frame of it; a subject with no shot table borrows
+  another subject's count (only the lead has a shot table in that day's
+  kitchen captures); a dissolve is not a cut; with no capture no subject is
+  named and nothing is asked.

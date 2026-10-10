@@ -81,6 +81,15 @@ of known place and size into them, and reads the tool's answers back.
     refused before anything is written, the file's bytes are what they were, and the refusal names a free name
     beside it; `--check-only` still reads it and passes; with the file's bytes changed it fails, saying the file is
     not the one that was locked; and a name the lock file does not list builds as before.
+17. **A shot where a named subject is the source's own.** On the clip with a cut, a piece that changes its subject
+    on the first shot and nothing on the second. With the subject tracked on the second shot the build fails and
+    names the shot's frames; so it does when the tracker called them absent there and the capture's own flag, or
+    a shot table, says people were detected. It passes, with the shot listed under its reading, when the table
+    says so in a `source` line (the words kept), when the people detected are another subject's that is laid
+    there, when nobody was detected, and when nothing is known. A `source` line over a shot that has something
+    laid, and one that covers no whole shot, fail. The frames of the first shot where the subject is tracked and
+    nothing is laid yet are listed with the longest run. The first locked file passed every proof with a shot of
+    29 frames on which nothing was laid for either of its subjects; this is the proof that would have failed it.
 
 ## Running it
 
@@ -189,9 +198,11 @@ def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict
     return proc.returncode, json.loads(Path(str(out) + ".check.json").read_text())
 
 
-def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None) -> Path:
+def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None,
+            flags: list | None = None, shots: dict | None = None) -> Path:
     """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads.
-    `classes[label]` is a class map [frames, H, W] of class indices."""
+    `classes[label]` is a class map [frames, H, W] of class indices; `flags` is its flags.json; `shots[label]` is
+    that subject's shot table as [(first frame, last frame, people detected, the tracker's word)]."""
     folder.mkdir(parents=True)
     manifest = {"name": folder.name, "first_frame": first, "frames": frames, "size": [W, H],
                 "subjects": [{"label": k, "sightings": [{"by": "made"}]} for k in subjects], "runs": runs}
@@ -202,6 +213,13 @@ def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, c
                             covered=np.ones(frames, bool))
         if classes and label in classes:
             np.savez_compressed(folder / "subjects" / label / "classes__made.npz", classes=classes[label])
+        if shots and label in shots:
+            table = {"cuts": [a for a, _b, _n, _w in shots[label]][1:],
+                     "shots": [{"first_frame": a, "last_frame": b, "people": [{"person": k + 1} for k in range(n)],
+                                "subject": {"state": word}} for a, b, n, word in shots[label]]}
+            (folder / "subjects" / label / "shots__made.json").write_text(json.dumps(table))
+    if flags is not None:
+        (folder / "flags.json").write_text(json.dumps({"flags": flags}))
     return folder
 
 
@@ -376,7 +394,11 @@ with tempfile.TemporaryDirectory() as _tmp:
                              [{"name": "run_a", "render": Path(piece).name, "subject": "a", "margin_px": 16}])
             code, r, out = deliver(TMP, f"flag_{name}", [(10, 39, piece, 10)], "10-39", "--capture", str(folder))
             got = [f["rule"] for f in r["flags"]]
-            assert code == 0 and got == want, f"{name}: flags {got}, expected {want}"
+            # a piece that changed nothing while its subject is tracked on every frame is also a shot with nothing
+            # laid for a named subject, and that is a failure of the build, not only a flag
+            fails = [f for f in r["failures"] if "nothing laid for a" in f and "tracked, nothing laid" in f]
+            assert got == want and (code, len(r["failures"])) == ((1, 1) if name == "idle" else (0, 0)) and bool(fails) == (name == "idle"), \
+                f"{name}: flags {got}, expected {want}; exit {code}, failures {r['failures']}"
             if name == "gone":
                 assert r["flags"][0]["source_frames"] == [[20, 29]] and r["flags"][0]["run"] == "run_a", r["flags"][0]
                 written = folder / "runs" / "run_a" / f"changed__{out.stem}.csv"
@@ -527,15 +549,21 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert tool.read_table(table(TMP / "whole_row.txt", [(10, 39, PIECE_A, "10 restore=b:whole")]))[0]["restore"] == [("b", "whole")]
         return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's, and goes back with `:whole`"
 
-    def spill_over_a_cut() -> str:
-        cut_at, frames = 20, 40
+    def a_clip_with_a_cut(cut_at: int, frames: int) -> Path:
         clip = TMP / "with_a_cut.mp4"
+        if clip.is_file():
+            return clip
         other = PICTURE.replace("c0=0x905030", "c0=0x203c8c").replace("c2=0xc8b450", "c2=0x50a0c8").replace("x0=40:y0=30", "x0=300:y0=40")
         run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{PICTURE}",
              "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{other},eq=brightness=-0.35", "-filter_complex",
              f"[0:v]trim=end_frame={cut_at},setpts=PTS-STARTPTS[a];[1:v]trim=end_frame={frames - cut_at},setpts=PTS-STARTPTS[b];"
              "[a][b]concat=n=2:v=1,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv[v]",
              "-map", "[v]", "-frames:v", str(frames), "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p", *tool.BT709_TAGS, str(clip)])
+        return clip
+
+    def spill_over_a_cut() -> str:
+        cut_at, frames = 20, 40
+        clip = a_clip_with_a_cut(cut_at, frames)
         whole = loaded(clip, 0, frames)
         luma = whole.mean(dim=-1) * 255.0
         moved = float((luma[cut_at] - luma[cut_at - 1]).abs().mean())
@@ -791,6 +819,80 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert proc.returncode == 1 and any("not the file that was accepted" in f for f in record["failures"]), record["failures"]
         return "a build over it is refused and names accepted_b.mp4; a re-read passes and leaves its bytes; changed bytes fail; a name not listed builds"
 
+    def shots_left_as_the_source() -> str:
+        cut_at, frames = 20, 40
+        clip = a_clip_with_a_cut(cut_at, frames)
+        whole = loaded(clip, 0, frames)
+
+        def painted_on(name, rect, first, last):
+            out = whole.clone()
+            x0, y0, x1, y1 = rect
+            out[first:last + 1, y0:y1, x0:x1] = (out[first:last + 1, y0:y1, x0:x1] + 0.5) % 1.0
+            return write(name, out)
+        piece_a = painted_on("shots_a", RECT_A, 5, cut_at - 1)          # its subject on the first shot only
+        piece_b = painted_on("shots_b", RECT_B, 5, frames - 1)          # another subject, on both shots
+        on_both, first_only = mask_of(RECT_A, frames, grow=4), mask_of(RECT_A, frames, grow=4)
+        first_only[cut_at:] = False
+        other = mask_of(RECT_B, frames, grow=4)
+        run_a = {"name": "run_a", "render": Path(piece_a).name, "subject": "a", "margin_px": 16}
+        run_b = {"name": "run_b", "render": Path(piece_b).name, "subject": "b", "margin_px": 16}
+        flag = {"id": "f001", "rule": tool.PEOPLE_FLAG, "subject": "a", "source_frames": [[cut_at, frames - 1]],
+                "figures": {"people": 2, "similarity": 0.6, "line": 0.8}}
+
+        def go(name, folder, *lines, pieces=((piece_a, ""),)):
+            path = TMP / f"{name}.txt"
+            path.write_text("".join(f"0-{frames - 1} {p} 0{more}\n" for p, more in pieces) + "".join(line + "\n" for line in lines))
+            out = TMP / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(clip), "--table", str(path), "--span", f"0-{frames - 1}",
+                                   "--out", str(out), *(("--capture", str(folder)) if folder else ())], capture_output=True, text=True)
+            report = Path(str(out) + ".check.json")
+            assert report.is_file(), proc.stderr[-300:] or proc.stdout[-300:]
+            r = json.loads(report.read_text())
+            return proc.returncode, r, {(tuple(e["frames"]), e["subject"]): e for e in r["shots"]["where_a_named_subject_is_the_source's_own"]}
+        second = ((cut_at, frames - 1), "a")
+        # tracked on the second shot, nothing laid there
+        tracked = capture(TMP / "shots_tracked", 0, frames, {"a": on_both}, [run_a])
+        code, r, own = go("shots_tracked", tracked)
+        assert r["shots"]["cuts"] == [cut_at], r["shots"]["cuts"]
+        said = [f for f in r["failures"] if "nothing laid for a" in f]
+        assert code == 1 and said and f"{cut_at}-{frames - 1}" in said[0] and own[second]["reading"] == "tracked, nothing laid", (code, r["failures"], own)
+        assert f"{cut_at}-{frames - 1}" in r["verdict_line"] and r["verdict_line"].startswith("FAILS"), r["verdict_line"]
+        first = r["shots"]["shots"][0]["subjects"]["a"]
+        assert first["reading"] == "laid" and first["tracked_with_nothing_laid"]["runs"] == [[0, 4]] and first["tracked_with_nothing_laid"]["longest"] == 5, first
+        # the same, answered in the table
+        code, r, own = go("shots_intent", tracked, f"source {cut_at}-{frames - 1} subject=a not in the brief for this shot")
+        assert code == 0 and own[second]["reading"] == "by intent" and own[second]["would_have_read"] == "tracked, nothing laid" \
+            and own[second]["why"] == "not in the brief for this shot" and "1 by intent" in r["verdict_line"], (code, r["failures"], own, r["verdict_line"])
+        # an answer that contradicts the file, and one that fits no shot
+        code, r, _ = go("shots_contradicted", tracked, f"source {cut_at}-{frames - 1} subject=a ok", f"source 0-{cut_at - 1} subject=a not so")
+        assert code == 1 and any("have something of theirs laid" in f for f in r["failures"]), r["failures"]
+        code, r, _ = go("shots_no_shot", tracked, f"source {cut_at + 3}-{cut_at + 9} subject=a part of a shot")
+        assert code == 1 and any("covers no whole shot" in f for f in r["failures"]), r["failures"]
+        # called absent on the second shot: the capture's own flag says people were detected
+        code, r, own = go("shots_flagged", capture(TMP / "shots_flagged", 0, frames, {"a": first_only}, [run_a], flags=[flag]))
+        assert code == 1 and own[second]["reading"] == "not tracked, people detected" and own[second]["the_capture_said"]["flag"] == "f001", (code, own)
+        # called absent, and a shot table counts one person there
+        table = [(0, cut_at - 1, 1, "picked"), (cut_at, frames - 1, 1, "absent")]
+        code, r, own = go("shots_table", capture(TMP / "shots_table", 0, frames, {"a": first_only}, [run_a], shots={"a": table}))
+        assert code == 1 and own[second]["reading"] == "not tracked, people detected" and own[second]["people_detected"] == 1, (code, own)
+        # the one person counted there is another subject, who is laid there
+        both = capture(TMP / "shots_other", 0, frames, {"a": first_only, "b": other}, [run_a, run_b], shots={"a": table})
+        code, r, own = go("shots_other", both, pieces=((piece_a, ""), (piece_b, "")))
+        assert code == 0 and own[second]["reading"] == "not tracked, the people detected are other subjects'" \
+            and own[second]["other_subjects_there"] == ["b"] and ((cut_at, frames - 1), "b") not in own, (code, r["failures"], own)
+        # nobody detected; and nothing known
+        nobody = [(0, cut_at - 1, 1, "picked"), (cut_at, frames - 1, 0, "absent")]
+        code, r, own = go("shots_nobody", capture(TMP / "shots_nobody", 0, frames, {"a": first_only}, [run_a], shots={"a": nobody}))
+        assert code == 0 and own[second]["reading"] == "not tracked, nobody detected", (code, r["failures"], own)
+        code, r, own = go("shots_unknown", capture(TMP / "shots_unknown", 0, frames, {"a": first_only}, [run_a]))
+        assert code == 0 and own[second]["reading"] == "not known" and "1 not known" in r["verdict_line"], (code, r["failures"], own, r["verdict_line"])
+        # with no capture no subject is named, and the record says that nothing was asked
+        code, r, own = go("shots_bare", None)
+        assert code == 0 and not own and "no row's subject is known" in r["verdict_line"] and r["shots"]["cuts"] == [cut_at], (code, own, r["verdict_line"])
+        return ("a shot with its subject tracked and nothing laid fails by its frames; so does one called absent with people detected, by the "
+                "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
+                "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -807,4 +909,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a patch as a later row", a_patch_as_a_later_row)
     case("a patch as a later row, with a capture", a_patch_with_a_capture)
     case("a locked file is not built over", a_locked_file)
+    case("a shot where a named subject is the source's own", shots_left_as_the_source)
 sys.exit(finish())

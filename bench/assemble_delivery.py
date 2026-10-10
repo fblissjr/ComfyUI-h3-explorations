@@ -14,7 +14,8 @@ and proves the parts an eye cannot check: that no frame was dropped, doubled or 
 the source's own packets.
 
 **The table.** One row per piece (`first-last  piece  the piece's first source frame`, then any of `restore=` and
-`subject=`, described below), in SOURCE frame numbers (a render made from a frame-for-frame copy of the
+`subject=`, described below; and `source` lines, which lay nothing and say a shot is left as it is on purpose),
+in SOURCE frame numbers (a render made from a frame-for-frame copy of the
 source at the lane's rate has the source's numbering):
 
     # first-last   piece             the source frame that is the piece's frame 0
@@ -121,6 +122,32 @@ earlier row's subject holds when that is another, known subject and not the row'
 than `SHOWN` of that has an earlier row laid over it, and the build says which row. The frame-for-frame proofs
 below cannot see this: a file can be exactly the frames that were fed and the frames fed can be the wrong
 row's.
+
+**Shots where a named subject is the source's own** (`shots` in the record; a proof). A file can pass every
+proof above and still show a person untouched for a whole shot: no row laid a pixel there, so there was nothing
+for a proof to be wrong about. The first locked file did, for both its subjects, on a shot both trackers had
+called their subject absent on; a viewer found it. So the span is cut into shots (the source's own cuts, `CUT`,
+read from the fitted source on every frame of the span) and, for every subject a row names (its run's subject,
+or `subject=`), each shot says on how many frames anything of that subject's was laid, on how many it is
+tracked, and what the captures say of people there (a shot table's detections on the shot's shown frame, and the
+capture's own flag `absent_with_people_on_screen`). A shot with nothing laid for a named subject is listed under
+its own heading with one reading:
+
+- *tracked, nothing laid*: the subject's mask is there and no row covers it. **Fails.**
+- *not tracked, people detected*: the tracker called the subject absent and people are on screen who are not
+  accounted for by the other named subjects laid or tracked on that shot. **Fails.**
+- *not tracked, the people detected are other subjects'*, *not tracked, nobody detected*, *not known* (no shot
+  table and no flag covers the shot): listed and counted, and do not fail, or every table that covers part of a
+  clip would.
+- *by intent*: the table says so, one line a shot: `source  first-last  subject=<label>  words saying why`. This
+  is where the question is answered; the words are kept in the record. A `source` line over a shot where
+  something IS laid for that subject, or one that covers no whole shot, fails as a contradiction.
+
+Inside a shot that has rows laid, the runs of frames where the subject is tracked and nothing is laid are listed
+with the longest (said, not failed: a face pass lays nothing while a face is turned away, and a second of that is
+not a skipped frame). The record's `verdict_line` carries the count, and the frames when any fail. What it cannot
+know is in `shots.missing`: a people count is one frame a shot; a subject with no shot table borrows another
+subject's count for the shot; a dissolve is not a cut; a row whose subject is not known is not asked about.
 
 **A locked file is never written over.** A folder's `LOCKED.md` lists the files the owner has accepted, one to a
 list line: the name in backticks, then `md5 <sum>`. A build whose `--out` is one of them is refused before anything
@@ -290,7 +317,7 @@ def read_table(path) -> list[dict]:
     rows = []
     for line in open(path):
         line = line.split("#")[0].strip()
-        if not line:
+        if not line or line.split()[0] == "source":      # a `source` line lays nothing: `read_intents`
             continue
         span, piece, first, *more = line.split()
         lo, hi = (int(v) for v in span.split("-"))
@@ -319,6 +346,25 @@ def read_table(path) -> list[dict]:
             row["restore"].append((label, wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
+
+
+def read_intents(path) -> list[dict]:
+    """The table's `source  first-last  subject=<label>  words` lines: shots left as the source's own on purpose."""
+    out = []
+    for line in open(path):
+        line = line.split("#")[0].strip()
+        if not line or line.split()[0] != "source":
+            continue
+        _, *rest = line.split()
+        try:
+            lo, hi = (int(v) for v in rest[0].split("-"))
+            key, _, label = rest[1].partition("=")
+            if key != "subject" or not label or lo > hi:
+                raise ValueError
+        except (IndexError, ValueError):
+            raise SystemExit(f"{path}: `{line}` is not `source first-last subject=<label> words saying why`") from None
+        out.append({"first": lo, "last": hi, "subject": label, "why": " ".join(rest[2:])})
+    return out
 
 
 def run_for(row, captures):
@@ -481,6 +527,38 @@ class Captures:
                 if run.get("render") and os.path.basename(run["render"]) == os.path.basename(piece):
                     return folder, m, run
         return None
+
+    def said_absent_with_people(self) -> list[dict]:
+        """Every capture's own flag that a subject was called absent while people were detected, in source frames."""
+        out = []
+        for folder, _m in self.folders:
+            path = folder / "flags.json"
+            if not path.is_file():
+                continue
+            held = json.loads(path.read_text())
+            for flag in (held if isinstance(held, list) else held.get("flags", [])):
+                if flag.get("rule") == PEOPLE_FLAG and flag.get("subject"):
+                    out.append({"subject": flag["subject"], "spans": [list(x) for x in flag.get("source_frames", [])],
+                                "people": (flag.get("figures") or {}).get("people"), "figures": flag.get("figures") or {},
+                                "capture": folder.name, "id": flag.get("id")})
+        return out
+
+    def shot_tables(self) -> list[dict]:
+        """Every shot table the captures hold: whose, the capture, and per shot its source frames, how many people
+        the tracker's detector found on the frame its tile shows, and the tracker's word for its subject there."""
+        out = []
+        for folder, m in self.folders:
+            for s in m["subjects"]:
+                sight = s["sightings"][0]
+                path = folder / "subjects" / s["label"] / f"shots__{sight['by']}.json"
+                if not path.is_file():
+                    continue
+                at = int(sight.get("shots_first_source_frame", sight.get("first_source_frame", m["first_frame"])))
+                table = json.loads(path.read_text())
+                out.append({"subject": s["label"], "capture": folder.name, "cuts": [at + int(c) for c in table.get("cuts", [])],
+                            "shots": [{"frames": [at + int(x["first_frame"]), at + int(x["last_frame"])], "people": len(x.get("people") or []),
+                                       "state": (x.get("subject") or {}).get("state")} for x in table.get("shots", [])]})
+        return out
 
     def owned(self, label, frame, prefer=None):
         """The pixels a subject OWNS on a source frame by a capture's `owners.npz`, or None where no capture given
@@ -755,9 +833,11 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                                 other |= hard[j] & holds[j] & ~holds[i]
                     meant = hard[i] & ~back & ~later & ~other
                     tally = record.setdefault("shown", {}).setdefault((r["piece"], r.get("first"), r.get("last")), [0, 0, 0])
+                    shows = int((meant & (owner == i)).sum())
                     tally[0] += int(meant.sum())
-                    tally[1] += int((meant & (owner == i)).sum())
+                    tally[1] += shows
                     tally[2] += 1
+                    record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
             got += 1
             if full:
                 yield laid_over(planes(sbuf, *full), pieces, owner, box, held)
@@ -991,6 +1071,128 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
     for i, f in enumerate(out, 1):
         f["id"] = f"d{i:03d}"
     return out, unchecked
+
+
+def source_moved_over(source, span, w, h) -> dict[int, float]:
+    """The fitted source's mean luma change from the frame before, for every frame of the span after its first."""
+    moved, before = {}, None
+    for n, buf in zip(range(span[0], span[1] + 1), original_frames(source, span[0], span[1], w, h)):
+        y = planes(buf, w, h)[0]
+        if before is not None:
+            moved[n] = float(np.abs(y - before).mean())
+        before = y
+    return moved
+
+
+def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[str]]:
+    """The record's `shots` section and the failures it raises: per shot and named subject, was anything laid."""
+    cuts = sorted(n for n, v in moved.items() if v > CUT)
+    edges = [span[0], *cuts, span[1] + 1]
+    shots = [(a, b - 1) for a, b in zip(edges, edges[1:]) if b > a]
+    named, unknown = {}, []                           # label -> its rows' pieces
+    for row in rows:
+        run = run_for(row, captures)
+        if run is None:
+            unknown.append(os.path.basename(row["piece"]))
+        else:
+            named.setdefault(run[2]["subject"], []).append(row["piece"])
+
+    def laid_on(label, n) -> int:
+        return sum(record["rows"].get(piece, {}).get(n, {}).get("laid", 0) for piece in set(named[label]))
+
+    def tracked_on(label, n):
+        mask = captures.mask(label, n) if captures else None
+        return None if mask is None else bool(mask.any())
+
+    flagged = captures.said_absent_with_people() if captures else []
+    tables = captures.shot_tables() if captures else []
+
+    def people_on(a, b):
+        """(how many people a shot table found on this shot, whose table) or (None, None): the table shot that
+        holds most of these frames, the largest count where tables differ."""
+        best = (None, None)
+        for table in tables:
+            for shot in table["shots"]:
+                lo, hi = shot["frames"]
+                if 2 * (min(b, hi) - max(a, lo) + 1) > b - a + 1 and (best[0] is None or shot["people"] > best[0]):
+                    best = (shot["people"], f"{table['subject']}'s shot table in {table['capture']}")
+        return best
+
+    out, own, problems, used = [], [], [], set()
+    for a, b in shots:
+        people, whose = people_on(a, b)
+        entry = {"frames": [a, b], "people_detected": people, "people_counted_by": whose, "subjects": {}}
+        state = {}
+        for label in named:
+            frames = range(a, b + 1)
+            laid = [n for n in frames if laid_on(label, n) > 0]
+            seen = [tracked_on(label, n) for n in frames]
+            tracked = [n for n, v in zip(frames, seen) if v]
+            state[label] = {"frames_laid": len(laid), "frames_tracked": len(tracked) if any(v is not None for v in seen) else None}
+            if laid:
+                idle = [n for n in tracked if n not in set(laid)]
+                runs = frame_spans(idle)
+                if runs:
+                    state[label]["tracked_with_nothing_laid"] = {"frames": len(idle), "runs": runs[:24],
+                                                                 "longest": max(y - x + 1 for x, y in runs)}
+        for label in named:
+            st = state[label]
+            if st["frames_laid"]:
+                st["reading"] = "laid"
+                clash = [i for i in intents if i["subject"] == label and i["first"] <= b and i["last"] >= a]
+                for i in clash:
+                    used.add(id(i))
+                    problems.append(f"the table says {label} is left as the source's on {i['first']}-{i['last']}, and "
+                                    f"{st['frames_laid']} frame(s) of shot {a}-{b} have something of theirs laid")
+                entry["subjects"][label] = st
+                continue
+            others = [x for x in named if x != label and (state[x]["frames_laid"] or state[x]["frames_tracked"])]
+            flag = next((f for f in flagged if f["subject"] == label and any(x <= b and y >= a for x, y in f["spans"])), None)
+            count = flag["people"] if flag and flag.get("people") is not None else people
+            said = next((i for i in intents if i["subject"] == label and i["first"] <= a and i["last"] >= b), None)
+            fails = False
+            if st["frames_tracked"]:
+                reading, fails = "tracked, nothing laid", True
+            elif count is not None and count > len(others):
+                reading, fails = "not tracked, people detected", True
+            elif count:
+                reading = "not tracked, the people detected are other subjects'"
+            elif count == 0:
+                reading = "not tracked, nobody detected"
+            else:
+                reading = "not known"
+            st.update({"reading": reading, "people_detected": count, "other_subjects_there": others})
+            if flag:
+                st["the_capture_said"] = {"flag": flag["id"], "capture": flag["capture"], **flag["figures"]}
+            if said is not None:
+                used.add(id(said))
+                st.update({"reading": "by intent", "would_have_read": reading, "why": said["why"]})
+            elif fails:
+                problems.append(f"nothing laid for {label} on {a}-{b}: {reading}"
+                                + (f" ({count} detected" + (f", {len(others)} of them other subjects laid or tracked there" if others else "") + ")"
+                                   if count is not None else "")
+                                + f". Lay a row there, or say `source {a}-{b} subject={label} <why>` in the table")
+            entry["subjects"][label] = st
+            own.append({"frames": [a, b], "subject": label, **{k: v for k, v in st.items() if k not in ("frames_laid",)}})
+        out.append(entry)
+    for i in intents:
+        if id(i) in used:
+            continue
+        if i["subject"] not in named:
+            problems.append(f"the table's `source {i['first']}-{i['last']}` names {i['subject']}, a subject no row of it has")
+        else:
+            problems.append(f"the table's `source {i['first']}-{i['last']} subject={i['subject']}` covers no whole shot "
+                            f"(the shots: {', '.join(f'{a}-{b}' for a, b in shots[:24])})")
+    apart = sorted({c for t in tables for c in t["cuts"] if span[0] < c <= span[1]} ^ set(cuts))
+    missing = ["a shot's people count is from one frame of it, the frame its tracker's tile shows",
+               "a subject with no shot table of its own is given the count another subject's table has for the shot",
+               "a dissolve is not a cut here: two shots it joins are read as one"]
+    if unknown:
+        missing.append("rows whose subject is not known are not asked about: " + ", ".join(sorted(set(unknown))))
+    if not tables and not flagged:
+        missing.append("no capture given holds a shot table or the flag, so no shot can read as people detected")
+    return ({"cut_over_levels": CUT, "cuts": cuts, "cuts_a_capture_puts_elsewhere": apart, "shots": out,
+             "where_a_named_subject_is_the_source's_own": own, "missing": missing}, problems)
 
 
 def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[str]:
@@ -1329,6 +1531,10 @@ def check(args, segs, canvas, span, src, rows, captures):
                  f"({100 * share:.1f}%): an earlier row is laid over it")
     if tally:
         result["subjects"] = tally.report()
+    result["shots"], unlaid = shots_of(record, rows, captures, span, source_moved_over(args.source, span, w, h),
+                                       read_intents(args.table))
+    for line in unlaid:
+        fail(line)
     result["flags"], result["pieces_with_no_capture"] = flags_of(record, rows, captures)
     result["whose_pixels"] = ("no capture given: the table's order" if not captures else
                               "owners.npz of " + ", ".join(sorted(os.path.basename(f) for f in captures.used_owner_map))
@@ -1336,9 +1542,21 @@ def check(args, segs, canvas, span, src, rows, captures):
     if captures:
         result["written_to_captures"] = write_to_captures(captures, record, rows, result["flags"], args.out, canvas)
     result["verdict"] = "passes" if not result["failures"] else "FAILS"
+    own = result["shots"]["where_a_named_subject_is_the_source's_own"]
+    kinds = {}
+    for entry in own:
+        kinds[entry["reading"]] = kinds.get(entry["reading"], 0) + 1
+    result["verdict_line"] = result["verdict"] + (
+        f"; {len(own)} shot(s) where a named subject is the source's own ("
+        + ", ".join(f"{n} {kind}" for kind, n in sorted(kinds.items())) + ")" if own
+        else "; every named subject has something laid on every shot" if any(e["subjects"] for e in result["shots"]["shots"])
+        else "; no row's subject is known, so no shot is asked about")
+    if unlaid:
+        result["verdict_line"] += ": " + "; ".join(line.split(". Lay a row")[0] for line in unlaid)
     return result
 
 
+PEOPLE_FLAG = "absent_with_people_on_screen"   # the capture's rule name (`bench/capture_masked_run.py`), read from its flags.json
 LOCKS = "LOCKED.md"   # beside the files it names
 LOCK_LINE = re.compile(r"^\s*[-*]\s+`([^`]+)`(?:\s+md5\s+([0-9a-fA-F]{32}))?")
 
@@ -1444,9 +1662,12 @@ def main():
             result["failures"].append(f"the file is locked in {lock[0]} at md5 {lock[1]} and is now {result['locked']['md5_now']}: "
                                       "it is not the file that was accepted")
             result["verdict"] = "FAILS"
+            result["verdict_line"] = "FAILS (not the locked file)" + result["verdict_line"][len("passes"):] \
+                if result["verdict_line"].startswith("passes") else result["verdict_line"] + "; not the locked file"
     with open(args.out + ".check.json", "w") as fh:
         fh.write(json.dumps(result, indent=1) + "\n")
-    shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "failures", "verdict") if k in result}
+    shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "failures", "verdict", "verdict_line") if k in result}
+    shown["shots"] = result["shots"]["where_a_named_subject_is_the_source's_own"]
     shown["regions"] = {os.path.basename(k): {a: b for a, b in v.items() if not a.endswith("_per_frame")}
                         for k, v in result["regions"]["pieces"].items()}
     shown["flags"] = [{k: f[k] for k in ("id", "rule", "level", "source_frames", "why")} for f in result["flags"]]
