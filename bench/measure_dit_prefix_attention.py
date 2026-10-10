@@ -98,7 +98,7 @@ by default with the softmax and every accumulation in float64;
 agreement between the two on one head.
 
     python bench/measure_dit_prefix_attention.py <capture_dir> \
-        --json bench/results/<date>_dit_prefix_attention_<task>.json
+        --json data/results/<date>_dit_prefix_attention_<task>.json
 
 Needs `PYTHONPATH` reaching ComfyUI, or nothing at all -- it inserts the roots
 itself, ComfyUI ahead of this repo (the `import nodes` trap in

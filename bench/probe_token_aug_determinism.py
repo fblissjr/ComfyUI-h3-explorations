@@ -4,7 +4,7 @@
 Stage 2 of the token routing plan found that with bit-identical inputs, the
 `token_aug` arm's output on one captured block varies between runs while the
 other four captured blocks and every plain arm are bitwise identical
-(`bench/results/2026-09-08_token_aug_stage2_reproduction.json`). That says the
+(`data/results/2026-09-08_token_aug_stage2_reproduction.json`). That says the
 variation belongs to the `token_aug` code path. It does NOT say what varies,
 and two very different mechanisms produce the same symptom:
 

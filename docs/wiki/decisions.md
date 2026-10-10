@@ -896,7 +896,7 @@ Older history lives elsewhere and is not copied here:
   2026-10-03: "i dont care if it differs by such a small amount"; on the
   board: "dont care if theyre not bit identical"). That is the difference
   between encoding references and prompt in one pass and keeping the
-  references across prompt edits (`bench/results/2026-10-03_reference_split.json`).
+  references across prompt edits (`data/results/2026-10-03_reference_split.json`).
   It is a switch, `keep_references`, and on in no generated graph: the
   generator change that turned it on was withdrawn before commit while a 512
   encoder view was about to become the default, where the one pass is already
@@ -924,7 +924,7 @@ Older history lives elsewhere and is not copied here:
   *The level moves with the view:* backstage against the dense clip at the
   shared view is +1.1 LU for the shipped render, +3.8 LU at 512 with sparse
   attention and +4.1 LU at 512 with dense
-  (`bench/results/2026-10-03_backstage_qview512_clip.json`), the range the
+  (`data/results/2026-10-03_backstage_qview512_clip.json`), the range the
   owner called loud on 2026-10-02; the owner heard the dense 512 clip and
   passed it. On the market scene the 512 clip's level does not move against
   the shipped clip (`2026-10-03_encoder_only_reference.md`, loudness).
@@ -1001,7 +1001,7 @@ Older history lives elsewhere and is not copied here:
   `bench/hwinfo.py` now prints each slot and flags it; the doc says what it can and cannot move.
   Its "Last updated" header read 2026-08-17 with a last commit of 2026-08-25.
 - **Corrected: `bench/profile_sol_stages.py` wrote a fixed `model` string** ("captures from a base
-  16-step t2v render") into every record, and `bench/results/2026-10-03_sol_stages_ref2va.json`
+  16-step t2v render") into every record, and `data/results/2026-10-03_sol_stages_ref2va.json`
   carried it for a ref2va capture. The tool now reads the source render from the capture set's
   `manifest.json`; that record's field is rewritten to what the tool writes now.
 
@@ -1130,7 +1130,7 @@ Older history lives elsewhere and is not copied here:
   `SOL_PDD_OVERRIDES`. **Not measured on them:** the panel's FlashGen pass starts at sigma 0.8, below
   the window, so no FlashGen or PDMD render from noise has been judged at 0.0. 32 graphs rebuilt,
   `start_percent` the only change. The first PDMD-against-FlashGen renders
-  (`bench/results/2026-10-01_pdmd_vs_flashgen.jsonl`) ran before it, at 0.2 on every arm (0.184.1).
+  (`data/results/2026-10-01_pdmd_vs_flashgen.jsonl`) ran before it, at 0.2 on every arm (0.184.1).
 
 - **The at-call LoRA branch stays as it is** (owner, 2026-10-01: neither fix). Fusing swiglu into
   fc2's projection or folding the add into kitchen's int8 matmul would recover part of the branch's
@@ -1476,10 +1476,10 @@ Older history lives elsewhere and is not copied here:
   whitespace. Core's own H3 nodes still do not strip.
 - **Closed: the encoder precision study.** `ENCODER_INT8` stays the default.
   At the int8 DiT, int8's effect sits under a floor that a dose-response
-  confirmed (`bench/results/2026-09-27_encoder_quant_floor.json`). Floor-free,
+  confirmed (`data/results/2026-09-27_encoder_quant_floor.json`). Floor-free,
   at the bf16 conditioning path, its image-token error is no worse than random
   and its text-token error is somewhat worse
-  (`bench/results/2026-09-27_encoder_quant_refiner.json`).
+  (`data/results/2026-09-27_encoder_quant_refiner.json`).
   `docs/open_experiments.md` #47 closes unbuilt.
 
 - **`qk_balance` is not inert behind the dense tail** (Sol redesign test 1,
@@ -1515,13 +1515,13 @@ Older history lives elsewhere and is not copied here:
   `bench/convert_h3_bf16_encoder.py`, which reads the sharded `text_encoder/`
   directly since `c743d100`. The weight-side headroom record already put the
   shipped int8 at its format's floor
-  (`bench/results/2026-08-29_int8_convrot_headroom.json`), so the encoder
+  (`data/results/2026-08-29_int8_convrot_headroom.json`), so the encoder
   quantisation lane stays closed.
 - **Corrected: what the 2026-09-20 entry below says `ENCODER_INT8` was
   measured against.** It was only ever graded against the two W4A16
   artifacts. It has now been measured against the bf16 pruned file on
   shipped graphs and on the violin-maker scene in three modes
-  (`bench/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
+  (`data/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
   - The vision tower and embedding table are bf16 in both files and add no
     error.
   - Text tokens stay close.
@@ -1600,7 +1600,7 @@ Older history lives elsewhere and is not copied here:
   reaches the chunked kernel. Both pages said core's and our Sol outputs
   "differ by no more than the all-routed floor" and that ours as shipped "sits
   closer to exact" than core's defaults. The 2026-09-10 record
-  (`bench/results/2026-09-10_sol_impl_capture_grade.json`, the `vs_ours`
+  (`data/results/2026-09-10_sol_impl_capture_grade.json`, the `vs_ours`
   fields) has them above our floor in most cells and in every carried cell,
   and ours at that day's policy losing on block 0 and the per-row mean while
   winning the whole-tensor mean through block 49; that is what they say now.
@@ -1875,7 +1875,7 @@ Older history lives elsewhere and is not copied here:
   request, relayed by the dotfiles session). `h3_config.REF_VIDEO_LOADER`;
   0.137.0. The loaders keep different frames on 25 and 30 fps sources, so
   renders from before and after are not substrate-comparable; the record is
-  `bench/results/2026-09-23_vhs_loader_comparison.json`. Prose that named
+  `data/results/2026-09-23_vhs_loader_comparison.json`. Prose that named
   `VHS_LoadVideo` as the reason for the choice ("the one that exposes
   `force_rate`": both do) was corrected in `build_workflows.py`,
   `docs/h3_references.md` and `docs/comfyui_vendor_gaps.md`.
@@ -1965,7 +1965,7 @@ Older history lives elsewhere and is not copied here:
   `docs/evidence.md`, `docs/roadmap.md` "Closed lanes", `docs/rules_history.md`,
   `bench/results/archive/v2_encoder/README.md`,
   `docs/research/archive/awq_quantization_suite/README.md` and its report, and inside
-  `bench/results/2026-08-25_four_encoders_holdout_layer50.json` itself.
+  `data/results/2026-08-25_four_encoders_holdout_layer50.json` itself.
 - **All four arms of that holdout hold the vision tower at BF16**, which the
   record did not say and a reader could not infer from it. Read from the file
   headers: `int8_convrot` and `nvfp4_awq` carry `.comfy_quant` markers on
@@ -2119,7 +2119,7 @@ Older history lives elsewhere and is not copied here:
 - **Two bench manifests and one probe graph retired** (the owner deferred the
   call to the sage-fork session, which chose it; `531fbab`). Both would re-run as
   something other than their records: `bench/ladder_arms.json` (rendered
-  2026-09-03, verdict `bench/results/2026-09-04_ladder_2026-09-03_verdict.json`)
+  2026-09-03, verdict `data/results/2026-09-04_ladder_2026-09-03_verdict.json`)
   refuses on its sage-mode patch now that `h3_text_to_video` has no sage node,
   and `bench/sol_core_ab_arms.json` with `h3_probe_t2v_sol_core` (rendered
   2026-09-10, no verdict record) would set ours on kitchen against core's node
@@ -2137,7 +2137,7 @@ Older history lives elsewhere and is not copied here:
   Taken on capture grades and one render per arm, not a blind verdict: the
   community-chain arms were unscored when it landed
   (`bench/results/2026-09-15_block49_community_chain.md`,
-  `bench/results/2026-09-15_ck_int8_attention_block49.json`). What stays on
+  `data/results/2026-09-15_ck_int8_attention_block49.json`). What stays on
   sage or stock attention, and why, is
   `bench/check_attention_defaults.py::FLOOR_STEMS`. `h3_probe_t2v_balanced`
   and `h3_probe_t2v_ck_balanced` retired. Prose that said the fallback under
@@ -2284,7 +2284,7 @@ Older history lives elsewhere and is not copied here:
   song UI graphs loaded shifted. The node declares it now
   (`audio_freeze_song.py`, the `seed` input).
 - **The song node's docstring and graph note said its first run had not
-  happened.** `bench/results/2026-09-12_audio_freeze_song_smoke.jsonl` records
+  happened.** `data/results/2026-09-12_audio_freeze_song_smoke.jsonl` records
   one. The docstring points there now.
 
 ## 2026-09-13
@@ -2312,7 +2312,7 @@ Older history lives elsewhere and is not copied here:
   `define_schema`). On the shipped core-loaded encoder `encoder` always
   resolved to `comfy`, since the CLIP carried no contract, and for stills
   `release` and `comfy` produce the same geometry at every legal short edge on
-  that encoder (`bench/results/2026-08-29_qwen_view_under_snapshot.json`).
+  that encoder (`data/results/2026-08-29_qwen_view_under_snapshot.json`).
   `video_policy`'s default moved from `encoder` (which ran as `comfy`) to
   `comfy`; every graph was rebuilt. What the prose used to claim:
   `docs/comfyui_vendor_gaps.md` listed `video_policy=encoder` as the "shipped

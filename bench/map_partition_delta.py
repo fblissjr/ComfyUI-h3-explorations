@@ -20,7 +20,7 @@ partitions differ, and where a difference is absent, degenerate or unusually
 concentrated. CPU only, one tensor at a time.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/map_partition_delta.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --out bench/results/<date>_<name>.jsonl [--lowrank 16]
+        --release <MiniMaxAI_MiniMax-H3 dir> --out data/results/<date>_<name>.jsonl [--lowrank 16]
 """
 
 from __future__ import annotations

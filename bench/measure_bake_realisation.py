@@ -39,7 +39,7 @@ Three arms, all 200 int8 modules, at strength 1.0:
 
     python bench/measure_bake_realisation.py --lora <lora> --base <base> \
         --reference <release>/FL2VA/transformer \
-        --out bench/results/2026-08-31_bake_realisation.json
+        --out data/results/2026-08-31_bake_realisation.json
 
 **Stored weights only.** Nothing here was rendered, and `int8_convrot` is W8A8
 so the activation rounding is untouched (`docs/open_experiments.md` #23).

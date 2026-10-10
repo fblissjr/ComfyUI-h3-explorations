@@ -5,7 +5,7 @@ owes, and delete the tensors of one that owes nothing.
 Captures are transient by the owner's policy (2026-09-03): the disk is not
 unlimited, a capture's value ends when the analysis it was taken for is
 recorded, and what must outlive it is small -- the manifest and the inventory
-record under `bench/results/`. This tool is the recycling half of that: it
+record under `data/results/`. This tool is the recycling half of that: it
 never deletes a capture the repo cannot account for.
 
     python bench/recycle_captures.py                  # the table
@@ -14,9 +14,9 @@ never deletes a capture the repo cannot account for.
 
 A capture is RECYCLABLE when all of:
   - its directory carries `manifest.json` and `retention.json`;
-  - `bench/results/` holds a manifest copy with the same `graph_sha256` and
+  - `data/results/` holds a manifest copy with the same `graph_sha256` and
     the same tensor sha256 set (the copy is what outlives the tensors);
-  - an inventory record under `bench/results/` names the capture;
+  - an inventory record under `data/results/` names the capture;
   - `retention.json`'s `keep_until` has passed, or `--delete` is given with
     `--reason`, which is written into the marker.
 
@@ -52,7 +52,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(REPO / "bench"))
 import _paths  # noqa: E402
 
@@ -159,9 +159,9 @@ def survey(root: Path) -> list[dict]:
         if retention is None:
             owes.append("retention.json")
         if copy is None:
-            owes.append("a manifest copy under bench/results/ (same graph and tensor hashes)")
+            owes.append("a manifest copy under data/results/ (same graph and tensor hashes)")
         if inventory is None:
-            owes.append("an inventory record under bench/results/ naming it")
+            owes.append("an inventory record under data/results/ naming it")
         rows.append({"name": d.name, "dir": d, "bytes": _size(d), "tensors": len(tensors),
                      "deleted": deleted, "incomplete": incomplete, "manifest": manifest is not None,
                      "retention": retention, "keep_until": keep_until, "expired": expired,

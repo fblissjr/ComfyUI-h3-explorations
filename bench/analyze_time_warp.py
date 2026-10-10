@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is ref2va's timestep conditioning fl2va's on a warped time axis?
 
-`bench/results/2026-09-29_partition_delta_map.jsonl` finds the two partitions
+`data/results/2026-09-29_partition_delta_map.jsonl` finds the two partitions
 differ by a few percent in every tensor, spread like noise, except the timestep
 path: `time_embedder.proj_in` (98% of its delta in 16 directions), `proj_out`,
 and every block's `adaln_proj` (about two thirds in 16 directions). This runs the
@@ -30,7 +30,7 @@ on different time axes; one that removes little says the difference is
 something else. CPU only.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_time_warp.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --blocks 0,25,48 --record bench/results/<date>_<name>.json
+        --release <MiniMaxAI_MiniMax-H3 dir> --blocks 0,25,48 --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

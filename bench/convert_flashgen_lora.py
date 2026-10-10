@@ -53,7 +53,7 @@ headers and small tensors.
         --release <MiniMaxAI_MiniMax-H3> \\
         --pruned <models>/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
         --out <models>/loras/h3/<name>.safetensors \\
-        [--compare <kijai file>] [--record bench/results/<date>_flashgen_lora_conversion.json]
+        [--compare <kijai file>] [--record data/results/<date>_flashgen_lora_conversion.json]
 """
 
 from __future__ import annotations

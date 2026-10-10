@@ -3,7 +3,7 @@
 
 `bench/analyze_sol_error.py` found block 49's INT8 quantization error is
 3-7x every other block's at the aggregate, while its per-head median is
-ordinary (`bench/results/2026-08-19_sol_error_per_head.json`). The 2026-08-19
+ordinary (`data/results/2026-08-19_sol_error_per_head.json`). The 2026-08-19
 postmortem left "attribute the aggregate to named heads" open. This script
 is that attribution, at the level the capture supports: the attention
 INPUTS per head, not the outputs, which would need the kernel.
@@ -28,7 +28,7 @@ and step, every statistic is rank-correlated (Spearman) with that record's
 `capture` field is not one of the captures given, and skips (loudly) a
 block/step the record does not carry.
 
-## What the 2026-08-20 run found (bench/results/2026-08-20_head_magnitudes.json)
+## What the 2026-08-20 run found (data/results/2026-08-20_head_magnitudes.json)
 
 Measured, on the 2026-08-17 (fl2va + ref LoRA) and 2026-08-18 (ref2va, no
 LoRA) captures at step 3:
@@ -54,12 +54,12 @@ LoRA) captures at step 3:
     is the worst case for a per-block INT8 quantiser, which is the shape of
     the 2026-08-19 anomaly.
   - The control, run the same day once the card freed
-    (`bench/results/2026-08-20_head_magnitudes_fl2va.json`, capture
+    (`data/results/2026-08-20_head_magnitudes_fl2va.json`, capture
     `2026-08-20_ref3_362f_1024x768_fl2va`: fl2va, no LoRA, same graph as the
     ref2va capture with only the unet swapped): block 49 shows the same four
     K channels at the same shares, the same per-head K rms spread, and
     blocks 24 and 40 flat. The per-head INT8 error from
-    `bench/results/2026-08-20_sol_error_per_head_fl2va.json` ranks the heads
+    `data/results/2026-08-20_sol_error_per_head_fl2va.json` ranks the heads
     the same way as ref2va's (Spearman ~0.95 at every captured block, the
     same six worst heads at block 49), at quant 0.124 against ref2va's
     0.134. So "fl2va without a LoRA looks the same" is observed, not
@@ -75,8 +75,8 @@ capture paths are recorded as `$H3_CAPTURE_ROOT/<dir>`, not literally.
         --capture $H3_CAPTURE_ROOT/2026-08-17_ref3_362f_1024x768 \\
         --capture $H3_CAPTURE_ROOT/2026-08-18_ref3_362f_1024x768_ref2va \\
         --blocks 49,40,24 --step 3 \\
-        --errors bench/results/2026-08-19_sol_error_per_head.json \\
-        --out bench/results/2026-08-20_head_magnitudes.json
+        --errors data/results/2026-08-19_sol_error_per_head.json \\
+        --out data/results/2026-08-20_head_magnitudes.json
 """
 
 from __future__ import annotations

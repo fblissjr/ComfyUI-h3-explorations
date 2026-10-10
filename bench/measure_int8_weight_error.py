@@ -19,7 +19,7 @@ CPU only. Reads both files, one tensor at a time, and writes a JSONL row per
 tensor as it goes, so a stopped run keeps what it measured.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/measure_int8_weight_error.py \\
-        --bf16 <fl2va bf16 pruned> --int8 <fl2va int8 pruned> --out bench/results/<date>_<name>.jsonl
+        --bf16 <fl2va bf16 pruned> --int8 <fl2va int8 pruned> --out data/results/<date>_<name>.jsonl
 """
 
 from __future__ import annotations

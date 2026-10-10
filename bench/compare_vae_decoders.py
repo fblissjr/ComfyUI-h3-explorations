@@ -28,7 +28,7 @@ venv. The latent is a `SaveLatent` file of the VIDEO half, as
 a `_savelat` twin writes it (the draft graph that first wrote it was retired
 2026-09-26).
 
-    python bench/compare_vae_decoders.py LATENT.latent --out bench/results/<date>_<what>.json
+    python bench/compare_vae_decoders.py LATENT.latent --out data/results/<date>_<what>.json
 """
 
 from __future__ import annotations

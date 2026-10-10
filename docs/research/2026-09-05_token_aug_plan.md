@@ -37,7 +37,7 @@ card is shared and every stage that touches it says so.
 
 ## Stage 1: the rebase -- DONE 2026-09-08
 
-**Record:** `bench/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`.
+**Record:** `data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`.
 
 **The target moved and got better.** Token routing merged as `b678fdf` and
 released in v0.2.33, whose tree is identical to the graded head `1128df6`, so
@@ -104,7 +104,7 @@ the rebase introduced.
 
 ## Stage 2: reproduce the grade -- DONE 2026-09-08, and the bar was wrong
 
-**Record:** `bench/results/2026-09-08_token_aug_stage2_reproduction.json`.
+**Record:** `data/results/2026-09-08_token_aug_stage2_reproduction.json`.
 
 **It passes, and stage 1 does not reopen.** Every aggregate that does not
 involve `token_aug` is bit-identical between kijai's graded build and ours,

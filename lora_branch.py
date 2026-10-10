@@ -6,7 +6,7 @@ checkpoints, ComfyUI does that per layer in
 requantize at a recalculated per-row scale with stochastic rounding, and keep
 the result resident. A delta smaller than one int8 step survives only in
 expectation, under rounding noise several times its own size.
-`bench/results/2026-09-26_int8_lora_requant.json` measures it on real layers:
+`data/results/2026-09-26_int8_lora_requant.json` measures it on real layers:
 
 - FlashGen's delta is about a hundredth of a step, and LightX2V Turbo's about
   a thousandth, in the middle blocks, so the merge keeps almost none of either.

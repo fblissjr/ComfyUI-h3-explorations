@@ -10,7 +10,7 @@ Parity with those two nodes is checked by rendering, not assumed:
 Why not `LoraLoaderModelOnly`: on the int8 convrot checkpoints ComfyUI merges a
 LoRA by dequantizing, adding the delta and requantizing. FlashGen's delta is
 about a hundredth of one int8 step, so the merge keeps almost none of it, and
-PDD's survives only in part (`bench/results/2026-09-26_int8_lora_requant.json`
+PDD's survives only in part (`data/results/2026-09-26_int8_lora_requant.json`
 there). This node leaves the int8 weight alone and adds `B (A x)` at the call.
 
 A PDD file carries three more things, all handled here:

@@ -12,7 +12,7 @@ seed 730451892, 1344x768, 345 frames, as saved by
 
 ## Keeper path: lossless
 
-`bench/results/2026-09-26_draft_decode_s1.jsonl`, four rows: a ship warmup,
+`data/results/2026-09-26_draft_decode_s1.jsonl`, four rows: a ship warmup,
 ship, draft, and `keep`. `keep` is `h3_decode_saved_latent` on the draft's two
 saved halves.
 

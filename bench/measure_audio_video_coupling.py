@@ -45,7 +45,7 @@ beside the owner's verdict, never instead of it.
 
     <comfy venv python> bench/measure_audio_video_coupling.py \\
         --clip dancer_frozen=<path.mp4> --clip dancer_free=<path.mp4> \\
-        --mode beat --out bench/results/<date>_..._coupling.json
+        --mode beat --out data/results/<date>_..._coupling.json
 
 `--audio <path>` tests every clip against that track instead of its own
 soundtrack (the free twin against the frozen track, for instance).

@@ -43,7 +43,7 @@ being one.
 
 ## Running it
 
-    python bench/probe_oracle_gate_scaling.py --out bench/results/2026-08-19_oracle_gate_scaling.json
+    python bench/probe_oracle_gate_scaling.py --out data/results/2026-08-19_oracle_gate_scaling.json
 
 No GPU needed for the oracle side and no capture: the inputs are synthetic, the
 same as the gate's own. Peak host memory is set by the largest length attempted.

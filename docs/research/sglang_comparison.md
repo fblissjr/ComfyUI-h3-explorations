@@ -123,7 +123,7 @@ run, the AdaLN projection is already tiny, so there is no matmul left worth
 eliminating. What it buys is *unpruned accuracy at pruned memory*.
 
 **#22 has since reported, and it half-opened the gate**
-([`bench/results/2026-08-21_pruning_sensitivity.json`](../../bench/results/2026-08-21_pruning_sensitivity.json)).
+([`data/results/2026-08-21_pruning_sensitivity.json`](../../data/results/2026-08-21_pruning_sensitivity.json)).
 The pruning is **not** invisible at the output: the first-step velocity moves
 5.6-9.4% against a determinism floor of exactly zero. So "the residual does not
 matter" — the outcome that would have killed this outright — did not happen.
@@ -194,7 +194,7 @@ Gemma4 decode and MiniMax Music; the H3 DiT loop
 `disable_dynamic=True`, which on a card the DiT does not fit
 ([`hardware.md`](../hardware.md), measured 2026-08-17) is not a route.
 What is left to gain is bounded by
-`bench/results/2026-08-18_phase0_instrument.json`: sampling at 1024x768 with
+`data/results/2026-08-18_phase0_instrument.json`: sampling at 1024x768 with
 three references ran at 100% SM occupancy with power pegged at the limit, and
 graph replay removes launch gaps only. Untested and the one place it could
 still pay: a single-frame `workflows/image/` render at a small canvas, where
@@ -338,7 +338,7 @@ It dies on two independent grounds, both already in this repo:
    of the file). No permutation of output rows can put a per-tensor scalar on
    the wrong row.
 2. **The gap is uniform across module kinds, so it is not qkv-specific.**
-   [`bench/results/2026-08-21_quant_delta_fl2va.json`](../../bench/results/2026-08-21_quant_delta_fl2va.json):
+   [`data/results/2026-08-21_quant_delta_fl2va.json`](../../data/results/2026-08-21_quant_delta_fl2va.json):
    `fp8_vs_bf16` reads the same for `attn.qkv_proj` as for `attn.out_proj`,
    `mlp.fc1` and `mlp.fc2`. A layout defect confined to the fused qkv weight
    would single that module out and it does not.
@@ -482,7 +482,7 @@ against a graph rewired to bypass the fit node.
   2026-08-21, after the sentence below was written**: the instrument exists.
   `bench/grade_vae_encoder_precision.py` grades the encoder at the call rather
   than at a rendered clip, and
-  [`bench/results/2026-08-21_vae_encoder_precision.json`](../../bench/results/2026-08-21_vae_encoder_precision.json)
+  [`data/results/2026-08-21_vae_encoder_precision.json`](../../data/results/2026-08-21_vae_encoder_precision.json)
   records fp16 bit-identical to itself against fp32 moving the latent, with
   bf16 as the far control. What stays open is whether that delta is *visible*,
   and the variable below, which the instrument does not separate.
@@ -528,7 +528,7 @@ ladder verdict says on ours: on this model the kernel arithmetic is not where
 the quality goes. Their definition of "lossless" also names the exception
 explicitly, `torch.compile`, and refuses it as ground truth; ours names the
 Comfy Compiler's malloc graph as the regime and checked one rung against it
-(`bench/results/2026-09-04_stairwell_dense_retime.jsonl`).
+(`data/results/2026-09-04_stairwell_dense_retime.jsonl`).
 
 **Silent fallback is now refused on their side too.** An explicit
 per-component attention backend must be consumed or the server does not

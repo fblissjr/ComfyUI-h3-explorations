@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Join a run JSONL to the clips the server wrote for it, before the server goes down.
 
-The shape is `bench/results/2026-09-03_ladder_outputs.json`, which was built
+The shape is `data/results/2026-09-03_ladder_outputs.json`, which was built
 by hand on 2026-09-03 and is what `bench/measure_clip_loudness.py` reads: one
 entry per judged arm with its label, prompt id, seed, graph, timings, and the
 muxed clip basename. `/history` is the only place the arm-to-clip join is
 recorded, and it dies with the server process, so run this while the server
 that rendered the rows is still up.
 
-    python bench/build_outputs_record.py --jsonl bench/results/<date>_<run>.jsonl \\
-        --host 127.0.0.1:8188 --out bench/results/<date>_<run>_outputs.json --what "..."
+    python bench/build_outputs_record.py --jsonl data/results/<date>_<run>.jsonl \\
+        --host 127.0.0.1:8188 --out data/results/<date>_<run>_outputs.json --what "..."
 
 **When the history is already gone** (2026-09-10: a restart came before this
 ran), `--counter-fallback` joins through `bench/blind_batch.py::locate_clips`

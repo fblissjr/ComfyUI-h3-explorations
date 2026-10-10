@@ -275,7 +275,7 @@ Read as a pipeline:
   snapshot's -- produce *identical* merged-token counts except for v1, because
   only v1's ceiling is low enough to bite
   ([`h3_references.md`](h3_references.md)'s regime table, and
-  [`../bench/results/2026-08-29_qwen_view_under_snapshot.json`](../bench/results/2026-08-29_qwen_view_under_snapshot.json)).
+  [`../data/results/2026-08-29_qwen_view_under_snapshot.json`](../data/results/2026-08-29_qwen_view_under_snapshot.json)).
   Stage ONE and `qwen_view` now decide what Qwen sees. The old sentence
   survives only for a calibration lane: if anyone quantizes against layer-49
   vectors again, the geometry Qwen sees during calibration still has to be the

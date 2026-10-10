@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """How often does the judge call a pair "same" or "can't tell", and does the slot order pull?
 
-    python bench/tally_judge_verdicts.py [--out bench/results/<date>_judge_tie_rate.json]
+    python bench/tally_judge_verdicts.py [--out data/results/<date>_judge_tie_rate.json]
 
-Reads every `bench/results/*verdict*.json` that carries scored pair contests in
+Reads every `data/results/*verdict*.json` that carries scored pair contests in
 the blind-batch join's shape (`pairs.by_pair[*].verdict`, one of the pair
 rubric's four answers) and counts the answers per file and in total. It also
 counts wins by slot (clip 1 against clip 2, which `bench/blind_batch.py` draws
@@ -53,7 +53,7 @@ def main() -> int:
 
     per_file, total = [], Counter()
     decoys: dict[str, Counter] = {"two_seed_decoy": Counter(), "identical_decoy": Counter()}
-    for path in sorted((REPO / "bench" / "results").glob("*verdict*.json")):
+    for path in sorted((REPO / "data" / "results").glob("*verdict*.json")):
         data = orjson.loads(path.read_bytes())
         block = data.get("pairs") if isinstance(data, dict) else None
         pairs = block.get("by_pair") if isinstance(block, dict) else None

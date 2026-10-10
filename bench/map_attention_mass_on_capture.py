@@ -2,8 +2,8 @@
 """Where does exact attention mass go, per head? Segment masses, per-latent-frame mass and the heaviest keys, on a capture.
 
     H3_CAPTURE_ROOT=... python bench/map_attention_mass_on_capture.py <capture-name> \\
-        [--cells b49_s15 ...] [--heads N] [--threads 4] --out bench/results/<date>_attention_mass_<name>.json
-    python bench/map_attention_mass_on_capture.py --summarize bench/results/<date>_attention_mass_<name>.json
+        [--cells b49_s15 ...] [--heads N] [--threads 4] --out data/results/<date>_attention_mass_<name>.json
+    python bench/map_attention_mass_on_capture.py --summarize data/results/<date>_attention_mass_<name>.json
 
 Reads `qkv_*.pt` cells under `$H3_CAPTURE_ROOT/<capture-name>/` and that
 directory's `manifest.json` (token accounting). CPU only; the capture is read,

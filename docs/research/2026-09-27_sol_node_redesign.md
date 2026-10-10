@@ -108,7 +108,7 @@ that. Once the generated graphs are rebuilt on the new node,
   bf16-only prose is wrong (audit §5.4).
 - **Keep the direct entry, with per-call statistics.** Core's chunked entry
   carries statistics from the previous step. That measured further from the
-  floor (`bench/results/2026-09-10_sol_impl_capture_grade.json`), and the
+  floor (`data/results/2026-09-10_sol_impl_capture_grade.json`), and the
   chunked entry takes no `qk_balance`. `MiniMaxH3SolChunked` stays the
   memory option; it engages only in the sage chain.
 
@@ -241,7 +241,7 @@ restarted on the new kitchen before anything runs.
      `bench/grade_sol_quantizer_on_capture.py` does. A comparison taken at
      the DiT's output instead sits on a floor that the int8 blocks add
      downstream. There, noise across a 100x range of doses reads the same
-     (encoderdude, 2026-09-27: `../../bench/results/2026-09-27_encoder_quant_dit.json`
+     (encoderdude, 2026-09-27: `../../data/results/2026-09-27_encoder_quant_dit.json`
      and `..._encoder_quant_refiner.json`). An at-the-output number needs a
      tiny-noise arm beside it.
 3. **The kernel fix, then a re-grade of token routing** per quantizer on the
@@ -257,7 +257,7 @@ restarted on the new kitchen before anything runs.
 
 | Mode | Graph | Before rows |
 |---|---|---|
-| t2v base | `workflows/h3_text_to_video_api.json` | `bench/results/2026-09-26_distill_run.jsonl`, base arms (most scenes on bank text older than 0.154.6) |
+| t2v base | `workflows/h3_text_to_video_api.json` | `data/results/2026-09-26_distill_run.jsonl`, base arms (most scenes on bank text older than 0.154.6) |
 | distill | `workflows/distill_experiments/h3_text_to_video_pdd_savelat_api.json` (PDD8, saves latents); `h3_text_to_video_flashgen_savelat` has the same coverage | `2026-09-26_followup.jsonl`; after on this kitchen: `2026-09-27_int8attn_after.jsonl` |
 | i2va | `workflows/h3_first_frame_to_video_api.json` (canvas follows the keyframe; no Resolution node). Distill: `distill_experiments/h3_first_frame_to_video_pdd_api.json`, never rendered | none |
 | ref2va | `workflows/h3_image_ref_plus_text_to_video_api.json` | none on this kitchen |

@@ -200,7 +200,7 @@ with the text on either side:
 
 A full stop before `<|cutoff|>` is dragged into `.<`, so a marker retokenizes
 the sentence *before* it. Measured 2026-08-22 across nine prompt shapes
-([`bench/results/2026-08-24_h3_marker_tokenization_native.json`](../bench/results/2026-08-24_h3_marker_tokenization_native.json)): in an ordinary
+([`data/results/2026-08-24_h3_marker_tokenization_native.json`](../data/results/2026-08-24_h3_marker_tokenization_native.json)): in an ordinary
 two-person dialogue prompt, 9 of 91 non-marker tokens come out different.
 
 **Native ComfyUI status: fixed.**
@@ -484,7 +484,7 @@ downscale of the same picture, with slight aspect drift from independent
 rounding to 32. The consequence worth holding is that the VAE's latent is finer
 than what Qwen extracted identity from, and nothing says so.
 
-[`bench/results/2026-08-21_shipped_reference_bounds.json`](../bench/results/2026-08-21_shipped_reference_bounds.json): **no shipped graph
+[`data/results/2026-08-21_shipped_reference_bounds.json`](../data/results/2026-08-21_shipped_reference_bounds.json): **no shipped graph
 reaches it, against the native ceiling.** Against the shipped W4 encoder's
 301,056-pixel ceiling every reference graph reaches it; that case is the
 artifact's, below.
@@ -495,7 +495,7 @@ applies -- `comfy` (default, no opinion) or `release` (the `encoder` value was
 removed 2026-09-13) -- and pre-applies the selected policy's bounds before the
 VAE, keeping both towers on one resolution. On the shipped encoder the two
 produce the same geometry at every legal short edge
-(`bench/results/2026-08-29_qwen_view_under_snapshot.json`). That is an opt-in local guard and it is **off by default**; the
+(`data/results/2026-08-29_qwen_view_under_snapshot.json`). That is an opt-in local guard and it is **off by default**; the
 native reference node and every graph left on `comfy` remain exposed.
 
 Until 2026-08-24 this was `MiniMaxH3ReferenceFit.keep_towers_matched`, which
@@ -644,7 +644,7 @@ the same inputs, which matters only if that is your goal.
 
 **7. Mono reference audio — WITHDRAWN 2026-08-29. It does not raise; core
 upmixes it.** *measured* against the real audio VAE
-([`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json)):
+([`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json)):
 a mono waveform encodes to `[1,32,2,40]` and produces exactly the 80 rows
 `PackedLayout` allocates. `_encode_ref_audio` calls `comfy.sd.VAE.encode`, whose
 `vae_encode_crop_pixels` replicates the channel because the H3 audio VAE
@@ -699,7 +699,7 @@ render rather than per step. `--fp32-vae` cannot express the split.
 
 Half of this is now measured. [`bench/grade_vae_encoder_precision.py`](../bench/grade_vae_encoder_precision.py) grades the
 encoder at the call rather than at a rendered clip
-([`bench/results/2026-08-21_vae_encoder_precision.json`](../bench/results/2026-08-21_vae_encoder_precision.json)): fp16 is bit-identical
+([`data/results/2026-08-21_vae_encoder_precision.json`](../data/results/2026-08-21_vae_encoder_precision.json)): fp16 is bit-identical
 to itself, fp32 moves the latent, bf16 moves it far further. The second and
 third are controls; only the middle is a result.
 
@@ -802,7 +802,7 @@ the remainder off the back.
 *measured* against the real audio VAE through `_encode_ref_audio` itself, with
 `crop_input = False` as the matched control arm
 ([`../bench/audit_ref_audio_crop.py`](../bench/audit_ref_audio_crop.py),
-[record](../bench/results/2026-08-30_ref_audio_crop.json)):
+[record](../data/results/2026-08-30_ref_audio_crop.json)):
 
 | case | samples | dropped front | dropped back | `ref_audio_t` shipped | crop disabled |
 |---|---|---|---|---|---|
@@ -911,7 +911,7 @@ owns those numbers.
   upmixes in `comfy.sd.VAE.encode` (`vae_encode_crop_pixels`, with the H3 audio
   VAE declaring `output_channels = 2, pad_channel_value = "replicate"`), which
   shipped in the H3 support commit. Measured 2026-08-29:
-  [`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json).
+  [`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json).
   A mono source reaches the DiT as exact dual-mono -- the audio VAE treats
   stereo as a batch axis with no cross-channel coupling, so the two latent
   channels are bitwise identical, at the two `w`-grid extremes. sglang's `-ac 2`
@@ -975,8 +975,8 @@ nothing is watching.
 |---|---|
 | The merged native fix in this installed ComfyUI | [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), `comfy/text_encoders/minimax.py` at installed commit `924743af` |
 | Tokenization audit, nine scenes plus reference integrity | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) |
-| Record | [`bench/results/2026-08-24_h3_marker_tokenization_native.json`](../bench/results/2026-08-24_h3_marker_tokenization_native.json) |
-| Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../bench/grade_h3_marker_tokens.py), [record](../bench/results/2026-08-21_h3_marker_token_states.json) |
+| Record | [`data/results/2026-08-24_h3_marker_tokenization_native.json`](../data/results/2026-08-24_h3_marker_tokenization_native.json) |
+| Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../bench/grade_h3_marker_tokens.py), [record](../data/results/2026-08-21_h3_marker_token_states.json) |
 | Are the embedding rows trained | [`bench/audit_h3_token_embeddings.py`](../bench/audit_h3_token_embeddings.py) |
 | The release's declared list, never retyped | [`vendor_config.py`](../vendor_config.py), guarded by [`bench/check_vendor_config.py`](../bench/check_vendor_config.py) |
 
@@ -1000,8 +1000,8 @@ the typed surface implements the behaviour locally.
 
 | what | where |
 |---|---|
-| Where the ceiling actually resizes, against the real helper | [`bench/measure_qwen_bounds_bite.py`](../bench/measure_qwen_bounds_bite.py), [record](../bench/results/2026-08-21_qwen_bounds_bite.json) |
-| Does any shipped graph hand Qwen a reference it shrinks | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py), [record](../bench/results/2026-08-21_shipped_reference_bounds.json) |
+| Where the ceiling actually resizes, against the real helper | [`bench/measure_qwen_bounds_bite.py`](../bench/measure_qwen_bounds_bite.py), [record](../data/results/2026-08-21_qwen_bounds_bite.json) |
+| Does any shipped graph hand Qwen a reference it shrinks | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py), [record](../data/results/2026-08-21_shipped_reference_bounds.json) |
 | The release's bounds, read not retyped | [`vendor_config.py`](../vendor_config.py) `image_pixel_bounds()` / `video_pixel_bounds()` |
 
 The measurement instruments **report**; neither refuses. Preflight reports a
@@ -1012,7 +1012,7 @@ that implements the release's image floor.
 
 | what | where |
 |---|---|
-| What core does with 1, 2 and 6 channels, measured on the real VAE | [`bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py), [record](../bench/results/2026-08-29_ref_audio_channels.json) |
+| What core does with 1, 2 and 6 channels, measured on the real VAE | [`bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py), [record](../data/results/2026-08-29_ref_audio_channels.json) |
 | Reports it on a real graph's real media | [`bench/preflight_graph.py`](../bench/preflight_graph.py) |
 | Typed boundary that refuses >2 channels | [`reference_conditioning.py`](../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 
@@ -1033,7 +1033,7 @@ not a pass.
 | what | where |
 |---|---|
 | Grades the encoder at the call, not at a rendered clip | [`bench/grade_vae_encoder_precision.py`](../bench/grade_vae_encoder_precision.py) |
-| Record | [`bench/results/2026-08-21_vae_encoder_precision.json`](../bench/results/2026-08-21_vae_encoder_precision.json) |
+| Record | [`data/results/2026-08-21_vae_encoder_precision.json`](../data/results/2026-08-21_vae_encoder_precision.json) |
 | The two probe arms | `workflows/h3_probe_ref_vae_encoder_fp16_api.json`, `workflows/h3_probe_ref_vae_encoder_fp32_api.json` |
 
 The probe arms render and **assert nothing**; they price the knob and prove it

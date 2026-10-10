@@ -2,7 +2,7 @@
 """What a tau per head would buy, on captured q/k/v: Sol's error and routed share per head, per tau.
 
     <comfy venv python> bench/measure_per_head_tau_on_capture.py <capture.pt> [...] \\
-        --video-start N --out bench/results/<date>_per_head_tau_<what>.json
+        --video-start N --out data/results/<date>_per_head_tau_<what>.json
 
 `comfy_kitchen.sol_attn` takes one tau per call, but its routing threshold is
 stored per head and query block (`sol_attn_preprocess.cu`, `thr_of`), and a

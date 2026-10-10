@@ -2,7 +2,7 @@
 
 The rule, why it exists here, how to write under it, and the plan for the
 prose that predates it. `bench/list_prose_measurements.py` is the instrument;
-`bench/results/2026-09-03_prose_measurements_baseline_v2.json` is where the
+`data/results/2026-09-03_prose_measurements_baseline_v2.json` is where the
 backlog stood when this was adopted. The `_baseline.json` beside it was taken
 the same day under an earlier pattern set that missed scientific notation and
 bare decimals; every record carries `pattern_version`, and counts across

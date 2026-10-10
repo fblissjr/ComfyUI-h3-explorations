@@ -3,7 +3,7 @@
 Date: 2026-09-19. Model: MiniMax H3, `minimax_h3_fl2va_pruned_int8_convrot`,
 345 frames at 24 fps, 1344x768, audio 32 kHz stereo out of
 `minimax_h3_audio_vae_fp32`. Every number in this file is also in
-`bench/results/2026-09-19_audio_sage_vs_kitchen.json`, which carries the full
+`data/results/2026-09-19_audio_sage_vs_kitchen.json`, which carries the full
 per-clip rows, per-pair deltas and the per-second per-band grids. CPU only; no
 GPU work, no server contact.
 

@@ -988,7 +988,7 @@ sparsity levels, without knowing the size or the sign of the second.
 
 > **Substantially done 2026-08-19.** `bench/sweep_routing_density.py` measures
 > routed density per block, step and head at production S on the 2026-08-18
-> capture (`bench/results/2026-08-19_routing_density_per_head.json`), with the
+> capture (`data/results/2026-08-19_routing_density_per_head.json`), with the
 > curve as an argument; the per-block and per-step axes came out flat. What
 > remains of this entry is the curve comparison at fixed tau specifically.
 
@@ -1240,7 +1240,7 @@ replay's per-call time, so the split is the render's. Record:
 `bench/results/2026-09-17_sol_stage_profile.md`. The first half was answered
 the same day by probe builds rather than `ncu`, whose counters are admin-only
 on the owner's machine: compute is the critical path, staging hides behind it
-(`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`). That is a
+(`data/results/2026-09-17_sol_exact_stage_vs_compute.json`). That is a
 coarser answer than counters would give, and it is about the INT8 PV kernel as
 written, not the 16-bit PV variant the 2.5x estimate was about.
 
@@ -1527,7 +1527,7 @@ so it is not blocked on that.
 
 **MEASURED AND REFUTED 2026-08-21.** Eleven forwards at 768x768, 124 frames,
 seed 730451892, one sampler step; record in
-[`bench/results/2026-08-21_pruning_sensitivity.json`](../bench/results/2026-08-21_pruning_sensitivity.json),
+[`data/results/2026-08-21_pruning_sensitivity.json`](../data/results/2026-08-21_pruning_sensitivity.json),
 grader `bench/grade_pruning_sensitivity.py`, driver `bench/run_pruning_arms.py`.
 ref2va moves 0.86 of what fl2va moves on the reference input and 0.81 on the
 plain one -- inside the [0.5, 2] refutation band and in the opposite direction
@@ -1559,7 +1559,7 @@ this clause; it was refuted on the ratio.
 
 **Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation
 output identically on both checkpoints
-([`bench/results/2026-08-20_adaln_pruning_residual.json`](../bench/results/2026-08-20_adaln_pruning_residual.json):
+([`data/results/2026-08-20_adaln_pruning_residual.json`](../data/results/2026-08-20_adaln_pruning_residual.json):
 same size, same per-parameter and per-timestep shape, ratio 0.97-1.01),
 moves the *network output* by a different amount on ref2va than on fl2va.
 That record measured the perturbation; this measures the sensitivity to it.
@@ -1954,7 +1954,7 @@ rows are the reference, which settles a question the conditioning notes
 have left open in prose.
 
 **Rendered 2026-09-03, one seed, unjudged.** All five arms in
-`bench/results/2026-09-03_ref_pathway_arms.jsonl`, clips on the output
+`data/results/2026-09-03_ref_pathway_arms.jsonl`, clips on the output
 share under `Video/h3_probe_ref_pathway_*`. The timing half of the answer
 is in the record; the perceptual half waits on the blind pairing.
 
@@ -1962,7 +1962,7 @@ is in the record; the perceptual half waits on the blind pairing.
 four controlled contests stacked, singles with audio, key sealed.
 
 **Scored 2026-09-04, one seed, pairs only.**
-`bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, joined after
+`data/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, joined after
 the key was checked against the manifest and the render rows. On the primary
 pair (ours, both pathways against encoder only) and its replication on
 core's node the owner could not tell which was which; the two encoder-only
@@ -1976,7 +1976,7 @@ the background who never move. At one seed that is a signature to look for,
 not a mechanism. Two pixel facts beside the verdict
 (`bench/compare_clip_pixels.py`): the two encoder-only arms are different
 renders despite reading as the same
-(`bench/results/2026-09-04_ref_pathway_encoder_arms_pixels.json`), so the
+(`data/results/2026-09-04_ref_pathway_encoder_arms_pixels.json`), so the
 Qwen view difference between the conditioners reaches the pixels and not
 the owner's eye; and the primary pair differs more than that pair does. The
 timing half is in the render record: the encoder-only arms' sampler time
@@ -1998,12 +1998,12 @@ sparse attention backend, merged 2026-09-02 with two MiniMax engineers as
 co-authors, ships a per-update keep-ratio schedule for the base fifty-step
 grid: dense for the first two updates, then a keep that falls fast through
 the first third of the trajectory to a small floor. It is recorded verbatim
-in `bench/results/2026-09-04_sglang_cube_topk_schedule.json`, and
+in `data/results/2026-09-04_sglang_cube_topk_schedule.json`, and
 `bench/map_cube_schedule.py` maps it onto the sigma grid our graphs sample
 (ComfyUI's `simple` at shift 12, built by the same two lines
 `bench/check_pdd_sigmas.py` uses) by sigma, not by step index. The mapping
 record for our shipped step counts is
-`bench/results/2026-09-04_cube_schedule_on_h3_grid.json`; it says how many
+`data/results/2026-09-04_cube_schedule_on_h3_grid.json`; it says how many
 leading updates the vendor would keep dense on our grid against the shipped
 window's leading count, and the `start_percent` interval that reproduces the
 vendor's count. **Mapped 2026-09-04**: on the sixteen-step grid the
@@ -2130,7 +2130,7 @@ other captured blocks move no element at all over repeated identical calls.
 It is not accumulation order: the deltas are many times the output's own mean
 magnitude on a small fraction of rows, and a reordered sum cannot do that.
 `bench/probe_token_aug_determinism.py` and
-`bench/results/2026-09-08_token_aug_determinism_shape.json` own it.
+`data/results/2026-09-08_token_aug_determinism_shape.json` own it.
 
 **What was NOT established when this entry was written, and is the whole
 question.** What varies. The admitted token set is not observable from outside
@@ -2197,7 +2197,7 @@ render.**
    whether the moving rows cluster inside centroid-sized windows, and whether
    both query blocks sharing a centroid move together.
    `bench/probe_token_aug_selection_structure.py` and
-   `bench/results/2026-09-08_token_aug_selection_structure.json`.
+   `data/results/2026-09-08_token_aug_selection_structure.json`.
    **The movement carries the selection unit's fingerprint on both tests**: it
    clusters far above the run's own scattered control, which is the same rows
    permuted within each head rather than a null asserted from theory, and the
@@ -2247,7 +2247,7 @@ render.**
    *It is upstream's, not ours.* Our delta against the tag is Python only and
    the selection kernel is byte-identical, but that is an argument; the
    measurement is `bench/compare_token_aug_wheels.py` and
-   `bench/results/2026-09-08_token_aug_stock_wheel_control.json`, which runs
+   `data/results/2026-09-08_token_aug_stock_wheel_control.json`, which runs
    the repro under a plain upstream wheel holding none of our code. It
    reproduces there in every cold run, and each arm carries a positive control
    that it is the wheel it claims to be, because otherwise "stock reproduces"
@@ -2255,7 +2255,7 @@ render.**
    *A capture cell is not a repro.* `bench/repro_token_aug_nondeterminism.py`
    is standalone and imports nothing from this repo, and
    `bench/verify_token_aug_repro_shapes.py` found the smallest input that still
-   moves, recorded in `bench/results/2026-09-08_token_aug_repro_shapes.json`.
+   moves, recorded in `data/results/2026-09-08_token_aug_repro_shapes.json`.
    **The methodology note is the part worth keeping**: the first search ran
    inside one process and the artifact it chose failed when run cold, because
    this is an intermittent race and a warm process is not the state the
@@ -2276,7 +2276,7 @@ render.**
    itself and the plan already exports a `tokCnt` offset, so calling the same C
    entry point with a workspace we keep reads the count out of the installed
    build. `bench/probe_token_aug_admitted_count.py` and
-   `bench/results/2026-09-08_token_aug_admitted_count.json`.
+   `data/results/2026-09-08_token_aug_admitted_count.json`.
    **The count exceeds the budget, by orders of magnitude rather than at the
    margin**, on a few hundred of several thousand centroid groups. Which groups
    overflow is identical across launches, as the mechanism predicts: what
@@ -2371,7 +2371,7 @@ this as checked, with the record.
 
 **Measured 2026-09-10, and closed as checked within a bound**
 (`bench/measure_keyframe_encode_determinism.py`, record
-`bench/results/2026-09-10_keyframe_encode_determinism.json`). Five fresh
+`data/results/2026-09-10_keyframe_encode_determinism.json`). Five fresh
 processes at the shipped canvas -- free VRAM as found, a ballast-reduced
 state, the first state again, and both states under
 `cudnn.deterministic=True` -- gave byte-identical latents on every arm and
@@ -2402,7 +2402,7 @@ Added 2026-09-26 (owner: the VAE items not already on the list become
 experiments). The case for it moved with the sampler: on the 4-step
 FlashGen graphs decode is a much larger share of a render than #28 sized on
 the base step count. Compare `decode_s` against `total_s` in
-`bench/results/2026-09-26_flashgen_lora_path_s1.jsonl` with #28's command.
+`data/results/2026-09-26_flashgen_lora_path_s1.jsonl` with #28's command.
 
 **Built the same day, and unmeasured.** *(The graph was retired on 2026-09-26 with the decline above.)* `h3_text_to_video_flashgen_draft` was
 the shipped FlashGen graph with the video decoded by `h3_config.DRAFT_VAE`
@@ -2488,7 +2488,7 @@ sits with fp16's, the rebuild record says so and this closes.
 **Blocker:** none since 2026-09-27. The build tracks upstream main
 (`vendor/rebuild_kernel.sh`), and `0.2.35+sol.863e953.up.c8c7825` carries
 `ef40891`. The "before" arm is
-`bench/results/2026-09-27_vae_encoder_fp16acc_before_672.json`. *Until then
+`data/results/2026-09-27_vae_encoder_fp16acc_before_672.json`. *Until then
 this said the tag was the blocker: untagged main was not built by policy.*
 
 **Closed 2026-09-27: no change** (`../bench/results/2026-09-27_vae_encoder_fp16acc.md`).
@@ -2608,7 +2608,7 @@ sparsity and gates at once. This splits the two.
      - fl2va plus α times FastH3's backbone delta, with the gates kept.
      - The two bf16 pruned files are kept for it (the owner's download
        folder, until this entry lands).
-     - The existing rank record (`../bench/results/2026-09-26_fasth3_lora_rank.json`)
+     - The existing rank record (`../data/results/2026-09-26_fasth3_lora_rank.json`)
        compares the two int8 files, whose rounding noise is on the order of
        the drift (`edf70ef6`), so its low energy is most likely a noise
        floor.
@@ -2759,7 +2759,7 @@ among PDD, FlashGen and FastH3 all night with it off.
 - **Blocker:** none beyond a batch to ride on. It costs almost nothing
   (`../bench/results/2026-09-26_telemetry_first_records.md` has the overhead).
 - **Run 2026-09-27 on the finisher grid** (`../bench/results/2026-09-27_finisher_grid.md`,
-  "Telemetry"; per-render summary `../bench/results/2026-09-27_finisher_grid_telemetry.json`).
+  "Telemetry"; per-render summary `../data/results/2026-09-27_finisher_grid_telemetry.json`).
   - The card peaks at 24.3-24.5 GB on every render.
   - The DiT is about 90% resident, and the rest streams every forward.
   - The text encoder loads and evicts per new prompt: 8.5-10 s and 22-31 GiB
@@ -2850,8 +2850,8 @@ that premise.
   Both save every step's x0 and the final latent (`probe_step_x0`, through
   `step_x0_observer.py`).
 - **Data already on disk, a pilot with no render:** subway_chase on both
-  (`../bench/results/2026-09-26_x0_steps_subway_pdd8.json`,
-  `../bench/results/2026-09-27_x0_steps_subway_base_euler32.json`).
+  (`../data/results/2026-09-26_x0_steps_subway_pdd8.json`,
+  `../data/results/2026-09-27_x0_steps_subway_base_euler32.json`).
 - **Bench:**
   - existing: `bench/x0_step_frames.py` (per latent frame, each step's
     `to_final` and `change`) and `bench/measure_clip_delta.py --json` (the
@@ -3064,11 +3064,11 @@ eye.
 
 ## 47. Does the int8 encoder's conditioning error reach the distills' output
 
-**Closed unbuilt, 2026-09-27: the floor arm confirmed the floor.** Noise far below int8's error moves the int8 DiT's prediction as much as int8 does (`../bench/results/2026-09-27_encoder_quant_floor.json`), so no per-step DiT test here can resolve encoder precision, and the distills share the int8 blocks. The conditioning path was measured floor-free instead (`../bench/results/2026-09-27_encoder_quant_refiner.json`). The plan below stands as the design if a bf16 DiT ever makes the question answerable.
+**Closed unbuilt, 2026-09-27: the floor arm confirmed the floor.** Noise far below int8's error moves the int8 DiT's prediction as much as int8 does (`../data/results/2026-09-27_encoder_quant_floor.json`), so no per-step DiT test here can resolve encoder precision, and the distills share the int8 blocks. The conditioning path was measured floor-free instead (`../data/results/2026-09-27_encoder_quant_refiner.json`). The plan below stands as the design if a bf16 DiT ever makes the question answerable.
 
 Added 2026-09-27 (encoderdude). On the base DiT at 16 steps, int8 moved the
 prediction no more than a norm-matched random perturbation or a one-token
-prompt edit (`../bench/results/2026-09-27_encoder_quant_dit.json`; only its
+prompt edit (`../data/results/2026-09-27_encoder_quant_dit.json`; only its
 step-0 rows are on a real trajectory). This asks the same question of the
 models the owner renders with: does int8-against-bf16 conditioning matter to
 PDD6 and FastH3? Three things it would tell apart:
@@ -3216,7 +3216,7 @@ about half its rows, so do not read cosines from it). It bears on the board's
 `ref2va-investigation`.
 
 **What the pruned files hold** (`../bench/compare_hybrid_timestep_set.py`,
-`../bench/results/2026-09-29_hybrid_adaln_all_timestep_set.json`, CPU): the
+`../data/results/2026-09-29_hybrid_adaln_all_timestep_set.json`, CPU): the
 pruned int8 files have no `time_embedder` tensors at all. The embedder is folded
 into `adaln_t_table` (a 1025x8 curve basis) and every `adaln_proj.linear` is
 expressed on it, so in pruned form the timestep path is that whole set, and

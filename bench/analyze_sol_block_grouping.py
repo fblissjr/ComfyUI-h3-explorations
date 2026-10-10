@@ -2,7 +2,7 @@
 """Sol-Attn groups tokens 64 at a time. Which side of that grouping costs the accuracy: the queries, the keys, the rule, or nothing that a reused decision could not pay for? Float reference on captures, CPU only.
 
     python bench/analyze_sol_block_grouping.py --check-only
-    python bench/analyze_sol_block_grouping.py CAP.pt [...] --out bench/results/<date>_sol_block_grouping.json
+    python bench/analyze_sol_block_grouping.py CAP.pt [...] --out data/results/<date>_sol_block_grouping.json
     python bench/analyze_sol_block_grouping.py --steps CAP.pt CAP.pt [...] --out <the same json>
     python bench/analyze_sol_block_grouping.py CAP.pt --figures <dir> --out <the same json>
     python bench/analyze_sol_block_grouping.py --summarize <json> > <date>_sol_block_grouping.md

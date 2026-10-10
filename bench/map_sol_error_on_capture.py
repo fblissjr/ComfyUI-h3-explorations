@@ -2,7 +2,7 @@
 """Where in the clip does Sol-Attn's error sit? Per-token error on a capture, by latent frame and in a named region.
 
     python bench/map_sol_error_on_capture.py <capture.pt> [...] --video-start N --audio-span A,B \\
-        --region T0:T1,H0:H1,W0:W1 --out bench/results/<date>_sol_error_map.json
+        --region T0:T1,H0:H1,W0:W1 --out data/results/<date>_sol_error_map.json
 
 Every capture metric this pack has used is one number per call: the error of
 the whole output against exact attention. On 2026-09-17 such numbers and the

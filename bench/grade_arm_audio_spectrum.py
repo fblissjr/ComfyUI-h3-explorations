@@ -7,7 +7,7 @@ and ffmpeg.
     bench/grade_arm_audio_spectrum.py \
         --arm stock='<output>/Video/marker_stock_*-audio.mp4' \
         --arm vendortokens='<output>/Video/marker_vendortokens_*-audio.mp4' \
-        --out bench/results/DATE_arm_audio_spectrum.json
+        --out data/results/DATE_arm_audio_spectrum.json
 
 Written for a specific report -- one arm's speech sounding "through a tin can"
 against another's -- and the shape generalises to any per-arm audio claim.

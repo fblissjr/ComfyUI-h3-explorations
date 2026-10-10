@@ -24,7 +24,7 @@ placeholder, not a recommendation.
 
 | blocks | attention | status | evidence |
 |---|---|---|---|
-| 0-44, 46, 47 | INT8: kitchen `int8_attention` (q/k rotated before INT8, core's Model Attention Backend) on the dense steps; Sol with `qk_balance` on the routed steps; no sage | shipped 2026-09-15, the default chain (owner) | flat K-norm weights; the kitchen kernel is immune to the loud channels by construction (`bench/results/2026-09-15_ck_int8_attention_block49.json`); Sol's gate shuts per head where nothing is loud (blocks 0 and 32 measured neutral, `bench/results/2026-09-15_channel_balance_kernel_b{0,32}_s15.json`); wall time on one market render per arm (`bench/results/2026-09-15_block49_community_chain.md`) |
+| 0-44, 46, 47 | INT8: kitchen `int8_attention` (q/k rotated before INT8, core's Model Attention Backend) on the dense steps; Sol with `qk_balance` on the routed steps; no sage | shipped 2026-09-15, the default chain (owner) | flat K-norm weights; the kitchen kernel is immune to the loud channels by construction (`data/results/2026-09-15_ck_int8_attention_block49.json`); Sol's gate shuts per head where nothing is loud (blocks 0 and 32 measured neutral, `bench/results/2026-09-15_channel_balance_kernel_b{0,32}_s15.json`); wall time on one market render per arm (`bench/results/2026-09-15_block49_community_chain.md`) |
 | 45, 48, 49 | the kitchen dense kernel, not Sol (`dense_blocks`, `h3_config.SOL_DENSE_TAIL`); bf16 (`MiniMaxH3ExactBlocks`) is the stronger option left open | **the default from 2026-09-25 to 2026-10-02; adopted Option A "39,41,42,49" on 2026-10-02**; `h3_probe_t2v_no_dense_tail` is the control. Shipped as Sol-routed INT8 until then | on the sage chain, market and diner 2026-09-15 (`bench/results/2026-09-15_block49_*`): shipped morphs, balanced does not, exact tail best; on the kitchen chain, three arms rendered and unscored (`..._community_chain.md`); Sol's own factor graded on block 49 (`..._kernel_b49_s15.json`). *(2026-10-02: under rotated INT8, block 48 error dropped to 7.14% while middle blocks 38–43 spike to ~25%; dense_blocks adopted Option A "39,41,42,49" with Option B "39,40,41,42,49" named; see `docs/research/sparse/sol_dense_blocks_reanalysis.md`)* |
 
 ## The policy table (linears)
@@ -83,7 +83,7 @@ k inside the quantizer, as comfy-kitchen's `int8_attention` already does
 orthogonal, so exact for the scores, and it flattens per-token spikes too,
 which no per-channel factor can. Measured on the block-49 capture that
 kernel is immune to the loud channels and beats the balanced Sol row
-(`bench/results/2026-09-15_ck_int8_attention_block49.json`). Goal: INT8
+(`data/results/2026-09-15_ck_int8_attention_block49.json`). Goal: INT8
 at block 49 as good as bf16, so the tail needs no exception and every
 user of these kernels gets it.
 
@@ -182,7 +182,7 @@ Not today: Tier 2 and Tier 3.
   `--use-ck-attention`) graded on the block-49 and block-0 captures: immune
   to the loud channels by construction (Hadamard rotation of q/k before
   INT8), a third of Sol's and sage's error on block 49, the fold moves it
-  one percent (`bench/results/2026-09-15_ck_int8_attention_block49.json`).
+  one percent (`data/results/2026-09-15_ck_int8_attention_block49.json`).
   Two consequences: the blast radius is sage and Sol, not every INT8
   attention; and Tier 2's shape is rotation, not group scales. Not timed;
   whether that kernel is a viable default at H3 length is a speed question
@@ -292,7 +292,7 @@ preprocess, so the routed steps stop needing a rebalance or a dense tail:
   default) and `Video/h3_probe_t2v_sol_nosage_00001-audio.mp4` (bf16
   dense + Sol).
 - 2026-09-15, night: the early-step grade of the three dense kernels
-  (`bench/results/2026-09-15_dense_kernels_by_step.json`) puts kitchen's
+  (`data/results/2026-09-15_dense_kernels_by_step.json`) puts kitchen's
   rotated INT8 kernel below sage at every cell, step 4 included; the
   coins flaw is not a per-call-error effect this instrument can see. One
   seed of clips against a lower number everywhere: the default dense

@@ -114,7 +114,7 @@ def _sage():
 # on Ada is plain fp8++. The reasoning: `auto` is what someone picks when they
 # want the best this node can do, and on H3 captures the rotated quantizer is
 # the most accurate INT8 arm on every captured block for about one percent of
-# the call (bench/results/2026-09-17_sage_qk_rotate_kernel.json). What it
+# the call (data/results/2026-09-17_sage_qk_rotate_kernel.json). What it
 # costs: a graph on `auto` renders a DIFFERENT SAMPLE from the same graph
 # before that date, and a record that says `sage_mode: auto` means plain fp8++
 # before it and rotated after. `auto (dispatcher)` keeps the old meaning for
@@ -138,7 +138,7 @@ MODES = {
     # use. On H3 captures it removes about half of block 49's error where the
     # balanced mode removes about a third, is a few percent better on every
     # other captured block, and costs about one percent of the call
-    # (bench/results/2026-09-17_sage_qk_rotate_kernel.json). An alternative to
+    # (data/results/2026-09-17_sage_qk_rotate_kernel.json). An alternative to
     # the balanced mode, not an addition: with rotation on the balance factor
     # finds nothing to do. No clip has been judged with it yet.
     "fp8++ rotated": (None, {"pv_accum_dtype": "fp32+fp16", "qk_rotate": True}),

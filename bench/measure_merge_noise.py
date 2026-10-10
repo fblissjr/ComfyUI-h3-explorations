@@ -283,7 +283,7 @@ def main() -> int:
                       + (f" --only {args.only}" if args.only else "")),
     }
     suffix = f"_{args.only}" if args.only else ""
-    out = REPO / "bench" / "results" / f"{record['date']}_merge_noise{suffix}.json"
+    out = REPO / "data" / "results" / f"{record['date']}_merge_noise{suffix}.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(REPO)}")
     return 0

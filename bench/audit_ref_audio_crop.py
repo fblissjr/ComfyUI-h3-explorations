@@ -159,7 +159,7 @@ def main() -> int:
     print(f"  one latent step is {ratio} samples = {ms:.2f} ms at {SAMPLE_RATE} Hz")
     print(f"  shipped_trim is this repo's own cap for {SHIPPED_FRAME_COUNT} frames "
           f"at {FPS} fps: {SHIPPED_TRIM_SAMPLES} samples")
-    out = HERE / "results" / f"{date.today().isoformat()}_ref_audio_crop.json"
+    out = HERE.parent / "data" / "results" / f"{date.today().isoformat()}_ref_audio_crop.json"
     out.write_text(json.dumps(
         dict(vae=MODELS["audio_vae"], sample_rate=SAMPLE_RATE,
              spacial_compression_encode=int(ratio),

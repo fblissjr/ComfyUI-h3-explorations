@@ -120,9 +120,9 @@ ran the two exact algorithms on the same seeded random BF16 inputs:
 At the shipped `tau=1.0`, both were approximately 1.145% from the eager Sol
 reference and had indistinguishable isolated kernel timing. This is a random
 input result, not an H3 estimate. The records are
-[`2026-09-01_sol_exact_main_24908e1.json`](../../bench/results/2026-09-01_sol_exact_main_24908e1.json)
+[`2026-09-01_sol_exact_main_24908e1.json`](../../data/results/2026-09-01_sol_exact_main_24908e1.json)
 and
-[`2026-09-01_sol_exact_continued_7cb749c.json`](../../bench/results/2026-09-01_sol_exact_continued_7cb749c.json).
+[`2026-09-01_sol_exact_continued_7cb749c.json`](../../data/results/2026-09-01_sol_exact_continued_7cb749c.json).
 
 PR #150 reports a larger gain on one real H3 capture: all-block relative L2
 against FP32 falls from 1.96% to 1.40%, and at 10% keep the mean/worst per-head
@@ -132,7 +132,7 @@ here. The two records do not disagree: their inputs differ, and H3's score
 distribution is exactly the variable random inputs erase.
 
 The previous Q/K/V captures were deliberately deleted after their inventory
-was written. [`2026-08-30_capture_inventory.json`](../../bench/results/2026-08-30_capture_inventory.json)
+was written. [`2026-08-30_capture_inventory.json`](../../data/results/2026-08-30_capture_inventory.json)
 preserves what they contained, not the tensors needed to replay the new branch.
 
 ## 4. Base16/Base20 changes the exposure, not the kernel contract
@@ -292,9 +292,9 @@ the repo; inventoried and given a manifest later the same day,
 `bench/results/2026-09-03_capture_{inventory,manifest}_base16.json`) and was
 replayed through both exact-branch variants with
 `bench/measure_sol_exact_variants.py --capture`. Records:
-[`2026-09-03_sol_exact_base16_capture_d25f2e8.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_d25f2e8.json)
+[`2026-09-03_sol_exact_base16_capture_d25f2e8.json`](../../data/results/2026-09-03_sol_exact_base16_capture_d25f2e8.json)
 (installed, block-max P) and
-[`2026-09-03_sol_exact_base16_capture_24908e1.json`](../../bench/results/2026-09-03_sol_exact_base16_capture_24908e1.json)
+[`2026-09-03_sol_exact_base16_capture_24908e1.json`](../../data/results/2026-09-03_sol_exact_base16_capture_24908e1.json)
 (upstream running-max P). Direction: with every block routed the block-max
 build is several times closer to fp32 on every cell, a larger gap than PR
 #150's own capture reports; at tau 1.0 WITHOUT sink ranges (the
@@ -305,7 +305,7 @@ both builds, so it is quantisation rather than sparsity.~~ **Withdrawn the
 same day, in place** (Codex's review): true only on the block-max build and
 only under the whole-tensor metric, and the reasons are below. The Sage
 modes were graded on the same cells with `bench/grade_sage_on_capture.py`
-([`2026-09-03_sage_on_base16_capture.json`](../../bench/results/2026-09-03_sage_on_base16_capture.json)),
+([`2026-09-03_sage_on_base16_capture.json`](../../data/results/2026-09-03_sage_on_base16_capture.json)),
 which is the Sol-versus-fallback comparison section 6 asks for, on five
 blocks and one scene -- **but not on matched footing**: that record scored
 512 sampled rows against float64 while the Sol records scored every row
@@ -353,7 +353,7 @@ every magnitude here is one scene's.
 ## First online record of the shipped call, 2026-09-03 evening
 
 The probe's two controls passed before the record was read.
-`bench/results/2026-09-03_probe_replay_base16.txt`: the online metric
+`data/results/2026-09-03_probe_replay_base16.txt`: the online metric
 reproduces the offline `exact_all_routed` numbers on every retained Base16
 cell, so this record and the offline ones are one footing.
 `bench/check_sol_probe.py --record ... --n-blocks 50`: every invariant holds
@@ -365,8 +365,8 @@ production sink ranges and `dense_blocks` empty, one seed, `trajectory=sol`:
 Sol's output against the chained fallback (the shipped sage override) on
 identical q/k/v, per block and step, for the eleven in-window steps.
 Summary as data, ranked by mean whole-call rel_l2:
-`bench/results/2026-09-03_sol_probe_base16_standoff.json`; the route the
-same render took: `bench/results/2026-09-03_sol_route_base16_standoff_probe.json`;
+`data/results/2026-09-03_sol_probe_base16_standoff.json`; the route the
+same render took: `data/results/2026-09-03_sol_route_base16_standoff_probe.json`;
 the raw records under `internal/sol_observe/2026-09-03_probe_base16_standoff{,_observe}`.
 
 What the ranking says, in words, with the numbers left in the record:
@@ -387,4 +387,4 @@ What the ranking says, in words, with the numbers left in the record:
 
 One scene, one seed, telemetry on: the render's wall time is instrumented
 and not quotable (the row in
-`bench/results/2026-09-03_probe_base16_standoff.jsonl` says so by its label).
+`data/results/2026-09-03_probe_base16_standoff.jsonl` says so by its label).

@@ -3,7 +3,7 @@
 
 `bench/analyze_checkpoint_delta.py` compared the modulation of the pruned int8
 files, and found its largest per-chunk differences on the audio chunks, with
-nothing interpreting it (`bench/results/2026-08-20_dit_internals.json`). The
+nothing interpreting it (`data/results/2026-08-20_dit_internals.json`). The
 pruned files factor the modulation through a shared basis, whose sign flips
 withdrew one reading (`docs/evidence.md`). The release's own `adaln_proj.linear`
 has no factoring, so its weight and bias compare directly.
@@ -16,7 +16,7 @@ delta of weight rows and of bias, ||ref - fl|| / ||fl|| (`weight_rel`,
 Modality summaries are in the printed table. CPU only.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_adaln_chunks_original.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --record bench/results/<date>_<name>.json
+        --release <MiniMaxAI_MiniMax-H3 dir> --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

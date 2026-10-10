@@ -21,7 +21,7 @@ no scheme rather than trusting the pattern list. The vision tower, patch merger
 and DeepStack mergers are excluded the same way, recovered by module class.
 
 **MEASURED.** The assertion is not what settles it; the holdout captures are.
-In [`2026-08-25_v2_holdout_layer50.json`](../../../../bench/results/2026-08-25_v2_holdout_layer50.json)
+In [`2026-08-25_v2_holdout_layer50.json`](../../../../data/results/2026-08-25_v2_holdout_layer50.json)
 the `layer0_input` relative L2 is exactly **0.0** on every row, both geometries,
 both W4 arms. The token embedding table and the entire vision path are
 byte-identical across BF16, v1 and v2. Whatever v2 was, it was not a different
@@ -38,7 +38,7 @@ hold at once.
 **MEASURED, and it closes the one lever that did exist.** Calibration data
 could in principle bias the scale search toward H3's schema positions. The pool
 cannot supply them: in
-[`2026-08-25_v3_selection_max_no_upscale.json`](../../../../bench/results/2026-08-25_v3_selection_max_no_upscale.json),
+[`2026-08-25_v3_selection_max_no_upscale.json`](../../../../data/results/2026-08-25_v3_selection_max_no_upscale.json),
 `<d>` and `</d>` occur in 505 of 1,028 pool rows and the other five H3 markers
 in **zero**, while the whole label scaffold -- `<Picture i>:`, `<Video k>:`,
 timestamps -- is 952 of 265,922 tokens. A scale search cannot be biased toward a
@@ -56,7 +56,7 @@ section exists to make available.
 
 **MEASURED, 2026-08-26.** Producer
 [`bench/measure_encoder_footprint.py`](../../../../bench/measure_encoder_footprint.py),
-record [`2026-08-26_encoder_footprints.json`](../../../../bench/results/2026-08-26_encoder_footprints.json).
+record [`2026-08-26_encoder_footprints.json`](../../../../data/results/2026-08-26_encoder_footprints.json).
 Safetensors headers only; no tensor data read. The **H3 path** is decoder layers
 0--49 plus the embedding table and the vision tower, with later layers and the
 output head dropped as `comfy/text_encoders/minimax.py` drops them on load. It
@@ -87,7 +87,7 @@ Three things this table says that file size did not:
 
 **MEASURED, and it bounds what fitting is worth.** The occupancy instrument on a
 real arm-B render
-([`2026-08-25_refview_b_qwen2048_int8_occupancy.json`](../../../../bench/results/2026-08-25_refview_b_qwen2048_int8_occupancy.json))
+([`2026-08-25_refview_b_qwen2048_int8_occupancy.json`](../../../../data/results/2026-08-25_refview_b_qwen2048_int8_occupancy.json))
 put the INT8 encode at 59.6 s of a 691 s render, peaking at 20,470 MiB with
 95.8% mean GPU utilization and 22.3% mean memory-interface. ComfyUI streams the
 oversized file layer by layer and the per-layer compute hides the transfer, so
@@ -285,7 +285,7 @@ together here are not weights problems at all:
 
 **Special tokens are the only genuine weights question, and the frozen DiT is
 the argument against training them.** **MEASURED**
-([`2026-08-25_released_encoder_is_stock.json`](../../../../bench/results/2026-08-25_released_encoder_is_stock.json)):
+([`2026-08-25_released_encoder_is_stock.json`](../../../../data/results/2026-08-25_released_encoder_is_stock.json)):
 the released `text_encoder/` is byte-identical to stock Qwen3-VL-32B-Instruct
 across all 14 shards. So the release pairs the DiT with an encoder whose seven
 marker rows are untrained. **INFERENCE:** training those rows moves the encoder
@@ -318,7 +318,7 @@ Three instruments, all built:
 
 - **Encoder level, deterministic, no renders.** Capture layer-50 per arm and
   compare on aligned positions. Done once already
-  ([`2026-08-21_h3_marker_token_states.json`](../../../../bench/results/2026-08-21_h3_marker_token_states.json)):
+  ([`2026-08-21_h3_marker_token_states.json`](../../../../data/results/2026-08-21_h3_marker_token_states.json)):
   marker representation moves the encoding by relative L2 0.034 on a short voice
   line to 0.16 on a dialogue-heavy prompt. Against the four-encoder table's
   0.021--0.027 for INT8 and 0.31--0.37 for W4, marker representation is a larger

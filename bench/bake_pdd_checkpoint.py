@@ -44,7 +44,7 @@ CPU only. Run with CUDA_VISIBLE_DEVICES= (docs/checks.md, "Running them").
         --base models/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
         --reference <release>/FL2VA/transformer \\
         --lora models/loras/h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors \\
-        --control --result bench/results/<date>_bake_identity_control.json
+        --control --result data/results/<date>_bake_identity_control.json
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ from comfy_kitchen.backends.eager.quantization import (  # noqa: E402
 KINDS = P.BACKBONE_KINDS
 CHUNK = 64 << 20
 #: Host-memory floor to start under, GB. REASONED: about twice the peak RSS
-#: the first runs recorded (`bench/results/2026-09-05_bake_*.json`,
+#: the first runs recorded (`data/results/2026-09-05_bake_*.json`,
 #: `peak_rss_gb`), so a run that has to share the host with a staged DiT is
 #: refused before it starts rather than killed mid-write.
 RSS_BUDGET_GB = 12.0
@@ -201,7 +201,7 @@ def sample_modules(mods: list[str], every: int) -> list[str]:
 #: handful of codes out of tens of millions, each off by exactly one step,
 #: with scales differing at float32-ulp level and the error against the
 #: release equal to the shipped file's within float epsilon
-#: (`bench/results/2026-09-05_bake_identity_control_block0.json`, then all
+#: (`data/results/2026-09-05_bake_identity_control_block0.json`, then all
 #: 200 in `..._bake_identity_control.json`): round-to-nearest on another
 #: device or accumulation order, with a few elements landing on rounding
 #: ties. The alternatives were run and ruled out the same day (stochastic

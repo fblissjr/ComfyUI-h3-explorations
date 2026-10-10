@@ -18,7 +18,7 @@ render. Random tensors in the block's layout; one call is one block's
 attention and a step is fifty. Each figure is the best of
 4 calls after a warm-up; the calls agree to the
 third digit and every one is in
-[`2026-10-07_frozen_cache_rectangle_kernel.json`](2026-10-07_frozen_cache_rectangle_kernel.json),
+[`2026-10-07_frozen_cache_rectangle_kernel.json`](../../data/results/2026-10-07_frozen_cache_rectangle_kernel.json),
 which the tables below are printed from.
 `bench/bench_rect_attention.py` is the script. 2.14.1+cu132, comfy-kitchen
 0.2.37+sol.6272371.up.be003b7, NVIDIA GeForce RTX 4090, bf16. What is **measured** here is the

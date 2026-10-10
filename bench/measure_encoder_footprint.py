@@ -2,7 +2,7 @@
 """How much VRAM does each H3 conditioning encoder actually need resident?
 
 The four-encoder holdout table
-(`bench/results/2026-08-25_four_encoders_holdout_layer50.json`) ranked the
+(`data/results/2026-08-25_four_encoders_holdout_layer50.json`) ranked the
 encoder files by fidelity and said nothing about what each one costs to hold.
 The cost question was answered by file size, which is the wrong number twice
 over: H3 consumes decoder layers 0--49 and never the output head, so a file
@@ -27,7 +27,7 @@ Paths stay out of the record: encoders are named by file name only, resolved
 under a models directory given on the command line or `--models-dir`.
 
     python bench/measure_encoder_footprint.py \\
-        --out bench/results/<date>_encoder_footprints.json [--budget-gib 24]
+        --out data/results/<date>_encoder_footprints.json [--budget-gib 24]
 
 `--budget-gib` is optional and only ever adds a margin column; no card size is
 baked in here.

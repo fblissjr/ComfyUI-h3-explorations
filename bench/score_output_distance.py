@@ -5,7 +5,7 @@
         --stem h3_probe_r2v_step_switch_pdd8_flashgen_h080_savelat \\
         --reference dense=sweep_a --arm shipped=ship:2 --arm stock=od_market__stock \\
         --other-seed ship:1 --other-seed ship:3 --other-seed-of shipped \\
-        --out bench/results/<date>_<what>.json
+        --out data/results/<date>_<what>.json
 
 The generalisation of `bench/score_sol_dense_blocks_panel.py`, which needs
 the server that rendered its rows: this one reads the files. A render is named

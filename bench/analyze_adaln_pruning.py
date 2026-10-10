@@ -70,7 +70,7 @@ includes int8 error on the full weight. The final-layer row is the clean one.
 Separating the two on the blocks needs the bf16 release. The fl2va-vs-ref2va
 comparison of residuals is unaffected: both sides carry the same treatment.
 
-## What the 2026-08-20 run found (record: bench/results/2026-08-20_adaln_pruning_residual.json)
+## What the 2026-08-20 run found (record: data/results/2026-08-20_adaln_pruning_residual.json)
 
   - The construction, measured: `adaln_t_table` is `U @ Sigma` of the centred
     `silu(e(t))` curve (column norms equal the singular values to four

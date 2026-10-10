@@ -5,7 +5,7 @@ An instrument, not a check. This is **the only place the key is opened**, and
 it opens it only after the scores exist: pass it a `scores_<session>.json`
 exported from the batch's `score.html` and the key
 `internal/blind_keys/<session>.json`, and it writes
-`bench/results/<date>_<session>_verdict.json`.
+`data/results/<date>_<session>_verdict.json`.
 
 ## What it produces
 
@@ -61,7 +61,7 @@ _SUMMARY = (__doc__ or "").split("\n")[0]
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 KEY_DIR = REPO / "internal" / "blind_keys"
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 
 SLOTS = ["Clip 1", "Clip 2"]
 TIE = "same"
@@ -79,7 +79,7 @@ def _blank(v) -> bool:
 
 
 def _scrub(node, where="record"):
-    """Refuse rather than ship somebody's storage layout into bench/results."""
+    """Refuse rather than ship somebody's storage layout into data/results."""
     if isinstance(node, dict):
         for k, v in node.items():
             _scrub(v, f"{where}.{k}")
@@ -120,7 +120,7 @@ def main() -> int:
     ap.add_argument("--manifest", default=None,
                     help="the batch's MANIFEST.json, cross-checked against the key when given")
     ap.add_argument("--out", default=None,
-                    help="default bench/results/<date>_<session>_verdict.json")
+                    help="default data/results/<date>_<session>_verdict.json")
     ap.add_argument("--partial", action="store_true",
                     help="allow a scores file that does not cover every item")
     args = ap.parse_args()

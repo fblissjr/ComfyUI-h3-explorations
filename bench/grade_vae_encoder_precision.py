@@ -213,7 +213,7 @@ def main() -> int:
                     "artifact on disk, so neither arm has a reference to be "
                     "right against"),
     }
-    out = args.out or _REPO / "bench" / "results" / "2026-08-21_vae_encoder_precision.json"
+    out = args.out or _REPO / "data" / "results" / "2026-08-21_vae_encoder_precision.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.resolve().relative_to(_REPO)}")
     return 0 if (det_ok and order_ok) else 1

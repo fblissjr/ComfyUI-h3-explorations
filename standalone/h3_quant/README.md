@@ -15,7 +15,7 @@ steps for some, the Sol / Block Sparse Attention kernel on the routed steps
 for most. Both round q and k with one scale per row across a head's 128
 channels. H3's `k_norm.weight` on blocks 45, 48 and 49 puts most of its
 energy into four channels, on every checkpoint checked
-([scan](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/bench/results/2026-09-14_block49_checkpoint_scan_and_targets.txt)),
+([scan](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/data/results/2026-09-14_block49_checkpoint_scan_and_targets.txt)),
 so on those blocks the loud channels set the scale and the rest keep a
 couple of levels. Block 49 also reads the prompt most sharply, and on our
 clips that showed as morphs and garbled text
@@ -35,7 +35,7 @@ kitchen's dense `int8_attention` 0.017 because it rotates q/k before
 rounding and does not have this problem
 ([records](https://github.com/fblissjr/ComfyUI-h3-explorations/tree/main/bench/results)).
 The weights fold in this node takes about 13 percent off Sol's term
-([grade](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/bench/results/2026-09-14_channel_balance_b49_s15.json));
+([grade](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/data/results/2026-09-14_channel_balance_b49_s15.json));
 per-head factors and a Hadamard rotation inside the kernels do two to four
 times that and are headed upstream as comfy-kitchen PRs
 ([policy and status](https://github.com/fblissjr/ComfyUI-h3-explorations/blob/main/docs/h3_quant_policy.md)).

@@ -75,7 +75,7 @@ v1's still bounds are a 1.5x window (200704..301056), narrow enough that
 `smart_resize` lands every non-square reference on the identical view whatever
 it was prepared at: 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9,
 266 at 4:3, and only square moves at all
-([`bench/results/2026-08-27_qwen_view_under_snapshot.json`](../../../bench/results/2026-08-27_qwen_view_under_snapshot.json)).
+([`data/results/2026-08-27_qwen_view_under_snapshot.json`](../../../data/results/2026-08-27_qwen_view_under_snapshot.json)).
 Under v2's bounds the same knob spans 448 to 7,296.
 
 **Observed once, under v2:** a two-speaker scene at the old default rendered

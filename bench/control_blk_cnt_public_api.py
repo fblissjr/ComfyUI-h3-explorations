@@ -6,7 +6,7 @@ independently reproduce one valid count and one rejected buffer on the
 installed CUDA wheel before any production render. Codex's process lost CUDA
 access mid-review, so it ran the pair on the eager backend only and left the
 CUDA half owed. This is that half, written as a bench record rather than a
-test so the result lands in `bench/results/` with the wheel that answered.
+test so the result lands in `data/results/` with the wheel that answered.
 
 Deliberately NOT the observer check's fixtures and not the upstream tests'
 either: a five-block sequence with a two-block sink and one sink_q row, so
@@ -23,7 +23,7 @@ rather than filled or broadcast. A third arm asks the eager backend the same
 question on the same tensors, so the two implementations are compared on
 this fixture too.
 
-    python bench/control_blk_cnt_public_api.py [--out bench/results/<file>.json]
+    python bench/control_blk_cnt_public_api.py [--out data/results/<file>.json]
 
 Exit 0 when every arm holds, 1 otherwise, 2 without CUDA or without a wheel
 whose `sol_attn` takes `blk_cnt`.

@@ -69,7 +69,7 @@ as arithmetic.
 paper configurations run from 27,280 tokens (DynSparse, Wan2.2-5B, stated in
 its section 2.3) to about 118,800 (SVOO, HunyuanVideo 720p at 129 frames, by
 arithmetic from the stated resolution and frame count); H3 is 104,361
-(`bench/results/2026-09-03_capture_inventory_base16.json`). None handles a
+(`data/results/2026-09-03_capture_inventory_base16.json`). None handles a
 packed [text | audio | video] self-attention. All four drop unselected
 attention outright. Only Sol keeps a pooled tail term. So every "retained
 mass" figure in these papers is mass that is lost, while Sol partly
@@ -288,7 +288,7 @@ running.
     `workload.attention`).
   - Blocks 0, 24, 32, 40 and 49; steps 4, 8, 12, 14 and 15; S = 104,361;
     seed 730451892; retained under its capture retention record
-    (`bench/results/2026-09-03_capture_inventory_base16.json`).
+    (`data/results/2026-09-03_capture_inventory_base16.json`).
   - It has no step below 4. **Build the mask at step 4**, which ran dense in
     this capture and is one step after the shipped dense window. Evaluate at
     steps 8, 12, 14 and 15.
@@ -765,7 +765,7 @@ Local (read-only):
 - `docs/evidence.md:78`
 - `docs/h3_quant_policy.md:27`
 - `bench/results/2026-09-18_sol_block_size.md:8,23,40-45`
-- `bench/results/2026-09-03_capture_inventory_base16.json`
+- `data/results/2026-09-03_capture_inventory_base16.json`
 - `docs/research/2026-09-03_sol_exact_pquant_and_base_capture.md:197-219`
 - `docs/research/2026-09-17_rotation_and_lowbit_attention_survey.md:974-978,1127-1143,1159-1166,1297`
 - Capture sets by name, listed and their JSON read, no tensors opened: `2026-09-03_base16_t2v_1344x768`, `2026-09-10_sol_impl_courtroom`, `2026-09-19_covered_market_sage_chain_steps`, `2026-09-19_covered_market_sage_chain_depth`

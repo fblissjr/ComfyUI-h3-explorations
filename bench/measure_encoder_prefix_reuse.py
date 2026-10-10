@@ -4,7 +4,7 @@
     <comfy venv python> bench/measure_encoder_prefix_reuse.py --capture-dir DIR --out OUT.json
         [--qwen-short-edge N] [--host 127.0.0.1:8188]
 
-`bench/results/2026-10-03_prompt_edit_conditioning_cost.json` says what a
+`data/results/2026-10-03_prompt_edit_conditioning_cost.json` says what a
 prompt edit pays at the reference conditioning node, and that nearly all of it
 is the text encoder reading the still. The reference comes before the prompt
 in a causal encoder, so that work could be kept across prompt edits. This asks

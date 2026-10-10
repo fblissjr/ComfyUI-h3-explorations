@@ -61,7 +61,7 @@ count: a longer sequence has peaked lower than a shorter one on this box, and
 one graph has OOMed once and succeeded once on the same card depending on
 what was resident before it. `h3_config.py` records why (process peak tracks
 ComfyUI's dynamic allocator against free memory, not what the model holds),
-and `bench/results/2026-08-28_pdd_ref2va_memory_marginality.json` is the
+and `data/results/2026-08-28_pdd_ref2va_memory_marginality.json` is the
 dated record, including its note on the anchors this report prints. A
 formula here would be wrong in both directions, so the report prints the
 recorded anchors and lets you judge.
@@ -1751,7 +1751,7 @@ def price(node: dict, graph: dict) -> list[str]:
     lines.append("  moves the peak is resident weights and what ran before --")
     lines.append("  a PDD LoRA adds ~1.0 GiB, and applying it is a transition")
     lines.append("  cost the steady state does not show.")
-    lines.append("  bench/results/2026-08-28_pdd_ref2va_memory_marginality.json")
+    lines.append("  data/results/2026-08-28_pdd_ref2va_memory_marginality.json")
     return lines
 
 

@@ -76,7 +76,7 @@ P and V may not behave like sage's fp8 ones. That grade is next.
 Costs from the same table: bf16 on the dense steps only costs about half
 again (742 s); bf16 everywhere three and a half times (1785 s).
 
-**The early-step grade, same night** (`bench/results/2026-09-15_dense_kernels_by_step.json`):
+**The early-step grade, same night** (`data/results/2026-09-15_dense_kernels_by_step.json`):
 kitchen's dense kernel has the LOWER error at every captured cell, step 4
 included. The missing hand is not explained by per-call error against fp32
 attention; the instrument that ranks the kernels cannot see whatever the

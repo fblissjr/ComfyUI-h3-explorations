@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How small can the `token_aug` nondeterminism repro get?
 
-`bench/results/2026-09-08_token_aug_selection_structure.json` shows one captured
+`data/results/2026-09-08_token_aug_selection_structure.json` shows one captured
 DiT block whose `sol_attn` output varies between identical calls when
 `token_aug` is on. The capture cell that carries it is gigabytes, so nobody
 outside this machine can run it. This asks what the smallest artifact is that
@@ -225,7 +225,7 @@ def main():
         "source_cell": Path(args.cell).name,
         "token_aug": args.token_aug, "tau": args.tau, "repeats": args.repeats,
         "arms": arms,
-        "superseded_for_the_artifact_by": "bench/results/2026-09-08_token_aug_repro_shapes.json",
+        "superseded_for_the_artifact_by": "data/results/2026-09-08_token_aug_repro_shapes.json",
         "cannot_settle": [
             "that a non-reproducing arm proves the trigger absent. Each arm is "
             "a fixed number of launches; instability that is rarer than that "

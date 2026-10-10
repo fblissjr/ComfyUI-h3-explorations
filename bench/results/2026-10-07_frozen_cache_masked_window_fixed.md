@@ -34,7 +34,7 @@ models resident and the conditioning kept. Seconds are wall clock from the
 song node's own stage clock; a step's rate is from the sampler's bar.
 **Nothing here was looked at**: no arm's picture was opened for this record.
 Every figure is in
-[`2026-10-07_frozen_cache_masked_window_fixed.json`](2026-10-07_frozen_cache_masked_window_fixed.json).
+[`2026-10-07_frozen_cache_masked_window_fixed.json`](../../data/results/2026-10-07_frozen_cache_masked_window_fixed.json).
 
 ## What ran
 

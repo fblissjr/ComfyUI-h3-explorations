@@ -77,7 +77,7 @@ Everything the sprint needs that is not committed lives in
 
 Candidate directory:
 `coderef/llm-compressor/models/qwen3-vl-32b-h3-w4a16-awq-v2-nativecal`.
-Run record: `bench/results/2026-08-25_v2_calibration_run.json`. The deployed
+Run record: `data/results/2026-08-25_v2_calibration_run.json`. The deployed
 artifact, its symlink and the source checkpoint are untouched.
 
 ## Peers on 2026-08-25, by name
@@ -130,7 +130,7 @@ decisions. The short form:
   through core's `CLIPLoader` (`h3_config.ENCODER_INT8`,
   `CORE_LOADED_ENCODERS` picks the loader node). Its encode cost on the real
   arm B graph: about 60 s for ~19k encoder tokens against 600 s of sampling
-  (`bench/results/2026-08-25_refview_b_qwen2048_int8_occupancy.json`,
+  (`data/results/2026-08-25_refview_b_qwen2048_int8_occupancy.json`,
   compute-bound, not streaming-bound). Arm A's render was stopped before it
   wrote; rerun it for the cheap-view number if wanted.
 - **The W4 lane continues only as the small-host variant**, with GPTQ as its

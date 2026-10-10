@@ -309,7 +309,7 @@ earlier version of this row said the node "is simply unwired" and called wiring
 it the cheapest thing here to test. Both halves were wrong. It is wired, in
 `h3_probe_ref_vae_encoder_fp32*` against the matched `..._fp16*` control, and
 [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) already names the pair. And
-the knob is already answered: `bench/results/2026-08-21_vae_encoder_precision.json`
+the knob is already answered: `data/results/2026-08-21_vae_encoder_precision.json`
 holds the graded comparison, which `bench/grade_vae_encoder_precision.py` opens
 by explaining had to be a graded one — encoder precision is a numerical knob,
 and a rendered pair cannot A/B one. **The defect was a dropped scope**: a source
@@ -486,7 +486,7 @@ and does not carry this caveat.
    the A/B pairing is intact — only the prose is inverted. No check reads
    generator comments.
 2. **Decide the shipped VAE default against the result we already have.** Not
-   a measurement — `bench/results/2026-08-21_vae_encoder_precision.json` graded
+   a measurement — `data/results/2026-08-21_vae_encoder_precision.json` graded
    it on 2026-08-21 and the probe arms exist. The open part is whether the
    canonical graphs should follow it, which is a decision.
 3. **Extend the SLA router to the token refiner**, or record the asymmetry

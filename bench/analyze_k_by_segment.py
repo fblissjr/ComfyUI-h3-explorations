@@ -21,7 +21,7 @@ subsampled evenly per segment. CPU only; reads the K of each capture file.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_k_by_segment.py \\
         --capture <t2v capture dir> --capture <ref2va capture dir> \\
-        --blocks 24,49 --step 2 --record bench/results/<date>_<name>.json
+        --blocks 24,49 --step 2 --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

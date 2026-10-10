@@ -5,7 +5,7 @@
         [--second IMAGE] [--host 127.0.0.1:8188]
 
 The switch's two functions were held to core's one pass in
-`bench/results/2026-10-03_reference_split.json`; this runs the node itself.
+`data/results/2026-10-03_reference_split.json`; this runs the node itself.
 The conditioning side of the ref2va finish graph, with the conditioning node
 twice: as shipped, and with `keep_references` on. A bench node compares what
 the two hand on (rows, token tags, the reference latents). Then the prompt is

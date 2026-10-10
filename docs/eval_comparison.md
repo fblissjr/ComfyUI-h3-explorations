@@ -504,7 +504,7 @@ session written this way, with the bake lane's predictions folded in on
   half plus a small random weight perturbation on every backbone linear,
   about the size of the checkpoint's own quantisation error
   (`research/merge_requantisation.md`;
-  `bench/results/2026-08-31_merge_realisation_pdd.json`), spread uniformly.
+  `data/results/2026-08-31_merge_realisation_pdd.json`), spread uniformly.
 - **Should move if the hypothesis holds**: the defects that look like added
   quantisation noise. Compressed or waxy skin, melted or ringing on-screen
   text, a brightness or contrast shift, lost fine detail in hair, fabric and

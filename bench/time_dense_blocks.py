@@ -45,7 +45,7 @@ sys.path.insert(0, str(REPO / "bench"))
 
 from probe_block_propagation import BASE_GRAPH, submit          # noqa: E402
 
-OUT = REPO / "bench" / "results" / "2026-08-29_dense_block_cost.json"
+OUT = REPO / "data" / "results" / "2026-08-29_dense_block_cost.json"
 PREFIX = "latents/h3_dense_block_cost/arm"
 
 

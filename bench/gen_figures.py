@@ -34,7 +34,7 @@ from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 
 MONO = "ui-monospace,SFMono-Regular,Menlo,monospace"
 SIGNAL = "var(--signal)"
@@ -561,9 +561,9 @@ def fig_basis_sign() -> Figure:
            f"opposite conclusion.")
     return Figure("fig-basis-sign", "The basis sign, and what it did to the "
                   "comparison", svg, cap,
-                  [f"bench/results/{rec} :: adaln_t_table.column_cos",
-                   f"bench/results/{rec} :: per_block[].adaln.basis_dependent.w_cos",
-                   f"bench/results/{rec} :: per_block[].adaln.mod_t_cos"],
+                  [f"data/results/{rec} :: adaln_t_table.column_cos",
+                   f"data/results/{rec} :: per_block[].adaln.basis_dependent.w_cos",
+                   f"data/results/{rec} :: per_block[].adaln.mod_t_cos"],
                   anchor="AdaLN is replaced in every block")
 
 
@@ -619,10 +619,10 @@ def fig_block49() -> Figure:
             '<code>measured_note</code> because the producing script stamped a '
             'literal date, which is the defect section 2 records.')
     return Figure("fig-block49", "Block 49 is in both checkpoints", svg, cap,
-                  [f"bench/results/{err_ref} :: rows[block 49, step 3].per_head_quant",
-                   f"bench/results/{err_fl} :: rows[block 49, step 3].per_head_quant",
-                   f"bench/results/{mag_ref} :: rows[].k.rms (ref2va capture)",
-                   f"bench/results/{mag_fl} :: rows[].k.rms"],
+                  [f"data/results/{err_ref} :: rows[block 49, step 3].per_head_quant",
+                   f"data/results/{err_fl} :: rows[block 49, step 3].per_head_quant",
+                   f"data/results/{mag_ref} :: rows[].k.rms (ref2va capture)",
+                   f"data/results/{mag_fl} :: rows[].k.rms"],
                   anchor="The block-49 question got its missing control",
                   notes=[note])
 
@@ -667,11 +667,11 @@ def fig_power_pair() -> Figure:
            f"{d['core_clock_delta_frac'] * 100:.1f}% is neither, so this "
            f"4-step workload is partly core-clock-bound.")
     return Figure("fig-power", "The power pair", svg, cap,
-                  [f"bench/results/{rec} :: sampler_s, sampler_mean_s, "
+                  [f"data/results/{rec} :: sampler_s, sampler_mean_s, "
                    f"within_arm_spread_frac, cost_of_330W_frac",
-                   f"bench/results/{rec} :: telemetry_during_sampling[].pclk_p50, "
+                   f"data/results/{rec} :: telemetry_during_sampling[].pclk_p50, "
                    f".pwr_p50, .mclk_p50",
-                   f"bench/results/{rec} :: core_clock_delta_frac, decision_rule"],
+                   f"data/results/{rec} :: core_clock_delta_frac, decision_rule"],
                   anchor="The plan critique found the defect before the card did")
 
 
@@ -750,9 +750,9 @@ def fig_day_order(commit_range: str) -> Figure:
             "The plan approval time is the one the deviations table states. "
             "Read them as ordering, not as measurements.")
     return Figure("fig-day", "The day's order", svg, cap,
-                  ["bench/results/2026-08-20_sla_arms.jsonl :: ts, total_s, label",
-                   "bench/results/2026-08-20_power_limit_pair.jsonl :: ts, total_s, label",
-                   "bench/results/2026-08-20_session1_lora_file.jsonl :: ts, total_s",
+                  ["data/results/2026-08-20_sla_arms.jsonl :: ts, total_s, label",
+                   "data/results/2026-08-20_power_limit_pair.jsonl :: ts, total_s, label",
+                   "data/results/2026-08-20_session1_lora_file.jsonl :: ts, total_s",
                    f"git log --format='%h %ad %s' --date=format:%H:%M {commit_range}"],
                   notes=[note, f'<ol class="commits">{rows_html}</ol>'])
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is 64 tokens per block the limit? Float reference, on captures.
 
-    python bench/sweep_sol_block_size_on_capture.py <capture.pt> [...] --out bench/results/<date>_sol_block_size.json
+    python bench/sweep_sol_block_size_on_capture.py <capture.pt> [...] --out data/results/<date>_sol_block_size.json
 
 Sol-Attn routes whole 64-token blocks: all 64 queries of a block share one
 routing decision, and a key block is attended exactly or pooled, never split.

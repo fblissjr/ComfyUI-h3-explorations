@@ -7,7 +7,7 @@ numerical check is not a memorisation test -- and drops the rest (rejection
 manifests with reasons, near-duplicate review).
 
 Selection is under two budgets, because the host cache is 46 to 69 KB per
-token at peak (`bench/results/2026-08-25_gate2a_*`) and AWQ's grid search
+token at peak (`data/results/2026-08-25_gate2a_*`) and AWQ's grid search
 re-runs each layer's parent over every cached batch about 21 times, so both
 memory and time scale with total tokens, while the row envelope scales with
 the longest row:
@@ -42,7 +42,7 @@ series; the series spans dozens of pool rows across many exact-media
 components, which is why a prompt-term exclusion exists.
 
     python bench/select_v2_calibration_rows.py --rows 100 --holdout 12 \\
-        --out bench/results/<date>_v2_calibration_selection.json
+        --out data/results/<date>_v2_calibration_selection.json
 
 Four later additions, each off unless its flag is given. With none of them
 present the role-quota path above runs unchanged; `bench/check_calibration_selector.py`
@@ -66,7 +66,7 @@ guaranteed its first row even if that row overshoots its target; after that a
 row is admitted only if it fits inside the stratum's remaining target.
 
 A **language** overlay is deliberately not a third axis: the pool row schema
-(`bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool.jsonl`) records `channel`,
+(`data/results/archive/v2_encoder/2026-08-24_h3_calibration_pool.jsonl`) records `channel`,
 `primary_role`, `picture_roles` and an `overlays` block of
 `wide_or_tall`/`small_source`/`markers`/`audio_label`/`video_audio_track`, and
 no language field. A language tag *is* observable inside the `<d>[...]` blocks
@@ -123,8 +123,8 @@ BENCH = Path(__file__).resolve().parent
 REPO = BENCH.parent
 sys.path.insert(0, str(BENCH))
 sys.path.insert(0, str(REPO))
-POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
-TEXT_ONLY_POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
+POOL = BENCH.parent / "data" / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
+TEXT_ONLY_POOL = BENCH.parent / "data" / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
 
 from h3_producer_provenance import producer_provenance  # noqa: E402
 

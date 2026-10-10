@@ -19,7 +19,7 @@ it is the side with the outliers. That is
 Scope is the DiT's 200 backbone linears. `adaln_proj.linear` is F16 and the
 output heads are F32, so all quantisation loss lives there. The encoder is out
 of scope: its weight-side question is closed
-(`bench/results/2026-08-29_int8_convrot_headroom.json`), and the owner runs
+(`data/results/2026-08-29_int8_convrot_headroom.json`), and the owner runs
 bf16 Qwen3-VL.
 
 ---
@@ -57,7 +57,7 @@ this lane.** So the row above is open work, not a settled no.
 ## What Tier 0 measured, 2026-08-31
 
 `bench/analyze_weight_outliers.py` →
-[`bench/results/2026-08-31_dit_weight_outliers.json`](../../bench/results/2026-08-31_dit_weight_outliers.json).
+[`data/results/2026-08-31_dit_weight_outliers.json`](../../data/results/2026-08-31_dit_weight_outliers.json).
 All 200 modules of `minimax_h3_fl2va_pruned_int8_convrot` against the BF16
 release. CPU only.
 
@@ -200,8 +200,8 @@ update lands in expectation.
 
 Measured, `bench/measure_merge_realisation.py`, 20 modules per LoRA across
 blocks 0/12/25/37/49
-([PDD](../../bench/results/2026-08-31_merge_realisation_pdd.json),
-[turbo](../../bench/results/2026-08-31_merge_realisation_turbo.json)).
+([PDD](../../data/results/2026-08-31_merge_realisation_pdd.json),
+[turbo](../../data/results/2026-08-31_merge_realisation_turbo.json)).
 `realised_along_d` is `<Q(W+d) − Q(W), d> / <d, d>`, the fraction of the delta
 that landed; `noise_over_delta` is `‖Q(W+d) − (W+d)‖ / ‖d‖`, the error the
 merge injects measured against the **update** rather than the weight:
@@ -294,7 +294,7 @@ metric here is blind to one of them.
 The PDD arm was replicated independently by a peer session, written fresh
 rather than importing this statistic: their `deterministic_min` is 0.0199
 against this file's 0.01988, on a different subset. Their record is
-`bench/results/2026-08-31_stochastic_rounding.json`, retracted and re-issued
+`data/results/2026-08-31_stochastic_rounding.json`, retracted and re-issued
 because its original conclusion was the same wrong inference this file made.
 
 **So a stored-weight metric rewards the arm that does nothing**, and this file
@@ -383,7 +383,7 @@ Median row kurtosis after the shipped 256-wide rotation:
 qkv_proj and fc1 cannot go wider: 5376 admits nothing above 256.
 
 **out_proj's excess is now explained.**
-`bench/results/2026-08-28_quant_hotspots_ref2va.json` listed under
+`data/results/2026-08-28_quant_hotspots_ref2va.json` listed under
 `not_measured`: *"why the INT8 scheme treats out_proj worse. Outlier structure
 the rotation does not spread is the obvious candidate and is untested."* It is
 now tested. out_proj's outliers span wider than 256 channels; a 1024-wide
@@ -452,7 +452,7 @@ vectors; it is cheap (in_features floats per module) and the shapes match what
 ## 7. The +11.6% is measured in a rounding regime the shipped path does not use
 
 **Measured 2026-08-31**, `bench/measure_merge_rounding_regimes.py` →
-[`../../bench/results/2026-08-31_merge_rounding_regimes.json`](../../bench/results/2026-08-31_merge_rounding_regimes.json),
+[`../../data/results/2026-08-31_merge_rounding_regimes.json`](../../data/results/2026-08-31_merge_rounding_regimes.json),
 all 200 int8 modules of `fl2va` at strength 1.0, against the BF16 release.
 
 The headline this lane quotes -- **+11.6%** on stored-weight error against the
@@ -497,7 +497,7 @@ is there rather than a distance alone. `realised_along_d` is the statistic that
 reversed the deterministic-merge lever, and it is the one to check before
 believing any arm that wins on distance:
 `bench/measure_bake_realisation.py` →
-[`../../bench/results/2026-08-31_bake_realisation.json`](../../bench/results/2026-08-31_bake_realisation.json),
+[`../../data/results/2026-08-31_bake_realisation.json`](../../data/results/2026-08-31_bake_realisation.json),
 same 200 modules, each arm against its OWN no-LoRA baseline.
 
 **The bake ties the shipped path on delivery and beats it on distance.** It

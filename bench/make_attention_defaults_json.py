@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Emit `2026-08-18_attention_defaults.json` from the raw arm results.
 
-The data file this script writes into `bench/results/` is the record the docs
-link to. (The script lived beside it, in `bench/results/`, until 2026-10-05;
+The data file this script writes into `data/results/` is the record the docs
+link to. (The script lived beside it, in `data/results/`, until 2026-10-05;
 that directory holds records only.) It is
 GENERATED rather than typed, for the reason `CLAUDE.md` gives about numbers in
 prose: a hand-copied figure is a second copy that drifts silently, and the
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "results" / "2026-08-18_attention_defaults.json"
+OUT = HERE.parent / "data" / "results" / "2026-08-18_attention_defaults.json"
 
 # What each arm varied. `sol` is whether a SolAttnMiniMax node was REACHABLE
 # from an output node, which is the property that decides whether it runs --

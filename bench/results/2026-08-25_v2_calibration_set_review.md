@@ -9,7 +9,7 @@ recorded per row) and its two holdout bundles (the same 12 rows built under
 `bench/select_v2_calibration_rows.py`.
 **Harness:** [`bench/review_v2_calibration_bundle.py`](../review_v2_calibration_bundle.py),
 CPU only, no CUDA, no server.
-**Adjudication:** [`2026-08-25_v2_split_near_duplicate_adjudication.json`](2026-08-25_v2_split_near_duplicate_adjudication.json).
+**Adjudication:** [`2026-08-25_v2_split_near_duplicate_adjudication.json`](../../data/results/2026-08-25_v2_split_near_duplicate_adjudication.json).
 
 ## Verdict
 

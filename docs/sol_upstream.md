@@ -1282,7 +1282,7 @@ grade was taken against kijai's PR head `1128df6`, and the plan said a moved
 head means the grade is redone. It did not move, it merged: `b678fdf` has the
 identical tree to `1128df6`. Recorded, with the control that shows the diff
 command can print something, in
-`bench/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`.
+`data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`.
 
 **Which build is installed** is read, never written down:
 `bench/check_sol_kernel.py` reports the local segment, and

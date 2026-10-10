@@ -38,4 +38,4 @@ for fn, part in FILES.items():
         res[st] = {"rows1_31_vs_delta_from_head0_rel": ((r[1:] - (hw[1:] - hw[:1])).norm() / (hw[1:] - hw[:1]).norm()).item(),
                    "rows1_31_vs_absolute_heads_rel": ((r[1:] - hw[1:]).norm() / hw[1:].norm()).item()}
     out[fn] = res; print(fn, json.dumps(res))
-json.dump(out, open(os.environ.get("OUT", REPO_DIR / "bench/results/2026-09-25_kijai_pdd_bank_encoding.json"), "w"), indent=1)
+json.dump(out, open(os.environ.get("OUT", REPO_DIR / "data/results/2026-09-25_kijai_pdd_bank_encoding.json"), "w"), indent=1)

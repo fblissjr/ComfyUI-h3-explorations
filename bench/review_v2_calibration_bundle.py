@@ -1290,7 +1290,7 @@ def main() -> int:
     parser.add_argument("--selection", action="append", default=[], type=Path,
                         help="selector output JSON; repeatable")
     parser.add_argument("--pool", type=Path,
-                        default=BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl")
+                        default=BENCH.parent / "data" / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl")
     parser.add_argument("--near-threshold", type=int, default=12,
                         help="Hamming distance on a 64-bit dhash that makes a pair a "
                              "candidate for review; not by itself a duplicate verdict")
@@ -1298,10 +1298,10 @@ def main() -> int:
                         help="foreground correlation above which an unreviewed "
                              "candidate is reported as strong")
     parser.add_argument("--adjudication", type=Path,
-                        default=BENCH / "results" / "2026-08-25_v2_split_near_duplicate_adjudication.json",
+                        default=BENCH.parent / "data" / "results" / "2026-08-25_v2_split_near_duplicate_adjudication.json",
                         help="recorded verdicts for cross-split perceptual candidates")
     parser.add_argument("--component-map", type=Path,
-                        default=BENCH / "results" / "archive" / "v2_encoder" / "2026-08-25_pool_component_map_corrected.json",
+                        default=BENCH.parent / "data" / "results" / "archive" / "v2_encoder" / "2026-08-25_pool_component_map_corrected.json",
                         help="corrected component map; the split is graded by "
                              "visual family against it as well as by media file")
     parser.add_argument("--null-sample", type=int, default=220,

@@ -28,7 +28,7 @@ Arms, all on the same seeded inputs:
                         ISOLATED KERNEL TIME, not a render time; comparable
                         only between two runs of this script on the same box.
 
-    python bench/measure_sol_exact_variants.py --out bench/results/<date>_sol_exact_<tag>.json
+    python bench/measure_sol_exact_variants.py --out data/results/<date>_sol_exact_<tag>.json
 
 Capture mode, added 2026-09-03 because the random-input arms above measured
 kijai's change as a wash (0.00909 against 0.00922) while his PR

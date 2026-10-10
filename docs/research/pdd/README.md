@@ -118,7 +118,7 @@ live Sol route record on the shipped graphs at the trained canvas: the
 16-step base graph ran Sol on 11 of 16 forwards and the 8-evaluation PDD
 graph on 4 of 8, each forward carrying blocks 0-49 once, with the actual
 routed density per (block, step) beside it --
-`bench/results/2026-09-01_sol_route_base16_cold.json` and
+`data/results/2026-09-01_sol_route_base16_cold.json` and
 `..._pdd8_cold.json`, plus `..._pdd8_cold_vs_warm.json`, which shows the
 PDD graph's counts bitwise identical across a restart and a warm process.
 The kernel figures include the forced pairs; the ordering-effect figures

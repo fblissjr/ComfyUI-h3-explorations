@@ -21,7 +21,7 @@ seed, one stretch, one card. Nothing here says what either render looks like:
 nobody graded them for this record.
 
 Every number below is in
-[`2026-10-06_masked_render_time_breakdown.json`](2026-10-06_masked_render_time_breakdown.json),
+[`2026-10-06_masked_render_time_breakdown.json`](../../data/results/2026-10-06_masked_render_time_breakdown.json),
 written by `bench/masked_render_time_breakdown.py`; the tables are its
 output. Seconds are wall clock: per node from the runner's websocket feed,
 per stage from the node's own clock at stage ends, per step from the

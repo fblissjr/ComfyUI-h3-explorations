@@ -12,7 +12,7 @@ and cannot show lip sync, the edge at full size, or the audio.
 `bench/masked_v2v_arms.json`, on `workflows/h3_video_to_video_masked_song_pdd8_api.json`:
 the PDD8 song chain, the source's audio frozen hard, one reference still, the
 subject tracked by SAM 3.1 from the word "man". Rows, timings and substrate:
-`bench/results/2026-10-04_masked_v2v_arms.jsonl`. Clips are in the output
+`data/results/2026-10-04_masked_v2v_arms.jsonl`. Clips are in the output
 share under `Video/mrpink/`.
 
 | arm | prompt | covers |

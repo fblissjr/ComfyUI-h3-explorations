@@ -224,7 +224,7 @@ def normalize_prompt(prompt: str) -> str:
     earlier token's conditioning is unchanged, but the DiT still sees a
     different input and a same-seed render is a different sample (a one-token
     append moves the prediction at least as much as the int8 encoder does,
-    `bench/results/2026-09-27_encoder_quant_dit.json`, the scale rows). The
+    `data/results/2026-09-27_encoder_quant_dit.json`, the scale rows). The
     generator already strips every bank prompt (`workflows/prompts.py`), so
     stripping here makes a prompt pasted into the UI tokenize the same as the
     graph that ships it. Interior newlines are kept: they carry the prompt's

@@ -162,7 +162,7 @@ def main() -> int:
           "\n  control is the load-bearing column: it is what says the render "
           "\n  reproduced THIS window rather than sounding generally like this "
           "\n  recording.")
-    Path("bench/results/2026-08-22_soundtrack_reuse.json").write_text(
+    Path("data/results/2026-08-22_soundtrack_reuse.json").write_text(
         json.dumps({"reference": REF, "sample_rate": SR,
                     "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
                     "not_calibrated": "No value here means 'speech intact'. "
@@ -170,7 +170,7 @@ def main() -> int:
                                       "cross-length comparison is invalid.",
                     "sets": {t: [l for l, _ in g] for t, g in sets.items()},
                     "rows": rows}, indent=2))
-    print("\n  wrote bench/results/2026-08-22_soundtrack_reuse.json")
+    print("\n  wrote data/results/2026-08-22_soundtrack_reuse.json")
     return 0
 
 

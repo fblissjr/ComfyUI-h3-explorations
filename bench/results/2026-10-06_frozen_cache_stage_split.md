@@ -18,10 +18,10 @@ text and the audio, well under a fiftieth of the sequence. Since 578e16ba
 seed, one scene, one render per arm, the card to itself. Seconds are wall
 clock. Nothing here was listened to or looked at: the refine pass's quality
 was judged on 2026-09-26 and is not re-judged. Every figure is in
-[`2026-10-06_frozen_cache_stage_split.json`](2026-10-06_frozen_cache_stage_split.json)
+[`2026-10-06_frozen_cache_stage_split.json`](../../data/results/2026-10-06_frozen_cache_stage_split.json)
 (the cache's log lines and every progress-bar state, parsed from the server's
 log) or in the rows,
-[`2026-10-06_frozen_cache_stage_split.jsonl`](2026-10-06_frozen_cache_stage_split.jsonl).
+[`2026-10-06_frozen_cache_stage_split.jsonl`](../../data/results/2026-10-06_frozen_cache_stage_split.jsonl).
 
 ## What ran
 

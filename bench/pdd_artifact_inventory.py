@@ -7,9 +7,9 @@ box. VISION.md's rule for it is the rule for everything here: prose carries
 pointers and records carry numbers, and anything a file or a commit already
 knows is generated, never retyped. So this script owns three things:
 
-1. **The dated fingerprint record**, `bench/results/<date>_pdd_artifact_fingerprints.json`
+1. **The dated fingerprint record**, `data/results/<date>_pdd_artifact_fingerprints.json`
    (`--record`). For every PDD file: its metadata, a content hash by the recipe
-   `bench/results/2026-08-28_pdd_conversion_reproducibility.json` established
+   `data/results/2026-08-28_pdd_conversion_reproducibility.json` established
    (sha256 over sorted metadata pairs, then every tensor's bytes in sorted key
    order; independent of header layout, so two files with the same content
    hash ARE the same file whatever safetensors did to the header), and per
@@ -72,7 +72,7 @@ import h3_config  # noqa: E402
 LORAS = HERE.parents[2] / "models" / "loras" / "h3"
 ARCHIVE = LORAS / "pdd_archive"
 OUT = REPO / "docs" / "pdd_artifacts.md"
-RESULTS = HERE / "results"
+RESULTS = HERE.parent / "data" / "results"
 CONVERTER = REPO / "bench" / "convert_pdd_lora.py"
 NODE = REPO / "pdd_lora.py"
 PATTERN = re.compile(r"pdd|Acc-8Step", re.IGNORECASE)
@@ -273,7 +273,7 @@ def render_inventory(rec: dict) -> str:
                      f"{r['commit']} | {r['backbone']} | {r['adaln']} | {r['probe_of']} | "
                      f"{r['loads_on']} | {r['tensors']} | `{r['content_sha256'][:12]}` |")
     lines.append("")
-    lines.append(f"Record: `bench/results/{rec['_path']}` (recorded {rec['recorded']} at "
+    lines.append(f"Record: `data/results/{rec['_path']}` (recorded {rec['recorded']} at "
                  f"repo commit `{rec['repo_commit']}`; content hash recipe: {RECIPE}).")
     return "\n".join(lines)
 
@@ -424,7 +424,7 @@ def main(argv=None) -> int:
         print(f"wrote {path.relative_to(REPO)} ({len(rec['files'])} file(s))")
     path, rec = latest_record()
     if rec is None:
-        raise SystemExit("no fingerprint record under bench/results/; run --record first")
+        raise SystemExit("no fingerprint record under data/results/; run --record first")
     assert path is not None
     rec["_path"] = path.name
 

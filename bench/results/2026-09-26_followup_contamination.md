@@ -1,6 +1,6 @@
 # 2026-09-26 follow-up batch: contaminated rows
 
-`bench/results/2026-09-26_followup.jsonl`, first launch, on 0.154.6/0.154.7.
+`data/results/2026-09-26_followup.jsonl`, first launch, on 0.154.6/0.154.7.
 Before 0.154.8, `lora_branch.install` wrapped whichever forward was applied
 (CHANGELOG 0.154.8). The batch ran Turbo, then PDD (exact branch), then
 FlashGen in one process, so:

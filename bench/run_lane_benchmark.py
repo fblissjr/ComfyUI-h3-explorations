@@ -38,7 +38,7 @@ is measured and shown with no eye column.
 nothing: agreement there is on the verdict alone. Every limit of the two
 metrics carries over; this adds none and removes none.
 
-    <python> bench/run_lane_benchmark.py --out bench/results/<date>_lane_scoreboard
+    <python> bench/run_lane_benchmark.py --out data/results/<date>_lane_scoreboard
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ overlay out, and a record of what went into it. CPU only.
         --base <models>/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
         --target <models>/diffusion_models/fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors \\
         --out <models>/h3_overlays/fasth3_v2_on_fl2va.safetensors \\
-        --record bench/results/<date>_<name>_overlay.json
+        --record data/results/<date>_<name>_overlay.json
 
 The overlay proves nothing until `bench/check_checkpoint_overlay.py` applies it.
 """

@@ -571,7 +571,7 @@ everywhere it appears.
 
 ## 2. The evidence, such as it is
 
-`bench/results/2026-08-28_pdd_partition_fidelity_362.json`, 362 frames,
+`data/results/2026-08-28_pdd_partition_fidelity_362.json`, 362 frames,
 1152x768, one seed:
 
 | arm | widest block | video rel L2 | audio rel L2 | audio/video |

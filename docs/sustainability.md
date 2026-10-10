@@ -71,7 +71,7 @@ Ranked by cost-of-being-wrong times cheapness-to-settle.
 | a PDD blind session | shipping and never judged perceptually | a seeded session per [`eval_comparison.md`](eval_comparison.md) |
 | W4 DiT arch probe | closes or opens a lane; the kernels are in the installed wheel | minutes |
 | SLA router coverage of the token refiner | the LoRA adapts modules the router does not patch | a read, then a decision |
-| video VAE default | **already graded** — `bench/results/2026-08-21_vae_encoder_precision.json`, with probe arms wired | a decision, not a measurement |
+| video VAE default | **already graded** — `data/results/2026-08-21_vae_encoder_precision.json`, with probe arms wired | a decision, not a measurement |
 
 `roadmap.md` owns this queue. If it disagrees, it wins.
 

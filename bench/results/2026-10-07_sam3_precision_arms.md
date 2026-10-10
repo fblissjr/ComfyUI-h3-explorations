@@ -12,7 +12,7 @@ behave on the same conditions", SAM only, with no video model.
 primary sources only, without the notes of the sessions whose findings it
 was also checking. This record is assembled from its report and result
 files. The tool is `bench/sam3_precision_arms.py`; every figure is in
-[`2026-10-07_sam3_precision_arms.json`](2026-10-07_sam3_precision_arms.json).
+[`2026-10-07_sam3_precision_arms.json`](../../data/results/2026-10-07_sam3_precision_arms.json).
 
 **Corrected the same day, by the session that measured it, on reading this
 record against its own files.** Three wordings below say more than was

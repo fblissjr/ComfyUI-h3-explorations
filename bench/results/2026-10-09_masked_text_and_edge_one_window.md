@@ -24,7 +24,7 @@ and is seen from behind for most of it.
 ## How
 
 Everything is in the json beside this file
-([`2026-10-09_masked_text_and_edge_one_window.json`](2026-10-09_masked_text_and_edge_one_window.json)):
+([`2026-10-09_masked_text_and_edge_one_window.json`](../../data/results/2026-10-09_masked_text_and_edge_one_window.json)):
 the window, the settings the three renders share, one row a render, both
 texts in full, and the stills read. In short: the final masked graph of
 2026-10-08, cut to one window of the length the json gives, with the newer

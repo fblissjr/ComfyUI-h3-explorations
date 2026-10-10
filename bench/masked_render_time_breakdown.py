@@ -18,7 +18,7 @@ Three sources, joined on the prompt id of one render:
     <python> bench/masked_render_time_breakdown.py \
         --rows RUN.jsonl --history-dir DIR [--telemetry-dir DIR] [--server-log LOG] \
         [--label A --label B] [--state A="first prompt after a server start"] \
-        --out bench/results/<date>_<name>.json
+        --out data/results/<date>_<name>.json
 
 Prints the tables as Markdown and writes the same numbers to `--out`. Pure
 reading: no server, no GPU, no ComfyUI import.

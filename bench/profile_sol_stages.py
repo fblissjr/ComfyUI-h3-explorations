@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v.
 
-    python bench/profile_sol_stages.py <capture.pt> [<capture.pt> ...] --out bench/results/<date>_sol_stages.json
+    python bench/profile_sol_stages.py <capture.pt> [<capture.pt> ...] --out data/results/<date>_sol_stages.json
 
 The kernel is four stages over one workspace (`sage_attention/sol_attn.cu`):
 `preprocess` (quantize q/k/v, pool per block, the routing threshold),

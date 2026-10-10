@@ -56,7 +56,7 @@ disagree: sglang refuses it for H3, and vllm-omni ships it for FL2VA only.
   coefficients) and tuned at 50 steps.
 - **Core's EasyCache and LazyCache**: output-level reuse inside a window.
   EasyCache decides on video only; LazyCache calls itself worse. Measured here
-  on 2026-08-18 (`bench/results/2026-08-18_cache_arms.jsonl`): nothing skipped
+  on 2026-08-18 (`data/results/2026-08-18_cache_arms.jsonl`): nothing skipped
   on `er_sde` at the 0.2 threshold, and 7 of 16 skipped on `res_multistep`.
   The two quality pairs from that day are still unjudged.
 

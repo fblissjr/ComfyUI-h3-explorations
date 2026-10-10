@@ -40,7 +40,7 @@ KIJAI_LOCAL = Path(os.environ.get("H3_KIJAI_PDD", COMFY / "models/loras/h3/MiniM
 # header.json is the safetensors header; part1.bin and part2.bin hold the byte
 # ranges of the data section that carry the final_layer tensors (P2OFF below).
 KIJAI_UP = Path(os.environ["H3_KIJAI_PDD_UPSTREAM_DIR"])
-OUT = Path(os.environ.get("OUT", REPO / "bench/results/2026-09-25_pdd_head_fusion.json"))
+OUT = Path(os.environ.get("OUT", REPO / "data/results/2026-09-25_pdd_head_fusion.json"))
 
 
 N = 32

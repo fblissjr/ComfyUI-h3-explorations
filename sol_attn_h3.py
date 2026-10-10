@@ -142,7 +142,7 @@ def parse_token_aug_profile(spec, count):
 #: whose K-norm is lopsided on the released checkpoint, where Sol's routed INT8
 #: error is largest. On the block-49 capture, kitchen's dense INT8 kernel sits
 #: well below Sol's routed error on the same heads
-#: (`bench/results/2026-09-15_ck_int8_attention_block49.json`), at a small cost
+#: (`data/results/2026-09-15_ck_int8_attention_block49.json`), at a small cost
 #: measured once (`bench/results/2026-09-15_block49_community_chain.md`).
 #: Option A candidate: shields the top 3 worst middle blocks (>24% error) plus
 #: the terminal block 49 (which feeds final_layer.video_out). Adopted 2026-10-02.
@@ -580,7 +580,7 @@ def make_override(tau=1.0, min_tokens=12288,
     whole dense kernel. A call Sol takes takes the tensors here, as `wrap_attn`
     did. With no ``previous``, or one without a ``container_function`` (the
     sage override), nothing changes: there is no container entry to hand to.
-    `bench/results/2026-10-03_sol_container_protocol.json` has the memory and
+    `data/results/2026-10-03_sol_container_protocol.json` has the memory and
     the bit-equality of the two kitchen entries this swaps between.
 
     ``settings`` is the node configuration as a plain dict, recorded by
@@ -1021,7 +1021,7 @@ def _install_compose_hooks(model, attn_attr):
 #: kitchen kernel, graded against each other on the shipped PDD8 graphs'
 #: captures (`bench/results/2026-09-27_sol_redesign_test2.md`). The balance
 #: gate opens on some heads of every block
-#: (`bench/results/2026-09-27_qk_balance_gate_on_capture.json`).
+#: (`data/results/2026-09-27_qk_balance_gate_on_capture.json`).
 SOL_QUANTIZERS = {
     "plain": (False, False),
     "balanced": (True, False),
@@ -1048,7 +1048,7 @@ def sol_routing_blocks(choice, blocks_spec, count, *, qk_balance):
 
     `all blocks` needs the balance factor on: on the block-49 capture token
     routing raised the error plain and rotated, and lowered it only with the
-    balance on (`bench/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`,
+    balance on (`data/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`,
     `fixed_wheel` rows). Those balanced rows were measured on a kernel whose
     token stage scored an unbalanced centroid against balanced keys (fixed on
     h3-frontier, 2026-09-27); the re-grade on the fixed kernel is test 3 of the

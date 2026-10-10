@@ -95,7 +95,7 @@ arithmetic from shapes; [?] could not verify.
    `bench/analyze_sol_block_grouping.py` ("if the routed set barely moves
    between denoising steps, an expensive decision can be taken once and
    reused") is this question already framed; read its record,
-   `bench/results/2026-09-19_sol_block_grouping.json`, before designing
+   `data/results/2026-09-19_sol_block_grouping.json`, before designing
    anything here. The number to beat: DeepSeek pays one full-range scoring
    pass and spreads it over four re-indexing layers in one forward (layers
    24, 28, 32, 36, section 1.2). The H3 analogue is how many steps a route

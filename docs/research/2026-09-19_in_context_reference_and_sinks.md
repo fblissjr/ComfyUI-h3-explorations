@@ -50,8 +50,8 @@ Ranked by how directly each could change a default or a kernel in this pack
 within a week. "Measure first" prefers the existing captures: set A, covered
 market, t2va, one sequence length, blocks 0/8/16/24/32/40/44-49 at steps 8
 and 15 plus blocks 0/24/32/40/45/48/49 at steps 1/3/4/12
-(`bench/results/2026-09-19_capture_inventory_covered_market_depth.json`,
-`bench/results/2026-09-19_capture_inventory_covered_market_steps.json`).
+(`data/results/2026-09-19_capture_inventory_covered_market_depth.json`,
+`data/results/2026-09-19_capture_inventory_covered_market_steps.json`).
 **No capture on disk contains reference rows**: capture-plan set D (ref2va) was
 never run (`internal/2026-09-18_capture_plan.md`, set D). Every
 reference-specific measurement below waits on that one capture render.

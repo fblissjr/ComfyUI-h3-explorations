@@ -13,7 +13,7 @@ and where, and the diff is the finding.
 
 **An audit, not a gate.** The pack is a third-party install that may be
 absent, so this exits 2 (nothing graded) when it cannot be imported, and it
-never blocks a commit. It also writes a dated record under `bench/results/`
+never blocks a commit. It also writes a dated record under `data/results/`
 because the comparison depends on the pack's revision, the VAE file and the
 track.
 
@@ -24,7 +24,7 @@ and installs nothing on this build (measured 2026-08-30).
 ## Running it
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/audit_audio_freeze_control.py \\
-        --audio <path to the track> [--start 0.0] [--length 345] [--out bench/results/...json]
+        --audio <path to the track> [--start 0.0] [--length 345] [--out data/results/...json]
 
 The track is a path argument on purpose: the server's input directory is
 outside this repo and is not written into it.
@@ -108,7 +108,7 @@ def main() -> int:
     ap.add_argument("--audio", required=True, help="the track to slice")
     ap.add_argument("--start", type=float, default=0.0)
     ap.add_argument("--length", type=int, default=LONG_LENGTH)
-    ap.add_argument("--out", default=str(HERE / "results" / f"{date.today().isoformat()}_audio_freeze_control.json"))
+    ap.add_argument("--out", default=str(HERE.parent / "data" / "results" / f"{date.today().isoformat()}_audio_freeze_control.json"))
     args = ap.parse_args()
 
     pack, why = _pack_node()

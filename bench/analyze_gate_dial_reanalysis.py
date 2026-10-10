@@ -16,7 +16,7 @@ from the write-up:
 CPU only.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_gate_dial_reanalysis.py \\
-        --latents <output>/latents --record bench/results/<date>_<name>.json
+        --latents <output>/latents --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

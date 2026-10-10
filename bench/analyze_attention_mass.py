@@ -17,7 +17,7 @@ segment. The captured q and k are the kernel's inputs (after RoPE). CPU only.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_attention_mass.py \\
         --capture <dir> [--capture <dir>] --blocks 24,49 --step 2 --queries 384 \\
-        --record bench/results/<date>_<name>.json
+        --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

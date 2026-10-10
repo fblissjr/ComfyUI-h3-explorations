@@ -59,12 +59,12 @@ prompt-structure question; if you are about to establish one of these, you are
 repeating work.
 
 - **The released text encoder is byte-identical to stock Qwen3-VL-32B-Instruct**
-  — all 14 shards, hub LFS SHA-256, `bench/results/2026-08-25_released_encoder_is_stock.json`.
+  — all 14 shards, hub LFS SHA-256, `data/results/2026-08-25_released_encoder_is_stock.json`.
   MiniMax shipped no encoder post-training. **Read the next bullet only through
   this one.**
 - **The seven H3 marker rows are untrained, and that fact discriminates
   nothing.** Measured 2026-08-21 in four artifacts
-  (`bench/results/2026-08-21_h3_token_embeddings.json`): the seven sit with the
+  (`data/results/2026-08-21_h3_token_embeddings.json`): the seven sit with the
   untrained padding tail, not the trained Qwen specials. This is about the
   ENCODER's input embedding table, not the DiT. But since the encoder is stock
   in its entirety, *every* row is untrained-by-MiniMax and the seven could not
@@ -92,7 +92,7 @@ repeating work.
   So `comfy/text_encoders/minimax.py`'s "ids fixed by the released tokenizer" is
   correct, and `release_id` addresses the rows the vendor's own pipeline
   addresses. Verified by loading, not by reading:
-  `bench/results/2026-08-27_marker_tokenization_alignment.json`. **Do not
+  `data/results/2026-08-27_marker_tokenization_alignment.json`. **Do not
   re-raise the missing literal as a finding.**
 - **The DiT was trained on MiniMax's own prompt-writing structure, and it
   differs by mode.** `vendor_guides/` holds the base and ref

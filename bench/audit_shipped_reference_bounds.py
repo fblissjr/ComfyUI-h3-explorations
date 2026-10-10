@@ -375,7 +375,7 @@ def main() -> int:
         if widest is not None:
             print(f"  the widest reference any graph sends is {widest}:1, "
                   f"and the ceiling first bit at 3.25:1 in "
-                  f"bench/results/2026-08-21_qwen_bounds_bite.json")
+                  f"data/results/2026-08-21_qwen_bounds_bite.json")
 
     record = {
         "question": "does any shipped graph hand Qwen a reference it shrinks?",
@@ -391,7 +391,7 @@ def main() -> int:
         "controls": ctrl_rows,
         "controls_hold": ctrl_ok,
     }
-    out = _REPO / "bench" / "results" / "2026-08-21_shipped_reference_bounds.json"
+    out = _REPO / "data" / "results" / "2026-08-21_shipped_reference_bounds.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(_REPO)}")
 

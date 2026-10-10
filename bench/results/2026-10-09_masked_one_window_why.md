@@ -33,7 +33,7 @@ day set out to test.
 
 Each differs from the control, or from the text render where it says so, in
 the one thing named. The json beside this file
-([`2026-10-09_masked_one_window_why.json`](2026-10-09_masked_one_window_why.json))
+([`2026-10-09_masked_one_window_why.json`](../../data/results/2026-10-09_masked_one_window_why.json))
 has each one's prompt id, file, report lines and what ComfyUI's cache served
 it.
 

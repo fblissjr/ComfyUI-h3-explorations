@@ -189,9 +189,9 @@ renders, with no capture and no panel.
    (survey D.1), so part of sglang's "per-head budget" lever (a lever for
    uniform top-k routers, `coderef/sglang/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/router.py:63-68`) is already
    pulled by construction. The pack has per-head density and error records
-   (`bench/results/2026-08-19_routing_density_per_head.json`,
+   (`data/results/2026-08-19_routing_density_per_head.json`,
    `2026-08-19_sol_error_per_head.json`, priced in
-   `bench/results/2026-08-19_head_granularity_arms.json`). Measure first, CPU, existing
+   `data/results/2026-08-19_head_granularity_arms.json`). Measure first, CPU, existing
    capture: per head, Sol's retained exact mass at its routed density,
    against that head's attention entropy. If diffuse heads already get more
    blocks, the lever is spent. Add the data-free Autonomy-of-Heads statistic
@@ -394,7 +394,7 @@ else read]
   the `SOL_END_PERCENT_BY_STEPS` note). No paper tests a last step that
   large. The existing propagation probe already isolates the final step
   (`bench/probe_block_propagation.py`, record
-  `bench/results/2026-08-29_block_propagation.json`, base model, 4 steps).
+  `data/results/2026-08-29_block_propagation.json`, base model, 4 steps).
   Running it on the PDD8 schedule is the cheapest check.
 
 ### 1.6 Step fraction is not sigma [I, labelled arithmetic]
@@ -405,7 +405,7 @@ percent)` with `time_snr_shift(a, t) = a t / (1 + (a - 1) t)`
 uniform in t before shifting, a step fraction p maps the same way. So the
 sigma at which a 20% warm-up ends is 0.980 at shift 12 (this pack; the PDD8
 route record logs `sigma_start` 0.9796,
-`bench/results/2026-09-01_sol_route_pdd8_chunked_ab.json`), 0.966 at shift 7,
+`data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`), 0.966 at shift 7,
 0.952 at shift 5 and 0.923 at shift 3. STA's 3 of 10 steps at shift 17 ends
 near 0.975. The literature's "20%" is a different point on the noise axis for
 every model. `docs/SOLATTN.md` ("The sigma window is not a step fraction")
@@ -490,7 +490,7 @@ error point of question review C.11, found independently.
   measured per-head density and error and priced "top-k heads dense" arms
   against a global tau change. They found about the same local-error cut per
   unit of density, with error concentrated in a few heads per cell
-  (`bench/results/2026-08-19_head_granularity_arms.json`). That was tau 1.3,
+  (`data/results/2026-08-19_head_granularity_arms.json`). That was tau 1.3,
   one ref2va capture and local error only. [V pointer; I reading]
 
 ## 3. Sensitivity and propagation
@@ -634,4 +634,4 @@ Local code and records:
 - `sol_attn_h3.py:1028-1029, 1063-1078, 1386`; `sol_observe.py:10-18`
 - `workflows/h3_config.py` (`start_percent` note in `SOL_RECOMMENDED_CUDA`; `SOL_END_PERCENT_BY_STEPS` note)
 - `docs/SOLATTN.md` ("The sigma window is not a step fraction"; knob table)
-- `bench/results/2026-09-17_sol_start_percent_batch.md`, `bench/results/2026-09-17_sol_stage_profile.md`, `bench/results/2026-08-29_block_propagation.json`, `bench/results/2026-09-01_sol_route_pdd8_chunked_ab.json`, `bench/results/2026-08-19_head_granularity_arms.json`, `bench/results/2026-08-19_routing_density_per_head.json`, `2026-08-19_sol_error_per_head.json`
+- `bench/results/2026-09-17_sol_start_percent_batch.md`, `bench/results/2026-09-17_sol_stage_profile.md`, `data/results/2026-08-29_block_propagation.json`, `data/results/2026-09-01_sol_route_pdd8_chunked_ab.json`, `data/results/2026-08-19_head_granularity_arms.json`, `data/results/2026-08-19_routing_density_per_head.json`, `2026-08-19_sol_error_per_head.json`

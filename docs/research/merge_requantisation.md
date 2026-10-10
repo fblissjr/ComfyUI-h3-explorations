@@ -52,7 +52,7 @@ branch. Any statement about RTN below is about a hypothetical arm.
 > says.
 
 
-`bench/measure_merge_noise.py` → `bench/results/2026-08-31_merge_noise.json`.
+`bench/measure_merge_noise.py` → `data/results/2026-08-31_merge_noise.json`.
 CPU only, fixed seed, `int8_convrot` at the layout's own group size.
 
 **Read `blocks_sampled` in that record before quoting it.** It is written by
@@ -187,7 +187,7 @@ A separate 100-module sweep of PDD fl2va across all 50 blocks put
 agrees in the third decimal: median 1.981, mean 2.002, above 1.0 on 194 of 200
 (97%), same kind ordering (`fc2` 2.222 > `fc1` 2.038 > `out_proj` 1.978 > `qkv`
 1.424), and RTN realised 0.341 mean with a worst module of 0.0043.
-`quant_levers.md` and `bench/results/2026-08-31_merge_realisation_pdd_all_blocks.json`
+`quant_levers.md` and `data/results/2026-08-31_merge_realisation_pdd_all_blocks.json`
 are that record. Two implementations, two subsets, agreement to the third
 decimal — which is what makes these quotable at all. **Both lanes' small
 samples were optimistic in the same direction**, because the two module kinds
@@ -270,7 +270,7 @@ therefore per-LoRA and larger where the delta is smaller.
   third of the int8 codes differ by one step. They agree on magnitude to
   within 0.01% and both sit at exactly √2 of round-to-nearest
   (`cross_backend` in
-  [`../../bench/results/2026-08-31_merge_rounding_regimes.json`](../../bench/results/2026-08-31_merge_rounding_regimes.json)).
+  [`../../data/results/2026-08-31_merge_rounding_regimes.json`](../../data/results/2026-08-31_merge_rounding_regimes.json)).
   **So every stochastic MEAN in this lane is the shipped path's and every
   per-module stochastic figure is one draw from it.** Nothing quoted here
   changes; what changes is what a single row may be said to be.

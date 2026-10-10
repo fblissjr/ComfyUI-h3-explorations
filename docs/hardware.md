@@ -84,7 +84,7 @@ activations for a full-length packed sequence are accounted for. So ComfyUI
 streams blocks rather than holding everything resident. **This paragraph used
 to conclude that PCIe therefore carries continuous traffic through the whole
 sampling loop. Measured 2026-08-18 and it does not, at the one configuration
-measured:** `bench/results/2026-08-18_phase0_instrument.json` recorded ~20 MB/s
+measured:** `data/results/2026-08-18_phase0_instrument.json` recorded ~20 MB/s
 of PCIe receive during sampling at 1024x768 with three references, with power
 pegged at the 450 W limit and core clocks pulled ~24% under their maximum.
 Sampling at that configuration is compute/power-bound, not host-bound; the

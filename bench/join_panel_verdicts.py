@@ -62,7 +62,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 KEY_DIR = REPO / "internal" / "blind_keys"
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 SCORE_SESSION = HERE / "score_session.py"
 KINDS = ("real", "two_seed_decoy", "identical_decoy", "low_anchor")
 SLOTS = ("Clip 1", "Clip 2")

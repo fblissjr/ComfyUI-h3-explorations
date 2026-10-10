@@ -26,7 +26,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "workflows"))
 import h3_config  # noqa: E402
 CKPT = REPO.parents[1] / "models/diffusion_models" / h3_config.MODELS["unet_fl2va"]
-OUT = Path(os.environ.get("OUT", REPO / "bench/results/2026-09-25_pdd_head_selection.json"))
+OUT = Path(os.environ.get("OUT", REPO / "data/results/2026-09-25_pdd_head_selection.json"))
 N, SV, SA = 32, 12.0, 3.0
 BOUNDARY_TOLERANCE = 1e-2                      # pdd_lora.BOUNDARY_TOLERANCE
 

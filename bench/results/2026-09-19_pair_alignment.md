@@ -1,11 +1,11 @@
 # Which scored pairs are the same take: picture and sound alignment, 2026-09-19
 
 Tool: `bench/measure_pair_alignment.py` (CPU, ffmpeg; no GPU). Numbers:
-`bench/results/2026-09-19_pair_alignment.json`, one row per pair with the
+`data/results/2026-09-19_pair_alignment.json`, one row per pair with the
 graph fields that differ, per-frame picture summaries and the sound envelope
 correlation. List it with:
 
-    python3 -c "import orjson; [print(r['label'], r['verdict'], r['sound_verdict'], round(r['picture']['ssim_luma']['mean'],3)) for r in orjson.loads(open('bench/results/2026-09-19_pair_alignment.json','rb').read())['pairs']]"
+    python3 -c "import orjson; [print(r['label'], r['verdict'], r['sound_verdict'], round(r['picture']['ssim_luma']['mean'],3)) for r in orjson.loads(open('data/results/2026-09-19_pair_alignment.json','rb').read())['pairs']]"
 
 ## Why
 

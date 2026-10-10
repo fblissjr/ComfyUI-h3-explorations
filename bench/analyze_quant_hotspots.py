@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Where INT8 weight error concentrates: by block, and by module kind.
 
-Reads the stored-weight record `bench/results/2026-08-21_quant_delta_ref2va.json`
+Reads the stored-weight record `data/results/2026-08-21_quant_delta_ref2va.json`
 and aggregates it two ways. Measures nothing itself -- that file is the
 measurement, produced by `bench/analyze_quant_delta.py` against the bf16
 release, with its own self-tests (identity, perturbation, rotated-vs-unrotated,
@@ -34,8 +34,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "results" / "2026-08-21_quant_delta_ref2va.json"
 if not SRC.exists():
-    SRC = REPO / "bench" / "results" / "2026-08-21_quant_delta_ref2va.json"
-OUT = REPO / "bench" / "results" / "2026-08-28_quant_hotspots_ref2va.json"
+    SRC = REPO / "data" / "results" / "2026-08-21_quant_delta_ref2va.json"
+OUT = REPO / "data" / "results" / "2026-08-28_quant_hotspots_ref2va.json"
 
 KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
 

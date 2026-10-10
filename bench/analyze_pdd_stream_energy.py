@@ -7,7 +7,7 @@
 variable (`comfy/ldm/minimax/model.py:530-551`) interacts badly with a PDD fused
 head, producing an error that is **audio-only by construction** and grows with
 block width. Its evidence is the arm table in
-`bench/results/2026-08-28_pdd_partition_fidelity_362.json`: audio rel L2 rises
+`data/results/2026-08-28_pdd_partition_fidelity_362.json`: audio rel L2 rises
 monotonically across the partitions while **video stays flat**.
 
 The audio-only half rests entirely on video being flat. This script asks whether
@@ -255,7 +255,7 @@ def main() -> int:
                   f"record says {rec[0]:.6f}/{rec[1]:.6f}")
         raise SystemExit(
             "these are not the renders that produced "
-            "bench/results/2026-08-28_pdd_partition_fidelity_362.json; "
+            "data/results/2026-08-28_pdd_partition_fidelity_362.json; "
             "nothing below would be about the same arms")
     print("control: audio rel L2 reproduces the record EXACTLY on every arm -- "
           "these are the record's own renders.")
@@ -291,12 +291,12 @@ def main() -> int:
     print(f"video-time coarseness order   : {' < '.join(rv_)}")
     print(f"rank-identical over all {len(allarms)} arms: {ra_ == rv_}")
 
-    out = REPO / "bench/results/2026-08-28_pdd_stream_energy.json"
+    out = REPO / "data/results/2026-08-28_pdd_stream_energy.json"
     out.write_text(json.dumps({
         "date": "2026-08-28",
         "script": "bench/analyze_pdd_stream_energy.py",
         "reads": "the renders already on disk from "
-                 "bench/results/2026-08-28_pdd_partition_fidelity_362.json; "
+                 "data/results/2026-08-28_pdd_partition_fidelity_362.json; "
                  "no GPU, nothing re-rendered",
         "length": LENGTH, "canvas": "1152x768 (fast tier)",
         "arms": rows,

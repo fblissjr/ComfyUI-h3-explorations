@@ -16,7 +16,7 @@ This gives the script's own statistic (its `embed`, `flow_shift`, `rel`,
 CPU only.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/control_time_warp.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --record bench/results/<date>_<name>.json
+        --release <MiniMaxAI_MiniMax-H3 dir> --record data/results/<date>_<name>.json
 """
 import argparse
 import importlib.util

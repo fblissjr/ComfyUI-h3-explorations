@@ -1,7 +1,7 @@
 # How often the judge ties, from the structured verdict files, 2026-09-19
 
 Tool: `bench/tally_judge_verdicts.py` (CPU, reads files only). Numbers:
-`bench/results/2026-09-19_judge_tie_rate.json`, per file and in total.
+`data/results/2026-09-19_judge_tie_rate.json`, per file and in total.
 
 ## What was counted
 

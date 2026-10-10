@@ -21,7 +21,7 @@ Measures only. Nothing is written but the record.
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/measure_checkpoint_overlay.py \\
         --base <models>/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
         --target <models>/diffusion_models/fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors \\
-        [--svd <FastH3 bf16 file> --svd-blocks 0,25,49] --record bench/results/<date>_<name>.json
+        [--svd <FastH3 bf16 file> --svd-blocks 0,25,49] --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

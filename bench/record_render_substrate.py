@@ -95,7 +95,7 @@ def _label(prompt: dict) -> str | None:
 
     **Reduced to a bare, sanitised basename on purpose.** A `filename_prefix`
     is user-controlled and can be an absolute path; this file is written into
-    `bench/results/` and committed, so the whole of its exposure is whatever
+    `data/results/` and committed, so the whole of its exposure is whatever
     comes out of here. Directory components are dropped, then every character
     outside `_LABEL_OK`, then the result is capped. A label that sanitises to
     nothing returns None rather than a guess.

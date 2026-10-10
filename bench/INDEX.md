@@ -34,7 +34,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_capture_manifest.py`](check_capture_manifest.py) | Check that activation captures contain valid, conforming manifest.json files. |
 | [`check_capture_manifest_controls.py`](check_capture_manifest_controls.py) | Red controls for the capture-manifest contract: each case is a fixture built to violate one rule, and the run is green only when every violation is caught and the two legitimate fixtures pass. |
 | [`check_capture_masked_run.py`](check_capture_masked_run.py) | The capture tool's tables against masks whose answers are known by construction, for three subjects. |
-| [`check_cast_file.py`](check_cast_file.py) | `bench/cast_file.py` keeps a person's answers about who is on a frame, and each case is a way one could be lost or misread. |
+| [`check_cast_file.py`](check_cast_file.py) | `bench/cast_file.py` keeps a person's answers about who the outlined people on a frame are, and each case is a way one could be lost or misread. |
 | [`check_changelog.py`](check_changelog.py) | `CHANGELOG.md`'s top is what the fragments in `changelog.d/` make, and the builder cannot lose an entry. |
 | [`check_channel_balance.py`](check_channel_balance.py) | Check `MiniMaxH3ChannelBalance`: the fold is exact, RoPE-safe, off by default, and picks the blocks the shipped checkpoint's weights say it should. |
 | [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
@@ -317,7 +317,7 @@ this file is only a way to find a script by what it says it does.
 | [`break_checks.py`](break_checks.py) | Break the code on purpose, in a copy, and see whether a check notices: with the unbroken copy run FIRST. |
 | [`calibrate_sparse_table.py`](calibrate_sparse_table.py) | Calibrate a per-head tau table from tau-sweep records (`sol_tau_sweep.py`). |
 | [`capture_masked_run.py`](capture_masked_run.py) | Capture what the tracker and the masks did on a masked run, for any number of subjects, and show it. |
-| [`cast_file.py`](cast_file.py) | The cast file: what a person answered about who is on a frame, kept so it is typed once. |
+| [`cast_file.py`](cast_file.py) | The cast file: what a person answered about who the outlined people on a frame are, kept so it is typed once. |
 | [`checkpoint_delta_map.py`](checkpoint_delta_map.py) | Where each distill changes H3, from full-precision weights. CPU only. |
 | [`classify_kijai_pdd_banks.py`](classify_kijai_pdd_banks.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md section 1. Network (HTTP range requests to Hugging Face) and CPU; no GPU. |
 | [`clip_analysis.py`](clip_analysis.py) | Make and fill an input video's analysis folder: the workflow that runs before any job on that video. |
@@ -562,7 +562,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-871 tracked files: [`results/INDEX.md`](results/INDEX.md).
+254 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

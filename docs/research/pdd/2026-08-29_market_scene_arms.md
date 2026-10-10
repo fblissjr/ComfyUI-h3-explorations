@@ -9,7 +9,7 @@ judged good, and because one of the pairs prices a divergence that
 open.
 
 The machine-readable record is
-[`../../../bench/results/2026-08-29_market_scene_arms.json`](../../../bench/results/2026-08-29_market_scene_arms.json);
+[`../../../data/results/2026-08-29_market_scene_arms.json`](../../../data/results/2026-08-29_market_scene_arms.json);
 this file is the reasoning. Both were derived with
 `bench/diff_render_graphs.py`, from the graph ComfyUI embedded in each render
 rather than from any workflow JSON.

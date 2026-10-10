@@ -140,7 +140,7 @@ Not simulated: the sampler's inpaint blend
 (`comfy/samplers.py`, `KSamplerX0Inpaint`). That is ComfyUI's own masking
 mechanism, with no vendor counterpart to compare against.
 
-**What this bounds.** `bench/results/2026-08-28_audio_carry_ablation.json`
+**What this bounds.** `data/results/2026-08-28_audio_carry_ablation.json`
 re-applied the transform at the block's mean sigma and measured audio energy
 rise at every partition. That observation stands. It is now a departure from
 the vendor's integrator that adds energy, not the correction of an error:

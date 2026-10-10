@@ -33,7 +33,7 @@ run in a fixed order. Then the shipped text-to-video graph cut to two
 steps, which loaded the text encoder and the video model and sampled. Then
 the six probes again, then all models freed, then the six a third time.
 The numbers are in
-[`2026-10-07_sam31_corrections_on_a_queue.json`](2026-10-07_sam31_corrections_on_a_queue.json);
+[`2026-10-07_sam31_corrections_on_a_queue.json`](../../data/results/2026-10-07_sam31_corrections_on_a_queue.json);
 the table is printed from it by the tool's `render`.
 
 The H3 prompt between the rounds: `h3_text_to_video_api.json` at 2 steps and 73 frames, status success. Overall: PASSED.

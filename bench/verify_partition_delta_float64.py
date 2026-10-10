@@ -13,7 +13,7 @@ same norm. It also gives the per-block relative delta of qkv, fc1 and adaln
 CPU only; the adaln matrices are large and the Gram step takes minutes.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/verify_partition_delta_float64.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --record bench/results/<date>_<name>.json
+        --release <MiniMaxAI_MiniMax-H3 dir> --record data/results/<date>_<name>.json
 """
 
 import argparse

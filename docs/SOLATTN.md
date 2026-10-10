@@ -244,7 +244,7 @@ pad/norm, fp16-accumulate conv3d and GEMM, int8 residual epilogue), PR 165
 optimization. The build branch was rebased onto the tag per the script's
 recipe, the old tip kept as `archive/h3-build-0.2.33`, and the six `blk_cnt`
 commits reapplied clean; that build was `0.2.34+sol.2aff3c5`, superseded the
-same evening by `0.2.34+sol.5284cfb` (`bench/results/2026-09-15_kitchen_0234_qk_balance_install.json`). Nothing
+same evening by `0.2.34+sol.5284cfb` (`data/results/2026-09-15_kitchen_0234_qk_balance_install.json`). Nothing
 on kijai's branches was left behind: on the CUDA and sage-attention files every
 one of them (`sol_exact_pquant`, `sol_token_aug_main`, `minimax_vae`) is
 identical to the tag, their remaining diffs being an older `v0.2.32` base.
@@ -406,7 +406,7 @@ hand-edit.
 | option | default | what it does |
 |---|---|---|
 | `tau` | 1.0 | *Corrected 2026-09-10:* this cell said 1.3, the node default before the 2026-08-20 change; the node's `define_schema` is the authority. Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
-| `quantizer` NEW 2026-09-27 | `rotated` since 2026-09-27 (owner; `balanced` before) | How Sol's INT8 quantizers treat q and k: `plain`, `balanced` (`qk_balance`), `rotated` (`rotate`), `balanced+rotated`. One choice in place of the two booleans, because they interact: rotation does most of what the balance does (audit, section 4.4). `balanced` is the shipped state inherited from `qk_balance=True`. It is not inert behind the dense tail: it changes every render, because the gate opens on some heads of every block (2026-09-27, `../bench/results/2026-09-27_sol_redesign_test1.md`). Whether it beats `plain` is graded there on captures. On the shipped PDD8 graphs, `rotated` is the better quantizer (lower quantization error on every graded cell, and cheaper than `balanced`), but the choice moves Sol's total error very little. The owner made it the default on 2026-09-27: `../bench/results/2026-09-27_sol_redesign_test2.md`. The history of the balance factor: The kernel's own per-head q/k channel rebalancing inside its INT8 quantizers (`sol_attn(..., qk_balance=True)`, carried on the owner's kitchen fork, `h3-build`, not upstream). Per call and per head it scales q up and k down on the channels where K is loud, which changes no attention score in exact arithmetic and leaves the routing threshold in the unbalanced space; heads whose four loudest K channels hold under a fifth of K's energy are untouched. (Until 2026-09-27 this said "so on ordinary blocks it is inert"; the gate opens on some heads of every captured block, most of all block 0: `../bench/results/2026-09-27_qk_balance_gate_on_capture.json`.) Exists for MiniMax H3's last blocks (`docs/h3_block49_quant_error.md`); graded on captures by `bench/grade_channel_balance.py` (its `kernel` row); the shipped graphs carried it on from 2026-09-15 to 2026-09-27 (`h3_config.SOL_RECOMMENDED_CUDA`, owner decision), and the graphs that carry False declare that as a deviation (`bench/check_attention_defaults.py`). Refused at patch time on a kernel build without it. |
+| `quantizer` NEW 2026-09-27 | `rotated` since 2026-09-27 (owner; `balanced` before) | How Sol's INT8 quantizers treat q and k: `plain`, `balanced` (`qk_balance`), `rotated` (`rotate`), `balanced+rotated`. One choice in place of the two booleans, because they interact: rotation does most of what the balance does (audit, section 4.4). `balanced` is the shipped state inherited from `qk_balance=True`. It is not inert behind the dense tail: it changes every render, because the gate opens on some heads of every block (2026-09-27, `../bench/results/2026-09-27_sol_redesign_test1.md`). Whether it beats `plain` is graded there on captures. On the shipped PDD8 graphs, `rotated` is the better quantizer (lower quantization error on every graded cell, and cheaper than `balanced`), but the choice moves Sol's total error very little. The owner made it the default on 2026-09-27: `../bench/results/2026-09-27_sol_redesign_test2.md`. The history of the balance factor: The kernel's own per-head q/k channel rebalancing inside its INT8 quantizers (`sol_attn(..., qk_balance=True)`, carried on the owner's kitchen fork, `h3-build`, not upstream). Per call and per head it scales q up and k down on the channels where K is loud, which changes no attention score in exact arithmetic and leaves the routing threshold in the unbalanced space; heads whose four loudest K channels hold under a fifth of K's energy are untouched. (Until 2026-09-27 this said "so on ordinary blocks it is inert"; the gate opens on some heads of every captured block, most of all block 0: `../data/results/2026-09-27_qk_balance_gate_on_capture.json`.) Exists for MiniMax H3's last blocks (`docs/h3_block49_quant_error.md`); graded on captures by `bench/grade_channel_balance.py` (its `kernel` row); the shipped graphs carried it on from 2026-09-15 to 2026-09-27 (`h3_config.SOL_RECOMMENDED_CUDA`, owner decision), and the graphs that carry False declare that as a deviation (`bench/check_attention_defaults.py`). Refused at patch time on a kernel build without it. |
 | `dense_blocks` | `sol_attn_h3.py::SOL_DENSE_TAIL`; read the constant. *Corrected 2026-10-03:* this cell said `45,48,49`, the default from 2026-09-25 until the 2026-10-02 change | Blocks routed to the chained dense fallback instead of Sol, e.g. `0-2,-1`; this is not exact torch attention. The fallback was sage on every graph until 2026-09-15; since then it is core's kitchen backend node on the default graphs and sage only on the sage arms. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`block_spec.py`). *From 2026-09-02 until 2026-09-25 the node and both shared configs shipped empty; since 2026-09-25 they ship `SOL_DENSE_TAIL` (`sol_attn_h3.py` and `workflows/h3_config.py`).* `0-2,32` shipped from 2026-08-29 until 2026-09-02, but the owner demoted it to an explicit experiment: its propagation record covered only 11/50 blocks, one base-model trajectory at a specially isolated sigma, and no perceptual or set-interaction A/B. See the propagation section and the 2026-09-02 production-geometry route record. *(Re-evaluated 2026-10-02 on rotated INT8 telemetry: Hadamard rotation eliminated tail K outliers, dropping block 48 error to 7.14% and 45 to 9.55%. In contrast, routing sparsity causes a severe error spike in middle blocks 38–43, peaking at block 42 with 25.67% and block 39 with 25.22%. Option A `"39,41,42,49"` and Option B `"39,40,41,42,49"` are under trial; see [`research/sparse/sol_dense_blocks_reanalysis.md`](research/sparse/sol_dense_blocks_reanalysis.md) and [`wiki/decisions.md`](wiki/decisions.md)).* |
 | `sink_conditioning` | `sol_attn_h3.py::SOL_SINK_DEFAULT`; read the constant. *Corrected 2026-10-03:* this cell said `exact_kv_and_rows`, the default until the owner's 2026-10-02 decision (`../bench/results/2026-10-02_sol_dense_blocks_panel.md`) | `exact_kv_and_rows` keeps the target audio's queries exact. **NOT the dominant knob at reference load** — that was v1 arithmetic; under the v2 node the swing is ~0.5 points, not 23. See the reference section. **`exact_kv_and_all_rows` added 2026-09-04**: every conditioning query row dense, references included. *(Until 2026-10-03 this said "not the default and no graph ships it"; it has been the node default and `h3_config.SOL_SINK_DEFAULT` since 2026-10-02.)* The kernel takes one dense-query range, so "text and audio dense, references sparse" is not expressible when reference rows sit between them; this is the range that covers both. On t2v the extra cost over the default is the text rows alone; on ref2v with a video reference it is the reference's rows, priced by the recomputed sink-share table. The modes are `sol_attn_h3.py::SINK_CONDITIONING_MODES`; `_sink_blocks` refuses any other string. |
 | `token_routing` reworked 2026-09-27 | `off` | `off`, `measured blocks (0, 24, 32, 40)`, `early and middle (all but the last five)`, `all blocks (needs a balanced quantizer)`, `custom` (with its `blocks` list). Budget 64 in every preset. `all blocks` needs the balance on: on the block-49 grade token routing raised the error plain and rotated and lowered it only with the balance (`bench/results/2026-09-15_sol_token_aug_x_options_b49_s15.json`); those balanced rows ran on a kernel whose token stage scored an unbalanced centroid (fixed in kitchen fc32da2, CHANGELOG 0.159.2), and the re-grade is test 3 of the redesign. Asserted by `bench/check_token_routing.py`. **No render has been judged with any preset on.** |
@@ -541,7 +541,7 @@ been run, or the derivation is just a prettier way to spell 0.74.
 
 ##### `dense_blocks`: useful experimental evidence, not a validated default
 
-`bench/results/2026-08-19_sol_error_per_head_tau1.0.json` is Sol's **sparsity
+`data/results/2026-08-19_sol_error_per_head_tau1.0.json` is Sol's **sparsity
 error** — the algorithm against exact attention, not the kernel against the
 algorithm — at tau 1.0, all 56 heads, production S = 98,498, on a ref2va
 capture. Relative L2, at steps 3 and 11:
@@ -568,7 +568,7 @@ Sol's approximation for sage's, and what it buys is the difference, not Sol's
 error. (*Since 2026-09-15* `previous` on the default graphs is core's kitchen
 backend node, `h3_config.DENSE_BACKEND_NODE`, and sage only on the sage arms;
 the ranking below was taken against sage.) `bench/rank_dense_blocks.py` does that subtraction over the two records
-this repo already holds (`bench/results/2026-08-29_dense_block_ranking.json`):
+this repo already holds (`data/results/2026-08-29_dense_block_ranking.json`):
 
 | block | Sol total | sage | **removed by dense** |
 |---|---|---|---|
@@ -651,7 +651,7 @@ block is worth".
 everywhere else, and reads the output latent against a sage-everywhere
 baseline. That folds together how large Sol's error is at that block AND how
 much survives to the output, which is the quantity `dense_blocks` should
-actually be chosen on. `bench/results/2026-08-29_block_propagation.json`:
+actually be chosen on. `data/results/2026-08-29_block_propagation.json`:
 
 | block | video rel L2 | audio rel L2 |
 |---|---|---|
@@ -683,7 +683,7 @@ among 8/16/24 is about 4%. Block 0's dominance is the most stable thing in the
 table (0.0306 and 0.0316 across seeds).
 
 **Cost, measured rather than derived** (`bench/time_dense_blocks.py`,
-`bench/results/2026-08-29_dense_block_cost.json`): **1.01 s per dense block** at
+`data/results/2026-08-29_dense_block_cost.json`): **1.01 s per dense block** at
 4 steps, linear from 2 to 8 blocks, against a 0.9 s noise floor and a 150.4 s
 baseline. Four blocks is +4.1 s, 2.7%. The per-block cost is UNIFORM, which
 refutes the guess that block 0 would be cheapest because the router already
@@ -745,7 +745,7 @@ reference implementation; this box's unaccelerated answer.
 and block 49 is where it breaks down: rel L2 ~0.031 against ~0.005 at block 0,
 and `cos_min` **negative** (-0.04 to -0.11), so on some rows sage's output is
 anti-correlated with the exact answer
-(`bench/results/2026-08-18_sage_accuracy_on_capture.json`). That is also the
+(`data/results/2026-08-18_sage_accuracy_on_capture.json`). That is also the
 block a distilled output head reads directly.
 
 *Note 2026-09-29:* these figures are unrotated sage's (the 2026-08-18 capture). Block 49's INT8 problem is specific to unrotated INT8 attention (sage's plain fp8++, stock Sol's per-row K scale). comfy-kitchen's `int8_attention` (the `--use-ck-attention` and Model Attention Backend path) already rotates q and k and was never affected, and the sage fork's rotated mode (`qk_rotate`, the sage node's `auto` since 0.129.0) was added to address it (`docs/h3_block49_quant_error.md`).
@@ -805,7 +805,7 @@ themselves 0.2.31**, so read the local version segment, never the version.
 Every Sol figure on this page was taken on the branch build and survives:
 measured on a matched arm with two controls, the non-Sol baseline is
 bit-identical across the swap and the Sol arm differs by rel L2 **7.67e-05**
-(`bench/results/2026-08-29_sol_kernel_merge_equivalence.json`). What does not
+(`data/results/2026-08-29_sol_kernel_merge_equivalence.json`). What does not
 survive is any figure quoted to more than three significant figures across the
 two builds.
 
@@ -1074,7 +1074,7 @@ Whether the exact stage is bound by staging or by compute was answered the
 same day without `ncu` (performance counters are admin-only on the owner's
 machine): three probe builds of the kernel, stage only, compute only and
 neither, timed against the kernel as written
-(`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`). Compute is the
+(`data/results/2026-09-17_sol_exact_stage_vs_compute.json`). Compute is the
 critical path and the async staging hides behind it, so sharing staged blocks
 between query blocks has little to give on this card and no single change to
 the stage is large. The levers are `start_percent` and routed density.
@@ -1141,7 +1141,7 @@ blocks and the attention work is the same whatever the model does. Adaptive tau
 has no such guarantee, and on this workload it happens not to need one.
 
 Record:
-[`bench/results/2026-08-22_sol_selection_verdict_subway.json`](../bench/results/2026-08-22_sol_selection_verdict_subway.json).
+[`data/results/2026-08-22_sol_selection_verdict_subway.json`](../data/results/2026-08-22_sol_selection_verdict_subway.json).
 
 **An earlier run the same day reported the opposite shape and is void** -- a
 sign flip of about 20 points that did not replicate after a server restart.
@@ -1153,7 +1153,7 @@ by watching**, because their trajectories diverge and the clips are different
 samples. What the clips DID show is a failure neither selection owns: in 11 of
 12, a character introduced after a cut takes over the singing that belonged to
 the character before it.
-[`bench/results/2026-08-22_subway_speaker_bleed.json`](../bench/results/2026-08-22_subway_speaker_bleed.json)
+[`data/results/2026-08-22_subway_speaker_bleed.json`](../data/results/2026-08-22_subway_speaker_bleed.json)
 records it, and it is a finding about the model and the prompt rather than
 about attention -- it appears under both selections and both LoRAs.
 
@@ -1707,7 +1707,7 @@ video_start // BLOCK]` runs only the audio queries dense.
 every conditioning query row dense: `sink_q = sink_blocks`, which is also the
 range `exact_kv_and_rows` falls back to when no audio span was published.**
 It exists because the standoff probe record
-(`bench/results/2026-09-03_sol_probe_base16_standoff.json`) has the text
+(`data/results/2026-09-03_sol_probe_base16_standoff.json`) has the text
 segment disagreeing most in every block and audio least, and audio is least
 precisely because its query rows already run dense. The kernel's `sink_q` is
 one range, so text cannot be made dense without the rows between text and
@@ -1939,7 +1939,7 @@ Answer: **one of them is, and it is not the one anybody worries about.**
 ### tau = 1.0 is measured, and better than the value it replaced
 
 A matched pair exists and had not been read against itself:
-`bench/results/2026-08-19_sol_error_per_head.json` (tau 1.3) and
+`data/results/2026-08-19_sol_error_per_head.json` (tau 1.3) and
 `..._per_head_tau1.0.json` (tau 1.0), **same capture, same fourteen
 (block, step) pairs**, decomposed against an oracle by
 `bench/analyze_sol_error.py`.
@@ -2297,9 +2297,9 @@ version of this table until 2026-09-10:
 ### Core's `BlockSparseAttention` against ours: the implementation is not a variable (2026-09-10)
 
 *Measured on captured activations*
-(`bench/results/2026-09-10_sol_impl_capture_grade.json`, graded by
+(`data/results/2026-09-10_sol_impl_capture_grade.json`, graded by
 `bench/grade_sol_impl_on_capture.py` on the `pre=` capture recorded in
-`bench/results/2026-09-10_capture_inventory_sol_impl_courtroom.json`). At
+`data/results/2026-09-10_capture_inventory_sol_impl_courtroom.json`). At
 matched knobs (`h3_config.SOL_CORE_DEFAULTS`), core's chunked producer --
 q/k-norm and RoPE inside the kernel, K/V statistics carried from the previous
 step -- and our node's call on ComfyUI's own normed, roped tensors land the

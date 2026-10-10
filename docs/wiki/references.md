@@ -1178,7 +1178,7 @@ What the H3 checkout is not evidence of:
 - **The paper's memory.** The H3 adapter holds LoRA factors on the existing
   attention and MLP linears and nothing else (the removed converter refused
   any other tensor; its record is
-  `bench/results/2026-09-15_taomate_lora_conversion.json`). The H3 runtime's only
+  `data/results/2026-09-15_taomate_lora_conversion.json`). The H3 runtime's only
   appearance mechanism is an untrained per-channel renormalisation of each
   chunk to the first chunk's statistics
   (`coderef/TaoMate-H3/src/taomate_h3/streaming/runtime.py::H3StreamingRuntime._renorm_clean_video_rows`).

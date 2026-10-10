@@ -28,7 +28,7 @@ Usage:
 
     python bench/compare_dit_checkpoints.py --a URL_OR_PATH --b URL_OR_PATH \\
         [--label-a dbm --label-b comfy] [--sample KEY ...] [--adaln blocks.0 final_layer] \\
-        [--out bench/results/DATE_name.json]
+        [--out data/results/DATE_name.json]
 
 With no `--sample`, a default set covers a norm weight, the patch projection,
 the time embedder or curve table, the final layer, and three block weights

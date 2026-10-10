@@ -18,7 +18,7 @@ and reports per row:
 Rows are grouped by configuration (everything above except prompt, length and
 seed). `--unclaimed` lists `latents/` files no row names.
 
-    python bench/render_inventory.py bench/results/2026-09-26_*.jsonl [--md OUT] [--unclaimed]
+    python bench/render_inventory.py data/results/2026-09-26_*.jsonl [--md OUT] [--unclaimed]
 """
 
 from __future__ import annotations

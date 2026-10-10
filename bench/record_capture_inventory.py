@@ -8,7 +8,7 @@ Captures are the largest thing on this box -- 178 GiB across four sets on
 anyone reads. So they get deleted, and they should be.
 
 **The problem is that deleting one silently changes what its results mean.**
-`bench/results/2026-08-18_sage_accuracy_on_capture.json` cites
+`data/results/2026-08-18_sage_accuracy_on_capture.json` cites
 `2026-08-17_ref3_362f_1024x768`, which is already gone. Three files still name
 that capture and not one of them says it no longer exists, so a reader cannot
 tell "this is reproducible" from "this is the only surviving copy of a

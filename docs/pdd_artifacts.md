@@ -220,7 +220,7 @@ The `adaln_t_table` the bake was solved against. Introduced in `e917a35`
 (2026-08-26). The gap: a bake solved against the OTHER partition's table fits
 its basis just as well -- both are SVDs of similar smooth curves, so the fit
 is blind to which basis -- and is far worse at run time than the right one
-(`bench/results/2026-08-27_pdd_adaln_cross_partition.json`, both arms). So the
+(`data/results/2026-08-27_pdd_adaln_cross_partition.json`, both arms). So the
 node compares this table with the loaded model's own, by distance, and refuses
 a mismatch. `pdd_lora.py::TABLE_TOLERANCE` (reasoned) shipped for an hour
 BELOW the bf16 cast floor that record carries (`bf16_cast_floor`), which
@@ -277,7 +277,7 @@ admitted every wrong bake; Codex's 2026-09-03 audit (gitignored,
 made it an exact identity cut from the PAIRED checkpoint
 (`h3_pdd_backbone_probe_of`). `fc2` of block 49 because it carries the largest
 single update in the file (`pdd_rel` per module in
-`bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json`), so a bake
+`data/results/2026-08-31_pdd_quant_interaction_all_blocks.json`), so a bake
 moves it furthest.
 
 ### `h3_pdd.backbone_probe_scale`
@@ -345,7 +345,7 @@ pairings, and what the node does:
 | pairing | outcome |
 |---|---|
 | `_comfy` (adaln baked) on an unpruned base | **refused**: none of its adaln modules can be applied, and the message names the `_adaln2688` file. Before 2026-08-31 this rendered with no modulation update and looked normal |
-| `_adaln2688` on a pruned base | **works**, through one runtime forward patch per block instead of weight patches: slower per step, same result to within the adaln bake's residual, which sits below the pruning error the checkpoint already carries (`bench/results/2026-08-20_adaln_pruning_residual.json` against `2026-08-26_pdd_conversion_*.json::adaln_bake_vs_truth`) |
+| `_adaln2688` on a pruned base | **works**, through one runtime forward patch per block instead of weight patches: slower per step, same result to within the adaln bake's residual, which sits below the pruning error the checkpoint already carries (`data/results/2026-08-20_adaln_pruning_residual.json` against `2026-08-26_pdd_conversion_*.json::adaln_bake_vs_truth`) |
 | fl2va file on a ref2va base, or the reverse | **refused** by the partition check on `final_layer.video_out`; the two partitions ship identical key sets, so nothing else would notice |
 | a `_comfy` file whose adaln was solved against another table | **refused** by the table guard |
 | full sidecar on a checkpoint that is not its base (a bake) | **refused** since converter version 3, by the probe: the backbone would be applied a second time |
@@ -379,7 +379,7 @@ do not.
 | `pdd_archive/minimax_h3_fl2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_fl2va_pruned_int8_convrot.safetensors) | 730 | `c4f99a8c04f8` |
 | `pdd_archive/minimax_h3_ref2va_pdd_8step_comfy_v1_2026-08-28.safetensors` | archived | 1 | 2026-08-28 (mtime) | - | full | baked | none | the pruned build only (minimax_h3_ref2va_pruned_int8_convrot.safetensors) | 730 | `22ebf7c92e06` |
 
-Record: `bench/results/2026-09-05_pdd_artifact_fingerprints.json` (recorded 2026-09-05 at repo commit `06bbb32`; content hash recipe: sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout).
+Record: `data/results/2026-09-05_pdd_artifact_fingerprints.json` (recorded 2026-09-05 at repo commit `06bbb32`; content hash recipe: sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout).
 
 <!-- END GENERATED: inventory -->
 
@@ -481,7 +481,7 @@ down.
   fl2va PDD8 backbone at strength 1.0 quantised once from the release with
   round-to-nearest into the pruned int8_convrot layout, every other key
   copied from the shipped file; record
-  `bench/results/2026-09-05_bake_fl2va_full.json`, the identity control that
+  `data/results/2026-09-05_bake_fl2va_full.json`, the identity control that
   preceded it `2026-09-05_bake_identity_control.json`). It lives in the
   owner's `h3_bakes` folder and is symlinked into `models/diffusion_models`.
   The stripped sidecar `minimax_h3_fl2va_pdd_8step_stripped_comfy.safetensors`

@@ -15,10 +15,10 @@ that were watched failing, because a gate nobody has seen fail is not evidence.
 |---|---|---|
 | build the batches `oneshot` will consume, from the installed path | [`build_native_h3_calibration_batch.py`](../../../../../bench/build_native_h3_calibration_batch.py) | the bundle |
 | grade that bundle against independent arms, and make it fail | [`check_native_h3_presentation.py`](../../../../../bench/check_native_h3_presentation.py) | [`presentation_parity.json`](../../../../../bench/results/2026-08-24_native_h3_presentation_parity.json) |
-| follow the batch through the real library to the traced graph | `bench/prove_calibration_seam.py` (removed 0.175.0) | [`seam_proof.json`](../../../../../bench/results/2026-08-24_calibration_seam_proof.json) |
+| follow the batch through the real library to the traced graph | `bench/prove_calibration_seam.py` (removed 0.175.0) | [`seam_proof.json`](../../../../../data/results/2026-08-24_calibration_seam_proof.json) |
 | map and strictly load the released checkpoint into the calibration model | [`check_calibration_model_mapping.py`](../../../../../bench/check_calibration_model_mapping.py) | [`model_mapping.json`](../../../../../bench/results/2026-08-24_calibration_model_mapping.json) |
 | compare the two stacks at the H3 output boundary on released weights | `bench/compare_transformers_comfy_layer50.py` (removed 0.176.0) | [`layer50_mixed.json`](../../../../../bench/results/archive/v2_encoder/2026-08-24_crossstack_layer50_mixed.json), [`layer50_controls.json`](../../../../../bench/results/archive/v2_encoder/2026-08-24_crossstack_layer50_controls.json) |
-| attribute the divergence that comparison found | `bench/probe_released_vision_precision.py` (removed 0.176.0) | [`vision_precision.json`](../../../../../bench/results/2026-08-24_released_vision_precision.json) |
+| attribute the divergence that comparison found | `bench/probe_released_vision_precision.py` (removed 0.176.0) | [`vision_precision.json`](../../../../../data/results/2026-08-24_released_vision_precision.json) |
 
 Plus one repair to an accepted artifact, described under *Escaped defect* below.
 

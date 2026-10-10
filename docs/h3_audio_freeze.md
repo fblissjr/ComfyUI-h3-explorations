@@ -150,13 +150,13 @@ batch is enough.
    (`audio_freeze.py::MiniMaxH3FreezeAudio`,
    `workflows/h3_text_to_video_audio_freeze_api.json`,
    `bench/check_audio_freeze.py`; the pack's song node as the bit-for-bit
-   control, [`../bench/results/2026-09-12_audio_freeze_control.json`](../bench/results/2026-09-12_audio_freeze_control.json)).
+   control, [`../data/results/2026-09-12_audio_freeze_control.json`](../data/results/2026-09-12_audio_freeze_control.json)).
    The node also fixes what it is given (rate, channels, level) and names
    every transform; section 9 checks its path against the vendor's.
 2. **Does the picture follow a frozen track: yes, on both scenes**, on the
    owner's word ([`../bench/results/2026-09-12_audio_freeze_step2_verdict.json`](../bench/results/2026-09-12_audio_freeze_step2_verdict.json);
    arms `bench/audio_freeze_step2_arms.json`, rows
-   `bench/results/2026-09-12_audio_freeze_step2_arms.jsonl`). The dancer
+   `data/results/2026-09-12_audio_freeze_step2_arms.jsonl`). The dancer
    "is definitely moving to the beat" at mask 0.0 and "pretty awesome" at
    0.25; the speaker's lip sync "looks good". The mechanism question is
    closed for this lane. What the same batch left open: whether the loose
@@ -166,7 +166,7 @@ batch is enough.
    blurs the face, so later renders use `t2va_studio_dancer_close`.
 
    The lower-face instrument
-   ([`../bench/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json`](../bench/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json))
+   ([`../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json`](../data/results/2026-09-12_audio_freeze_voice_mouth_own_audio.json))
    reads the wrong thing on this scene: the silent tail is where she turns
    her head, so a fixed region sees more motion in silence than in speech
    on every arm, and this OpenCV build has no face detector. The eye is the
@@ -185,14 +185,14 @@ The freeze node also grew a `level` input (the level guard above).
 
 3. **PDD8 is the iteration chain** (closed 2026-09-12 evening, owner:
    both PDD8 arms "look and sound great"; rows
-   `bench/results/2026-09-12_audio_freeze_pdd_arms.jsonl`). Every later
+   `data/results/2026-09-12_audio_freeze_pdd_arms.jsonl`). Every later
    render in this lane goes through
    `workflows/h3_candidate_t2v_pdd8_baked_audio_freeze_api.json` first; the base
    chain is for keepers.
 4. **The two open pairs from step 2, answered in direction.** Loose against
    frozen at a second seed: both read good, so the seed-1 gap was the seed;
    hard freeze stays the default, the loose mask a knob
-   (`bench/results/2026-09-12_audio_freeze_mask_seed2_arms.jsonl`).
+   (`data/results/2026-09-12_audio_freeze_mask_seed2_arms.jsonl`).
    Transcript against none: the untold arm works, the mouth's timing follows
    the clip, and the words in the text add polish; the still delivery was
    the prompt's. Open now: how much subject and camera motion a frozen line

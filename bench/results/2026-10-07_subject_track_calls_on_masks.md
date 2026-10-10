@@ -24,11 +24,11 @@ it, on the card, outside the server; each window as fed and again with
 every value moved one level of 255; one run per arm. The line is
 `subject_tracks.MOVED_OFF`.
 
-- hard, pick `largest`: `lotsofpeopledance_0414_0720.mkv` from 138.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_largest_hard.json`](2026-10-07_subject_track_calls_on_masks_largest_hard.json))
-- hard, pick `most central`: `lotsofpeopledance_0414_0720.mkv` from 138.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_hard.json`](2026-10-07_subject_track_calls_on_masks_most_central_hard.json))
-- calm, pick `most central`: `lotsofpeopledance_0414_0720.mkv` from 16.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_calm.json`](2026-10-07_subject_track_calls_on_masks_most_central_calm.json))
-- dense, pick `most central`: `vma.mp4` from 121.93 s, 72 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_dense.json`](2026-10-07_subject_track_calls_on_masks_most_central_dense.json))
-- from 4 s, pick `largest`: `lotsofpeopledance_0414_0720.mkv` from 4.0 s, 360 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_largest_from_4s.json`](2026-10-07_subject_track_calls_on_masks_largest_from_4s.json))
+- hard, pick `largest`: `lotsofpeopledance_0414_0720.mkv` from 138.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_largest_hard.json`](../../data/results/2026-10-07_subject_track_calls_on_masks_largest_hard.json))
+- hard, pick `most central`: `lotsofpeopledance_0414_0720.mkv` from 138.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_hard.json`](../../data/results/2026-10-07_subject_track_calls_on_masks_most_central_hard.json))
+- calm, pick `most central`: `lotsofpeopledance_0414_0720.mkv` from 16.0 s, 144 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_calm.json`](../../data/results/2026-10-07_subject_track_calls_on_masks_most_central_calm.json))
+- dense, pick `most central`: `vma.mp4` from 121.93 s, 72 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_most_central_dense.json`](../../data/results/2026-10-07_subject_track_calls_on_masks_most_central_dense.json))
+- from 4 s, pick `largest`: `lotsofpeopledance_0414_0720.mkv` from 4.0 s, 360 frames at 24.0 a second, 1344x760 ([`2026-10-07_subject_track_calls_on_masks_largest_from_4s.json`](../../data/results/2026-10-07_subject_track_calls_on_masks_largest_from_4s.json))
 
 **Written before the run.** Met for the largest person on the hard
 stretch if the pick's call stops after frame 19 on "the mask moved off"

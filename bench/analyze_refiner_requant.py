@@ -25,7 +25,7 @@ CPU only. Reads the refiner tensors of both files.
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_refiner_requant.py \\
         --base <models>/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \\
         --target <models>/diffusion_models/fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors \\
-        --record bench/results/<date>_<name>.json
+        --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

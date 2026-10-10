@@ -146,7 +146,7 @@ own eager reference.
 
 ## The first render, 2026-08-30
 
-Record: `bench/results/2026-08-30_vsa_first_render.json`. Arms are
+Record: `data/results/2026-08-30_vsa_first_render.json`. Arms are
 `workflows/h3_probe_vsa.json` and `workflows/h3_probe_vsa_dense.json`, matched
 at seed 730451892, 4 steps, 768x768, 124 frames, 22,121 packed rows.
 
@@ -210,7 +210,7 @@ common ones -- and sparse attention's advantage grows with length.
 
 ## Length scaling, 2026-08-30
 
-Record: `bench/results/2026-08-30_vsa_length_scaling.json`. Same two arms, same
+Record: `data/results/2026-08-30_vsa_length_scaling.json`. Same two arms, same
 seed and sampler, 768x768, at 124 frames and again at 362.
 
 | packed rows | VSA | dense (sage) | verdict |

@@ -49,11 +49,11 @@ The evidence already in this repo separates facts from hypotheses:
 - [`official_weights_metadata.md`](../official_weights_metadata.md) records
   the release tokenizer, exact assigned ids, embedding-table shape, stock-Qwen
   control, and layer-50 encoder contract.
-- [`2026-08-21_h3_token_embeddings.json`](../../../bench/results/2026-08-21_h3_token_embeddings.json)
+- [`2026-08-21_h3_token_embeddings.json`](../../../data/results/2026-08-21_h3_token_embeddings.json)
   compares the seven rows against trained Qwen special tokens and unused
   padding rows. The official BF16 release and the local INT8 conversion agree;
   all seven sit at the untrained pole.
-- [`2026-08-21_h3_marker_token_states.json`](../../../bench/results/2026-08-21_h3_marker_token_states.json)
+- [`2026-08-21_h3_marker_token_states.json`](../../../data/results/2026-08-21_h3_marker_token_states.json)
   shows that dedicated ids, legacy BPE fragments, and deleted markers produce
   materially different layer-50 states. This is encoder evidence only; it does
   not say which representation the DiT prefers.

@@ -44,7 +44,7 @@ only an unchanged seed can show.
   log, so nothing wrote into the kept conditioning or latent while run 1 or
   run 2 sampled.
 
-Numbers: [`2026-10-06_window_keep_matched_pair.json`](2026-10-06_window_keep_matched_pair.json),
+Numbers: [`2026-10-06_window_keep_matched_pair.json`](../../data/results/2026-10-06_window_keep_matched_pair.json),
 the stage tables from `bench/masked_render_time_breakdown.py` and the
 comparison under `matched_pair`.
 

@@ -33,7 +33,7 @@ job is to move it or kill it.
 - `bench/measure_pdd_audio_carry.py` — the transform's geometry against block
   width. Monotone across uniform widths, 0.1425 at L=1 to 1.5408 at L=16, about
   10.8x. Consistent. It measures the transform, NOT a render error.
-- `bench/results/2026-08-28_pdd_partition_fidelity_362.json` — four arms at 362
+- `data/results/2026-08-28_pdd_partition_fidelity_362.json` — four arms at 362
   frames. Video flat across a 7x range of block width, audio monotone, ratio
   1.58 to 1.90.
 

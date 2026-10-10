@@ -9,7 +9,7 @@ knob chooses sage over Sol at those blocks and never reaches exact attention.
 Nothing in this pack did, before this node.
 
 That matters most where a graph would most want it. Measured on real captures
-(`bench/results/2026-08-18_sage_accuracy_on_capture.json`), sage's error grows
+(`data/results/2026-08-18_sage_accuracy_on_capture.json`), sage's error grows
 with depth and **block 49 is where it breaks down**: rel L2 ~0.031 against
 ~0.005 at block 0, and `cos_min` goes NEGATIVE (-0.04 to -0.11), meaning that
 on some rows sage's output is anti-correlated with the exact answer. The last

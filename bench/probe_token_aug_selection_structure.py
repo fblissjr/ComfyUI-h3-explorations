@@ -408,7 +408,7 @@ def main():
                 "centroid, which is what a changed admitted set looks like "
                 "from outside the kernel",
         "produced_by": "bench/probe_token_aug_selection_structure.py",
-        "supersedes_framing_in": "bench/results/2026-09-08_token_aug_determinism_shape.json",
+        "supersedes_framing_in": "data/results/2026-09-08_token_aug_determinism_shape.json",
         "subject_cell": Path(args.cell).name, "subject": meta,
         "kernel_build": kernel_build(),
         "tau": args.tau,

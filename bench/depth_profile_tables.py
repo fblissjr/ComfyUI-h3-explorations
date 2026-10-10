@@ -1,11 +1,11 @@
 """Per-block tables from the depth-profile outputs: Sol's error, the dense kernels' error, and whether the ranking holds across scenes.
 
     python bench/depth_profile_tables.py \\
-        --sol market=bench/results/2026-09-19_sol_orderings_depth_covered_market.json \\
-        --sol noodle=bench/results/2026-09-19_sol_orderings_depth_noodle_bar_107f.json \\
-        --dense market=bench/results/2026-09-19_dense_kernels_covered_market_sage_chain_depth.json \\
-        --dense market=bench/results/2026-09-19_dense_kernels_covered_market_sage_chain_steps.json \\
-        --dense noodle=bench/results/2026-09-19_dense_kernels_noodle_bar_sage_chain_107f.json \\
+        --sol market=data/results/2026-09-19_sol_orderings_depth_covered_market.json \\
+        --sol noodle=data/results/2026-09-19_sol_orderings_depth_noodle_bar_107f.json \\
+        --dense market=data/results/2026-09-19_dense_kernels_covered_market_sage_chain_depth.json \\
+        --dense market=data/results/2026-09-19_dense_kernels_covered_market_sage_chain_steps.json \\
+        --dense noodle=data/results/2026-09-19_dense_kernels_noodle_bar_sage_chain_107f.json \\
         [--json out.json]
 
 Inputs are `bench/sweep_sol_orderings_on_capture.py` outputs (Sol, read at

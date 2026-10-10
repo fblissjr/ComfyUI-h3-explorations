@@ -20,7 +20,7 @@ this record: every figure is a count of pixels in those two files, made by
 independently by the session that ran the arm, and the two agree frame for
 frame on all three (subject pixels, part pixels, part pixels on the subject).
 Every number here is in
-[`2026-10-06_part_coverage.json`](2026-10-06_part_coverage.json), with the
+[`2026-10-06_part_coverage.json`](../../data/results/2026-10-06_part_coverage.json), with the
 per-frame values.
 
 ## What ran

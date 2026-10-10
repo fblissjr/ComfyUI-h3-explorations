@@ -2,7 +2,7 @@
 """Set two Sol probe records side by side, block by block.
 
 Input: two summaries written by `bench/check_sol_probe.py --record --json`
-(the schema is `bench/results/2026-09-03_sol_probe_base16_standoff.json`;
+(the schema is `data/results/2026-09-03_sol_probe_base16_standoff.json`;
 read its `how_to_read` and `header.metric` first). Each carries, per block,
 the mean rel_l2 of Sol's output against the chained fallback over the
 compared cells, the per-segment means, the worst per-head cosine, and a
@@ -66,7 +66,7 @@ SEGMENTS = ("text", "video", "audio")
 
 
 def _scrub(node, where="record"):
-    """Refuse rather than ship somebody's storage layout into bench/results."""
+    """Refuse rather than ship somebody's storage layout into data/results."""
     if isinstance(node, dict):
         for k, v in node.items():
             _scrub(v, f"{where}.{k}")

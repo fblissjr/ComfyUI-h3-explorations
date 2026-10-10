@@ -10,9 +10,9 @@ values and, per scene, each rung's integrated loudness against the scene's
 `dense` rung.
 
     python bench/measure_clip_loudness.py \\
-        --outputs bench/results/2026-09-03_ladder_outputs.json \\
+        --outputs data/results/2026-09-03_ladder_outputs.json \\
         --output-root <share the launcher names> \\
-        --out bench/results/2026-09-04_ladder_audio_loudness.json
+        --out data/results/2026-09-04_ladder_audio_loudness.json
 
 What it is and is not. It is descriptive: one clip per arm, so a per-scene
 delta is a paired draw from two different samples (CLAUDE.md's different-sample

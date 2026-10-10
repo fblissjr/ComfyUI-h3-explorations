@@ -297,7 +297,7 @@ def main() -> int:
     out = {"measured_by": "bench/grade_vsa_selection_on_capture.py", "capture": os.path.basename(os.path.normpath(args.capture)),
            "sparsity": SPARSITY, "comfy_kitchen": getattr(comfy_kitchen, "__version__", None),
            "torch": torch.__version__, "cells": rows}
-    path = args.out or str(REPO / "bench" / "results" / f"{os.path.basename(os.path.normpath(args.capture))}_vsa_grade.json")
+    path = args.out or str(REPO / "data" / "results" / f"{os.path.basename(os.path.normpath(args.capture))}_vsa_grade.json")
     Path(path).write_text(json.dumps(out, indent=1) + "\n")
     print(f"wrote {path}")
     return 0

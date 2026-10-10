@@ -189,14 +189,14 @@ def main() -> int:
         "deferred": ("every base render (base-Euler 16 and 32, the base on the looks), "
                      "pdd16 and pdd32, refine, step-switch: the owner's 4-hour cap, "
                      "2026-09-26. F1, F2 and vaedude P2 and P4 wait for them"),
-        "reuses": ("the distill run's base arms, bench/results/2026-09-26_distill_run.jsonl, "
+        "reuses": ("the distill run's base arms, data/results/2026-09-26_distill_run.jsonl, "
                    "rows noodle_bar__base through subway_chase_short__base"),
         "groups": groups,
         "arms": arms,
         "patches": patches,
         "seeds": {"first": SEED, "note": "held across every arm"},
         "run": (f"run_graph_arms.py --manifest {args.out} --runs 1 --seed {SEED} --hold-seed "
-                f"--no-alternate --out bench/results/2026-09-26_followup.jsonl"),
+                f"--no-alternate --out data/results/2026-09-26_followup.jsonl"),
     }
     args.out.write_text(json.dumps(manifest, indent=1) + "\n")
     print(f"{len(arms)} arms in {len(groups)} groups: "

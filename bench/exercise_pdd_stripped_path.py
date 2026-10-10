@@ -12,7 +12,7 @@ ComfyUI's model manager opens a CUDA context at import, so this sets the
 `--cpu` flag before importing it and must run with CUDA_VISIBLE_DEVICES=.
 The loads are lazy (mmap), so the wall time reported is the node's, not a
 checkpoint read. First run 2026-09-05, log in
-`bench/results/2026-09-05_bake_node_stripped_path.txt`.
+`data/results/2026-09-05_bake_node_stripped_path.txt`.
 
     CUDA_VISIBLE_DEVICES= python bench/exercise_pdd_stripped_path.py \\
         --base <pruned int8 checkpoint> --bake <baked checkpoint> \\

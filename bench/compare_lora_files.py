@@ -26,7 +26,7 @@ MEASURED means bytes fetched; nothing here loads a model. First run
 Usage:
 
     python bench/compare_lora_files.py --a URL_OR_PATH --b URL_OR_PATH \\
-        [--label-a x --label-b y] [--samples 12] [--out bench/results/DATE_name.json]
+        [--label-a x --label-b y] [--samples 12] [--out data/results/DATE_name.json]
 """
 
 from __future__ import annotations

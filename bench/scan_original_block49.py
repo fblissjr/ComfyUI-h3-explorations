@@ -9,7 +9,7 @@ the release itself, its four transformer directories:
 
 - the top-4 share of the K norm's (`attn.norm_k.weight` in the diffusers directories,
   `attn.k_norm.weight` in the original `FL2VA/` and `Ref2VA/`) energy (squared) per block, the scan of
-  `bench/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`;
+  `data/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`;
 - per block, which of the 18 chunks of `adaln_proj.linear` (3 modalities x 6
   params, `analyze_checkpoint_delta.py`) are exactly zero in weight and bias.
 
@@ -17,7 +17,7 @@ CPU only. Block 49's `adaln_proj` weights and a few contrast blocks' are read; t
 K-norm scan reads all 50 small vectors.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/scan_original_block49.py \\
-        --release <MiniMaxAI_MiniMax-H3 dir> --record bench/results/<date>_<name>.json
+        --release <MiniMaxAI_MiniMax-H3 dir> --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

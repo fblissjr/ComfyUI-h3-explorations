@@ -61,7 +61,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "bench" / "results"
+OUT = REPO / "data" / "results"
 #: The v2 encoder calibration lane closed 2026-08-27 (rejected at Gate 5),
 #: so this producer writes into the archive beside the records it made
 #: rather than resurrecting them in the live results directory.

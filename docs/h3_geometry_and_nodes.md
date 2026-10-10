@@ -66,7 +66,7 @@ Duration is `frames / 24`, so 362 frames is 15.08 s and 124 is ~5.2 s.
 while everything else grows linearly, so the attention share rises with clip
 length, and long clips are where kernel and sparsity work pays off most. The
 only measured figure this repo has for that share is
-[`../bench/results/2026-09-08_attention_share_bound.json`](../bench/results/2026-09-08_attention_share_bound.json),
+[`../data/results/2026-09-08_attention_share_bound.json`](../data/results/2026-09-08_attention_share_bound.json),
 and it is a floor over sampler time at one geometry rather than a share of a
 step. Two percentages that used to sit in this sentence were withdrawn on
 2026-09-08 as having no findable origin.

@@ -6,7 +6,7 @@ the card; everything it needs to know is baked in so tomorrow is one command.
 
 ## The question, narrowed
 
-`bench/results/2026-08-21_marker_arm_audio_spectrum.json` showed the stock arm
+`data/results/2026-08-21_marker_arm_audio_spectrum.json` showed the stock arm
 with sd 886 on `rolloff85_hz` against the routed arm's 119. That reads as an
 unstable arm and is not one: **drop the single outlier and the stock sd falls to
 137**, which is the routed arm's spread. The entire difference was one row.
@@ -54,7 +54,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 
 GRAPH = _REPO / "internal" / "refs" / "marker_arm_stock_api.json"
-OUT = _REPO / "bench" / "results" / "2026-08-22_marker_stock_tail.jsonl"
+OUT = _REPO / "data" / "results" / "2026-08-22_marker_stock_tail.jsonl"
 PREFIX = "Video/20260822-marker-stock-tail/marker_stock_tail"
 SEED_BASE = 910007
 RUNS = 6

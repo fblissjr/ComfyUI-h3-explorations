@@ -250,7 +250,7 @@ def sol_api_inputs(sol):
 #   Its soundscape asked for continuous texture -- "steady heavy rain on
 #   asphalt and metal, tyre hiss through standing water" -- and the 4-step
 #   students render that as a TONE. Measured 2026-08-22
-#   (`bench/results/2026-08-22_audio_hum.json`): a 400 Hz peak 16-25 dB above
+#   (`data/results/2026-08-22_audio_hum.json`): a 400 Hz peak 16-25 dB above
 #   its own noise floor under a turbo LoRA, 5.7 dB on base, against 0.3 dB in
 #   clips asking for "natural ambient atmosphere". The soundscapes below are
 #   EVENT-driven -- crates, coins, a drawer latching -- not continuous hiss.
@@ -361,7 +361,7 @@ VIDEO_FORMAT = "video/h264-mp4"
 # monologue, was cut wherever 362 frames happened to land. The reference kept
 # talking past the end of the render and the last third of every render
 # drifted; the owner heard it before any measure showed it, and
-# `bench/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
+# `data/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
 # numbers. The cut is at 14.375s, inside a 0.3s silence at -56 dB, so the
 # utterance ENDS rather than being interrupted -- and 14.375 * 24 is exactly
 # 345, the `17n+5` count `REF_VIDEO_LENGTH` renders at.
@@ -467,7 +467,7 @@ _SONG_FLICKER_TIMELINE = "\n".join((
 # rotates q/k before INT8 and is immune to the loud-channel mechanism) as the
 # dense kernel, our Sol node on top, sage ABSENT. Added that morning to measure
 # the block-49 effect on the chain most people run
-# (bench/results/2026-09-15_ck_int8_attention_block49.json); **the default
+# (data/results/2026-09-15_ck_int8_attention_block49.json); **the default
 # since that evening, owner decision**, so an entry that names no mode gets it.
 # "sage_sol" (2026-09-15): the chain every video graph shipped until then, sage
 # under Sol, for the arms that must stay on it;
@@ -2888,7 +2888,7 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #:
 #:   **What stood here as fact and was not one.** "Remove those and the same
 #:   lines come out spaced and unjudgeable" was a belief, not a result -- no
-#:   arm has ever been rendered without them, so nothing in `bench/results/`
+#:   arm has ever been rendered without them, so nothing in `data/results/`
 #:   speaks to it either way. It is recorded because it nearly blocked a
 #:   guide-correct edit on the strength of sounding measured.
 #: * **Every line is `<d>[English] ...</d>`**, which the prompt guide requires
@@ -4017,7 +4017,7 @@ def main():
         # FlashGen at the publisher's full rank 64 (FLASHGEN_R64_LORA), merged
         # by the stock loader: the control for h3_text_to_video_flashgen, which
         # applies it at the call (lora_branch.py). The pair isolates how the
-        # LoRA reaches the int8 weight (bench/results/2026-09-26_int8_lora_requant.json).
+        # LoRA reaches the int8 weight (data/results/2026-09-26_int8_lora_requant.json).
         # The `_branch` probe that was the other half is gone since 0.147.1:
         # it was the shipped graph under another name.
         ("h3_probe_t2v_flashgen_r64_4step.json", "t2v-flashgen-r64-4step", "t2v", LONG_T2V_PROMPT,
@@ -4703,7 +4703,7 @@ def main():
         # Every choice and its source is docs/research/2026-09-26_flashgen.md:
         # the publisher's full rank 64 (FLASHGEN_R64_LORA) applied at the call
         # (lora_branch.py), because the stock loader's int8 merge keeps little
-        # of FlashGen's delta (bench/results/2026-09-26_int8_lora_requant.json)
+        # of FlashGen's delta (data/results/2026-09-26_int8_lora_requant.json)
         # and vllm-omni's native route applies it at run time too; the
         # release's schedule shifted at 12 on Euler, no guidance, as vllm-omni
         # runs it; the repo's attention default. T2VA only: vllm-omni refuses
@@ -4918,7 +4918,7 @@ def main():
         # default floor became the kitchen backend, because a re-run would have
         # set ours on kitchen against core's node on sage under the A/B's name.
         # Its clips were rendered and never scored; the record lists them
-        # (bench/results/2026-09-10_sol_core_ab_outputs.json). `sol_impl="core"`
+        # (data/results/2026-09-10_sol_core_ab_outputs.json). `sol_impl="core"`
         # stays for the next such arm, core's node over the backend node.
 
         # **Block-49 probes, 2026-09-15** (docs/h3_block49_quant_error.md).
@@ -4978,7 +4978,7 @@ def main():
         # Graded 2026-09-17, the fold adds nothing there (sage rebalances per
         # head inside its quantizer) and it re-rounds q/k in bf16, which moves
         # exact attention on the last block a little
-        # (bench/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
+        # (data/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
         # They stay byte for byte because dated records and clips were rendered
         # from them and renders repeat bit for bit: `levers` is the sage arm of
         # bench/results/2026-09-15_block49_repro_batch.md, `sage_rotate` was
@@ -5093,7 +5093,7 @@ def main():
         # `h3_probe_euler_cache`, owner-requested 2026-08-18): the two graphs
         # above with only the sampler changed, because the base then sampled
         # on `er_sde`, which re-noises and reused nothing at the stock cache
-        # threshold (bench/results/2026-08-18_cache_arms.jsonl). The base
+        # threshold (data/results/2026-08-18_cache_arms.jsonl). The base
         # runs Euler now (h3_config.SAMPLING), so the pair became those two
         # graphs byte for byte and was retired: `h3_probe_sol_on_all_refs`
         # against `h3_probe_cache_easy` is the deterministic cache pair.

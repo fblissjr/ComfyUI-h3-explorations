@@ -12,7 +12,7 @@ rises toward the end.
 That distinction matters beyond one clip. A partition-coarseness statistic is
 also one number per arm, so it can imitate any scalar ordering -- which is
 precisely how integrated drift turned out to be unidentifiable from plain
-coarseness (`bench/results/2026-08-28_pdd_stream_energy.json`). **A within-clip
+coarseness (`data/results/2026-08-28_pdd_stream_energy.json`). **A within-clip
 trajectory is a shape coarseness cannot produce at all**, so it is the first
 observable in this lane that could attribute anything to a mechanism rather
 than to how coarse the schedule is.
@@ -154,7 +154,7 @@ def main() -> int:
           "mechanism -- that is the energy collapse\nalready measured, seen "
           "through a different lens, not a new phenomenon.")
 
-    out = REPO / "bench/results/2026-08-28_audio_spectral_tilt.json"
+    out = REPO / "data/results/2026-08-28_audio_spectral_tilt.json"
     out.write_text(json.dumps({
         "date": "2026-08-28",
         "script": "bench/analyze_audio_spectral_tilt.py",

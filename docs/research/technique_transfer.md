@@ -19,7 +19,7 @@ means the property the technique needs is absent by construction.
 2. **Every row is updated every block.** `comfy/ldm/minimax/model.py` runs one joint attention over the whole packed sequence (text, reference rows, audio, video) with no mask, and adds the attention and MLP residual to every row, conditioning rows included. So a reference row's K and V at block 1 already depend on the video rows, which change every step. Nothing is prefix-shaped. SOURCE.
 
 Where the time goes, MEASURED at one configuration
-(`bench/results/2026-08-18_phase0_instrument.json`, 1024x768 with three
+(`data/results/2026-08-18_phase0_instrument.json`, 1024x768 with three
 references): sampling was 87% of the render at 100% SM occupancy and pegged
 power; load staging and everything else was the rest. The conditioning node
 (encoder plus reference VAE encodes, node 5 in the generated graphs) was 4%

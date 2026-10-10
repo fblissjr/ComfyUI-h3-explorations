@@ -38,7 +38,7 @@ random sign (the nudge of
 same seed). Where an arm was run twice the two runs are identical to the
 last digit, so the floor is zero and the later runs leave the repeat out.
 Outside the server, the card otherwise idle. Every number is in
-[`2026-10-07_subject_track_under_nudge.json`](2026-10-07_subject_track_under_nudge.json),
+[`2026-10-07_subject_track_under_nudge.json`](../../data/results/2026-10-07_subject_track_under_nudge.json),
 one key per run, and every table below is printed from it by the tool's
 `render --key`.
 

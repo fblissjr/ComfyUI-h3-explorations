@@ -4,7 +4,7 @@ how many cuts it holds against the shots its prompt scripts, and how loud it
 is against a reference clip of the same scene.
 
     python bench/score_clip_shots_loudness.py --shots 3 --reference DENSE-audio.mp4 \\
-        --out bench/results/<date>_<what>.json CLIP-audio.mp4 [...]
+        --out data/results/<date>_<what>.json CLIP-audio.mp4 [...]
 
 Written 2026-10-03 for the output check (`bench/results/2026-10-03_sol_output_check.md`).
 On the twelve clips the owner judged on 2026-10-02, every sparse-attention

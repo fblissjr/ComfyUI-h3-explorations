@@ -5,7 +5,7 @@
         --record data/sparse/captures/<sweep A>/sol_sweep_*.jsonl [--record ...] \\
         --stage 10=ref2va_pdd8 --stage 123=ref2va_flashgen_finisher \\
         --target equal_error --dense-blocks 38,39,40,41,42,49 \\
-        --out bench/results/<date>_sparse_table_<what>.json [--write-tables]
+        --out data/results/<date>_sparse_table_<what>.json [--write-tables]
 
 A sweep record holds, per call, head and segment, Sol's squared error against
 the fallback at every tau of a grid and the key blocks it routed. A table is

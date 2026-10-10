@@ -43,17 +43,17 @@
   post-training of the encoder shipped. What MiniMax runs behind its API is
   not observable from the release. Producer and record:
   [`check_released_encoder_is_stock.py`](../../../../bench/check_released_encoder_is_stock.py),
-  [`2026-08-25_released_encoder_is_stock.json`](../../../../bench/results/2026-08-25_released_encoder_is_stock.json).
+  [`2026-08-25_released_encoder_is_stock.json`](../../../../data/results/2026-08-25_released_encoder_is_stock.json).
 - **MEASURED:** Those seven embedding rows match the corresponding unused stock
   Qwen3-VL tail rows and fall on the untrained control distribution. The
   release did not language-model-train those rows. Evidence and controls are in
   [`official_weights_metadata.md`](../../official_weights_metadata.md) and
-  [`2026-08-21_h3_token_embeddings.json`](../../../../bench/results/2026-08-21_h3_token_embeddings.json).
+  [`2026-08-21_h3_token_embeddings.json`](../../../../data/results/2026-08-21_h3_token_embeddings.json).
 - **MEASURED:** Dedicated IDs, ordinary BPE spellings, and stripped markers
   produce materially different layer-50 states on shared ordinary-token spans.
   This is encoder evidence only; it does not identify which representation the
   DiT prefers. See
-  [`2026-08-21_h3_marker_token_states.json`](../../../../bench/results/2026-08-21_h3_marker_token_states.json).
+  [`2026-08-21_h3_marker_token_states.json`](../../../../data/results/2026-08-21_h3_marker_token_states.json).
 
 ## Caption-marker result
 

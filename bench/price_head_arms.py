@@ -53,11 +53,11 @@ one substitution here that is not a per-cell measurement.
 ## Running it
 
     python bench/price_head_arms.py \\
-        --density bench/results/2026-08-19_routing_density_per_head.json \\
-        --error bench/results/2026-08-19_sol_error_per_head.json \\
-        --error-alt bench/results/2026-08-19_sol_error_per_head_tau1.0.json \\
-        --control bench/results/2026-08-19_sol_error_control.json \\
-        --out bench/results/2026-08-19_head_granularity_arms.json
+        --density data/results/2026-08-19_routing_density_per_head.json \\
+        --error data/results/2026-08-19_sol_error_per_head.json \\
+        --error-alt data/results/2026-08-19_sol_error_per_head_tau1.0.json \\
+        --control data/results/2026-08-19_sol_error_control.json \\
+        --out data/results/2026-08-19_head_granularity_arms.json
 
 No GPU, no capture, no server: it reads four records.
 """

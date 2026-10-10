@@ -17,7 +17,7 @@ Output: per (cell, variant, segment) rows, sq_err_per_row, sq_out_per_row, rel_e
 CPU only, no card:
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/emulate_kitchen_int8_by_segment.py \\
-        --capture <capture dir> --block 49 --step 2 --queries 256 --seed 2 --out bench/results/<date>_<name>.json
+        --capture <capture dir> --block 49 --step 2 --queries 256 --seed 2 --out data/results/<date>_<name>.json
 """
 import argparse, glob, json, math, sys
 from pathlib import Path

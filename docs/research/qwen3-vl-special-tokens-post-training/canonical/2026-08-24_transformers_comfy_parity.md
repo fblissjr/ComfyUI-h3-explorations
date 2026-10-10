@@ -28,7 +28,7 @@ nine-block Ref2VA-shaped case. Shifting one vision span on one side produced 24
 mismatched positions, so the check detects the structural defect it is intended
 to catch.
 
-- [`2026-08-24_mrope_implementation_parity.json`](../../../../bench/results/2026-08-24_mrope_implementation_parity.json)
+- [`2026-08-24_mrope_implementation_parity.json`](../../../../data/results/2026-08-24_mrope_implementation_parity.json)
 
 **MEASURED.** The vision probe transferred 39 shared state-dict keys directly,
 without name mapping, from one explicitly seeded finite float32 state dict into
@@ -45,7 +45,7 @@ difference over the post-merger output and DeepStack features was
 | three mixed blocks | 112 | `1.490e-7` |
 | nine blocks, Ref2VA-shaped | 224 | `1.192e-7` |
 
-- [`2026-08-24_vision_tower_parity.json`](../../../../bench/results/2026-08-24_vision_tower_parity.json)
+- [`2026-08-24_vision_tower_parity.json`](../../../../data/results/2026-08-24_vision_tower_parity.json)
 
 ## Two false-green hazards now fixed by the probe
 
@@ -84,7 +84,7 @@ magnitude, so the probe can distinguish the claimed agreement from a wrong
 weight.
 
 - `bench/probe_released_vision_precision.py` (removed 0.176.0)
-- [`2026-08-24_released_vision_precision.json`](../../../../bench/results/2026-08-24_released_vision_precision.json)
+- [`2026-08-24_released_vision_precision.json`](../../../../data/results/2026-08-24_released_vision_precision.json)
 
 **MEASURED.** The same difference is already present at the language model's
 layer-0 input. On a released-weight two-picture fixture, text positions were

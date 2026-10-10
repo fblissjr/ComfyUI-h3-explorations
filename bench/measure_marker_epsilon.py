@@ -146,7 +146,7 @@ GRAPH = REPO / "workflows" / "h3_text_to_video_dialogue_api.json"
 
 #: first of the seven contiguous H3 marker ids. Not retyped from prose:
 #: verified against the release tokenizer in
-#: bench/results/2026-08-27_marker_tokenization_alignment.json.
+#: data/results/2026-08-27_marker_tokenization_alignment.json.
 FIRST_MARKER_ID = 151669
 
 # An unrelated scene, for the ceiling row. Deliberately not a variation of the
@@ -207,7 +207,7 @@ def encode_arms(prompt: str, stripped: str, encoder: str, rows: list[dict]) -> N
     """Phase 1: every conditioning, then the encoder is freed.
 
     Encoding and sampling are not interleaved because the INT8 encoder's H3
-    path is 25.28 GiB (`bench/results/2026-08-26_encoder_footprints.json`) and
+    path is 25.28 GiB (`data/results/2026-08-26_encoder_footprints.json`) and
     the DiT is resident for the forwards. Interleaving would evict one of them
     on every row and time the eviction rather than the model.
     """
@@ -722,7 +722,7 @@ def main() -> int:
             })
 
     out = Path(args.out) if args.out else (
-        REPO / "bench" / "results" / "2026-08-27_marker_epsilon.json")
+        REPO / "data" / "results" / "2026-08-27_marker_epsilon.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(record, indent=1) + "\n")
 

@@ -136,7 +136,7 @@ def main() -> int:
               "inert on every keyframe mode")
     record["control_holds"] = not kf_bitten
 
-    out = _REPO / "bench" / "results" / "2026-08-21_qwen_bounds_bite.json"
+    out = _REPO / "data" / "results" / "2026-08-21_qwen_bounds_bite.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(_REPO)}")
     return 0

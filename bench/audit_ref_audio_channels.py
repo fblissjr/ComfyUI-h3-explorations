@@ -123,7 +123,7 @@ def main() -> int:
             "traced comfy/ldm/minimax/audio_vae.py and stopped one wrapper "
             "short of the call _encode_ref_audio actually makes."),
     }
-    out = HERE / "results" / f"{record['date']}_ref_audio_channels.json"
+    out = HERE.parent / "data" / "results" / f"{record['date']}_ref_audio_channels.json"
     out.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(f"\nwrote {out.relative_to(HERE.parent)}")
     return 0

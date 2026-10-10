@@ -87,7 +87,7 @@ comfy-kitchen's `int8_attention`, the kernel behind ComfyUI core's Model
 Attention Backend node on "comfy kitchen attention" and the
 `--use-ck-attention` flag: it rotates q/k first, and on the block-49
 capture its error is a third of Sol's and of sage's with nothing done
-(`bench/results/2026-09-15_ck_int8_attention_block49.json`). So the
+(`data/results/2026-09-15_ck_int8_attention_block49.json`). So the
 common community chain, that backend for the dense steps and the
 block-sparse node for the routed ones, carries the problem on its routed
 steps only; our own chain, sage on the dense steps, carried it on both,
@@ -102,7 +102,7 @@ stock kitchen wheel runs pytorch SDPA unless one of three opt-ins is on,
 `--use-sage-attention` (SageAttention's INT8 q/k), the core block-sparse
 attention node (kitchen's `sol_attn`), or `--use-ck-attention` (kitchen's
 own `int8_attention`). **The third one is immune, measured 2026-09-15**
-(`bench/results/2026-09-15_ck_int8_attention_block49.json`,
+(`data/results/2026-09-15_ck_int8_attention_block49.json`,
 `bench/grade_ck_int8_on_capture.py`): kitchen's `int8_attention` rotates Q
 and K with a block-Hadamard before quantizing, so no channel can dominate
 its shared scale; on the block-49 capture its error is a third of Sol's
@@ -158,7 +158,7 @@ bf16 attention on the three loud blocks (section 6).
 **Where this stands, and what it would take to call it solved:**
 
 1. *Diagnosed.* Closed. Sections 1-5 are the evidence; the checkpoint scan
-   and attention-target record is `bench/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`.
+   and attention-target record is `data/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`.
 2. *Three levers built, measured on captures, served.* Closed for what
    they are. Until the evening of 2026-09-15 all three were off in the
    default graph; that evening the owner moved the default chain to
@@ -166,7 +166,7 @@ bf16 attention on the three loud blocks (section 6).
    (consumer commit 28d8ee5, `docs/wiki/decisions.md`), so one lever is
    now on by default and the other two live in the sage-chain probes.
    A fourth, Sol's own Hadamard rotation (`rotate`), is served since the
-   same night and off (`bench/results/2026-09-15_kitchen_0234_rotate_install.json`).
+   same night and off (`data/results/2026-09-15_kitchen_0234_rotate_install.json`).
 3. *Visible, not yet blind.* Section 6: three scenes, two seeds on one of
    them, four viewers between them, the default ranked last every time on
    prompt-adherence failures (morphs, text). Rebalanced against
@@ -177,7 +177,7 @@ bf16 attention on the three loud blocks (section 6).
    owner's call, with the live h3-repo sessions told first (the freeze session is gone).
 4. *Sol's quantizer.* Closed 2026-09-15 evening: the per-head factor is in
    Sol's preprocess on the kitchen fork, graded on captures and installed
-   (`bench/results/2026-09-15_kitchen_0234_qk_balance_install.json`).
+   (`data/results/2026-09-15_kitchen_0234_qk_balance_install.json`).
 5. *Open, and not ours alone:* the mechanism, the checkpoint scan and the
    fold numbers are a contribution the kitchen maintainers could act on
    for every user; the sage-side change is one commit anyone forking sage
@@ -376,7 +376,7 @@ steps, at no cost, and does nothing anywhere the weights are flat.
 
 Measured on the same two cells, 768 sampled query rows per cell over all
 keys, all 56 heads, exact fp32 softmax
-(`bench/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`):
+(`data/results/2026-09-14_block49_checkpoint_scan_and_targets.txt`):
 
 | | block 0 | block 49 |
 |---|---|---|
@@ -552,7 +552,7 @@ and k exactly once, so the multiply is free. Built there as `qk_balance`
   RoPE), no per-block list: blocks 45, 48 and 49 open on their own.
   (2026-09-27: not only those. Some heads open on every captured block, as
   the table below already shows for blocks 0 and 40;
-  `../bench/results/2026-09-27_qk_balance_gate_on_capture.json`.)
+  `../data/results/2026-09-27_qk_balance_gate_on_capture.json`.)
 
 ### What it measured
 
@@ -621,7 +621,7 @@ on blocks 0 and 32 (`bench/results/2026-09-15_channel_balance_kernel_*.json`).
 With it, every INT8 step on the graph is balanced. The witness pair
 (`h3_probe_t2v_levers` against `h3_probe_t2v_policy`, section 6c) says the
 bf16 tail keeps a small edge; the install record is
-`bench/results/2026-09-15_kitchen_0234_qk_balance_install.json`, and the
+`data/results/2026-09-15_kitchen_0234_qk_balance_install.json`, and the
 kernel's off path was checked bit-identical to the previous wheel.
 
 ## 9. Records

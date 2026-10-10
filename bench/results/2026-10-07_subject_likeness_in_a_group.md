@@ -30,7 +30,7 @@ to compare:
   only "first among the tracks" is counted for it.
 
 On the card, outside the server. Data:
-[`2026-10-07_subject_likeness_in_a_group.json`](2026-10-07_subject_likeness_in_a_group.json);
+[`2026-10-07_subject_likeness_in_a_group.json`](../../data/results/2026-10-07_subject_likeness_in_a_group.json);
 the tables are printed from it by the tool's `render`.
 
 **The reading, written before the first run** (the tool's docstring).
@@ -93,7 +93,7 @@ as fed, the subject's own track look by look (`none`: no head found to compare, 
 The first run used the node's measure alone, on the LARGEST person of the
 same stretch (a front-row figure; the shipped `pick` at the time), as fed
 and nudged. Data:
-[`2026-10-07_subject_likeness_in_a_group_first_form.json`](2026-10-07_subject_likeness_in_a_group_first_form.json)
+[`2026-10-07_subject_likeness_in_a_group_first_form.json`](../../data/results/2026-10-07_subject_likeness_in_a_group_first_form.json)
 (an earlier layout, which `render` does not read).
 
 | run | looks where the subject's track has a plausible mask | of them with no head found, scored as no match | over the line and first |

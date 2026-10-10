@@ -3,7 +3,7 @@
 
     python bench/price_reference_settings.py --canvas 1344x768 \
         --sources 1208x1350,3840x1280,1920x1080 \
-        [--out bench/results/<date>_reference_settings.json]
+        [--out data/results/<date>_reference_settings.json]
 
 Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
 server, no model weights, no media: geometry depends only on width and height.

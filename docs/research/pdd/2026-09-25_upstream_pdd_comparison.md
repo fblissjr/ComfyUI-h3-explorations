@@ -136,7 +136,7 @@ Each needs a render or a capture; none has been run.
 - a dual-clock sampler (equivalent to core's carry under Euler, so a no-op).
   Re-applying the carry at the block's mean sigma is different. It is not a
   correction, but it does add audio energy
-  (`../../../bench/results/2026-08-28_audio_carry_ablation.json`). That makes it
+  (`../../../data/results/2026-08-28_audio_carry_ablation.json`). That makes it
   an untrained gain knob, measured and never judged by ear. If louder PDD audio
   is the goal, arm 2 is the principled route, and this knob is a cheaper one to
   put beside it in the same pair;

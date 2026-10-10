@@ -21,7 +21,7 @@ RUNS="${RUNS:-2}"
 SEED="${SEED:-730451892}"
 DATE="$(date +%F)"
 SESSION="${SESSION:-marker_arms_$DATE}"
-OUT="bench/results/${DATE}_marker_arms.jsonl"
+OUT="data/results/${DATE}_marker_arms.jsonl"
 cd "$REPO"
 [ -x "$PY" ] || { echo "no venv python at $PY"; exit 1; }
 run() { echo "+ $*"; [ "${DRY_RUN:-0}" = "1" ] || "$@"; }
@@ -68,6 +68,6 @@ Rendered and blinded. The rest is yours:
      the order shown, then Export scores -> scores_$SESSION.json.
   2. $PY bench/score_session.py --scores <path to scores_$SESSION.json> \\
          --key internal/blind_keys/$SESSION.json
-     writes bench/results/<date>_${SESSION}_verdict.json, the per-arm verdict
+     writes data/results/<date>_${SESSION}_verdict.json, the per-arm verdict
      the sister engine is waiting for.
 MSG

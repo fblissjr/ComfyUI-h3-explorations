@@ -2,7 +2,7 @@
 """Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample.
 
 The vendor's engineers published a per-update keep-ratio list for MiniMax-H3
-at fifty steps (`bench/results/2026-09-04_sglang_cube_topk_schedule.json`,
+at fifty steps (`data/results/2026-09-04_sglang_cube_topk_schedule.json`,
 provenance inside). It is the first step policy for H3 stated by anyone with
 the training data, and roadmap step 5 (the window's start) has so far had
 only our own probe trend to reason from. This script says what that schedule
@@ -29,7 +29,7 @@ the two lines `MiniMaxH3SigmaShift.execute` runs, exactly as
 `bench/check_pdd_sigmas.py::comfy_simple` builds them, and not from a copy of
 the closed form; the vendor grid is the closed form its own function states.
 
-    <comfy venv python> bench/map_cube_schedule.py --steps 16 --steps 8 --out bench/results/<date>_cube_schedule_on_h3_grid.json
+    <comfy venv python> bench/map_cube_schedule.py --steps 16 --steps 8 --out data/results/<date>_cube_schedule_on_h3_grid.json
 
 Needs the ComfyUI venv (imports comfy). No GPU, no server, no model.
 """
@@ -47,7 +47,7 @@ REPO = Path(__file__).resolve().parents[1]
 # The repo sits at <comfy>/custom_nodes/<pack>; `comfy` is importable from
 # the ComfyUI root, the same derivation bench/check_pdd_sigmas.py uses.
 sys.path.insert(0, str(REPO.parents[1]))
-RECORD = REPO / "bench" / "results" / "2026-09-04_sglang_cube_topk_schedule.json"
+RECORD = REPO / "data" / "results" / "2026-09-04_sglang_cube_topk_schedule.json"
 
 
 def time_snr_shift(shift: float, t: float) -> float:

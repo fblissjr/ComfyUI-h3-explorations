@@ -14,7 +14,7 @@ a higher distill, make the most difference."*
 
 **Per-block quantisation sensitivity is not a variable.** int8-vs-bf16
 stored-weight error spans **1.086x** across the 50 blocks
-(`bench/results/2026-08-30_pdd_block_magnitude.json`). There is no sensitive
+(`data/results/2026-08-30_pdd_block_magnitude.json`). There is no sensitive
 block. What spread exists is by module KIND — `attn.out_proj` runs 1.18x
 `qkv_proj` — not by depth.
 

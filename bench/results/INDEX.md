@@ -93,7 +93,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-01 | lora | [Where a LoRA at the call spends its time (2026-10-01)](2026-10-01_lora_branch_profile.md) |  |
 | 2026-10-01 | kitchen | [comfy-kitchen: h3-frontier merged to upstream main, 2026-10-01](2026-10-01_kitchen_merge_aade8d5.md) |  |
 
-Data files dated this month and not listed: 96.
+Data files dated this month and not listed: 6.
 
 ## 2026-09
 
@@ -196,7 +196,7 @@ Data files dated this month and not listed: 96.
 | 2026-09-15 | block49 | [Block-49 arms on the diner-breakup prompt, two seeds (2026-09-15)](2026-09-15_block49_diner_batch.md) |  |
 | 2026-09-15 | block49 | [The community chain on the market prompt: kitchen int8 attention dense + Sol (2026-09-15)](2026-09-15_block49_community_chain.md) |  |
 
-Data files dated this month and not listed: 421.
+Data files dated this month and not listed: 4.
 
 ## 2026-08
 
@@ -206,14 +206,14 @@ Data files dated this month and not listed: 421.
 | 2026-08-25 | violation | [How every violation arm under `bench/` is graded, 2026-08-25](2026-08-25_violation_arm_grading_audit.md) |  |
 | 2026-08-25 | v2 | [v2 calibration set review, 2026-08-25](2026-08-25_v2_calibration_set_review.md) |  |
 
-Data files dated this month and not listed: 116.
+Data files dated this month and not listed: 9.
 
 ## Directories
 
 | directory | tracked files | what its README says |
 |---|---|---|
-| [`2026-09-27_render_dataset/`](2026-09-27_render_dataset/README.md) | 8 | The 2026-09-26 render dataset |
-| [`archive/`](archive/README.md) | 53 | Archived results |
+| [`2026-09-27_render_dataset/`](2026-09-27_render_dataset/README.md) | 6 | The 2026-09-26 render dataset |
+| [`archive/`](archive/README.md) | 52 | Archived results |
 
 ## Not dated
 

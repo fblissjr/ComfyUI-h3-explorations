@@ -2,10 +2,10 @@
 
 Tool: `bench/measure_dialogue_transcription.py` (CPU; Whisper medium from the
 local Hugging Face cache through the ComfyUI venv's `transformers`, nothing
-installed or downloaded). Numbers: `bench/results/2026-09-19_dialogue_transcription.json`.
+installed or downloaded). Numbers: `data/results/2026-09-19_dialogue_transcription.json`.
 Table:
 
-    python bench/measure_dialogue_transcription.py --summarize bench/results/2026-09-19_dialogue_transcription.json
+    python bench/measure_dialogue_transcription.py --summarize data/results/2026-09-19_dialogue_transcription.json
 
 ## What was compared
 

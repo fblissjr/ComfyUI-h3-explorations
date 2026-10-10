@@ -11,7 +11,7 @@ carries that caveat. `bench/verify_vsa_render.py` owns the mechanism this
 reuses (decoded frames hashed, the container ignored, the arms identified from
 the graph each file embeds) and explains why the mp4 bytes cannot answer it.
 
-    python bench/compare_clip_pixels.py <a.mp4> <b.mp4> --out bench/results/<date>_<what>.json
+    python bench/compare_clip_pixels.py <a.mp4> <b.mp4> --out data/results/<date>_<what>.json
 
 What it reports. Video: the sha256 of the decoded RGB frames of each clip;
 when they differ, per-frame mean and max absolute difference over the full

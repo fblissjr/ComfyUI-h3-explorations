@@ -23,7 +23,7 @@ resident at 63.9 (`bench/results/archive/v2_encoder/2026-08-25_gate2b_row1_expan
 rows pinned it at scale: **110,331 tokens peaked at 50.8 GiB with only the
 2-layer model resident, about 428 KB of host per population token**, of which
 the intermediates cache is 78 KB
-(`bench/results/2026-08-25_gate2b_host_budget_prefix8_2layers.json`). The
+(`data/results/2026-08-25_gate2b_host_budget_prefix8_2layers.json`). The
 rest is AWQ's parent-argument cache: every batch's FP32 inputs for all three
 parents of a layer held at once, `down_proj`'s 25,600-wide input dominating.
 That cost scales with total population tokens, not with the longest row, and
@@ -143,7 +143,7 @@ harness now grades family disjointness as its own arm.
 ## What launched
 
 **Launched 13:37:42 on 2026-08-25**, log and launcher in the point session's
-scratchpad, report `bench/results/2026-08-25_v2_calibration_run.json`,
+scratchpad, report `data/results/2026-08-25_v2_calibration_run.json`,
 candidate directory
 `coderef/llm-compressor/models/qwen3-vl-32b-h3-w4a16-awq-v2-nativecal` (new;
 the deployed artifact, its symlink and the source are untouched).
@@ -213,7 +213,7 @@ refusal, which is an instrument fault to fix and rerun, never a verdict.
 
 ## Gate 5 result, 2026-08-25 17:36: reject against the bar
 
-**MEASURED.** `bench/results/2026-08-25_v2_holdout_layer50.json`, the
+**MEASURED.** `data/results/2026-08-25_v2_holdout_layer50.json`, the
 comparator's ComfyUI arm on the 13-row holdout in both geometries and the
 13-row text-only bundle, BF16 the reference, v1 and v2 the candidates, all
 captures in one session (the 21.7k-token row needed `--reserve-vram-gib 16`;
@@ -272,7 +272,7 @@ native-H3 data. Nobody checked recipe parity against v1 before the launch.
 (2) The candidate's own `recipe.yaml`, and the snapshot copied from it, is
 empty (`default_stage: {}`): the emit path saved after the session had
 closed, so the artifact does not carry its recipe. The run record
-(`bench/results/2026-08-25_v2_calibration_run.json`) does, and is the
+(`data/results/2026-08-25_v2_calibration_run.json`) does, and is the
 provenance until the emit path is fixed. Both go to the next point.
 
 **Overfit test, MEASURED 18:25** (`bench/results/archive/v2_encoder/2026-08-25_v2_calibration_rows_layer50.json`,
@@ -301,7 +301,7 @@ answer to which is closest to the release.
 
 ## Four encoders on one holdout, 18:45: INT8 ConvRot is the encoder
 
-**MEASURED** (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`;
+**MEASURED** (`data/results/2026-08-25_four_encoders_holdout_layer50.json`;
 the two ComfyUI-native files captured through core's own `load_clip` via the
 comparator's `--clip-path`, same rows, same replayed inputs, same BF16
 reference, no refusals). Median relative L2 at layer 50 against BF16:

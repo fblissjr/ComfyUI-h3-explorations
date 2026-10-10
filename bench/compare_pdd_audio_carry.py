@@ -109,5 +109,5 @@ out = {m: {n: run_control(k, m) for n, k in [("u8", list(range(0,33,4))), ("u4",
 rec["negative_control_final_audio_diff"] = out
 print(json.dumps(out, indent=1))
 
-OUT = Path(os.environ.get("OUT", Path(__file__).resolve().parents[1] / "bench/results/2026-09-25_pdd_audio_carry.json"))
+OUT = Path(os.environ.get("OUT", Path(__file__).resolve().parents[1] / "data/results/2026-09-25_pdd_audio_carry.json"))
 OUT.write_text(json.dumps(rec, indent=1))

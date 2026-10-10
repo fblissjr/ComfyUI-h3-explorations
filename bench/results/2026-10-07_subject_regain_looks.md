@@ -22,8 +22,8 @@ must reproduce the node's own best and next at that look; it does at every
 look of both runs. It runs as fed and again with every value moved one
 level of 255. SAM 3.1 as ComfyUI ships it, on the card, outside the
 server, one run per arm. The data:
-[`2026-10-07_subject_regain_looks_largest.json`](2026-10-07_subject_regain_looks_largest.json),
-[`2026-10-07_subject_regain_looks_most_central.json`](2026-10-07_subject_regain_looks_most_central.json);
+[`2026-10-07_subject_regain_looks_largest.json`](../../data/results/2026-10-07_subject_regain_looks_largest.json),
+[`2026-10-07_subject_regain_looks_most_central.json`](../../data/results/2026-10-07_subject_regain_looks_most_central.json);
 every table here is printed from them by the tool's `render`, which also
 prints the six ways at every look.
 
@@ -67,7 +67,7 @@ shows, and the owner's eye is the last word.
 
 The same pass run again with `--track-only`, saving every frame of the
 track the node hands back
-([`2026-10-07_subject_regain_looks_largest_track.json`](2026-10-07_subject_regain_looks_largest_track.json),
+([`2026-10-07_subject_regain_looks_largest_track.json`](../../data/results/2026-10-07_subject_regain_looks_largest_track.json),
 `the_track_every_frame`). Each frame's mask against the frame before's, by
 intersection over union:
 
@@ -260,7 +260,7 @@ have no label: "at the place" there is the rule's own measure. One
 stretch, one figure, who stays where they stand.
 
 ```
-<python> bench/subject_regain_looks.py replay --json bench/results/2026-10-07_subject_regain_looks_largest.json --track bench/results/2026-10-07_subject_regain_looks_largest_track.json
+<python> bench/subject_regain_looks.py replay --json data/results/2026-10-07_subject_regain_looks_largest.json --track data/results/2026-10-07_subject_regain_looks_largest_track.json
 ```
 
 ## What this does not show

@@ -36,7 +36,7 @@ whole run.
 Case identifiers refer to
 `bench/probe_calibration_input_seam.py` (removed 0.175.0);
 its output is
-[`2026-08-24_calibration_input_seam_probe.json`](../../../../bench/results/2026-08-24_calibration_input_seam_probe.json).
+[`2026-08-24_calibration_input_seam_probe.json`](../../../../data/results/2026-08-24_calibration_input_seam_probe.json).
 Neither is part of the archived rejected
 [`gemini-preflight/`](../archive/rejected/gemini-preflight/README.md)
 submission; they live under `bench/` with the repo's other measurements.

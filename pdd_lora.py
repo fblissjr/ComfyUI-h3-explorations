@@ -742,7 +742,7 @@ class _HeadBank(torch.nn.Module):
       so that is ~87 MiB resident on the card for the whole render, plus the
       fp32 masters `_FusedHeads` then caches on the bank's device rather than
       the host's. The 2026-08-28 ref2va failure recorded in
-      `bench/results/2026-08-28_pdd_ref2va_memory_marginality.json` was short
+      `data/results/2026-08-28_pdd_ref2va_memory_marginality.json` was short
       by 17.5 MiB. This change is several times that, in the wrong direction.
     * **It cost a crash** -- `fuse_block` derived its plan on the default
       device and had never met a bank that was not on the CPU (0.97.0). The
@@ -980,7 +980,7 @@ HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
 UNMERGED_KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1")
 
 #: `backbone_apply` choices: where the backbone and refiner LoRA lands.
-#: **Measured** (`bench/results/2026-09-26_int8_lora_requant.json`): merged
+#: **Measured** (`data/results/2026-09-26_int8_lora_requant.json`): merged
 #: into an int8 weight, ComfyUI requantises it with stochastic rounding, and
 #: PDD's delta, about a tenth of an int8 step, keeps little of its direction.
 #: The branch (`lora_branch.py`) applies it at the call and reaches every
@@ -1020,7 +1020,7 @@ def _make_unmerged_forward(base_forward, a, b, tracker=None, window=None,
     `requantize_from_float(..., scale="recalculate")` -- so a merged LoRA moves
     the quantisation grid, and the module's stored-weight error against the
     bf16 release rises with strength
-    (`bench/results/2026-08-30_pdd_quant_interaction.json`: 0.00942 -> 0.01058
+    (`data/results/2026-08-30_pdd_quant_interaction.json`: 0.00942 -> 0.01058
     at strength 1.0, correlating 0.78 with the module's own `||BA||/||W||`).
     Applying at the call leaves the quantised weight untouched, so the base
     keeps its shipped error and the delta is exact in the compute dtype.
@@ -1850,7 +1850,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "neither requantises and neither is ever lifted.\n\n"
                         "THERE IS NO HOTSPOT TO TARGET, so this is mostly an "
                         "on/off knob. Measured over all 200 modules "
-                        "(bench/results/2026-08-31_pdd_unmerge_recovery.json), "
+                        "(data/results/2026-08-31_pdd_unmerge_recovery.json), "
                         "block inflation spans only 1.131x, so worst-first "
                         "recovers barely more than an arbitrary choice: "
                         "'-1' (every block) recovers 100% of the gap for "
@@ -1928,7 +1928,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "'merge' is the old path, kept as the control arm: "
                         "ComfyUI dequantises, adds and requantises each int8 "
                         "weight with stochastic rounding "
-                        "(bench/results/2026-09-26_int8_lora_requant.json). "
+                        "(data/results/2026-09-26_int8_lora_requant.json). "
                         "`unmerged_blocks` and its two knobs work only under "
                         "'merge'.\n\n"
                         "The adaln update stays a weight patch either way: "

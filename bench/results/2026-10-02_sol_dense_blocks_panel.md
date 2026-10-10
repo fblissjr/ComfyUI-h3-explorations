@@ -26,7 +26,7 @@ fallback, the reference), `none` (empty), `tail` (45,48,49), `optB`
 `sink_conditioning=exact_kv_and_all_rows`).
 
 **Scoring.** `bench/score_sol_dense_blocks_panel.py` against the rows in
-`bench/results/2026-10-02_sol_dense_blocks_panel.jsonl`: relative L2 of each
+`data/results/2026-10-02_sol_dense_blocks_panel.jsonl`: relative L2 of each
 arm's saved latent from the `dense` arm at the same scene and seed. Timing is
 `sampler_s` from the same rows, with no probe armed, so it is valid; every
 cell was rendered on a warm server.

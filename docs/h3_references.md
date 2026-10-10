@@ -147,7 +147,7 @@ this.
 `MiniMaxH3ReferenceConditioning` encodes the references and the prompt as one
 sequence, so a prompt edit pays for the references again, and nearly all of
 that is the text encoder reading the stills
-(`bench/results/2026-10-03_prompt_edit_conditioning_cost.json`). Core puts
+(`data/results/2026-10-03_prompt_edit_conditioning_cost.json`). Core puts
 every reference ahead of the prompt and the encoder's attention is causal, so
 what it computes for the references cannot depend on the prompt. Two
 experimental nodes split the work there (`reference_encode.py`):
@@ -170,7 +170,7 @@ between passes and never on disk.
 
 **It is not bit-identical to the one-node path.** The conditioning differs in
 the last bits, by far less than the shipped int8 encoder differs from bf16;
-`bench/results/2026-10-03_reference_split.json` has each span's distance with
+`data/results/2026-10-03_reference_split.json` has each span's distance with
 one reference and with two, and `2026-10-03_encoder_prefix_reuse.json` the
 mechanism. The owner accepted that difference on 2026-10-03. No shipped graph
 wires these nodes; the one-node path is the default and the reference for
@@ -623,7 +623,7 @@ the shipped encoder.
 `bench/measure_qwen_bounds_bite.py` calls the real `process_qwen2vl_images`
 with the arguments `comfy/text_encoders/qwen3vl.py:65` passes and reports the
 grid it gets back; record in
-[`bench/results/2026-08-21_qwen_bounds_bite.json`](../bench/results/2026-08-21_qwen_bounds_bite.json).
+[`data/results/2026-08-21_qwen_bounds_bite.json`](../data/results/2026-08-21_qwen_bounds_bite.json).
 References prepared to a 2048 short edge:
 
 | prepared | what Qwen sees | release |
@@ -874,7 +874,7 @@ because upscaling adds tokens rather than detail."
 > (`docs/wiki/decisions.md`). The table stands as the computation of its
 > date; on the shipped encoder the Qwen column is the v2 column, because
 > core's own bounds bind nothing a reference node produces
-> (`bench/results/2026-08-29_qwen_view_under_snapshot.json`). The owner
+> (`data/results/2026-08-29_qwen_view_under_snapshot.json`). The owner
 > decision below is the calibration lane's and is closed with it; the
 > shipped node defaults are now choice B (vendor parity), and
 > `bench/refview2_arms.json` is the ablation that compares it with A.
@@ -994,7 +994,7 @@ is in fact the numerically larger of the two, so "widest" was wrong in both
 readings. The practical half is worth more than the correction: **an encoder
 swap between v2 and the shipped INT8 changes the weights and not the reference
 view**, which makes it a clean single variable for a matched-seed comparison.
-`bench/results/2026-08-29_qwen_view_under_snapshot.json` is the record; its
+`data/results/2026-08-29_qwen_view_under_snapshot.json` is the record; its
 generator swept only the two AWQ snapshots until that date and omitted the
 regime every shipped graph actually runs, which is how the claim survived.
 
@@ -1284,7 +1284,7 @@ different-sample rule applies to prompts as much as to numbers.
 until 2026-09-14. A later batch at the shipped canvas and length, with matched
 seeds and no bench patch, broke its speech on every seed, by ear and by
 `bench/grade_soundtrack_reuse.py`
-([`../bench/results/2026-08-22_swap_prompt_verdict_362.json`](../bench/results/2026-08-22_swap_prompt_verdict_362.json);
+([`../data/results/2026-08-22_swap_prompt_verdict_362.json`](../data/results/2026-08-22_swap_prompt_verdict_362.json);
 CHANGELOG 0.57.0). That record still does not make the six sections the cause:
 structure, length and how the soundtrack is stated moved together there too.
 `workflows/h3_ref_video_swap_api.json` is the one swap graph.
@@ -1482,7 +1482,7 @@ rather than the typed chain, and one loads `fl2va`.
   truncated to the first two.** **WITHDRAWN 2026-08-29: this entry used to say a
   mono reference "does not render — it raises", and it was wrong.** Measured
   against the real audio VAE on CPU
-  ([`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json),
+  ([`../data/results/2026-08-29_ref_audio_channels.json`](../data/results/2026-08-29_ref_audio_channels.json),
   [`../bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py)):
   a `[1,1,32000]` mono waveform encodes to `[1,32,2,40]`, producing exactly the
   80 rows `PackedLayout` allocates. It packs.

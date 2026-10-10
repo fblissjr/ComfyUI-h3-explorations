@@ -195,11 +195,11 @@ stays the shipped default.
 - At the DiT, int8 moves the prediction no more than any small change, and a
   dose-response confirms that is a floor of the int8 DiT itself: noise far
   below int8's error reads the same
-  (`../../bench/results/2026-09-27_encoder_quant_dit.json`,
-  `../../bench/results/2026-09-27_encoder_quant_floor.json`).
+  (`../../data/results/2026-09-27_encoder_quant_dit.json`,
+  `../../data/results/2026-09-27_encoder_quant_floor.json`).
 - Floor-free, at the DiT's bf16 conditioning path, int8's image-token error is
   no worse than random and its text-token error is somewhat worse
-  (`../../bench/results/2026-09-27_encoder_quant_refiner.json`). A better int8
+  (`../../data/results/2026-09-27_encoder_quant_refiner.json`). A better int8
   encoder would start on the text side.
 - The distill version (`../open_experiments.md` #47) closes unbuilt. Any
   numerical A/B read at an int8 DiT's output needs a tiny-noise arm beside it.
@@ -325,7 +325,7 @@ stays the shipped default.
     (`rows_video_audio` in its JSON; the selector is tested on the CPU by
     `bench/probe_grade_row_selection.py`). Running it on the real kernels over the
     ref2va and t2v test 2 captures is what remains, and it needs the card.
-  - Regenerate `../../bench/results/2026-09-29_partition_delta_map.jsonl`, which
+  - Regenerate `../../data/results/2026-09-29_partition_delta_map.jsonl`, which
     predates its script; do not read `cos` from it.
   - Comfy-Org/ComfyUI issue 16604 (a reported ref-row shape mismatch above 16384
     packed rows) does not reproduce on the layout on the CPU
@@ -379,7 +379,7 @@ the other way around but my gut says pdd".
   repair (`../../bench/results/2026-09-27_reverse_switch.md`).
 - **Update, the same night: the subway clone is born early.** The x0 capture
   shows two figures already at PDD8's step 1 of 8
-  (`../../bench/results/2026-09-26_x0_steps_subway_pdd8.json`).
+  (`../../data/results/2026-09-26_x0_steps_subway_pdd8.json`).
   - A late handoff (PDD first, FlashGen finishing) should not remove it.
   - Route 3 (FlashGen first, PDD finishing) or a different first block
     might.
@@ -867,7 +867,7 @@ none of it is done.
   Lists' fixed `index`, the `timeline` and the `preview` switch. Preview, and a
   render of the first 30 seconds (three windows of two lengths, joined),
   exercised on the served example graph:
-  `bench/results/2026-09-14_audio_freeze_song_timeline_smoke.jsonl` (`83d2633`).
+  `data/results/2026-09-14_audio_freeze_song_timeline_smoke.jsonl` (`83d2633`).
   In that render the third window, which starts inside the verse, kept the
   medium shot it inherited instead of opening on the prompt's close-up; one
   sample. **Still owed:** the full-length example render (a throwaway first
@@ -886,11 +886,11 @@ none of it is done.
   not been exercised yet), and the seed control slot the song UI graphs were
   missing.
   Harness smoke, two short windows per arm, reference and plain:
-  `bench/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`. Its first
+  `data/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`. Its first
   full-length run is still a throwaway. Next, as decided on 2026-09-14:
   (2) built the same day: resume from the first changed window, the seed
   held fixed (`loop_resume.py`; harness smoke
-  `bench/results/2026-09-14_audio_freeze_song_resume_smoke.jsonl`); (3)
+  `data/results/2026-09-14_audio_freeze_song_resume_smoke.jsonl`); (3)
   built the same day: a prompt list node filling
   `__name__` placeholders, one list per node with its own fixed seed, in
   order or reshuffled on each pass so no value repeats before the list is
@@ -898,7 +898,7 @@ none of it is done.
   window uses its placeholder; wildcard `.txt` and JSON files from
   `<input>/wildcards/`, selectable on the node (`prompt_lists.py`,
   `bench/check_prompt_lists.py`; harness smoke
-  `bench/results/2026-09-14_audio_freeze_song_lists_smoke.jsonl`). The owner
+  `data/results/2026-09-14_audio_freeze_song_lists_smoke.jsonl`). The owner
   then agreed that a placeholder with no list node reads a wildcard file of
   its name directly, shuffled at seed 0, and that lists serve every loop, not
   the song alone: loop nodes fill through `prompt_lists.fill_windows`
@@ -932,7 +932,7 @@ none of it is done.
   edge, upscale on, one copy for both the video VAE and Qwen3-VL). Four arms
   per scene after the owner cut the middle tier mid-run (`parity`,
   `noup_shared`, `noup_q512`, `noup_q2048`); one seed, by the owner's call.
-  Rows: `bench/results/2026-09-13_refview2_arms.jsonl`, no failures. The
+  Rows: `data/results/2026-09-13_refview2_arms.jsonl`, no failures. The
   blind session is built: `Video/blind/refview2_2026-09-13/` on the output
   share, every render as a neutral single plus fifteen stacked pairs (parity
   against each other arm per scene), `score.html` beside them, key sealed
@@ -978,7 +978,7 @@ none of it is done.
   the fork commit or tag and a check reads it off the installed module.
 - **Rendered, awaiting the owner's verdict**: `untold_loose_pdd8` at a
   second seed (2203), `Video/h3_candidate_t2v_pdd8_baked_audio_freeze_untold_loose_pdd8_00002-audio.mp4`,
-  row in `bench/results/2026-09-13_audio_freeze_untold_seed2.jsonl`. The
+  row in `data/results/2026-09-13_audio_freeze_untold_seed2.jsonl`. The
   first seed lost lip sync after about two seconds; this one says whether
   loose mask with neither transcript nor guide rows fails every time or did
   once. One line into the step 2 verdict file closes it.
@@ -1021,7 +1021,7 @@ none of it is done.
   - *Good.* Every check touched is green; the ablation rendered with no
     failures including the three-still parity arm on this card; the report
     node's numbers match the static pricer's
-    (`bench/results/2026-09-13_reference_settings_three_stills.json`).
+    (`data/results/2026-09-13_reference_settings_three_stills.json`).
 - Before queueing a reference render, read `MiniMaxH3ReferenceConditioning`'s
   preview or run `bench/preflight_graph.py`: both price what each reader sees
   (the `MiniMaxH3ReferenceReport` node this used to name was deleted in 0.174.0).
@@ -1049,7 +1049,7 @@ none of it is done.
   and the verdict file takes one line each. Then the first run of the
   whole-track node `MiniMaxH3AudioFreezeSong`
   (`workflows/h3_text_to_video_audio_freeze_song_api.json`, 30 s look; its
-  one-window smoke row is `bench/results/2026-09-12_audio_freeze_song_smoke.jsonl`),
+  one-window smoke row is `data/results/2026-09-12_audio_freeze_song_smoke.jsonl`),
   the shot chain graphs, and `bench/audio_freeze_gain_arms.json` on PDD8.
   PDD8 is the iteration chain; the base chain is for keepers. The mouth
   instrument needs a face model before it says anything.
@@ -1072,7 +1072,7 @@ none of it is done.
 **2026-09-10 (upstream survey session):**
 
 - Core vs ours Sol A/B, rendered 2026-09-10 with no verdict record
-  (`bench/results/2026-09-10_sol_core_ab_arms.jsonl`; this line said "BUILT not
+  (`data/results/2026-09-10_sol_core_ab_arms.jsonl`; this line said "BUILT not
   rendered" until 2026-09-15): courtroom, disco, hacker; two seeds; pairs A
   ours vs core, B ours at core's values vs core, C ours vs all-rows.
   *Retired 2026-09-15*, manifest `bench/sol_core_ab_arms.json` and graph
@@ -1080,13 +1080,13 @@ none of it is done.
   backend (`28d8ee5`), so a re-run would set ours on kitchen against core's
   node on sage under this A/B's name. The clips remain on disk and unscored,
   in the ComfyUI output folder under the basenames
-  `bench/results/2026-09-10_sol_core_ab_outputs.json` lists, and the scoring
+  `data/results/2026-09-10_sol_core_ab_outputs.json` lists, and the scoring
   below is still possible from those files. Ours against core again is a new
   manifest, core's node over the backend node, not a re-run.
 - All-rows sink switch: planned, gated on pair C (`docs/roadmap.md`, forward
   plan step 3).
 - Pair B, GRADED on activations
-  (`bench/results/2026-09-10_sol_impl_capture_grade.json`, capture
+  (`data/results/2026-09-10_sol_impl_capture_grade.json`, capture
   `2026-09-10_sol_impl_courtroom`, its repo records beside it): at matched
   knobs core's chunked producer and our node land the same distance from
   exact in every cell, carried statistics do not move that distance, and the
@@ -1102,7 +1102,7 @@ none of it is done.
 - A/B scoring: the owner scores `sol_core_ab_2026-09-10`; then
   `bench/score_session.py`, the loudness record
   (`bench/measure_clip_loudness.py --outputs
-  bench/results/2026-09-10_sol_core_ab_outputs.json --baseline-rung ours
+  data/results/2026-09-10_sol_core_ab_outputs.json --baseline-rung ours
   --out bench/results/2026-09-10_sol_core_ab_audio_loudness.json`),
   the frontier table, and the all-rows decision from pair C. Whoever writes
   the verdict up says two things `score_session.py` has no field for: pair
@@ -1114,7 +1114,7 @@ none of it is done.
   `bench/run_graph_arms.py` writes carry `substrate.git_commit` and
   `git_dirty`, read from the working tree when each row is written, so a
   commit during a batch relabels every later row. In
-  `bench/results/2026-09-10_sol_core_ab_arms.jsonl` the stamp moves from
+  `data/results/2026-09-10_sol_core_ab_arms.jsonl` the stamp moves from
   `3e553f6` to `311cffa` mid-batch, while the server ran `8870f8e`
   throughout. Done when rows also carry the serving process's start time,
   or the commit at its start. Wrong premise if the owner rules that no
@@ -1141,7 +1141,7 @@ none of it is done.
   rung goes with two LoRAs at two seeds (bake session owns it, plus a sage
   floor render at the second seed); token routing stage one goes (survey
   session offline at the time, pick it up from the plan page).
-- The bake pair: SCORED and joined 2026-09-05, pairs only (`bench/results/2026-09-05_pdd_bake_2026-09-05_verdict.json`, read its
+- The bake pair: SCORED and joined 2026-09-05, pairs only (`data/results/2026-09-05_pdd_bake_2026-09-05_verdict.json`, read its
   `join_notes_2026-09-05`). The baked arm lost to the sage floor on four
   scenes and read same on one, on the same properties the merged arm lost
   on the day before (audio level, lighting, framing, the subway sign
@@ -1153,7 +1153,7 @@ none of it is done.
   choice for that reason alone. Next lever for PDD quality is the
   partition (the tail-weighted six-evaluation schedule the node already
   accepts, `h3_config.PDD_MANUAL_SIGMAS`), not the weights. Records beside it:
-  `bench/results/2026-09-05_pdd_bake_outputs.json`,
+  `data/results/2026-09-05_pdd_bake_outputs.json`,
   `..._pdd_bake_audio_loudness.json` (absolute levels; the merged twins'
   are in the 2026-09-04 ladder record) and
   `..._pdd_bake_2026-09-05_frontier.json`, where the baked arm's sampler
@@ -1166,17 +1166,17 @@ none of it is done.
   three built pages are unaffected and the join ignores those two tags on
   a half.
 - PDD ladder: SCORED and joined 2026-09-05, pairs only, singles unscored by
-  the owner's choice (`bench/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`). Reading, one seed, five scenes: the sage
+  the owner's choice (`data/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`). Reading, one seed, five scenes: the sage
   16-step floor beat PDD8 under sage alone on every scene and beat PDD8 with
   the narrow Sol window on four with one can't-tell, so the PDD8 loss is
   PDD's own, not Sol's; Sol on two of eight steps read *same* as sage alone
   on all five; the shipped four-step window lost to sage alone on standoff
   (background definition) and subway (scrambled first-frame text,
   artifacts) and read *same* on three. The owner heard the floor louder than
-  PDD on every scene compared; `bench/results/2026-09-04_pdd_ladder_audio_loudness.json`
+  PDD on every scene compared; `data/results/2026-09-04_pdd_ladder_audio_loudness.json`
   is the level record. Merge against schedule is what the bake pair decides.
 - Frontier table on that verdict: DONE 2026-09-05,
-  `bench/results/2026-09-05_pdd_ladder_2026-09-04_frontier.json`, speed against
+  `data/results/2026-09-05_pdd_ladder_2026-09-04_frontier.json`, speed against
   the sage floor beside the owner's note per pair (the tool now skips
   warmup rows, which shared their arm's label).
 - The chain assert's call-time proof on the no-sage graph: the exercise
@@ -1186,7 +1186,7 @@ none of it is done.
   card is down. Closes when a just-Sol render's log carries the "no sage:
   probes ... reached no sage kernel" line. Item 7 of the 2026-09-04
   postmortem under `internal/postmortems/`.
-- The fp16-sage rung's lost time (`bench/results/2026-09-03_ladder_outputs.json`
+- The fp16-sage rung's lost time (`data/results/2026-09-03_ladder_outputs.json`
   shows it slower than Sol as shipped on every scene): moot since the
   2026-09-04 plan dropped the rung (annotated in the 2026-09-03 postmortem
   under `internal/postmortems/` on 2026-09-05); reopens only if the rung
@@ -1196,7 +1196,7 @@ none of it is done.
 
 Items from the `evalman` render lane:
 
-- Just-Sol session: SCORED and joined 2026-09-05, pairs only (`bench/results/2026-09-05_sol_nosage_2026-09-04_verdict.json`, read its
+- Just-Sol session: SCORED and joined 2026-09-05, pairs only (`data/results/2026-09-05_sol_nosage_2026-09-04_verdict.json`, read its
   `join_notes_2026-09-05`). The sage floor beat just-Sol on four scenes with
   one can't-tell; Sol as shipped beat it on three and read same on two; the
   tau-raised arm lost both its subway pairs. Nearly every win is a
@@ -1205,7 +1205,7 @@ Items from the `evalman` render lane:
   Sol without sage and the evidence is weak. The shipped chain (sage
   outer steps, Sol inside) stays the leader. Frontier table: UNBLOCKED and
   written 2026-09-08,
-  `bench/results/2026-09-08_sol_nosage_2026-09-04_frontier.json` (the session's
+  `data/results/2026-09-08_sol_nosage_2026-09-04_frontier.json` (the session's
   own outputs record plus the ladder's, which carries the sage floor rows).
   The split now takes the FIRST underscore, so a rung may carry one, with
   `--scene` to declare a scene name that does; `bench/frontier_table.py
@@ -1217,15 +1217,15 @@ Items from the `evalman` render lane:
   record says why it is absent.
 - One pair, no card time: the all-rows sink mode's armed subway clip
   against the 2026-09-03 subway Sol clip
-  (`bench/results/2026-09-04_probe_allrows_vs_shipped_pixels.json` says the
+  (`data/results/2026-09-04_probe_allrows_vs_shipped_pixels.json` says the
   change is the size of dense-versus-sage;
-  `bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json` says an
+  `data/results/2026-09-04_probe_render_vs_unarmed_pixels.json` says an
   armed clip is a valid sample). Closes with a scored one-pair session.
 - An armed render of the just-Sol graph under `H3_SOL_PROBE`, so the
   probe's counterfactual is stock attention and the record ranks Sol
   against near-exact attention directly (roadmap 2026-09-04, step 1's next
   footing). Closes with a probe record and its comparison against
-  `bench/results/2026-09-04_sol_probe_base16_subway.json`.
+  `data/results/2026-09-04_sol_probe_base16_subway.json`.
 - Then the vendor's start-schedule arm, open experiment 27 in
   `../open_experiments.md` (`upman`'s lane), in the step-policy slot: probe
   first, then one blind pair.
@@ -1272,7 +1272,7 @@ in `bench/check_attention_defaults.py::DEVIATIONS`, which grades each
 deviation as real). Drag the `_api.json` into the editor, replace the prompt, render.
 Rows are ordered fastest first by their step mix; the per-step costs that
 turn a mix into a time are the medians in
-`bench/results/2026-09-03_ladder_outputs.json`. Nothing below is a verdict,
+`data/results/2026-09-03_ladder_outputs.json`. Nothing below is a verdict,
 and the last column says why it is on the list and what would make it one.
 
 **The step mixes below predate `07b903c` (2026-09-11)**, which moved
@@ -1287,7 +1287,7 @@ changed too and are not recounted here.
 | `workflows/h3_candidate_t2v_pdd8_baked_api.json` | the shipped PDD8 graph on the baked checkpoint with the stripped sidecar | four sage, four Sol | same work as the shipped PDD8 graph with the merge noise gone: the PDD backbone is quantised once with the weights instead of merged and requantised at load (`docs/research/pdd/2026-09-05_bake_plan.md`). Settled by the merged-versus-baked pair, `pdd_bake_2026-09-05`, rendered under sage alone so Sol is not in it |
 | `workflows/distill_experiments/h3_probe_t2v_pdd8_sage_api.json` | PDD8 under sage alone, no Sol | eight sage | the PDD floor under the sage decision; if it reads the same as the sage floor, PDD8 is a near-doubling over it. Blinded as `pdd_ladder_2026-09-04`; unjudged |
 | `workflows/h3_candidate_t2v_sol_only_api.json` | just Sol, from the first step to the last-but-one, no sage node | one stock, fifteen Sol | the fastest base-model arm: the probe records put Sol's disagreement lowest early in the window, so the dense warm-up may be unneeded, and the owner asked what Sol does without sage under it. Blinded as `sol_nosage_2026-09-04`; unjudged |
-| `workflows/h3_text_to_video_api.json` | **the leader**: sage auto plus Sol as shipped | five sage, eleven Sol | the only arm with a blind verdict behind it: same as dense on four scenes of five at one seed, and the fifth scene's slip belonged to sage (`bench/results/2026-09-04_ladder_2026-09-03_frontier.json`, `docs/roadmap.md` step 1) |
+| `workflows/h3_text_to_video_api.json` | **the leader**: sage auto plus Sol as shipped | five sage, eleven Sol | the only arm with a blind verdict behind it: same as dense on four scenes of five at one seed, and the fifth scene's slip belonged to sage (`data/results/2026-09-04_ladder_2026-09-03_frontier.json`, `docs/roadmap.md` step 1) |
 | `workflows/h3_candidate_t2v_sol_allrows_api.json` | the leader's chain with the text rows dense too | five sage, eleven Sol, plus a few hundred dense rows | free on the probe (the text segment's disagreement collapses to the audio floor) and the pixels move as far as dense-versus-sage; one blind pair away, already rendered |
 
 Not on the list: the shipped PDD8 graph (`workflows/h3_text_to_video_pdd_api.json`),
@@ -1381,21 +1381,21 @@ renders land, the just-Sol session (`bench/sol_nosage_arms.json`, against the
 ladder's sage and Sol clips). A third, one pair on the subway scene, needs no
 render: the all-rows sink mode's armed clip against the 2026-09-03 Sol clip,
 since arming the probe does not perturb a render
-(`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). After the
+(`data/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). After the
 just-Sol renders, an ARMED render of the just-Sol graph is the probe's next
 footing: with no sage, its counterfactual is stock attention, so the record
 measures Sol against near-exact attention directly rather than against sage.
 
 **Read the ladder verdict, as a frontier.**
-`bench/results/2026-09-04_ladder_2026-09-03_frontier.json`
+`data/results/2026-09-04_ladder_2026-09-03_frontier.json`
 (`bench/frontier_table.py`) puts each arm's speed against the sage floor
 beside the owner's own words from every pair it sat in; that is the form
 every ladder is read in from now on, speed beside what was noticed, never
 pass or fail.
 The owner scored every stacked pair of session `ladder_2026-09-03` on
 2026-09-04 (five bank scenes by five rungs, matched seed, trained canvas;
-`bench/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
-the timings). `bench/results/2026-09-04_ladder_2026-09-03_verdict.json`
+`data/results/2026-09-03_ladder_outputs.json` maps arm to clip and holds
+the timings). `data/results/2026-09-04_ladder_2026-09-03_verdict.json`
 holds the tally per contest, the owner's note on each pair, and which arm
 sat in each slot, joined with the sealed key after the key's rows and labels
 were checked against the render record. Two reading rules the record cannot
@@ -1418,7 +1418,7 @@ sage, so a pdd8 loss does not attribute to the step distillation, the
 kernels, or their interaction. The audio half is the owner's report in
 conversation, recorded with its provenance in the verdict record's
 `owner_report_after_join`: good across the board, a bit quieter on the PDD
-clips; `bench/results/2026-09-04_ladder_audio_loudness.json`
+clips; `data/results/2026-09-04_ladder_audio_loudness.json`
 (`bench/measure_clip_loudness.py`, EBU R128 per clip) is the level beside
 that sentence, descriptive at one clip per arm, and its sign summary says
 on how many scenes each rung sits below dense. The owner does not want
@@ -1432,9 +1432,9 @@ records which it read. Regenerate a page rather than editing it.
 **The online Sol-versus-Sage instrument is validated; read it, then widen
 it.** `sol_block_probe.py` passed its fixture controls, reproduced the
 offline record on every retained Base16 cell
-(`bench/results/2026-09-03_probe_replay_base16.txt`), and its first canonical
+(`data/results/2026-09-03_probe_replay_base16.txt`), and its first canonical
 record holds every invariant
-(`bench/results/2026-09-03_sol_probe_base16_standoff.json`, summary as data;
+(`data/results/2026-09-03_sol_probe_base16_standoff.json`, summary as data;
 the closing section of
 [`../research/2026-09-03_sol_exact_pquant_and_base_capture.md`](../research/2026-09-03_sol_exact_pquant_and_base_capture.md)
 says what it ranks and what it cannot say). Next, first on the card under
@@ -1462,7 +1462,7 @@ with `--no-validate` on a stopped server; validate against the live
 
 **The reference pathway verdict is in; read it before touching a reference
 graph's cost.** Scored and joined 2026-09-04
-(`bench/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, one seed,
+(`data/results/2026-09-04_ref_pathway_2026-09-03_verdict.json`, one seed,
 pairs only): the owner could not tell both pathways from encoder only on
 either conditioner, named none of the identity items as differing, and
 named one signature on every encoder-only arm, static people in the
@@ -1474,11 +1474,11 @@ owner wants one.
 
 **Block 49's token-routing instability: the variation has the selection unit's
 shape, and the kernel source names a mechanism.** Two records, read in order:
-`bench/results/2026-09-08_token_aug_determinism_shape.json` establishes that
+`data/results/2026-09-08_token_aug_determinism_shape.json` establishes that
 the variation is not accumulation order and eliminates the two obvious causes
 (centroid fidelity, refuted by our own morton measurement; the high-norm-row
 hotspot, refuted by measurement the same day), and
-`bench/results/2026-09-08_token_aug_selection_structure.json`
+`data/results/2026-09-08_token_aug_selection_structure.json`
 (`bench/probe_token_aug_selection_structure.py`) says the moving rows carry the
 granularity of one token-routing centroid, against a scattered control the run
 measures on its own rows and a shifted-grid control for the alignment. All five
@@ -1495,10 +1495,10 @@ while the count clearing the threshold fits. Read entry 29 before proposing a
 cause. **It is upstream's defect, measured and not merely argued**: it reproduces on a
 plain upstream wheel holding none of our code, with a positive control on each
 arm that it is the wheel it claims to be
-(`bench/results/2026-09-08_token_aug_stock_wheel_control.json`). A standalone
+(`data/results/2026-09-08_token_aug_stock_wheel_control.json`). A standalone
 repro and the smallest input that still moves are in
 `bench/repro_token_aug_nondeterminism.py` and
-`bench/results/2026-09-08_token_aug_repro_shapes.json`; reproduction is
+`data/results/2026-09-08_token_aug_repro_shapes.json`; reproduction is
 non-monotone in head count and sequence length, so **a negative on one shape is
 not evidence of correctness** and candidates must be tested in fresh processes.
 **The cause is measured** (arm 5, which needed no kernel change after all --
@@ -1506,14 +1506,14 @@ the workspace and the count's offset are both reachable from Python): the
 admitted token count exceeds the budget by orders of magnitude on a few hundred
 centroid groups, the same groups every launch, and every group whose output
 moves is one that overflowed
-(`bench/results/2026-09-08_token_aug_admitted_count.json`). Above the budget the
+(`data/results/2026-09-08_token_aug_admitted_count.json`). Above the budget the
 kernel's slot assignment is decided by atomic arrival order. Note the first
 proposed fix is retracted in the entry: the overshoot is far too large for the
 boundary-rounding explanation.
 
 **How much of an H3 render is attention: a floor, derived rather than
 profiled.** `bench/derive_attention_share.py` writes
-`bench/results/2026-09-08_attention_share_bound.json` from the 2026-09-03
+`data/results/2026-09-08_attention_share_bound.json` from the 2026-09-03
 ladder's paired arms. Read it before ranking any attention work, because it
 carries two different floors and they answer different questions: the dense
 one is what "attention dominates H3" means, and the sage one is the
@@ -1541,7 +1541,7 @@ nearly inert, so it is a per-block candidate for the block-policy step and
 not the frontier move roadmap step 7 asked about; nothing installed. The
 post-pull core regime (the Comfy Compiler's malloc graph, on whenever aimdo
 is) was checked on one dense rung
-(`bench/results/2026-09-04_stairwell_dense_retime.jsonl`): sampler time
+(`data/results/2026-09-04_stairwell_dense_retime.jsonl`): sampler time
 inside the 2026-09-03 rows and the clip pixel-identical to the 2026-09-03
 one by the scoring lane's comparison, so the 09-03 clips remain valid blind
 references. `docs/sol_upstream.md` holds the kitchen state;

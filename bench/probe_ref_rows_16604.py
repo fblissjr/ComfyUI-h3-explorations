@@ -23,7 +23,7 @@ shape when `img_update` is inverted: `~img_update` then selects exactly the vide
 CPU only, no card, nothing in core is patched or imported beyond the model file.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/probe_ref_rows_16604.py \\
-        --record bench/results/<date>_ref_rows_16604.json
+        --record data/results/<date>_ref_rows_16604.json
 """
 
 from __future__ import annotations

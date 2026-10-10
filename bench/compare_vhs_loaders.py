@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Do VHS's two upload loaders hand the reference path the same frames? Measured, not read.
 
-    <comfy-venv-python> bench/compare_vhs_loaders.py --out bench/results/<date>_vhs_loader_comparison.json
+    <comfy-venv-python> bench/compare_vhs_loaders.py --out data/results/<date>_vhs_loader_comparison.json
 
 Written 2026-09-23 when the generated reference-video graphs moved from the
 cv2 `VHS_LoadVideo` to `h3_config.REF_VIDEO_LOADER` (VHS's ffmpeg loader). The

@@ -144,7 +144,7 @@ model:
 - ComfyUI ships two distinct files, `minimax_h3_fl2va_pruned_*` and
   `minimax_h3_ref2va_pruned_*`. Their weights differ everywhere, down to the
   timestep embedder (10.6% relative on `e(t)`, measured 2026-08-20 on the
-  unpruned files, `bench/results/2026-08-20_adaln_pruning_residual.json`).
+  unpruned files, `data/results/2026-08-20_adaln_pruning_residual.json`).
 - The 8-step turbo LoRA's own metadata names its base:
   `base_model: Comfy-Org/MiniMax-H3 minimax_h3_fl2va_bf16.safetensors`.
 
@@ -173,7 +173,7 @@ number compared coefficient matrices sitting on `adaln_t_table` bases whose
 columns 4-7 differ in sign between the parents. At the modulation output the
 final layer differs ~3% overall and ~12% in its time-varying part -- the
 largest adaln item, and the same order as the linears.
-`bench/results/2026-08-20_dit_internals.json`.) The turbo LoRAs touch 208
+`data/results/2026-08-20_dit_internals.json`.) The turbo LoRAs touch 208
 modules, all of them `attn.qkv_proj`, `attn.out_proj`, `mlp.fc1` and `mlp.fc2`
 in the 50 blocks plus the 2 token-refiner blocks. They do not touch
 `final_layer`, per-block `adaln_proj`, the norms, the patch projections or

@@ -36,7 +36,7 @@ The image is synthetic and seeded -- no asset from the media directories --
 smooth gradients plus seeded noise at the shipped canvas, resized through
 core's own `_resize(..., "center")` as the keyframe path does.
 
-Writes `bench/results/<date>_keyframe_encode_determinism.json`: per arm the
+Writes `data/results/<date>_keyframe_encode_determinism.json`: per arm the
 sha256 of each latent's bytes, the max absolute difference against the first
 arm, free VRAM at encode, the encode's peak, the flags, and the substrate.
 Needs the card and no render in flight (it asks the server's /queue).
@@ -228,7 +228,7 @@ def main() -> int:
                if len({r["hashes"][0] for r in rows}) == 1 and all(r["repeats_identical"] for r in rows)
                else "NOT byte-identical: read the per-arm rows")
     print(f"\n  {verdict}")
-    out = Path(args.out) if args.out else HERE / "results" / f"{date.today().isoformat()}_keyframe_encode_determinism.json"
+    out = Path(args.out) if args.out else HERE.parent / "data" / "results" / f"{date.today().isoformat()}_keyframe_encode_determinism.json"
     out.write_text(json.dumps(dict(
         produced_by="bench/measure_keyframe_encode_determinism.py",
         question="does the H3 keyframe VAE encode give the same latent bytes across "

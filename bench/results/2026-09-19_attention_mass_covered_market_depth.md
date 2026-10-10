@@ -1,15 +1,15 @@
 # Where exact attention mass goes, all 56 heads, covered-market depth capture, 2026-09-19
 
 Tool: `bench/map_attention_mass_on_capture.py`, CPU, read-only on the capture.
-Numbers: `bench/results/2026-09-19_attention_mass_covered_market_depth.json`
+Numbers: `data/results/2026-09-19_attention_mass_covered_market_depth.json`
 (per cell, per head). The per-cell tables this record reads come from
 
-    python bench/map_attention_mass_on_capture.py --summarize bench/results/2026-09-19_attention_mass_covered_market_depth.json
+    python bench/map_attention_mass_on_capture.py --summarize data/results/2026-09-19_attention_mass_covered_market_depth.json
 
 ## What was measured
 
 Capture `2026-09-19_covered_market_sage_chain_depth` (inventory:
-`bench/results/2026-09-19_capture_inventory_covered_market_depth.json`): the
+`data/results/2026-09-19_capture_inventory_covered_market_depth.json`): the
 covered-market scene, text to video, blocks 0, 8, 16, 24, 32, 40 and 44 to 49
 at steps 8 and 15, every head. Its layout is text, then target audio, then
 102 latent frames of video, no references. For a seeded sample of query rows

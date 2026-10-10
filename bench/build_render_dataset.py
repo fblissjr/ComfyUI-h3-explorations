@@ -14,13 +14,13 @@ record from 1):
   cache position (from the substrate record, joined on `prompt_id`), validity
   flags and the output basenames.
 - `measures.jsonl`, long format: one row per (render, tool, metric) from every
-  per-clip record in `bench/results/2026-09-2[67]_*.json`. A clip measured
+  per-clip record in `data/results/2026-09-2[67]_*.json`. A clip measured
   twice by the same tool is kept once, with every source record listed.
 - `models.jsonl`: every model file a render used or we built.
 - `findings.jsonl`: the concatenation of `findings_*.jsonl` in `--out`,
   validated against the agreed fields and tag vocabulary.
 
-    python bench/build_render_dataset.py --out bench/results/2026-09-27_render_dataset
+    python bench/build_render_dataset.py --out data/results/2026-09-27_render_dataset
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from _paths import comfy_output  # noqa: E402
 sys.path.insert(0, str(REPO / "workflows"))
 from prompts import identify as prompt_id_of, sha256 as prompt_sha  # noqa: E402
 
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 ROW_GLOB = "2026-09-2[67]_*.jsonl"
 MEASURE_GLOB = "2026-09-2[67]_*.json"
 FINDING_FIELDS = ["finding_id", "author", "date", "kind", "text", "render_ids", "scope", "model_family",

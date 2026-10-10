@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the measurement reads on the 2026-09-26 follow-up batch as its arms land.
 
-Reads `bench/results/2026-09-26_followup.jsonl` (`bench/followup_arms.json`'s
+Reads `data/results/2026-09-26_followup.jsonl` (`bench/followup_arms.json`'s
 rows), finds each arm's clip and saved video latent on the output share by its
 label (`run_graph_arms.py` appends `_<label>` to every filename prefix), and
 runs the tool each prediction names
@@ -60,7 +60,7 @@ an arm does; the distance files are named `_divergence` for this reason.
 Scenes whose prompts ask for frame-to-frame brightness change are left out of
 temporal reads, per the manifest's `analysis_notes`. An arm that has not
 landed yet is skipped and listed. Each group writes
-`bench/results/2026-09-26_followup_<group>_<tool>.json`.
+`data/results/2026-09-26_followup_<group>_<tool>.json`.
 
     python bench/analyze_followup.py [--group looks|ladder|vsa ...]
 """
@@ -78,8 +78,8 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from _paths import comfy_output  # noqa: E402
 
-ROWS = REPO / "bench" / "results" / "2026-09-26_followup.jsonl"
-OUT = REPO / "bench" / "results"
+ROWS = REPO / "data" / "results" / "2026-09-26_followup.jsonl"
+OUT = REPO / "data" / "results"
 PY = sys.executable
 #: from the manifest's analysis_notes: prompts that ask for brightness change
 #: frame to frame, which the temporal measures would read as boiling or flicker.

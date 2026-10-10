@@ -12,7 +12,7 @@ rather than an 84 GB download that does not exist.
 ## The shared curve table stays fl2va's, and that is measurable
 `adaln_t_table` is one tensor serving every block, so a partial hybrid must
 keep one parent's table under the other parent's linears. Measured 2026-08-25
-(`bench/compare_dit_checkpoints.py`, `bench/results/2026-08-25_dit_fl2va_hybrid_*.json`):
+(`bench/compare_dit_checkpoints.py`, `data/results/2026-08-25_dit_fl2va_hybrid_*.json`):
 the two partitions' tables span nearly the same subspace but are not equal,
 and the `adaln_all` build's modulation sits 0.1-0.2% from ref2va's own at
 every block. An all-blocks build could copy ref2va's table too; this script
@@ -41,7 +41,7 @@ For every tensor name in fl2va's header: if the name is
 come from ref2va; otherwise from fl2va. Dtypes and shapes are asserted equal
 across the parents for every swapped tensor. `adaln_t_table` stays fl2va's,
 as in the HF files: the two parents' tables differ in sign on basis columns
-4-7 (`bench/results/2026-08-20_dit_internals.json`), which sounds fatal and is
+4-7 (`data/results/2026-08-20_dit_internals.json`), which sounds fatal and is
 not -- those columns carry ~0.1% of the modulation norm, so applying ref2va's
 coefficients to fl2va's table costs ~0.2% at the modulation output (measured
 2026-08-20 on the HF b15/b20/b25/b30 files, scratch, reproduced by

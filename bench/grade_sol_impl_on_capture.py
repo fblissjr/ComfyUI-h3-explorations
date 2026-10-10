@@ -2,7 +2,7 @@
 """Grade our Sol node's implementation against ComfyUI core's, on the SAME captured inputs.
 
 Pair B of `bench/sol_core_ab_arms.json` (retired 2026-09-15; its rendered arms
-are listed in `bench/results/2026-09-10_sol_core_ab_outputs.json`) renders our
+are listed in `data/results/2026-09-10_sol_core_ab_outputs.json`) renders our
 node re-set to core's knob values against core's own `BlockSparseAttention`
 (Comfy-Org/ComfyUI#16072).
 The two then differ in implementation, not policy, and a rendered clip cannot
@@ -70,7 +70,7 @@ Controls on the instrument itself:
 Matched knob values default to `h3_config.SOL_CORE_DEFAULTS` (tau, extra_tokens
 as token_aug, sink mode). Needs the card with nothing resident: a cell holds
 the fused projection, a rebuilt copy, an fp32 reference and one arm output at
-a time. Writes `bench/results/<date>_sol_impl_capture_grade.json`.
+a time. Writes `data/results/<date>_sol_impl_capture_grade.json`.
 
     <comfy-venv-python> bench/grade_sol_impl_on_capture.py --capture <dir> --limit 2   # first run
     <comfy-venv-python> bench/grade_sol_impl_on_capture.py --capture <dir>
@@ -154,7 +154,7 @@ def segment_stats(a, b, segments):
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     ap.add_argument("--capture", required=True, help="directory of h3_capture.py qkvpre_*.pt records")
-    ap.add_argument("--out", default=None, help="record path (default bench/results/<date>_sol_impl_capture_grade.json)")
+    ap.add_argument("--out", default=None, help="record path (default data/results/<date>_sol_impl_capture_grade.json)")
     ap.add_argument("--limit", type=int, default=None, help="grade only the first K cells (a first run, not a record)")
     ap.add_argument("--chunk", type=int, default=2048, help="query rows per fp32 dense chunk")
     ap.add_argument("--tau", type=float, default=None, help="matched tau (default h3_config.SOL_CORE_DEFAULTS)")
@@ -404,7 +404,7 @@ def main() -> int:
             / max(1, sum(1 for x in got if x.get("segments") and k in x["segments"])) for k in kinds}
     rec["aggregate"] = {**agg, "note": "means over cells weight every (block, step) equally; "
                                        "cos_worst_head is the single worst head anywhere"}
-    out_path = Path(args.out) if args.out else HERE / "results" / f"{time.strftime('%Y-%m-%d')}_sol_impl_capture_grade.json"
+    out_path = Path(args.out) if args.out else HERE.parent / "data" / "results" / f"{time.strftime('%Y-%m-%d')}_sol_impl_capture_grade.json"
     out_path.write_text(json.dumps(rec, indent=1, default=str) + "\n")
     print(f"\nrecord written to {out_path.relative_to(REPO) if out_path.is_relative_to(REPO) else out_path}")
     return 0

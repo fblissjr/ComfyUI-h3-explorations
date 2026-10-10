@@ -60,7 +60,7 @@ Every item is read from the installed ComfyUI checkout, not from a model card.
   module docstring). The seven H3 markers (`<d>`, `</d>` and five others) are
   single ids fixed by the release tokenizer; `docs/evidence.md` "The marker
   ids are the release's own" and
-  `bench/results/2026-08-27_marker_tokenization_alignment.json` are the
+  `data/results/2026-08-27_marker_tokenization_alignment.json` are the
   record. A capture made with the stock Qwen tokenizer splits `<d>` into three
   tokens and, because the encoder is causal, every row after the first marker
   is then a different computation from the one the DiT sees.
@@ -148,7 +148,7 @@ without one every number is unreadable. Two decisions fix that.
   The shipped int8 encoder on this box and the Mac's 8-bit MLX capture were
   run on the same eleven prompts and compared on each scene's common id
   prefix, with the refiner fed the prefix on both arms:
-  `bench/results/2026-09-14_m3_bridge_runtime_tolerance_int8_vs_mlx8.json`.
+  `data/results/2026-09-14_m3_bridge_runtime_tolerance_int8_vs_mlx8.json`.
   A bridge inside that distance is "as good as another Qwen"; outside it, it
   is a worse Qwen by a stated factor. The record also shows the runtimes'
   first-row norms differ by a small constant factor on every scene, which
@@ -162,9 +162,9 @@ gitignored `internal/claude/m3-h3-adapter/`; the records are tracked.
 **Text lane** (eleven T2VA scenes from `prompt_bank/`, eight train and three
 held out by scene family, fixed before capture):
 
-- `bench/results/2026-09-14_m3_bridge_text_lane_mlx_targets_seed0.json`
+- `data/results/2026-09-14_m3_bridge_text_lane_mlx_targets_seed0.json`
   and `_seed1.json`: against the Mac's stock-tokenised targets.
-- `bench/results/2026-09-14_m3_bridge_text_lane_comfy_targets_seed0.json`:
+- `data/results/2026-09-14_m3_bridge_text_lane_comfy_targets_seed0.json`:
   the same arms against this box's encoder states with the release
   tokenizer, which is the DiT's real input.
 
@@ -282,7 +282,7 @@ carries something the other should.
 
 - **The tolerance is measured.** The sister document's night status names
   it as the H3 side's next step; the record is now
-  `bench/results/2026-09-14_m3_bridge_runtime_tolerance_int8_vs_mlx8.json`
+  `data/results/2026-09-14_m3_bridge_runtime_tolerance_int8_vs_mlx8.json`
   and the meaning of "accepted" in section 6 follows from it.
 - **The value baseline is absent there.** Its experiment statement ends at
   "whether the bridge improves H3"; this document's point 3 in section 8

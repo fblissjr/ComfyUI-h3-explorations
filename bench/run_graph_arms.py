@@ -35,7 +35,7 @@ Usage:
       --arm control=workflows/h3_probe_sol_on_all_refs_api.json \
       --arm cache=workflows/h3_probe_cache_easy_api.json \
       --runs 2 --seed 730451892 \
-      --out bench/results/2026-08-18_cache_arms.jsonl
+      --out data/results/2026-08-18_cache_arms.jsonl
 
   # widget patch: arm label, node CLASS or id, input name, JSON value
   bench/run_graph_arms.py \

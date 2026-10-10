@@ -19,7 +19,7 @@ text alone, with no still, as fast as it will go.
 ## How
 
 All of it is in the json beside this file
-([`2026-10-09_whole_frame_text_and_copy_size.json`](2026-10-09_whole_frame_text_and_copy_size.json)):
+([`2026-10-09_whole_frame_text_and_copy_size.json`](../../data/results/2026-10-09_whole_frame_text_and_copy_size.json)):
 the source, the settings every render shares, the five windows, one row a
 render, the measure and its rule, the held frames, the joins. In short: the
 Song node with a Masked Source whose mask covers the whole frame, one window

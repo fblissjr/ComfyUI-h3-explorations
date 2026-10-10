@@ -267,7 +267,7 @@ def main() -> int:
     _run_prompt("shipped_voice_line", SHIPPED, rel, clip, encoder_clip, record)
     _run_prompt("t2v_stress_14_pairs", STRESS, rel, clip, encoder_clip, record)
 
-    out = _REPO / "bench" / "results" / "2026-08-21_h3_marker_token_states.json"
+    out = _REPO / "data" / "results" / "2026-08-21_h3_marker_token_states.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(_REPO)}")
     return 0

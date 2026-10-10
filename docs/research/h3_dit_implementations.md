@@ -262,7 +262,7 @@ this repo has no measurement either way, and getting one needs a distribution
 under [`../eval_comparison.md`](../eval_comparison.md) section 3, not a pair.
 
 **Partially priced 2026-08-29.** A three-arm record on one scene
-([`../../bench/results/2026-08-29_market_scene_arms.json`](../../bench/results/2026-08-29_market_scene_arms.json))
+([`../../data/results/2026-08-29_market_scene_arms.json`](../../data/results/2026-08-29_market_scene_arms.json))
 includes a pair differing **only** in `sampler_name`, `dpmpp_2m_sde_gpu`
 against `euler`, at a fixed seed with PDD-emitted sigmas. Both met the brief.
 `euler` with its default `s_churn=0` is exactly the reference integrator --
@@ -936,7 +936,7 @@ establish that convrot is deterministic and data-free with no calibration to
 improve, and that the int8 files are structurally complete at 534/534 release
 modules with the release's fp32 islands preserved."* Three defects in one
 sentence. It carried an ENCODER record
-(`bench/results/2026-08-29_int8_convrot_headroom.json`, subject
+(`data/results/2026-08-29_int8_convrot_headroom.json`, subject
 `qwen3vl_32b_minimax_h3_int8_convrot.safetensors`) to a DiT conclusion, which
 is the two-models crossing `CLAUDE.md` names. §7 establishes none of what is
 attributed to it — read it. And "534/534 release modules" appears nowhere else

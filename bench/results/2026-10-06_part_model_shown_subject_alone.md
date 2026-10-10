@@ -22,7 +22,7 @@ lossless with the tracker's mask. Every figure is a count of pixels in those
 three files, made by `part_coverage.coverage`; the "plain" half reproduces
 the figures of `2026-10-06_part_coverage.md`, the same forty frames named.
 **Nothing was looked at for this record.** Per-frame values:
-[`2026-10-06_part_model_shown_subject_alone.json`](2026-10-06_part_model_shown_subject_alone.json).
+[`2026-10-06_part_model_shown_subject_alone.json`](../../data/results/2026-10-06_part_model_shown_subject_alone.json).
 
 ## What ran
 

@@ -207,7 +207,7 @@ claim that a test refutes keeps its text and gains an annotation saying so.
 > subway clips, edge strength on 128-pixel boundaries over the other 32-pixel
 > boundaries is 1.004 (x) and 1.047 (y) for FastH3, against 1.025 and 1.047 for
 > the base, 1.033 and 1.077 for FlashGen, and 0.980 and 1.030 for PDD8
-> (`../bench/results/2026-09-26_block_period_subway.json`,
+> (`../data/results/2026-09-26_block_period_subway.json`,
 > `../bench/measure_block_period.py`). This was one scene, with each clip a
 > different draw. So the texture is not a visible grid; if VSA explains it,
 > the effect is flat, low-texture facets. That needs a texture-energy measure
@@ -344,7 +344,7 @@ The owner retired PDMD on 2026-10-05 ("i didnt see anything from it worth
 keeping"), four days after parking it. Its graphs, constants, check cases and
 research note are gone from the tree and live in git. What was tried, and
 what the owner saw, is one blind session against FlashGen:
-`../bench/results/2026-10-01_2026-10-01_pdmd_vs_flashgen_verdict.json`.
+`../data/results/2026-10-01_2026-10-01_pdmd_vs_flashgen_verdict.json`.
 Retired, not refuted (`roadmap.md`, "Closed lanes").
 
 ## Rules of thumb, provisional

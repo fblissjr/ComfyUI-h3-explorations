@@ -83,7 +83,7 @@ def main() -> int:
     for v in verdict:
         print(f"  {v}")
 
-    out = REPO / "bench/results/2026-08-28_audio_seed_spread.json"
+    out = REPO / "data/results/2026-08-28_audio_seed_spread.json"
     out.write_text(json.dumps({
         "date": "2026-08-28",
         "script": "bench/measure_audio_seed_spread.py",

@@ -107,7 +107,7 @@ ARMS = {
 WIDEST_BLOCK = {"u8": 4, "u4": 8, "opt4": 28}
 
 #: **Everything below is graded WITHIN this run, against each partition's own
-#: `off` arm, and never against `bench/results/2026-08-28_pdd_stream_energy.json`.**
+#: `off` arm, and never against `data/results/2026-08-28_pdd_stream_energy.json`.**
 #:
 #: The reason is measured, not precautionary. The first `u4_off` render came
 #: out 1.7 dB above the `u4` recorded in that file, on what should have been an
@@ -121,7 +121,7 @@ WIDEST_BLOCK = {"u8": 4, "u4": 8, "opt4": 28}
 #: owned by the earlier record at the prompt that record was rendered with.
 CROSS_RUN_NOTE = (
     "graded within this run only; the base graph's prompt changed in b62e95d "
-    "after bench/results/2026-08-28_pdd_stream_energy.json was measured")
+    "after data/results/2026-08-28_pdd_stream_energy.json was measured")
 
 
 def post(path, payload):
@@ -246,7 +246,7 @@ def main() -> int:
     # rendered a partition at a time as the shared card allows, and an
     # overwrite would silently drop the partitions rendered in an earlier
     # invocation -- which is most of the dose-response.
-    out = REPO / "bench/results/2026-08-28_audio_carry_ablation.json"
+    out = REPO / "data/results/2026-08-28_audio_carry_ablation.json"
     merged, prior = dict(rows), {}
     if out.exists():
         prior = json.loads(out.read_text())
@@ -288,7 +288,7 @@ def main() -> int:
         "errors": {**prior.get("errors", {}),
                    **{a: res[a]["error"] for a in want if res[a].get("error")}},
         "do_not_rely_on": [
-            "**READ bench/results/2026-08-28_audio_seed_spread.json BEFORE "
+            "**READ data/results/2026-08-28_audio_seed_spread.json BEFORE "
             "ANY NUMBER HERE.** The `clears the floor` verdicts below are "
             "against the 1e-6 floor, which bounds NUMERICAL noise only. The "
             "reference distribution that matters is seed variation, and it is "
@@ -304,7 +304,7 @@ def main() -> int:
             "ONE pair per partition. block_start is a noise-floor estimate "
             "from a single second sample, not a distribution. An effect "
             "inside it is 'not measurable this way', never 'no effect'.",
-            "NOT comparable to bench/results/2026-08-28_pdd_stream_energy.json "
+            "NOT comparable to data/results/2026-08-28_pdd_stream_energy.json "
             "or to the pddref renders: the base graph's prompt was rewritten "
             "in b62e95d after those were measured. The first u4_off render "
             "landed 1.7 dB off the recorded u4, which is how this was found. "

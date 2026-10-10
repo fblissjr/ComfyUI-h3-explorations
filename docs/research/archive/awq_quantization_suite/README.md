@@ -79,7 +79,7 @@ default_stage:
 ```
 
 `bench/probe_awq_recipe_boundary.py` in the repo root graded this recipe before
-any weights were loaded, and `bench/results/2026-08-25_awq_recipe_boundary.json`
+any weights were loaded, and `data/results/2026-08-25_awq_recipe_boundary.json`
 is what it recorded: the resolved ignore list was `["lm_head",
 "re:model\\.visual\\..*"]`, so the vision tower was never quantized here --
 by construction, not as a measured choice.

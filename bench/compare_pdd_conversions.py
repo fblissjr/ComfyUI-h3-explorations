@@ -56,7 +56,7 @@ GROUND TRUTH rather than against each other -- "they differ" says nothing about
 which is right.
 
 Not a check and deliberately not named like one: it asserts nothing and exits 0
-on any numbers. It records what was true when run, into `bench/results/`.
+on any numbers. It records what was true when run, into `data/results/`.
 
     python bench/compare_pdd_conversions.py --partition ref2va
 """
@@ -331,7 +331,7 @@ def main(argv=None) -> int:
     for i, row in adaln.items():
         print(f"  {i:>6} {row['ours']:>12.2e} {row['kijai']:>12.2e}")
 
-    out = args.out or (HERE / "results" / f"{date.today()}_pdd_conversion_{part}.json")
+    out = args.out or (HERE.parent / "data" / "results" / f"{date.today()}_pdd_conversion_{part}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(HERE.parent)}")

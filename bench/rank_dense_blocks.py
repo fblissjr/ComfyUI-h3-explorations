@@ -22,10 +22,10 @@ buys.
 
 Arithmetic over two existing measured records, not a new measurement:
 
-  * `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`
+  * `data/results/2026-08-19_sol_error_per_head_tau1.0.json`
     (`analyze_sol_error.py`) -- Sol at the SHIPPED tau, all 56 heads,
     production S.
-  * `bench/results/2026-08-18_sage_accuracy_on_capture.json`
+  * `data/results/2026-08-18_sage_accuracy_on_capture.json`
     (`grade_sage_on_capture.py`) -- sage in `auto`, the shipped mode, against a
     float64 reference.
 
@@ -55,7 +55,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-RESULTS = REPO / "bench" / "results"
+RESULTS = REPO / "data" / "results"
 
 SOL = RESULTS / "2026-08-19_sol_error_per_head_tau1.0.json"
 SAGE = RESULTS / "2026-08-18_sage_accuracy_on_capture.json"

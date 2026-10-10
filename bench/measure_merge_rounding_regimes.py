@@ -61,7 +61,7 @@ implementation can take a seed. `agreement` in the record is that check.
         --lora <models>/loras/h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors \
         --base <models>/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors \
         --reference <release>/FL2VA/transformer \
-        --out bench/results/2026-08-31_merge_rounding_regimes.json
+        --out data/results/2026-08-31_merge_rounding_regimes.json
 
 **What it is not.** A stored-weight distance, like everything else in this
 lane. `int8_convrot` is W8A8 and the activation rounding is untouched here;

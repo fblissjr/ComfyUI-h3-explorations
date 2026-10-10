@@ -2,7 +2,7 @@
 """comfy-kitchen's `int8_linear` on H3's real block-0 layers: time per call, and a bitwise digest.
 
     <comfy venv python> bench/bench_kitchen_int8_linear.py --label new --m 104103 120666 \
-        --out bench/results/<date>_<what>.json
+        --out data/results/<date>_<what>.json
 
 Runs the layer ComfyUI runs for the pruned int8 convrot checkpoint
 (`comfy/ops.py`: `ck.int8_linear(x, qdata, scale, bias, dtype, convrot=True,

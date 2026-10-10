@@ -27,13 +27,13 @@ meant the model holds; 15 to 35%, the cache works and the model is off;
 under 15%, not worth its approximation on what is the lane's most favourable
 window by live share; and more than one build, a decline, or the plain and
 verify latents differing would void the run. Every figure is in
-[`2026-10-06_frozen_cache_masked_window.json`](2026-10-06_frozen_cache_masked_window.json).
+[`2026-10-06_frozen_cache_masked_window.json`](../../data/results/2026-10-06_frozen_cache_masked_window.json).
 
 ## What ran
 
 - **Window:** `band_112s` of `bench/turn_metric_eye_verdicts.json`, 1344x768,
   345 frames, the graph's own seed, with the patches of `man_text_s1` as its
-  row in [`2026-10-06_masked_v2v_person_text.jsonl`](2026-10-06_masked_v2v_person_text.jsonl)
+  row in [`2026-10-06_masked_v2v_person_text.jsonl`](../../data/results/2026-10-06_masked_v2v_person_text.jsonl)
   has them and an output prefix of its own.
 - **Graphs:** the shipped `workflows/daily/h3_mask_ref2va_motion_api.json`
   for the baselines, and

@@ -18,9 +18,19 @@ update-coderef.sh
 # rather than only in a machine-level ignore config: on 2026-08-28 the 37 MB of
 # `bench/results/*.safetensors` on this box were excluded by a global rule
 # only, so the repo was protected by one machine's setup and a fresh checkout
-# would have committed them. The evidence base is the JSON and JSONL beside
-# them, which stay tracked and are small.
+# would have committed them. (Until 2026-10-10 this said the JSON and JSONL
+# beside them stay tracked; they moved to the untracked `data/results/` that
+# day, see the rule at the end of this file and docs/wiki/decisions.md.)
 *.safetensors
 *.ckpt
 *.pt
 *.pth
+
+# 2026-10-10 (owner): data lives under `data/`, never under `bench/results/`.
+# A record there is its `.md`. Tools write to `data/results/`; these patterns
+# keep a tool that still writes here from getting its output committed. A file
+# a tracked check reads is added on purpose with `git add -f`.
+bench/results/**/*.json
+bench/results/**/*.jsonl
+bench/results/**/*.csv
+bench/results/**/*.npz

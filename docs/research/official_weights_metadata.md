@@ -55,7 +55,7 @@ files provided in the H3 repository are required.
 reason to stop at the angle bracket, so the fragments fuse with the text on
 either side: the release emits `<d>` then `[`, ComfyUI emits `>[` as one token,
 and a sentence-final `.` is dragged forward into `.</`. Ordinary prose tokens
-next to a marker come out different too. `bench/results/2026-08-24_h3_marker_tokenization_native.json`
+next to a marker come out different too. `data/results/2026-08-24_h3_marker_tokenization_native.json`
 carries the per-scene counts, and the reference presentation is covered there as
 well -- the marker reaches the encoder beside the vision blocks, so reference
 prompts carrying dialogue are exposed on the same terms as text ones.
@@ -124,7 +124,7 @@ tokenizer entry that would route to them.
 
 **But the rows are untrained, so routing to them reaches init noise.** Measured
 2026-08-21 by `bench/audit_h3_token_embeddings.py`, record at
-`bench/results/2026-08-21_h3_token_embeddings.json`, on the official release
+`data/results/2026-08-21_h3_token_embeddings.json`, on the official release
 and on both repacked encoders. Read against two controls -- the stock Qwen
 special tokens, which are certainly trained, and the padding rows past 151676,
 which certainly are not -- the seven land on the untrained pole in all three
@@ -154,7 +154,7 @@ load-bearing to the DiT, and the embedding audit cannot tell you which.**
 
 **What the encoder does with it, measured 2026-08-21** by
 `bench/grade_h3_marker_tokens.py`, record at
-`bench/results/2026-08-21_h3_marker_token_states.json`. Three arms per prompt on
+`data/results/2026-08-21_h3_marker_token_states.json`. Three arms per prompt on
 the same weights -- markers routed to their real ids, markers as the BPE
 fragments ComfyUI emits, and markers deleted -- compared over the token spans
 whose ids agree, because the arms have different lengths and a positional diff
@@ -211,7 +211,7 @@ comment above. So every H3 prompt containing speech is affected on ComfyUI —
 a prompt following the vendor's guide is precisely the prompt that trips this.
 
 **Measured 2026-08-21** by `bench/compare_h3_tokenizers.py`, whose record is
-`bench/results/2026-08-21_h3_tokenizer_markers.json`. Both tokenizers loaded
+`data/results/2026-08-21_h3_tokenizer_markers.json`. Both tokenizers loaded
 through `AutoTokenizer`, the
 release from `coderef/MiniMax-H3/tokenizer/` (byte-identical to the copy beside
 the weights) and ComfyUI from its bundled directory, `add_special_tokens=False`:

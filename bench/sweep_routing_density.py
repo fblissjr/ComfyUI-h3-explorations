@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Per-head routed density across the capture grid: where the routing structure is.
 
-`bench/results/2026-08-18_routing_density.json` established that the per-block
+`data/results/2026-08-18_routing_density.json` established that the per-block
 and per-step axes are flat -- 28-30% kernel density at tau 1.3 everywhere but
 block 0 -- so a tau schedule along either axis has nothing to exploit. It named
 the per-head axis as the remaining structure and could not measure it, because
@@ -72,7 +72,7 @@ not arise.
     python bench/sweep_routing_density.py \\
         --capture $H3_CAPTURE_ROOT/2026-08-18_ref3_362f_1024x768_ref2va \\
         --canvas 1024x768 --length 362 --heads 0 \\
-        --out bench/results/2026-08-19_routing_density_per_head.json
+        --out data/results/2026-08-19_routing_density_per_head.json
 
 No GPU and no server. Needs the capture and an installed `comfy_kitchen`
 carrying `sol_attn`, for the same reason `analyze_routing.py` does.

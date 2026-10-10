@@ -12,7 +12,7 @@ slice.
 
 ## What the 2026-08-18 run got wrong, and why this script changed
 
-The first version of this file (record: bench/results/2026-08-18_dit_internals.json)
+The first version of this file (record: data/results/2026-08-18_dit_internals.json)
 compared `blocks.N.adaln_proj.linear.weight` between the checkpoints
 directly and reported "AdaLN is replaced, not adjusted, in every block:
 rel-delta ~1.9 with negative cosine", plus a per-block "delta energy"

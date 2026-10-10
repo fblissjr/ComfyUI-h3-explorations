@@ -31,7 +31,7 @@ known: a CPU process uses an attention function that does not hide a
 phrase's padding, and the card's path is the right one;
 [`docs/wiki/sam3_prompting.md`](../../docs/wiki/sam3_prompting.md) has the
 code and the flag.) Every number is in
-[`2026-10-07_sam3_core_against_meta.json`](2026-10-07_sam3_core_against_meta.json)
+[`2026-10-07_sam3_core_against_meta.json`](../../data/results/2026-10-07_sam3_core_against_meta.json)
 and every table below is printed from it by the tool's `render`; where a
 sentence and the file disagree the file is right.
 

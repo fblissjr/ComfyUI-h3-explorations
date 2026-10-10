@@ -728,11 +728,11 @@ better, and both are legal subsets of the same grid.
 >> at 362. `bench/grade_pdd_partitions.py` now defaults to 362.
 >
 > `bench/grade_pdd_partitions.py`,
-> [`bench/results/2026-08-28_pdd_partition_fidelity.json`](../bench/results/2026-08-28_pdd_partition_fidelity.json),
+> [`data/results/2026-08-28_pdd_partition_fidelity.json`](../data/results/2026-08-28_pdd_partition_fidelity.json),
 > which also carries what these magnitudes do NOT license.
 
 > **RE-RUN AT 362 FRAMES, 2026-08-28, AND THE ORDERING INVERTED.**
-> `bench/results/2026-08-28_pdd_partition_fidelity_362.json`, on the `fast`
+> `data/results/2026-08-28_pdd_partition_fidelity_362.json`, on the `fast`
 > tier (1152x768) with Sol active and the rewritten market prompt:
 >
 > | arm | video rel L2 | at length 39 |
@@ -1045,7 +1045,7 @@ Three references, and they fail differently, which is why all three were used.
 `bench/results/2026-08-26_pdd_conversion_*.json` records it.
 
 **The conversion reproduces its CONTENT but not its FILE, measured 2026-08-28**
-([`bench/results/2026-08-28_pdd_conversion_reproducibility.json`](../bench/results/2026-08-28_pdd_conversion_reproducibility.json)).
+([`data/results/2026-08-28_pdd_conversion_reproducibility.json`](../data/results/2026-08-28_pdd_conversion_reproducibility.json)).
 Both partitions were re-converted from the identical source, base and pruned
 inputs -- the source sha256 is unchanged since the 2026-08-27 record -- and the
 result is:
@@ -1191,7 +1191,7 @@ the smaller of the two because the projected rank is 8 and the factored rank is
 **The `ours` column above was wrong until 2026-08-27**, and the way it went
 wrong is worth keeping. It read 2.3e-05 / 6.1e-05 / 1.2e-05, which matched no
 record on disk -- the `his` column matched
-`bench/results/2026-08-26_pdd_conversion_ref2va.json` exactly while the `ours`
+`data/results/2026-08-26_pdd_conversion_ref2va.json` exactly while the `ours`
 column came from an earlier run, against a converted file that was rebuilt
 later the same evening. The fl2va record has the same shape and is worse: it
 was written at 18:12 and committed at 18:17, and its subject was reconverted at
@@ -1830,7 +1830,7 @@ existing data can score.
 
 ### The prediction, scored
 
-`bench/results/2026-08-28_pdd_partition_fidelity_362.json`, four arms:
+`data/results/2026-08-28_pdd_partition_fidelity_362.json`, four arms:
 
 | arm | widest block | video rel L2 | audio rel L2 | audio/video |
 |---|---|---|---|---|
@@ -1953,7 +1953,7 @@ run it because the run-time patching is a moving part worth deleting.
 ### Do not justify it with the OOM
 
 The 2026-08-28 ref2va memory failure is recorded in
-`bench/results/2026-08-28_pdd_ref2va_memory_marginality.json`, and it does not
+`data/results/2026-08-28_pdd_ref2va_memory_marginality.json`, and it does not
 support this work. The shortfall was **17.5 MiB**, not gigabytes; the same graph
 succeeded on retry; and the 31 MiB head-bank fuse alone might have cleared it.
 The case for baking the backbone is that it is *correct* — fewer moving parts,
@@ -2025,7 +2025,7 @@ asked for on 2026-08-30 and does not survive its own measurement, for two
 reasons that are worth keeping separate.
 
 **There is no per-block quantisation sensitivity to key on.**
-`bench/results/2026-08-30_pdd_block_magnitude.json`: int8-vs-bf16 stored-weight
+`data/results/2026-08-30_pdd_block_magnitude.json`: int8-vs-bf16 stored-weight
 error spans **1.086x** across the 50 blocks. What spread exists is by module
 KIND, not by depth. PDD's own update spans **6.42x** over the same modules and
 is orthogonal to the weight it patches (cosine ~1e-4, so new structure rather
@@ -2035,7 +2035,7 @@ quantiser's.
 **And the lever points the wrong way.** Because the inflation tracks the LoRA,
 "turn PDD down where quantisation hurts most" is the same instruction as "turn
 PDD down where the distillation does the most work". It is anti-aligned a
-second time against `bench/results/2026-08-29_block_propagation.json`, which
+second time against `data/results/2026-08-29_block_propagation.json`, which
 motivated the now-withdrawn `dense_blocks="0-2,32"` experiment: perturbations
 at early blocks reach the output hardest, while PDD's update is smallest early
 and largest at block 49, where propagation is lowest. That 11-block probe did
@@ -2246,9 +2246,9 @@ small, and `0-49` is not the wall this section originally implied.
 
 **Measured over all 200 modules 2026-08-31, and it settles whether to target.**
 `bench/measure_pdd_quant_interaction.py` over all 50 blocks
-([`bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json`](../bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json)),
+([`data/results/2026-08-31_pdd_quant_interaction_all_blocks.json`](../data/results/2026-08-31_pdd_quant_interaction_all_blocks.json)),
 aggregated by [`bench/analyze_pdd_unmerge_curve.py`](../bench/analyze_pdd_unmerge_curve.py)
-([record](../bench/results/2026-08-31_pdd_unmerge_recovery.json)). The mean
+([record](../data/results/2026-08-31_pdd_unmerge_recovery.json)). The mean
 holds: 0.009362 merged-free against 0.010452 at strength 1.0, **1.1164x**,
 against the 7-block sample's 1.1234x; the correlation with `||BA||/||W||` is
 0.751 over 200 modules against 0.78 over 28; and `e_baked_from_release` is flat

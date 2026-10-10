@@ -673,7 +673,7 @@ def main() -> int:
 
     ok &= _run_reference_integrity(release, stock, patched, marker_ids, record)
 
-    out = _REPO / "bench" / "results" / "2026-08-24_h3_marker_tokenization_native.json"
+    out = _REPO / "data" / "results" / "2026-08-24_h3_marker_tokenization_native.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(_REPO)}")
 

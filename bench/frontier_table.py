@@ -62,7 +62,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE / "results"
+RESULTS = HERE.parent / "data" / "results"
 
 VERDICT_BUCKETS = ("preferred", "not_preferred", "same", "cant_tell")
 # inherited: the ladder's labels and the baseline rule in CLAUDE.md call the
@@ -74,7 +74,7 @@ FLOOR_RUNG = "sage"
 
 
 def _scrub(node, where="record"):
-    """Refuse rather than ship somebody's storage layout into bench/results."""
+    """Refuse rather than ship somebody's storage layout into data/results."""
     if isinstance(node, dict):
         for k, v in node.items():
             _scrub(v, f"{where}.{k}")

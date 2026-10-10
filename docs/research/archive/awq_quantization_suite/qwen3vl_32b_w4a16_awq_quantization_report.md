@@ -11,7 +11,7 @@
 > unmeasured.
 >
 > **Context, owner, 2026-09-20:** BF16 drift was measured later
-> (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`) and this
+> (`data/results/2026-08-25_four_encoders_holdout_layer50.json`) and this
 > artifact lost to a community quant at layer 50. The artifacts were badly
 > executed and that result is **not** evidence that quantising our own encoder
 > is unpromising: the calibration, the group size and every other knob were

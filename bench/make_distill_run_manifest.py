@@ -154,7 +154,7 @@ def main() -> int:
                   "measure_clip_resolution, measure_clip_loudness, "
                   "measure_dialogue_transcription, telemetry_report.py --json"),
         "run": (f"run_graph_arms.py --manifest {args.out} --runs 1 --seed {SEED} --hold-seed "
-                f"--no-alternate --out bench/results/2026-09-26_distill_run.jsonl"),
+                f"--no-alternate --out data/results/2026-09-26_distill_run.jsonl"),
         "predictions": "none registered",
     }
     args.out.write_text(json.dumps(manifest, indent=1) + "\n")

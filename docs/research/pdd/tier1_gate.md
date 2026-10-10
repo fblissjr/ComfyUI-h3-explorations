@@ -113,7 +113,7 @@ replace the second scene/seed that generalisation needs.**
 Added 2026-09-01. The Sol route record (`sol_observe.py`, armed by
 `H3_SOL_OBSERVE`) now reports, for every attention call of a real render at
 the trained canvas, which route it took and how dense the routed walk was,
-by block and step -- `bench/results/2026-09-01_sol_route_pdd8_cold.json` is
+by block and step -- `data/results/2026-09-01_sol_route_pdd8_cold.json` is
 the 8-evaluation PDD graph as shipped. That is a few hundred kilobytes per
 render against the tens of gigabytes a Tier 1 activation capture writes, so
 it should decide WHICH `(block, step)` cells the capture holds: the

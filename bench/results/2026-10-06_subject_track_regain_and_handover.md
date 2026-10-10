@@ -21,7 +21,7 @@ was not run through the node on a server. A "score" is a person's best plain
 similarity to a gallery of the subject, the lower of the two places a person
 is compared (`gallery_scores`). Frame numbers called `span` count from
 36.0 s of the clip at 24 fps; the others are a load's own. Every figure is
-in [`2026-10-06_subject_track_regain_and_handover.json`](2026-10-06_subject_track_regain_and_handover.json),
+in [`2026-10-06_subject_track_regain_and_handover.json`](../../data/results/2026-10-06_subject_track_regain_and_handover.json),
 one entry per run and per probed frame. What the frames show was looked at
 on sheets for the day's notes and is not part of this record.
 

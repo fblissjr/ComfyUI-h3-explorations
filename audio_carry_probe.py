@@ -28,7 +28,7 @@ velocity it lands where the vendor's two-schedule audio step lands, at every
 partition (`bench/compare_pdd_audio_carry.py`,
 `bench/results/2026-09-25_upstream_pdd_comparison.md` section 3). So this node's
 re-applied modes MOVE audio off the exact path rather than correcting it. The
-energy they added in `bench/results/2026-08-28_audio_carry_ablation.json` is
+energy they added in `data/results/2026-08-28_audio_carry_ablation.json` is
 real, and it is a gain-like departure, not the repair of an error.
 
 **This node changes exactly one thing.** The transform is invertible, so the
@@ -57,7 +57,7 @@ whether `block_mean`'s effect is a result or a draw. Render it, and read
 ## What a result would mean
 
 If `block_mean` recovers a large part of the audio energy that
-`bench/results/2026-08-28_pdd_stream_energy.json` measured as lost (4.5 dB at
+`data/results/2026-08-28_pdd_stream_energy.json` measured as lost (4.5 dB at
 `u8`, 11.2 dB at `opt4`), the transform is the mechanism. If it changes little,
 the loss is generic to coarse blocks and the transform is not the story --
 which is the outcome the partition evidence currently favours, since video

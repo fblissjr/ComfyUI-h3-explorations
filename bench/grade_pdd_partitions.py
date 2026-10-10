@@ -285,7 +285,7 @@ for i, a in enumerate(have):
                 np.linalg.norm(xa[:n] - xb[:n]) / (np.linalg.norm(xb[:n]) + 1e-12))
         pairs[f"{a}_vs_{b}"] = entry
 
-out = REPO / "bench/results/2026-08-28_pdd_partition_fidelity.json"
+out = REPO / "data/results/2026-08-28_pdd_partition_fidelity.json"
 out.write_text(json.dumps(
     {"date": "2026-08-28", "script": "bench/grade_pdd_partitions.py",
      "length": LENGTH, "canvas": CANVAS, "seed": SEED,

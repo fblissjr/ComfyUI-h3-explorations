@@ -92,7 +92,7 @@ share's path is typed in the shell or read from the launcher, never here,
 and the manifest stores paths relative to the batch directory.
 
     H3_COMFY_OUTPUT=<share> python bench/blind_batch.py \\
-        --jsonl bench/results/2026-08-20_session1_lora_file.jsonl \\
+        --jsonl data/results/2026-08-20_session1_lora_file.jsonl \\
         --session session1 --shuffle-seed 7
 """
 

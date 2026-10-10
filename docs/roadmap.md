@@ -46,7 +46,7 @@ session logs) is deliberate and is not drift to clean up.
 | our `MiniMaxH3VSAAttention` (FastVideo VSA as our own block-forward replacement) and its two probe graphs | 2026-09-29 (owner agreed with retiring it) | core's `BlockSparseAttention` in `vsa` mode, which every FastH3 graph uses. The node was parked and refused since 0.157.1; `docs/research/vsa/` is the record |
 | `bench/restart_comfy.sh` | disabled 2026-09-02 | restart by hand, `docs/comfy_notes.md` |
 | a hook that blocks pattern kills (`pkill`, `killall`) | tried and removed 2026-09-03 | kill one pid, found from the port owner |
-| PDMD (pdmd2026's 4-step and 2-step LoRAs, through kijai's resizes) | parked 2026-10-01 (owner: "nothing else to do with it"); retired 2026-10-05 (owner: "lets retire it. i didnt see anything from it worth keeping") | Nothing: its graphs, the `PDMD_*` constants, the check cases, the conversion script, the arm manifest and `docs/research/pdmd/` are out of the tree and in git. `bench/check_distill_settings.py` fails a graph that loads a PDMD LoRA. **Retired, not refuted:** one blind look, in which FlashGen was preferred and PDMD ghosted at shot transitions (`bench/results/2026-10-01_2026-10-01_pdmd_vs_flashgen_verdict.json`). The LoRA files under ComfyUI's `models/loras/h3/` and the `coderef/pdmd` checkout are the owner's to delete |
+| PDMD (pdmd2026's 4-step and 2-step LoRAs, through kijai's resizes) | parked 2026-10-01 (owner: "nothing else to do with it"); retired 2026-10-05 (owner: "lets retire it. i didnt see anything from it worth keeping") | Nothing: its graphs, the `PDMD_*` constants, the check cases, the conversion script, the arm manifest and `docs/research/pdmd/` are out of the tree and in git. `bench/check_distill_settings.py` fails a graph that loads a PDMD LoRA. **Retired, not refuted:** one blind look, in which FlashGen was preferred and PDMD ghosted at shot transitions (`data/results/2026-10-01_2026-10-01_pdmd_vs_flashgen_verdict.json`). The LoRA files under ComfyUI's `models/loras/h3/` and the `coderef/pdmd` checkout are the owner's to delete |
 
 ## Current forward plan — 2026-09-04
 
@@ -55,7 +55,7 @@ standard and its "what would count as finding it" stand unchanged and are
 not restated here.
 
 **Two owner decisions on 2026-09-04, after reading the ladder verdict**
-(`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`):
+(`data/results/2026-09-04_ladder_2026-09-03_verdict.json`):
 
 - **Sage is always on.** The ladder could not tell sage alone from the true
   baseline on four scenes of five at one seed and read it narrowly behind
@@ -95,12 +95,12 @@ not restated here.
 
 1. **Probe the subway scene** on the shipped call, the one scene where Sol
    lost blind, and set it beside the standoff record
-   (`bench/results/2026-09-03_sol_probe_base16_standoff.json`). If the
+   (`data/results/2026-09-03_sol_probe_base16_standoff.json`). If the
    disagreement is larger there, the proxy predicts the eye and its ranking
    of blocks, rows and steps is what the next three steps act on; if not,
    the proxy is missing something and token_aug's DC bias is the first
    suspect. **Done 2026-09-04**
-   (`bench/results/2026-09-04_sol_probe_subway_vs_standoff.json`): same
+   (`data/results/2026-09-04_sol_probe_subway_vs_standoff.json`): same
    ranking, less disagreement on subway than on standoff. Neither branch
    above applies: the ladder's dense-versus-sage pair lost on the same
    subway defect, so the slip is the sage floor's, and Sol added less there
@@ -115,14 +115,14 @@ not restated here.
    disagreeing most in every block and they are a few hundred rows in a
    hundred thousand. **Built and probed 2026-09-04** (`exact_kv_and_all_rows`,
    changelog 0.99.40 and 0.99.42;
-   `bench/results/2026-09-04_sol_probe_subway_allrows_vs_shipped.json`):
+   `data/results/2026-09-04_sol_probe_subway_allrows_vs_shipped.json`):
    the text segment collapses to the audio floor, video and audio move by
    nothing the record resolves, ranking unchanged. At the pixel level the
    mode moves the subway render about as far as dense-versus-sage does
-   (`bench/results/2026-09-04_probe_allrows_vs_shipped_pixels.json`), so
+   (`data/results/2026-09-04_probe_allrows_vs_shipped_pixels.json`), so
    the blind pair is meaningful, and it costs no card time: the armed
    render's clip is a valid sample
-   (`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). Owed,
+   (`data/results/2026-09-04_probe_render_vs_unarmed_pixels.json`). Owed,
    as a one-pair session against the 2026-09-03 subway Sol clip; until it
    is judged this is free on the proxy and unproven to the eye.
    **Owner, 2026-09-10: plan the switch as the next step.** The judgement
@@ -190,19 +190,19 @@ alone, so the proxy-to-perception link is untested in the direction that
 matters); whether the all-rows sink mode is visible (its pixel footprint at
 one seed is the size of dense-versus-sage, and the blind pair is rendered
 but unjudged, step 3 above); just-Sol against the floor WAS judged 2026-09-05
-(`bench/results/2026-09-05_sol_nosage_2026-09-04_verdict.json`: the floor won four with one can't-tell and Sol as shipped won three
+(`data/results/2026-09-05_sol_nosage_2026-09-04_verdict.json`: the floor won four with one can't-tell and Sol as shipped won three
 with two same, nearly all on composition, so the direction is against
 Sol without sage and the evidence is weak); PDD8 under sage alone against the floor WAS judged
-2026-09-05, pairs only, `bench/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`: the floor won every scene, so the PDD8
+2026-09-05, pairs only, `data/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`: the floor won every scene, so the PDD8
 loss is PDD's own and not Sol's, and Sol on two of eight steps read
 same as sage alone on all five); and
 the size of the tau lever, which the owner reports as a quality loss without
 a measured curve. Two things established on the way: arming the probe does
-not perturb a render (`bench/results/2026-09-04_probe_render_vs_unarmed_pixels.json`,
+not perturb a render (`data/results/2026-09-04_probe_render_vs_unarmed_pixels.json`,
 the armed subway render identical to the unarmed ladder clip on both
 streams), so a probe render's clip is a valid blind sample of its
 configuration; and the post-pull execution regime changed timing only
-(`bench/results/2026-09-04_stairwell_dense_retime_pixels.json`).
+(`data/results/2026-09-04_stairwell_dense_retime_pixels.json`).
 
 ## Owner decisions, 2026-09-05 evening, after scoring three sessions
 
@@ -294,7 +294,7 @@ ladder per block, not alternatives.
    graph loads, 1344x768, 345 frames, 16 steps, Sol on with production
    sink ranges and the empty `dense_blocks`: the first measurement of the
    shipped call. Done for one scene and seed on 2026-09-03
-   (`bench/results/2026-09-03_sol_probe_base16_standoff.json`, read through
+   (`data/results/2026-09-03_sol_probe_base16_standoff.json`, read through
    the research record's closing section); a second scene is owed before
    its ranking informs anything. Then **legal PDD8 FL2VA** by the node's
    own sigmas, then **Ref2VA** on the ref2va DiT; three populations, never
@@ -306,7 +306,7 @@ ladder per block, not alternatives.
    2026-09-03 ladder as `solfp16`: slower than Sol as shipped on every
    scene; whether it looks different was the blind session's question, and
    at one seed it read both ways
-   (`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`).
+   (`data/results/2026-09-04_ladder_2026-09-03_verdict.json`).
 5. **Per-head routing** only if the shipped call shows a few heads carrying
    the error; that is kernel work, not a graph knob.
 6. **A compact multi-scene blind ladder with clean timing**, base and PDD
@@ -317,7 +317,7 @@ ladder per block, not alternatives.
    session `ladder_2026-09-03`), with PDD8 as a rung of the same ladder
    rather than a ladder of its own. Scored by the owner on 2026-09-04,
    pairs only, one seed
-   (`bench/results/2026-09-04_ladder_2026-09-03_verdict.json`); the
+   (`data/results/2026-09-04_ladder_2026-09-03_verdict.json`); the
    direction and the two reading rules are in `wiki/next_steps.md`. The
    PDD8 rung turned out confounded (it carries sage and Sol like the rungs
    below it, plus the PDD-specific Sol `end_percent`), so PDD8 does need a
@@ -325,7 +325,7 @@ ladder per block, not alternatives.
    graph, same scenes and seed. Built 2026-09-04 as
    `bench/pdd_ladder_arms.json` with a narrower-window Sol rung beside the
    three; the owner has ruled out more seeds for now. Rendered 2026-09-04,
-   judged 2026-09-05 on pairs only (`bench/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`): PDD8 under sage alone lost
+   judged 2026-09-05 on pairs only (`data/results/2026-09-05_pdd_ladder_2026-09-04_verdict.json`): PDD8 under sage alone lost
    to the floor on all five scenes, the narrow Sol window was free
    against sage alone on all five, the shipped window cost on two. The
    step is met on the pairs; the singles were not scored, so the audio
@@ -355,7 +355,7 @@ first pair, and a risk table with a control per row. **State 2026-09-05
 afternoon: the bake is built and verified** (CHANGELOG 0.99.46 to 0.99.48;
 `docs/pdd_artifacts.md` for the files), the graphs are wired, and the
 merged-versus-baked pair is rendering as `bench/pdd_bake_arms.json`; the
-owner scored it blind as `pdd_bake_2026-09-05` the same afternoon (`bench/results/2026-09-05_pdd_bake_2026-09-05_verdict.json`):
+owner scored it blind as `pdd_bake_2026-09-05` the same afternoon (`data/results/2026-09-05_pdd_bake_2026-09-05_verdict.json`):
 the baked arm lost to the sage floor on four scenes of five on the same
 properties the merged arm had lost on, so **the hypothesis did not hold at
 this seed**: the PDD8 look is the schedule's, not the merge's. The bake
@@ -385,7 +385,7 @@ peaks at 21,186 MiB. Nothing runs beside a render. `ncu` needs the card alone.
 model at 16 steps is roughly 12 minutes at full length, so a five-point sweep
 at two runs is about two hours. A 4-step lightx2v student at the same canvas
 and length was 169 s end to end on 2026-08-20
-(`bench/results/2026-08-20_sla_arms.jsonl`, at a 330 W power limit), which is
+(`data/results/2026-08-20_sla_arms.jsonl`, at a 330 W power limit), which is
 what makes the distribution standard below affordable. This is the binding
 constraint on every quality question, and which regime you are in decides
 what a day can hold.
@@ -543,7 +543,7 @@ community framing is "hybrid models"; the reality is narrower:
   > basis is applied, the *time-varying* part of the modulation differs
   > 5-9% per block with cosine 0.996-0.999, and the whole output 1.4-4.7%
   > -- the same 1.1-4.7% this bullet measured, now without a mechanism
-  > that was wrong. `bench/results/2026-08-20_dit_internals.json`.
+  > that was wrong. `data/results/2026-08-20_dit_internals.json`.
 - **It cannot be a reference-pathway transplant.** `adaln_proj`'s input is an
   8-dim timestep coordinate from the shared `adaln_t_table`; reference rows are
   distinguished only by being pinned at `VISUAL_COND_TIMESTEP`. It carries no
@@ -679,7 +679,7 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
 - *Reference transfer, single seed, briefs met*: with the v1.1 LoRA patched
   in, the three reference images (performer, jersey, loft) survive on **all
   four** checkpoints -- fl2va, HF b30-49, the local all-adaln hybrid, and
-  ref2va -- at the same seed (`bench/results/2026-08-20_ref_transfer_single.jsonl`;
+  ref2va -- at the same seed (`data/results/2026-08-20_ref_transfer_single.jsonl`;
   stills at 7 s). The predicted failure on ref2va did not appear, so the
   community claim that an fl2v distill cannot blend references on ref2va is
   not reproduced at one seed with v1.1. Observed beside it: fl2va and b30-49
@@ -692,7 +692,7 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   the next step if the question matters.
 - *Session 1, LoRA file, 8 matched seeds per contest, judged blind by the
   owner on free text, tags and a coarse verdict
-  (`bench/results/2026-08-20_session1_verdict.json`; rows in
+  (`data/results/2026-08-20_session1_verdict.json`; rows in
   `2026-08-20_session1_lora_file.jsonl`)*: **v1.1 against SLA,
   indistinguishable** (same 3, can't tell 4, v1.1 once) -- the notes name a
   bag colour, a helmet logo, a look direction. **v1.1 against the vendor
@@ -706,7 +706,7 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   defects. A preference over distributions, not a decision; a second session
   at the vendor recipe would separate look from motion.
 - *SLA regime set, one seed, timing is the result
-  (`bench/results/2026-08-20_sla_regime_arms.jsonl`)*: the SLA LoRA under its
+  (`data/results/2026-08-20_sla_regime_arms.jsonl`)*: the SLA LoRA under its
   own router 155 s of sampler, under Sol at tau 1.0 126 s, under sage alone
   (no sparse attention) 201 s; v1.1 under the same three 155 / 126 / 201 s, and
   v1.1 under Sol at tau 1.3 118 s. Both router arms render coherent clips (stills
@@ -735,7 +735,7 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   selections and both LoRAs, so it is a model-and-prompt finding rather than an
   attention one, and no prompt shipped here before 2026-08-22 could have
   surfaced it -- none had two speakers, a cut, or singing.
-  `bench/results/2026-08-22_subway_speaker_bleed.json`. The owner's second
+  `data/results/2026-08-22_subway_speaker_bleed.json`. The owner's second
   judgement stands beside it: all twelve look and sound poor regardless, so
   the one that is correct on this point is not thereby a good clip.
   **The cheapest next test is named in that file** -- the same scene with the
@@ -743,7 +743,7 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
 - *The audio hum*: not Sol, not the kernel, not the tokenizer. Sol on, Sol off
   and the SLA router hum identically; what moves it is the PROMPT asking for
   continuous texture ("tyre hiss through standing water") and 4-step
-  distillation amplifying it. `bench/results/2026-08-22_audio_hum.json`.
+  distillation amplifying it. `data/results/2026-08-22_audio_hum.json`.
 
 ## CLOSED 2026-08-16: token ordering as a quality question
 
@@ -843,13 +843,13 @@ coherence on one pair.
    > `attn.k_norm.weight` peaks at ~37 and ~31 against an rms of ~5, identical
    > in fl2va and ref2va to ~0.3%. A weights property of the release, present
    > in both checkpoints, and **not** a fl2va-vs-ref2va differentiator.
-   > `bench/results/2026-08-20_head_magnitudes.json`. **Closed the same day
+   > `data/results/2026-08-20_head_magnitudes.json`. **Closed the same day
    > with the control:** a clean-fl2va capture (no LoRA, otherwise the
    > ref2va capture's graph) shows the same channels, the same head spread,
    > and per-head INT8 error ranking the heads identically to ref2va's
    > (Spearman ~0.95; quant 0.124 against 0.134 at block 49).
-   > `bench/results/2026-08-20_sol_error_per_head_fl2va.json`,
-   > `bench/results/2026-08-20_head_magnitudes_fl2va.json`.
+   > `data/results/2026-08-20_sol_error_per_head_fl2va.json`,
+   > `data/results/2026-08-20_head_magnitudes_fl2va.json`.
 
    All twelve rows were re-measured after the eager reference was found to
    diverge from the vendored oracle and fixed; the numbers above are the
@@ -857,7 +857,7 @@ coherence on one pair.
    The correction moved every row by under 1.2 points and changed no conclusion.
 
    **Re-run at every head on 2026-08-19**, on the first capture taken after the
-   ref2va-direct switch: `bench/results/2026-08-19_sol_error_per_head.json`. The
+   ref2va-direct switch: `data/results/2026-08-19_sol_error_per_head.json`. The
    ratio band widens to 16.5%-87.2% and block 49 separates from every other
    block rather than merely climbing. The eight-head limit below is discharged;
    the oracle limit is not.
@@ -875,7 +875,7 @@ coherence on one pair.
    (`bench/profile_sol_stages.py`, implemented; reading and the live-render
    cross-check in `bench/results/2026-09-17_sol_stage_profile.md`): the exact
    stage is nearly the whole call, and compute rather than staging is its
-   critical path (`bench/results/2026-09-17_sol_exact_stage_vs_compute.json`,
+   critical path (`data/results/2026-09-17_sol_exact_stage_vs_compute.json`,
    probe builds in place of `ncu`, whose counters are admin-only here).
 5. **Paired render**, fl2va+LoRA@1.0 against ref2va, same seed. The only thing
    that can close the reconstruction question.
@@ -894,7 +894,7 @@ hour is card time.
   closes it the wrong way, and the oracle was never why the gate stops at 2001.
 
   `bench/probe_oracle_gate_scaling.py` and
-  `bench/results/2026-08-19_oracle_gate_scaling.json`: the oracle refuses on a
+  `data/results/2026-08-19_oracle_gate_scaling.json`: the oracle refuses on a
   score-matrix budget rather than a length and runs to about 384 blocks
   untouched, twelve times the length the gate uses. Run there it goes red -- and
   not for a defect. Agreement holds to ~3e-04 out to 192 blocks and jumps to
@@ -918,7 +918,7 @@ hour is card time.
   production's 128, 56 and real activations, so closing length alone would have
   made it feel like a production gate without being one.
 - ~~**Run the `--control` arm that already exists.**~~ Done 2026-08-19, first
-  time since it was written: `bench/results/2026-08-19_sol_error_control.json`.
+  time since it was written: `data/results/2026-08-19_sol_error_control.json`.
   At the dense limit the apparatus reports per-head sparsity error 3.1e-05 to
   1.3e-04 with no head above 1e-3, so it has no floor of its own on that side
   and a head reporting large error is that head. The >1.0 reading is reproduced
@@ -938,7 +938,7 @@ thing to design. The premise held -- per-head sparsity error spans 4.2x to
 
 `bench/price_head_arms.py` puts every per-head arm and the global tau on one
 currency, routed density spent per fraction of error removed
-(`bench/results/2026-08-19_head_granularity_arms.json`). A per-head dense escape
+(`data/results/2026-08-19_head_granularity_arms.json`). A per-head dense escape
 list ties the global tau at three heads and loses at five and eight, because
 per-head error is only about 2.6x concentrated: the worst 5 of 56 heads carry
 23.2% of summed error against 8.9% for uniform. A per-head *tau* could not be
@@ -983,7 +983,7 @@ per-block cost** two blocks is about 16 s of 454, or 3.6%. That assumption is
 the weak part and it is cheap to check with one arm.
 
 > **Rendered 2026-08-18** as the NVLabs recipe transplant:
-> `bench/results/2026-08-18_erode_recipe_arms.jsonl`, about +2% on the sampler
+> `data/results/2026-08-18_erode_recipe_arms.jsonl`, about +2% on the sampler
 > at 16 steps on the all-refs workload. Not re-priced at 4 steps.
 
 What this does **not** need is the block probe at item 3. That instrument

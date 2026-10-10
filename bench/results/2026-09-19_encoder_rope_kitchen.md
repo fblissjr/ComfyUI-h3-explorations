@@ -2,10 +2,10 @@
 
 Tool: `bench/probe_encoder_rope_kitchen.py`. Two runs, numbers in their JSON:
 
-- `bench/results/2026-09-19_encoder_rope_kitchen.json`: `--device cuda`, the
+- `data/results/2026-09-19_encoder_rope_kitchen.json`: `--device cuda`, the
   kernel renders use. Run by the lead session on the RTX 4090 in a gap before
   its renders, with the probe's own command; interpreted and committed here.
-- `bench/results/2026-09-19_encoder_rope_kitchen_cpu_eager.json`: `--device
+- `data/results/2026-09-19_encoder_rope_kitchen_cpu_eager.json`: `--device
   cpu`, kitchen's eager path, a smoke test of the script.
 
 ## The question

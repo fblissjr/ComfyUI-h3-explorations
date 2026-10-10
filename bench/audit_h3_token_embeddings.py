@@ -155,7 +155,7 @@ def main() -> int:
         record[label] = _report(label, w)
         seen += 1
 
-    out = _REPO / "bench" / "results" / "2026-08-21_h3_token_embeddings.json"
+    out = _REPO / "data" / "results" / "2026-08-21_h3_token_embeddings.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\naudited {seen} encoder(s); wrote {out.relative_to(_REPO)}")
     return 0

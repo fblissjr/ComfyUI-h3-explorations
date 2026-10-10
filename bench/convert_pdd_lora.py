@@ -24,7 +24,7 @@ that `MiniMaxH3PDDLoRA` reads.
     The backbone, in ComfyUI generic-LoRA naming, so `comfy.lora.load_lora`
     applies it through the supported path rather than one we maintain. Four
     transforms, each verified numerically against the release weights before
-    this script was written (see `bench/results/`):
+    this script was written (see `data/results/`):
       - q/k/v fuse into `attn.qkv_proj`: A concatenated, B block-diagonal.
         Rank becomes 3x, so alpha becomes 3x to hold `alpha/rank` fixed.
       - `attn.to_out.0` -> `attn.out_proj`, `ff.net.2` -> `mlp.fc2`: renames.

@@ -23,7 +23,7 @@ and V, so this is the K part of the error and not a reproduction of the test
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/analyze_error_by_query_segment.py \\
         --capture <dir> [--capture <dir>] --blocks 24,49 --step 2 --queries 96 \\
-        --record bench/results/<date>_<name>.json
+        --record data/results/<date>_<name>.json
 """
 
 from __future__ import annotations

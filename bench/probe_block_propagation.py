@@ -69,7 +69,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "workflows"))
 
 BASE_GRAPH = REPO / "workflows" / "h3_text_to_video_api.json"
-OUT = REPO / "bench" / "results" / "2026-08-29_block_propagation.json"
+OUT = REPO / "data" / "results" / "2026-08-29_block_propagation.json"
 
 # The Sol node's sigma window for this probe, chosen so exactly ONE sampling
 # step falls inside it. Derived by walking `comfy.samplers.calculate_sigmas` at

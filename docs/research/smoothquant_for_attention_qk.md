@@ -81,7 +81,7 @@ the DiT quantization papers do not look.
    move (rotate so outliers spread across channels, quantize, and let the
    orthogonality keep the product exact). On the block-49 capture it is
    immune to the loud channels and more accurate than the rebalanced Sol
-   row (`bench/results/2026-09-15_ck_int8_attention_block49.json`). So the
+   row (`data/results/2026-09-15_ck_int8_attention_block49.json`). So the
    honest novelty claim narrows to: the migration form, per head, per
    call, gated, in kernels that quantize unrotated. The rotation form is
    the stronger answer and is prior art.
@@ -91,7 +91,7 @@ the DiT quantization papers do not look.
    per head, per call. The offline form exists too (the node folds a
    weights-derived factor, no captures needed), and it recovers about half
    of what the per-head dynamic form does on the block that matters
-   (`bench/results/2026-09-15_channel_balance_kernel_b49_s15.json`).
+   (`data/results/2026-09-15_channel_balance_kernel_b49_s15.json`).
 3. **Gated per head.** Where no channel is loud, migrating resolution onto
    `q` costs a few percent for nothing. The kernels apply the factor only
    on heads whose four loudest K channels carry at least a fifth of K's

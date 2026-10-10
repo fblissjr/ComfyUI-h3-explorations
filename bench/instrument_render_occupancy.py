@@ -7,7 +7,7 @@ a compute- or power-bound phase shows the opposite. That is the measurement
 that decides whether CUDA-graph replay could buy anything on a graph, before
 anyone builds it: graph replay removes launch gaps and nothing else.
 
-Method, the same one `bench/results/2026-08-18_phase0_instrument.json` used
+Method, the same one `data/results/2026-08-18_phase0_instrument.json` used
 by hand with `nvidia-smi dmon` at 1 s: sample `nvidia-smi --query-gpu` at
 100 ms in a subprocess (dmon's floor of 1 s is too coarse for a render that
 lasts 13 s), follow the server's websocket to record every node's start and
@@ -26,7 +26,7 @@ the metric values beside the thresholds.
 Usage (needs a live server and an idle card; refuses if the card is busy):
 
     python bench/instrument_render_occupancy.py --graph workflows/h3_text_to_video_api.json \\
-        --label t2v --seed 7 --out bench/results/2026-08-27_t2v_occupancy.json
+        --label t2v --seed 7 --out data/results/2026-08-27_t2v_occupancy.json
 
 (The example named `workflows/image/h3_image_edit_api.json` until 2026-08-27;
 that lane is parked and the graph is under `archive/`, so the invocation no
@@ -36,7 +36,7 @@ path, including one under `archive/`.)
 Controls that need no card:
 
     python bench/instrument_render_occupancy.py --self-test
-    python bench/instrument_render_occupancy.py --replay-dmon bench/results/2026-08-18_phase0_dmon.log
+    python bench/instrument_render_occupancy.py --replay-dmon data/results/2026-08-18_phase0_dmon.log
 
 `--self-test` pushes a synthetic launch-bound and a synthetic compute-bound
 sample set through the verdict and fails unless each reads as itself.
@@ -430,7 +430,7 @@ def main():
                     help="applied to every RandomNoise node (see docstring)")
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--timeout", type=float, default=1800.0)
-    ap.add_argument("--out", help="JSON record path (bench/results/...)")
+    ap.add_argument("--out", help="JSON record path (data/results/...)")
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--replay-dmon", metavar="LOG",
                     help="summarise an nvidia-smi dmon log instead of rendering")

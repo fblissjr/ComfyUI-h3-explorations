@@ -37,7 +37,7 @@ Run it on the GPU to test what the renders run (`--device cuda`). CPU is only
 a smoke test of the script.
 
     python bench/probe_encoder_rope_kitchen.py --device cuda \\
-        --out bench/results/2026-09-19_encoder_rope_kitchen.json
+        --out data/results/2026-09-19_encoder_rope_kitchen.json
 """
 
 from __future__ import annotations

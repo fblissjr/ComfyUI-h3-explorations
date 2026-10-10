@@ -21,7 +21,7 @@ Track's `pick` was `largest` in every arm: these were rendered around the
 change of its default (`docs/wiki/decisions.md`, 2026-10-07). The switch and
 keep graphs were scratch copies of the shipped graph and are not in the tree;
 what each changed is said below. Every figure is in
-[`2026-10-07_masked_switch_keep_prompt_verdicts.json`](2026-10-07_masked_switch_keep_prompt_verdicts.json).
+[`2026-10-07_masked_switch_keep_prompt_verdicts.json`](../../data/results/2026-10-07_masked_switch_keep_prompt_verdicts.json).
 
 ## 1. The region turned on partway through a window
 

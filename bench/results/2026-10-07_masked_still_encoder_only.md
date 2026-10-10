@@ -14,7 +14,7 @@ renders and both bounded at one seed. This is the same switch
 **How to read it.** One clip, two windows, one seed, one render per arm,
 judged by the owner on stacked videos, not blind. No session looked at a
 picture. Figures are in
-[`2026-10-07_masked_still_encoder_only.json`](2026-10-07_masked_still_encoder_only.json).
+[`2026-10-07_masked_still_encoder_only.json`](../../data/results/2026-10-07_masked_still_encoder_only.json).
 
 ## What ran
 
