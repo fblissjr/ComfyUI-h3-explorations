@@ -329,12 +329,14 @@ def whole_tokens_of(cells: np.ndarray) -> np.ndarray:
     return np.repeat(np.repeat(tokens, t, axis=1), t, axis=2)[:, :ch, :cw]
 
 
-def planned_region(carried: np.ndarray, others: list[np.ndarray], margin: int, grow, whole_tokens: bool = True) -> np.ndarray:
+def planned_region(carried: np.ndarray, others: list[np.ndarray], margin: int, grow, whole_tokens: bool = True,
+                   keep: list[np.ndarray] | None = None) -> np.ndarray:
     """The cells a run would regenerate, [n, h / CELL, w / CELL], from the masks alone.
 
     The Masked Source's rule (`video_mask.window`), a frame at a time: the carried mask grown by the margin,
     in whole tokens; less every token the others touch, unless the subject's own mask, before any margin, has
-    a pixel in it. With `whole_tokens` off the same in cells. The frames of one latent step share a region in
+    a pixel in it; then less every token a `keep` mask touches, the subject's own included. With `whole_tokens`
+    off the same in cells. The frames of one latent step share a region in
     the sampler, for the subject and for the others alike, which this does not model: the real region is a
     little larger where the subject moves and a little smaller where the others do. Set against one render's
     own region the day it was written (447 frames, a whole subject, another kept out): intersection over
@@ -345,6 +347,8 @@ def planned_region(carried: np.ndarray, others: list[np.ndarray], margin: int, g
     region, own = widen(cells_any(grown)), widen(cells_any(carried))
     for other in others:
         region &= ~(widen(cells_any(other)) & ~own)
+    for kept in keep or []:
+        region &= ~widen(cells_any(kept))          # after the others, and over the subject's own mask too: keep wins
     return region
 
 
@@ -684,10 +688,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     captured: dict = {}
     for name, r in [(n, {**x, "planned": False}) for n, x in runs] + [(n, {**x, "planned": True}) for n, x in plans]:
         label, others = r["subject"], [o for o in r.get("others", "").split("+") if o]
-        for who in [label] + others:
+        kept_labels = [o for o in r.get("keep", "").split("+") if o] if r["planned"] else []
+        for who in [label] + others + kept_labels:
             if who not in sightings:
                 raise SystemExit(f"run {name!r} names subject {who!r}, which no --mask gives")
-        lead = {who: next(iter(sightings[who].values())) for who in [label] + others}
+        lead = {who: next(iter(sightings[who].values())) for who in [label] + others + kept_labels}
         if r["planned"]:
             if "margin" not in r:
                 raise SystemExit(f"plan {name!r} needs margin=PX: the region is worked out from the masks and it")
@@ -700,7 +705,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     raise SystemExit(f"plan {name!r} asks for carried=held and {label!r} has no parts_held mask")
                 carried = held_masks[label]
             region = planned_region(carried, [lead[o][0] for o in others], int(r["margin"]), _pack("video_mask").grow,
-                                    whole_tokens=r.get("edge") != "cells")
+                                    whole_tokens=r.get("edge") != "cells", keep=[lead[o][0] for o in kept_labels])
             read, how = covered.copy(), {"read_from": "worked out from the saved masks: a plan, nothing rendered", "legend_px": None}
         else:
             graph = graph_of(r["render"])
@@ -727,7 +732,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             (folder / "graph.json").write_text(json.dumps(graph, indent=1) + "\n")
         captured[name] = entry
         manifest["runs"].append({"name": name, "planned": r["planned"], "render": None if r["planned"] else Path(r["render"]).name,
-                                 "subject": label, "others": others,
+                                 "subject": label, "others": others, "keep": kept_labels,
+                                 "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
+                                                and r.get("carried", "parts") == "parts" else "the track") if r["planned"] else "read from the review",
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
@@ -1102,14 +1109,15 @@ def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     earring left 6 to 7% of the face's cells as the original's cheek, and on the pixels it was free to redraw
     the face fell from 13 grey levels off the source to about 6, with stills that read as the original; the
     same pass without `keep` stayed at 13 to 15. The lane's 2026-10-07 record has the same thing for a kept
-    body beside a head. It needs a rendered run: a plan does not know about `keep` yet."""
+    body beside a head. For a rendered run the region is the review's; for a plan, `keep=` on the plan."""
     out = []
     for run in manifest["runs"]:
         graph = folder / "runs" / run["name"] / "graph.json"
-        if run.get("planned") or not graph.is_file():
-            continue
-        wired = any(node.get("class_type") == "MiniMaxH3MaskedSource" and node["inputs"].get("keep") is not None
-                    for node in json.loads(graph.read_text()).values())
+        if run.get("planned"):
+            wired = bool(run.get("keep"))
+        else:
+            wired = graph.is_file() and any(node.get("class_type") == "MiniMaxH3MaskedSource" and node["inputs"].get("keep") is not None
+                                            for node in json.loads(graph.read_text()).values())
         if not wired:
             continue
         z = np.load(folder / "runs" / run["name"] / "region.npz")
@@ -1118,7 +1126,8 @@ def flag_keep(manifest: dict, folder: Path) -> list[dict]:
         # read, so it cannot show a cell that was kept
         seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
         saved = np.load(folder / "subjects" / run["subject"] / f"masks__{seen['by']}.npz")
-        part = np.unpackbits(saved["parts" if "parts" in saved.files else "track"], axis=-1)[..., :w].astype(bool)
+        whole = run.get("carried_is") == "the track" or "parts" not in saved.files
+        part = np.unpackbits(saved["track" if whole else "parts"], axis=-1)[..., :w].astype(bool)
         carried = cells_any(part)
         kept = (carried & ~z["region"]).sum(axis=(1, 2))
         share = kept / np.maximum(carried.sum(axis=(1, 2)), 1)
@@ -1127,7 +1136,7 @@ def flag_keep(manifest: dict, folder: Path) -> list[dict]:
             first = manifest["first_frame"]
             out.append({"rule": "kept_pixels_inside_the_part", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
                         "source_frames": frame_spans((hit + first).tolist(), join=RECENT),
-                        "why": f"run {run['name']} wires `keep`, and on {len(hit)} frame(s) up to {100 * share.max():.0f}% of the cells "
+                        "why": f"{'plan' if run.get('planned') else 'run'} {run['name']} wires `keep`, and on {len(hit)} frame(s) up to {100 * share.max():.0f}% of the cells "
                                f"holding {run['subject']}'s own part were kept as the original's pixels: expect the original's "
                                "look to come back in the rest of the part",
                         "figures": {"frames": int(len(hit)), "worst_share": round(float(share.max()), 3),
@@ -1314,7 +1323,8 @@ def look_figure(source: np.ndarray, render: np.ndarray, held: np.ndarray, area: 
     hair against fair) and says nothing when they do not: a lift near zero is refused by the caller."""
     both = ~np.isnan(source[:len(held)]) & ~np.isnan(held)
     lift = float(np.median(held[both] - source[:len(held)][both])) if both.any() else float("nan")
-    return (render - source) / lift, lift
+    with np.errstate(divide="ignore", invalid="ignore"):       # a lift of zero is the caller's to refuse
+        return (render - source) / lift, lift
 
 
 def look(a: argparse.Namespace) -> None:
@@ -1657,7 +1667,7 @@ def main() -> None:
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX]",
                    help="one pass that regenerated a subject; its region is read from the render's review; repeatable")
-    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,carried=track|held][,edge=cells]",
+    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells]",
                    help="a run that has not rendered: its region is worked out from the masks; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))

@@ -184,6 +184,8 @@ def plan() -> str:
     theirs_only = cap.whole_tokens_of(cap.cells_any(over)) & ~cap.whole_tokens_of(cap.cells_any(A))
     assert not (shared & theirs_only).any(), "a token of the other subject alone was taken"
     assert (cap.whole_tokens_of(tokens) == tokens).all(), "a region in whole tokens holds part of a token"
+    kept = cap.planned_region(A, [], MARGIN, _grow(), whole_tokens=False, keep=[rect(32, 32, 48, 48)])
+    assert not (kept & cap.cells_any(rect(32, 32, 48, 48))).any() and kept.sum() == alone.sum() - N, "keep did not win over the subject's own cell"
     return f"{int(cells[0].sum())} cells, {int(tokens[0].sum())} in whole tokens; a token with both stays, one of the other alone goes"
 
 
