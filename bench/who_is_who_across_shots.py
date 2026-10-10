@@ -71,8 +71,10 @@ shot's looks, the small subject's lead over the other subject (and the lead of t
 is wider than at the frame's scale on the frames where it was nothing, and no wider lead elsewhere is lost. One
 shot of one clip; a wider lead here is a reason to try a second clip, not a default.
 
-DUPLICATES. The detector can return one person several times, as nested masks. `merged` joins two detections when
-most of the smaller mask lies inside the larger one (`SAME_PERSON`), and keeps the one the detector scored highest.
+DUPLICATES. The detector can return one person several times, as nested masks. `looks` joins two detections when
+most of the smaller mask lies inside the larger one, and keeps the one the detector scored highest: the tracker's own
+rule (`subject_tracks.one_each`), called and not copied. The first run, on 2026-10-10, used a copy of an earlier form of
+that rule; on its frames the two give the same people.
 
 SETTLING A FRAME FOR ALL SUBJECTS (`settle`). The score of subject s on candidate c is the gallery rule's. A candidate
 is s's when s and c are each other's best (no other candidate scores higher for s, no other subject scores higher on
@@ -110,13 +112,9 @@ from sam3_parity_ladder import COMFY, REPO, boot, environment, load_core   # noq
 
 sys.path.insert(0, str(REPO))
 
-#: Two detections are one person when this share of the smaller mask lies inside the larger. Reasoned, not measured:
-#: a person in front of another shares an edge with them, not most of their own area.
-SAME_PERSON = 0.8
 #: A loader start this many frames before the frame wanted, so that frame is the first it yields. Inherited: the
 #: lead's builder for this load.
 SEEK_BACK = 0.4
-VIEWS = ("top third", "head", "whole")
 #: The side of the square crop a person is signed from with `--crops`, as a multiple of their box's longer side.
 #: Reasoned: room for hair and shoulders the mask's box cuts close, and little of anybody else.
 CROP_MARGIN = 1.2
@@ -582,24 +580,6 @@ def render_corrections(out: dict):
 # ----------------------------------------------------------------------------- the model
 
 
-def merged(masks, scores, same: float = SAME_PERSON) -> tuple[list[int], dict[int, list[int]]]:
-    """Which detections stand for a person once nested ones are joined: (kept indices, {kept: the ones it stands for})."""
-    on = [(m > 0.5) for m in masks]
-    area = [int(o.sum()) for o in on]
-    order = sorted(range(len(on)), key=lambda i: -scores[i])
-    kept, stands = [], {}
-    for i in order:
-        for k in kept:
-            small = min(area[i], area[k])
-            if small and int((on[i] & on[k]).sum()) >= same * small:
-                stands[k].append(i)
-                break
-        else:
-            kept.append(i)
-            stands[i] = [i]
-    return kept, stands
-
-
 def settle(scores: dict[str, list[float | None]], margin: float) -> dict[str, dict]:
     """One frame for all subjects: `scores[subject][candidate]`. See the module docstring."""
     out = {}
@@ -725,7 +705,7 @@ def cmd_looks(a):
     R = {"environment": environment(torch), "device": "cpu" if a.cpu else "cuda",
          "sam": "corrected (sam31_corrections)" if a.corrected else "as ComfyUI ships it",
          "frames": {"clip": Path(a.clip).name, "first_frame": a.first_frame, "count": int(a.frames), "size": [a.width, a.height]},
-         "settings": {**SUBJECT_TRACK, "max_people": max_people}, "same_person": SAME_PERSON, "margin": a.margin,
+         "settings": {**SUBJECT_TRACK, "max_people": max_people}, "same_person": st.subject_tracks.SAME_THING, "margin": a.margin,
          "tables": {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)},
          "truth": a.truth, "controls": [], "whole_gallery": {}, "looks": [], "crops": bool(a.crops), "crop_margin": CROP_MARGIN}
 
@@ -763,7 +743,7 @@ def cmd_looks(a):
 
     for f in looks:
         masks, scores = detect(f)
-        kept, stands = merged(masks, scores)
+        kept, stands = st.subject_tracks.one_each(masks, scores)
         order = shot_table.person_order(masks)
         people = []
         for i in kept:

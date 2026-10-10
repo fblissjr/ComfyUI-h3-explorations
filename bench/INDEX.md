@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 107 |
+| [`check_*`](#check) | 108 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 139 |
+| [the rest](#the-rest) | 140 |
 
 ## check
 
@@ -27,6 +27,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_audio_freeze.py`](check_audio_freeze.py) | The audio-freeze node's contract, and the two ways a graph can silently unfreeze. |
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
 | [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
+| [`check_break_checks.py`](check_break_checks.py) | `bench/break_checks.py` tells a break a check sees from one it does not, and from a run that was red for no reason. |
 | [`check_calibration_model_mapping.py`](check_calibration_model_mapping.py) | Prove the released checkpoint maps and loads strictly into the calibration model. |
 | [`check_calibration_selector.py`](check_calibration_selector.py) | Hold `bench/select_v2_calibration_rows.py`'s new selection paths to a standard. |
 | [`check_camera_vocabulary.py`](check_camera_vocabulary.py) | Camera motion in every shipped prompt comes from base_en 4.3's closed sets. |
@@ -312,6 +313,7 @@ this file is only a way to find a script by what it says it does.
 | [`blind_batch_add_audio.py`](blind_batch_add_audio.py) | Replace a blind batch's silent singles with their muxed `-audio.mp4` sources, in place. |
 | [`blind_panel.py`](blind_panel.py) | Build a blinded panel of stacked pairs from clips that already exist, with a sealed key. |
 | [`blind_score_app.py`](blind_score_app.py) | Write a self-contained scoring page into a blind batch directory. |
+| [`break_checks.py`](break_checks.py) | Break the code on purpose, in a copy, and see whether a check notices: with the unbroken copy run FIRST. |
 | [`calibrate_sparse_table.py`](calibrate_sparse_table.py) | Calibrate a per-head tau table from tau-sweep records (`sol_tau_sweep.py`). |
 | [`capture_masked_run.py`](capture_masked_run.py) | Capture what the tracker and the masks did on a masked run, for any number of subjects, and show it. |
 | [`checkpoint_delta_map.py`](checkpoint_delta_map.py) | Where each distill changes H3, from full-precision weights. CPU only. |
