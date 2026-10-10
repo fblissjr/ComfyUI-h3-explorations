@@ -201,3 +201,15 @@ flag reads the source's own frame-to-frame change for it.
   the source's opening by the capture session's measure). Eight other shots
   of the span have nothing laid for the lead and read "not known": no
   capture given covers them. md5 `31edf7f411809c8841906d58fe7ade5d`.
+- 2026-10-10, the class rule of that day narrowed, an hour after it went in:
+  it kept a class off whatever an owner map gave ANY other subject. On a row
+  giving back its OWN subject's class that left the piece's change standing
+  on a third person's pixels, where the source is the right picture and was
+  what the row showed before the rule. The harm the rule is for is another
+  subject's class map reaching onto the ROW'S OWN subject, so that is what
+  it now covers and nothing else. No file was built under the wider rule
+  with an owner map given (the street file's captures hold none).
+- 2026-10-10, `fun_0000_0603_b.mp4`'s note amended (`--check-only`, md5
+  unchanged): the eight shots that read "not known" for the lead are parts
+  of the span where she is on screen and no pass has been made yet; that is
+  the job's remaining work and not a fault of the file.
