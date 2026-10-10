@@ -58,6 +58,17 @@ Older history lives elsewhere and is not copied here:
     in `looks` (the boxes stay), the `marked` mesh style and its `legend`.
     `seeds` stays only while the seeded-memory test or the cast file
     (`bench/cast_file.py`) writes it.
+    2026-10-10, later, from that tool's owner reading this list against
+    its own: KEEP also the first line when a tracker picked nobody, and
+    "only headless detections" counting as nobody. SIMPLIFY also the shot
+    table's `duplicates_joined` block to one count. REMOVE also the tool's
+    measurement modes (`galleries`, `looks`, `--crops`), which leave the
+    tool or stay only as the record's reproduction, and with the sum its
+    two reading rules (people seen seldom left out; names carried by place
+    from look to look). The sum and the evidence total are removed WHOLE,
+    not kept as columns: a column nothing reads is what was cut. The gate
+    reads `suggests`, `lead` and `looks_used` from the corrections file, so
+    that cut lands together with the capture tool dropping those fields.
   - THE CAPTURE AND ITS GATE (`bench/capture_masked_run.py`): its own
     entry, by its session, is further down this day's list ("What the owner
     cut from the capture tool and its gate"); the large simplification is ONE
