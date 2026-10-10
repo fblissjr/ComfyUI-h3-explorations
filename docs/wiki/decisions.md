@@ -39,6 +39,9 @@ Older history lives elsewhere and is not copied here:
   is written except where a commit is named; a dated line is added under
   each list as it lands. The node cuts are the next entry; the owner later
   said they are made the same evening, after the renders, in whole pieces.
+  The owner's word on the prose: when a thing is cut, every doc reference
+  to it is cut with it, and where a reader would look for it a dated line
+  says what was removed and why, pointing here.
   - THE TRACKER AND THE CORRECTIONS TOOL (`subject_track.py`,
     `bench/who_is_who_across_shots.py`). Its owner's own sentence: the
     tracker's likeness, the tool's sum and the tool's evidence total are one
@@ -55,26 +58,14 @@ Older history lives elsewhere and is not copied here:
     in `looks` (the boxes stay), the `marked` mesh style and its `legend`.
     `seeds` stays only while the seeded-memory test or the cast file
     (`bench/cast_file.py`) writes it.
-  - THE CAPTURE AND ITS GATE (`bench/capture_masked_run.py`). KEEP: the
-    per-frame tables; a run's region read from the node's own files and
-    plan; `changed` with the reading of a piece's two ends; the plain state
-    rules (a track empty where taken, a frame with no mask inside a step, a
-    region over another subject, kept pixels inside the part, the original
-    shown in a held tail, a plan that writes past its load); the verdict
-    and one override; `shots`; the graded part; `video`. SIMPLIFY, the
-    large one: ONE STATEMENT in the job file, `job.who` (subject, source
-    frames, "not in" or "left out", why, by; "in" is a load and is never
-    written; a range may cross a cut), read by `verify`, the gate, the
-    builder and the delivery, with the rule that COVERAGE BLOCKS; it
-    replaces `--not-in`, `--no-mask`, the builder's `left_out` and most
-    overrides, and leaves the gate one who-is-where rule. Also: `verify`
-    down to its input checks; the owner map down to "one claimant owns, two
-    is both"; the size warnings down to a printed size a load. REMOVE: the
-    warnings raised on every load, the region read back from a tinted
-    review, `--plan` and `--loads` as a copy of the node's rule, `look`,
-    `mouth` and the text-against-voice rules, the pose table as a gate
-    input, `two_tracks_on_one_person`, the two across-a-cut rules, `hold=`,
-    `diagnose`. The full page is that session's, under `internal/claude/`.
+  - THE CAPTURE AND ITS GATE (`bench/capture_masked_run.py`): its own
+    entry, by its session, is further down this day's list ("What the owner
+    cut from the capture tool and its gate"); the large simplification is ONE
+    STATEMENT in the job file, `job.who`, read by `verify`, the gate, the
+    builder and the delivery, with the rule that coverage blocks. (That
+    entry reached the tree inside commit `23b01495`, the lead's, which
+    swept in the session's uncommitted hunk by a pathspec commit of this
+    file; the words are that session's.)
   - THE JOB BUILDER AND THE ANALYSIS FOLDER (`bench/masked_job.py`,
     `workflows/masked_job_graph.py`, `clip_folder.py`). KEEP: the stages
     and `collect`; the gate before a render; the audio cut; what each model
