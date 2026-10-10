@@ -53,6 +53,14 @@ of known place and size into them, and reads the tool's answers back.
     what that subject owns, the half of the strip included, and not the contested half, which the plain tracked
     masks would have left to the piece whole; and two pieces that both changed the strip each show on the half
     their subject owns. The record says an owner map was used.
+13. **What the record says the file did to a subject.** A second subject whose tracked mask lies half on the
+    painted rectangle, with a class map that puts one class on the painted half and another on the rest: the
+    record's `subjects` table reads about half of its tracked pixels off the source, all of the one class and none
+    of the other, at both sizes; with `restore=` on the row it reads none; the floor (pixels no track claims and
+    no piece changed) reads none either way; the reading itself is tested on a picture running from black to
+    white, where a file's luma at the canvas must be its own fitted original at the dark and bright ends too (read
+    as `gray`, ffmpeg widened the range and a quarter of untouched footage read as off the source); and `--compare`
+    of the two records prints both figures on one line.
 
 ## Running it
 
@@ -584,6 +592,53 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert record["shared"][20]["by_mask"] > 0 and record["shared"][20]["by_order"] > 0, record["shared"][20]
         return f"a restore gives back what the map says the other owns and not what it calls contested; of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order"
 
+    def the_subjects_table() -> str:
+        # subject b: x 80-128, y 50-110. RECT_A covers x 40-104, so its left half (x 80-104) is painted, the right is not.
+        b = (80, 50, 128, 110)
+        cmap = np.zeros((30, H, W), np.uint8)
+        cmap[:, 50:110, 80:104] = 4                    # on the painted half
+        cmap[:, 50:110, 104:128] = 23                  # on the unpainted half
+        names = tool.class_names()
+        folder = capture(TMP / "cap_table", 10, 30, {"a": mask_of((40, 40, 78, 120), 30), "b": mask_of(b, 30)},
+                         [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}], {"b": cmap})
+        got = {}
+        for name, restore, size in (("table_plain", "", "canvas"), ("table_restore", " restore=b", "canvas"), ("table_plain_full", "", "source")):
+            path = TMP / f"{name}.txt"
+            path.write_text(f"10-39 {PIECE_A} 10{restore}\n")
+            out = TMP / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(path), "--span", "10-39",
+                                   "--out", str(out), "--capture", str(folder), "--size", size], capture_output=True, text=True)
+            assert proc.returncode == 0, proc.stderr[-300:] or proc.stdout[-300:]
+            got[name] = json.loads(Path(str(out) + ".check.json").read_text())["subjects"]
+        for name in ("table_plain", "table_plain_full"):
+            t = got[name]
+            sub = t["subjects"]["b"]
+            assert 40 <= sub["tracked_off_pct"] <= 60, f"{name}: half of b's tracked pixels are painted, the table reads {sub['tracked_off_pct']}%"
+            hair, cloth = sub["by_class"][names[4]], sub["by_class"][names[23]]
+            assert hair["off_pct_in_its_track"] > 85 and cloth["off_pct_in_its_track"] < 2, (name, hair, cloth)
+            assert t["floor_off_pct"] < 0.5, f"{name}: the floor reads {t['floor_off_pct']}%"
+        back = got["table_restore"]["subjects"]["b"]
+        assert back["tracked_off_pct"] < 2 and back["by_class"][names[4]]["off_pct_in_its_track"] < 2, back
+        # the reading itself, on a picture that runs from black to white: the tool's read of a file at the canvas must
+        # be the fitted original of that same file, dark and bright ends included
+        ramp = TMP / "ramp.mp4"
+        run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i",
+             f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.02:nb_colors=2:c0=black:c1=white:x0=0:y0=0:x1={SW}:y1={SH}:seed=1",
+             "-frames:v", "6", "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv", "-c:v", "libx264",
+             "-crf", "10", "-pix_fmt", "yuv420p", *tool.BT709_TAGS, str(ramp)])
+        read = list(tool.luma_at_canvas(ramp, W, H))
+        fitted = [tool.planes(b, W, H)[0] for b in tool.original_frames(ramp, 0, 5, W, H)]
+        assert len(read) == 6 and min(float(f.min()) for f in fitted) < 40 and max(float(f.max()) for f in fitted) > 200, "the ramp does not reach dark and bright"
+        apart = max(float((np.abs(r - f) > tool.OFF).mean()) for r, f in zip(read, fitted))
+        assert apart < 0.005, f"{100 * apart:.1f}% of a file's own pixels read as off its fitted original: the two readings are in different levels"
+        proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--compare", str(TMP / "table_plain.mp4.check.json"),
+                               str(TMP / "table_restore.mp4.check.json")], capture_output=True, text=True)
+        line = next((l for l in proc.stdout.splitlines() if l.strip().startswith("b: its tracked mask")), "")
+        assert proc.returncode == 0 and "->" in line and "restore=b" in proc.stdout, proc.stdout[-400:] or proc.stderr[-300:]
+        before, after = (float(x) for x in line.split(")")[1].split(";")[0].split("->"))
+        assert 40 <= before <= 60 and after < 2, line
+        return f"b's tracked mask {got['table_plain']['subjects']['b']['tracked_off_pct']:.1f}% off the source, {back['tracked_off_pct']:.1f}% with the restore; the floor {got['table_plain']['floor_off_pct']}%"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -596,4 +651,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("another subject given back whole", a_subject_given_back)
     case("a piece that spills over a cut", spill_over_a_cut)
     case("whose a pixel is, from the owner map", by_the_owner_map)
+    case("what the record says the file did to a subject", the_subjects_table)
 sys.exit(finish())

@@ -5,6 +5,7 @@ passes over the same frames merged by what each changed, and a check by decode t
     <python> bench/assemble_delivery.py --source SOURCE.mp4 --table TABLE.txt --out OUT.mp4 \\
         [--span FIRST-LAST] [--size canvas|source] [--capture data/<date>_<name>]... [--soften SIGMA] [--crf 12]
         [--note "why this build"] [--check-only]
+    <python> bench/assemble_delivery.py --compare A.mp4.check.json B.mp4.check.json
 
 **What it buys.** A masked render is a window of a clip, at the lane's canvas and the lane's rate, with a track
 that was resampled to fit. What gets watched is the whole stretch: several renders by frame range, the frames
@@ -111,6 +112,15 @@ decoded samples fit the source's at their own place better than a sample or more
 Colour: the four fields, and the decoded file's planes have no bias against the frames fed (`BIAS`), which is
 what a silent matrix conversion would leave. Regions: per piece and frame, the pixels it changed.
 
+**What the file did to each subject** (`subjects` in the record, when captures are given). The delivered file is
+read back at the canvas by the loader's fit and set against the fitted source, on the frames a piece covers: for
+every subject a capture knows, the pixels of its tracked mask (and of what it owns, with an owner map) more than
+`OFF` levels from the source, in all and by class of its class map, inside its track and outside it; and the
+pixels more than one track claims, how many an owner map settled and how many it left contested. A pass on one
+person should leave the others at the floor, which is reported beside them (`floor`: the same share on pixels no
+track claims and no piece changed). `--compare` prints two records side by side: the same stretch with and
+without a restore is the before and after.
+
 **What it does not show.** Whether the result looks right. That a piece's changed region is the region the
 render kept: the node draws what it kept and saves no mask of it, so this rebuilds it from a threshold, and a
 change under `CHANGE` further than `GROW` from stronger change is lost to a later row of a merge
@@ -165,6 +175,8 @@ RESTORE_FEATHER = 1.0   # sigma of that edge's blur; reasoned: the thing is smal
 JOIN = 25.5       # levels of averaged difference that count as a large change beside restored pixels; inherited:
                   # twice the node's own line for a kept change (`video_mask.CHANGE_THRESHOLD` of full scale)
 JOIN_PX = 16      # pixels of such an edge under which nothing is flagged; reasoned: a few pixels is the codec
+OFF = 12.0        # levels of luma a delivered pixel may sit from the source and still count as the source's, in the
+                  # `subjects` table; reasoned: twice the change threshold, the line the 2026-10-10 figures were read at
 HEAD_PACKETS = 2  # audio packets the track may begin before the span; reasoned: the one the decoder needs, and
                   # the one the span's first sample is in
 # What the lane's writer does to piped rgb, and what its files say. Inherited: `loop_output.TO_BT709`,
@@ -635,6 +647,8 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             if record is not None and before is not None:
                 record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
             before = o[0]
+            if record is not None and "fitted" in record:
+                record["fitted"][n] = (o[0], np.any(hard, axis=0))       # taken out again by the check, a frame later
             if record is not None:
                 for r, m, run, s, d, (back, classes) in zip(rows, hard, runs, masks, diffs, backs):
                     row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
@@ -887,6 +901,124 @@ def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[s
     return written
 
 
+def luma_at_canvas(path, w, h):
+    """A file's luma as the loader's fit would lay it on the canvas, frame by frame, in the file's own levels.
+    Read as yuv420p and not as `gray`: ffmpeg widens a tv-range picture to full range on its way to gray, which
+    moved bright and dark pixels by up to sixteen levels and read a quarter of an untouched frame as off the
+    source (measured 2026-10-10 on footage; a mid-toned test picture did not show it)."""
+    for buf in pipe_frames([FFMPEG, "-v", "error", "-an", "-i", str(path), "-vf", loader_fit(w, h), "-fps_mode", "passthrough",
+                            "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"], w * h * 3 // 2):
+        yield np.frombuffer(buf, np.uint8, w * h).astype(np.float32).reshape(h, w)
+
+
+class Subjects:
+    """What the delivered file did to each subject a capture knows: its pixels more than `OFF` from the source."""
+
+    def __init__(self, captures):
+        self.captures = captures
+        self.labels = []
+        for _, m in captures.folders:
+            self.labels += [s["label"] for s in m["subjects"] if s["label"] not in self.labels]
+        self.rows = {label: {"frames": 0, "tracked_px": 0, "tracked_off": 0, "owned_px": 0, "owned_off": 0, "classes": {}}
+                     for label in self.labels}
+        self.shared = {"px": 0, "off": 0, "settled_px": 0, "contested_px": 0, "frames": 0, "most": [0, None]}
+        self.floor = [0, 0]
+
+    def add(self, frame, delivered, fitted, changed_):
+        off = np.abs(delivered - fitted) > OFF
+        tracks = {}
+        for label in self.labels:
+            track = self.captures.mask(label, frame)
+            if track is None:
+                continue
+            tracks[label] = track
+            row = self.rows[label]
+            row["frames"] += 1
+            row["tracked_px"] += int(track.sum())
+            row["tracked_off"] += int((off & track).sum())
+            owns = self.captures.owned(label, frame)
+            if owns is not None:
+                row["owned_px"] += int(owns.sum())
+                row["owned_off"] += int((off & owns).sum())
+            cmap = self.captures.classes(label, frame)
+            if cmap is not None:
+                for c in np.unique(cmap[cmap > 0]):
+                    m = cmap == c
+                    t = row["classes"].setdefault(int(c), [0, 0, 0, 0])
+                    t[0] += int((m & track).sum()); t[1] += int((off & m & track).sum())
+                    t[2] += int((m & ~track).sum()); t[3] += int((off & m & ~track).sum())
+        if tracks:
+            claims = np.sum(list(tracks.values()), axis=0)
+            both = claims > 1
+            if both.any():
+                px = int(both.sum())
+                self.shared["px"] += px
+                self.shared["off"] += int((off & both).sum())
+                self.shared["frames"] += 1
+                if px > self.shared["most"][0]:
+                    self.shared["most"] = [px, frame]
+                owned = [self.captures.owned(label, frame) for label in tracks]
+                if all(o is not None for o in owned):
+                    settled = int((both & np.any(owned, axis=0)).sum())
+                    self.shared["settled_px"] += settled
+                    self.shared["contested_px"] += px - settled
+            quiet = (claims == 0) & ~changed_
+            self.floor[0] += int(quiet.sum())
+            self.floor[1] += int((off & quiet).sum())
+
+    def report(self):
+        names = class_names()
+
+        def share(off, px):
+            return round(100.0 * off / px, 3) if px else None
+        out = {}
+        for label, r in self.rows.items():
+            if not r["frames"]:
+                continue
+            out[label] = {"frames": r["frames"], "tracked_px": r["tracked_px"], "tracked_off_pct": share(r["tracked_off"], r["tracked_px"]),
+                          **({"owned_px": r["owned_px"], "owned_off_pct": share(r["owned_off"], r["owned_px"])} if r["owned_px"] else {}),
+                          "by_class": {names[c]: {"px_in_its_track": t[0], "off_pct_in_its_track": share(t[1], t[0]),
+                                                  "px_outside_its_track": t[2], "off_pct_outside_its_track": share(t[3], t[2])}
+                                       for c, t in sorted(r["classes"].items())}}
+        s = self.shared
+        return {"off_over_levels": OFF, "floor_off_pct": share(self.floor[1], self.floor[0]), "subjects": out,
+                "claimed_by_more_than_one_track": {"px": s["px"], "off_pct": share(s["off"], s["px"]), "frames": s["frames"],
+                                                   "most_px_on_a_frame": s["most"], "settled_by_an_owner_map_px": s["settled_px"],
+                                                   "left_contested_px": s["contested_px"]}}
+
+
+def compare(a_path, b_path):
+    """Two check records side by side: the same stretch built two ways is a before and an after."""
+    a, b = (json.loads(Path(p).read_text()) for p in (a_path, b_path))
+    print("A:", a["out"], "|", a["verdict"], "| rows:", "; ".join(f"{os.path.basename(r['piece'])} {r['frames']}"
+          + (" restore=" + ",".join(r["restore"]) if r["restore"] else "") for r in a["table"]))
+    print("B:", b["out"], "|", b["verdict"], "| rows:", "; ".join(f"{os.path.basename(r['piece'])} {r['frames']}"
+          + (" restore=" + ",".join(r["restore"]) if r["restore"] else "") for r in b["table"]))
+    print("whose pixels: A", a.get("whose_pixels"), "| B", b.get("whose_pixels"))
+    sa, sb = a.get("subjects"), b.get("subjects")
+    if not sa or not sb:
+        print("one of the records has no `subjects` table (built with no capture, or before the table existed)")
+        return
+
+    def cell(v):
+        return "     -" if v is None else f"{v:6.2f}"
+    print(f"pixels more than {sa['off_over_levels']:g} levels from the source, percent, A -> B   (floor: {cell(sa['floor_off_pct'])} -> {cell(sb['floor_off_pct'])})")
+    for label in sorted(set(sa["subjects"]) | set(sb["subjects"])):
+        ra, rb = sa["subjects"].get(label, {}), sb["subjects"].get(label, {})
+        print(f"  {label}: its tracked mask ({ra.get('tracked_px', rb.get('tracked_px'))} px) {cell(ra.get('tracked_off_pct'))} -> {cell(rb.get('tracked_off_pct'))}"
+              + (f"; what it owns {cell(ra.get('owned_off_pct'))} -> {cell(rb.get('owned_off_pct'))}" if "owned_px" in ra or "owned_px" in rb else ""))
+        for name in sorted(set(ra.get("by_class", {})) | set(rb.get("by_class", {}))):
+            ca, cb = ra.get("by_class", {}).get(name, {}), rb.get("by_class", {}).get(name, {})
+            print(f"      {name:16s} in its track ({ca.get('px_in_its_track', cb.get('px_in_its_track'))} px) {cell(ca.get('off_pct_in_its_track'))} -> {cell(cb.get('off_pct_in_its_track'))}"
+                  f"   outside it ({ca.get('px_outside_its_track', cb.get('px_outside_its_track'))} px) {cell(ca.get('off_pct_outside_its_track'))} -> {cell(cb.get('off_pct_outside_its_track'))}")
+    ca, cb = sa["claimed_by_more_than_one_track"], sb["claimed_by_more_than_one_track"]
+    print(f"  claimed by more than one track: {ca['px']} px on {ca['frames']} frames (most {ca['most_px_on_a_frame']}), "
+          f"{cell(ca['off_pct'])} -> {cell(cb['off_pct'])}; an owner map settled {cb['settled_by_an_owner_map_px']} and left {cb['left_contested_px']} contested")
+    fa, fb = ([f"{f['rule']} {f['source_frames'][:6]}" for f in r["flags"]] for r in (a, b))
+    print("flags only in A:", [f for f in fa if f not in fb] or "none")
+    print("flags only in B:", [f for f in fb if f not in fa] or "none")
+
+
 def check(args, segs, canvas, span, src, rows, captures):
     w, h = canvas
     full = (src["width"], src["height"]) if args.size == "source" else None
@@ -940,6 +1072,11 @@ def check(args, segs, canvas, span, src, rows, captures):
         return float(np.abs(a - b).mean())
 
     record = {"rows": {}, "shared": {}}
+    tally = Subjects(captures) if captures else None
+    if tally:
+        record["fitted"] = {}
+    # the delivered file as the loader would hand it over: at the canvas, for the table of what it did to each subject
+    at_canvas = luma_at_canvas(args.out, w, h) if tally and full else None
     fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full)
     window = [None, arr(next(fed)), None]            # fed k-1, k, k+1
     placed = static = misplaced = decoded = 0
@@ -952,6 +1089,11 @@ def check(args, segs, canvas, span, src, rows, captures):
             break
         decoded += 1
         got = arr(got)
+        small = next(at_canvas, None) if at_canvas is not None else None
+        if tally and span[0] + k in record["fitted"]:
+            fitted, touched = record["fitted"].pop(span[0] + k)
+            delivered = small if small is not None else got[:w * h].astype(np.float32).reshape(h, w)
+            tally.add(span[0] + k, delivered, fitted, touched)
         d0 = mad(got, window[1])
         own.append(d0)
         bias += [float((got[a:b] - window[1][a:b]).mean()) for a, b in zip(cuts, cuts[1:])]
@@ -1039,6 +1181,8 @@ def check(args, segs, canvas, span, src, rows, captures):
             **({"restored_px_per_frame": [v.get("restored_px") for v in area.values()],
                 "restored_beside_a_large_change_px_per_frame": [v.get("join_px") for v in area.values()]}
                if any("restored_px" in v for v in area.values()) else {})}
+    if tally:
+        result["subjects"] = tally.report()
     result["flags"], result["pieces_with_no_capture"] = flags_of(record, rows, captures)
     result["whose_pixels"] = ("no capture given: the table's order" if not captures else
                               "owners.npz of " + ", ".join(sorted(os.path.basename(f) for f in captures.used_owner_map))
@@ -1051,9 +1195,10 @@ def check(args, segs, canvas, span, src, rows, captures):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    p.add_argument("--source", required=True, help="the original file: untouched frames and the audio come from it")
-    p.add_argument("--table", required=True)
-    p.add_argument("--out", required=True)
+    p.add_argument("--source", help="the original file: untouched frames and the audio come from it")
+    p.add_argument("--table")
+    p.add_argument("--out")
+    p.add_argument("--compare", nargs=2, metavar=("A.check.json", "B.check.json"), help="print two check records side by side, and stop")
     p.add_argument("--span", help="first-last in source frames; default 0 to the last frame any row names")
     p.add_argument("--size", choices=("canvas", "source"), default="canvas",
                    help="canvas: the pieces' size. source: the source's own size, with only what the pieces changed put back over it")
@@ -1063,6 +1208,11 @@ def main():
     p.add_argument("--note", help="a sentence written into the check record: why this file was built or rebuilt")
     p.add_argument("--check-only", action="store_true")
     args = p.parse_args()
+    if args.compare:
+        compare(*args.compare)
+        return
+    if not (args.source and args.table and args.out):
+        p.error("--source, --table and --out are needed to build or check a file")
 
     rows = read_table(args.table)
     src = probe(args.source)
@@ -1109,6 +1259,10 @@ def main():
     shown["regions"] = {os.path.basename(k): {a: b for a, b in v.items() if not a.endswith("_per_frame")}
                         for k, v in result["regions"]["pieces"].items()}
     shown["flags"] = [{k: f[k] for k in ("id", "rule", "level", "source_frames", "why")} for f in result["flags"]]
+    if "subjects" in result:
+        shown["subjects"] = {"floor_off_pct": result["subjects"]["floor_off_pct"],
+                             **{k: {a: b for a, b in v.items() if a != "by_class"} for k, v in result["subjects"]["subjects"].items()},
+                             "claimed_by_more_than_one_track": result["subjects"]["claimed_by_more_than_one_track"]}
     shown["pieces_with_no_capture"] = result["pieces_with_no_capture"]
     print(json.dumps(shown, indent=1))
     sys.exit(0 if not result["failures"] else 1)
