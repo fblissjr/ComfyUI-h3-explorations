@@ -361,3 +361,28 @@ flag reads the source's own frame-to-frame change for it.
   the second subject's piece on 1010-1038 comes from the reference still
   that carries a bag strap. md5 `5e6aef1df5ef80d9f44b09835dc4d56c`. `_a`
   and the locked file are untouched.
+- 2026-10-10, a lookup of this tool corrected before it bit (commit
+  `a7bf7ae0`): a row with no run of its own read a subject's mask and the
+  owner map from whichever capture given covered the frame first. Two
+  captures can cover one frame, a long load that calls a subject absent on a
+  shot and a load made for that shot; with the long one first, giving
+  another subject back on such a row would have given nothing. The capture
+  that gives the subject any pixel is read now, and a row's own run capture
+  keeps the word on its frames. `fun_0000_1050_b.mp4`'s bytes still match
+  its table under it; its shots proof now reads both subjects tracked on
+  all 29 frames of 1010-1038 where it read 0.
+- 2026-10-10, a new file: **`fun_0000_1050_c.mp4`**, beside `_a` and `_b`.
+  `_b`'s table with one row changed: the second subject on 1010-1038 from a
+  render made from the reference still as the owner edited it (no bag
+  strap), its tail open. Expected record written to the lead session before
+  it was read, and it reads so: passes; every row on a share of 1; both
+  subjects laid on 1010-1038 (29 and 28 frames); her row at 0.87 of its
+  middle on its last frame and 0.91 on its first, neither end on the source
+  by either reading; no square over the bound (largest 2.92). On her row the
+  lead is given back on all 29 frames (median 1,412 px, most 6,967 on frame
+  1011) and the join flag is raised on all 29 (median 323 px, longest 698
+  on frame 1019). Measured on the built file at the canvas against `_b`:
+  outside 1010-1038 two frames differ, by one and two pixels; inside, all 29
+  differ (13,249 to 21,150 pixels over 12 levels). md5
+  `551320daee14dcf05b2030da8cb03b2c`. `_a`, `_b` and the locked file are
+  untouched.
