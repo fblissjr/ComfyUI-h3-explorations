@@ -24,7 +24,8 @@ of known place and size into them, and reads the tool's answers back.
    there. With a capture whose masks put the shared pixels in the FIRST row's subject alone, the first row
    shows there: a mask outranks the table's order.
 7. **The flags.** A piece that changes pixels on frames where its subject has no mask; one whose rectangle
-   is far from its subject's mask; one whose changed area jumps; one that changes nothing. And the case that
+   is far from its subject's mask; one whose changed area steps up, named at the frame of the step; one that changes
+   nothing. And the case that
    must raise none: the rectangle on its subject's mask, the same size throughout. The tables land in the
    capture folder.
 8. **At the source's size** (`--size source`). The file is the source's size and passes its check; away from
@@ -41,7 +42,8 @@ of known place and size into them, and reads the tool's answers back.
 10. **Another subject given back whole** (`restore=<subject>` with no class). Two tracked masks over the painted
     rectangle, the piece's own subject and another, overlapping: where only the other's mask is, the file is the
     original; where both are, and where only the piece's own is, it is the piece. Without a run for the piece
-    in the capture nothing is taken out of the other's mask, so the overlap goes back too.
+    in the capture nothing is taken out of the other's mask, so the overlap goes back too; and with
+    `restore=<subject>:whole` it goes back whether or not there is a run.
 
 ## Running it
 
@@ -345,10 +347,10 @@ with tempfile.TemporaryDirectory() as _tmp:
                 assert json.loads((folder / f"delivery__{out.stem}.json").read_text())["flags"] == r["flags"]
         code, r, _ = deliver(TMP, "flag_jump", [(10, 39, jumpy, 10)], "10-39")
         got = {f["rule"]: f for f in r["flags"]}
-        assert list(got) == ["piece_changes_far_more_than_it_usually_does"], list(got)
-        assert got["piece_changes_far_more_than_it_usually_does"]["source_frames"] == [[34, 39]], got
+        assert list(got) == ["changed_area_steps"], list(got)
+        assert got["changed_area_steps"]["source_frames"] == [[34, 34]], got["changed_area_steps"]
         assert r["pieces_with_no_capture"] == ["jumpy.mp4"], r["pieces_with_no_capture"]
-        return "no mask, a mask far away, a jump in area, nothing changed; none on a piece that stays on its subject"
+        return "no mask, a mask far away, a step in area, nothing changed; none on a piece that stays on its subject"
 
     def at_the_sources_size() -> str:
         code, r, out = deliver(TMP, "full", [(10, 29, PIECE_A, 10)], "5-34", "--size", "source")
@@ -481,7 +483,12 @@ with tempfile.TemporaryDirectory() as _tmp:
         got, _ = frame_planes(SOURCE, [dict(row)], 20, tool.Captures([no_run], (W, H)))
         assert box_mean(got, o, both) < 1.0 and box_mean(got, o, only_other) < 1.0, "with no run for the piece the other's whole mask was not given back"
         assert tool.read_table(table(TMP / "subject_row.txt", [(10, 39, PIECE_A, "10 restore=b")]))[0]["restore"] == [("b", None)]
-        return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's"
+        whole = {"piece": PIECE_A, "piece_first": 10, "restore": [("b", "whole")]}
+        got, _ = frame_planes(SOURCE, [whole], 20, tool.Captures([with_run], (W, H)))
+        assert box_mean(got, o, both) < 1.0 and box_mean(got, o, only_other) < 1.0, "`:whole` did not give back what both masks claim"
+        assert box_mean(got, a, only_own) < 1.0, "`:whole` gave back the piece's own subject where the other is not"
+        assert tool.read_table(table(TMP / "whole_row.txt", [(10, 39, PIECE_A, "10 restore=b:whole")]))[0]["restore"] == [("b", "whole")]
+        return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's, and goes back with `:whole`"
 
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)

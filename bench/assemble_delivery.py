@@ -44,7 +44,9 @@ restored pixels sit beside a large change is flagged: that edge is a join betwee
 `restore=<subject>` with no class gives back the whole of ANOTHER subject: wherever that subject's tracked mask
 is and the piece's own subject's is not (the piece's subject is its run's, from the capture). It is for a pass
 on one person whose region took in part of another: whatever it changed of the other person goes back to the
-source, and where the two masks both claim a pixel the piece keeps it.
+source, and where the two masks both claim a pixel the piece keeps it. `restore=<subject>:whole` takes nothing
+out: the piece is laid nowhere inside that subject's mask, for a pass that has no business there whoever is in
+front (a face pass and anybody else).
 
 **`--size source`** writes the file at the SOURCE's size and not the canvas's. Every frame is the source's own
 picture, never scaled, and only what a piece changed is put back over it, scaled up from the canvas to the
@@ -54,13 +56,15 @@ up by 1.39 the regenerated region read about as sharp and as busy as the source'
 at the canvas's size it read crisper; not judged on playback. The source must be BT.709, as the pieces are.
 
 **Flags** (in the check json, and in each capture folder given), each with frames and a figure, to be looked at
-and never a refusal: a piece that changes the picture on frames where its subject has no tracked mask at all
+and never a refusal (what a restore gave back is not counted against a piece): a piece that changes the picture
+on frames where its subject has no tracked mask at all
 (a pass that redrew somebody else; one was caught this way on 2026-10-10, past a cut the tracker had matched
 across wrongly); a piece that changes pixels further from its subject's tracked mask than its run's margin and
 a token (the new subject reaching further than the old one stood, or something else redrawn: the box says
-where); a piece whose changed area jumps against its own median (`JUMP`), which needs no capture and is what
-catches a tracker that followed the wrong person, since the mask it left then says the subject is there; two
-pieces changing the same pixels, with the box and how many were settled by a mask and how many by
+where); a piece whose changed area steps up or down between one frame and the next against the frames either
+side (`JUMP` over `STEP_FRAMES`), which needs no capture and is what catches a tracker that followed the wrong
+person past a cut, since the mask it left then says the subject is there; it names the frame of the step, and a
+change of framing steps too; two pieces changing the same pixels, with the box and how many were settled by a mask and how many by
 order; a piece that changes nothing on frames a row gives it; restored pixels beside a large change, and a restore with
 no mask or class map on some frames; and, at the source's size, a piece whose change reaches
 the edge the loader's crop cut at, beyond which only the source's picture exists. The first two need a capture; without one they
@@ -127,9 +131,13 @@ GROW = 8          # pixels a later piece's region is grown by; reasoned: costs n
 FEATHER = 3.0     # sigma of the edge's blur, pixels; reasoned: well inside GROW, so real change keeps full weight
 SPECK = 64        # changed pixels away from the subject under which nothing is flagged; reasoned: a blob the
                   # opening in `changed` lets through is a few pixels, a redrawn feature is hundreds
-JUMP = 2.5        # times a piece's own median changed area that is flagged as a jump; measured 2026-10-10 on four
-                  # renders of one clip: within a subject's shots the largest frame was 1.1 to 1.7 times the
-                  # median, and the pass that redrew the wrong person past a cut was 3.3 to 3.7 times
+JUMP = 2.5        # times the changed area must step by, between the frames before and the frames after, to be
+                  # flagged; measured 2026-10-10 on four renders of one clip: within a subject's shots the largest
+                  # frame was 1.1 to 1.7 times the median, and the pass that redrew the wrong person past a cut
+                  # was 3.3 to 3.7 times. As one median for a whole piece it lit 110 frames of a render whose
+                  # framing gets closer partway, so it is a step between neighbours now
+STEP_FRAMES = 12  # frames either side the step is read over; reasoned: half a second, longer than a blink of the
+                  # region and shorter than the shortest shot met so far
 TOKEN = 32        # pixels; inherited: a token is two latent cells of 16 a side (`bench/capture_masked_run.py::CELL`),
                   # and a region widened to whole tokens reaches that far past its margin
 MARGIN = 64       # pixels, when a capture's run names no margin; inherited: the Masked Source's default grow
@@ -206,7 +214,11 @@ def read_table(path) -> list[dict]:
                 raise SystemExit(f"{path}: `{token}` is not `restore=<subject>` or `restore=<subject>.<Class>[+<Class>...]`")
             label, dot, classes = value.partition(".")
             if not dot:
-                row["restore"].append((label, None))          # the subject's whole tracked mask
+                label, colon, how = label.partition(":")
+                if colon and how != "whole":
+                    raise SystemExit(f"{path}: `{token}`: after the colon only `whole` is known")
+                # the subject's tracked mask: less the piece's own subject (None), or with nothing taken out ("whole")
+                row["restore"].append((label, "whole" if colon else None))
                 continue
             names = class_names()
             wanted = []
@@ -217,6 +229,12 @@ def read_table(path) -> list[dict]:
             row["restore"].append((label, wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
+
+
+def restore_text(label, wanted) -> str:
+    if wanted is None or wanted == "whole":
+        return label + (":whole" if wanted else "")
+    return f"{label}." + "+".join(class_names()[c] for c in wanted)
 
 
 def segments(rows, span):
@@ -443,12 +461,14 @@ def restore_weight(row, captures, run, frame, shape):
     hard, grown = np.zeros(shape, bool), np.zeros(shape, bool)
     prefer = run[0] if run else None
     for label, wanted in row["restore"]:
-        if wanted is None:
-            # another subject, whole, less the piece's own: where both masks claim a pixel the piece keeps it
+        if wanted is None or wanted == "whole":
+            # another subject's tracked mask; less the piece's own unless the row says whole, so that where both
+            # masks claim a pixel the piece keeps it
             mask = captures.mask(label, frame, prefer=prefer) if captures else None
             if mask is None:
                 return np.zeros(shape, np.float32), None
-            own = captures.mask(run[2]["subject"], frame, prefer=prefer) if run and run[2]["subject"] != label else None
+            own = (captures.mask(run[2]["subject"], frame, prefer=prefer)
+                   if wanted is None and run and run[2]["subject"] != label else None)
             mask = mask & ~own if own is not None else mask
             hard |= mask
             wide = cv2.dilate(mask.astype(np.uint8), disc(RESTORE_GROW)).astype(bool)
@@ -568,7 +588,8 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                                         "join_px": int(ring.sum()), "join_box": box_of(ring)})
                     if s is not None and run is not None:
                         reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
-                        far = m & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
+                        laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
+                        far = laid & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
                         row.update({"away": int(far.sum()), "away_box": box_of(far), "subject_px": int(s.sum())})
                     record["rows"].setdefault(r["piece"], {})[n] = row
                 if len(rows) > 1:
@@ -684,15 +705,23 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                     "box": [int(boxes[:, 0].min()), int(boxes[:, 1].min()), int(boxes[:, 2].max()), int(boxes[:, 3].max())],
                                     "frames_with_a_mask": len(seen)},
                         "threshold": {"SPECK": SPECK, "reach_px": reach}})
-        usual = float(np.median([v["px"] for v in area.values()])) if area else 0.0
-        jump = {n: v["px"] for n, v in area.items() if usual and v["px"] > JUMP * usual}
-        if jump:
-            out.append({"rule": "piece_changes_far_more_than_it_usually_does", "level": LEVELS[1], **names,
-                        "source_frames": frame_spans(jump),
-                        "why": f"{names['piece']} changes up to {max(jump.values()) / usual:.1f} times its usual area on "
-                               f"{len(jump)} frame(s): a different shot, a different person, or a region that grew",
-                        "figures": {"frames": len(jump), "worst_px": max(jump.values()), "usual_px": int(usual)},
-                        "threshold": {"JUMP": JUMP}})
+        frames_, px = sorted(area), np.array([area[n]["px"] for n in sorted(area)], np.float64)
+        steps = []
+        for i in range(4, len(px) - 4):
+            if frames_[i] != frames_[i - 1] + 1:
+                continue
+            before, after = float(np.median(px[max(0, i - STEP_FRAMES):i])), float(np.median(px[i:i + STEP_FRAMES]))
+            if min(before, after) > SPECK and max(before, after) > JUMP * min(before, after):
+                steps.append((abs(px[i] - px[i - 1]), max(before, after) / min(before, after), frames_[i], before, after))
+        found = []
+        for group in frame_spans([t[2] for t in steps]):             # one step lights the frames round it: keep the frame
+            found.append(max(t for t in steps if group[0] <= t[2] <= group[1])[1:])      # where the area itself moves most
+        if found:
+            out.append({"rule": "changed_area_steps", "level": LEVELS[1], **names, "source_frames": [[n, n] for _, n, _, _ in found],
+                        "why": f"the area {names['piece']} changes steps by {JUMP:g} times or more at " + ", ".join(
+                            f"{n} ({b:.0f} to {a:.0f} px)" for _, n, b, a in found) + ": a cut, a change of framing, or another person",
+                        "figures": {"steps": len(found), "largest_ratio": round(max(r for r, _, _, _ in found), 2)},
+                        "threshold": {"JUMP": JUMP, "STEP_FRAMES": STEP_FRAMES}})
         join = {n: v for n, v in area.items() if (v.get("join_px") or 0) > JOIN_PX}
         if join:
             boxes = np.array([v["join_box"] for v in join.values()])
@@ -781,8 +810,7 @@ def check(args, segs, canvas, span, src, rows, captures):
     result = {"out": args.out, "source": os.path.basename(args.source), "span": list(span), "frames_expected": many,
               "size": [ow, oh], "at": args.size, "soften_sigma": args.soften, "failures": [],
               "table": [{"frames": [r["first"], r["last"]], "piece": r["piece"], "piece_first": r["piece_first"],
-                         "restore": [label if wanted is None else f"{label}.{'+'.join(class_names()[c] for c in wanted)}"
-                                     for label, wanted in r.get("restore") or []]} for r in rows],
+                         "restore": [restore_text(label, wanted) for label, wanted in r.get("restore") or []]} for r in rows],
               "captures": [str(folder) for folder, _ in captures.folders] if captures else [],
               "checked": datetime.datetime.now().isoformat(timespec="seconds"), **({"note": args.note} if args.note else {})}
     if full:
@@ -978,8 +1006,7 @@ def main():
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(
             f"{os.path.basename(r['piece'])}[{first - r['piece_first']}-{last - r['piece_first']}]"
-            + "".join(f" less {label}" + ("" if wanted is None else "." + "+".join(class_names()[c] for c in wanted))
-                      for label, wanted in r["restore"])
+            + "".join(" less " + restore_text(label, wanted) for label, wanted in r["restore"])
             for r in covering) or "original"),
             flush=True)
     if not args.check_only:

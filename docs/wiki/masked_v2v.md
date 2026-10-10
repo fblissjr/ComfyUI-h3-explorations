@@ -607,8 +607,9 @@ covers taken from the original, and passes over the same frames merged by
 what each changed. It proves by decode that no frame was dropped, doubled or
 moved and that the audio is the source's, and it raises its own flags from
 the per-frame table of what each render changed: a pass that redrew
-something on frames its subject has no mask on, far from its subject, far
-more than it usually does, or the same pixels as another pass. Given capture
+something on frames its subject has no mask on, far from its subject, with
+an area that steps at some frame (a cut, a change of framing, or another
+person), or the same pixels as another pass. Given capture
 folders (`--capture`) it settles shared pixels by whose mask they lie in
 before falling back on the table's order, and writes its table and flags
 into them. With `--size source` the file is at the source's own size: every
@@ -622,7 +623,8 @@ asking the sampler to keep it, which changes what the sampler draws beside
 it. With no class (`restore=<subject>`) a row gives back the whole of
 another subject: wherever that subject's tracked mask is and the piece's own
 subject's is not, so a pass on one person never shows what it changed of
-another. Judge a
+another; `restore=<subject>:whole` takes nothing out, for a pass that has no
+business inside the other's mask whoever is in front. Judge a
 render's colour on this file: it is BT.709 and says so,
 as renders are since the song node's writer converts and tags, and a render
 written before that plays off in a player that guesses the matrix from the
