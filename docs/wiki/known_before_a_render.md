@@ -118,3 +118,21 @@ renders after it.
   only (the board, `route-second-person-as-face-and-hair-only`). The strap
   was visible in stills a session had looked at and reported "as seen":
   a still read for one question does not answer another.
+- **2026-10-10 (mrdeer): the small face has a warning in the gate, and no
+  measure of likeness.** `face_small_in_tokens`, iffy
+  (`bench/capture_masked_run.py::flag_face_size`, `FACE_TOKENS`): the
+  height, in the model's tokens, of the face part a pass will replace. The
+  line is unmeasured and the constant's comment says so: it sits between the
+  two cases there are. It warns; it does not predict. What would predict
+  "reads as the reference's person" is a reading of likeness to the
+  reference, which nothing here makes; one try with the tracker's own
+  signature is proposed and not run.
+- **2026-10-10 (mrdeer): the three loads that ended on the source hold with
+  the tail's region open.** One change each against the render that faded;
+  `changed`'s `ends_on_the_source` is empty on all three and the per-frame
+  curves are in the captures' `runs/<run>/changed.json`
+  (`data/2026-10-10_fun_face_street_0438_tail`,
+  `data/2026-10-10_fun_kitchen_shot2_tails_1010`; untracked). On the two
+  faces the back half of the load rose as well as its last frames: the held
+  frames had been pulling for longer than the fall at the end showed. One
+  seed each.
