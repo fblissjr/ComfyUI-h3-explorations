@@ -486,9 +486,50 @@ follow, and both are arithmetic that needs no render:
   arithmetic names, and the three cuts it puts on a step's edge had none
   (`data/CAPTURE_GAPS.md`, U5; `bench/capture_masked_run.py`'s
   `region_carried_across_a_cut` is the flag).
-- **The load's first frame is a lever.** Moving it by fewer frames than the
-  cycle is long moves every step's edge with it, so the cut that matters
-  most can be put on an edge. All of a load's cuts cannot be, in general.
+- **The load's first frame is a lever, for a load with few cuts.** Moving
+  it by fewer frames than the cycle is long moves every step's edge with
+  it, so the cut that matters most can be put on an edge.
+  `loop_plan.split_steps` lists the steps a load splits and
+  `loop_plan.first_frame_choices` orders every start one cycle back by how
+  many frames it lays across a cut (`bench/check_audio_freeze.py`, the
+  step grid case). All of a load's cuts cannot be cleared in general: a
+  cut is on an edge for as many starts as the cycle has steps, out of as
+  many as it has frames, so the chance that one start clears several cuts
+  falls with each cut. On the first clip's whole-subject piece no start
+  cleared every cut the subject is beside; the function's output on that
+  check's cuts and shots is the record.
+
+**The cycle is the video VAE's, and the decode is not local to a step.** A
+reading of core's code (`comfy/ldm/minimax/vae.py`: `MiniMaxH3VideoVAE`'s
+`encode_temporal`, `decode_temporal` and `blend`, `ViT3DDecoder.forward`),
+made 2026-10-10, with nothing run:
+
+- The VAE cuts a video into clips of `clip_length` frames and that length
+  is one cycle of `FRAME_PER_TOKEN`: the encoder's `time_down` gives the
+  frames a token holds, and `frame_pre_padding` is why a clip's first
+  token holds one. So a load's first frame fixes the VAE's clip boundaries
+  as well as the step edges. They are one grid.
+- **Encode: each clip by itself.** The clips are encoded in a loop, one at
+  a time, a short last clip padded with copies of its last frame. Inside a
+  clip the convolutions are causal and the norms are per frame. A latent
+  step is therefore shaped by its own frames and by earlier frames of its
+  own clip, by no later frame, and by nothing outside its clip.
+- **Decode: a window of steps at once.** The decoder is a transformer over
+  a clip's tokens and the next clip's first `token_overlap` of them, every
+  token attending to every other inside a spatial tile of `tile_size`
+  pixels. Every decoded frame of a clip is shaped by every step of its
+  clip and the head of the next. The first `frame_overlap` frames of each
+  clip after the first are a linear cross-fade from the previous window's
+  decode of those same frames, and the clip's first frame is taken from
+  the previous window whole.
+
+So no frame beside a cut is decoded from its own step alone, on either
+side, whether or not the cut splits a step. That is how any clip with a
+cut decodes with no mask at all, and is not a fault by itself. What is
+special to a split step is the latent: one token holds frames of two
+shots, and inside the region the sampler has to make that token up.
+Whether the frames on the subject's side of such a token are worse than
+their neighbours is not measured.
 
 What the lane does about a split step today: the composite lays nothing on
 the frames of a step that lie across a cut from every frame the subject is

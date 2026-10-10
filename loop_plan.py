@@ -36,6 +36,13 @@ the next values, or per window with no timeline. The node fills them through
 
 (`prompt_mode`, random window lengths and `frames:` lines went on 2026-09-14;
 the owner cut them for the timeline.)
+
+**The step grid.** A latent step is a run of frames (core's `FRAME_PER_TOKEN`,
+a cycle of `STEP_CYCLE` frames), and every window of a load starts a whole
+number of cycles after the load's first frame, so a load cuts its steps at the
+same frames in every window. A cut of the source that falls inside a step
+gives that step frames of two shots (`split_steps`); which cuts those are is
+set by the load's first frame alone (`first_frame_choices`).
 """
 
 from __future__ import annotations
@@ -44,6 +51,7 @@ import math
 import re
 from dataclasses import dataclass
 
+from comfy.ldm.minimax.model import FRAME_PER_TOKEN
 from comfy_extras.nodes_minimax_h3 import FPS
 
 # Lengths on both clocks: video runs (17k + 5) whose frame count is a multiple
@@ -53,6 +61,10 @@ CHAIN_LENGTHS = (141, 192, 243, 294, 345)
 #: moves in these steps and a timeline entry lands within half of one.
 #: Inherited from the grid above.
 GRID = 51
+#: Frames in one cycle of latent steps. Every length in `CHAIN_LENGTHS` and every context
+#: `check_window_settings` allows is the same count past a multiple of it, so what a window adds is a
+#: whole number of cycles. Inherited from core's `FRAME_PER_TOKEN`.
+STEP_CYCLE = sum(FRAME_PER_TOKEN)
 
 TIMELINE_LINE = re.compile(r"^(\d+):([0-5]\d(?:\.\d+)?)\s+(\S.*)$")
 BLOCK_LINE = re.compile(r"^---(.*)$")
@@ -384,3 +396,81 @@ def place_windows(plan: Plan, filled: list[str], context_frames: int) -> list[Wi
                     f"{m.group(1)}:{m.group(2)}; some windows are shorter than window_frames, so move "
                     "the cut earlier or give that entry a block of its own")
     return windows
+
+
+def step_span(frame: int) -> tuple[int, int]:
+    """The first frame and the length of the latent step that holds `frame`, both counted from a load's
+    first frame. The same in every window of the load ("The step grid" above)."""
+    frame = int(frame)
+    if frame < 0:
+        raise ValueError(f"frame {frame} is before the load's first frame")
+    at = frame // STEP_CYCLE * STEP_CYCLE
+    for n in FRAME_PER_TOKEN:
+        if frame < at + n:
+            return at, n
+        at += n
+    raise AssertionError("a cycle of FRAME_PER_TOKEN holds every frame of it")
+
+
+def split_steps(cuts, first_frame: int = 0, present=None, frames: int | None = None) -> list[dict]:
+    """The latent steps of a load that hold frames of more than one shot, and what that does to each.
+
+    `cuts` are frames of the source that start a shot and `first_frame` the source frame the load starts on.
+    `present` is the frames the subject is on, as `(first, last)` ranges of source frames, both ends counted
+    (a shot table's shots with the subject, or finer); None is "on every frame", the worst case for the
+    region. `frames` is the load's length when the load stops before the cuts do.
+
+    One entry per split step, in source frames: `step` (its first and last frame), `cuts` (those inside it),
+    `across` (frames on a side of a cut the subject is on no frame of, while another side has it: the
+    region is carried onto another shot's picture; `video_mask.cut_gate` leaves them as the source's) and
+    `shared` (frames of the sides that have the subject, when more than one does: each side is given the
+    other side's region too). A step no side of which has the subject is not listed: nothing regenerates.
+    The rule is `cut_gate`'s, on ranges where that one reads a mask.
+    """
+    first = int(first_frame)
+    end = None if frames is None else first + int(frames)
+    on = None if present is None else [(int(a), int(b)) for a, b in present]
+    inside: dict[int, list[int]] = {}
+    for cut in sorted({int(c) for c in cuts}):
+        if cut <= first or (end is not None and cut >= end):
+            continue
+        at, _n = step_span(cut - first)
+        if first + at != cut:
+            inside.setdefault(at, []).append(cut)
+    out = []
+    for at, held in sorted(inside.items()):
+        a, n = step_span(at)
+        last = first + a + n if end is None else min(first + a + n, end)
+        edges = [first + a] + held + [last]
+        sides = list(zip(edges, edges[1:]))
+        has = [on is None or any(x < b and y >= lo for x, y in on) for lo, b in sides]
+        if not any(has):
+            continue
+        across = [f for (lo, b), h in zip(sides, has) if not h for f in range(lo, b)]
+        shared = [f for (lo, b), h in zip(sides, has) if h for f in range(lo, b)] if sum(has) > 1 else []
+        out.append({"step": [first + a, last - 1], "cuts": held, "across": across, "shared": shared})
+    return out
+
+
+def first_frame_choices(cuts, first_frame: int, present=None, frames: int | None = None) -> list[dict]:
+    """`split_steps` for each start of a load from `first_frame` back to one cycle of latent steps before it,
+    the best first.
+
+    Starting a load a few frames early moves every step's edge by as many, so a cut that splits a step
+    under one start falls on an edge under another. A load only ever starts earlier here: the frames from
+    `first_frame` on are all still rendered, and the ones before it are the caller's to drop. A start
+    before frame zero is left out. With `frames` (the length from `first_frame`) the load's end stays
+    where it was.
+
+    Each entry: `first_frame`, `earlier` (how many frames before the one asked for), `split` (the steps),
+    `across` and `shared` (how many frames of each). Ordered by fewest frames of the two together, then
+    fewest split steps, then fewest frames added. Reasoned, not measured: whether a frame of a split step
+    on the subject's own side is any worse than its neighbours is not known (2026-10-10).
+    """
+    first = int(first_frame)
+    out = []
+    for k in range(min(STEP_CYCLE, first + 1)):
+        split = split_steps(cuts, first - k, present, None if frames is None else int(frames) + k)
+        out.append({"first_frame": first - k, "earlier": k, "split": split,
+                    "across": sum(len(s["across"]) for s in split), "shared": sum(len(s["shared"]) for s in split)})
+    return sorted(out, key=lambda c: (c["across"] + c["shared"], len(c["split"]), c["earlier"]))
