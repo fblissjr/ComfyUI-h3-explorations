@@ -107,6 +107,13 @@ of known place and size into them, and reads the tool's answers back.
     reading of the render (`runs/<run>/changed.json`) says the render ends on the source on frames the row lays,
     the build fails on the capture's word. Three real short loads ended this way and every other proof passed
     them.
+20. **A piece rendered zoomed in.** A piece, the picture it was rendered from at twice the size inside a box, and
+    the json saying the box, made so that the piece is exactly that picture reduced into the box. At the source's
+    size the file passes, its record names the zoomed file and reads the two as agreeing, and inside the region the
+    delivered picture carries more of the zoomed file's fine stripes than the same piece laid without it; at the
+    canvas's size the zoomed file is not used and the file is the plain piece's. With the box in the json moved
+    eight pixels the build fails on the agreement and names the piece. Refused before anything is read: no zoomed
+    file beside the json, a zoomed file with another frame count, a box not fixed, another run's name.
 
 ## Running it
 
@@ -1080,6 +1087,74 @@ with tempfile.TemporaryDirectory() as _tmp:
                 f"{held_to:.2f} of its middle on its last frame and passes; cut short of the thinned frames it passes; the capture's own reading "
                 "of the render fails a row that lays the frames it names")
 
+    def a_zoomed_piece() -> str:
+        import torch.nn.functional as F
+        base = WHOLE[10:40]
+        box = (64, 48, 192, 144)                                   # at the canvas; twice its size is the canvas: zoom 2
+        bx0, by0, bx1, by1 = box
+        inside = base[:, by0:by1, bx0:bx1].permute(0, 3, 1, 2)
+        zoomed = F.interpolate(inside, size=(H, W), mode="bilinear", align_corners=False).permute(0, 2, 3, 1).clone()
+        zx0, zy0, zx1, zy1 = 60, 40, 200, 150                      # what the render changed, in the zoomed picture
+        # stripes one zoomed pixel wide: reduced to the canvas they are a flat grey, so the piece cannot hold them
+        # and only a picture taken from the zoomed file can
+        stripes = (torch.arange(zx0, zx1) % 2).float().view(1, 1, -1, 1)
+        # and bands sixteen zoomed pixels wide, which the piece does hold: what a box in the wrong place disagrees on
+        bands = ((torch.arange(zx0, zx1) // 16) % 2).float().view(1, 1, -1, 1)
+        zoomed[:, zy0:zy1, zx0:zx1] = (zoomed[:, zy0:zy1, zx0:zx1] * 0.4 + 0.1 + 0.25 * bands + 0.25 * stripes).clamp(0, 1)
+        down = F.avg_pool2d(zoomed.permute(0, 3, 1, 2), 2).permute(0, 2, 3, 1)
+        piece = base.clone()
+        px0, py0, px1, py1 = bx0 + zx0 // 2, by0 + zy0 // 2, bx0 + zx1 // 2, by0 + zy1 // 2
+        piece[:, py0:py1, px0:px1] = down[:, zy0 // 2:zy1 // 2, zx0 // 2:zx1 // 2]      # the node's own laying back, exactly
+
+        def pair(name, frames=None, **said):
+            path = write(name, piece)
+            write(name + "_zoomed", zoomed if frames is None else zoomed[:frames])
+            note = {"file": tool.ZOOM_FILE, "version": 1, "run": name, "piece": f"{name}.mp4", "zoomed": f"{name}_zoomed.mp4", "frames": 30,
+                    "canvas": [W, H], "source_size": [W, H], "box": list(box), "fixed": True, "zoom": 2.0, "region_cut_at_box_sides": [], **said}
+            (TMP / f"{name}_zoomed.json").write_text(json.dumps(note))
+            return path
+
+        def detail(path) -> float:
+            """How much the delivered picture changes from one source pixel to the next, inside the region."""
+            cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
+            y = tool.planes(next(tool.source_frames(str(path), 10, 10, SW, SH)), SW, SH)[0]
+            a, b = x0 + (px0 + 4) * cw // W, x0 + (px1 - 4) * cw // W
+            c, d = y0 + (py0 + 4) * ch // H, y0 + (py1 - 4) * ch // H
+            return float(np.abs(np.diff(y[c:d, a:b], axis=1)).mean())
+        code, r, with_it = deliver(TMP, "zoom_full", [(10, 39, pair("zoom_good"), 10)], "10-39", "--size", "source")
+        z = r["zoomed"][0] if r.get("zoomed") else None
+        assert code == 0 and z and z["picture_from"] == "zoom_good_zoomed.mp4" and z["agreement_levels_worst_frame"][0] < tool.ZOOM_AGREES / 2 \
+            and z["frames_read"] == 30 and z["region_px_outside_the_box_most"] == 0, (code, r["failures"], z)
+        code, r, without = deliver(TMP, "zoom_plain", [(10, 39, write("zoom_no_files", piece), 10)], "10-39", "--size", "source")
+        assert code == 0 and r["zoomed"] == [], (code, r["zoomed"])
+        fine, coarse = detail(with_it), detail(without)
+        assert fine > 1.3 * coarse, f"the picture laid from the zoomed file carries no more of its stripes ({fine:.2f}) than the piece laid alone ({coarse:.2f})"
+        # at the canvas's size the zoomed file is not used: the file is the piece's
+        code, r, small = deliver(TMP, "zoom_canvas", [(10, 39, pair("zoom_good_canvas"), 10)], "10-39")
+        code2, _r, small_plain = deliver(TMP, "zoom_canvas_plain", [(10, 39, write("zoom_no_files_canvas", piece), 10)], "10-39")
+        apart = float(np.abs(planes_of(str(small), 20)[0] - planes_of(str(small_plain), 20)[0]).mean())
+        assert code == 0 and code2 == 0 and "not used" in r["zoomed"][0]["picture_from"] and apart < 0.5, (code, code2, r["zoomed"], apart)
+        # the box in the json moved: the two are no longer one picture inside the region
+        moved = [bx0 + 8, by0, bx1 + 8, by1]
+        code, r, _ = deliver(TMP, "zoom_moved", [(10, 39, pair("zoom_moved_box", box=moved), 10)], "10-39", "--size", "source")
+        assert code == 1 and any("is not the piece's picture inside the region" in f and "zoom_moved_box.mp4" in f for f in r["failures"]), (code, r["failures"])
+        # refused before anything is read
+        refused = {}
+        for name, break_it in (("no zoomed file", lambda n: (TMP / f"{n}_zoomed.mp4").unlink()), ("another frame count", None),
+                               ("a box not fixed", None), ("another run's name", None)):
+            stem = "zoom_bad_" + name.replace(" ", "_").replace("'", "")
+            path = pair(stem, **({"fixed": False} if name == "a box not fixed" else {"run": "somebody_else"} if name == "another run's name" else {}),
+                        frames=20 if name == "another frame count" else None)
+            if break_it:
+                break_it(stem)
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(table(TMP / f"{stem}.txt", [(10, 39, path, 10)])),
+                                   "--span", "10-39", "--size", "source", "--out", str(TMP / f"{stem}_out.mp4")], capture_output=True, text=True)
+            refused[name] = (proc.returncode != 0 and "_zoomed.json" in (proc.stderr + proc.stdout) and not (TMP / f"{stem}_out.mp4").exists())
+        assert all(refused.values()), f"not refused before anything was written: {[k for k, v in refused.items() if not v]}"
+        return (f"laid from the zoomed file the region changes {fine:.1f} levels a source pixel against {coarse:.1f} from the piece alone; the two "
+                f"agree to {z['agreement_levels_worst_frame'][0]} levels; a box moved eight pixels fails; four malformed pairs are refused; "
+                "at the canvas's size the zoomed file is not used")
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -1099,4 +1174,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a shot where a named subject is the source's own", shots_left_as_the_source)
     case("a frame its run carried no mask on", no_mask_no_lay)
     case("a row that ends or begins on the source's own picture", ends_on_the_source)
+    case("a piece rendered zoomed in", a_zoomed_piece)
 sys.exit(finish())

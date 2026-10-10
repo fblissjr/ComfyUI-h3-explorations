@@ -128,6 +128,19 @@ than `SHOWN` of that has an earlier row laid over it, and the build says which r
 below cannot see this: a file can be exactly the frames that were fed and the frames fed can be the wrong
 row's.
 
+**A piece rendered zoomed in.** A subject too small to read can be rendered with the model looking at a box round
+them: the node crops, renders and lays the result back, so the piece is an ordinary full-frame piece and
+everything above holds for it unchanged. Beside it the node writes the picture it rendered at the box's size
+(`<piece's name>_zoomed.mp4`) and the box (`<piece's name>_zoomed.json`; `audio_freeze_song.zoomed_record`). When
+those are there, a file at the SOURCE's size takes the PICTURE inside the region from the zoomed file, scaled once
+into the box's place, where the piece's own pixels are that same picture already reduced to the canvas: the
+region, every rule and every proof are still read on the piece. Found by the piece's name, never typed into a
+table. One proof is added: inside the region and clear of its edge, the zoomed picture scaled into the box must
+agree with the piece (`ZOOM_AGREES`), frame by frame; a wrong box, or a frame out of step, fails the build there.
+Refused before anything is read: a json with no zoomed file, another frame count or canvas than the piece's, a box
+that is not fixed over the piece, a box given in frames of another size than the canvas (the only form the node
+writes today), or another run's name. A file at the canvas's size does not use the zoomed file at all.
+
 **A frame its run carried no mask on is the source's.** A masked render regenerates by latent step, and a step
 is several frames: on a frame where the subject's part was emptied (turned away, behind a hat's brim) the sampler
 still drew a region if another frame of the same step had one, and the render carries a face nobody asked for,
@@ -393,6 +406,40 @@ def read_table(path) -> list[dict]:
             row["restore"].append((label, wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
+
+
+def zoomed_of(piece: str, info: dict) -> dict | None:
+    """What a zoomed piece has beside it, or None for an ordinary piece: {"path", "box" (x0, y0, x1, y1 at the canvas),
+    "zoom", "cut_at_box_sides"}. `info` is the piece's own probe. Anything that does not fit the piece stops the build."""
+    stem = os.path.splitext(piece)[0]
+    note, picture = stem + ZOOMED + ".json", stem + ZOOMED + ".mp4"
+    if not os.path.isfile(note):
+        return None
+    held = json.loads(open(note, encoding="utf-8").read())
+
+    def stop(why):
+        raise SystemExit(f"{os.path.basename(note)}: {why}. A zoomed piece is laid from its own two files or not at all")
+    if held.get("file") != ZOOM_FILE:
+        stop(f"it says it is {held.get('file')!r}, not {ZOOM_FILE!r}")
+    if not os.path.isfile(picture):
+        stop(f"{os.path.basename(picture)} is not beside it")
+    if held.get("run") != os.path.basename(stem):
+        stop(f"it is of the run {held.get('run')!r} and the piece is {os.path.basename(stem)!r}")
+    if held.get("fixed") is not True:
+        stop("its box is not fixed over the piece")
+    size = [info["width"], info["height"]]
+    if list(held.get("canvas", [])) != size or list(held.get("source_size", [])) != size:
+        stop(f"its canvas is {held.get('canvas')} and its box is in frames of {held.get('source_size')}; the piece is {size} and a box "
+             "in frames of another size than the canvas is not read yet")
+    other = probe(picture)
+    if (other["width"], other["height"], other["frames"]) != (info["width"], info["height"], info["frames"]) or int(held.get("frames", -1)) != info["frames"]:
+        stop(f"the zoomed file is {other['width']}x{other['height']} with {other['frames']} frames (the json says {held.get('frames')}); "
+             f"the piece is {info['width']}x{info['height']} with {info['frames']}")
+    box = [int(v) for v in held.get("box", [])]
+    if len(box) != 4 or not (0 <= box[0] < box[2] <= size[0] and 0 <= box[1] < box[3] <= size[1]) or any(v % 2 for v in box):
+        stop(f"its box {held.get('box')} is not four whole even numbers inside the {size[0]}x{size[1]} frame")
+    return {"path": picture, "box": box, "zoom": held.get("zoom"), "cut_at_box_sides": list(held.get("region_cut_at_box_sides") or []),
+            "matrix": other["matrix"]}
 
 
 def read_intents(path) -> list[dict]:
@@ -835,9 +882,21 @@ def crop_of(sw, sh, w, h):
     return cw, ch, ((sw - cw) // 2) & ~1, ((sh - ch) // 2) & ~1
 
 
-def laid_over(base, pieces, owner, box, held=None):
+def box_at_the_source(zbox, box, canvas):
+    """A zoomed piece's box (x0, y0, x1, y1 at the canvas) as whole even pixels of the loader's crop of the source:
+    (x0, y0, x1, y1) inside the crop, and how far each edge was moved to get there, in source pixels."""
+    cw, ch, _x0, _y0 = box
+    w, h = canvas
+    exact = (zbox[0] * cw / w, zbox[1] * ch / h, zbox[2] * cw / w, zbox[3] * ch / h)
+    whole = tuple(int(round(v / 2.0)) * 2 for v in exact)
+    return whole, tuple(round(a - b, 3) for a, b in zip(whole, exact))
+
+
+def laid_over(base, pieces, owner, box, held=None, zoomed=None):
     """At the source's size: the source's own planes with every piece's changed region scaled up and laid over,
-    less what `held[i]` says piece i is not to be laid on."""
+    less what `held[i]` says piece i is not to be laid on. `zoomed[i]`, when a piece was rendered zoomed in, is
+    (its zoomed picture's planes, its box at the canvas): inside the box the picture is taken from those, scaled
+    once into the box's place, in place of the piece's own pixels enlarged."""
     cw, ch, x0, y0 = box
     out = [p.copy() for p in base]
     for i, piece in enumerate(pieces):
@@ -846,9 +905,15 @@ def laid_over(base, pieces, owner, box, held=None):
         small = weight_of(owner, i) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
         weight = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
         half = cv2.resize(weight, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
+        place = box_at_the_source(zoomed[i][1], box, small.shape[::-1])[0] if zoomed is not None and zoomed[i] is not None else None
         for k, (wgt, (pw, ph, px, py)) in enumerate(((weight, (cw, ch, x0, y0)), (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)),
                                                      (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)))):
             up = cv2.resize(piece[k], (pw, ph), interpolation=cv2.INTER_CUBIC)
+            if place is not None:
+                a, b, c, d = (v // (1 if k == 0 else 2) for v in place)
+                src = zoomed[i][0][k]
+                smaller = (c - a) < src.shape[1]
+                up[b:d, a:c] = cv2.resize(src, (c - a, d - b), interpolation=cv2.INTER_AREA if smaller else cv2.INTER_CUBIC)
             view = out[k][py:py + ph, px:px + pw]
             view += (up - view) * wgt
     return to_bytes(out)
@@ -892,10 +957,15 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
         whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
         runs = [run_for(r, captures) for r in rows]
         got = 0
+        # a zoomed piece's own picture, frame for frame beside it (a file at the source's size lays from it; the
+        # agreement proof reads it at either size)
+        zooms = [iter(piece_frames({"piece": r["zoomed"]["path"], "piece_first": r["piece_first"], "matrix": r["zoomed"]["matrix"]},
+                                   first, last, w, h)) if r.get("zoomed") else None for r in rows]
         for k, (obuf, sbuf, *pbufs) in enumerate(zip(orig, whole, *(piece_frames(r, first, last, w, h) for r in rows))):
             n = first + k
             o = planes(obuf, w, h)
             pieces = [planes(b, w, h) for b in pbufs]
+            zoomed = [(planes(next(z), w, h), r["zoomed"]["box"]) if z is not None else None for z, r in zip(zooms, rows)]
             diffs = [difference(p, o) for p in pieces]
             hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
             # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
@@ -947,6 +1017,18 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                         laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
                         far = laid & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
                         row.update({"away": int(far.sum()), "away_box": box_of(far), "subject_px": int(s.sum())})
+                    zi = zoomed[rows.index(r)]
+                    if zi is not None:
+                        # the zoomed picture scaled into its box at the canvas against the piece, inside the region
+                        # and clear of its edge: the piece is that picture laid back by the node
+                        bx0, by0, bx1, by1 = zi[1]
+                        down = cv2.resize(zi[0][0], (bx1 - bx0, by1 - by0), interpolation=cv2.INTER_AREA)
+                        inner = cv2.erode(m.astype(np.uint8), disc(ZOOM_CLEAR)).astype(bool)[by0:by1, bx0:bx1]
+                        apart = np.abs(down - pieces[rows.index(r)][0][by0:by1, bx0:bx1])
+                        outside = int(m.sum()) - int(m[by0:by1, bx0:bx1].sum())
+                        row["zoomed"] = {"px": int(inner.sum()), "region_px_outside_the_box": outside,
+                                         "median": float(np.median(apart[inner])) if inner.any() else None,
+                                         "p99": float(np.percentile(apart[inner], 99)) if inner.any() else None}
                     record["rows"].setdefault(r["piece"], {})[n] = row
                 if len(rows) > 1:
                     record["shared"][n] = shared
@@ -971,7 +1053,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     record["rows"][r["piece"]][n]["laid"] = shows      # what of this row is in the file on this frame
             got += 1
             if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box, held)
+                yield laid_over(planes(sbuf, *full), pieces, owner, box, held, zoomed)
                 continue
             untouched = len(rows) == 1 and held[0] is None
             frame = pbufs[0] if untouched else merged(pieces, owner, held, o)
@@ -1756,6 +1838,26 @@ def check(args, segs, canvas, span, src, rows, captures):
             **({"restored_px_per_frame": [v.get("restored_px") for v in area.values()],
                 "restored_beside_a_large_change_px_per_frame": [v.get("join_px") for v in area.values()]}
                if any("restored_px" in v for v in area.values()) else {})}
+    result["zoomed"] = []
+    for row in {r["piece"]: r for r in rows if r.get("zoomed")}.values():
+        seen = {n: v["zoomed"] for n, v in record["rows"].get(row["piece"], {}).items() if v.get("zoomed") and v["zoomed"]["median"] is not None}
+        place, moved = box_at_the_source(row["zoomed"]["box"], crop_of(src["width"], src["height"], w, h), (w, h)) if full else (None, None)
+        entry = {"piece": os.path.basename(row["piece"]), "picture_from": os.path.basename(row["zoomed"]["path"]) if full else "not used: a file at the canvas's size",
+                 "box_at_the_canvas": row["zoomed"]["box"], "zoom": row["zoomed"]["zoom"],
+                 "box_in_the_loader's_crop_of_the_source": list(place) if place else None, "edges_moved_to_whole_even_pixels_by": list(moved) if moved else None,
+                 "region_cut_at_box_sides": row["zoomed"]["cut_at_box_sides"], "frames_read": len(seen),
+                 "agreement_levels_median_of_frames": round(float(np.median([v["median"] for v in seen.values()])), 2) if seen else None,
+                 "agreement_levels_worst_frame": (lambda n: [round(seen[n]["median"], 2), n])(max(seen, key=lambda n: seen[n]["median"])) if seen else None,
+                 "agreement_p99_worst_frame": round(max(v["p99"] for v in seen.values()), 2) if seen else None,
+                 "region_px_outside_the_box_most": max((v["zoomed"]["region_px_outside_the_box"] for v in record["rows"].get(row["piece"], {}).values() if v.get("zoomed")), default=0)}
+        result["zoomed"].append(entry)
+        apart = sorted(n for n, v in seen.items() if v["median"] > ZOOM_AGREES)
+        if apart:
+            fail(f"{entry['piece']}: its zoomed picture, scaled into the box {row['zoomed']['box']}, is not the piece's picture inside the region "
+                 f"on {len(apart)} frame(s) (frames {frame_spans(apart)[:6]}; worst {entry['agreement_levels_worst_frame'][0]} levels at the median on "
+                 f"{entry['agreement_levels_worst_frame'][1]}, the line is {ZOOM_AGREES:g}): a wrong box, or a frame out of step"
+                 + ("; the node says its region is cut at the box's " + ", ".join(entry["region_cut_at_box_sides"]) + " side(s), which can read so"
+                    if entry["region_cut_at_box_sides"] else ""))
     result["rows_shown"] = []
     for (piece, first_, last_), (meant, shown, n_frames) in record.get("shown", {}).items():
         share = shown / meant if meant else None
@@ -1809,6 +1911,15 @@ END_LAST = 1 / 3   # of the middle's level: the outermost frame under it, and th
 END_RUN = 2 / 3    # of the middle's level: the frames from that end that stay under it are the run that is named
 TAIL = 12          # frames at an end whose mean is written beside the middle's, for a slide too slow to trip END_LAST
 READ_LEAST = 12    # frames of a row in a shot under which an end is not read; the capture tool's own (`END_LEAST`)
+ZOOMED = "_zoomed"            # the two files a zoomed piece has beside it: <stem>_zoomed.json and <stem>_zoomed.mp4
+ZOOM_FILE = "h3 zoomed piece"
+ZOOM_CLEAR = 12               # canvas pixels the agreement is read clear of the region's edge by; reasoned: past this
+                              # tool's own grow (GROW) and a feather of a few pixels, where the piece holds the whole
+                              # frame's plate under the remaining weight and the two differ by design
+ZOOM_AGREES = 4.0             # levels of luma, a frame's median: over it the zoomed picture is not the piece's. Measured
+                              # 2026-10-10 on ONE real pair (a street shot at zoom 1.6): 0.94 at the median of its
+                              # frames and 1.2 on its worst; with the box in the json moved 4 canvas pixels, 7.7 and
+                              # 14.2; moved 16, 24.7 and 50.9
 PEOPLE_FLAG = "absent_with_people_on_screen"   # the capture's rule name (`bench/capture_masked_run.py`), read from its flags.json
 LOCKS = "LOCKED.md"   # beside the files it names
 LOCK_LINE = re.compile(r"^\s*[-*]\s+`([^`]+)`(?:\s+md5\s+([0-9a-fA-F]{32}))?")
@@ -1882,6 +1993,7 @@ def main():
         if info["matrix"] not in ("unknown", "bt709", "smpte170m", "bt470bg"):
             raise SystemExit(f"{r['piece']} is tagged {info['matrix']}; this knows bt709, and untagged or BT.601 values")
         r["matrix"] = info["matrix"]
+        r["zoomed"] = zoomed_of(r["piece"], info)
         if r["first"] < r["piece_first"] or r["last"] - r["piece_first"] >= info["frames"]:
             raise SystemExit(f"{r['piece']} holds source frames {r['piece_first']}-{r['piece_first'] + info['frames'] - 1}, "
                              f"the row asks for {r['first']}-{r['last']}")

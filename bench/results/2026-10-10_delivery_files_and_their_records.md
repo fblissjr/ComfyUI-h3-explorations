@@ -400,3 +400,22 @@ flag reads the source's own frame-to-frame change for it.
   preview's capture is given to the build. `fun_0000_1050_c.mp4`'s bytes
   read the same under it (passes, no square over the bound); the false cut
   at 315 inside a street shot is gone from its shots.
+- 2026-10-10, **a piece rendered zoomed in is laid from its own picture.**
+  The node (commit `516e06e2`) renders a small subject with the model
+  looking at a box round them and writes, beside the ordinary full-frame
+  piece, the picture at the box's size and a json saying the box. In a file
+  at the source's size this tool now takes the picture inside the region
+  from that file, scaled once into the box's place; the region, the rules
+  and the proofs are read on the piece as before, and a file at the canvas's
+  size does not use it. A proof is added: inside the region and clear of its
+  edge by 12 canvas pixels, the zoomed picture scaled into the box must agree
+  with the piece on every frame. Measured on the first real pair (a street
+  shot, source frames 438-483, zoom 1.6, one seed; a scratch probe, not a
+  delivery): the two agree to 0.94 levels of luma at the median of 41
+  frames, 1.2 on the worst, 6.7 at the worst frame's 99th percentile; with
+  the box in the json moved 4 canvas pixels 7.7 and 14.2, moved 16, 24.7
+  and 50.9. The line is 4. The box lands between source pixels: its edges
+  are moved to whole even ones, by at most 0.75 of a source pixel on that
+  pair, and the record says by how much. Not measured: the grain of the
+  laid region against its plate (the reading promised for the first zoomed
+  delivery; none has been built), and anything on a second pair.
