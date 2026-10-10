@@ -26,6 +26,10 @@ the size it has and the source frame its first frame is on, so that a reader nee
 `fingerprint` is one hash over everything a render reads from the folder (`fingerprint`); it changes when
 any of that changes and for no other reason, and a render carries it in its own keys.
 
+**One clock.** Every frame number in the folder (a mask's `first_source_frame`, a shot's frames, a load's) is
+a frame of the file the masks were made from: the `derived` copy when the manifest has one, else the source.
+A job renders from that same file, so a job's frame numbers are the folder's.
+
 **Two layers of settings**, never merged in a file. What the analysis decided for a load is in the folder's
 `profile.json`, each key with the figure it read and the line it compared with, and `line_is` one of
 `LINE_IS`. What a person set by hand for a load of a job is `jobs/<job>/<load>.hand.json`
@@ -145,13 +149,37 @@ def folder_for(name: str, data: Path, ident: dict | None = None) -> Path:
                   f"by its file name, and two different files cannot share one")
 
 
+def folder_of_file(name: str, data: Path) -> Path:
+    """The folder whose manifest names a file of this name, as its source or as its derived copy.
+
+    A job is given the file it renders from, which is as a rule the copy and not the input; this is how a job
+    finds its video's folder from that file's name alone."""
+    held = []
+    for path in sorted(Path(data).glob(f"*/{MANIFEST}")):
+        manifest = json.loads(path.read_text())
+        if manifest.get("schema") == SCHEMA and name in ((manifest.get("source") or {}).get("name"),
+                                                         (manifest.get("derived") or {}).get("name")):
+            held.append(path.parent)
+    if len(held) == 1:
+        return held[0]
+    if not held:
+        raise Refused(f"no analysis folder under {data} names a file called {name!r}, as its source or as the "
+                      f"copy made from it: this video has not been analysed. Run bench/clip_analysis.py init on "
+                      f"its input video first.")
+    raise Refused(f"{len(held)} analysis folders name a file called {name!r}: {', '.join(p.name for p in held)}")
+
+
 def verify(manifest: dict, path: Path, frames: bool = False) -> None:
     """Refuse when `path` is not the file the folder was made from: another file of that name, or the file changed.
 
-    The byte size and the head hash are read every time; the frame count, which needs ffprobe, when asked."""
-    source, path = manifest["source"], Path(path)
+    `path` is the source or the derived copy, told by its name. The byte size and the head hash are read
+    every time; the frame count, which needs ffprobe, when asked."""
+    path = Path(path)
+    derived = manifest.get("derived") or {}
+    source = derived if path.name == derived.get("name") else manifest["source"]
     if path.name != source["name"]:
-        raise Refused(f"the folder is {source['name']!r}'s and the file is named {path.name!r}")
+        raise Refused(f"the folder is {manifest['source']['name']!r}'s"
+                      + (f" (its copy is {derived['name']!r})" if derived else "") + f" and the file is named {path.name!r}")
     now = {"bytes": path.stat().st_size, "head_sha256": head_hash(path)}
     if frames:
         now["frames"] = probe(path)["frames"]

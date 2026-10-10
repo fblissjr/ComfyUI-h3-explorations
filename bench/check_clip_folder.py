@@ -15,7 +15,8 @@ Claims, i.e. what breaks if a case is deleted:
                         extension gets `data/<file name>/`; the first file is still found in its own; a third
                         claimant is refused; a folder is looked up without the file only by a name it holds
   a folder that is another file's or stale is refused    the same name with other bytes, a changed head, and
-                        with `frames` a changed frame count; the file it was made from passes
+                        with `frames` a changed frame count; the file it was made from passes; the copy a
+                        job renders from finds the folder by its own name and is held to its own identity
   the fingerprint moves with what a render reads, and with nothing else    a mask made again, a changed
                         profile, a changed cast state each move it; a tile or a record written into the
                         folder, and the order masks are listed in, do not
@@ -136,6 +137,17 @@ def a_folder_that_is_another_files_or_stale_is_refused():
         cf.verify(liar, clip)
         _refused(lambda: cf.verify(liar, clip, frames=True), "frames")
         _refused(lambda: cf.read_manifest(tmp / "data" / "nowhere"), "not been analysed", "clip_analysis")
+        # the copy a job renders from is the folder's too: found by its name, and held to its own identity
+        copy = _clip(tmp / "in" / "fun_24p.mkv", frames=25, level=90)
+        both = cf.write_manifest(tmp / "data" / "fun", {"source": cf.identity(clip), "derived": dict(cf.identity(copy), made_by="a recipe", checked="frame for frame")})
+        assert cf.folder_of_file("fun_24p.mkv", tmp / "data") == tmp / "data" / "fun" == cf.folder_of_file("fun.mkv", tmp / "data"), \
+            "a folder is not found from its copy's name"
+        cf.verify(both, copy, frames=True)
+        cf.verify(both, clip)
+        _refused(lambda: cf.verify(both, _clip(tmp / "elsewhere" / "fun_24p.mkv", frames=25, level=10)), "not the file")
+        _refused(lambda: cf.folder_of_file("never_24p.mkv", tmp / "data"), "never_24p.mkv", "not been analysed")
+        cf.write_manifest(tmp / "data" / "twin", {"source": dict(cf.identity(clip), name="twin.mkv"), "derived": dict(cf.identity(copy))})
+        _refused(lambda: cf.folder_of_file("fun_24p.mkv", tmp / "data"), "2 analysis folders", "fun", "twin")
 
 
 def _mask(folder: Path, name: str, body: bytes, **more) -> dict:
