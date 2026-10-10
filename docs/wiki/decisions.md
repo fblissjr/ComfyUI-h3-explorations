@@ -31,6 +31,79 @@ Older history lives elsewhere and is not copied here:
   `continue_from`) are not stores and stay. The rule is in `AGENTS.md`,
   "Operative rules".
 
+- **What the owner cut from the tools around the nodes, the same evening**
+  (owner, to the lead: no complexity for nothing; a simpler thing that
+  accepts an edge is fine; "You make the calls but yes"). Each session
+  marked its own additions of the day keep, simplify or remove; the lists
+  below are those, as approved. NOTHING OF IT IS IN THE TREE when this line
+  is written except where a commit is named; a dated line is added under
+  each list as it lands. The node cuts are the next entry; the owner later
+  said they are made the same evening, after the renders, in whole pieces.
+  - THE TRACKER AND THE CORRECTIONS TOOL (`subject_track.py`,
+    `bench/who_is_who_across_shots.py`). Its owner's own sentence: the
+    tracker's likeness, the tool's sum and the tool's evidence total are one
+    measurement arranged three ways, not three votes. KEEP: the join of
+    duplicate detections; one row a shot with what each tracker called; the
+    question in the tile's own numbers; a typed, picked or seeded answer is
+    a person's word; "nobody detected" needs no question. SIMPLIFY: `others`
+    MARKS the people another tracker holds and no longer removes them from
+    a frame's list (with that go the per-look left-out counts and "complete
+    looks only"); the only-person rule is off whenever `others` is wired.
+    REMOVE: the sum and the evidence total as deciders, their levels, the
+    rule that a row agrees when three readings agree, `--suggest-lead`,
+    `--unsure take`, `track_score` in the shot table, the signature vectors
+    in `looks` (the boxes stay), the `marked` mesh style and its `legend`.
+    `seeds` stays only while the seeded-memory test or the cast file
+    (`bench/cast_file.py`) writes it.
+  - THE CAPTURE AND ITS GATE (`bench/capture_masked_run.py`). KEEP: the
+    per-frame tables; a run's region read from the node's own files and
+    plan; `changed` with the reading of a piece's two ends; the plain state
+    rules (a track empty where taken, a frame with no mask inside a step, a
+    region over another subject, kept pixels inside the part, the original
+    shown in a held tail, a plan that writes past its load); the verdict
+    and one override; `shots`; the graded part; `video`. SIMPLIFY, the
+    large one: ONE STATEMENT in the job file, `job.who` (subject, source
+    frames, "not in" or "left out", why, by; "in" is a load and is never
+    written; a range may cross a cut), read by `verify`, the gate, the
+    builder and the delivery, with the rule that COVERAGE BLOCKS; it
+    replaces `--not-in`, `--no-mask`, the builder's `left_out` and most
+    overrides, and leaves the gate one who-is-where rule. Also: `verify`
+    down to its input checks; the owner map down to "one claimant owns, two
+    is both"; the size warnings down to a printed size a load. REMOVE: the
+    warnings raised on every load, the region read back from a tinted
+    review, `--plan` and `--loads` as a copy of the node's rule, `look`,
+    `mouth` and the text-against-voice rules, the pose table as a gate
+    input, `two_tracks_on_one_person`, the two across-a-cut rules, `hold=`,
+    `diagnose`. The full page is that session's, under `internal/claude/`.
+  - THE JOB BUILDER AND THE ANALYSIS FOLDER (`bench/masked_job.py`,
+    `workflows/masked_job_graph.py`, `clip_folder.py`). KEEP: the stages
+    and `collect`; the gate before a render; the audio cut; what each model
+    is shown; `window`, `context` and `motion_file`; the folder's identity
+    and its fingerprint. REMOVE: the load keys no job used
+    (`continue_from` and its noise value, the zoomed mesh, `motion_edge`,
+    the held tail as a choice, `parts_mask`, `parts_first`, `by`,
+    `motion_first`), each refused by name if a job file still carries it;
+    the function that works out which contexts the planner takes; the
+    placeholder capture line; the build record's copy of what the clip
+    measured; in the folder module the mask table, the hand layer, the
+    closed list and the second-stem rule. With the node cuts the builder
+    stops setting the inputs they remove.
+  - THE DELIVERY TOOL (`bench/assemble_delivery.py`). KEEP: the table and
+    the lay; the proofs read from the file; every subject laid on every
+    shot or a line saying why not; the lock; `restore=` for another subject
+    and for the row's own class. SIMPLIFY: where two rows changed a pixel,
+    the later row wins and `restore=` says the exceptions (one form, not
+    two); the shots proof down to three readings; cuts from the job's
+    analysis only; one reader of a piece's fade; the flags down to the
+    three ever acted on. REMOVE: a class restore naming another subject,
+    `--soften`, the canvas-size laying path, the per-frame csv, and
+    `--alias` when this clip's last file is built. Already out:
+    `restore=<subject>:contested`, added and removed the same evening
+    (`92dac2c1`).
+  - THE LOOK, the one thing ADDED by this: one picture strip a load, one
+    line saying who looked, and the builder refusing a load nobody looked
+    at; no fingerprint. Not built.
+
 - **What the owner cut from the masked lane's nodes, and how far the cut
   has got** (owner, relayed by the lead the same evening, on a
   keep-simplify-remove list the latent-step session drew up). NOTHING OF IT
@@ -199,6 +272,65 @@ Older history lives elsewhere and is not copied here:
   to end (the 2026-10-07 captures under `data/` were made by scripts that
   were not kept), and nothing carries a label for which person a mask is
   on.
+- **What the owner cut from the capture tool and its gate, and how far the
+  cut has got** (owner, relayed by the lead the same evening, on a
+  keep-simplify-remove list the capture's session drew up; approved as
+  written). Done when this line is written: the size floor in
+  the grade (0416ac3f), the older-file switch out of the reader (bc9f58bf),
+  five data files out of `bench/results` (0d32b52d). EVERYTHING BELOW IS
+  STILL IN THE TREE; each removal is one commit with its check cases shrunk
+  to match, on an idle card. The order is the lead's. Why it was cut: most
+  of the flags on the evening's main capture came from two warning rules
+  that the tool's own author had left out of every list sent to the lead
+  (the counts are in that capture's `flags.json`; untracked), and two face
+  loads with a part in fragments were in that pile.
+  - FIRST, ONE STATEMENT of who is in a shot, in the job file: `job.who`, a
+    list of `{subject, frames [first, last], is "not in" | "left out", why,
+    by}` in source frames; a load is the "in" and is never written; a range
+    may cross a cut. Read by `verify` and the gate through `--job`, by the
+    builder (coverage blocks at `build plan`: every subject and frame is
+    under a load or a statement) and by the delivery. It replaces five
+    forms a person used in one evening: `--not-in`, `--no-mask`, the
+    builder's `left_out`, an override, and for a whole shot a typed
+    `none`.
+  - THEN WHAT IT RETIRES in `bench/capture_masked_run.py`: `--not-in`,
+    `--no-mask` and `no_mask_statements.json`; the rules
+    `absent_with_people_on_screen`, `taken_where_not_expected`,
+    `taken_under_its_own_line`, `taken_near_the_line`,
+    `subject_never_found`, `load_has_a_shot_without_the_subject`,
+    `who_is_who_unanswered`, `who_is_who_not_run`. In their place ONE rule:
+    the tracker's table disagrees with the statement (taken inside "not
+    in"; absent or no mask under a load; neither a load nor a statement
+    where the tracker has a mask or people). Kept through it: another
+    subject's region over a left-out subject always blocks and says the
+    left-out subject may be mostly in no file.
+  - SIMPLIFY: `verify` to its input checks and "a track is empty where the
+    statement says the subject is" (the comparison of two region readers
+    goes, with the reader of a render's tinted review); the owner map to
+    "one claimant owns, two is both" (the class-map settling,
+    `contested_by_class_too` and `part_pixels_owned_by` go); the size
+    warnings to a size printed per load by `shots --loads`, with no line;
+    the part warnings to one line a subject; `rules_input.json` to the
+    fields `shots` prints.
+  - REMOVE: `segment_inside_region`,
+    `segment_mostly_outside_its_own_track`,
+    `region_mostly_not_the_subject`; `--plan` and `--loads` with
+    `held_tail_not_checked` and `kept_frames_not_checked`; `look`; `mouth`,
+    `mouth_open_with_no_voice` and the two text-against-voice rules; the
+    pose table as a gate input (`bench/measure_subject_yaw.py` stays);
+    `two_tracks_on_one_person`; `region_carried_across_a_cut` and
+    `region_shared_across_a_cut`; a second sighting of one subject; `hold=`;
+    `diagnose`. `original_shown_in_the_held_tail` goes after the node's
+    `held_tail` removal is served.
+  - KEEP: the per-frame tables; a run's region from the node's saved files
+    and plan; `changed` with its ends; `track_empty_in_a_taken_shot`,
+    `region_on_a_frame_with_no_mask`, `region_over_another_subject`,
+    `kept_pixels_inside_the_part`, `plan_writes_past_the_load`; the verdict
+    and the override; `shots`; the graded part; `video`; `looked`; the
+    refusals (a zoomed run, a load with no start frame, a finished capture
+    rebuilt).
+  - NOT BUILT AND WANTED: the builder's refusal on `looks.json`; the gate
+    reading a zoomed run. Both have cards on the masking board.
 
 ## 2026-10-09
 
