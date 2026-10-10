@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.267.1
+<!-- changelog.d/mrnemo-song-loop-runs-in-a-check.md -->
+
+### Checks
+
+- `bench/check_video_mask.py`, item 21: the song node's loop is run. Until now every case read a function or the node's source and none ran `MiniMaxH3AudioFreezeSong.execute`, which is how a variable shadowed inside the loop shipped in 0.254.0. The case runs the node whole over two windows with context, on a canvas of a few latent cells, over a real Masked Source record with two cuts that each fall inside a latent step. Only the model's side is stood in for: a sampler that marks the cells it is asked to regenerate, a video VAE whose decode is the window's source with those cells painted bright, an audio VAE of the right shapes and a conditioning node that returns a token; the plan, the windows, the composite, the writes and the join are the node's own, through ffmpeg. It asserts the report's first line, that the frames the report leaves as the source are the ones `loop_plan.split_steps` names, that in the joined video those frames are the source's and every frame the subject is on carries the regenerated cells, that each window's region file reads back as the window's own mask and tokens with a stale one replaced, that the mask review and the shot table are written beside the render, and that `keep_windows` off leaves no windows folder. Seen red four ways on a scratch copy of the pack: 0.254.0's shadowed `first` put back, the gate taken out of `lay_window`, the region not saved, and a stale region left in place.
+
 ## 0.267.0
 <!-- changelog.d/mrdeer-capture-takes-a-pose-table.md -->
 

@@ -183,6 +183,24 @@ that could happen.
     latent, removes a stale one with the stale latent, and never assigns the
     count of reused windows again inside its loop (08c3cb12 did, and the
     report's first line then gave a frame number for it).
+21. **The song node's loop, run.** Every item above reads a function or the
+    node's source; none ran the loop, and a variable shadowed inside it
+    shipped (08c3cb12). Here `MiniMaxH3AudioFreezeSong.execute` runs whole
+    on a canvas of a few latent cells: two windows with context over a real
+    Masked Source record with two cuts, each inside a latent step, and a
+    subject on the first and third shots. The stand-ins are the model's
+    side only: a sampler that marks the cells it was asked to regenerate, a
+    video VAE whose decode is the window's own source with those cells
+    painted bright, an audio VAE of the right shapes, a conditioning node
+    that returns a token. The windows, the plan, the Masked Source, the
+    composite, the writes and the join are the node's own, through ffmpeg.
+    The report opens with no window reused and says which frames lie across
+    a cut, and they are the frames `loop_plan.split_steps` names for the
+    load. In the joined video those frames are the source's and a frame the
+    subject is on carries the bright cells. Each window leaves a region
+    file that reads back as `window` makes the window's mask and tokens,
+    with its first frame and trim; a stale one from an earlier run is
+    replaced; and with `keep_windows` off the folder is gone.
 
 No model, no CUDA, no server.
 
@@ -768,6 +786,171 @@ def check_lay_window(problems):
         _fail(problems, "window region: the song node does not save a window's region beside its latent, or keeps a stale one")
     if song_text.count("        first = ") != 1 or "        first = len(reused)" not in song_text:
         _fail(problems, "lay window: the song node assigns `first` (its count of reused windows) more than once")
+
+
+def check_song_loop(problems):
+    """Item 21. The song node's own loop over two windows of a masked source, the model's side stood in for."""
+    import importlib
+    import os
+    import subprocess
+    import tempfile
+
+    import comfy.nested_tensor
+    import folder_paths
+    song = importlib.import_module("_h3pack.audio_freeze_song")
+    af = importlib.import_module("_h3pack.audio_freeze")
+    plan = importlib.import_module("_h3pack.loop_plan")
+
+    width, height, window, context = 64, 48, min(plan.CHAIN_LENGTHS), 39
+    total = 2 * window - context
+    # two cuts, each a frame or two into a latent step, and the subject on the first and third shots
+    cuts = [plan.step_span(96)[0] + 2, plan.step_span(176)[0] + 1]
+    on = [(0, cuts[0] - 1), (cuts[1], total - 1)]
+    frames = torch.full((total, height, width, 3), 0.3) + torch.linspace(0.0, 0.2, width)[None, None, :, None]
+    frames[cuts[0]:cuts[1]] = 0.25
+    mask = torch.zeros(total, height, width)
+    for a, b in on:
+        mask[a:b + 1, 16:32, 16:40] = 1.0
+    # a table whole enough to be written beside the render, as the node writes the tracker's
+    shots = importlib.import_module("_h3pack.shot_table")
+    rows = [{"shot": n + 1, "first_frame": a, "last_frame": b - 1, "frames": b - a, "shown_frame": a, "people": [{}],
+             "subject": {"person": 1 if (a, b - 1) in on else None, "state": "taken" if (a, b - 1) in on else "absent", "why": "made for the check"},
+             "closest_person": None, "corrected": "", "on_screen": (a, b - 1) in on,
+             "frames_with_subject": b - a if (a, b - 1) in on else 0, "frames_without_subject": [], "caption": ""}
+            for n, (a, b) in enumerate(zip([0] + cuts, cuts + [total]))]
+    table = json.dumps({"table": "h3 shot table", "version": shots.TABLE_VERSION, "frames": total, "size": [width, height],
+                        "subject_phrase": "person", "pick": "largest", "pick_frame": None, "cuts": cuts, "shots": rows})
+    made = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=8, feather_pixels=2, composite=vm.COMPOSITE_CHANGED,
+                                            shot_table=table)
+    source = getattr(made, "args", made)[0]
+    if source.get("cuts") != cuts:
+        _fail(problems, f"song loop: the record's cuts are {source.get('cuts')}, not the table's {cuts}; the run below would test nothing")
+        return
+    split = plan.split_steps(cuts, 0, on, total)
+    across = sorted(f for step in split for f in step["across"])
+    if not across or any(step["shared"] for step in split):
+        _fail(problems, f"song loop: the fixture's cuts lay {across} across a cut; it needs some, and none shared")
+        return
+
+    class Encoder:
+        layer_idx = None
+        patcher = types.SimpleNamespace(patches_uuid="none")
+
+    class AudioVAE:
+        audio_sample_rate = 32000
+
+        def spacial_compression_encode(self):
+            return 800
+
+        def encode(self, samples_last):
+            return torch.zeros(1, 32, 2, samples_last.shape[1] // 800)
+
+    class VideoVAE:
+        """The decode of a window is its own source with every cell the sampler marked painted bright."""
+
+        def encode(self, pixels):
+            self.seen = pixels.clone()
+            steps = next(t for t in range(1, int(pixels.shape[0]) + 1) if af.pixel_frames(t) == int(pixels.shape[0]))
+            return torch.zeros(1, 24, steps, height // 16, width // 16)
+
+        def decode(self, latent):
+            marked = latent[0, 0] > 0.5
+            runs = torch.tensor(vm.run_lengths(int(marked.shape[0])))
+            out = self.seen.clone()
+            out[marked.repeat_interleave(runs, dim=0).repeat_interleave(16, dim=1).repeat_interleave(16, dim=2)] = 0.95
+            return out
+
+    class Sampler:
+        """Marks, in the latent's first channel, the cells the noise mask asks it to regenerate."""
+
+        def __init__(self, model):
+            pass
+
+        def set_conds(self, conds):
+            pass
+
+        def sample(self, noise, latent_image, sampler, sigmas, denoise_mask=None, callback=None, disable_pbar=False, seed=None):
+            video, audio = latent_image.unbind()
+            video = video.clone()
+            asked = denoise_mask.unbind()[0].expand_as(video[:, 0:1]) > 0.5
+            video[:, 0:1] = torch.where(asked, torch.ones_like(video[:, 0:1]), video[:, 0:1])
+            return comfy.nested_tensor.NestedTensor((video, audio))
+
+    class Conditioning:
+        @staticmethod
+        def execute(*args, **kwargs):
+            return ([["a stand-in", {}]],)
+
+    track = {"waveform": torch.zeros(1, 2, total * 32000 // 24), "sample_rate": 32000}
+
+    def run(out_dir: str, prefix: str, **more):
+        real = (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
+                song.comfy.sample.fix_empty_latent_channels, song.latent_preview.prepare_callback)
+        song.Guider_Basic, song.MiniMaxH3Conditioning = Sampler, Conditioning
+        folder_paths.get_output_directory = lambda: out_dir
+        song.comfy.sample.fix_empty_latent_channels = lambda model, latent, *a, **k: latent
+        song.latent_preview.prepare_callback = lambda *a, **k: None
+        try:
+            got = song.MiniMaxH3AudioFreezeSong.execute(
+                object(), Encoder(), VideoVAE(), AudioVAE(), track, object(), torch.linspace(1.0, 0.0, 5), "a prompt", "",
+                False, width, height, window, context, "whole", 7, 0.0, "clip_guard", prefix, 4,
+                save_metadata_png=False, source=source, **more)
+        finally:
+            (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
+             song.comfy.sample.fix_empty_latent_channels, song.latent_preview.prepare_callback) = real
+        return getattr(got, "args", got)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "t" / "run_windows"
+        folder.mkdir(parents=True)
+        (folder / "run_window_1_region.npz").write_bytes(b"left by an earlier run")
+        try:
+            path, report = run(tmp, "t/run")[:2]
+        except Exception as exc:  # noqa: BLE001 -- the loop raising at all is the finding
+            _fail(problems, f"song loop: the node's loop raised over two windows of a masked source: {type(exc).__name__}: {exc}")
+            return
+        lines = report.splitlines()
+        if not lines[0].startswith("0 reused -> ") or "NOT saved" in report or "FAILED" in report:
+            _fail(problems, f"song loop: the report opens {lines[0][:60]!r}, or says a region or a review failed: "
+                            + "; ".join(x for x in lines if "NOT saved" in x or "FAILED" in x))
+        said = sorted(int(f) for x in lines if "lie across a cut" in x for f in x.rsplit("frame(s) ", 1)[1].split(", "))
+        if said != across:
+            _fail(problems, f"song loop: the report leaves frames {said} as the source; split_steps names {across} for the load")
+        size = width * height * 3
+        raw = subprocess.run([song._ffmpeg(), "-v", "error", "-i", path, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True).stdout
+        if len(raw) != total * size:
+            _fail(problems, f"song loop: the joined video holds {len(raw) // size} frames of {total}")
+            return
+        video = torch.frombuffer(bytearray(raw), dtype=torch.uint8).reshape(total, height, width, 3).float() / 255.0
+        off = ((video - frames).abs().flatten(1).amax(dim=1) * 255.0).tolist()      # the furthest pixel of each frame, in levels
+        painted = [f for f in range(total) if off[f] > 64]
+        expected = [f for a, b in on for f in range(a, b + 1)]
+        if painted != expected:
+            wrong = sorted(set(painted) ^ set(expected))
+            _fail(problems, f"song loop: {len(painted)} frames of the joined video carry the regenerated cells and the subject is on "
+                            f"{len(expected)}; they differ on frames {wrong[:12]}, where the frames across a cut are {across}")
+        for number, first, trim in ((1, 0, 0), (2, window - context, context)):
+            name = folder / f"run_window_{number}_region.npz"
+            try:
+                got = vm.load_window_region(str(name))
+            except Exception as exc:  # noqa: BLE001 -- a missing or stale file is the finding
+                _fail(problems, f"song loop: window {number}'s region file does not read: {type(exc).__name__}: {exc}")
+                continue
+            steps = next(t for t in range(1, window + 1) if af.pixel_frames(t) == window)
+            want = vm.window(source, first, window, width, height, steps, height // 16, width // 16)
+            if not torch.equal(got["tokens"], want[2]) or not torch.equal(got["mask"], (want[3] > 0.5).float()) \
+                    or (got["first_frame"], got["trim"]) != (first, trim) or got["source"]["cuts"] != cuts:
+                _fail(problems, f"song loop: window {number}'s region file is not the window's own mask, tokens, first frame {first} and trim {trim}")
+        beside = sorted(x.name for x in (Path(tmp) / "t").iterdir() if x.is_file())
+        stem = Path(path).stem
+        if beside != sorted([stem + ".mp4", stem + "_with_mask.mp4", stem + shots.SUFFIX_JSON, stem + shots.SUFFIX_TEXT]):
+            _fail(problems, f"song loop: beside the render are {beside}; it owes the video, its mask review and the shot table")
+        gone = run(tmp, "u/run", keep_windows=False)
+        if os.path.isdir(Path(tmp) / "u" / "run_windows") or not os.path.isfile(gone[0]):
+            _fail(problems, f"song loop: with keep_windows off the windows folder still holds "
+                            f"{sorted(os.listdir(Path(tmp) / 'u' / 'run_windows')) if os.path.isdir(Path(tmp) / 'u' / 'run_windows') else 'nothing'}"
+                            ", or the joined video is missing")
 
 
 def check_others(problems):
@@ -1751,7 +1934,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
