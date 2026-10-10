@@ -202,6 +202,22 @@ them.
   is not being read at all, and the held tail is the one thing left that
   differs from a load that follows its motion video. The open-tail renders
   of three loads that all end on the source are on the card.
+- 2026-10-10, later: `held_tail` is committed (e2469ab7) and served since
+  the restart that afternoon; the "BUILT, not committed" line above is of
+  the hour it was written.
+- 2026-10-10, the first open-tail render, the short load that faded, one
+  change against it (the lead's reading of stills every fourth frame, not
+  judged on playback; one seed): the still's person holds on every still to
+  the shot's last frame, where the first render showed the original from
+  about two thirds of the way through. The two other loads that had ended
+  on the source hold on stills too. A peer's measured curves for all three
+  are pending and are that session's to record; until they are in, this is
+  a reading of stills.
+- 2026-10-10, the composite's side of the tail: a held frame of a plate
+  tail has no mask of its own, and since 8952c545 no such frame is laid
+  (`video_mask.unlaid_frames`), so the first held frame no longer carries
+  the render its latent step lent it. Under the open tail the held frames
+  carry the last frame's mask and are laid as before. Not served yet.
 
 ## Results, dated
 
