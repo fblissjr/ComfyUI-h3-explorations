@@ -1155,6 +1155,21 @@ def gate_by_shot() -> str:
     assert two["subjects"]["a"]["blocked_by"] == ["absent_with_people_on_screen"] and two["subjects"]["b"]["blocked_by"] == [], two
     assert two["every_subject"] == ["who_is_who_unanswered"] and two["who_is_who"] is None, two
     assert two["subjects"]["b"]["typed"] and not one["subjects"]["a"]["typed"], "a typed state was not told from the tracker's own"
+    # per load: a flag that names the run, blocking, overridden or a warning; kept and held frames; who else is inside
+    loads = {"loads": [{"run": "r1", "subject": "a", "source_frames": [100, 109], "windows": [{"kept_frames": 0, "held_frames_shown_clean": 4}, {"kept_frames": 90}],
+                        "inside_the_region": {"other_subjects": {"b": {"frames": 3, "source_frames": [[101, 103]], "most_share_of_its_mask": 0.5}}}},
+                       {"run": "r2", "subject": "b", "source_frames": [110, 119], "windows": None, "inside_the_region": {}}]}
+    said = {"blocking": ["f001"], "overridden": ["f002"], "flags": [
+        {"id": "f001", "rule": "region_over_another_subject", "level": cap.LEVELS[2], "run": "r1", "other": "b", "source_frames": [[101, 103]]},
+        {"id": "f002", "rule": "region_on_a_frame_with_no_mask", "level": cap.LEVELS[2], "run": "r1", "source_frames": [[105, 105]]},
+        {"id": "f003", "rule": "segment_inside_region", "level": cap.LEVELS[1], "run": "r1", "source_frames": [[100, 109]]},
+        {"id": "f004", "rule": "segment_inside_region", "level": cap.LEVELS[1], "run": "r1", "source_frames": [[100, 104]]},
+        {"id": "f005", "rule": "part_empty_on_the_subject", "level": cap.LEVELS[2], "subject": "a", "source_frames": [[100, 100]]}]}
+    r1, r2 = cap.by_load(loads, said)
+    assert [f["rule"] for f in r1["blocked_by"]] == ["region_over_another_subject"] and r1["blocked_by"][0]["other"] == "b", r1
+    assert [f["id"] for f in r1["overridden"]] == ["f002"] and r1["warnings"] == {"segment_inside_region": 2}, r1
+    assert r1["kept_frames"] == 90 and r1["held_frames_shown_clean"] == 4 and r1["other_subjects_inside"]["b"]["frames"] == 3, r1
+    assert r2["blocked_by"] == [] and r2["kept_frames"] is None and r2["other_subjects_inside"] == {}, r2
     return ("a flag counts on the shots its frames touch and only while it blocks; a flag with no subject is the shot's; "
             "a clear cell carries the take's state, likeness and size")
 

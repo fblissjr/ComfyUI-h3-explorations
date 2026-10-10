@@ -10,7 +10,7 @@
     <python> bench/capture_masked_run.py verify data/<date>_<NAME> [--no-mask b:1632-1729="walks out of the shot" --by WHO]
     <python> bench/capture_masked_run.py preflight data/<date>_<NAME> [--not-in a:294-414] [--text P.txt --voice-spans V.json]
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
-    <python> bench/capture_masked_run.py shots data/<date>_<NAME>             # the gate per shot and subject: clear or blocked
+    <python> bench/capture_masked_run.py shots data/<date>_<NAME> [--loads]   # the gate per shot and subject, or per load
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
@@ -1765,13 +1765,57 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
     return out
 
 
+def by_load(record: dict, flags: dict) -> list[dict]:
+    """The gate's answer load by load: the flags that name a load and block, the warnings by rule, and what the
+    lead of a job asks of every load before it renders: frames kept from a window before, held frames the model
+    is shown clean, and which other subjects lie inside its region. An overridden flag is listed apart."""
+    blocking, passed = set(flags.get("blocking", [])), set(flags.get("overridden", []))
+    out = []
+    for load in record["loads"]:
+        mine = [f for f in flags["flags"] if f.get("run") == load["run"]]
+        short = lambda f: {"id": f["id"], "rule": f["rule"], "source_frames": f["source_frames"], **({"other": f["other"]} if f.get("other") else {})}
+        warned: dict = {}
+        for f in mine:
+            if f["id"] not in blocking and f["id"] not in passed and f["level"] != LEVELS[0]:
+                warned[f["rule"]] = warned.get(f["rule"], 0) + 1
+        windows = load.get("windows") or []
+        out.append({"run": load["run"], "subject": load["subject"], "source_frames": load["source_frames"],
+                    "blocked_by": [short(f) for f in mine if f["id"] in blocking], "overridden": [short(f) for f in mine if f["id"] in passed],
+                    "warnings": dict(sorted(warned.items())),
+                    "kept_frames": sum(int(w.get("kept_frames") or 0) for w in windows) if windows else None,
+                    "held_frames_shown_clean": sum(int(w.get("held_frames_shown_clean") or 0) for w in windows) if windows else None,
+                    "other_subjects_inside": {k: {"frames": v["frames"], "most_share_of_its_mask": v["most_share_of_its_mask"]}
+                                              for k, v in ((load.get("inside_the_region") or {}).get("other_subjects") or {}).items()}})
+    return out
+
+
 def shots(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     for name in ("rules_input.json", "flags.json"):
         if not (folder / name).is_file():
             raise SystemExit(f"{folder / name} is missing: run `preflight` on the capture first")
     flags = json.loads((folder / "flags.json").read_text())
-    rows = by_shot(json.loads((folder / "rules_input.json").read_text()), flags)
+    record = json.loads((folder / "rules_input.json").read_text())
+    if a.loads:
+        loads = by_load(record, flags)
+        if a.json:
+            print(json.dumps(loads, indent=1))
+            return
+        print(f"{folder.name}: gate {flags['verdict']}, {len(flags.get('blocking', []))} blocking; {len(loads)} load(s)")
+        for row in loads:
+            print(f"{row['run']}: {row['subject']}, source frames {row['source_frames'][0]}-{row['source_frames'][1]}; "
+                  + ("no windows read" if row["kept_frames"] is None else
+                     f"kept frames {row['kept_frames']}, held frames shown clean {row['held_frames_shown_clean']}")
+                  + "".join(f"; {k} inside on {v['frames']} frame(s), up to {100 * v['most_share_of_its_mask']:.0f}% of their mask"
+                            for k, v in row["other_subjects_inside"].items()))
+            for f in row["blocked_by"]:
+                print(f"    BLOCKED {f['id']} {f['rule']}" + (f" ({f['other']})" if f.get("other") else "") + f" {f['source_frames'][:6]}")
+            for f in row["overridden"]:
+                print(f"    overridden {f['id']} {f['rule']}" + (f" ({f['other']})" if f.get("other") else "") + f" {f['source_frames'][:6]}")
+            if row["warnings"]:
+                print("    warnings: " + ", ".join(f"{k} x{n}" if n > 1 else k for k, n in row["warnings"].items()))
+        return
+    rows = by_shot(record, flags)
     if a.json:
         print(json.dumps(rows, indent=1))
         return
@@ -3889,6 +3933,7 @@ def main() -> None:
     sh = sub.add_parser("shots", help="the gate's answer per shot and subject: clear, or the rules that block there")
     sh.add_argument("capture")
     sh.add_argument("--json", action="store_true", help="the rows as json, for a tool")
+    sh.add_argument("--loads", action="store_true", help="per load in place of per shot: what blocks it, its warnings, kept and held frames, who else is inside")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")
     o.add_argument("flag")
