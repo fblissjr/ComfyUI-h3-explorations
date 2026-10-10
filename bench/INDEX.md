@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 98 |
+| [`check_*`](#check) | 99 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 132 |
+| [the rest](#the-rest) | 133 |
 
 ## check
 
@@ -88,6 +88,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_reference_encode.py`](check_reference_encode.py) | Hold the split reference path's pieces that need no encoder. |
 | [`check_reference_order.py`](check_reference_order.py) | The ordered-reference resolver against the socket resolver it replaces. |
 | [`check_reference_runtime.py`](check_reference_runtime.py) | CPU acceptance checks for the typed MiniMax H3 reference runtime. |
+| [`check_region_against_plate.py`](check_region_against_plate.py) | `bench/region_against_plate.py` against a clip and pieces whose answers are known by construction. |
 | [`check_release_qwen_grid.py`](check_release_qwen_grid.py) | The release Qwen video grid, pinned at the boundaries that were got wrong. |
 | [`check_released_encoder_is_stock.py`](check_released_encoder_is_stock.py) | Is the released H3 text encoder the stock Qwen3-VL-32B-Instruct, byte for byte? |
 | [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
@@ -365,6 +366,7 @@ this file is only a way to find a script by what it says it does.
 | [`record_capture_inventory.py`](record_capture_inventory.py) | Write down what a capture CONTAINED, so the capture can be deleted. |
 | [`record_render_substrate.py`](record_render_substrate.py) | What each render RAN UNDER, so a time or memory number can be checked. |
 | [`recycle_captures.py`](recycle_captures.py) | List the activation captures under `H3_CAPTURE_ROOT` with what each still owes, and delete the tensors of one that owes nothing. |
+| [`region_against_plate.py`](region_against_plate.py) | How a regenerated region sits in its plate: its detail, its grain and its tone against the plate's. |
 | [`render_inventory.py`](render_inventory.py) | Which model files and settings made each render, and which output files it wrote. |
 | [`render_postmortem_html.py`](render_postmortem_html.py) | Render a postmortem markdown file to the self-contained HTML the plugin specifies. |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
