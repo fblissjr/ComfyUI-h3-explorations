@@ -1126,6 +1126,13 @@ def who_is_who() -> str:
                           "rows": [{**file["rows"][3], "note": "3 look(s) not read", "looks_used": 1}]}, 1000, 50)
     assert cause[0]["why"].startswith("FIRST: second picked nobody (hidden by another tracker's take)") and "[3 look(s) not read]" in cause[0]["why"] \
         and cause[0]["figures"]["looks_used"] == 1, cause[0]
+    # several tracked subjects and no file at all is said, and blocks; one tracked subject has nothing to decide jointly
+    def tracked(*labels, tables=True) -> dict:
+        return {"first_frame": 1000, "frames": 50, "subjects": [{"label": x, "sightings": [{"by": "p", "shots": "t.json" if tables else None}]} for x in labels]}
+    unrun = cap.flag_who_not_run(tracked("lead", "second"))
+    assert [(f["rule"], f["level"], f["source_frames"], f["subject"]) for f in unrun] == [("who_is_who_not_run", cap.LEVELS[2], [[1000, 1049]], None)], unrun
+    assert cap.flag_who_not_run(tracked("lead")) == [] and cap.flag_who_not_run(tracked("lead", "second", tables=False)) == [], \
+        "one tracked subject, or masks with no shot table, was asked for a joint decision"
     answered = {**file, "rows": [{**r, "status": "agrees"} for r in file["rows"]]}
     assert cap.flag_who(answered, 1000, 50) == [], "rows that agree were flagged"
     assert cap.flag_who(file, 100, 50) == [], "rows outside the capture's span were flagged"

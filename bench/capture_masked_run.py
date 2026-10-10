@@ -2662,6 +2662,25 @@ def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
     return out
 
 
+def flag_who_not_run(manifest: dict) -> list[dict]:
+    """Several tracked subjects and no who-is-who file in the capture: the joint decision was not run on this load.
+
+    Each tracker decides for its own subject only; `bench/who_is_who_across_shots.py corrections` decides every
+    shot for all of them together, and the gate reads its file when it is given. Not given, nothing was said
+    and the gate passed: handing the file over was a thing a session had to remember (2026-10-10). Top level,
+    over the whole span; answered by running the tool on the load's shot tables and giving the file to
+    preflight (`--who-is-who`). A capture with one tracked subject has nothing to decide jointly."""
+    tracked = [s["label"] for s in manifest["subjects"] if any(x.get("shots") for x in s["sightings"])]
+    if len(tracked) < 2:
+        return []
+    first, frames = manifest["first_frame"], manifest["frames"]
+    return [{"rule": "who_is_who_not_run", "level": LEVELS[2], "subject": None, "source_frames": [[first, first + frames - 1]],
+             "why": f"{len(tracked)} subjects are tracked here ({', '.join(tracked)}) and the capture holds no who-is-who file: every shot was "
+                    "decided by each tracker alone, and nothing compared them. Run `bench/who_is_who_across_shots.py corrections` on "
+                    "this load's shot tables and give its file to preflight with --who-is-who",
+             "figures": {"tracked_subjects": tracked}}]
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2942,6 +2961,8 @@ def preflight(a: argparse.Namespace) -> None:
         shutil.copyfile(a.who_is_who, folder / "who_is_who.json")
     if (folder / "who_is_who.json").is_file():
         flags += flag_who(json.loads((folder / "who_is_who.json").read_text()), m["first_frame"], m["frames"])
+    else:
+        flags += flag_who_not_run(m)
     if a.text and a.voice_spans:
         spans = json.loads(Path(a.voice_spans).read_text())["voiced_spans_inclusive"]
         flags += flag_text(Path(a.text).read_text(), spans, m["first_frame"], m["frames"])
