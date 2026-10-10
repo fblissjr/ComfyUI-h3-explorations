@@ -213,3 +213,28 @@ flag reads the source's own frame-to-frame change for it.
   unchanged): the eight shots that read "not known" for the lead are parts
   of the span where she is on screen and no pass has been made yet; that is
   the job's remaining work and not a fault of the file.
+- 2026-10-10, a rule added: **a row lays nothing on a frame its run carried
+  no mask on.** On six frames of `fun_0000_0603_b.mp4` the face render's
+  carried mask is empty (the part emptied on purpose) and a region was
+  regenerated anyway, because the frame shares a latent step with frames
+  that had a part: 358 and 409 in the first street row, 450 and 456-458 in
+  the second. The capture session read them (a face under a hat's brim for
+  one frame where the source has none; a profile one frame early), and my
+  record had them as "changes pixels away from its subject" without knowing
+  why. Where a run's capture says its carried mask is the one each window
+  saved, the row now leaves such a frame as the source's and a flag names
+  the frames and the pixels the piece had changed (up to 10,722 on 409);
+  where the carried mask was only read off a review picture nothing is
+  dropped and the flag says so.
+- 2026-10-10, a new file: **`fun_0000_0603_c.mp4`**, beside `_b` and the
+  standing file: the same table as `_b`, built under that rule. Measured on
+  the built file against `_b` at the canvas: on the six frames 832 to 6,904
+  pixels differ by over 12 levels, and against the source 59 to 409 such
+  pixels are left (one more encode of a grainy frame; `_b` has 881 to
+  7,325); on every other frame of the 604 no pixel differs from `_b` by over
+  12 levels. Its record: passes; rows in full; no square over the bound; the
+  flag on the six frames with `left_as_the_source` true. md5
+  `45fdc47461a2664dd4b01508a93e199b`. `_b` is untouched and its record
+  stands as read before the rule; read again now it would say that its six
+  frames are not what the table makes, which is the difference between the
+  two files and not a new fault.

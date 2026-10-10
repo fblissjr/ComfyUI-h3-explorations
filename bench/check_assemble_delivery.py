@@ -94,6 +94,11 @@ of known place and size into them, and reads the tool's answers back.
     a shot a frame. The frames of the first shot where the subject is tracked and
     nothing is laid yet are listed with the longest run. The first locked file passed every proof with a shot of
     29 frames on which nothing was laid for either of its subjects; this is the proof that would have failed it.
+18. **A frame its run carried no mask on.** A piece painted on every frame, and a capture whose run carried a mask
+    on all frames but five. With the run's carried mask the node's own, those five frames are the original and the
+    others the piece's; the record's flag names the five and says they were left; the shots proof does not count
+    them as laid. With the same mask said to be read off a review, nothing is dropped and the flag says that. With
+    no carried mask in the capture the piece is laid on every frame, as before.
 
 ## Running it
 
@@ -203,10 +208,11 @@ def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict
 
 
 def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None,
-            flags: list | None = None, shots: dict | None = None) -> Path:
+            flags: list | None = None, shots: dict | None = None, carried: dict | None = None) -> Path:
     """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads.
     `classes[label]` is a class map [frames, H, W] of class indices; `flags` is its flags.json; `shots[label]` is
-    that subject's shot table as [(first frame, last frame, people detected, the tracker's word)]."""
+    that subject's shot table as [(first frame, last frame, people detected, the tracker's word)]; `carried[run]`
+    is the mask that run carried, [frames, H, W], as its windows saved it."""
     folder.mkdir(parents=True)
     manifest = {"name": folder.name, "first_frame": first, "frames": frames, "size": [W, H],
                 "subjects": [{"label": k, "sightings": [{"by": "made"}]} for k in subjects], "runs": runs}
@@ -224,6 +230,9 @@ def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, c
             (folder / "subjects" / label / "shots__made.json").write_text(json.dumps(table))
     if flags is not None:
         (folder / "flags.json").write_text(json.dumps({"flags": flags}))
+    for name, mask in (carried or {}).items():
+        (folder / "runs" / name).mkdir(parents=True)
+        np.savez_compressed(folder / "runs" / name / "region.npz", carried=np.packbits(mask, axis=-1), read=np.ones(frames, bool))
     return folder
 
 
@@ -933,6 +942,45 @@ with tempfile.TemporaryDirectory() as _tmp:
                 "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
                 "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")
 
+    def no_mask_no_lay() -> str:
+        on = mask_of(RECT_A, 30, grow=4)
+        held = on.copy()
+        held[12:17] = False                                             # source frames 22-26: the run carried nothing
+        o_in, a_in = original(24), planes_of(PIECE_A, 24)
+        o_out, a_out = original(30), planes_of(PIECE_A, 30)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3] - y[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3]).mean())
+        assert box_mean(a_in, o_in, RECT_A) > 20, "the piece does not differ from the original where it is painted"
+        results = {}
+        for name, said in (("saved", tool.CARRIED_SAVED), ("review", "read from the review"), ("none", None)):
+            run = {"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16, **({"carried_is": said} if said else {})}
+            folder = capture(TMP / f"cap_carried_{name}", 10, 30, {"a": on}, [run], carried={"run_a": held} if said else None)
+            code, r, out = deliver(TMP, f"carried_{name}", [(10, 39, PIECE_A, 10)], "10-39", "--capture", str(folder))
+            flag = [f for f in r["flags"] if f["rule"] == "piece_changed_where_its_run_carried_no_mask"]
+            got_in, got_out = planes_of(str(out), 24), planes_of(str(out), 30)
+            results[name] = (code, r, flag, box_mean(got_in, o_in, RECT_A), box_mean(got_in, a_in, RECT_A), box_mean(got_out, a_out, RECT_A))
+        code, r, flag, to_orig, to_piece, outside = results["saved"]
+        assert code == 0 and to_orig < 1.5 and to_piece > 20 and outside < 1.5, \
+            f"with the node's own carried mask empty on a frame the row still shows there ({to_orig:.1f} from the original, {to_piece:.1f} from the piece)"
+        assert flag and flag[0]["source_frames"] == [[22, 26]] and flag[0]["figures"]["left_as_the_source"] is True, flag
+        first = r["shots"]["shots"][0]["subjects"]["a"]
+        assert first["frames_laid"] == 25 and first["tracked_with_nothing_laid"]["runs"] == [[22, 26]], first
+        assert not [f for f in r["flags"] if f["rule"] == "piece_changes_nothing"], "the frames left as the source's were also called a piece changing nothing"
+        # the same at the source's size, where a row is laid over the source and not the other way round
+        code, r, out = deliver(TMP, "carried_saved_full", [(10, 39, PIECE_A, 10)], "10-39", "--capture", str(TMP / "cap_carried_saved"), "--size", "source")
+        luma = list(tool.luma_at_canvas(str(out), W, H))
+        x0, y0, x1, y1 = RECT_A
+        inside = lambda got, want: float(np.abs(got - want[0])[y0 + 3:y1 - 3, x0 + 3:x1 - 3].mean())   # noqa: E731
+        assert code == 0 and inside(luma[24 - 10], o_in) < 3.0 and inside(luma[30 - 10], a_out) < 3.0, \
+            f"at the source's size: {inside(luma[24 - 10], o_in):.1f} from the original on a frame with no mask, {inside(luma[30 - 10], a_out):.1f} from the piece on one with"
+        code, r, flag, to_orig, to_piece, outside = results["review"]
+        assert code == 0 and to_piece < 1.5 and flag and flag[0]["figures"]["left_as_the_source"] is False and flag[0]["source_frames"] == [[22, 26]], \
+            f"a carried mask read off a review dropped frames, or did not say so ({to_piece:.1f} from the piece; {flag})"
+        code, r, flag, to_orig, to_piece, outside = results["none"]
+        assert code == 0 and to_piece < 1.5 and not flag, "with no carried mask in the capture a frame was dropped or flagged"
+        return "five frames the node's own carried mask is empty on are the original and are named; a review's reading drops nothing and says so; no carried mask, nothing changes"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -950,4 +998,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a patch as a later row, with a capture", a_patch_with_a_capture)
     case("a locked file is not built over", a_locked_file)
     case("a shot where a named subject is the source's own", shots_left_as_the_source)
+    case("a frame its run carried no mask on", no_mask_no_lay)
 sys.exit(finish())

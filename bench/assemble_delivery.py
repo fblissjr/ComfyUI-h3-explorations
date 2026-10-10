@@ -128,6 +128,17 @@ than `SHOWN` of that has an earlier row laid over it, and the build says which r
 below cannot see this: a file can be exactly the frames that were fed and the frames fed can be the wrong
 row's.
 
+**A frame its run carried no mask on is the source's.** A masked render regenerates by latent step, and a step
+is several frames: on a frame where the subject's part was emptied (turned away, behind a hat's brim) the sampler
+still drew a region if another frame of the same step had one, and the render carries a face nobody asked for,
+for a frame. A run's capture holds the mask each window carried (`runs/<run>/region.npz`, `carried`). Where the
+run's manifest says that mask is the one each window saved (`CARRIED_SAVED`), a row lays NOTHING on a frame whose
+carried mask is empty: the frame is the source's for that row, and the record counts the pixels the piece had
+changed there (`piece_changed_where_its_run_carried_no_mask`, with `left_as_the_source` true). Where the carried
+mask was only read back off a review picture, nothing is dropped on its word and the same flag says so with
+`left_as_the_source` false. Found on the first street file: six such frames, one of them a face under a hat's
+brim where the source has none. This covers renders that already exist; the cause is in the node's composite.
+
 **Shots where a named subject is the source's own** (`shots` in the record; a proof). A file can pass every
 proof above and still show a person untouched for a whole shot: no row laid a pixel there, so there was nothing
 for a proof to be wrong about. The first locked file did, for both its subjects, on a shot both trackers had
@@ -539,6 +550,27 @@ class Captures:
                     return folder, m, run
         return None
 
+    def carried_nothing(self, run, frame):
+        """Whether the mask a run carried is empty on a source frame: True or False, or None when the run's capture
+        holds no carried mask that was read on that frame. `run` is (folder, manifest, run) as `run_of` gives it."""
+        folder, m, entry = run
+        if folder is None:
+            return None
+        key = (folder, entry["name"], "carried")
+        if key not in self.masks:
+            path = folder / "runs" / str(entry["name"]) / "region.npz"
+            if path.is_file():
+                z = np.load(path)
+                held = "carried" in z.files and "read" in z.files
+                self.masks[key] = (z["carried"].reshape(z["carried"].shape[0], -1).any(axis=1), z["read"].astype(bool)) if held else None
+            else:
+                self.masks[key] = None
+        if self.masks[key] is None:
+            return None
+        some, read = self.masks[key]
+        k = frame - m["first_frame"]
+        return None if not 0 <= k < len(some) or not read[k] else not bool(some[k])
+
     def said_absent_with_people(self) -> list[dict]:
         """Every capture's own flag that a subject was called absent while people were detected, in source frames."""
         out = []
@@ -812,20 +844,28 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             pieces = [planes(b, w, h) for b in pbufs]
             diffs = [difference(p, o) for p in pieces]
             hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
+            # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
+            bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
+            unmasked = [(int(m.sum()), run[2].get("carried_is") == CARRIED_SAVED) if e else None for m, e, run in zip(hard, bare, runs)]
+            hard = [np.zeros_like(m) if u and u[1] else m for m, u in zip(hard, unmasked)]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             holds = [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)]
             owner, shared = owners(hard, holds)
             backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
             held = [b[0] for b in backs]
+            # at the canvas's size the first row's piece is the base, whole: there "lays nothing" has to be said as
+            # the whole frame held back, or its piece would still be the picture
+            held = [np.ones((h, w), np.float32) if u and u[1] else x for x, u in zip(held, unmasked)]
             if record is not None and before is not None:
                 record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
             before = o[0]
             if record is not None and "fitted" in record:
                 record["fitted"][n] = (o[0], np.any(hard, axis=0))       # taken out again by the check, a frame later
             if record is not None:
-                for r, m, run, s, d, (back, classes) in zip(rows, hard, runs, masks, diffs, backs):
+                for r, m, run, s, d, (back, classes), u in zip(rows, hard, runs, masks, diffs, backs, unmasked):
                     row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
+                           "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1]},
                            "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
                     if r.get("restore"):
                         row.update({"restored_px": None, "class_px": None, "join_px": None, "join_box": None})
@@ -1074,7 +1114,19 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                         "why": f"{names['piece']} changes pixels on the canvas's edge on {len(edge)} frame(s), where the loader's crop cut "
                                f"the source: beyond it the file at the source's size holds only the source's picture",
                         "figures": {"frames": len(edge)}, "threshold": {"CHANGE": CHANGE}})
-        idle = [n for n, v in area.items() if not v["px"]]
+        for left in (True, False):
+            bare = {n: v["no_mask"]["px"] for n, v in area.items() if v.get("no_mask") and v["no_mask"]["left_as_the_source"] is left
+                    and v["no_mask"]["px"] > SPECK}
+            if bare:
+                out.append({"rule": "piece_changed_where_its_run_carried_no_mask", "level": LEVELS[1], **names,
+                            "source_frames": frame_spans(sorted(bare)),
+                            "why": (f"{names['piece']} changed up to {max(bare.values())} px on {len(bare)} frame(s) where the mask its run "
+                                    "carried is empty: a region regenerated there because another frame of its latent step had one. "
+                                    + ("Those frames are left as the source's for this row"
+                                       if left else "Nothing was dropped: that mask was read back off a review picture, not saved by the node")),
+                            "figures": {"frames": len(bare), "worst_px": max(bare.values()), "left_as_the_source": left},
+                            "threshold": {"SPECK": SPECK}})
+        idle = [n for n, v in area.items() if not v["px"] and not (v.get("no_mask") and v["no_mask"]["left_as_the_source"] and v["no_mask"]["px"] > SPECK)]
         if idle:
             out.append({"rule": "piece_changes_nothing", "level": LEVELS[1], **names, "source_frames": frame_spans(idle),
                         "why": f"{names['piece']} is the original on {len(idle)} frame(s) a row gives it",
@@ -1598,6 +1650,7 @@ def check(args, segs, canvas, span, src, rows, captures):
     return result
 
 
+CARRIED_SAVED = "the mask each window saved"   # a run's `carried_is` in a capture's manifest when its carried mask is the node's own
 PEOPLE_FLAG = "absent_with_people_on_screen"   # the capture's rule name (`bench/capture_masked_run.py`), read from its flags.json
 LOCKS = "LOCKED.md"   # beside the files it names
 LOCK_LINE = re.compile(r"^\s*[-*]\s+`([^`]+)`(?:\s+md5\s+([0-9a-fA-F]{32}))?")
