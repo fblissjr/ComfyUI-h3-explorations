@@ -1717,7 +1717,16 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                                                         "step_with_real_and_held_source_frames")},
                             "the_pose_ahead_against_the_kept_frames": kept})
         read = np.nonzero(saved["read"])[0]
+        # the voice over the load: a load given a vocal as its audio where there is none was given silence
+        heard = voiced[read] if len(read) else np.array([])
+        said = None if not len(heard) or np.isnan(heard).all() else {"voiced_frames": int(np.nansum(heard)), "frames": int(len(heard))}
+        if said is not None and not isinstance(mouths.get(run["subject"]), str):
+            lo, hi = int(first + read.min()), int(first + read.max())
+            said["source_mouth_open_on_unvoiced_frames"] = sum(
+                min(r["source_frames"][1], hi) - max(r["source_frames"][0], lo) + 1
+                for r in mouths.get(run["subject"]) or [] if r["source_frames"][0] <= hi and r["source_frames"][1] >= lo)
         loads.append({"run": run["name"], "subject": run["subject"], "others": run.get("others"), "planned": bool(run.get("planned")),
+                      "voice": said,
                       "region_read_from": run.get("read_from"), "source_frames": [int(first + read.min()), int(first + read.max())] if len(read) else None,
                       "margin_px": run.get("margin_px"), "region_share_of_the_frame": round(float(saved["region"][saved["read"]].mean()), 4) if len(read) else None,
                       "inside_the_region": {"by_class": inside, "other_subjects": others,
@@ -1802,6 +1811,7 @@ def by_load(record: dict, flags: dict) -> list[dict]:
         out.append({"run": load["run"], "subject": load["subject"], "source_frames": load["source_frames"],
                     "blocked_by": [short(f) for f in mine if f["id"] in blocking], "overridden": [short(f) for f in mine if f["id"] in passed],
                     "warnings": dict(sorted(warned.items())),
+                    "voice": load.get("voice"),
                     "kept_frames": sum(int(w.get("kept_frames") or 0) for w in windows) if windows else None,
                     "held_frames_shown_clean": sum(int(w.get("held_frames_shown_clean") or 0) for w in windows) if windows else None,
                     "other_subjects_inside": {k: {"frames": v["frames"], "most_share_of_its_mask": v["most_share_of_its_mask"]}
@@ -1827,7 +1837,10 @@ def shots(a: argparse.Namespace) -> None:
                   + ("no windows read" if row["kept_frames"] is None else
                      f"kept frames {row['kept_frames']}, held frames shown clean {row['held_frames_shown_clean']}")
                   + "".join(f"; {k} inside on {v['frames']} frame(s), up to {100 * v['most_share_of_its_mask']:.0f}% of their mask"
-                            for k, v in row["other_subjects_inside"].items()))
+                            for k, v in row["other_subjects_inside"].items())
+                  + ("" if not row.get("voice") else f"; voiced on {row['voice']['voiced_frames']} of {row['voice']['frames']} frame(s)"
+                     + ("" if not row["voice"].get("source_mouth_open_on_unvoiced_frames") else
+                        f", the source's mouth open on {row['voice']['source_mouth_open_on_unvoiced_frames']} unvoiced")))
             for f in row["blocked_by"]:
                 print(f"    BLOCKED {f['id']} {f['rule']}" + (f" ({f['other']})" if f.get("other") else "") + f" {f['source_frames'][:6]}")
             for f in row["overridden"]:
