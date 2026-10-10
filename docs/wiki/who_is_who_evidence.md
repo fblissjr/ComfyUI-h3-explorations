@@ -15,6 +15,14 @@ a thing has, the more of it fails. It carries no measurement; a figure is
 cited by its record. Where this page and the code disagree the code is
 right. Results are added as dated lines; nothing is rewritten.
 
+*2026-10-10, the owner, as the principle for all of it: this does not
+need to be perfect. There will always be edges, and not everything can be
+automated. The aim is the best that can be done in a way that is simple,
+can be added to, and is driven by the data. So an edge goes to a person
+as a question and is not a reason for more machinery, and a step is
+judged by whether the common case stays simple and the next idea can be
+added without rebuilding it.*
+
 ## The first screen: the plan in plain words
 
 **Where we are.** One model decides who is who, and it was not built to:
