@@ -173,6 +173,39 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   one image (`coderef/sam-3d-body/README.md`, its opening lines and the
   section on the object model). It is not in the owner's model store, has
   no checkout here, and nobody here has read its code or its inputs.
+- **Added 2026-10-10 (mrfrog): what loading the pointmap model would take.
+  Read only; nothing was loaded or run.** The folder is in the owner's
+  model store beside the other Sapiens2 folders, the largest size. Its
+  `config.json` names the architecture `Sapiens2ForPointmapEstimation`,
+  and the ComfyUI environment's `transformers` has that class, the same
+  family the pack's loader already builds its two models from
+  (`sapiens2_parts.py::MiniMaxH3Sapiens2Loader`). Its output, by the
+  class's own description: `pointmaps`, three values a pixel (the
+  point's place in a canonical camera's space), and `scales`, one value an
+  image (the canonical focal length over the actual one). Its
+  `preprocessor_config.json` gives the working size and normalisation the
+  part model has, so it would run on the same crops.
+  - **In the loader:** a third architecture name beside the two it lists
+    (`list_models`), one more `from_pretrained`, and a reader for two
+    output fields where `_runner` reads one. No new dependency.
+  - **On the card:** the loader's patcher loads a model whole
+    (`_patcher`: these modules have none of core's cast-on-use weights),
+    and this one is several times the size of the two it holds today, in
+    float32 on disk (the file's own header has the tensor shapes). Beside
+    the video model it would have to take turns, as the body model does;
+    how much it needs at the precision upstream runs it in is not
+    measured.
+  - **mrdeer's no-render test on the CPU:** a handful of frames should be
+    workable there, slowly (reasoned from the model's size; not run); a
+    whole shot wants the card.
+  - **Not known, and it decides whether this answers the question at
+    all:** the points are in a canonical camera per IMAGE GIVEN. Two
+    people cropped separately give two pointmaps in two cameras, and
+    whether their depths can be compared after `scales` is applied has
+    not been read out of the code or tried. The whole frame as one image
+    keeps one camera and makes each person small at the model's working
+    size. Read `coderef/sapiens2/sapiens/dense/src/models/heads/pointmap_head.py`
+    and the demo before a loader is written.
 
 ## How a signal reaches the model
 
