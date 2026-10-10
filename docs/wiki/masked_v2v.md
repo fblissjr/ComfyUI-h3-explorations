@@ -615,7 +615,11 @@ frame-to-frame change, with no capture), or the same pixels as another
 pass. Cut a render's rows on the source's cuts. Given capture
 folders (`--capture`) it settles shared pixels by whose mask they lie in
 before falling back on the table's order, and writes its table and flags
-into them. With `--size source` the file is at the source's own size: every
+into them. Where two tracked masks claim the same pixel (an arm reaching
+across somebody) a mask does not say whose it is: the capture's
+`owners.npz` does, from the class maps, and the assembler reads it for the
+shared pixels and for `restore=<subject>`, leaving what it marks contested
+to the later row. With `--size source` the file is at the source's own size: every
 frame is the source's picture, never scaled, and only what a render changed
 is scaled up and put back over it, so nothing outside the regenerated region
 is resampled and the rows the loader's crop dropped are kept. A row can

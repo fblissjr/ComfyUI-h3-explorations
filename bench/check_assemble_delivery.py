@@ -48,6 +48,11 @@ of known place and size into them, and reads the tool's answers back.
     one frame past the cut raises the flag on that frame; painted up to the cut, or on well past it (a subject who
     is in both shots), it raises nothing; and a piece given as several rows raises each of its flags once. The
     delivery of a clip with no audio passes and says none was written.
+12. **Whose a pixel is, from the capture's owner map.** Two tracks that both claim a strip, and an `owners.npz`
+    that gives half the strip to the other subject and marks the rest contested. `restore=<subject>` gives back
+    what that subject owns, the half of the strip included, and not the contested half, which the plain tracked
+    masks would have left to the piece whole; and two pieces that both changed the strip each show on the half
+    their subject owns. The record says an owner map was used.
 
 ## Running it
 
@@ -543,6 +548,42 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert [f["rule"] for f in again].count("piece_changes_across_a_cut") == 1, "a piece on two rows raised its flag twice"
         return "one frame past the cut is flagged, once; ending at the cut, or going on well past it, is not"
 
+    def by_the_owner_map() -> str:
+        # RECT_A is x 40-104, y 40-120. Subject a's track holds x 40-80, b's x 64-104: both claim x 64-80.
+        own, other = (40, 40, 80, 120), (64, 40, 104, 120)
+        owner = np.full((30, H, W), 255, np.uint8)
+        owner[:, 40:120, 40:64] = 0                    # a alone
+        owner[:, 40:120, 80:104] = 1                   # b alone
+        owner[:, 40:80, 64:80] = 1                     # the strip's top half: b's, by the class maps
+        owner[:, 80:120, 64:80] = 254                  # its bottom half: contested
+        b_half, disputed, only_other, only_own = (67, 46, 77, 74), (67, 86, 77, 114), (86, 50, 100, 110), (46, 50, 58, 110)
+        folder = capture(TMP / "cap_owners", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)},
+                         [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16},
+                          {"name": "run_c", "render": "piece_c.mp4", "subject": "b", "margin_px": 16}])
+        np.savez_compressed(folder / "owners.npz", owner=owner, labels=np.array(["a", "b"]), nobody=255, contested=254)
+        caps = tool.Captures([folder], (W, H))
+        o, a, c = original(20), planes_of(PIECE_A, 20), planes_of(PIECE_C, 20)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1]:rect[3], rect[0]:rect[2]] - y[0][rect[1]:rect[3], rect[0]:rect[2]]).mean())
+        got, _ = frame_planes(SOURCE, [{"piece": PIECE_A, "piece_first": 10, "restore": [("b", None)]}], 20, caps)
+        assert box_mean(got, o, only_other) < 1.0 and box_mean(got, o, b_half) < 1.0, "what the other subject owns was not given back"
+        assert box_mean(got, a, disputed) < 1.0 and box_mean(got, a, only_own) < 1.0, "a contested pixel, or the piece's own, was given back"
+        assert caps.used_owner_map, "the owner map was not read"
+        # two pieces that both changed the strip: RECT_C is x 80-150, y 80-150, so use a piece painted on the strip itself
+        strip = write("strip", painted(WHOLE[10:40], (60, 40, 84, 120)))
+        s_ = planes_of(strip, 20)
+        rows = [{"piece": strip, "piece_first": 10}, {"piece": PIECE_A, "piece_first": 10}]
+        folder2 = capture(TMP / "cap_owners_2", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)},
+                          [{"name": "run_s", "render": "strip.mp4", "subject": "b", "margin_px": 16},
+                           {"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}])
+        np.savez_compressed(folder2 / "owners.npz", owner=owner, labels=np.array(["a", "b"]), nobody=255, contested=254)
+        got, record = frame_planes(SOURCE, rows, 20, tool.Captures([folder2], (W, H)))
+        assert box_mean(got, s_, b_half) < 1.0, "a pixel both pieces changed and the first row's subject owns went to the later row"
+        assert box_mean(got, a, disputed) < 1.0, "a contested pixel both pieces changed did not fall to the later row"
+        assert record["shared"][20]["by_mask"] > 0 and record["shared"][20]["by_order"] > 0, record["shared"][20]
+        return f"a restore gives back what the map says the other owns and not what it calls contested; of the pixels two pieces changed, {record['shared'][20]['by_mask']} went by the map and {record['shared'][20]['by_order']} by order"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -554,4 +595,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a class given back to the source", a_class_given_back)
     case("another subject given back whole", a_subject_given_back)
     case("a piece that spills over a cut", spill_over_a_cut)
+    case("whose a pixel is, from the owner map", by_the_owner_map)
 sys.exit(finish())
