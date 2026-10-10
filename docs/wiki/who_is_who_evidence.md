@@ -195,6 +195,18 @@ Nothing here has been timed.
   confirmed looks. It would memorise them, could damage the finding and
   following that work, and breaks every comparison with Meta's reference.
 
+*2026-10-10, the owner, on the crop at one size and on appearance as a
+whole: a subject cannot be identified by a face or its features alone,
+least of all turned around, or in other clothing or accessories. That is
+the "blind to" column of the first table said from the other side, and
+it settles what a closer or cleaner look at a person is worth: nothing,
+for that case. What is left when a named person is turned away in clothes
+the cast has not seen is not an appearance clue at all: the tracker's
+memory carrying them from a picture where they are known, who else in
+the shot is already accounted for, body build if it earns a place, and a
+question. (The crop that was measured was of the whole person, not the
+face; it failed for its own reason, in section 3.)*
+
 Two cautions that hold for every row. A different model is not a
 different vote: SAM's features and Sapiens2's see the same pixels and
 fail together on a small, half-hidden person. And "one scale" is not the
