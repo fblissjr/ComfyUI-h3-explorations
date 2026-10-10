@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 ("Seeing what the tracker and the masks did"); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -465,6 +465,61 @@ wider set, with what each would buy and what is known about it.
 - The kept mask across a server restart, which no run has exercised (and
   none will while it is disabled in code).
 
+## Seeing what the tracker and the masks did
+
+Written 2026-10-10, after a session had to be told this tooling existed. It
+is in four places and none of them is one command. Read this before writing
+a probe.
+
+**What every masked render already wrote beside itself** (the song node,
+`audio_freeze_song.py`):
+
+- `<prefix>_NNNNN_shots.json` and `.md`: the Subject Track's shot table
+  (`shot_table.py`, whose docstring is the schema). Per shot: its frames, the
+  people found on the frame shown with a number each, who was taken and why,
+  the frames with and without the subject, each loss and what was looked at
+  after it. A person's number is theirs on that shot's shown frame only; it
+  is not an id that holds across shots.
+- `<prefix>_NNNNN_with_mask.mp4`: the render over the source with the
+  regenerated region coloured, drawn from the token mask the sampler was
+  given ("The song node" above).
+- The song node's report, in `/history` and on the graph's text preview: the
+  window plan, what share of each window regenerated, the Masked Source's
+  warnings about a part mask it doubts, the seconds by stage.
+
+**The look before a render**, nothing sampled: the review graph ("What it
+is"). To keep the masks themselves, wire a mask-to-image node and a video
+save node onto the Subject Track's `mask`, the Subject Parts' mask and the
+Masked Source's `mask`: no shipped graph does, and a session's own preview
+graph is the usual way. `MiniMaxH3SaveShotTable` saves the table and the
+numbered tiles.
+
+**The inside of the tracker** (each tracker call, where it stopped, every
+look after a loss with its candidates): `bench/subject_regain_looks.py`,
+whose docstring has the commands (`run`, `render`, `replay`). A separate
+process on the card, outside the server. It takes one of the pick rules and
+cannot yet follow a person named by a frame or a correction.
+
+**A finished render against its source**:
+`bench/masked_render_against_source.py` (`align`, `timing`, `flicker`,
+`landing`; run `align` first), `bench/measure_subject_motion.py`,
+`bench/measure_subject_yaw.py`.
+
+**The captures of 2026-10-07** are under `data/` (untracked), each folder
+with a README that gives its layout: per-frame tables of the track, the
+part and the region, and every node's report, for several windows. The
+scripts that made them were a session's own and were not kept, so the
+folders are a format to copy, not a tool to run.
+
+**What does not exist**: a trace the workflow writes itself
+([`next_steps.md`](next_steps.md), "Asked for and not done"), and any id for
+a person that holds across shots or across nodes. **One node follows one
+person** (`subject_track.py`'s docstring; the tracker is seeded with one
+mask). Two people are two Subject Track nodes in one graph, which share
+nothing, each with its own table; the second person's mask goes to the
+Masked Source's `others` when the two stand close. None of the captures or
+tools above carries a field for which person a file is about.
+
 ## Where to look
 
 | question | where |
@@ -475,3 +530,4 @@ wider set, with what each would buy and what is known about it.
 | what the owner said of a render | `../../bench/results/2026-10-04_masked_v2v_first_run.md`, `../../bench/results/2026-10-04_masked_v2v_band.md` |
 | how the prompts are written | `../../masked_prompt_text.py` (the node's sentences), `../../prompt_bank/` (`ref2va_masked_*`), [`../prompting.md`](../prompting.md) |
 | what was measured on which clip | `../../bench/results/2026-10-04_subject_track_three_clips.md` |
+| what the tracker and the masks did on a run | "Seeing what the tracker and the masks did" above |

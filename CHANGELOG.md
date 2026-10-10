@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.235.1
+<!-- changelog.d/mrpop-seeing-tracker-and-masks.md -->
+
+### Changed
+
+- `docs/wiki/masked_v2v.md` gains "Seeing what the tracker and the masks did": what every masked render writes beside itself, the look before a render, the bench tool that records the inside of the tracker, the tools that read a finished render against its source, and the untracked captures of 2026-10-07 with what made them. It also says what does not exist (a trace written by the workflow, an id for a person across shots or nodes) and that two people are two Subject Track nodes in one graph. No code, graph or default changes.
+
 ## 0.235.0
 <!-- changelog.d/mrfetch-masked-why-round.md -->
 
