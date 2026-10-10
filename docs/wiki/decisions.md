@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **Who is who starts from two votes that must agree, recorded by a
+  neutral party or the lead; no classifier for each video; a cut finder
+  need not be perfect** (owner, to the session that wrote the plan). The
+  two votes are the likeness as built and SAM's tracker seeded from a
+  confirmed look, which is the owner's own idea; where they differ a
+  person is asked. What each vote said and the answer given is written
+  down by the job's lead session or one with no part in the tool, not by
+  the session whose tool cast a vote. A small classifier trained on each
+  video, which the plan had as a last resort, is removed and not to be
+  proposed again unasked: the owner's reason is that the more complex a
+  thing is the more of it fails. And a missed cut is to be made cheap,
+  not impossible. In
+  [`who_is_who_evidence.md`](who_is_who_evidence.md), first screen and
+  sections 2, 6 and 8; what the page said of the classifier is in
+  50989af7.
 - **A rule that depends on the picture takes its value from the input
   video, up front** (owner: "we need to determine some rules by video input
   upfront not hardcoded rules for all", said as a standing rule they

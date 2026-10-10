@@ -1,6 +1,6 @@
 # Who is who: which evidence, why, and how it is weighed
 
-last updated: 2026-10-10 (first written, at the owner's ask: a plan; nothing here is built or measured unless a line names a record)
+last updated: 2026-10-10 (first written, at the owner's ask: a plan; nothing here is built or measured unless a line names a record; the same evening the owner agreed the starting rule, said who records it, and removed the classifier)
 
 Written by hand. A plan that goes with [`who_is_who.md`](who_is_who.md).
 That page says how a named person is remembered and how a shot is decided.
@@ -38,11 +38,15 @@ they must agree.
 Agree: that is the answer. Disagree, or either cannot tell: a person is
 asked, on a picture. No weights, no new model, no new pass over the video.
 
+**Agreed by the owner, 2026-10-10,** with one condition: what the two
+votes said, and the answer where they did not agree, is recorded by a
+neutral party or by whoever leads the effort, not by the session whose
+tool cast a vote (section 2, "Who records it").
+
 **Everything else on this page waits behind that**, in order of how
-little it adds: comparing a person part by part, body build, a small
-classifier for one video. Each is tried only if the step before it still
-gets known shots wrong, and each has a rule written in advance for when
-to stop.
+little it adds: comparing a person part by part, then body build. Each is
+tried only if the step before it still gets known shots wrong, and each
+has a rule written in advance for when to stop.
 
 **What it will not do.** It will not fix a stranger who resembles a named
 person in everything that is measured. Nothing in it fine-tunes a large
@@ -112,6 +116,19 @@ answer. They differ, or one of them cannot tell: ask. A vote "cannot
 tell" when the likeness has no lead, or the seeded calls from different
 confirmed looks land on different people, or the tracker's score says
 nobody is there.
+
+**Who records it** (the owner's condition, 2026-10-10). The session that
+builds or runs a vote does not write down its outcome. For each shot, what
+each vote said, whether they agreed, and the answer a person gave where
+they did not, is recorded by the lead session of the job or by a session
+with no part in the tool, and the record says who that was. The same goes
+for the known answers a test is scored against: the truth of the first
+test bed was read off the tiles by the lead session, not by the tracker's
+owner, and that stays the form. In the cast this is the `who` of a typed
+look (`who_is_who.md`, section 4); what this adds is that the `who` may
+not be the vote's own builder. *My reading of one sentence of the
+owner's; if they meant something narrower, this paragraph is what
+changes.*
 
 **Why this is the place to start.** It adds one idea and nothing else: no
 model that is not already loaded, no pass that does not already run, no
@@ -254,25 +271,11 @@ body model estimates it afresh on every frame and completes what it
 cannot see, so it is read only on frames where most of the body is in the
 picture ([`meta_perception_models.md`](meta_perception_models.md)).
 
-**A small classifier for one video.** The last resort, and the most
-machinery here. What it is: a linear model, a weight for each feature and
-name, trained in seconds on the CPU from that video's confirmed looks.
-
-- *Its labels:* a person confirms a handful of looks; the tracker carries
-  each through its shot, so one yes becomes every frame of that shot, and
-  everybody else on those frames is a certain "not them".
-- *Its check:* a whole shot is left out and predicted, never a frame,
-  since the frames of one shot are nearly one picture.
-- *Its "none of them":* train it without one person and see how their
-  frames score as the others.
-- *What goes wrong:* it learns the hat unless it is trained a scene at a
-  time; a track that slid onto a neighbour poisons hundreds of its labels;
-  a scene with one confirmed shot for a name has nothing to hold out; and
-  two people alike in every feature are alike to it.
-- *What it is not:* fine-tuning SAM, or a face recogniser.
-
-It is built only if the piles of section 5 show several features each
-carrying something the others do not.
+*2026-10-10: a small classifier trained for each video was the third
+thing in this section, as a last resort. The owner removed it the same
+evening, with the words that the more complex a thing is the more of it
+fails. It is not part of this plan and is not to be proposed again
+without the owner asking; the commit before this line has what it said.*
 
 ## 7. The order, and what would stop each step
 
@@ -306,8 +309,8 @@ default.
    people's differ.
 7. **The second clip.** Sharp video, matching tops, the named people at
    the back.
-8. **Evidence with a zero, then the classifier**, only on a count of
-   questions that says the simple rule asks too much.
+8. **Evidence with a zero**, only on a count of questions that says the
+   simple rule asks too much.
 
 ## 8. Cuts: finding them, and making a missed one harmless
 
@@ -351,6 +354,10 @@ whoever is there. With the confirmed look shown again on a schedule or
 when the tracker's score falls (section 3), a missed cut is caught by the
 next showing, and an invented cut costs one decision that was not needed.
 The finder then has to be good, not perfect.
+
+*2026-10-10: the owner agrees a cut finder does not need to be perfect.
+So the order here is the spike rule, then showing the confirmed look
+again, and the rest only if cuts are still costing shots after those.*
 
 **If rules are not enough,** a small model trained only to find shot
 changes exists as a kind of thing. None is in the owner's model store, so
