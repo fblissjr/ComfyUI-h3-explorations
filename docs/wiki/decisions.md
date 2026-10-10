@@ -91,6 +91,22 @@ Older history lives elsewhere and is not copied here:
     `--alias` when this clip's last file is built. Already out:
     `restore=<subject>:contested`, added and removed the same evening
     (`92dac2c1`).
+    - *2026-10-10, the tool's session, read against its own list
+      (`bench/results/2026-10-10_delivery_files_and_their_records.md`,
+      "What of the tool is kept, simplified and removed", which holds all
+      eighteen lines): no line above is wrong; four things it leaves out.
+      KEEP also `rows_shown`, the proof that each row's picture shows where
+      it was meant to. SIMPLIFY also the reading of several captures that
+      cover one frame, to one analysis folder a clip, which waits for that
+      folder. The canvas-size path goes together with its only user, the
+      older patch route `bench/patch_render_window.py build`. And the
+      zoomed lay-in (`0e7f69fb`) is neither kept nor cut yet: it stays
+      until the first delivery with a zoomed row is read, and goes if the
+      gain cannot be seen or measured there. The capture session has said
+      nothing of its reads the per-frame csv. The order: the whole-clip
+      file is built with the tool as it is; then the current joined file
+      is rebuilt with "the later row wins" and compared, and that
+      comparison is the record for that change; then the cuts.*
   - THE LOOK, the one thing ADDED by this: one picture strip a load, one
     line saying who looked, and the builder refusing a load nobody looked
     at; no fingerprint. Not built.

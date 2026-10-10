@@ -554,3 +554,12 @@ dated line under "Changes, by date".
 **Not yet earned.** The zoomed lay-in (`0e7f69fb`): measured on one pair,
 seen in no delivery. It stays until the first zoomed delivery is read,
 and goes if the gain cannot be seen or measured there.
+
+- 2026-10-10, later: the decided list is also in `docs/wiki/decisions.md`
+  (2026-10-10, "What the owner cut from the tools around the nodes"), and
+  the owner added two rules for how a cut lands. Every doc reference to a
+  thing goes in the same commit that cuts it. And where a reader would
+  look for it (here, `docs/wiki/masked_v2v.md`, the tool's docstring) a
+  dated line says what was removed and why, pointing at that entry. The
+  capture session has said nothing of its reads the per-frame csv, so
+  line 18 is a removal with no condition left.
