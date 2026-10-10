@@ -27,6 +27,9 @@ overlaps and margins can be counted by hand and reads the rows back.
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+11. **Whose a pixel is.** A pixel one track claims is that subject's; of two claimants it is the one whose class
+   map names it; named by both or by neither it is contested and not guessed; and with no class map every
+   pixel both claim is contested.
 10. **The look.** A render at the source's level over the area reads 0, one at the level of a render that held
    reads 1, a frame with no area reads nothing, and a reference no different from the source has no lift
    (which the command refuses).
@@ -326,6 +329,25 @@ def the_look() -> str:
     return "a render at the source's level reads 0, one at the held render's reads 1, a frame with no area reads nothing"
 
 
+def owners() -> str:
+    one, two = rect(32, 32, 64, 64), rect(48, 32, 96, 64)          # both claim x 48-64
+    map_one = np.zeros((N, H, W), np.uint8)
+    map_two = np.zeros((N, H, W), np.uint8)
+    map_one[:, 32:48, 48:64] = 5                    # one's class map names the top half of the shared strip
+    map_two[:, 40:56, 48:64] = 7                    # two's names rows 40-56 of it: rows 40-48 named by both, 56-64 by neither
+    owner, labels, shared, contested = cap.owner_map({"one": one, "two": two}, {"one": map_one, "two": map_two})
+    f = owner[0]
+    assert labels == ["one", "two"] and shared[0] == 16 * 32, (labels, shared[0])
+    assert (f[32:64, 32:48] == 0).all() and (f[32:64, 64:96] == 1).all(), "a pixel one track claims is not that subject's"
+    assert (f[32:40, 48:64] == 0).all(), "named by one's class map alone, and not one's"
+    assert (f[48:56, 48:64] == 1).all(), "named by two's class map alone, and not two's"
+    assert (f[40:48, 48:64] == cap.CONTESTED).all() and (f[56:64, 48:64] == cap.CONTESTED).all(), "named by both or by neither, and guessed"
+    assert (f[0:32] == cap.NOBODY).all() and contested[0] == 2 * 8 * 16, contested[0]
+    bare, _, _, left = cap.owner_map({"one": one, "two": two}, {})
+    assert left[0] == 16 * 32, "with no class map every pixel both claim is contested"
+    return "one claimant owns; of two, the one whose class map names the pixel; named by both or neither is contested, never guessed"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -347,6 +369,7 @@ case("control: a mask moved on purpose", moved)
 case("a plan's region from the masks", plan)
 case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
+case("whose a pixel is", owners)
 case("the held part", held_part)
 case("segments and what is inside a region", segments)
 case("what lies under a doubted part", under_a_doubted_part)

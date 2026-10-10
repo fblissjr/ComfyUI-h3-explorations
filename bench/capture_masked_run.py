@@ -42,6 +42,9 @@ saves every mask output through `MaskToImage` writes exactly these. What it writ
                              carried), per_frame.csv / .json, graph.json (read from the render's picture);
                              segments_in_region.csv / .json: every segment inside the region that is not
                              the carried mask, in pixels and cells
+    owners.npz               with more than one subject: `owner` (uint8 per pixel, an index into `labels`, 255
+                             nobody, 254 contested): a pixel one track claims is that subject's, a pixel
+                             several claim is the one's whose class map names it (`owner_map`)
     status.json, README.md   how it came to be, and what it does not hold
 
 **A plan** (`--plan`) is a run that has not rendered: its region is worked out from the saved masks with the
@@ -65,7 +68,10 @@ subject and run, with the flags that were raised on those frames: the first step
 **look** answers one question about a whole-subject render, per frame: is this the new subject or a look-alike
 of the original. It reads the mean grey level over the top of the subject's mask and places the render between
 the source (0) and a render of the same subject that held (1). It tells two subjects apart only where they
-differ in lightness there, and refuses when the held render does not.
+differ in lightness there, and refuses when the held render does not. Its blind side, met the day it was
+written: the area is the ORIGINAL's head, so a new subject who sits lower or smaller in the frame leaves wall
+there and reads near a half while being plainly the new subject in stills. A figure near 0 is the original's
+look; a figure in between is a frame to look at, not a verdict.
 
 **mask** writes any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or
 `others`: the same file form as every other mask here.
@@ -302,6 +308,34 @@ def whose_rows(label: str, first: int, classes: np.ndarray, own: np.ndarray, oth
                          "in_neither": int(counts[k]) - mine - int(np.logical_or.reduce([px & t[n] & ~own[n] for t in others.values()]).sum()
                                                                     if others else 0)})
     return rows
+
+
+NOBODY, CONTESTED = 255, 254
+
+
+def owner_map(tracks: dict[str, np.ndarray], classes: dict[str, np.ndarray]) -> tuple[np.ndarray, list[str], np.ndarray, np.ndarray]:
+    """Whose each pixel is, [n, h, w] of uint8: an index into the labels returned, `NOBODY` where no track claims
+    it, `CONTESTED` where the tracks and the class maps together do not decide. Also the pixels more than one
+    track claims per frame, and the contested ones.
+
+    A pixel one track claims is that subject's. A pixel several claim is the subject's whose class map names it
+    something (not Background), when exactly one of the claimants' does; when none does, or more than one, it is
+    contested and not guessed. The class is asked only of pixels several tracks claim: within its margin of the
+    outline a class map labels a neighbour's things as the subject's (`whose_rows`). Measured where the rule
+    came from (2026-10-10, two subjects, 447 frames): it settled 93% of the pixels both tracks claimed."""
+    labels = list(tracks)
+    stack = np.stack([tracks[label] for label in labels])                    # [s, n, h, w]
+    claims = stack.sum(axis=0)
+    owner = np.full(claims.shape, NOBODY, np.uint8)
+    for i in range(len(labels)):
+        owner[stack[i] & (claims == 1)] = i
+    shared = claims > 1
+    named = np.stack([stack[i] & shared & (classes[label] > 0 if label in classes else False) for i, label in enumerate(labels)])
+    votes = named.sum(axis=0)
+    for i in range(len(labels)):
+        owner[named[i] & (votes == 1)] = i
+    owner[shared & (votes != 1)] = CONTESTED
+    return owner, labels, shared.sum(axis=(1, 2)), (owner == CONTESTED).sum(axis=(1, 2))
 
 
 def segments_in_region(first: int, region: np.ndarray, carried: np.ndarray, classes: dict, names: tuple[str, ...]) -> list[dict]:
@@ -782,7 +816,19 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
               f"{int(read.sum())} of {frames} frames, mean share {float(region[read].mean()) if read.any() else 0.0:.4f}", flush=True)
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
-    write_table(out / "frames", cross_rows(first, frames, sightings, captured, voice))
+    cross = cross_rows(first, frames, sightings, captured, voice)
+    # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
+    # or keep mask given as a --mask is a union of things and owns nothing.
+    whos = [label for label in sightings if label in class_maps] or list(sightings)
+    if len(whos) > 1:
+        owner, labels, shared, contested = owner_map({label: next(iter(sightings[label].values()))[0] for label in whos}, class_maps)
+        np.savez_compressed(out / "owners.npz", owner=owner, labels=np.array(labels), nobody=NOBODY, contested=CONTESTED)
+        for n, row in enumerate(cross):
+            row["claimed_by_more_than_one_px"], row["contested_px"] = int(shared[n]), int(contested[n])
+        manifest["owners"] = {"file": "owners.npz", "labels": labels, "nobody": NOBODY, "contested": CONTESTED,
+                              "claimed_by_more_than_one_px": int(shared.sum()), "contested_px": int(contested.sum())}
+        print(f"owners: {int(shared.sum())} pixels claimed by more than one track over the span, {int(contested.sum())} left contested", flush=True)
+    write_table(out / "frames", cross)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     (out / "README.md").write_text(readme(manifest))
 
@@ -1258,6 +1304,16 @@ def preflight(a: argparse.Namespace) -> None:
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
     flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder)
+    cross = json.loads((folder / "frames.json").read_text())["rows"]
+    hit = [r for r in cross if (r.get("contested_px") or 0) >= SEGMENT_PX]
+    if hit:
+        worst = max(hit, key=lambda r: r["contested_px"])
+        flags.append({"rule": "contested_by_class_too", "level": LEVELS[1], "subject": None,
+                      "source_frames": frame_spans([r["source_frame"] for r in hit]),
+                      "why": f"on {len(hit)} frame(s) more than one track claims pixels that the class maps do not settle "
+                             f"(up to {worst['contested_px']} px on source frame {worst['source_frame']}): `owners.npz` marks them "
+                             "contested; look and decide whose they are",
+                      "figures": {"frames": len(hit), "worst_px": worst["contested_px"]}, "threshold": {"SEGMENT_PX": SEGMENT_PX}})
     for s in m["subjects"]:
         path = folder / "subjects" / s["label"] / "doubted_frames.json"
         if path.is_file():
