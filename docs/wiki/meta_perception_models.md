@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags, and which weights are now on disk)
+last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk)
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -278,25 +278,46 @@ shown nothing of the mouth that made it.
 
 Signals a mesh-driven render could be checked on before it samples
 ([`masked_v2v.md`](masked_v2v.md), "The rule: data before a render, and the
-same data after"). Each is readable from core's pose data
-(`comfy_extras/sam3d_body/utils.py::run_batched_single_chunk` lists what it
-holds per person per frame). None is a rule until a preview saves that data;
-`../../bench/capture_masked_run.py` is where a rule would live.
+same data after"). Each row says which tracked tool the rule belongs in and
+what that tool still lacks to read it; the masking board's card
+`build-mesh-preflight-flags` carries the owners. Core's pose data holds
+everything they need
+(`comfy_extras/sam3d_body/utils.py::run_batched_single_chunk` lists it per
+person per frame); what is missing is a preview that saves it.
 
-| flag | read from | what it predicts | state |
-|---|---|---|---|
-| a hand crop under Meta's size constant | the width of `lhand_bbox` or `rhand_bbox`, against `hand_box_size_thresh` (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1317`; core's copy is in `comfy/ldm/sam3d_body/model/model.py::run_inference`) | the fingers on that frame are the body decoder's, never the hand decoder's | confirmed on one frame, both sides: the record's "Hands and expression" |
-| a person's `bbox` equal to the whole frame while a track is wired | `bbox` against `image_size` | that person's mask was empty on the frame and core substituted the frame (`comfy_extras/sam3d_body/utils.py::_bbox_from_mask`); a body is drawn from whatever is there | read, not run |
-| one whole-frame box and more than one person in the frame | the box, and the tracker's person count | one crop holds everyone; which person comes out is not defined | read; the one such box in the record is also the only one where the control did not reach the floor |
-| a keypoint outside the frame | `pred_keypoints_2d` against `image_size` | a joint the model placed where it saw nothing | read, not run |
+| flag | what it predicts | belongs in | still lacks | state |
+|---|---|---|---|---|
+| a hand crop under Meta's size constant: the width of `lhand_bbox` or `rhand_bbox` against `hand_box_size_thresh` (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1317`; core's copy is in `comfy/ldm/sam3d_body/model/model.py::run_inference`) | the fingers on that frame are the body decoder's, never the hand decoder's; a little over the constant is not safe either | the preflight of `../../bench/capture_masked_run.py` | the two hand boxes per person per frame, saved by the preview beside the mesh video | confirmed on one frame, both sides: the record's "Hands and expression" |
+| a person's `bbox` equal to the whole frame while a track is wired | that person's mask was empty on the frame and core substituted the frame (`comfy_extras/sam3d_body/utils.py::_bbox_from_mask`); a body is drawn from whatever is there | closed for a graph that takes its boxes from `subject_boxes.py::MiniMaxH3SubjectBoxes`, which gives no box on such a frame (`subject_boxes.py::frame_boxes`, held by `../../bench/check_video_mask.py`). For a graph that wires core's SAM 3 track straight into the predict node: the same preflight | the body box per person per frame, saved by the preview | read, not run |
+| one whole-frame box and more than one person in the frame | one crop holds everyone; which person comes out is not defined | the same preflight, which already has the person count per shot | whether the graph's predict node has boxes or a track wired, read from the render's own graph | read; the one such box in the record is also the only one where the control did not reach the floor |
+| a keypoint outside the frame | a joint the model placed where it saw nothing | the same preflight | `pred_keypoints_2d` per person per frame, saved by the preview | read, not run |
 
 **There is no confidence to read.** Neither Meta's code nor core returns a
 score for a detection, a visibility for a joint, or whether a hand was
 refined. Meta's model has hand-presence logits; its inference never reads
-them and core drops their weights. A flag here is geometry, not certainty.
+them and core drops their weights. A flag here is geometry, not certainty,
+and the preflight should print that with the flags.
 
-Not measured, so not a flag: the size of a face below which Sapiens2's lip,
-teeth and tongue classes stop being reliable.
+Not a flag yet, because nothing is measured: the size of a face below which
+Sapiens2's lip, teeth and tongue classes stop being reliable. It belongs in
+the part node's own report (`../../sapiens2_parts.py`) and lacks a probe: one
+face at a ladder of sizes, the lip classes' area read at each.
+
+## Where the probes are
+
+Every sentence above rests on a file in `coderef/`, on a tracked tool, or on
+a one-line probe whose command is here. Nothing rests on a session folder.
+
+- Core against Meta: `../../bench/compare_sam3d_body_core_against_meta.py`,
+  whose docstring holds the recipe for the Python that runs Meta's side.
+- What the ComfyUI venv lacks for SAM-Audio: `importlib.util.find_spec` on
+  each name in `coderef/sam-audio/pyproject.toml`, run with the venv's
+  Python.
+- Upstream's two mask lines on a given day: fetch `sam_audio/processor.py`
+  and `eval/dataset/sam_audio_bench.py` from the repository's main branch
+  and search for `eq(0)` and `video_frames * mask`.
+- A Hub file's size, gating and licence: `hf download --dry-run <repo>`.
+- The papers were read as text; a claim from one names its section.
 
 ## Not run
 

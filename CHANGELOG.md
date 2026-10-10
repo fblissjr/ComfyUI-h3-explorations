@@ -7,6 +7,21 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.252.1
+<!-- changelog.d/mrfrog-mesh-flags-have-a-home.md -->
+
+### Changed
+
+- `docs/wiki/meta_perception_models.md`: each candidate preflight flag for a
+  mesh-driven render names the tracked tool it belongs in and the input that
+  tool still lacks; one of them is closed for a graph that takes its boxes
+  from `MiniMaxH3SubjectBoxes`. A section says where every probe behind the
+  page is, so nothing rests on a session folder.
+- `bench/compare_sam3d_body_core_against_meta.py`'s docstring holds the
+  recipe for the Python that runs Meta's side, and its record
+  (`bench/results/2026-10-10_sam3d_body_core_against_meta.md`) the commands
+  that reproduce it.
+
 ## 0.252.0
 <!-- changelog.d/mrcorn-assemble-reads-owners.md -->
 

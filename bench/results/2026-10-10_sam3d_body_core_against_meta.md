@@ -264,6 +264,28 @@ person, which more than one person needs anyway
 (`subject_boxes.py::MiniMaxH3SubjectBoxes`). The sampling difference is in
 core; this pack patches nothing in core.
 
+## To run it again
+
+The second image is one frame cut from Meta's example video:
+
+    ffmpeg -i coderef/sam-audio/examples/assets/office.mp4 -vf "select='eq(n\,60)'" -fps_mode passthrough office_frame60.png
+
+Then, with the card masked, the tool's own docstring for the Python that
+runs Meta's side, and `<store>` the folder holding Meta's release
+(`model.ckpt`, `model_config.yaml`, `assets/mhr_model.pt`):
+
+    CUDA_VISIBLE_DEVICES= <comfy venv python> bench/compare_sam3d_body_core_against_meta.py \
+        --image coderef/sam-3d-body/notebook/images/dancing.jpg --label dancing \
+        --boxes whole --boxes-from-mask coderef/sam-3d-body/notebook/images/dancing_mask.png \
+        --meta-python <python> --meta-weights <store> --out-dir <dir>
+    CUDA_VISIBLE_DEVICES= <comfy venv python> bench/compare_sam3d_body_core_against_meta.py \
+        --image office_frame60.png --label office_frame60 \
+        --boxes whole --boxes 45,95,190,245 --boxes 320,55,600,345 --boxes 345,100,440,215 \
+        --meta-python <python> --meta-weights <store> --out-dir <dir>
+
+`gather` joins the two JSON files into the one beside this record and
+`render` prints the tables from it.
+
 ## Not done
 
 - The field of view from MoGe on core's side against Meta's own MoGe call.

@@ -79,6 +79,14 @@ not a path.
         --meta-python <a python with META_NEEDS> --meta-weights <dir with model.ckpt> \\
         --out-dir <dir>
 
+The Python for Meta's side, built once, outside the repo (as it was on
+2026-10-10; `META_NEEDS` is the list the tool checks before it starts):
+
+    uv venv --python 3.12 <dir>
+    uv pip install --python <dir>/bin/python torch torchvision --index-url https://download.pytorch.org/whl/cpu
+    uv pip install --python <dir>/bin/python numpy opencv-python-headless roma pytorch-lightning yacs einops \\
+        timm omegaconf braceexpand pillow termcolor ftfy regex scikit-learn submitit torchmetrics
+
     <python> bench/compare_sam3d_body_core_against_meta.py gather <out.json> <a run's JSON>...
     <python> bench/compare_sam3d_body_core_against_meta.py render <the JSON files>   # the record's tables
 """
