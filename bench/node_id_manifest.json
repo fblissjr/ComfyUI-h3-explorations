@@ -622,7 +622,8 @@
   "MiniMaxH3SubjectBoxes": {
     "inputs": [
       "mask",
-      "margin"
+      "margin",
+      "smallest_mask"
     ],
     "node_id": "MiniMaxH3SubjectBoxes",
     "outputs": [
@@ -673,7 +674,8 @@
       "max_people",
       "head_phrase",
       "corrections",
-      "subject_from"
+      "subject_from",
+      "others"
     ],
     "node_id": "MiniMaxH3SubjectTrack",
     "outputs": [

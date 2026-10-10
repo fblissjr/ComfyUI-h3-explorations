@@ -176,8 +176,35 @@ always the better one".
 
 Every phrase SAM 3 is given is an input: `subject_phrase` and `head_phrase`.
 
+**Two nodes, one person** (`others`, `without_others`; 2026-10-10). Each node
+follows one person and knows nothing of another node in the same graph. On
+the first clip with two people followed, the second node's pick rule took the
+first node's person for four shots, and every frame of both masks was the
+same mask (the day's captures under `data/`; `ON_OTHERS` has the figures).
+`others` is the first node's mask wired into the second: a detection lying
+mostly on it is not a candidate, anywhere a detection is looked at. It is
+done on the detector's answer and not inside `follow`, so the preview's
+numbers and a correction count the people that are left. A shot showing only
+people other nodes hold has no subject. What it does not do: cut a track
+that moves onto such a person in the middle of a shot. The node can see that
+for nothing (`frames_on_others`), reports it and writes it into the shot
+table, and cuts nothing.
+
+**The tracker's own score** (`ScoreTap`; 2026-10-10). ComfyUI's tracker
+computes, per frame, a score that its object is there, and its node returns
+one number for the whole object. The score was seen falling before a loss
+and was neither read nor saved
+(`docs/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`,
+item 4). Here the tracker object's step is wrapped for the length of one
+track call, and each frame's score goes into the shot table under its shot.
+Nothing reads it yet: whether it warns of a loss is a test still to run. A
+record that could be out of step with its frames is not written at all, and
+the report says why.
+
 Nothing here patches core. It calls core's own nodes (`SAM3_Detect`,
-`SAM3_VideoTrack`, `SAM3_TrackToMask`) and the SAM 3 model's vision trunk.
+`SAM3_VideoTrack`, `SAM3_TrackToMask`) and the SAM 3 model's vision trunk;
+the score is read by wrapping one method on the loaded tracker object and
+putting it back.
 """
 
 from __future__ import annotations
@@ -288,6 +315,13 @@ TILE_WIDTH = 768
 #: The side SAM 3's vision trunk takes. Inherited: core's detect node scales
 #: every frame to it (`comfy_extras/nodes_sam3.py::SAM3_Detect.execute`).
 TRUNK_SIDE = 1008
+
+#: A detection with more than this share of its pixels on the people other trackers hold is not a candidate (the
+#: `others` input). measured, one clip (2026-10-10, the day's captures under `data/`): where two Subject Track nodes
+#: held one person, the share of one mask on the other was 1.000 on every frame of two loads; where they held two
+#: different people through a two-person scene, heads close and one passing behind the other, it never passed 0.039.
+#: Half sits in that gap.
+ON_OTHERS = 0.5
 
 PICK_LARGEST = "largest"
 PICK_CENTRAL = "most central"
@@ -947,6 +981,132 @@ def _frame_list(frames: list[int], most: int = 16) -> str:
     return shown if len(frames) <= most else f"{shown} and {len(frames) - most} more"
 
 
+def share_on(mask: torch.Tensor, others: torch.Tensor) -> float:
+    """The share of a [H, W] mask's pixels that lie on `others`, a [H, W] mask of other people. 0 for an empty mask."""
+    on = mask > 0.5
+    area = int(on.sum())
+    return float((on & (others > 0.5)).sum()) / area if area else 0.0
+
+
+def without_others(detect, others: torch.Tensor, left_out: dict[int, int], most: float = ON_OTHERS):
+    """`detect` with every detection that lies mostly on `others` removed: people another tracker already holds.
+
+    `others` is [frames, H, W]. A detection with more than `most` of its pixels on that frame's `others` is not
+    returned, so it is not a candidate for the pick, for a shot's match or for a re-find, and the preview and the
+    corrections count the people that are left. `left_out[frame]` is how many were removed on each frame looked at.
+    A frame where everybody is somebody else's has no candidate, so the subject is absent there.
+    """
+    kept: dict[int, tuple[torch.Tensor, list[float]]] = {}
+
+    def detect_others_removed(f: int):
+        if f not in kept:
+            masks, scores = detect(f)
+            keep = [i for i in range(int(masks.shape[0])) if share_on(masks[i], others[f]) <= most]
+            left_out[int(f)] = int(masks.shape[0]) - len(keep)
+            kept[f] = (masks[keep], [scores[i] for i in keep if i < len(scores)])
+        return kept[f]
+
+    return detect_others_removed
+
+
+def frames_on_others(mask: torch.Tensor, others: torch.Tensor, most: float = ON_OTHERS) -> list[int]:
+    """The frames where this tracker's own mask lies mostly on `others`: it is on a person another tracker holds.
+
+    Nothing is cut on it here. A tracker can move its mask onto a neighbour with no empty frame between
+    (`subject_tracks.py`, "The step test"), and with `others` wired that is visible for nothing.
+    """
+    on, taken = mask > 0.5, others > 0.5
+    area = on.flatten(1).sum(dim=1)
+    both = (on & taken).flatten(1).sum(dim=1)
+    return [int(f) for f in ((area > 0) & (both.to(torch.float32) > most * area.to(torch.float32))).nonzero().flatten().tolist()]
+
+
+def others_report(shots, left_out: dict[int, int], on_others: list[int]) -> str:
+    """The report's lines about the `others` input: what was left out, which shots it emptied, and where this track
+    itself sits on another tracker's person."""
+    looked = sorted(left_out)
+    gone = sum(left_out.values())
+    lines = [f"others: {gone} detection(s) on {sum(1 for f in looked if left_out[f])} of the {len(looked)} frame(s) looked at "
+             "lay mostly on a person another tracker holds and were not candidates"]
+    for number, shot in enumerate(shots, 1):
+        there = sum(left_out.get(f, 0) for f in looked if shot.start <= f < shot.end)
+        if there and shot.seed is None:
+            lines.append(f"[{number}] no subject: every person compared there was another tracker's, or nobody was "
+                         f"like enough ({there} detection(s) left out on the frames looked at)")
+    if on_others:
+        runs = shot_table._runs([f in set(on_others) for f in range(on_others[0], on_others[-1] + 1)], on_others[0])
+        lines.append(f"this track's own mask lies mostly on another tracker's person on {len(on_others)} frame(s): "
+                     + ", ".join(f"{a}-{b}" for a, b in runs[:8]) + (" and more" if len(runs) > 8 else "")
+                     + ". Nothing was cut; correct the shot or look at the tracker there")
+    return "\n".join(lines)
+
+
+class ScoreTap:
+    """While entered, records the object score a tracker gives at each frame it steps through.
+
+    ComfyUI's SAM 3 tracker computes a score per frame for whether its object is there (`object_score_logits`,
+    `comfy/ldm/sam3/tracker.py::track_step`) and its node returns one number per object, not per frame. Here the
+    tracker object's `track_step` is wrapped for the length of one call and put back after: nothing in ComfyUI is
+    edited. `seen[frame]` is that frame's score for the one object tracked, as the tracker's own number (over 0
+    it takes the object as present): kept as that and not as a probability, which on an easy stretch rounds to 1
+    on every frame and would show a fall only once it was over. `trouble` says in words why the record cannot be
+    used (no such method, a frame stepped twice, more than one object), and is empty when it can. A tracker with
+    no `track_step` records nothing and says so.
+    """
+
+    def __init__(self, tracker):
+        self.tracker, self.seen, self.trouble = tracker, {}, ""
+        self._wrapped = False
+
+    def __enter__(self):
+        step = getattr(self.tracker, "track_step", None)
+        if not callable(step):
+            self.trouble = "the tracker has no `track_step` to read a score from"
+            return self
+
+        def recording(*args, **kwargs):
+            out = step(*args, **kwargs)
+            frame = kwargs.get("frame_idx", args[0] if args else None)
+            logits = out.get("object_score_logits") if isinstance(out, dict) else None
+            if frame is None or logits is None:
+                self.trouble = self.trouble or "a step returned no frame number or no object score"
+            elif int(frame) in self.seen:
+                self.trouble = self.trouble or f"frame {int(frame)} was stepped more than once"
+            elif int(logits.numel()) != 1:
+                self.trouble = self.trouble or f"{int(logits.numel())} object scores on a frame, where one object is tracked"
+            else:
+                self.seen[int(frame)] = float(logits.detach().float().flatten()[0])
+            return out
+
+        self.tracker.track_step = recording   # an attribute of this object only; the class is not touched
+        self._wrapped = True
+        return self
+
+    def __exit__(self, *exc):
+        if self._wrapped:
+            del self.tracker.track_step
+            self._wrapped = False
+        return False
+
+
+def scores_for(seen: dict[int, float], trouble: str, frames: int, backwards: bool = False) -> tuple[list[float | None], str]:
+    """One tracked run's scores in clip order: ([score or None] for its `frames` frames, lowest clip frame first; why not).
+
+    `seen` is a `ScoreTap`'s record in the run's own numbers, 0 being the frame it was seeded on. A run fed
+    `backwards` was seeded on its highest clip frame, so its record is turned round. The frame a run is seeded on
+    is given its mask and may not be stepped, so it alone may be missing. Any other gap, or any trouble the tap
+    met, gives no scores at all and the reason: a list that might be out of step is worse than none.
+    """
+    if trouble:
+        return [None] * frames, trouble
+    missing = [k for k in range(1, frames) if k not in seen]
+    if missing or any(k < 0 or k >= frames for k in seen):
+        return [None] * frames, (f"the tracker stepped {len(seen)} frame(s) of a run of {frames}"
+                                 + (f", frame {missing[0]} of the run among those it did not" if missing else ""))
+    local = [seen.get(k) for k in range(frames)]
+    return (local[::-1] if backwards else local), ""
+
+
 def assemble(n_frames: int, height: int, width: int, pieces: dict[int, torch.Tensor]) -> torch.Tensor:
     """[n_frames, height, width] of 0 or 1: the tracked pieces in place, zeros where the subject is absent."""
     out = torch.zeros((int(n_frames), int(height), int(width)), dtype=torch.float32)
@@ -1116,8 +1276,15 @@ def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect)
 
 
 def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str, detection_threshold: float,
-                   max_people: int = MAX_PEOPLE, head_phrase: str = HEAD_PHRASE):
-    """`detect`, `sign` and `track` on core's SAM 3: its detect and track nodes, and the model's vision trunk."""
+                   max_people: int = MAX_PEOPLE, head_phrase: str = HEAD_PHRASE,
+                   track_scores: dict | None = None):
+    """`detect`, `sign` and `track` on core's SAM 3: its detect and track nodes, and the model's vision trunk.
+
+    `track_scores`, when given a dict, is filled as tracks are made: `track_scores[frame]` is the tracker's own
+    object score on that frame of the clip (`ScoreTap`), or None where it could not be read, and
+    `track_scores["trouble"]` is a list of why, one line per run that gave none. A later track over the same
+    frames replaces the earlier one's scores, as it replaces its mask.
+    """
     import comfy.model_management
     import comfy.utils
     from comfy_extras.nodes_sam3 import SAM3_Detect, SAM3_TrackToMask, SAM3_VideoTrack  # core's nodes
@@ -1154,19 +1321,33 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
         head = head_of(mask, head_masks[f])
         return signature(features[f], top_third(mask)), (None if head is None else signature(features[f], head))
 
-    def run(images: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        out = SAM3_VideoTrack.execute(images, segmenter, initial_mask=mask[None].to(torch.float32),
-                                      conditioning=None, detection_threshold=float(detection_threshold),
-                                      max_objects=1, detect_interval=1)
+    def run(images: torch.Tensor, mask: torch.Tensor, first: int, backwards: bool = False) -> torch.Tensor:
+        """Track `images` from `mask` on their first frame. `first` is the clip frame of the lowest-numbered one."""
+        with ScoreTap(getattr(getattr(segmenter.model, "diffusion_model", None), "tracker", None)) as tap:
+            out = SAM3_VideoTrack.execute(images, segmenter, initial_mask=mask[None].to(torch.float32),
+                                          conditioning=None, detection_threshold=float(detection_threshold),
+                                          max_objects=1, detect_interval=1)
+        if track_scores is not None:
+            count = int(images.shape[0])
+            values, why = scores_for(tap.seen, tap.trouble, count, backwards=backwards)
+            for k, value in enumerate(values):
+                # the seed frame of a backward run is the forward run's too, and the forward run's score stands
+                if value is not None or (first + k) not in track_scores:
+                    track_scores[first + k] = value
+            if why:
+                track_scores.setdefault("trouble", []).append(f"frames {first}-{first + count - 1}: {why}")
         data = getattr(out, "args", out)[0]
         masks = SAM3_TrackToMask.execute(data, "")
         return getattr(masks, "args", masks)[0].to(torch.float32).cpu()
 
     def track(start: int, end: int, seed: int, mask: torch.Tensor) -> torch.Tensor:
-        forward = run(frames[seed:end], mask)
+        if track_scores is not None:
+            for f in range(start, end):       # this track replaces whatever was tracked over these frames before
+                track_scores.pop(f, None)
+        forward = run(frames[seed:end], mask, seed)
         if seed == start:
             return forward
-        backward = run(torch.flip(frames[start:seed + 1], dims=[0]), mask)
+        backward = run(torch.flip(frames[start:seed + 1], dims=[0]), mask, start, backwards=True)
         return torch.cat([torch.flip(backward, dims=[0])[:-1], forward], dim=0)
 
     return detect, sign, track
@@ -1196,8 +1377,9 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     #: the cut score leaves a clip's flat borders out. 9: the search for a subject
     #: the track let go, and the hand-over. 10: a corrected shot is searched too,
     #: and `most central` is measured in the frame's own proportions. 11: stray
-    #: specks are dropped from the mask (`subject_tracks.drop_specks`).
-    MASK_VERSION = 11
+    #: specks are dropped from the mask (`subject_tracks.drop_specks`). 12: a
+    #: detection lying mostly on `others` is not a candidate.
+    MASK_VERSION = 12
 
     @classmethod
     def define_schema(cls):
@@ -1274,6 +1456,13 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                                          "`..._shots.json` it saved.\n\nThe person is then picked by how they looked "
                                          "in that run, not by `pick`; if nobody here looks like them, nothing is "
                                          "picked.\n\nFor a long clip rendered in pieces. Leave empty otherwise.")),
+                # appended 2026-10-10
+                io.Mask.Input("others", optional=True,
+                              tooltip=("Optional. The people other Subject Track nodes already follow, one mask per "
+                                       "frame: wire their `mask` here (several joined into one). A person lying "
+                                       "mostly on it is never taken as this node's subject, so two nodes cannot "
+                                       "follow the same person. A shot where only those people are on screen has "
+                                       "no subject.")),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask", tooltip="One mask per frame at the frames' size; empty where the subject is absent."),
@@ -1288,9 +1477,16 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     @classmethod
     def execute(cls, frames, segmenter, segmenter_clip, pick_on, match, cuts, subject_phrase=SUBJECT_PHRASE,
                 pick=PICK_CENTRAL, detection_threshold=DETECTION_THRESHOLD, max_people=MAX_PEOPLE,
-                head_phrase=HEAD_PHRASE, corrections="", subject_from="") -> io.NodeOutput:
+                head_phrase=HEAD_PHRASE, corrections="", subject_from="", others=None) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
+        if others is not None:
+            if others.ndim == 4 and int(others.shape[-1]) == 1:
+                others = others[..., 0]
+            if others.ndim != 3 or tuple(others.shape) != tuple(frames.shape[:3]):
+                raise ValueError(f"others must be one mask per frame at the frames' size, {tuple(frames.shape[:3])}; got "
+                                 f"{tuple(others.shape)}: wire the `mask` of a Subject Track that was given the same frames")
+            others = (others > 0.5).cpu()
         where, pick_frame = _selection(pick_on, "pick_on", "pick_frame")
         how, match_threshold = _selection(match, "match", "match_threshold")
         cutting, cut_threshold = _selection(cuts, "cuts", "cut_threshold")
@@ -1311,8 +1507,12 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         found_cuts = find_cuts(steps, cut_at)
         by_hand = parse_corrections(corrections, len(shot_ranges(n, found_cuts)))
         handed = shot_table.gallery_from(subject_from) if str(subject_from or "").strip() else None
+        track_scores: dict = {}
         detect, sign, track = _sam_callables(segmenter, segmenter_clip, frames, subject_phrase, detection_threshold,
-                                             int(max_people), head_phrase)
+                                             int(max_people), head_phrase, track_scores=track_scores)
+        left_out: dict[int, int] = {}
+        if others is not None:
+            detect = without_others(detect, others, left_out)
         with torch.no_grad():
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
@@ -1326,10 +1526,20 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         if speck_frames:
             text += (f"\nstray specks removed from the mask: {speck_pixels} px on {len(speck_frames)} frame(s), "
                      f"each tiny beside the subject and away from them: {_frame_list(speck_frames)}")
+        on_others = None
+        if others is not None:
+            on_others = frames_on_others(mask, others)
+            text += "\n" + others_report(found.shots, left_out, on_others)
+        trouble = track_scores.get("trouble") or []
+        if trouble:
+            text += ("\nthe tracker's own score per frame could not be read on " + f"{len(trouble)} run(s), and is left "
+                     "out of the shot table there: " + "; ".join(trouble[:4]) + (" and more" if len(trouble) > 4 else ""))
         logger.info("[h3] MiniMaxH3SubjectTrack: %s", text.replace("\n", "; "))
         tiles = preview(frames, mask, found.shots, detect)
         table = shot_table.build(found, detect, mask, state=_state, phrase=subject_phrase, pick=pick,
-                                 named_frame=named_frame, named_value=named_value, cuts=found_cuts)
+                                 named_frame=named_frame, named_value=named_value, cuts=found_cuts,
+                                 left_out=left_out if others is not None else None, on_others=on_others,
+                                 track_scores=track_scores)
         both = text + "\n\n" + shot_table.as_text(table)
         shown = {**ui.PreviewImage(tiles, cls=cls).as_dict(), **ui.PreviewText(both).as_dict()}
         return io.NodeOutput(mask, tiles, text, shot_table.as_json(table), ui=shown)

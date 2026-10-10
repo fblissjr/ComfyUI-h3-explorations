@@ -1001,6 +1001,206 @@ def check_signature(problems):
         problems.append("an empty mask has a signature, or a missing signature has a similarity")
 
 
+def check_others(problems):
+    """Two trackers, one person (2026-10-10): what another tracker holds is never this one's subject."""
+    boxes, detect, sign, track, calls = _world()
+    cuts = [8, 16, 24]
+    held = torch.zeros((32, H, W))
+    for f in list(range(0, 8)) + list(range(20, 32)):       # where person 0 is: the other tracker's mask
+        held[f] = boxes[0]
+    # the control: with nothing held, the largest person on frame 3 is person 0
+    plain = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1)
+    if [c[3] for c in calls["track"]] != [0, 0, 0]:
+        problems.append(f"others: the control did not follow person 0 as the largest: {calls['track']}")
+    calls["track"].clear()
+    left_out: dict[int, int] = {}
+    got = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, st.without_others(detect, held, left_out), sign, track, stride=4, offset=1)
+    if calls["track"] != [(0, 8, 3, 1), (8, 16, 9, 1)]:
+        problems.append(f"others: with person 0 held by another tracker the node should follow person 1 through the two "
+                        f"shots they are in and nobody after; it tracked {calls['track']}")
+    if [s.seed for s in got.shots] != [3, 9, None, None]:
+        problems.append(f"others: seeds {[s.seed for s in got.shots]}; shot 3 holds a stranger and the held person, shot 4 only "
+                        "the held person, so both are absent")
+    if left_out.get(3) != 1 or left_out.get(9) != 0 or not all(left_out[f] == 1 for f in left_out if f >= 24):
+        problems.append(f"others: the count of detections left out per frame looked at is {left_out}")
+    if got.shots[3].seen != 0:
+        problems.append("others: on the shot holding only the held person, a candidate was still seen")
+    mask = st.assemble(32, H, W, got.pieces)
+    if st.frames_on_others(mask, held) != []:
+        problems.append("others: the track of person 1 is reported as lying on the held person")
+    drifted = mask.clone()
+    drifted[5:8] = boxes[0]                                 # the tracker moved onto the held person, no empty frame between
+    if st.frames_on_others(drifted, held) != [5, 6, 7]:
+        problems.append(f"others: a track that moved onto the held person is on them on {st.frames_on_others(drifted, held)}, not 5 to 7")
+    # the line: half on is kept, more than half is not
+    half, more = torch.zeros((H, W)), torch.zeros((H, W))
+    half[10:20, 0:20] = 1.0
+    more[10:20, 0:20] = 1.0
+    theirs = torch.zeros((H, W))
+    theirs[10:20, 0:10] = 1.0
+    if abs(st.share_on(half, theirs) - 0.5) > 1e-6 or st.share_on(torch.zeros((H, W)), theirs) != 0.0:
+        problems.append("others: `share_on` is not the share of a mask's own pixels, or an empty mask has one")
+    theirs_more = theirs.clone()
+    theirs_more[10:20, 10:11] = 1.0
+    counts: dict[int, int] = {}
+    kept = st.without_others(lambda f: (torch.stack([half, more]), [0.9, 0.8]), torch.stack([theirs, theirs_more]), counts)
+    if int(kept(0)[0].shape[0]) != 2 or int(kept(1)[0].shape[0]) != 0 or counts != {0: 0, 1: 2}:
+        problems.append(f"others: exactly half on the held person is kept and a pixel more is not; got {counts}")
+    text = st.others_report(got.shots, left_out, [5, 6, 7])
+    for need in ("lay mostly on a person another tracker holds", "[4] no subject", "on 3 frame(s): 5-7", "Nothing was cut"):
+        if need not in text:
+            problems.append(f"others: the report lacks {need!r}: {text!r}")
+    table = st.shot_table.build(got, st.without_others(detect, held, {}), mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=cuts, left_out=left_out, on_others=[5, 6, 7])
+    rows = table["shots"]
+    if rows[0]["others_left_out"] != {"on_shown_frame": 1, "on_frames_looked_at": 1} or rows[0]["frames_on_others"] != [[5, 7]] \
+            or rows[1]["frames_on_others"] != [] or rows[3]["others_left_out"]["on_frames_looked_at"] < 1:
+        problems.append(f"others: the shot table's rows do not carry what was left out and where the track sits on others: "
+                        f"{[(r['others_left_out'], r['frames_on_others']) for r in rows]}")
+    bare = st.shot_table.build(plain, detect, st.assemble(32, H, W, plain.pieces), state=st._state, phrase="person",
+                               pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=cuts)
+    if any(r["others_left_out"] is not None or r["frames_on_others"] is not None or r["track_score"] is not None for r in bare["shots"]):
+        problems.append("others: a tracker with no `others` and no scores writes something other than null for them")
+    if abs(st.ON_OTHERS - 0.5) > 1e-9:
+        problems.append("others: ON_OTHERS moved; read the day's figures beside it before changing this check")
+
+
+class _SteppingTracker:
+    """Stands in for ComfyUI's tracker object: `track_step` returns the score it is told to, per frame."""
+    def __init__(self, objects: int = 1, twice: int | None = None, skip_seed: bool = False):
+        self.objects, self.twice, self.skip_seed = objects, twice, skip_seed
+
+    def track_step(self, frame_idx, value=0.0, **_):
+        return {"object_score_logits": torch.full((self.objects, 1), float(value))}
+
+    def run(self, values):
+        for k, v in enumerate(values):
+            if k == 0 and self.skip_seed:
+                continue
+            self.track_step(frame_idx=k, value=v)
+            if k == self.twice:
+                self.track_step(frame_idx=k, value=v)
+
+
+def check_track_score(problems):
+    """The tracker's own score per frame (2026-10-10): read in step with the frames, or not at all."""
+    tracker = _SteppingTracker()
+    with st.ScoreTap(tracker) as tap:
+        tracker.run([4.0, 3.5, -1.0])
+    if tap.seen != {0: 4.0, 1: 3.5, 2: -1.0} or tap.trouble:
+        problems.append(f"score: the tap read {tap.seen} with trouble {tap.trouble!r}; the tracker's own numbers, per frame")
+    if "track_step" in vars(tracker) or tracker.track_step.__func__ is not _SteppingTracker.track_step:
+        problems.append("score: the tap left its wrapper on the tracker object")
+    try:
+        with st.ScoreTap(tracker):
+            raise KeyError("inside")
+    except KeyError:
+        pass
+    if "track_step" in vars(tracker):
+        problems.append("score: an error inside the tap left its wrapper on the tracker object")
+    for made, need in ((_SteppingTracker(twice=1), "more than once"), (_SteppingTracker(objects=2), "object scores on a frame"),
+                       (object(), "no `track_step`"), (None, "no `track_step`")):
+        with st.ScoreTap(made) as tap:
+            if hasattr(made, "run"):
+                made.run([1.0, 2.0, 3.0])
+        if need not in tap.trouble:
+            problems.append(f"score: a tracker that should be refused ({need}) gave trouble {tap.trouble!r}")
+        if st.scores_for(tap.seen, tap.trouble, 3)[0] != [None, None, None]:
+            problems.append(f"score: a record with trouble ({need}) still gave scores")
+    if st.scores_for({0: 1.0, 1: 2.0, 2: 3.0}, "", 3) != ([1.0, 2.0, 3.0], ""):
+        problems.append("score: a complete run is not returned as it was read")
+    if st.scores_for({1: 2.0, 2: 3.0}, "", 3) != ([None, 2.0, 3.0], ""):
+        problems.append("score: the seed frame alone may be missing, and is null")
+    if st.scores_for({0: 1.0, 1: 2.0, 2: 3.0}, "", 3, backwards=True) != ([3.0, 2.0, 1.0], ""):
+        problems.append("score: a run fed backwards is not turned round into clip order")
+    for seen in ({0: 1.0, 2: 3.0}, {0: 1.0, 1: 2.0, 2: 3.0, 3: 4.0}):
+        values, why = st.scores_for(seen, "", 3)
+        if values != [None, None, None] or not why:
+            problems.append(f"score: a record out of step with its run ({sorted(seen)} for 3 frames) gave {values} and {why!r}")
+
+    # the node's own track call, on stand-ins for ComfyUI's three node classes: frame f of the clip scores f
+    class _Out:
+        def __init__(self, *args):
+            self.args = args
+
+    def _nodes(skip_seed=False, twice=None):
+        module = types.ModuleType("comfy_extras.nodes_sam3")
+
+        class SAM3_Detect:
+            @staticmethod
+            def execute(*_a, **_k):
+                return _Out(torch.zeros((0, H, W)), [[]])
+
+        class SAM3_VideoTrack:
+            @staticmethod
+            def execute(images, model, initial_mask=None, **_k):
+                tracker = model.model.diffusion_model.tracker
+                for k in range(int(images.shape[0])):
+                    if k == 0 and skip_seed:
+                        continue
+                    tracker.track_step(frame_idx=k, value=float(images[k].mean()) * 100.0)
+                    if k == twice:
+                        tracker.track_step(frame_idx=k, value=0.0)
+                return _Out({"n": int(images.shape[0]), "mask": initial_mask})
+
+        class SAM3_TrackToMask:
+            @staticmethod
+            def execute(data, _which):
+                return _Out(data["mask"].repeat(data["n"], 1, 1))
+
+        module.SAM3_Detect, module.SAM3_VideoTrack, module.SAM3_TrackToMask = SAM3_Detect, SAM3_VideoTrack, SAM3_TrackToMask
+        return module
+
+    class _Clip:
+        def tokenize(self, text):
+            return text
+
+        def encode_from_tokens_scheduled(self, tokens):
+            return tokens
+
+    segmenter = types.SimpleNamespace(model=types.SimpleNamespace(diffusion_model=types.SimpleNamespace(tracker=_SteppingTracker())))
+    clip_frames = torch.stack([torch.full((H, W, 3), f / 100.0) for f in range(16)])
+    seed_mask = torch.ones((H, W))
+    kept_module = sys.modules.get("comfy_extras.nodes_sam3")
+    try:
+        for skip_seed, twice, name in ((False, None, "every frame stepped"), (True, None, "the seed frame not stepped"), (False, 2, "a frame stepped twice")):
+            sys.modules["comfy_extras.nodes_sam3"] = _nodes(skip_seed, twice)
+            scores: dict = {}
+            _d, _s, track = st._sam_callables(segmenter, _Clip(), clip_frames, "person", 0.5, track_scores=scores)
+            piece = track(4, 12, 8, seed_mask)
+            if tuple(piece.shape) != (8, H, W):
+                problems.append(f"score ({name}): the track's masks are {tuple(piece.shape)}, not one per frame of 4 to 11")
+            read = {f: scores.get(f) for f in range(4, 12)}
+            if twice is not None:
+                if any(v is not None for v in read.values()) or len(scores.get("trouble", [])) != 2:
+                    problems.append(f"score ({name}): scores {read} and trouble {scores.get('trouble')}; a run out of step gives none and says why")
+                continue
+            want = {f: (None if (skip_seed and f == 8) else float(f)) for f in range(4, 12)}
+            if any((read[f] is None) != (want[f] is None) or (want[f] is not None and abs(read[f] - want[f]) > 1e-4) for f in want):
+                problems.append(f"score ({name}): frame f should score f, forwards and backwards from the seed; got {read}")
+            if any(f in scores for f in (3, 12)) or scores.get("trouble"):
+                problems.append(f"score ({name}): scores outside the frames tracked, or trouble where there was none: {scores}")
+            scores[5] = 99.0
+            track(4, 8, 6, seed_mask)                        # a later track over some of the same frames replaces them
+            if abs(scores[5] - 5.0) > 1e-4 or abs(scores[9] - 9.0) > 1e-4:
+                problems.append(f"score ({name}): a later track did not replace the scores of the frames it covers, and only those")
+    finally:
+        if kept_module is None:
+            sys.modules.pop("comfy_extras.nodes_sam3", None)
+        else:
+            sys.modules["comfy_extras.nodes_sam3"] = kept_module
+    full = {f: float(f) for f in range(0, 8)}
+    full["trouble"] = ["frames 8-15: a frame was stepped more than once"]
+    boxes, detect, sign, track2, _ = _world()
+    got = st.follow(32, [8, 16, 24], st.PICK_LARGEST, 3, 0.8, detect, sign, track2, stride=4, offset=1)
+    table = st.shot_table.build(got, detect, st.assemble(32, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=[8, 16, 24], track_scores=full)
+    if table["shots"][0]["track_score"] != [float(f) for f in range(8)] or table["shots"][1]["track_score"] != [None] * 8:
+        problems.append(f"score: the shot table's per-frame list is not the frames of the shot in order, null where none: {table['shots'][0]['track_score']}")
+    if table["track_score_trouble"] != full["trouble"] or "over 0" not in table["track_score_is"]:
+        problems.append("score: the table does not carry why a run gave no score, or what the number is")
+
+
 def check_schema(problems):
     schema = st.MiniMaxH3SubjectTrack.define_schema()
     inputs = {i.id: i for i in schema.inputs}
@@ -1044,12 +1244,21 @@ def check_schema(problems):
                         "would reach the tiles, the shot table and every node after it")
     if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
         problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
-    fix, last = schema.inputs[-2], schema.inputs[-1]
+    fix, handed, last = schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
     if fix.id != "corrections" or getattr(fix, "default", None) != "" or not fix.tooltip or not getattr(fix, "multiline", False):
-        problems.append("`corrections` is not the node's last input but one, a multi-line text that is empty by default, with a tooltip")
-    # appended after it, so a graph saved before it keeps every widget where it was
-    if last.id != "subject_from" or getattr(last, "default", None) != "" or not last.tooltip or not getattr(last, "optional", False):
-        problems.append("`subject_from` is not the node's last input, an optional text that is empty by default, with a tooltip")
+        problems.append("`corrections` is not the node's third input from the end, a multi-line text that is empty by default, with a tooltip")
+    # each appended after the one before, so a graph saved before it keeps every widget where it was
+    if handed.id != "subject_from" or getattr(handed, "default", None) != "" or not handed.tooltip or not getattr(handed, "optional", False):
+        problems.append("`subject_from` is not the node's last input but one, an optional text that is empty by default, with a tooltip")
+    if last.id != "others" or last.io_type != "MASK" or not last.tooltip or not getattr(last, "optional", False):
+        problems.append("`others` is not the node's last input, an optional mask with a tooltip")
+    import inspect
+    if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["others"].default is not None:
+        problems.append("`others` left unwired must be None in execute: nobody is held by another tracker")
+    for need in ("detect = without_others(detect, others, left_out)", "track_scores=track_scores)",
+                 "on_others = frames_on_others(mask, others)"):
+        if need not in source:
+            problems.append(f"the node no longer does `{need}`: the `others` input or the tracker's score is not wired")
     sel = st._selection({"match": st.AT_VALUE, "match_threshold": 0.5}, "match", "match_threshold")
     if sel != (st.AT_VALUE, 0.5) or st._selection(st.AUTOMATIC, "match", "match_threshold") != (st.AUTOMATIC, None):
         problems.append("a DynamicCombo's nested dict, or a bare selection, is not read as the choice and its value")
@@ -1058,7 +1267,8 @@ def check_schema(problems):
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
-                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_schema):
+                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_others,
+                  check_track_score, check_schema):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1066,7 +1276,8 @@ def main() -> int:
         print("ok    the subject track finds a cut and not a lighting change, covers every frame once, picks by the "
               "rule, follows the subject and nobody else across shots, takes a correction by the tile's numbers, "
               "finds a subject again that the track let go inside a shot and takes nobody else for them, leaves "
-              "absent shots empty, and declares what it asks SAM as inputs")
+              "absent shots empty, never takes a person another tracker holds, reads the tracker's own score per frame "
+              "in step or not at all, and declares what it asks SAM as inputs")
     return 1 if problems else 0
 
 

@@ -28,14 +28,29 @@ from .sapiens2_parts import mask_boxes
 
 #: The widest `margin` the widget takes. Reasoned: the Masked Source's own widest margin.
 MARGIN_MAX = 512
+#: A mask covering fewer pixels than this on a frame is not a person there, and the frame gets no box. measured, one
+#: clip (2026-10-10, the day's captures under `data/`, a 1024 by 768 canvas; mrcorn's cold read of `body_pose.py`):
+#: a tracked subject's mask fell to 569 px on one frame beside 54 empty ones and part masks to 3 to 40 px on a
+#: dozen, where the subject a mesh was drawn from never fell under 35,762. 2048 is in that gap, and is a patch about
+#: 45 px square: smaller than the hand crop the body model itself will not refine.
+SMALLEST_MASK_PX = 2048
 
 
-def frame_boxes(mask: torch.Tensor, margin: int = 0) -> list[list[dict]]:
+def too_small(mask: torch.Tensor, smallest: int = SMALLEST_MASK_PX) -> list[int]:
+    """The frames of a [N, H, W] mask that cover something, and fewer than `smallest` pixels of it."""
+    if mask.ndim == 4 and int(mask.shape[-1]) == 1:
+        mask = mask[..., 0]
+    area = (mask > 0.5).flatten(1).sum(dim=1)
+    return [int(f) for f in ((area > 0) & (area < int(smallest))).nonzero().flatten().tolist()]
+
+
+def frame_boxes(mask: torch.Tensor, margin: int = 0, smallest: int = SMALLEST_MASK_PX) -> list[list[dict]]:
     """For each frame of a [N, H, W] mask, a list holding its box as `{x, y, width, height}`, or an empty list.
 
     The box is the mask's own (`sapiens2_parts.mask_boxes`: the far side exclusive), widened by `margin` pixels
     on every side and held inside the frame. A frame whose mask is empty gets no box, which a consumer reads
-    as nobody there.
+    as nobody there; so does a frame whose mask covers fewer than `smallest` pixels (`too_small`), because a
+    body-pose model crops whatever box it is given and draws a body for it, and a few stray pixels are not a person.
     """
     if mask.ndim == 4 and int(mask.shape[-1]) == 1:
         mask = mask[..., 0]
@@ -43,9 +58,10 @@ def frame_boxes(mask: torch.Tensor, margin: int = 0) -> list[list[dict]]:
         raise ValueError(f"mask must be [N, H, W]; got {tuple(mask.shape)}")
     height, width = int(mask.shape[1]), int(mask.shape[2])
     margin = int(margin)
+    specks = set(too_small(mask, smallest))
     out: list[list[dict]] = []
-    for x0, y0, x1, y1 in mask_boxes(mask).tolist():
-        if x0 < 0:
+    for f, (x0, y0, x1, y1) in enumerate(mask_boxes(mask).tolist()):
+        if x0 < 0 or f in specks:
             out.append([])
             continue
         x0, y0 = max(0, x0 - margin), max(0, y0 - margin)
@@ -71,6 +87,11 @@ class MiniMaxH3SubjectBoxes(io.ComfyNode):
                              tooltip=("How far the box is widened past the mask on every side, in pixels of the "
                                       "frame. Raise it when a hand or a raised arm is cut off by a mask that is "
                                       "tight; a body-pose node pads its own crop as well.")),
+                # appended 2026-10-10
+                io.Int.Input("smallest_mask", default=SMALLEST_MASK_PX, min=1, max=16_777_216, advanced=True,
+                             tooltip=("A frame whose mask covers fewer pixels than this gets no box: a few stray "
+                                      "pixels are not a person, and a body-pose node would draw a body for them. "
+                                      "Lower it for a person who is very small in the frame.")),
             ],
             outputs=[
                 io.BoundingBox.Output(display_name="boxes",
@@ -80,8 +101,9 @@ class MiniMaxH3SubjectBoxes(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, mask, margin=0) -> io.NodeOutput:
-        boxes = frame_boxes(mask, margin)
+    def execute(cls, mask, margin=0, smallest_mask=SMALLEST_MASK_PX) -> io.NodeOutput:
+        boxes = frame_boxes(mask, margin, int(smallest_mask))
+        specks = too_small(mask, int(smallest_mask))
         have = [i for i, b in enumerate(boxes) if b]
         text = f"{len(have)} of {len(boxes)} frames have a box"
         if have:
@@ -91,5 +113,10 @@ class MiniMaxH3SubjectBoxes(io.ComfyNode):
                      f"margin {int(margin)} px")
         if len(have) < len(boxes):
             gone = [i for i, b in enumerate(boxes) if not b]
-            text += f"; no box from frame {gone[0]} to {gone[-1]} on {len(gone)} frame(s): the mask is empty there"
+            empty = len(gone) - len(specks)
+            text += (f"; no box on {len(gone)} frame(s) between frame {gone[0]} and {gone[-1]}: the mask is empty on "
+                     f"{empty} of them")
+            if specks:
+                text += (f" and covers under {int(smallest_mask)} px on {len(specks)}, too little to be a person "
+                         f"(frame(s) {', '.join(str(f) for f in specks[:12])}{' and more' if len(specks) > 12 else ''})")
         return io.NodeOutput(boxes, text)

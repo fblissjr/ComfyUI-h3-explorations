@@ -38,6 +38,7 @@ import json
 import logging
 import math
 import os
+import time
 
 import numpy as np
 import torch
@@ -84,6 +85,11 @@ MODEL_DTYPE = torch.float32
 #: ComfyUI's estimate of the memory a forward needs was calibrated in half precision (`SAM3DBody.memory_used_forward`).
 #: Reasoned: twice the bytes a value.
 MEMORY_FACTOR = 2
+#: The 70 keypoints by part of the body, for a report a person reads. Inherited: the order of Meta's `mhr70`
+#: (coderef/sam-3d-body/sam_3d_body/metadata/mhr70.py).
+PARTS = {"head": tuple(range(0, 5)), "shoulders and elbows": (5, 6, 7, 8, 63, 64, 65, 66, 67, 68, 69),
+         "hips": (9, 10), "knees and ankles": (11, 12, 13, 14), "feet": tuple(range(15, 21)),
+         "right hand": tuple(range(21, 42)), "left hand": tuple(range(42, 63))}
 CAMERAS = ("image diagonal", "field of view")
 STYLES = ("mesh", "silhouette")
 SIZES = ("the source's", "width and height")
@@ -268,24 +274,44 @@ def load_model(path: str):
 
 # ----------------------------------------------------------------------------- prediction
 
-def frame_box_rows(boxes, frames: int) -> list[list[list[float]]]:
-    """`boxes` as a list for each frame of [x1, y1, x2, y2].
+def frame_box_rows(boxes, frames: int) -> tuple[list[list[list[float]]], bool]:
+    """`boxes` as a list for each frame of [x1, y1, x2, y2], and whether one frame's list was used for every frame.
 
     `boxes` is the form `MiniMaxH3SubjectBoxes` writes: a list for each frame of dicts with `x`, `y`, `width` and
-    `height`, an empty list where nobody is. One frame's list is used for every frame when only one is given.
+    `height`, an empty list where nobody is. One frame's list is used for every frame when only one is given, which
+    is right for a still camera and a person who does not move and wrong for a one-frame mask wired by mistake, so
+    the caller is told.
     """
     if isinstance(boxes, dict):
         boxes = [[boxes]]
     elif boxes and isinstance(boxes[0], dict):
         boxes = [list(boxes)]
     boxes = list(boxes or [])
-    if len(boxes) == 1 and frames > 1:
+    repeated = len(boxes) == 1 and frames > 1
+    if repeated:
         boxes = boxes * frames
     if len(boxes) != frames:
         raise ValueError(f"boxes holds {len(boxes)} frame(s) and the frames input holds {frames}: wire the boxes "
                          "made from the same frames")
     return [[[float(b["x"]), float(b["y"]), float(b["x"]) + float(b["width"]), float(b["y"]) + float(b["height"])]
-             for b in frame] for frame in boxes]
+             for b in frame] for frame in boxes], repeated
+
+
+def unusable(box_xyxy, height: int, width: int) -> str:
+    """Why a box cannot be a person's crop, or "" when it can: not a number, no area, or wholly off the frame.
+
+    The model crops whatever it is given and returns a body for it, so a box of one pixel, of no size or outside
+    the picture would be drawn as a person (found by mrcorn's cold read, 2026-10-10). Such a box is dropped and
+    reported, not raised: one bad frame should not stop a clip's pass.
+    """
+    x1, y1, x2, y2 = (float(v) for v in box_xyxy)
+    if not all(math.isfinite(v) for v in (x1, y1, x2, y2)):
+        return "not a number"
+    if x2 - x1 <= 0 or y2 - y1 <= 0:
+        return "no area"
+    if x2 <= 0 or y2 <= 0 or x1 >= width or y1 >= height:
+        return "off the frame"
+    return ""
 
 
 def box_source(box_xyxy, height: int, width: int) -> str:
@@ -306,17 +332,22 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
             fov_degrees: float = FOV_DEFAULT, batch_size: int = BATCH_DEFAULT):
     """The pose data for a clip, and per frame per person what the table adds.
 
-    `images` is [N, H, W, 3] in 0..1. Returns `(pose_data, extras)`: `pose_data` in the layout ComfyUI's own
-    predict node writes, `extras[frame][person]` with the crop's box and each hand's box, crop side and whether
-    its decoder was used.
+    `images` is [N, H, W, 3] in 0..1. Returns `(pose_data, extras, notes)`: `pose_data` in the layout ComfyUI's
+    own predict node writes; `extras[frame][i]` for the i-th body of a frame, with which box of that frame's list
+    it came from (`person`), the crop's box and each hand's box, crop side and whether its decoder was used;
+    `notes` with the boxes dropped as unusable, whether one box list served every frame, and the seconds taken.
     """
+    began = time.perf_counter()
     inner = patcher.model
     frames, height, width = int(images.shape[0]), int(images.shape[1]), int(images.shape[2])
-    rows = frame_box_rows(boxes, frames)
+    rows, repeated = frame_box_rows(boxes, frames)
     cam_int = intrinsics(height, width, camera, fov_degrees)
     out_wh = (int(inner.image_size[1]), int(inner.image_size[0]))
     device = comfy.model_management.get_torch_device()
-    todo = [(f, k) for f, row in enumerate(rows) for k in range(len(row))]
+    refused = [{"frame": f, "person": k, "box": [float(v) for v in box], "why": why}
+               for f, row in enumerate(rows) for k, box in enumerate(row) if (why := unusable(box, height, width))]
+    dropped = {(r["frame"], r["person"]) for r in refused}
+    todo = [(f, k) for f, row in enumerate(rows) for k in range(len(row)) if (f, k) not in dropped]
     pose_frames: list[list[dict]] = [[] for _ in range(frames)]
     extras: list[list[dict]] = [[] for _ in range(frames)]
     if todo:
@@ -329,7 +360,9 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
             chunk = todo[start:start + step]
             for f, _ in chunk:
                 if f not in pixels:
-                    pixels[f] = (images[f] * 255.0).clamp(0.0, 255.0).to(dtype=torch.uint8, device="cpu")
+                    # rounded, not truncated: Meta reads an 8-bit file, and a frame that was resized sits between
+                    # levels, where truncating reads half a level dark on average (mrcorn's cold read)
+                    pixels[f] = (images[f] * 255.0).round().clamp(0.0, 255.0).to(dtype=torch.uint8, device="cpu")
             made = [crop(pixels[f].numpy(), np.asarray(rows[f][k], dtype=np.float32), BODY_PADDING, out_wh) for f, k in chunk]
             crops, centers, scales, mats = zip(*made)
             batch = _batch(crops, centers, scales, mats, [rows[f][k] for f, k in chunk], cam_int, out_wh, device)
@@ -373,7 +406,7 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
                     "pred_global_rots": out["joint_global_rots"][i],
                     "mhr_model_params": out["mhr_model_params"][i],
                 }
-                extra = {"crop_bbox": _crop_bbox(centers[i], scales[i]), "left_hand": None, "right_hand": None}
+                extra = {"person": k, "crop_bbox": _crop_bbox(centers[i], scales[i]), "left_hand": None, "right_hand": None}
                 if hands:
                     person["lhand_bbox"], person["rhand_bbox"] = hand_boxes[0][i], hand_boxes[1][i]
                     for name, side in (("left_hand", 0), ("right_hand", 1)):
@@ -386,12 +419,31 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
             for f in [f for f in pixels if f < chunk[-1][0]]:
                 del pixels[f]
     pose_data = {"frames": pose_frames, "faces": inner.head_pose.faces_np(), "image_size": (height, width)}
-    return pose_data, extras
+    notes = {"refused": refused, "one_box_list_for_every_frame": repeated, "crops": len(todo),
+             "seconds": time.perf_counter() - began}
+    return pose_data, extras, notes
 
 
-def pose_table(pose_data: dict, extras, *, camera: str, fov_degrees: float, hands: bool,
+def outside_parts(points: np.ndarray, height: int, width: int) -> dict[str, list[str]]:
+    """{part of the body: the sides of the frame its keypoints are past}, for the parts with any keypoint outside."""
+    out: dict[str, list[str]] = {}
+    for part, index in PARTS.items():
+        p = points[list(index)]
+        sides = [side for side, past in (("left", p[:, 0] < 0), ("right", p[:, 0] >= width),
+                                         ("above", p[:, 1] < 0), ("below", p[:, 1] >= height)) if bool(past.any())]
+        if sides:
+            out[part] = sides
+    return out
+
+
+def pose_table(pose_data: dict, extras, notes: dict | None = None, *, camera: str, fov_degrees: float, hands: bool,
                subject: str = "", first_source_frame: int = 0) -> dict:
-    """What a preflight reads, per person per frame (`TABLE_SCHEMA`). `bench/capture_masked_run.py` is the reader."""
+    """What a preflight reads, per person per frame (`TABLE_SCHEMA`). `bench/capture_masked_run.py` is the reader.
+
+    `first_source_frame` is the caller's word for where these frames sit in the source; nothing here can check it
+    against what a loader actually read.
+    """
+    notes = notes or {}
     height, width = pose_data["image_size"]
     frames = []
     for f, people in enumerate(pose_data["frames"]):
@@ -400,14 +452,19 @@ def pose_table(pose_data: dict, extras, *, camera: str, fov_degrees: float, hand
             points = np.asarray(person["pred_keypoints_2d"], dtype=np.float64)[:N_KEYPOINTS_2D, :2]
             outside = (points[:, 0] < 0) | (points[:, 0] >= width) | (points[:, 1] < 0) | (points[:, 1] >= height)
             extra = extras[f][k]
+            in_camera = (np.asarray(person["pred_keypoints_3d"], dtype=np.float64)[:N_KEYPOINTS_2D]
+                         + np.asarray(person["pred_cam_t"], dtype=np.float64).reshape(1, 3)) if "pred_keypoints_3d" in person else None
             entries.append({
-                "person": k, "subject": subject,
+                "person": int(extra.get("person", k)), "subject": subject,
                 "bbox": [float(v) for v in person["bbox"]],
                 "crop_bbox": [round(v, 2) for v in extra["crop_bbox"]],
                 "box_source": box_source(person["bbox"], height, width),
                 "left_hand": _hand_entry(extra["left_hand"]), "right_hand": _hand_entry(extra["right_hand"]),
                 "keypoints_2d": np.round(points, 1).tolist(),
+                # camera space, metres under the camera this table names: the 2D points are these, projected
+                "keypoints_3d": None if in_camera is None else np.round(in_camera, 3).tolist(),
                 "keypoints_outside_frame": int(outside.sum()),
+                "outside_parts": outside_parts(points, height, width),
                 "focal_length_px": float(np.asarray(person["focal_length"]).reshape(-1)[0]),
             })
         frames.append({"frame": f, "source_frame": f + int(first_source_frame), "people": entries})
@@ -418,6 +475,9 @@ def pose_table(pose_data: dict, extras, *, camera: str, fov_degrees: float, hand
         "camera": {"mode": camera, "fov_degrees": float(fov_degrees) if camera == CAMERAS[1] else None},
         "hand_refinement": bool(hands),
         "first_source_frame": int(first_source_frame),
+        # a box that could not be a person's crop: no body was predicted for it (`unusable`)
+        "boxes_refused": [dict(r, source_frame=r["frame"] + int(first_source_frame)) for r in notes.get("refused", [])],
+        "one_box_list_for_every_frame": bool(notes.get("one_box_list_for_every_frame", False)),
         "frames": frames,
     }
 
@@ -429,24 +489,45 @@ def _hand_entry(hand: dict | None) -> dict | None:
             "decoder_used": hand["decoder_used"]}
 
 
-def table_report(table: dict) -> str:
-    """One line a person reads on the node: how many bodies, and what the hands' decoders did."""
+def table_report(table: dict, seconds: float | None = None) -> str:
+    """A few lines a person reads on the node: how many bodies, what was dropped, what the hands' decoders did,
+    which parts of the body lie outside the frame, and the time."""
     people = [p for frame in table["frames"] for p in frame["people"]]
     with_body = sum(1 for frame in table["frames"] if frame["people"])
-    text = f"{len(people)} bodies on {with_body} of {len(table['frames'])} frames"
+    lines = [f"{len(people)} bodies on {with_body} of {len(table['frames'])} frames"]
+    if table.get("one_box_list_for_every_frame"):
+        lines.append(f"one box list was used for all {len(table['frames'])} frames: wire boxes made from these frames "
+                     "unless the person does not move")
+    refused = table.get("boxes_refused") or []
+    if refused:
+        why = sorted({r["why"] for r in refused})
+        frames = sorted({r["frame"] for r in refused})
+        lines.append(f"{len(refused)} box(es) dropped, no body predicted ({', '.join(why)}), on frame(s) "
+                     + ", ".join(str(f) for f in frames[:16]) + (f" and {len(frames) - 16} more" if len(frames) > 16 else ""))
     whole = sum(1 for p in people if p["box_source"] == "whole frame")
     if whole:
-        text += f"; {whole} of them from a box that is the whole frame, which is one person's crop only when one person is in it"
+        lines.append(f"{whole} of the bodies are from a box that is the whole frame, which is one person's crop only "
+                     "when one person is in it")
     if table["hand_refinement"] and people:
         for name in ("left_hand", "right_hand"):
             used = sum(1 for p in people if p[name]["decoder_used"])
             small = sum(1 for p in people if p[name]["crop_side_px"] <= table["hand_box_threshold_px"])
-            text += (f"; {name.replace('_', ' ')}: refined on {used} of {len(people)}, crop at or under "
-                     f"{table['hand_box_threshold_px']} px on {small}")
-    outside = sum(p["keypoints_outside_frame"] for p in people)
-    if outside:
-        text += f"; {outside} keypoints placed outside the frame"
-    return text
+            lines.append(f"{name.replace('_', ' ')}: refined on {used} of {len(people)}"
+                         + (f"; too small to refine (crop at or under {table['hand_box_threshold_px']} px) on {small}" if small else "")
+                         + ("" if used == len(people) else "; where it was not, the fingers are the body decoder's"))
+    parts: dict[str, list] = {}
+    for p in people:
+        for part, sides in (p.get("outside_parts") or {}).items():
+            entry = parts.setdefault(part, [0, set()])
+            entry[0] += 1
+            entry[1].update(sides)
+    if parts:
+        said = "; ".join(f"{part} on {count} of {len(people)} ({', '.join(sorted(sides))})" for part, (count, sides) in parts.items())
+        lines.append(f"keypoints outside the frame: {said}. A body the frame cuts off is completed past its edge; a "
+                     "part outside on every body is that, a part outside on a few is worth a look")
+    if seconds is not None:
+        lines.append(f"{seconds:.0f} s")
+    return "\n".join(lines)
 
 
 def write_table(table: dict, prefix: str) -> str:
@@ -499,7 +580,7 @@ def render(pose_data: dict, *, style: str = STYLES[0], size: str = SIZES[0], wid
     out_device = comfy.model_management.intermediate_device()
     out_dtype = comfy.model_management.intermediate_dtype()
     count = len(scaled["frames"])
-    if count == 0:
+    if count == 0:     # `predict` cannot make a pose with no frames; an IMAGE with none would break what reads it
         return torch.zeros(1, h, w, 3, dtype=out_dtype, device=out_device)
     cache: dict = {}
     pbar = comfy.utils.ProgressBar(count)
@@ -573,7 +654,8 @@ class MiniMaxH3BodyPose(io.ComfyNode):
                                 tooltip="A label for the person these boxes follow, written on every row of the table."),
                 io.Int.Input("first_source_frame", default=0, min=0, max=10_000_000,
                              tooltip=("The source's frame number of the first frame given here, so the table's rows "
-                                      "carry the source's own frame numbers.")),
+                                      "carry the source's own frame numbers. It is a label you supply: nothing "
+                                      "checks it against where the loader actually started.")),
                 io.String.Input("table_prefix", default="",
                                 tooltip=("Where the table is also written as a file: this prefix under the output "
                                          "folder, with `_pose_table.json` added. Empty writes no file; the table "
@@ -592,15 +674,16 @@ class MiniMaxH3BodyPose(io.ComfyNode):
     @classmethod
     def execute(cls, body_model, frames, boxes, hand_refinement=True, camera=CAMERAS[0], fov_degrees=FOV_DEFAULT,
                 subject="", first_source_frame=0, table_prefix="", batch_size=BATCH_DEFAULT) -> io.NodeOutput:
-        pose_data, extras = predict(body_model, frames, boxes, hands=bool(hand_refinement), camera=camera,
-                                    fov_degrees=fov_degrees, batch_size=batch_size)
-        table = pose_table(pose_data, extras, camera=camera, fov_degrees=fov_degrees,
+        pose_data, extras, notes = predict(body_model, frames, boxes, hands=bool(hand_refinement), camera=camera,
+                                           fov_degrees=fov_degrees, batch_size=batch_size)
+        table = pose_table(pose_data, extras, notes, camera=camera, fov_degrees=fov_degrees,
                            hands=bool(hand_refinement), subject=str(subject).strip(),
                            first_source_frame=int(first_source_frame))
-        report = table_report(table)
+        report = table_report(table, notes["seconds"])
         prefix = str(table_prefix).strip()
         if prefix:
-            report += f"; table written to {os.path.relpath(write_table(table, prefix), folder_paths.get_output_directory())}"
+            report += f"\ntable written to {os.path.relpath(write_table(table, prefix), folder_paths.get_output_directory())}"
+        logger.info("[h3] MiniMaxH3BodyPose: %d crop(s), %s", notes["crops"], report.replace("\n", "; "))
         return io.NodeOutput(pose_data, json.dumps(table), report)
 
 
@@ -620,7 +703,9 @@ class MiniMaxH3BodyMeshVideo(io.ComfyNode):
                 io.Combo.Input("size", options=list(SIZES), default=SIZES[0],
                                tooltip=("`the source's` draws at the size of the frames the pose was read from. "
                                         "`width and height` draws at the two numbers below, the body fitted "
-                                        "inside with bars where the shapes differ.")),
+                                        "inside with bars where the shapes differ. A loader that crops to a "
+                                        "canvas fits the other way, so give this node frames already at the "
+                                        "canvas or the mesh will sit slightly small against the picture.")),
                 io.Int.Input("width", default=1024, min=64, max=8192, step=2,
                              tooltip="The frames' width when size is `width and height`."),
                 io.Int.Input("height", default=768, min=64, max=8192, step=2,

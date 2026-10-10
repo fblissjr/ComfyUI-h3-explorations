@@ -632,19 +632,26 @@ def check_subject_boxes(problems):
     mask[0, 20:40, 30:50] = 1.0
     mask[1, 0:10, 0:12] = 1.0                    # against the frame's corner
     mask[3, H - 6:H, W - 9:W] = 1.0             # against the far corner; frame 2 is empty
-    plain = sb.frame_boxes(mask)
+    plain = sb.frame_boxes(mask, 0, 1)             # these masks are a few hundred pixels: the floor is set aside here
     if plain != [[{"x": 30, "y": 20, "width": 20, "height": 20}], [{"x": 0, "y": 0, "width": 12, "height": 10}], [],
                  [{"x": W - 9, "y": H - 6, "width": 9, "height": 6}]]:
         problems.append(f"subject boxes: the boxes are not the masks' bounds, or an empty frame has one: {plain}")
-    wide = sb.frame_boxes(mask, 8)
+    wide = sb.frame_boxes(mask, 8, 1)
     if wide[0] != [{"x": 22, "y": 12, "width": 36, "height": 36}] or wide[1] != [{"x": 0, "y": 0, "width": 20, "height": 18}] \
             or wide[3] != [{"x": W - 17, "y": H - 14, "width": 17, "height": 14}] or wide[2] != []:
         problems.append(f"subject boxes: a margin does not widen the box and stop at the frame's edge: {wide}")
-    if sb.frame_boxes(mask.unsqueeze(-1)) != plain:
+    if sb.frame_boxes(mask.unsqueeze(-1), 0, 1) != plain:
         problems.append("subject boxes: a mask with a trailing channel is read differently")
-    out = sb.MiniMaxH3SubjectBoxes.execute(mask, 0)
+    out = sb.MiniMaxH3SubjectBoxes.execute(mask, 0, 1)
     if out.args[0] != plain or "3 of 4 frames" not in out.args[1] or "frame 2" not in out.args[1]:
         problems.append(f"subject boxes: the node's boxes or its report are not the function's: {out.args[1]}")
+    # the floor (2026-10-10): a mask that covers something, and too little of it to be a person, gets no box
+    floored = sb.frame_boxes(mask)
+    if floored != [[], [], [], []] or sb.too_small(mask) != [0, 1, 3]:
+        problems.append(f"subject boxes: masks of a few hundred pixels are under the floor and got boxes: {floored}")
+    said = sb.MiniMaxH3SubjectBoxes.execute(mask, 0).args[1]
+    if "0 of 4 frames" not in said or "empty on 1 of them" not in said or "under 2048 px on 3" not in said:
+        problems.append(f"subject boxes: the report does not tell an empty frame from one under the floor: {said}")
     try:
         from comfy_extras.nodes_sam3d_body import _per_frame_bboxes_from_detections
         read = _per_frame_bboxes_from_detections(plain, 4)

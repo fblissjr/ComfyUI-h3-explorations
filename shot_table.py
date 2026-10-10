@@ -75,6 +75,10 @@ TABLE_VERSION = 1
 NUMBERING = ("person K is the K-th detection on the shot's shown frame, left to right by the "
              "centre column of its mask, ties to the higher one, counted from 1")
 
+#: What a shot's `track_score` holds, carried in every table.
+TRACK_SCORE_IS = ("the tracker's own score that its object is on the frame, per frame of the shot, as the tracker's "
+                  "number: over 0 it takes the object as present. null where no track was made or it could not be read")
+
 #: The file endings `MiniMaxH3SaveShotTable` writes after `<prefix>_NNNNN`.
 SUFFIX_JSON, SUFFIX_TEXT, SUFFIX_SHEET = "_shots.json", "_shots.md", "_shots.png"
 
@@ -179,14 +183,23 @@ def _runs(flags: list[bool], first: int) -> list[list[int]]:
 
 def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask: torch.Tensor, *,
           state: Callable[[object], str], phrase: str, pick: str, named_frame: bool, named_value: bool,
-          cuts: list[int]) -> dict:
+          cuts: list[int], left_out: dict[int, int] | None = None, on_others: list[int] | None = None,
+          track_scores: dict | None = None) -> dict:
     """The table for one clip, from the tracker's result.
 
     `found` is the tracker's `Followed`, `detect` its detector callable (the
     frames it already looked at are cached there, so this detects nothing
     again), `mask` the assembled [frames, H, W] mask and `state` the tracker's
     own word for a shot. The rest is what the user set, for the header.
+
+    Three things a tracker may hand in, each None when it has none (added
+    2026-10-10, none changes a field that was there): `left_out`, for a
+    tracker given the people others hold, {frame looked at: detections left
+    out as theirs}; `on_others`, the frames where this track's own mask lies
+    mostly on those people; `track_scores`, {frame: the tracker's own score
+    there or None}, with its reasons under "trouble".
     """
+    theirs = set(on_others or [])
     frames, height, width = int(mask.shape[0]), int(mask.shape[1]), int(mask.shape[2])
     present = (mask > 0.5).flatten(1).any(dim=1)
     rows = []
@@ -238,6 +251,17 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                                     for f, n, best, second in getattr(shot, "probes", [])],
             "gallery_frames": [int(f) for f in getattr(shot, "gallery", [])],
             "caption": "",
+            # with the `others` input wired: detections left out as another tracker's person, on the shown frame and
+            # on every frame looked at in the shot; and the frames this track's own mask lies mostly on such a person
+            "others_left_out": None if left_out is None else {
+                "on_shown_frame": int(left_out.get(int(shot.shown), 0)),
+                "on_frames_looked_at": int(sum(v for f, v in left_out.items() if shot.start <= f < shot.end))},
+            "frames_on_others": None if on_others is None else _runs(
+                [f in theirs for f in range(int(shot.start), int(shot.end))], int(shot.start)),
+            # one value per frame of the shot, null where the tracker made no track or its score could not be read
+            "track_score": None if track_scores is None else [
+                None if track_scores.get(f) is None else round(float(track_scores[f]), 2)
+                for f in range(int(shot.start), int(shot.end))],
         })
     return {
         "table": "h3 shot table",
@@ -252,6 +276,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
         "match_named": bool(named_value),
         "cuts": [int(c) for c in cuts],
         "numbering": NUMBERING,
+        "track_score_is": TRACK_SCORE_IS,
+        "track_score_trouble": [] if track_scores is None else [str(x) for x in track_scores.get("trouble", [])],
         "shots": rows,
         # the subject as the picked shot's own track showed them, for a later run to recognise them by
         # (`gallery_of`): the frames, and per frame one signature per place compared, null where there was none

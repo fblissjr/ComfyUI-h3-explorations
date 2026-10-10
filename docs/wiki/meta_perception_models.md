@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs)
+last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body)
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -257,6 +257,19 @@ float32, which is what the loader loads in; in the half precision ComfyUI's
 own loader picks there the body is outside that floor on most boxes. The
 record's last sections have the figures. The table that node writes is the input the flags below were
 missing.
+
+A second session read the nodes cold the same day and broke them with a
+stand-in model (its cases are in the check). What it found and what changed:
+a box with no area, off the frame or not a number was given a body and drawn,
+and the boxes node made a one-pixel box from a one-pixel speck of mask. Now
+`body_pose.py::unusable` drops such a box and the table names it under
+`boxes_refused`, and `subject_boxes.py::SMALLEST_MASK_PX` is a floor under
+which a frame has no box, with the day's figures beside the constant. One
+box list used for every frame is said in the report. The table also carries
+each person's 3D keypoints in camera space, so one pose pass serves the mesh,
+the preflight and a motion measure. Still true and not fixed by the node:
+`first_source_frame` is a label the caller supplies, and nothing ties it to
+where a loader started.
 
 The differences found by reading, with what the run says of each:
 

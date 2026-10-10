@@ -36,6 +36,25 @@ Without weights, on the CPU:
                                  and does not import ComfyUI's node file.
   opencv_missing_is_said         without OpenCV the crop raises with the
                                  package's name.
+  hand_crops_are_still_ours      ComfyUI's model still has the method our hand
+                                 crops replace, with the arguments ours takes:
+                                 renamed there, ours would never be called and
+                                 the hands would go back to ComfyUI's crop.
+
+Three more, from mrcorn's cold read of `body_pose.py` (2026-10-10), on a
+stand-in model that says back which frame's pixels and which box each crop
+was made from, so they need no weights:
+
+  every_person_is_from_its_own_frame_and_box   at five batch sizes, a chunk
+                                 ending in the middle of a frame's people, hands
+                                 on and off.
+  as_many_frames_out_as_in_and_black_where_nobody_is   a body BEFORE an empty
+                                 frame, both styles, both sizes.
+  a_box_that_is_not_a_person_draws_nothing   a box with no width, no size, off
+                                 the frame, of negative size or not a number
+                                 gets no body, is drawn black and is named in
+                                 the table; a speck of mask gets no box from
+                                 the boxes node. Red on the day it was written.
 
 With the DINOv3 file on disk (skipped without it, exit 2; about two minutes
 of CPU):
@@ -126,6 +145,7 @@ def _load(name: str):
 
 _load("sam3d_body_vith")
 bp = _load("body_pose")
+sb = _load("subject_boxes")
 
 
 def reference() -> dict:
@@ -199,13 +219,19 @@ def crop_is_metas_bit_for_bit():
 
 def boxes_are_read_as_written():
     one = {"x": 10, "y": 20, "width": 30, "height": 40}
-    rows = bp.frame_box_rows([[one], [], [one, one]], 3)
-    assert rows == [[[10.0, 20.0, 40.0, 60.0]], [], [[10.0, 20.0, 40.0, 60.0]] * 2], rows
-    rows = bp.frame_box_rows([[one]], 3)
-    assert len(rows) == 3 and all(r == [[10.0, 20.0, 40.0, 60.0]] for r in rows), "one frame's boxes serve every frame"
-    assert bp.frame_box_rows([one, one], 2) == [[[10.0, 20.0, 40.0, 60.0]] * 2] * 2, "a flat list is one frame's people"
+    rows, repeated = bp.frame_box_rows([[one], [], [one, one]], 3)
+    assert rows == [[[10.0, 20.0, 40.0, 60.0]], [], [[10.0, 20.0, 40.0, 60.0]] * 2] and not repeated, rows
+    rows, repeated = bp.frame_box_rows([[one]], 3)
+    assert len(rows) == 3 and all(r == [[10.0, 20.0, 40.0, 60.0]] for r in rows) and repeated, "one frame's boxes serve every frame, and say so"
+    assert bp.frame_box_rows([one, one], 2) == ([[[10.0, 20.0, 40.0, 60.0]] * 2] * 2, True), "a flat list is one frame's people"
+    assert bp.frame_box_rows([[one]], 1) == ([[[10.0, 20.0, 40.0, 60.0]]], False), "one frame for one frame is not a repeat"
     assert bp.box_source([0, 0, 200, 100], 100, 200) == "whole frame"
     assert bp.box_source([0, 0, 199, 100], 100, 200) == "given" and bp.box_source([10, 20, 40, 60], 100, 200) == "given"
+    for box, why in (([10, 20, 40, 60], ""), ([10, 20, 10, 60], "no area"), ([40, 20, 10, 60], "no area"),
+                     ([200, 0, 260, 50], "off the frame"), ([-50, -50, 0, 10], "off the frame"),
+                     ([float("nan"), 0, 10, 10], "not a number"), ([0, 0, float("inf"), 10], "not a number"),
+                     ([-5, -5, 3, 3], ""), ([199, 99, 400, 400], "")):
+        assert bp.unusable(box, 100, 200) == why, f"{box}: {bp.unusable(box, 100, 200)!r}, not {why!r}"
     for bad, frames in (([[one], [one]], 3), (None, 2)):
         try:
             bp.frame_box_rows(bad, frames)
@@ -254,7 +280,10 @@ def table_says_what_was_predicted():
     assert second["people"] == [], "a frame with nobody has no row"
     row = first["people"][0]
     assert set(row) == {"person", "subject", "bbox", "crop_bbox", "box_source", "left_hand", "right_hand",
-                        "keypoints_2d", "keypoints_outside_frame", "focal_length_px"}, sorted(row)
+                        "keypoints_2d", "keypoints_3d", "keypoints_outside_frame", "outside_parts",
+                        "focal_length_px"}, sorted(row)
+    assert row["outside_parts"] == {"head": ["left", "right"]} and row["keypoints_3d"] is None, row["outside_parts"]
+    assert table["boxes_refused"] == [] and table["one_box_list_for_every_frame"] is False
     assert row["subject"] == "lead" and row["box_source"] == "given" and row["bbox"] == [10.0, 20.0, 60.0, 90.0]
     assert row["keypoints_outside_frame"] == 2, f"two of the three planted points are outside; got {row['keypoints_outside_frame']}"
     assert len(row["keypoints_2d"]) == 70 and row["keypoints_2d"][2] == [200.0, 100.0], "one decimal"
@@ -263,13 +292,25 @@ def table_says_what_was_predicted():
     json.loads(json.dumps(table))
     report = bp.table_report(table)
     assert "1 bodies on 1 of 2 frames" in report and "left hand: refined on 0 of 1" in report, report
-    assert "crop at or under 64 px on 1" in report and "2 keypoints placed outside" in report, report
+    assert "too small to refine (crop at or under 64 px) on 1" in report, report
+    assert "right hand: refined on 1 of 1" in report and "the fingers are the body decoder's" in report, report
+    assert "keypoints outside the frame: head on 1 of 1 (left, right)" in report, report
+    noted = bp.pose_table(pose, extras, {"refused": [{"frame": 1, "person": 0, "box": [5.0, 5.0, 5.0, 9.0], "why": "no area"}],
+                                         "one_box_list_for_every_frame": True},
+                          camera="image diagonal", fov_degrees=40.0, hands=True, first_source_frame=10)
+    assert noted["boxes_refused"] == [{"frame": 1, "person": 0, "box": [5.0, 5.0, 5.0, 9.0], "why": "no area", "source_frame": 11}]
+    said = bp.table_report(noted, 12.4)
+    assert "1 box(es) dropped, no body predicted (no area), on frame(s) 1" in said and "one box list was used for all 2 frames" in said, said
+    assert said.endswith("12 s"), said
     pose["frames"][0][0]["bbox"] = np.array([0, 0, 200, 100], dtype=np.float32)
     off = bp.pose_table(pose, [[{"crop_bbox": [0, 0, 1, 1], "left_hand": None, "right_hand": None}], []],
                         camera="image diagonal", fov_degrees=40.0, hands=False)
     assert off["camera"]["fov_degrees"] is None and off["frames"][0]["people"][0]["left_hand"] is None
     assert off["frames"][0]["people"][0]["box_source"] == "whole frame", "a box that is the frame is named so"
     assert "the whole frame" in bp.table_report(off)
+    with_3d = dict(pose["frames"][0][0], pred_keypoints_3d=np.ones((70, 3), dtype=np.float32), pred_cam_t=np.array([0.5, 0.0, 2.0], dtype=np.float32))
+    got = bp.pose_table(dict(pose, frames=[[with_3d], []]), extras, camera="image diagonal", fov_degrees=40.0, hands=True)
+    assert got["frames"][0]["people"][0]["keypoints_3d"][0] == [1.5, 1.0, 3.0], "the 3D points are in camera space: the translation added"
 
 
 def threshold_is_the_models():
@@ -323,6 +364,142 @@ def opencv_missing_is_said():
             sys.modules["cv2"] = kept
 
 
+def hand_crops_are_still_ours():
+    import inspect
+    from comfy.ldm.sam3d_body.model.model import SAM3DBody
+    theirs = getattr(SAM3DBody, "_prepare_hand_batches_gpu", None)
+    assert theirs is not None, "ComfyUI's model has no `_prepare_hand_batches_gpu` any more: our hand crops are never called"
+    want = list(inspect.signature(bp._MetaHandCrops._prepare_hand_batches_gpu).parameters)
+    got = list(inspect.signature(theirs).parameters)
+    assert got == want, f"ComfyUI's method takes {got}; ours takes {want}"
+    source = inspect.getsource(SAM3DBody.run_inference)
+    assert "self._prepare_hand_batches_gpu(" in source, "ComfyUI's `run_inference` no longer makes its hand crops through that method"
+    for cls in (bp.BodyModelDINOv3, bp.BodyModelViTH):
+        assert cls._prepare_hand_batches_gpu is bp._MetaHandCrops._prepare_hand_batches_gpu, f"{cls.__name__} does not use our hand crops"
+
+
+# ----------------------------------------------------------------------------- mrcorn's cold read: a stand-in model
+
+_H, _W = 120, 160
+_TRI = np.array([[-0.3, -0.3, 0.0], [0.3, -0.3, 0.0], [0.0, 0.3, 0.0]], np.float32)   # one triangle in front of the camera
+_A = {"x": 20, "y": 10, "width": 60, "height": 90}
+_B = {"x": 70, "y": 20, "width": 50, "height": 80}
+_PEOPLE = [[], [_A], [_A, _B], [], [_B], [], [_A, _B, _A], []]     # a body BEFORE an empty frame, and three on one frame
+
+
+class _Head:
+    def faces_np(self):
+        return np.array([[0, 1, 2]], np.int64)
+
+
+class _SaysBack(bp._MetaHandCrops):
+    """Stands in for the model. Frame f of `_frames` is the constant (f + 1) * 10, so a crop's value names its frame."""
+    image_size = (64, 48)
+    head_pose = _Head()
+
+    @staticmethod
+    def memory_used_forward(crops, hands):
+        return 0
+
+    def run_inference(self, img, batch, inference_type="full", thresh_wrist_angle=1.4):
+        n = batch["img"].shape[1]
+        assert isinstance(img, list) and len(img) == n, "one frame is handed beside each crop"
+        frame_value = torch.stack([i.float().mean() for i in img])
+        crop_value = batch["img"][0].flatten(1).max(dim=1).values * 255
+        z = lambda *s: torch.zeros(n, *s)  # noqa: E731
+        mhr = {"focal_length": torch.full((n, 1), 200.0), "pred_keypoints_3d": z(70, 3), "pred_keypoints_2d": z(70, 2),
+               "pred_vertices": torch.from_numpy(_TRI)[None].repeat(n, 1, 1),
+               "pred_cam_t": torch.stack([torch.zeros(n), torch.zeros(n), torch.full((n,), 2.0)], 1),
+               "pred_pose_raw": z(4), "global_rot": z(3),
+               "body_pose": torch.stack([frame_value, crop_value, batch["bbox"][0][:, 0]], 1),   # what it was given
+               "hand": z(108), "scale": z(4), "shape": z(4), "face": z(4), "pred_joint_coords": z(4, 3),
+               "joint_global_rots": z(4, 3, 3), "mhr_model_params": z(4)}
+        if inference_type == "body":
+            return {"mhr": mhr}
+        boxes = torch.tensor([[10.0, 10.0, 90.0, 90.0]]).repeat(n, 1)
+        left, right = self._prepare_hand_batches_gpu(img, boxes, boxes.clone(), batch["cam_int"].clone(), True)
+        for side in (left, right):
+            got = side["img"][0].flatten(1).max(dim=1).values * 255
+            assert torch.allclose(got, frame_value, atol=0.6), f"a hand crop is not from its own frame: {got} against {frame_value}"
+        hand = {"mhr_hand": {"hand": torch.ones(n, 108)}}
+        return {"mhr": mhr}, left, right, hand, hand
+
+
+class _Patcher:
+    model = _SaysBack()
+
+
+def _frames(n):
+    return torch.stack([torch.full((_H, _W, 3), (f + 1) * 10 / 255.0) for f in range(n)])
+
+
+def _predict(boxes, **kw):
+    import comfy.model_management
+    keep = comfy.model_management.load_models_gpu
+    comfy.model_management.load_models_gpu = lambda *a, **k: None
+    try:
+        return bp.predict(_Patcher(), _frames(len(boxes)), boxes, **kw)
+    finally:
+        comfy.model_management.load_models_gpu = keep
+
+
+def every_person_is_from_its_own_frame_and_box():
+    """mrcorn: at every batch size, with a chunk ending in the middle of a frame's people, hands on and off."""
+    want = [len(b) for b in _PEOPLE]
+    for hands in (False, True):
+        for step in (1, 2, 3, 4, 64):
+            pose, extras, _ = _predict(_PEOPLE, hands=hands, batch_size=step)
+            assert [len(p) for p in pose["frames"]] == want == [len(e) for e in extras], (hands, step)
+            for f, people in enumerate(pose["frames"]):
+                for k, p in enumerate(people):
+                    frame_value, crop_value, x1 = (float(v) for v in p["body_pose_params"])
+                    assert abs(frame_value - (f + 1) * 10) < 0.6, f"frame {f} person {k} was handed frame value {frame_value} (batch {step})"
+                    assert abs(crop_value - (f + 1) * 10) < 0.6, f"frame {f} person {k}'s crop holds {crop_value} (batch {step})"
+                    assert x1 == float(_PEOPLE[f][k]["x"]) == float(p["bbox"][0]), f"frame {f} person {k} has another's box"
+                    assert extras[f][k]["person"] == k
+
+
+def as_many_frames_out_as_in_and_black_where_nobody_is():
+    """mrcorn: a body before an empty frame; both styles, both sizes; the table one row a frame, on the source's numbers."""
+    pose, extras, notes = _predict(_PEOPLE, hands=False)
+    want = [bool(b) for b in _PEOPLE]
+    for style in bp.STYLES:
+        for size, w, h in ((bp.SIZES[0], 0, 0), (bp.SIZES[1], 96, 64)):
+            drawn = bp.render(pose, style=style, size=size, width=w, height=h)
+            assert len(drawn) == len(_PEOPLE), f"{len(drawn)} frames drawn from {len(_PEOPLE)} ({style}, {size})"
+            lit = [float(d.abs().max()) > 0 for d in drawn]
+            assert lit == want, f"lit {lit} where people are {want} ({style}, {size})"
+    table = bp.pose_table(pose, extras, notes, camera=bp.CAMERAS[0], fov_degrees=55.0, hands=False, subject="s", first_source_frame=604)
+    assert [r["source_frame"] for r in table["frames"]] == list(range(604, 604 + len(_PEOPLE)))
+    assert [len(r["people"]) for r in table["frames"]] == [len(b) for b in _PEOPLE]
+
+
+def a_box_that_is_not_a_person_draws_nothing():
+    """mrcorn: on 2026-10-10 each of these was accepted and a body drawn. Now dropped, drawn black, and named in the table."""
+    for name, box in (("zero width", {"x": 30, "y": 30, "width": 0, "height": 40}), ("zero size", {"x": 30, "y": 30, "width": 0, "height": 0}),
+                      ("outside the frame", {"x": 400, "y": 300, "width": 50, "height": 80}),
+                      ("negative size", {"x": 60, "y": 60, "width": -20, "height": -30}),
+                      ("not a number", {"x": float("nan"), "y": 0, "width": 10, "height": 10})):
+        pose, extras, notes = _predict([[box, _A], [_A]], hands=False)
+        assert [len(p) for p in pose["frames"]] == [1, 1], f"a box of {name} was given a body, or took its neighbour's with it"
+        assert extras[0][0]["person"] == 1, "the body left on that frame is the second box's, and says so"
+        assert [(r["frame"], r["person"]) for r in notes["refused"]] == [(0, 0)] and notes["refused"][0]["why"], name
+        alone, _, _ = _predict([[box], [_A]], hands=False)
+        assert [len(p) for p in alone["frames"]] == [0, 1], f"a box of {name} was given a body"
+        assert float(bp.render(alone)[0].abs().max()) == 0.0, f"a box of {name} was drawn"
+    # and from the boxes node: a speck of mask is not a subject, at any margin
+    mask = torch.zeros(3, _H, _W)
+    mask[0, 50, 60] = 1
+    mask[1, 10:60, 20:70] = 1                      # 2500 px: a person
+    mask[2, 10:40, 20:60] = 1                      # 1200 px: under the floor
+    assert sb.SMALLEST_MASK_PX == 2048, "the floor moved: read its provenance before the figures here"
+    boxes = sb.frame_boxes(mask, 16)
+    assert boxes[0] == [] and boxes[2] == [] and len(boxes[1]) == 1, boxes
+    assert sb.too_small(mask) == [0, 2] and sb.frame_boxes(mask, 0, 1)[0] == [{"x": 60, "y": 50, "width": 1, "height": 1}]
+    text = sb.MiniMaxH3SubjectBoxes.execute(mask, 0).args[1]
+    assert "1 of 3 frames have a box" in text and "under 2048 px on 2" in text and "frame(s) 0, 2" in text, text
+
+
 # ----------------------------------------------------------------------------- with the weights
 
 def patcher():
@@ -346,8 +523,8 @@ def predicted(label: str):
         frames = torch.from_numpy(pixels.copy()).float().div(255)[None]
         boxes = [[{"x": b[0], "y": b[1], "width": b[2] - b[0], "height": b[3] - b[1]}
                   for b in (p["box_xyxy"] for p in image["people"])]]
-        pose, extras = bp.predict(model, frames, boxes, hands=True, camera="image diagonal")
-        table = bp.pose_table(pose, extras, camera="image diagonal", fov_degrees=55.0, hands=True)
+        pose, extras, notes = bp.predict(model, frames, boxes, hands=True, camera="image diagonal")
+        table = bp.pose_table(pose, extras, notes, camera="image diagonal", fov_degrees=55.0, hands=True)
         _state[key] = (image, pose, extras, table)
     return _state[key]
 
@@ -399,10 +576,11 @@ def nobody_is_nobody():
     frames = torch.from_numpy(np.stack([pixels, pixels])).float().div(255)
     box = next(im for im in reference()["images"] if im["label"] == "office_frame60")["people"][2]["box_xyxy"]
     boxes = [[], [{"x": box[0], "y": box[1], "width": box[2] - box[0], "height": box[3] - box[1]}]]
-    pose, extras = bp.predict(patcher(), frames, boxes, hands=False)
+    pose, extras, notes = bp.predict(patcher(), frames, boxes, hands=False)
     assert [len(f) for f in pose["frames"]] == [0, 1], [len(f) for f in pose["frames"]]
-    table = bp.pose_table(pose, extras, camera="image diagonal", fov_degrees=55.0, hands=False)
+    table = bp.pose_table(pose, extras, notes, camera="image diagonal", fov_degrees=55.0, hands=False)
     assert table["frames"][0]["people"] == [] and len(table["frames"][1]["people"]) == 1
+    assert len(table["frames"][1]["people"][0]["keypoints_3d"]) == 70 and notes["seconds"] > 0 and notes["crops"] == 1
     drawn = bp.render(pose, style="silhouette", size="width and height", width=320, height=180)
     assert tuple(drawn.shape) == (2, 180, 320, 3), tuple(drawn.shape)
     assert float(drawn[0].abs().max()) == 0.0, "the frame with no box must draw black"
@@ -456,7 +634,9 @@ def main() -> int:
     torch.set_grad_enabled(False)
     without = (crop_is_metas_bit_for_bit, boxes_are_read_as_written, camera_is_one_of_two,
                table_says_what_was_predicted, threshold_is_the_models, drawing_scales_with_the_size,
-               no_comfy_sam_node_is_called, opencv_missing_is_said)
+               no_comfy_sam_node_is_called, opencv_missing_is_said, hand_crops_are_still_ours,
+               every_person_is_from_its_own_frame_and_box, as_many_frames_out_as_in_and_black_where_nobody_is,
+               a_box_that_is_not_a_person_draws_nothing)
     with_weights = (bodies_are_metas_within_floor, hands_decide_as_metas, nobody_is_nobody,
                     mesh_is_where_the_camera_puts_it)
     for fn in ((where_it_ran,) + with_weights) if ON_CARD else (without + with_weights):
