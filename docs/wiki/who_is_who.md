@@ -767,9 +767,13 @@ found, tied to that subject, and either answered for or blocking. It
 decides nothing by how a thing looks. Today that knowledge arrives after
 a render: a bowl and a dish inside a whole-person region were redrawn as
 other things because nothing named or kept them (`data/CAPTURE_GAPS.md`,
-"Segments, not only people", untracked), and by the lead session's
-account, not yet in a record, a thing in a hand was caught only because
-the gate was run on a mask made by hand.
+"Segments, not only people", untracked), and a thing in a hand was
+caught only because the gate was run on a mask a session had made by
+hand: the mask that missed it and the corrected one are side by side in
+the capture `data/2026-10-10_fun_open_hair_face_0014` (its `whatif`
+folder), and the render's outcome is in
+`data/2026-10-10_fun_open_hair_face_run_0014` (both untracked; the lead
+session's pointer, and not yet in a tracked record).
 
 *What is found, and by what.* Nothing new is loaded.
 
