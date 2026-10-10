@@ -638,6 +638,17 @@ def loads_from_a_capture():
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"
+        # a load shorter than the song node takes is refused at build, by the node's own minimum
+        import build_workflows
+        least_seconds, least_frames = tool.shortest_load()
+        too_short = {**PART, "name": "a_short", "frames": least_frames - 1}
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(too_short,)), "plan", [], **where), "a_short", f"{least_frames} frames")
+
+        def node_refuses(frames: int) -> bool:
+            graph = ours_only(_a_load({**PART, "frames": frames}, FILES_PART, plan=True), declared())
+            return any("extent.seconds" in e and "below min" in e for e in build_workflows.validate_api(graph, declared(), "short"))
+        assert node_refuses(least_frames - 1) and not node_refuses(least_frames), \
+            f"the node's own schema does not draw the line at {least_frames} frames ({least_seconds} s), where the tool reads it"
         # a zoomed load is one shot: the capture's cut inside the whole-subject load refuses it
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_zoomed", "render_region": "subject"},)),
                                           "plan", [], **where), "b_zoomed", "cut", str(CAPTURE_FIRST + 90))

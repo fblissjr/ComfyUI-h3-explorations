@@ -69,7 +69,8 @@ only an "absent" on every row of a table nobody opens.
 - a `corrections` line whose `corrections_at` is not the tracker's mask version today. A correction names a
   person by the number on a tile, and the numbers are that version's;
 - a load whose capture is not finished, did not pass `verify`, lacks a file the load needs or does not reach
-  the load's frames; a load rendered zoomed in that holds a cut; a load with no text; a feather wider than its margin; a render with no still, or a still
+  the load's frames; a load shorter than the song node's shortest extent (`shortest_load`); a load rendered zoomed
+  in that holds a cut; a load with no text; a feather wider than its margin; a render with no still, or a still
   the server's input folder does not hold (`H3_INPUT_DIR`);
 - at `queue`: a graph that was queued before; an input the server does not serve; and node code in the tree
   that is not committed, unless `--override "WHO: WHY"` is given, which is written into the record. The server
@@ -207,6 +208,23 @@ def chain_lengths(repo: Path = REPO) -> tuple[int, ...]:
         if isinstance(line, ast.Assign) and any(getattr(t, "id", "") == "CHAIN_LENGTHS" for t in line.targets):
             return tuple(ast.literal_eval(line.value))
     raise Refused("loop_plan.py no longer sets CHAIN_LENGTHS; a load's window has nothing to be chosen from")
+
+
+def shortest_load(repo: Path = REPO) -> tuple[float, int]:
+    """The shortest extent the song node takes, in seconds, and the fewest frames a load may therefore be.
+
+    Read from the node's own schema in the source (the `seconds` member of its `extent`), not imported and not
+    copied: the node file needs ComfyUI. A load shorter than this is refused by the server at `queue`; it is
+    refused here first, at `build`, with the number."""
+    for node in ast.walk(ast.parse((repo / "audio_freeze_song.py").read_text())):
+        if (isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "Input" and node.args
+                and isinstance(node.args[0], ast.Constant) and node.args[0].value == "seconds"):
+            for keyword in node.keywords:
+                if keyword.arg == "min":
+                    seconds = float(ast.literal_eval(keyword.value))
+                    return seconds, int(-(-seconds * h3_config.FPS // 1))
+    raise Refused("audio_freeze_song.py no longer declares a `seconds` input with a minimum; the shortest load has "
+                  "nothing to be read from")
 
 
 def loads_of(given: dict) -> list[dict]:
@@ -469,7 +487,12 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
     on_purpose = left_out(job)
     base = json.loads((repo / "workflows" / h3_config.MASKED_JOB_BASE_GRAPH).read_text())
     windows, written, todo = chain_lengths(repo), [], []
+    least_seconds, least_frames = shortest_load(repo)
     for one in chosen:
+        if one["frames"] < least_frames:
+            raise Refused(f"load {one.get('name')!r} is {one['frames']} frames: the song node takes no extent under "
+                          f"{least_seconds:g} s, so a load is {least_frames} frames or more. Leave the stretch as the "
+                          f"source (`left_out`, with why) or join it to a neighbouring load.")
         try:
             graphs.check_job(job)
             graphs.check_load(job, one, windows)

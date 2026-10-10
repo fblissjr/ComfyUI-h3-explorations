@@ -129,8 +129,14 @@ session starting a job needs to know:
   each window will be given), which the capture reads; `render` a load,
   which is refused unless the capture passes `verify` again, its gate is
   clear, and the gate read the node's own plan for that load.
+- **A load made again is a new job name on the same capture.** The tool
+  never reuses a name, and a capture can serve any number of jobs: the run
+  names inside it are the loads' and are new each time. Added 2026-10-10,
+  after two face loads were pulled and re-made that way.
 - **A load is one subject on one shot**, written in the capture's words, with
-  its text given to it. What a load carries by default, and why each value,
+  its text given to it. It is no shorter than the song node's shortest extent
+  (`bench/masked_job.py::shortest_load` reads it from the node): a shorter
+  stretch is left as the source, with why, or joined to a neighbour. What a load carries by default, and why each value,
   is the `MASKED_JOB_*` block of `workflows/h3_config.py`; a value measured
   on one clip is a starting value, a job file may set any of them, and a
   load's build record says which were set by the job and what the capture
