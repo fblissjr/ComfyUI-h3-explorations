@@ -437,6 +437,20 @@ def what_changed() -> str:
     big = np.zeros((H, W), np.uint8)
     big[64:96, 0:160] = 2                           # enough labelled pixels outside the region for a floor
     assert cap.frame_changes(diff, region, {"a": mine, "c": big}, {}, names)["floor"] == 2.0
+    # a render that ends on the source: level 40, then a slide to the floor over the last frames
+    frames = list(range(100, 130))
+    held = [40.0] * 30
+    fade = [40.0] * 22 + [34.0, 30.0, 24.0, 18.0, 12.0, 9.0, 6.0, 3.0]
+    assert cap.source_at_the_ends(frames, held, 2.0)["ends_on_the_source"] is None, "a render that held to its last frame"
+    end = cap.source_at_the_ends(frames, fade, 2.0)
+    assert end["ends_on_the_source"]["source_frames"] == [124, 129] and end["ends_on_the_source"]["share_of_the_level"] == 0.07, end
+    assert end["starts_on_the_source"] is None
+    start = cap.source_at_the_ends(frames, fade[::-1], 2.0)
+    assert start["starts_on_the_source"]["source_frames"] == [100, 105] and start["ends_on_the_source"] is None, start
+    dip = [40.0] * 15 + [5.0] + [40.0] * 14          # one low frame in the middle is not an end
+    assert cap.source_at_the_ends(frames, dip, 2.0)["ends_on_the_source"] is None
+    assert "nothing was replaced" in cap.source_at_the_ends(frames, [4.0] * 30, 2.0)["why_not_read"]
+    assert "frames carry a mask" in cap.source_at_the_ends(frames[:5], [40.0] * 5, 2.0)["why_not_read"]
     return "a redrawn face, an untouched hairline and half of a neighbour's hand each read at their own difference"
 
 
@@ -901,6 +915,60 @@ def planned_regions() -> str:
             "inside a step that has one is named as lent")
 
 
+def held_tails() -> str:
+    """Before anything samples: is the model shown, as a frame to keep, the subject it is replacing.
+
+    A window of 9 frames (latent steps 0 | 1-4 | 5-8) whose load ends inside it; the rest is the last frame held."""
+    import tempfile
+    import torch
+    vm = cap._pack("video_mask")
+
+    def window(real: int, tail_open: bool, on_last: bool = True) -> tuple[torch.Tensor, torch.Tensor]:
+        mask = torch.zeros(9, H, W)
+        mask[:real, 32:64, 32:64] = 1.0
+        if not on_last:
+            mask[real - 1] = 0.0
+        tokens = torch.zeros(3, H // 32, W // 32)
+        tokens[:2 if real > 1 else 1, 1, 1] = 1.0
+        if tail_open:
+            mask[real:, 32:64, 32:64] = 1.0
+            tokens[2, 1, 1] = 1.0
+        return mask, tokens
+
+    plate = cap.held_tail_facts(*window(5, False), 4, 100, vm.run_lengths)
+    assert plate["held_frames"] == 4 and plate["held_share"] == round(4 / 9, 3) and plate["held_frames_shown_clean"] == 4, plate
+    assert plate["subject_on_the_last_real_frame"] and plate["step_with_real_and_held_source_frames"] is None, "the held frames start on a step's edge"
+    inside = cap.held_tail_facts(*window(4, False), 5, 100, vm.run_lengths)
+    # the load ends inside the step of frames 1 to 4: that step has a region (three masked frames), so its held frame is
+    # not clean; the four held frames of the last step are
+    assert inside["step_with_real_and_held_source_frames"] == [101, 103] and inside["held_frames_shown_clean"] == 4, inside
+    opened = cap.held_tail_facts(*window(5, True), 4, 100, vm.run_lengths)
+    assert opened["held_frames_shown_clean"] == 0, "a tail with its region open was read as shown clean"
+    assert cap.held_tail_facts(*window(9, False), 0, 100, vm.run_lengths)["held_frames_shown_clean"] == 0, "a load that fills its window has a tail"
+    gone = cap.held_tail_facts(*window(5, False, on_last=False), 4, 100, vm.run_lengths)
+    assert gone["held_frames_shown_clean"] == 4 and not gone["subject_on_the_last_real_frame"], gone
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "subjects" / "a").mkdir(parents=True)
+        (folder / "subjects" / "a" / "per_frame.json").write_text(json.dumps({"rows": [{"seen_by": "p", "track_share": 0.015}] * 5}))
+
+        def manifest(*wins, planned=True) -> dict:
+            run = {"name": "pl", "planned": planned, "subject": "a",
+                   "planned_windows": [{"window": i + 1, "writes_source_frames": [100, 104], **w_} for i, w_ in enumerate(wins)] or None}
+            return {"first_frame": 100, "subjects": [{"label": "a", "sightings": [{"by": "p"}]}], "runs": [run]}
+
+        raised = cap.flag_held_tail(manifest(plate), folder)
+        assert [(f["rule"], f["level"]) for f in raised] == [("original_shown_in_the_held_tail", cap.LEVELS[2])], raised
+        assert raised[0]["figures"]["subject_share_of_frame_median"] == 0.015 and "held_tail" in raised[0]["why"] and "1.50%" in raised[0]["why"], raised[0]
+        assert cap.flag_held_tail(manifest(opened), folder) == [], "the remedy set, and the flag raised"
+        assert cap.flag_held_tail(manifest(gone), folder) == [], "the subject is not on the held frame, and the flag raised"
+        blind = cap.flag_held_tail(manifest(), folder)
+        assert [(f["rule"], f["level"]) for f in blind] == [("held_tail_not_checked", cap.LEVELS[1])], "an estimate with no windows was passed in silence"
+        assert cap.flag_held_tail(manifest(plate, planned=False), folder) == [], "a rendered run was gated as a plan"
+    return ("a load's last frame held past its end and shown clean with the subject on it blocks; a tail with its region open, "
+            "a load that fills its window and a last frame without the subject do not; an estimate with no windows says it was not checked")
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -932,6 +1000,7 @@ case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
 case("a pass read from the node's own plan", planned_regions)
+case("preflight: the original shown in a held tail", held_tails)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

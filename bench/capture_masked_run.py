@@ -737,6 +737,37 @@ def plan_file(preview: str) -> Path:
     return found[0]
 
 
+def held_tail_facts(mask, tokens, held: int, first_source_frame: int, run_lengths) -> dict:
+    """What a window is given past the end of its load: the frames held, and whether the model sees them clean.
+
+    A window longer than its load is filled with the load's last frame, held. `mask` is the window's fitted
+    mask per frame and `tokens` its region per latent step, as the node will give them; the last `held`
+    frames are the held ones. A held frame is shown CLEAN when its latent step has no region: the model is
+    then given the source's own last frame as a frame to keep, and if the subject's mask is on that last
+    frame, it is a picture of the subject the pass is replacing. With the tail's region open (the Masked
+    Source's `held_tail`) the held frames carry the last frame's region and nothing is shown clean.
+
+    Returns the window's length, the held count and share, whether the subject is on the last real frame, how
+    many held frames are shown clean, and the source frames of the latent step that holds both real and held
+    frames (the first to go: its region is made from fewer masked frames than it has)."""
+    total = int(mask.shape[0])
+    real = total - int(held)
+    out = {"frames": total, "held_frames": int(held), "held_share": round(held / max(total, 1), 3),
+           "subject_on_the_last_real_frame": bool(real > 0 and bool((mask[real - 1] > 0.5).any())),
+           "held_frames_shown_clean": 0, "step_with_real_and_held_source_frames": None}
+    if held <= 0 or real <= 0:
+        return out
+    at = 0
+    for i, n in enumerate(run_lengths(int(tokens.shape[0]))):
+        inside = [f for f in range(at, at + n) if f >= real]
+        if inside and not bool((tokens[i] > 0.5).any()):
+            out["held_frames_shown_clean"] += len(inside)
+        if at < real < at + n:
+            out["step_with_real_and_held_source_frames"] = [first_source_frame + at, first_source_frame + real - 1]
+        at += n
+    return out
+
+
 def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[int, int], at: int | None = None):
     """A run's region as the node's own preview planned it: what each window WILL be given, nothing estimated.
 
@@ -783,7 +814,9 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                 across.append(at + f)
         end = row["last_written_frame"] + 1
         windows.append({"window": row["number"], "writes_source_frames": [at + row["first_written_frame"], at + row["last_written_frame"]],
-                        "text": row.get("text"), "regenerating_share": row.get("regenerating_share")})
+                        "text": row.get("text"), "regenerating_share": row.get("regenerating_share"), "kept_frames": int(row.get("trim", 0)),
+                        "first_frame": at + row["first_frame"],
+                        **held_tail_facts(got["mask"], got["tokens"], int(row.get("source_frames_held", 0)), at + row["first_frame"], vm.run_lengths)})
     return region, carried, read, {"read_from": "the region the node's preview planned for each window", "plan": plan_path.name,
                                    "files": [r["region_file"] for r in plan["windows"]], "legend_px": None,
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
@@ -1837,6 +1870,55 @@ def flag_lent(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def flag_held_tail(manifest: dict, folder: Path) -> list[dict]:
+    """The invariant, checked before anything samples: in no planned window is the model shown, as a frame to
+    keep, a picture of the subject it is replacing.
+
+    From the node's own plan (`--run NAME:preview=`), per window: the frames held past the load's end that the
+    model sees clean, when the subject's mask is on the load's last frame. Top level, always: on 2026-10-10 two
+    per-shot loads of 29 frames in a 141-frame window (79% held) both ended on the original: one faded to it
+    over its last twenty frames with the subject at 1.5% of the frame, the other over its last four on a large
+    face; both had the source at the last frame. The remedy is named: the Masked Source's `held_tail` with
+    the region open, which the plan then shows as no held frame clean. A plan worked out from the masks
+    (`--plan`) has no windows and cannot be checked: the rule says so once."""
+    first, out, blind = manifest["first_frame"], [], []
+    for run in manifest["runs"]:
+        if not run.get("planned"):
+            continue
+        if not run.get("planned_windows"):
+            blind.append(run["name"])
+            continue
+        rows = json.loads((folder / "subjects" / run["subject"] / "per_frame.json").read_text())["rows"]
+        seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]["by"]
+        shares = [r["track_share"] for r in rows if r["seen_by"] == seen and r.get("track_share")]
+        size = float(np.median(shares)) if shares else None
+        for win in run["planned_windows"]:
+            clean = win.get("held_frames_shown_clean", 0)
+            if not clean or not win.get("subject_on_the_last_real_frame"):
+                continue
+            last = win["writes_source_frames"][1]
+            step = win.get("step_with_real_and_held_source_frames")
+            out.append({"rule": "original_shown_in_the_held_tail", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": [step or [last, last]],
+                        "why": f"plan {run['name']} window {win['window']}: {clean} of its {win['frames']} frames ({clean / win['frames']:.0%}) are "
+                               f"the load's last frame held past its end, shown to the model clean, and {run['subject']} is on that frame"
+                               + (f" ({size:.2%} of the frame)" if size is not None else "") + ": the model is given a picture of the subject "
+                               "it is replacing as a frame to keep, and the render slides to it as the load ends"
+                               + (f"; the latent step of source frames {step[0]}-{step[1]} is part held and goes first" if step else "")
+                               + ". Remedy: `held_tail` with its region open on the Masked Source, or a load that fills its window",
+                        "figures": {"window": win["window"], "window_frames": win["frames"], "held_frames": win["held_frames"],
+                                    "held_share": win["held_share"], "held_frames_shown_clean": clean,
+                                    "subject_share_of_frame_median": None if size is None else round(size, 5)}})
+    if blind:
+        out.append({"rule": "held_tail_not_checked", "level": LEVELS[1], "subject": None, "run": ", ".join(blind),
+                    "source_frames": [[first, first]],
+                    "why": f"plan(s) {', '.join(blind)} are worked out from the masks and have no windows: whether a window would hold "
+                           "the load's last frame, with the subject on it, past the load's end cannot be checked. Gate on the node's "
+                           "own plan (`--run NAME:preview=<windows folder>`)",
+                    "figures": {"plans": len(blind)}})
+    return out
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2076,7 +2158,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -2195,6 +2277,50 @@ def frame_changes(diff: np.ndarray, region: np.ndarray, maps: dict[str, np.ndarr
     return out
 
 
+#: A render ends (or starts) on the source when its last (first) frame is under `END_LAST` of the load's own
+#: level of difference from the source under the mask it carried, and the run is the frames from that end under
+#: `END_RUN` of the level. Reasoned bars, measured on two renders that did (2026-10-10: last frames at 0.11
+#: and 0.16 of their level, runs of six and three frames) and three that did not (last frames at 0.6 to 1.1).
+END_LAST = 1 / 3
+END_RUN = 2 / 3
+#: Fewer frames with a mask than this, and the ends are not read.
+END_LEAST = 12
+
+
+def source_at_the_ends(frames: list[int], values: list[float], floor: float) -> dict:
+    """Does a render start or end on the source's own picture, under the mask it was given.
+
+    `values` is the mean difference from the source under the run's carried mask inside its region, one a
+    frame of `frames` (frames with no mask left out). The load's level is their median. An end is "on the
+    source" when its outermost frame is under `END_LAST` of the level; the run is the frames from that end
+    that stay under `END_RUN` of it. A render that replaced nothing (a level within three floors) is not
+    read: every frame of it is the source.
+
+    Why it exists: a load shorter than its window ended on the original twice on 2026-10-10, found by eye and
+    by a viewer. `flag_held_tail` names the cause before a render; this is the outcome that grades it, read on
+    every `changed`. The same reading at the start is for a continuation behind kept frames."""
+    out = {"frames_read": len(values), "level": None, "starts_on_the_source": None, "ends_on_the_source": None}
+    if len(values) < END_LEAST:
+        return {**out, "why_not_read": f"under {END_LEAST} frames carry a mask"}
+    level = float(np.median(values))
+    out["level"] = round(level, 2)
+    if level < 3 * floor:
+        return {**out, "why_not_read": "the render is within three floors of the source under its mask on a typical frame: nothing was replaced"}
+    for name, order in (("ends_on_the_source", range(len(values) - 1, -1, -1)), ("starts_on_the_source", range(len(values)))):
+        order = list(order)
+        if values[order[0]] > level * END_LAST:
+            continue
+        run = []
+        for i in order:
+            if values[i] > level * END_RUN:
+                break
+            run.append(i)
+        out[name] = {"source_frames": [frames[min(run)], frames[max(run)]], "frames": len(run),
+                     "outermost_frame_off_the_source": round(values[order[0]], 2),
+                     "share_of_the_level": round(values[order[0]] / level, 2), "times_the_floor": round(values[order[0]] / max(floor, 1e-6), 1)}
+    return out
+
+
 def changed(a: argparse.Namespace) -> None:
     """What a run redrew, per segment and per subject, against the floor; and how it moves from frame to frame.
 
@@ -2212,6 +2338,8 @@ def changed(a: argparse.Namespace) -> None:
     lo, hi = (int(x) for x in a.frames.split("-")) if a.frames else (first, first + frames - 1)
     names = _pack("sapiens2_parts").CLASS_NAMES
     region = cells_up(np.load(folder / "runs" / a.run / "region.npz")["region"])
+    carried = np.unpackbits(np.load(folder / "runs" / a.run / "region.npz")["carried"], axis=-1)[..., :w].astype(bool)
+    own: list[tuple[int, float]] = []
     maps, tracks = {}, {}
     for s in m["subjects"]:
         by = s["sightings"][0]["by"]
@@ -2235,6 +2363,9 @@ def changed(a: argparse.Namespace) -> None:
         before = (s16, r16)
         if not lo <= first + n <= hi:
             continue
+        mine = carried[n] & region[n]
+        if mine.sum() >= SEGMENT_PX:
+            own.append((first + n, float(np.abs(s16 - r16)[mine].mean())))
         one = frame_changes(np.abs(s16 - r16), region[n], {k: v[n] for k, v in maps.items()}, {k: v[n] for k, v in tracks.items()}, names)
         if one["floor"] is not None:
             floors.append(one["floor"])
@@ -2262,6 +2393,16 @@ def changed(a: argparse.Namespace) -> None:
                                    "outside": round(float(np.median(out_)), 2) if out_ else None}
         print(f"  subject {key}: its mask inside the region on {len(ins)} frames, off the source there "
               + (f"{np.median(ins):.1f}" if ins else "-") + ", outside it " + (f"{np.median(out_):.1f}" if out_ else "-"))
+    record["ends"] = ends = source_at_the_ends([f for f, _ in own], [v for _, v in own], floor)
+    record["under_the_carried_mask_by_frame"] = [[f, round(v, 1)] for f, v in own]
+    for name in ("starts_on_the_source", "ends_on_the_source"):
+        if ends[name]:
+            e = ends[name]
+            print(f"  {name.replace('_', ' ').upper()}: source frames {e['source_frames'][0]}-{e['source_frames'][1]} ({e['frames']} frame(s)); the "
+                  f"outermost frame is {e['outermost_frame_off_the_source']} off the source under the carried mask, {e['share_of_the_level']} of "
+                  f"the load's level ({ends['level']}) and {e['times_the_floor']}x the floor")
+    if not ends["starts_on_the_source"] and not ends["ends_on_the_source"]:
+        print("  the ends: " + (ends.get("why_not_read") or f"neither end is on the source (level {ends['level']} under the carried mask)"))
     if steps:
         sv, rv = np.array([x[1] for x in steps]), np.array([x[2] for x in steps])
         ratio = rv / np.maximum(sv, 0.5)
