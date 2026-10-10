@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **Two statements corrected from the notes of the 2026-10-08 sessions, whose
+  lessons had stayed in notes.** `docs/h3_references.md` said only "Set
+  `force_rate=24` on the loader", which is right for a reference's time
+  labels and drops a frame a second from a 25 fps source; it now carries a
+  dated note that a source the result must stay in step with is loaded as an
+  every-frame 24 fps copy with `force_rate` 0. `workflows/h3_config.py`'s
+  comment on `MASKED_SOURCE` said the margin taken from the subject's size
+  "has not rendered"; it has, and has not been judged as a pair. (mrpop,
+  after the owner asked that what past sessions learned be in the tracked
+  tree and not in session folders.)
+
 - **A hand-written masked text says the least first and gains a sentence
   only when a render asks for it** (the owner: "let the model guide and
   infer until you need to get more specific", "just like progressive
