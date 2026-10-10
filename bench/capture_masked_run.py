@@ -40,6 +40,10 @@ saves every mask output through `MaskToImage` writes exactly these. What it writ
                              on each other subject, the margin cells given back, two runs' regions on the
                              same cells, two sightings of one subject against each other, and `voiced`
     subjects/<label>/        masks__<by>.npz (track, parts), per_frame.csv / .json, shots__<by>.json;
+                             with a pose table (`pose=`, what `MiniMaxH3BodyPose` writes): the table as
+                             pose_table__<by>.json and pose__<by>.csv / .json, a row a frame: whose box
+                             the body was fitted to, which hands the hand decoder refined, how many
+                             keypoints fall outside the frame, how many bodies carry this subject's name;
                              with a class map (`classes=`): classes__<by>.npz and segments.csv / .json, the
                              pixels of each segment `<label>.<class>` per frame; segments_whose.csv / .json,
                              how many of them lie inside the subject's own track, another's, or neither
@@ -73,6 +77,10 @@ subject is not in (`--not-in`); a shot called absent with somebody on screen; a 
 subject, changes size against its own recent frames, or moves within the subject's box; one run's region over
 another subject's mask; a region that is mostly not the subject; a track empty inside a shot the subject was
 taken in; and a text that names a voice over frames with none, or the reverse (`--text`, `--voice-spans`).
+With a pose table (`pose=` on `--mask`), before its mesh is used as a motion video: a body fitted to the whole
+frame and not to the subject's box, top level when another subject is in the frame; several bodies under one
+name; a frame with a mask and no body; a hand the hand decoder did not refine; a body mostly outside the frame
+(`flag_pose`).
 
 **The gate.** `flags.json` carries a `verdict`: `blocked` while any flag at the top level has not been
 overridden, else `clear`, with the blocking flags' ids in `blocking`. `preflight --gate` exits `GATE_BLOCKED`
@@ -748,7 +756,7 @@ def files(a: argparse.Namespace) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
     plans += [load for path in a.loads for load in loads_from_file(path)]
-    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held") if m.get(k)] + [a.source]
+    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
     write_status(out, "running", inputs=[Path(x).name for x in named])
@@ -834,6 +842,13 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             beside = Path(m["shots"]).with_suffix(".md")
             if beside.is_file():
                 shutil.copyfile(beside, folder / f"shots__{by}.md")
+        posed = None
+        if m.get("pose"):
+            given = json.loads(Path(m["pose"]).read_text())
+            write_table(folder / f"pose__{by}", pose_rows(given, label, first, frames, int(m["pose_at"]) if m.get("pose_at") else None))
+            shutil.copyfile(m["pose"], folder / f"pose_table__{by}.json")
+            posed = {"file": Path(m["pose"]).name, "hand_refinement": bool(given.get("hand_refinement")),
+                     "hand_box_threshold_px": given.get("hand_box_threshold_px"), "camera": given.get("camera")}
         entry = next((s for s in manifest["subjects"] if s["label"] == label), None)
         if entry is None:
             entry = {"label": label, "colour": list(COLOURS[len(manifest["subjects"]) % len(COLOURS)]), "sightings": []}
@@ -842,7 +857,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
-                                   "frames_covered": int(covered.sum()),
+                                   "frames_covered": int(covered.sum()), "pose": posed,
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
                                    "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
@@ -1085,6 +1100,92 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
                           "figures": {"similarity": sim, "line": line, "people": people}, "threshold": {"NEAR_UNDER": NEAR_UNDER}})
         shots.append({"subject": label, "seen_by": by, "source_frames": [a, b], "state": state, "similarity": sim, "level": level})
     return flags, shots
+
+
+#: The pose table this reads (`body_pose.py::TABLE_SCHEMA`). Another version is refused, not guessed at.
+POSE_SCHEMA = "h3_body_pose_table/1"
+#: A body with over this share of its keypoints outside the frame is mostly out of the picture: those joints
+#: are the model's guess. Reasoned, not measured: a third.
+POSE_OUTSIDE = 1 / 3
+
+
+def pose_rows(table: dict, label: str, first: int, frames: int, at: int | None = None) -> list[dict]:
+    """A subject's rows of a pose table over a span: one a frame the table has, in the span's numbering.
+
+    The table numbers its own frames (`source_frame`); `at` moves its frame 0 to another source frame. A body
+    belongs to the subject when it carries the subject's label; a table made under one other name throughout
+    is taken as this subject's, and the row says so. Several bodies under one name on a frame are counted,
+    and the row is the first's."""
+    if table.get("schema") != POSE_SCHEMA:
+        raise SystemExit(f"a pose table of schema {table.get('schema')!r}; this reads {POSE_SCHEMA!r}")
+    names = {p.get("subject") for f in table["frames"] for p in f["people"]}
+    other = next(iter(names)) if label not in names and len(names) == 1 else None
+    shift = 0 if at is None else int(at) - int(table.get("first_source_frame", 0))
+    total = len(table["frames"][0]["people"][0]["keypoints_2d"]) if table["frames"] and table["frames"][0]["people"] else 0
+    rows = []
+    for f in table["frames"]:
+        n = int(f["source_frame"]) + shift
+        if not first <= n < first + frames:
+            continue
+        mine = [p for p in f["people"] if p.get("subject") == (other or label)]
+        row = {"frame": n - first, "source_frame": n, "bodies": len(mine), "bodies_in_frame": len(f["people"])}
+        if mine:
+            p = mine[0]
+            row.update(box_source=p["box_source"], keypoints_outside_frame=p["keypoints_outside_frame"],
+                       keypoints_outside_share=round(p["keypoints_outside_frame"] / max(total, 1), 3))
+            for side in ("left_hand", "right_hand"):
+                row[f"{side}_refined"] = bool(p[side]["decoder_used"])
+                row[f"{side}_crop_px"] = p[side]["crop_side_px"]
+        if other:
+            row["named_in_table"] = other
+        rows.append(row)
+    return rows
+
+
+def flag_pose(label: str, by: str, pose: list[dict], masks: list[dict], others_on: set[int], refining: bool) -> list[dict]:
+    """What a pose table says before its mesh is used as a motion video.
+
+    `pose` are `pose_rows`, `masks` the subject's own per-frame rows, `others_on` the source frames another
+    subject of the capture has a mask on, `refining` whether the table was made with hand refinement on.
+
+    - `pose_fitted_to_the_whole_frame`: the body was fitted to a box that is the whole frame, not this
+      subject's. With somebody else in the frame the body it returns can be theirs: top level then.
+    - `several_bodies_under_one_name`: more than one body carries the subject's name on a frame.
+    - `no_pose_where_the_subject_is`: the subject has a mask and the table has no body for it.
+    - `hand_not_refined`: a hand the hand decoder did not refine while refinement was on: its fingers and
+      wrist in the mesh are the body decoder's. One flag a side.
+    - `pose_mostly_outside_the_frame`: over `POSE_OUTSIDE` of the keypoints fall outside the frame."""
+    out = []
+
+    def add(rule: str, level: str, frames_: list[int], why: str, **figures) -> None:
+        if frames_:
+            out.append({"rule": rule, "level": level, "subject": label, "seen_by": by, "source_frames": frame_spans(sorted(frames_)),
+                        "why": why.format(n=len(frames_)), "figures": {"frames": len(frames_), **figures}})
+
+    seen = {r["source_frame"]: r for r in pose}
+    whole = [n for n, r in seen.items() if r.get("box_source") == "whole frame"]
+    crowded = [n for n in whole if n in others_on]
+    add("pose_fitted_to_the_whole_frame", LEVELS[2] if crowded else LEVELS[1], whole,
+        f"{label}'s body was fitted to the whole frame on {{n}} frame(s), not to {label}'s own box"
+        + (f"; on {len(crowded)} of them another subject is in the frame, and the body returned can be theirs. Give the pose "
+           "node this subject's boxes" if crowded else "; nobody else is tracked there, so it is likely this subject's"),
+        with_another_subject_in_frame=len(crowded))
+    add("several_bodies_under_one_name", LEVELS[1], [n for n, r in seen.items() if r["bodies"] > 1],
+        f"{{n}} frame(s) have more than one body named {label} in the pose table; the capture reads the first")
+    add("no_pose_where_the_subject_is", LEVELS[1],
+        [r["source_frame"] for r in masks if r.get("track_share") and not seen.get(r["source_frame"], {}).get("bodies")],
+        f"{label} has a mask and no body in the pose table on {{n}} frame(s): the motion video has nobody there")
+    if refining:
+        for side in ("left_hand", "right_hand"):
+            missed = [n for n, r in seen.items() if r.get(f"{side}_refined") is False]
+            add("hand_not_refined", LEVELS[1], missed,
+                f"{label}'s {side.replace('_', ' ')} was not refined by the hand decoder on {{n}} frame(s): the fingers and wrist "
+                "of the mesh there are the body decoder's guess", side=side,
+                median_crop_px=round(float(np.median([seen[n][f"{side}_crop_px"] for n in missed])), 1) if missed else None)
+    add("pose_mostly_outside_the_frame", LEVELS[1], [n for n, r in seen.items() if r.get("keypoints_outside_share", 0) > POSE_OUTSIDE],
+        f"over a third of {label}'s keypoints fall outside the frame on {{n}} frame(s): those joints are a guess",
+        threshold_share=round(POSE_OUTSIDE, 3))
+    return out
 
 
 def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: int) -> list[dict]:
@@ -1547,6 +1648,13 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
+            path = folder / "subjects" / s["label"] / f"pose__{by}.json"
+            if path.is_file():
+                others_on = {r["source_frame"] for o in m["subjects"] if o["label"] != s["label"]
+                             for r in json.loads((folder / "subjects" / o["label"] / "per_frame.json").read_text())["rows"]
+                             if r.get("track_share")}
+                flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
+                                   bool((seen.get("pose") or {}).get("hand_refinement")))
     flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
@@ -2401,7 +2509,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "

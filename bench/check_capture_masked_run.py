@@ -516,6 +516,52 @@ def saved_regions() -> str:
             "source across a cut has none and is named; files that do not fit the render are refused")
 
 
+def _body(subject: str, box: str = "given", left: bool = True, right: bool = True, outside: int = 0) -> dict:
+    return {"person": 0, "subject": subject, "bbox": [0, 0, 10, 10], "box_source": box, "keypoints_2d": [[0.0, 0.0]] * 70,
+            "keypoints_outside_frame": outside, "left_hand": {"crop_side_px": 80.0, "decoder_used": left},
+            "right_hand": {"crop_side_px": 40.0, "decoder_used": right}}
+
+
+def pose_tables() -> str:
+    """A pose table read for one subject, and what it says before its mesh is used as a motion video."""
+    table = {"schema": cap.POSE_SCHEMA, "hand_refinement": True, "first_source_frame": 100, "frames": [
+        {"frame": 0, "source_frame": 100, "people": [_body("a"), _body("b")]},
+        {"frame": 1, "source_frame": 101, "people": [_body("a", box="whole frame"), _body("b")]},
+        {"frame": 2, "source_frame": 102, "people": [_body("a", box="whole frame", right=False)]},
+        {"frame": 3, "source_frame": 103, "people": [_body("a", right=False, outside=30), _body("a")]},
+        {"frame": 4, "source_frame": 104, "people": [_body("b")]},
+        {"frame": 5, "source_frame": 105, "people": [_body("a")]}]}
+    rows = cap.pose_rows(table, "a", 101, 4)
+    assert [r["source_frame"] for r in rows] == [101, 102, 103, 104] and [r["frame"] for r in rows] == [0, 1, 2, 3], rows
+    assert [r["bodies"] for r in rows] == [1, 1, 2, 0] and "box_source" not in rows[3], rows
+    assert rows[2]["keypoints_outside_share"] == round(30 / 70, 3) and rows[1]["right_hand_refined"] is False, rows
+    moved = cap.pose_rows(table, "a", 201, 4, at=200)
+    assert [r["source_frame"] for r in moved] == [201, 202, 203, 204], "`at` did not move the table's frame 0"
+    lone = cap.pose_rows({**table, "frames": [{"frame": 0, "source_frame": 100, "people": [_body("sample")]}]}, "a", 100, 1)
+    assert lone[0]["bodies"] == 1 and lone[0]["named_in_table"] == "sample", "a table under one other name was not taken"
+    assert cap.pose_rows(table, "c", 100, 6)[0]["bodies"] == 0, "a label the table does not have took somebody's body"
+    try:
+        cap.pose_rows({**table, "schema": "h3_body_pose_table/2"}, "a", 100, 6)
+    except SystemExit as stop:
+        assert "h3_body_pose_table/2" in str(stop)
+    else:
+        raise AssertionError("a table of another schema was read")
+    masks = [{"source_frame": n, "track_share": 0.1} for n in (101, 102, 103, 104)]
+    flags = {f["rule"] + ":" + str(f["figures"].get("side", "")): f for f in cap.flag_pose("a", "run", rows, masks, {101}, True)}
+    whole = flags["pose_fitted_to_the_whole_frame:"]
+    assert whole["level"] == cap.LEVELS[2] and whole["source_frames"] == [[101, 102]] and whole["figures"]["with_another_subject_in_frame"] == 1, whole
+    assert flags["several_bodies_under_one_name:"]["source_frames"] == [[103, 103]]
+    assert flags["no_pose_where_the_subject_is:"]["source_frames"] == [[104, 104]]
+    assert flags["hand_not_refined:right_hand"]["source_frames"] == [[102, 103]] and "hand_not_refined:left_hand" not in flags, flags.keys()
+    assert flags["pose_mostly_outside_the_frame:"]["source_frames"] == [[103, 103]]
+    alone = cap.flag_pose("a", "run", rows, masks, set(), False)
+    assert next(f for f in alone if f["rule"] == "pose_fitted_to_the_whole_frame")["level"] == cap.LEVELS[1], "nobody else in frame, and top level"
+    assert not any(f["rule"] == "hand_not_refined" for f in alone), "refinement off, and a hand flagged as not refined"
+    assert cap.flag_pose("a", "run", cap.pose_rows(table, "a", 100, 1), masks[:0], {100}, True) == [], "a clean frame was flagged"
+    return ("a subject's bodies by name and frame, under `at` and under one other name; the whole-frame box is top level only "
+            "with another subject in frame; two bodies, no body, an unrefined hand and a body mostly out of frame are named")
+
+
 def loads() -> str:
     """A pass as a list of loads: each a plan on its own frames, its steps counted from its own first frame."""
     import tempfile
@@ -648,6 +694,7 @@ case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
+case("a pose table as an input", pose_tables)
 case("a pass as a list of loads", loads)
 case("preflight: the gate and its override", the_gate)
 case("preflight: the text against the voice", text_rules)
