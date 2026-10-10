@@ -25,8 +25,11 @@ was a log line, a tinted picture or a scratch script (`data/CAPTURE_GAPS.md`).
 **The words.** A *subject* is a label you choose (`a`, `b`, any number of them). A *sighting* is one saved
 mask video of a subject, made by one tracker run (`by=`): the same subject seen by two runs is two
 sightings, and how far they agree is a column. A *run* is one pass that regenerated one subject (`subject=`)
-and kept others out of its margin (`others=`, labels joined by `+`); its region is read from the render's
-own review video (`<render stem>_with_mask.mp4`), which is drawn from the token mask the sampler was given.
+and kept others out of its margin (`others=`, labels joined by `+`); its region is the one each of its
+windows saved beside its latent (`<name>_window_N_region.npz`, the mask and the token region the window was
+run with), and for a render made before those were written it is read from the render's own review video
+(`<render stem>_with_mask.mp4`), which is drawn from the token mask the sampler was given. The manifest
+says which (`read_from`).
 
 **files** reads saved videos only: no server, no model, no card. A mask video is white on the mask, at the
 canvas, and its frame 0 is source frame `at=` (the span's `--first` when not given); a preview graph that
@@ -559,6 +562,70 @@ def read_region(render: str, source: str, first: int, frames: int, size: tuple[i
     return region, carried, read, {"read_from": Path(review).name, "legend_px": [lw, lh]}
 
 
+# ------------------------------------------------------------------ a run's region from the files its windows saved
+
+def window_region_files(render: str) -> list[Path]:
+    """The region files a render's windows saved (`video_mask.save_window_region`), in window order.
+
+    A render `<dir>/<name>_00001.mp4` keeps its windows in `<dir>/<name>_windows/`, and each window rendered
+    over a source leaves `<name>_window_N_region.npz` beside its latent. None from a render made before
+    the song node wrote them."""
+    path = Path(render)
+    name = path.stem.rsplit("_", 1)[0] if path.stem.rsplit("_", 1)[-1].isdigit() else path.stem
+    found = {}
+    for f in (path.parent / f"{name}_windows").glob(f"{name}_window_*_region.npz"):
+        number = f.name[len(name) + len("_window_"):-len("_region.npz")]
+        if number.isdigit():
+            found[int(number)] = f
+    return [found[n] for n in sorted(found)]
+
+
+def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[int, int], at: int | None = None,
+                       render_frames: int | None = None):
+    """A run's region and carried mask from what each window was run with, in place of un-tinting the review.
+
+    Each file is one window: its fitted mask per frame, its token region per latent step, the frame of the
+    load it starts on and how many of its frames its video leaves off the front (the context it shares with
+    the window before). A frame of the load belongs to the window whose video holds it. The region is the
+    token region over each latent step's run of frames (`video_mask.pixel_alpha` with no feather, at the
+    cell grid), taken off the frames `video_mask.cut_gate` leaves as the source across a cut, because
+    those were not laid. Under `only what changed` the composite keeps less than this; the review reader
+    cannot see that either, and `how` names the composite. The load's frame 0 is source frame `at`.
+
+    Returns what `read_region` does. Refuses (None) when the windows do not tile the render from its first
+    frame to `render_frames`: files left by an earlier, longer run are not this render's."""
+    import torch
+    vm = _pack("video_mask")
+    w, h = size
+    region = np.zeros((frames, h // CELL, w // CELL), bool)
+    carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
+    at = first if at is None else int(at)
+    end, across, names, composite = 0, [], [], None
+    for f in files:
+        got = vm.load_window_region(str(f))
+        start, trim, mask, tokens = got["first_frame"], got["trim"], got["mask"], got["tokens"]
+        count = int(mask.shape[0])
+        if start + trim != end:
+            return None, None, None, {"refused": f"{f.name} starts its video on frame {start + trim} of the load and the "
+                                                 f"window before it ended on {end}"}
+        cells = vm.pixel_alpha(tokens, h // CELL, w // CELL, 0) > 0.5
+        gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
+        if tuple(mask.shape[1:]) != (h, w):
+            mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        for k in range(trim, count):
+            n = at + start + k - first
+            if 0 <= n < frames:
+                region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy(), (mask[k] > 0.5).numpy(), True
+            if not bool(gate[k]):
+                across.append(at + start + k)
+        end, composite = start + count, got["source"].get("composite")
+        names.append(f.name)
+    if render_frames is not None and end != int(render_frames):
+        return None, None, None, {"refused": f"the windows' files cover {end} frames and the render has {render_frames}"}
+    return region, carried, read, {"read_from": "the region each window saved beside its latent", "files": names, "legend_px": None,
+                                   "composite": composite, "left_as_the_source_across_a_cut": across}
+
+
 def graph_of(render: str) -> dict | None:
     """The graph a render's picture carries (`<stem>.png`, the `prompt` text chunk), or None."""
     picture = Path(render[:-len(".mp4")] + ".png")
@@ -759,7 +826,17 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         else:
             graph = graph_of(r["render"])
             settings = source_settings(graph)
-            region, carried, read, how = read_region(r["render"], a.source, first, frames, size, r.get("at"))
+            saved = [] if r.get("region") == "review" else window_region_files(r["render"])
+            region = None
+            if saved:
+                region, carried, read, how = read_saved_regions(saved, first, frames, size, r.get("at"), probe(r["render"])[2])
+                if region is None:
+                    print(f"run {name}: the windows' saved regions are not this render's ({how['refused']}); reading the review")
+            if region is None:
+                refused = (how or {}).get("refused") if saved else None
+                region, carried, read, how = read_region(r["render"], a.source, first, frames, size, r.get("at"))
+                if refused:
+                    how["saved_regions_refused"] = refused
         folder = out / "runs" / name
         folder.mkdir(parents=True, exist_ok=True)
         entry = {"subject": label, "others": others, "region": region, "carried": carried, "read": read, "reached": {}, "back": {}}
@@ -785,7 +862,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  "windows": ({"window_frames": int(r["window"]), "context_frames": int(r.get("context", 0))}
                                              if r["planned"] and r.get("window") else window_settings(graph)),
                                  "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
-                                                and r.get("carried", "parts") == "parts" else "the track") if r["planned"] else "read from the review",
+                                                and r.get("carried", "parts") == "parts" else "the track") if r["planned"] else "the mask each window saved" if how.get("files") else "read from the review",
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
@@ -2176,8 +2253,9 @@ def main() -> None:
     f.add_argument("--frames", type=int, required=True)
     f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
-    f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX]",
-                   help="one pass that regenerated a subject; its region is read from the render's review; repeatable")
+    f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
+                   help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
+                        "read from the render's review when there is none (or with region=review); repeatable")
     f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells][,window=F,context=F]",
                    help="a run that has not rendered: its region is worked out from the masks; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")

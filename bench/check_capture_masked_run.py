@@ -461,6 +461,60 @@ def mouths() -> str:
             "against another mouth and against the voice's level; a stretch of source frames scores only its own frames")
 
 
+def saved_regions() -> str:
+    """Two windows' region files read back as one run's region, frame for frame.
+
+    Window 1 is 9 frames from frame 0 of the load; window 2 is 9 frames from frame 4 and its video leaves
+    5 off the front, so the two tile 13 frames. The canvas is 96 by 160, a token 32 px."""
+    import tempfile
+    import torch
+    vm = cap._pack("video_mask")
+    settings = {"composite": "whole region", "feather_pixels": 0, "change_threshold": None, "cuts": [7],
+                "grow_pixels": 8, "grow_by": "a fixed margin", "replace": "subject", "edge": "whole tokens"}
+
+    def one(x0: int, present: slice) -> tuple[torch.Tensor, torch.Tensor]:
+        mask = torch.zeros(9, H, W)
+        mask[present, 32:64, x0:x0 + 32] = 1.0
+        tokens = torch.zeros(3, H // 32, W // 32)
+        tokens[:, 1, x0 // 32] = 1.0
+        return mask, tokens
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "pass_windows"
+        folder.mkdir()
+        render = str(Path(tmp) / "pass_00001.mp4")
+        assert cap.window_region_files(render) == [], "no files, and some found"
+        first_mask, first_tokens = one(32, slice(0, 9))
+        # the second window's subject is gone after the cut at frame 7 of the load (its own frame 3)
+        second_mask, second_tokens = one(96, slice(0, 3))
+        vm.save_window_region(str(folder / "pass_window_2_region.npz"), second_mask, second_tokens, settings, 8, 4, 5)
+        vm.save_window_region(str(folder / "pass_window_1_region.npz"), first_mask, first_tokens, settings, 8, 0, 0)
+        (folder / "pass_window_x_region.npz").write_bytes(b"not a window")
+        found = cap.window_region_files(render)
+        assert [f.name for f in found] == ["pass_window_1_region.npz", "pass_window_2_region.npz"], found
+        # the load's frame 0 is source frame 100; the span is source frames 98 to 113
+        region, carried, read, how = cap.read_saved_regions(found, 98, 16, (W, H), at=100, render_frames=13)
+        assert read.tolist() == [False] * 2 + [True] * 13 + [False], read.tolist()
+        assert region[2:11, 2, 2].all() and not region[2:11, 2, 6].any(), "window 1's frames do not carry window 1's region"
+        assert not region[11:15, 2, 2].any(), "window 2's frames carry window 1's region"
+        # window 2's own frames 5 to 8 are frames 9 to 12 of the load: its step holds frames 5 to 8, all after
+        # the cut and all without the subject, so nothing is across a cut from it there and the region stands
+        assert region[11:15, 2, 6].all(), "window 2's region is missing on the frames its video holds"
+        assert carried[2:11, 32:64, 32:64].all() and not carried[11:15].any(), "the carried mask is not each window's own"
+        assert how["files"] == [f.name for f in found] and how["left_as_the_source_across_a_cut"] == [], how
+        # a cut inside a step with the subject on one side: the other side is left as the source and named
+        gated_mask, gated_tokens = one(96, slice(0, 7))
+        vm.save_window_region(str(folder / "pass_window_2_region.npz"), gated_mask, gated_tokens, {**settings, "cuts": [11]}, 8, 4, 5)
+        region, carried, read, how = cap.read_saved_regions(found, 100, 13, (W, H), render_frames=13)
+        assert how["left_as_the_source_across_a_cut"] == [111, 112], how
+        assert region[9:11, 2, 6].all() and not region[11:13].any() and read[11:13].all(), "a frame across a cut kept its region"
+        # files that do not tile the render are somebody else's
+        assert cap.read_saved_regions(found, 100, 13, (W, H), render_frames=21)[0] is None, "a longer render, and its region read"
+        assert cap.read_saved_regions(found[1:], 100, 13, (W, H))[0] is None, "a window missing from the front, and its region read"
+    return ("two windows tile one run's region, each frame from the window whose video holds it; a frame left as the "
+            "source across a cut has none and is named; files that do not fit the render are refused")
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -490,5 +544,6 @@ case("segments and what is inside a region", segments)
 case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
+case("a run's region from the files its windows saved", saved_regions)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())
