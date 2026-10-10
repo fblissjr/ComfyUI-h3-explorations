@@ -45,6 +45,13 @@ zoomed picture written beside it (`..._zoomed.mp4`), since the window's video is
 laid back. Give `--source` the file the render's loader read; when that loader handed the clip's own frames and
 not a fit to the canvas, the clip's size must be the region's `source_size`.
 
+**`--read-files`: the reading that needs no card.** Nothing is decoded. The window's own video is set against
+the source over the areas its saved region gives (outside a zoomed run's box, clear of the region, inside it),
+with `--baseline` reading another render of the same frames over the same areas, and a zoomed run's zoomed
+picture is laid into the box and set against the piece (`read_files`). It answers "did the composite, or the
+lay back of a zoomed region, leave the plate alone" from files a render already wrote, and is the first thing
+to run on a render that looks wrong outside its subject.
+
 **`--set` and `--as-rendered`.** Each is `key=value` over the window's own settings: `cuts=none` (no gate),
 `cuts=12,40`, `composite=whole region`, `feather_pixels=4`, `change_threshold=0.08`, and `no_mask=laid` or
 `no_mask=source` (whether a frame with no mask of its own is laid, as renders before 2026-10-10 laid it, or left
@@ -199,6 +206,11 @@ def source_frames(clip: str, first: int, frames: int, size: tuple[int, int], hav
     got += [got[-1]] * held
     return torch.from_numpy(np.stack(got)).to(torch.float32) / 255.0, held
 
+
+#: How far from the region "clear of the region" starts, past its feather, and how far inside it "well inside"
+#: is, in canvas pixels. Reasoned: the reach of the scaling filter a zoomed region is laid back with, and the
+#: codec's blocks at a soft edge.
+CLEAR_OF_REGION = 8
 
 _VAES: dict = {}        # the loaded VAE by file name: several windows decoded in one go load it once
 
@@ -461,6 +473,126 @@ def run(a: argparse.Namespace, decode=decode_window) -> dict:
     return record
 
 
+def _levels(off, where) -> dict | None:
+    """A reading of `off` ([F, H, W], levels) over `where`: a frame's figure is its mean over the area, and the
+    reading is the median frame's, with the area's 99.9th and worst pixel over every frame that has any of it."""
+    import torch
+    frames = [f for f in range(int(off.shape[0])) if bool(where[f].any())]
+    if not frames:
+        return None
+    means = torch.stack([off[f][where[f]].mean() for f in frames])
+    every = torch.cat([off[f][where[f]] for f in frames])
+    return {"mean_levels": round(float(means.median()), 3),
+            "pixel_99_9th": round(float(every.kthvalue(max(1, int(0.999 * every.numel()))).values), 1),
+            "worst_pixel": round(float(every.max()), 1), "frames": len(frames)}
+
+
+def read_files(a: argparse.Namespace) -> dict:
+    """What a render's own FILES say, with nothing decoded: is the plate the source's, and does a zoomed picture
+    agree with the piece. The no-card reading to make of a render first.
+
+    The window's video (or `--piece`, any video of the same frames) is set against the source fitted to the
+    canvas, in levels of the largest channel, over three areas taken from the window's saved region: outside a
+    zoomed run's box; clear of the region (and inside the box, when there is one); and inside the region. The
+    region is the token region with no feather, off the frames the composite leaves as the source
+    (`video_mask.unlaid_frames`), and for a zoomed run it is put on the canvas by `video_mask.lay_back` itself,
+    so it is where the node laid it. "Clear of the region" leaves the feather's reach and a few pixels more.
+    Where the node's weight is 0 the file should be the source to its codec: `--baseline`, another render's
+    video of the same frames (a whole-frame render of the load), is read over the same areas to say what the
+    codec alone leaves. For a zoomed run the zoomed picture beside the window is laid into the box, whole, by
+    the same function, and set against the piece well inside the region: the agreement a delivery built from
+    the zoomed picture relies on. In the feathered band the two differ by design and are not read.
+    """
+    bootstrap(cpu=True)
+    import torch
+    import torch.nn.functional as F
+    vm = _pack("video_mask")
+    window = Path(a.window)
+    stored = window_meta(str(window))
+    latent = stored["shape"]
+    frames = sum(vm.run_lengths(latent[2]))
+    size = (latent[4] * CELL, latent[3] * CELL)
+    saved = Path(a.region) if a.region else window.with_name(window.stem + "_region.npz")
+    if not saved.is_file():
+        raise SystemExit(f"{saved.name} is not beside the window: the files alone cannot say where its region was")
+    region = vm.load_window_region(str(saved))
+    zoom, first, trim = region.get("zoom"), int(region["first_frame"]), int(stored["trim"])
+    count = int(stored["written"] or frames - trim)
+    source, _held = source_frames(a.source, a.source_first + first, frames, size,
+                                  None if a.source_frames is None else a.source_frames - first)
+    source = source[trim:trim + count]
+    piece_path = a.piece or str(window.with_suffix(".mp4"))
+    piece = written_frames(piece_path, size, count)
+    if piece is None or int(piece.shape[0]) != count:
+        raise SystemExit(f"{Path(piece_path).name} is missing or does not hold the {count} frames the window wrote")
+    weight = vm.pixel_alpha(region["tokens"], size[1], size[0], 0).clone()
+    across, bare = vm.unlaid_frames(region["mask"], region["tokens"], region["source"].get("cuts"), first)
+    weight[across + ([] if region["source"].get("lay_frames_with_no_mask") else bare)] = 0.0
+    box = torch.ones(size[1], size[0], dtype=torch.bool)
+    if zoom is not None:
+        # the weight where the node put it: `lay_back` of a white decode over black is the weight on the canvas
+        blank = torch.zeros(frames, size[1], size[0], 3)
+        weight = vm.lay_back(torch.ones_like(blank), weight, blank, zoom)[..., 0]
+        box = vm.lay_back(torch.ones(1, size[1], size[0], 3), torch.ones(1, size[1], size[0]), blank[:1], zoom)[0, ..., 0] > 0.5
+    weight = weight[trim:trim + count]
+    clear = int(getattr(a, "clear", None) or CLEAR_OF_REGION)
+    reach = int(region["source"].get("feather_pixels") or 0) + clear
+    near = F.max_pool2d((weight > 0)[:, None].float(), 2 * reach + 1, stride=1, padding=reach)[:, 0] > 0
+    inner = F.max_pool2d((weight < 0.99)[:, None].float(), 2 * clear + 1, stride=1, padding=clear)[:, 0] == 0
+
+    def areas(video) -> dict:
+        off = (video - source).abs().amax(dim=-1) * 255.0
+        out = {"clear_of_the_region": _levels(off, box[None] & ~near), "inside_the_region": _levels(off, weight > 0.5)}
+        if zoom is not None:
+            out = {"outside_the_box": _levels(off, (~box)[None].expand(count, -1, -1)),
+                   "inside_the_box_clear_of_the_region": out["clear_of_the_region"], "inside_the_region": out["inside_the_region"]}
+        return out
+    record = {"window": window.name, "piece": Path(piece_path).name, "source": Path(a.source).name,
+              "source_first_frame": a.source_first + first + trim, "frames": count, "zoom": zoom,
+              "levels_are": "the largest channel's absolute difference from the source fitted to the canvas; a frame's "
+                            "figure is its mean over the area, and the reading is the median frame's",
+              "frames_left_as_the_source": [a.source_first + first + f for f in sorted(across + bare) if trim <= f < trim + count],
+              "piece_against_the_source": areas(piece)}
+    if a.baseline:
+        other = written_frames(a.baseline, size, count)
+        if other is None or int(other.shape[0]) != count:
+            raise SystemExit(f"{Path(a.baseline).name} is missing or does not hold {count} frames")
+        record["baseline"] = Path(a.baseline).name
+        record["baseline_against_the_source_over_the_same_areas"] = areas(other)
+    if zoom is not None:
+        beside = written_frames(str(window.with_name(window.stem + "_zoomed.mp4")), size, count)
+        if beside is None or int(beside.shape[0]) != count:
+            record["zoomed_picture_against_the_piece"] = None
+        else:
+            placed = vm.lay_back(beside, torch.ones(count, size[1], size[0]), torch.zeros_like(beside), zoom)
+            off = (piece - placed).abs().amax(dim=-1) * 255.0
+            values = off[inner]
+            record["zoomed_picture_against_the_piece"] = None if not int(values.numel()) else {
+                "where": f"inside the region, clear of its edge by {clear} canvas pixels",
+                "median_levels": round(float(values.median()), 3),
+                "pixel_99th": round(float(values.kthvalue(max(1, int(0.99 * values.numel()))).values), 1),
+                "pixels": int(values.numel())}
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"{window.stem}_files.json").write_text(json.dumps(record, indent=1) + "\n")
+    return record
+
+
+def report_files(record: dict) -> None:
+    print(f"{record['window']}: {record['frames']} frames of {record['piece']} against {record['source']}, nothing decoded"
+          + (f"; ZOOMED {record['zoom']['scale']:.2f}x in the box {record['zoom']['box']}" if record["zoom"] else ""))
+    for title, key in (("the piece", "piece_against_the_source"), (record.get("baseline"), "baseline_against_the_source_over_the_same_areas")):
+        for area, got in (record.get(key) or {}).items():
+            print(f"  {title}, {area.replace('_', ' ')}: " + ("no such area" if got is None else
+                  f"{got['mean_levels']} levels a frame, 99.9th pixel {got['pixel_99_9th']}, worst {got['worst_pixel']}, over {got['frames']} frames"))
+    if record["zoom"]:
+        got = record.get("zoomed_picture_against_the_piece")
+        print("  the zoomed picture laid into the box against the piece: " + ("no zoomed picture beside the window, or no region clear of its edge"
+              if got is None else f"median {got['median_levels']} levels, 99th {got['pixel_99th']}, {got['where']}"))
+    if record["frames_left_as_the_source"]:
+        print(f"  frames the composite left as the source: {spans(record['frames_left_as_the_source'])}")
+
+
 def report(record: dict) -> None:
     s, how = record["summary"], record["inputs"]
     print(f"{record['window']}: {record['frames']} frames from source frame {record['source_first'] + record['window_first_frame']}, "
@@ -506,6 +638,12 @@ def main() -> None:
     p.add_argument("--as-rendered", action="append", metavar="KEY=VALUE", help="a setting of the first laying")
     p.add_argument("--set", action="append", metavar="KEY=VALUE", help="a setting of the second laying")
     p.add_argument("--box", metavar="X0,X1,Y0,Y1", help="a box in canvas pixels to read before and after the composite")
+    p.add_argument("--read-files", action="store_true",
+                   help="decode nothing: read the window's own video against the source over its saved region's areas "
+                        "(is the plate the source's), and a zoomed run's zoomed picture against the piece")
+    p.add_argument("--piece", help="with --read-files: a video of the window's written frames to read in place of its own")
+    p.add_argument("--baseline", help="with --read-files: another render's video of the same frames, read over the same areas")
+    p.add_argument("--clear", type=int, help=f"with --read-files: how many canvas pixels off the region's edge an area starts; default {CLEAR_OF_REGION}")
     p.add_argument("--vae", help="the video VAE's file name; default: the shipped one")
     p.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
     p.add_argument("--out", required=True, help="a folder under data/ for the decode, the table and the record")
@@ -524,6 +662,9 @@ def main() -> None:
     if len(a.window) != 1 or a.source is None or a.source_first is None:
         raise SystemExit("laying a window takes one --window, with --source and --source-first")
     a.window = a.window[0]
+    if a.read_files:
+        report_files(read_files(a))
+        return
     report(run(a))
 
 

@@ -85,7 +85,8 @@ untracked `data/2026-10-10_recomposite_decodes/`.
   lent cells of each).
 
 - **The first render made zoomed in, read from its own files.** Added the
-  same evening; no decode, one load, one seed. The lay back leaves the
+  same evening with `bench/recomposite_window.py --read-files`, which
+  decodes nothing; one load, one seed. The lay back leaves the
   plate alone: outside the box, and inside the box clear of the region,
   the piece is as far from the fitted source as the accepted whole-frame
   render of the same load is over the same areas, figure for figure, so

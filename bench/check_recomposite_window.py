@@ -32,7 +32,9 @@ the stand-in decode is the source a few levels off with a bright block on every 
 6. **A window rendered zoomed in.** Its region file says a box, and its mask, tokens and decode are of that box
    scaled to the canvas. The tool cuts the clip to the box as the node did and holds the laying to the zoomed
    picture beside the window: within a level of it; far from it when the region file's box is two pixels off
-   (the control); and a zoom made for another canvas is refused.
+   (the control); and a zoom made for another canvas is refused. Read from its files with nothing decoded
+   (`--read-files`): off the region the window's video is the source, the zoomed picture laid into the box
+   agrees with it inside the region, a band of plate ten levels off is seen, and a baseline is read apart.
 
 Needs ffmpeg on the path. No model, no card, no server.
 
@@ -115,7 +117,7 @@ MADE = make()
 def args(out: str, **more) -> argparse.Namespace:
     base = dict(window=str(MADE["window"]), source=str(WORK / "clip.mkv"), source_first=LEAD, region=None, capture=None,
                 run=None, shots=None, context=None, first_frame=None, as_rendered=None, set=None, vae="none", device="cpu",
-                out=str(WORK / out), box=None, source_frames=None)
+                out=str(WORK / out), box=None, source_frames=None, read_files=False, piece=None, baseline=None, clear=None)
     return argparse.Namespace(**{**base, **more})
 
 
@@ -293,6 +295,25 @@ def zoomed() -> str:
              ["-c:v", "libx264rgb", "-qp", "0"])
     off = rw.run(args("z", **mine), decode=lambda *_a: decode.clone())["summary"]["as_rendered_off_file_levels"]
     assert off and off["frames"] == FRAMES - TRIM and off["most"] <= 0.5, f"the zoomed laying is {off} levels from its zoomed picture"
+    # the reading that decodes nothing (`read_files`): the window's own video is the whole frame with the region
+    # laid back, so off the region it is the source, and the zoomed picture laid into the box agrees with it
+    alpha = vm.lay_window(kept, pixels, tokens, mask, settings, MARGIN, FIRST)[1]
+    back = vm.lay_back(kept, alpha, MADE["pixels"], zoom(box))
+    lossless(window.with_suffix(".mp4"), (back[TRIM:].clamp(0, 1) * 255).round().to(torch.uint8).numpy(), ["-c:v", "libx264rgb", "-qp", "0"])
+    read = rw.read_files(args("z", **mine, clear=2))
+    areas, agree = read["piece_against_the_source"], read["zoomed_picture_against_the_piece"]
+    assert read["zoom"] == zoom(box) and read["frames"] == FRAMES - TRIM, read
+    assert areas["outside_the_box"]["worst_pixel"] <= 1.0 and areas["inside_the_box_clear_of_the_region"]["worst_pixel"] <= 1.0, \
+        f"off the region a zoomed window's video is not the source: {areas}"
+    assert areas["inside_the_region"]["mean_levels"] > 5.0, f"the region reads as the source: {areas['inside_the_region']}"
+    assert agree and agree["median_levels"] <= 2.0, f"the zoomed picture laid into the box is {agree} from the window's video"
+    marked = back[TRIM:].clone()
+    marked[:, :4] += 10.0 / 255.0                       # the control: a band of the plate ten levels off, outside the box
+    lossless(folder / "marked.mp4", (marked.clamp(0, 1) * 255).round().to(torch.uint8).numpy(), ["-c:v", "libx264rgb", "-qp", "0"])
+    seen = rw.read_files(args("z", **mine, clear=2, piece=str(folder / "marked.mp4"), baseline=str(window.with_suffix(".mp4"))))
+    assert seen["piece_against_the_source"]["outside_the_box"]["worst_pixel"] >= 9.0, "a plate ten levels off was not seen"
+    assert seen["baseline_against_the_source_over_the_same_areas"]["outside_the_box"]["worst_pixel"] <= 1.0, "the baseline was not read apart"
+    window.with_suffix(".mp4").unlink()
     vm.save_window_region(str(region), mask, tokens, {**settings, "zoom": zoom([v + 2 if i % 2 == 0 else v for i, v in enumerate(box)])},
                           MARGIN, FIRST, TRIM)
     slipped = rw.run(args("z", **mine), decode=lambda *_a: decode.clone())["summary"]["as_rendered_off_file_levels"]
@@ -301,7 +322,9 @@ def zoomed() -> str:
     try:
         rw.run(args("z", **mine), decode=lambda *_a: decode.clone())
     except SystemExit:
-        return f"the zoomed laying is {off['most']} levels from the zoomed picture beside the window at most; a box two pixels off is {slipped['most']}; another canvas's zoom refused"
+        return (f"the zoomed laying is {off['most']} levels from the zoomed picture beside the window at most; a box two pixels off is "
+                f"{slipped['most']}; another canvas's zoom refused; read from its files with nothing decoded, the plate is the source "
+                f"and the zoomed picture agrees ({agree['median_levels']} levels), and a plate ten levels off is seen")
     raise AssertionError("a zoom made for another canvas was laid")
 
 
