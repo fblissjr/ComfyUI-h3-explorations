@@ -553,6 +553,26 @@ def found_on_disk(expects: dict, output: Path) -> tuple[dict, list[str]]:
     return found, missing
 
 
+def capture_from(job: dict, found: dict, output: Path, date: str) -> str:
+    """The capture command for a preview that has run, with the files it really saved: nothing left to fill in.
+
+    One file of each kind for each subject, or the command is not written: two tracks under one prefix are
+    two runs in one folder, which is what a new name for every run is there to prevent."""
+    lines = [f"bench/capture_masked_run.py files --name {job['name']} --date {date} --source {job['source']} "
+             f"--first {job['first']} --frames {job['frames']}"]
+    for subject in job["subjects"]:
+        mine, spec = found.get(subject["label"]) or {}, []
+        for key in ("track", "parts", "classes", "shots", "pose"):
+            if key == "pose" and not subject.get("pose", True):
+                continue
+            if len(mine.get(key) or []) != 1:
+                raise Refused(f"{subject['label']}: {len(mine.get(key) or [])} files for `{key}` where one is meant: "
+                              f"{mine.get(key) or 'none'}")
+            spec.append(f"{key}={output / mine[key][0]}")
+        lines.append(f"    --mask {subject['label']}:" + ",".join(spec) + f",by={job['name']},at={job['first']}")
+    return " \\\n".join(lines)
+
+
 def capture_command(job: dict, date: str) -> str:
     """The capture the preview's files go into, with a name left for each file the server numbers.
 
@@ -672,6 +692,12 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
                       f"server was restarted since and no longer remembers it")
     record |= read_history(history[record["prompt_id"]])
     built = json.loads((folder / f"{stem_of(stage, load)}.built.json").read_text())
+    if stage == "preview" and not built.get("expects") and (folder / "job.json").is_file():
+        # a preview built before its record listed what must be on disk: the job file says the same thing,
+        # and the output folder's root is the saved folder less the job's own prefix and name
+        job = json.loads((folder / "job.json").read_text())["job"]
+        built["expects"] = expected_files(job)
+        built["output"] = str(Path(built["output_folder"]).parents[len(Path(job["output"]).parts)])
     if built.get("expects"):
         record["found"], record["missing"] = found_on_disk(built["expects"], Path(built["output"]))
     queued.write_text(json.dumps(record, indent=1) + "\n")
@@ -681,6 +707,11 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
         print(json.dumps(record["error"], indent=1))
     if record.get("missing"):
         print("NOT ON DISK, though the graph was built to save them:\n  " + "\n  ".join(record["missing"]))
+    elif record.get("found") and (folder / "job.json").is_file():
+        job = json.loads((folder / "job.json").read_text())["job"]
+        print("the capture, with the files this run saved (give `--folder PATH` in place of --name and --date to "
+              "say where it goes; add --voice, and --who-is-who and --not-in at preflight):\n"
+              + capture_from(job, record["found"], Path(built["output"]), built["built_at"][:10]))
     return 0 if record["status"] == "success" and not record.get("missing") else 1
 
 

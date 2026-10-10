@@ -737,6 +737,18 @@ def build_refuses_what_it_must():
         found, missing = tool.found_on_disk({"a": built["expects"]["a"]}, out)
         assert found["a"]["track"] == ["Video/check/check/check_a_track_00001.mkv"] and found["a"]["shots"] and found["a"]["pose"], found
         assert sorted(m.split(" ")[1] for m in missing) == ["classes", "held_things", "mesh", "parts"], f"said to be missing: {missing}"
+        # the capture command for a run that saved everything names the files themselves; a run that saved two
+        # files of one kind, or none, gets no command
+        for label in "abc":
+            for key, pattern in built["expects"][label].items():
+                (out / pattern.replace("*", "00001")).write_bytes(b"")
+        whole, nothing_missing = tool.found_on_disk(built["expects"], out)
+        assert not nothing_missing, nothing_missing
+        command = tool.capture_from(job, whole, out, "2026-01-01")
+        assert "<" not in command and command.count("--mask") == 3 and f"track={out}/Video/check/check/check_b_track_00001.mkv" in command, command
+        assert "pose=" not in command.split("--mask c:")[1] and f",at={job['first']}" in command and "held" not in command, command
+        _refused(lambda: tool.capture_from(job, {**whole, "b": {**whole["b"], "track": []}}, out, "2026-01-01"), "b", "track")
+        _refused(lambda: tool.capture_from(job, {**whole, "a": {**whole["a"], "parts": ["x", "y"]}}, out, "2026-01-01"), "2 files")
         import shutil as _sh
         _sh.rmtree(out / "Video")
         assert built["builder_not_committed"] == tool.builder_not_committed(), "the record does not say what state the builder was in"
