@@ -271,6 +271,21 @@ says the evidence total is the better of the two. What it suggests, from
 one load: a level has to come from looks at the size a person will be
 compared at.*
 
+*2026-10-10, a correction to the line above, from the tool's builder
+(the record, "The first run with three subjects"). The built total did
+not have the subject who was there right on all five shots: on most, each
+from a single look, and the first reading was right for a wrong reason
+(a later tracker's looks leave out the people earlier trackers hold, and
+the total followed whoever the first tracker did not hold; the tool now
+reads only looks nobody was removed from). And the evidence total did not
+call her nobody on any of them: it handed her the clear unnamed person
+every time. The direction of the line stands: the built total cannot say
+nobody, the evidence total prefers a clear bystander to a small subject,
+and required to agree, no row of that run agrees with a wrong take. One
+thing it adds for this page: a vote read from a look that somebody was
+removed from is not a vote. The census of `who_is_who.md` section 5 is
+where complete looks come from.*
+
 **Never:** a weight somebody typed.
 
 ## 6. What comes later, each only if the step before still fails

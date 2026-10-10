@@ -337,6 +337,16 @@ plate vector. No subject is named, no tracker call is made, nothing
 samples. It needs a mode the Subject Track does not have: a table of the
 people on each look, with no subject (section 8).
 
+*2026-10-10, what the first three-subject run adds, and it is the
+strongest reason yet for this pass (the record, "What the run asks for
+that is not built"). With several trackers, each told who the earlier
+ones hold, only the first tracker's looks show everybody on the frame.
+The decision can trust a look only if nobody was removed from it, so
+most shots of a real load have one such look, which is fewer than
+section 6 will decide on. A pass that looks at every shot with no subject
+and nobody set aside is the only source of looks the decision can use. It
+is not a convenience.*
+
 **It is part of the analysis that runs first for an input video.** The
 owner's rule of 2026-10-10 (`AGENTS.md`, "A rule that depends on the
 picture takes its value from the input video, up front") is that the
@@ -460,8 +470,8 @@ explains the person, so a person is asked, and the answer is a new look or
 a new appearance that later shots are measured against. It is safe, and
 it is most of the count of questions (section 9).
 
-*2026-10-10, built in a first form and run on real tables (mrfrog; the
-commit that adds this line).* `bench/who_is_who_across_shots.py
+*2026-10-10, built in a first form and run on real tables (mrfrog;
+98c5bff2).* `bench/who_is_who_across_shots.py
 corrections` computes the evidence total with levels from what a load's
 own tables hold: for each subject, the highest score any look KNOWN NOT to
 be it reaches against its gallery (another subject's gallery look, or a
@@ -481,6 +491,24 @@ suggests and does not show: the level wants looks of the subject at the
 size she is compared at, and the evidence used only to veto a take, with
 the built total saying who, would have been right on every shot of that
 load.
+
+*2026-10-10, a correction to the paragraph above, from its author, kept
+beside it and not written over it (the record, "The first run with three
+subjects", "The tool's answers moved between two previews of one load,
+and why"). Two of its sentences do not stand. The built total did not
+have the subject who was there right on every shot: it had her right on
+most, each from a single look, and for the wrong reason in the first
+reading. A tracker told who earlier trackers hold lists a frame's people
+with those people removed, so its looks are not the frame, and the total
+was following whoever the first tracker did not hold. The tool now reads
+only complete looks, and read that way two previews of the load give the
+same answers. And the last sentence, that the evidence as a veto with the
+built total saying who would have been right on every shot, is false on
+the corrected reading and is withdrawn. What stands: the evidence is
+right about who is not there; it prefers the clear unnamed person to a
+subject small in an inset every time, where the paragraph had it saying
+nobody on some; and required to agree with the tracker and the built
+total, no row of that run agrees with a wrong take.*
 
 **A take needs all of these, or the row asks.**
 
@@ -1054,6 +1082,13 @@ still deciding alone:*
 - *Not shown: premortem 4. The lead changes clothes inside the first
   load, by its job's note, and no row of the file ties a wrong take to
   it.*
+
+*2026-10-10, later: the record's section on this run exists, "The first
+run with three subjects", with its data files beside it. It corrects the
+line above in one way: the first half of premortem 4 did show, as a cost
+and not as a wrong take. In another outfit the lead falls under her own
+level, and two rows ask where her tracker was right. That is the path
+section 3 gives a new outfit.*
 
 | # | what failed | likely | cost | the signal before a render | the mitigation, in a line |
 |---|---|---|---|---|---|
