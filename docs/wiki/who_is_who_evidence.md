@@ -125,6 +125,36 @@ tell" when the likeness has no lead, or the seeded calls from different
 confirmed looks land on different people, or the tracker's score says
 nobody is there.
 
+*2026-10-10, the first measurement of vote two, the same night
+(`data/2026-10-10_fun_seeded_memory/`, untracked: `cases.json` is the
+eighteen cases and what a useful vote would do in each, written by the
+tracker's session before any run; `reading_by_mrpop.json` is the reading,
+by the lead session, which built none of it, and holds every count). The
+cases are the wrong takes and the one miss of the two uncorrected
+three-subject previews, with six right takes as controls; each subject
+was seeded from one frame a person had confirmed in another shot.*
+
+- *Under "both votes agree, or a person is asked", all but one of the
+  wrong calls would have stopped. The one that would not: both votes took
+  the lead, small in an inset, for the second subject. Most of the right
+  takes pass with no question, and two become a question nobody needed.*
+- *The memory alone: it found the lead in her inset in every inset case.
+  Where the subject was not in the shot it let go at the join in most
+  cases and held a wrong person in two.*
+- *Three things only laying the track over the frames showed. The first
+  frames after the join are unreliable: they can carry the seed's own
+  shape or a wrong person before the mask settles, so a vote is not read
+  there. A re-find by the likeness overwrites the track backward, so a
+  seeded shot has to have the re-find off for the memory's vote to be
+  read at all. And both wrong holds came from one seed, the second
+  subject's single confirmed frame, landing on another woman in a shot
+  the subject is not in.*
+- *What it is worth: one clip, one confirmed look a person, one run each,
+  read on six frames a case by eye. No take leans on it. It does mean the
+  starting rule now has a second vote that exists, on this clip; and that
+  "several confirmed looks that vote" in section 3 has its first reason,
+  since the two wrong holds had one look to go on.*
+
 **Who records it** (the owner's condition, 2026-10-10). The session that
 builds or runs a vote does not write down its outcome. For each shot, what
 each vote said, whether they agreed, and the answer a person gave where
