@@ -163,6 +163,19 @@ def parse_vendor_grid(text: str):
     return int(nfe), sv, sa, q, vid, aud
 
 
+def comfy_on_cpu() -> None:
+    """Tell ComfyUI this process has no card, before anything of core's that
+    picks a device is imported. Every import of core in this file goes through
+    here: until 2026-10-10 only `comfy_grid` set the flag, so with the vendor
+    README absent (its two cases skip and `comfy_grid` is not reached first)
+    the import of `comfy.supported_models` below raised core's "No CUDA GPUs
+    are available" on a masked card, which is not an ImportError and was not
+    caught.
+    """
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
+
+
 def comfy_grid(shift_video: float, shift_audio: float, scheduler: str,
                steps: int):
     """ComfyUI's own sigmas for this arm, plus the DiT's derived audio grid.
@@ -172,8 +185,7 @@ def comfy_grid(shift_video: float, shift_audio: float, scheduler: str,
     a skip, because the vendor half alone proves nothing about what we run.
     """
     try:
-        import comfy.cli_args
-        comfy.cli_args.args.cpu = True
+        comfy_on_cpu()
         import comfy.model_sampling as model_sampling
         import comfy.samplers
         from comfy.ldm.minimax.model import time_shift_sigma
@@ -428,6 +440,7 @@ def main() -> int:
             # here would agree with itself after core moved the real value.
             if found.shift is None:
                 try:
+                    comfy_on_cpu()
                     from comfy.supported_models import MiniMaxH3
                 except ImportError as exc:
                     raise AssertionError(
