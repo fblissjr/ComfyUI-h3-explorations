@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 102 |
+| [`check_*`](#check) | 103 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -26,6 +26,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_audio_carry_inversion.py`](check_audio_carry_inversion.py) | The audio carry probe's inversion is exact, and its ablation actually moves. |
 | [`check_audio_freeze.py`](check_audio_freeze.py) | The audio-freeze node's contract, and the two ways a graph can silently unfreeze. |
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
+| [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
 | [`check_calibration_model_mapping.py`](check_calibration_model_mapping.py) | Prove the released checkpoint maps and loads strictly into the calibration model. |
 | [`check_calibration_selector.py`](check_calibration_selector.py) | Hold `bench/select_v2_calibration_rows.py`'s new selection paths to a standard. |
 | [`check_camera_vocabulary.py`](check_camera_vocabulary.py) | Camera motion in every shipped prompt comes from base_en 4.3's closed sets. |
@@ -524,6 +525,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 | file | what it says |
 |---|---|
+| [`sam3d_body_meta_reference.json`](fixtures/sam3d_body_meta_reference.json) | Meta's SAM 3D Body inference code, float32 on the CPU, on public samples: its answers per box |
 | [`sparse_table_synthetic.json`](fixtures/sparse_table_synthetic.json) | (JSON, an object; it carries no description) |
 
 ### marker_corpus

@@ -264,6 +264,40 @@ person, which more than one person needs anyway
 (`subject_boxes.py::MiniMaxH3SubjectBoxes`). The sampling difference is in
 core; this pack patches nothing in core.
 
+## Later the same day: this pack's own node, given Meta's crop
+
+The owner's rule is that no ComfyUI SAM node is wired into a graph of ours,
+so the finding above was built on rather than worked around:
+`body_pose.py` calls ComfyUI's model code as a library and gives it Meta's
+crop, transcribed from Meta's transforms, for the body and for both hands.
+[`bench/check_body_pose.py`](../check_body_pose.py) holds it, against
+[`bench/fixtures/sam3d_body_meta_reference.json`](../fixtures/sam3d_body_meta_reference.json),
+which the tool's `fixture` mode writes from the same Meta runs as the tables
+above plus the hash of the body crop Meta's own transform makes of each box.
+From that check's run on 2026-10-10, on the CPU in float32, default camera:
+
+| image | person | our body crop against Meta's | our 2D keypoints against Meta's, mean (px) | the floor for that box (px) | hands' decoders used, ours and Meta's |
+|---|---|---|---|---|---|
+| dancing | 0 | the same bytes | 0.032 | 0.227 | both, both |
+| dancing | 1 | the same bytes | 0.028 | 0.126 | both, both |
+| office_frame60 | 0 | the same bytes | 0.083 | 0.243 | both, both |
+| office_frame60 | 1 | the same bytes | 0.009 | 0.082 | neither, neither |
+| office_frame60 | 2 | the same bytes | 0.014 | 0.168 | left only, left only |
+| office_frame60 | 3 | the same bytes | 0.007 | 0.079 | neither, neither |
+
+- **Under the floor on all six boxes**, the whole-frame box of the
+  three-person frame included. That box was the one the control above did
+  not close; the control used ComfyUI's closed-form matrix with OpenCV's
+  sampling, and the check shows that matrix is not Meta's on every box (a
+  break that swaps it in fails the crop case on one of the six). So the
+  reading labelled "not tested" above holds for its second half.
+- **The hand that ComfyUI's port decided differently is decided as Meta
+  decides it.** Person 2's right hand, default camera.
+- ComfyUI's own crop hashes to Meta's on none of the six; it is the check's
+  control.
+
+Not covered, as above: the card, half precision, a clip.
+
 ## To run it again
 
 The second image is one frame cut from Meta's example video:

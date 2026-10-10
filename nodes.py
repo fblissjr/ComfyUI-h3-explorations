@@ -50,6 +50,7 @@ from .subject_track import MiniMaxH3SubjectTrack
 from .sapiens2_parts import MiniMaxH3Sapiens2Loader, MiniMaxH3SubjectParts
 from .subject_boxes import MiniMaxH3SubjectBoxes
 from .sam3d_body_vith import MiniMaxH3SAM3DBodyViTHLoader
+from .body_pose import MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose, MiniMaxH3BodyMeshVideo
 from .shot_table import MiniMaxH3SaveShotTable
 from .sam31_corrections import MiniMaxH3SAM31Corrections
 from .masked_prompt import MiniMaxH3MaskedPrompt
@@ -382,7 +383,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceNoise,
                 # appended 2026-10-10, a tracked mask as the per-frame boxes a body-pose node takes
                 # (subject_boxes.py)
-                MiniMaxH3SubjectBoxes]
+                MiniMaxH3SubjectBoxes,
+                # appended 2026-10-10, a body mesh with the crop sampled as Meta's code samples it,
+                # in place of ComfyUI's three SAM 3D Body nodes (body_pose.py)
+                MiniMaxH3BodyModelLoader, MiniMaxH3BodyPose, MiniMaxH3BodyMeshVideo]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

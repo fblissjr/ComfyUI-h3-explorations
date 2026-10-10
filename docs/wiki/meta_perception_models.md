@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk)
+last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs)
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -242,6 +242,19 @@ float32. What it found, in words; the record has the tables:
 - Not covered by that run: the card, half precision, a track with its mask,
   a clip, MoGe's field of view.
 
+**What we run instead** (2026-10-10; the owner: this pack does not wire
+ComfyUI's SAM nodes into its graphs). `../../body_pose.py` holds three nodes,
+`MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose` and `MiniMaxH3BodyMeshVideo`.
+ComfyUI's model code and its rasteriser are called as a library, since the
+run above shows the model is right; the crop is Meta's, transcribed, for the
+body and for both hands, and `../../bench/check_body_pose.py` holds it to
+the crop Meta's own code made, bit for bit, with ComfyUI's crop as the
+control. On the two samples our keypoints sit inside Meta's own precision
+floor on every box, the three-person one included, and every hand's decoder
+is used exactly where Meta's code used it. The record's last section has the
+figures. The table that node writes is the input the flags below were
+missing.
+
 The differences found by reading, with what the run says of each:
 
 | stage | Meta | core | measured? |
@@ -283,18 +296,21 @@ what that tool still lacks to read it; the masking board's card
 `build-mesh-preflight-flags` carries the owners. Core's pose data holds
 everything they need
 (`comfy_extras/sam3d_body/utils.py::run_batched_single_chunk` lists it per
-person per frame); what is missing is a preview that saves it.
+person per frame). Since 2026-10-10 this pack's own node writes what the
+rules read as a table (`body_pose.py::pose_table`, as text and as a file
+beside the render); what is missing now is the rules.
 
 | flag | what it predicts | belongs in | still lacks | state |
 |---|---|---|---|---|
-| a hand crop under Meta's size constant: the width of `lhand_bbox` or `rhand_bbox` against `hand_box_size_thresh` (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1317`; core's copy is in `comfy/ldm/sam3d_body/model/model.py::run_inference`) | the fingers on that frame are the body decoder's, never the hand decoder's; a little over the constant is not safe either | the preflight of `../../bench/capture_masked_run.py` | the two hand boxes per person per frame, saved by the preview beside the mesh video | confirmed on one frame, both sides: the record's "Hands and expression" |
-| a person's `bbox` equal to the whole frame while a track is wired | that person's mask was empty on the frame and core substituted the frame (`comfy_extras/sam3d_body/utils.py::_bbox_from_mask`); a body is drawn from whatever is there | closed for a graph that takes its boxes from `subject_boxes.py::MiniMaxH3SubjectBoxes`, which gives no box on such a frame (`subject_boxes.py::frame_boxes`, held by `../../bench/check_video_mask.py`). For a graph that wires core's SAM 3 track straight into the predict node: the same preflight | the body box per person per frame, saved by the preview | read, not run |
-| one whole-frame box and more than one person in the frame | one crop holds everyone; which person comes out is not defined | the same preflight, which already has the person count per shot | whether the graph's predict node has boxes or a track wired, read from the render's own graph | read; the one such box in the record is also the only one where the control did not reach the floor |
-| a keypoint outside the frame | a joint the model placed where it saw nothing | the same preflight | `pred_keypoints_2d` per person per frame, saved by the preview | read, not run |
+| a hand crop under Meta's size constant: the width of `lhand_bbox` or `rhand_bbox` against `hand_box_size_thresh` (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1317`; core's copy is in `comfy/ldm/sam3d_body/model/model.py::run_inference`) | the fingers on that frame are the body decoder's, never the hand decoder's; a little over the constant is not safe either | the preflight of `../../bench/capture_masked_run.py` | nothing from the node: `MiniMaxH3BodyPose`'s table has each hand's crop side and, better, whether its decoder was used (`body_pose.py::pose_table`). The rule itself is not written yet | confirmed on one frame, both sides: the record's "Hands and expression" |
+| a person's `bbox` equal to the whole frame while a track is wired | that person's mask was empty on the frame and core substituted the frame (`comfy_extras/sam3d_body/utils.py::_bbox_from_mask`); a body is drawn from whatever is there | closed for a graph that takes its boxes from `subject_boxes.py::MiniMaxH3SubjectBoxes`, which gives no box on such a frame (`subject_boxes.py::frame_boxes`, held by `../../bench/check_video_mask.py`). For a graph that wires core's SAM 3 track straight into the predict node: the same preflight | nothing for our graphs: `MiniMaxH3BodyPose` never substitutes a frame for an empty box; its table says `whole frame` only for a box that was given as the whole frame | read, not run, for ComfyUI's node; held for ours by `../../bench/check_body_pose.py` |
+| one whole-frame box and more than one person in the frame | one crop holds everyone; which person comes out is not defined | the same preflight, which already has the person count per shot | nothing from the node: the table's `box_source` says `whole frame` for such a box. The rule is not written yet | read; the one such box in the record is also the only one where the control did not reach the floor |
+| a keypoint outside the frame | a joint the model placed where it saw nothing | the same preflight | nothing from the node: the table has the keypoints and a count of those outside the frame. The rule is not written yet | read, not run |
 
 **There is no confidence to read.** Neither Meta's code nor core returns a
 score for a detection, a visibility for a joint, or whether a hand was
-refined. Meta's model has hand-presence logits; its inference never reads
+refined; our node recovers the last of these from the model's own return
+and nothing else. Meta's model has hand-presence logits; its inference never reads
 them and core drops their weights. A flag here is geometry, not certainty,
 and the preflight should print that with the flags.
 
@@ -310,6 +326,8 @@ a one-line probe whose command is here. Nothing rests on a session folder.
 
 - Core against Meta: `../../bench/compare_sam3d_body_core_against_meta.py`,
   whose docstring holds the recipe for the Python that runs Meta's side.
+- Our own nodes against Meta: `../../bench/check_body_pose.py`, against a
+  fixture that tool writes from Meta's code.
 - What the ComfyUI venv lacks for SAM-Audio: `importlib.util.find_spec` on
   each name in `coderef/sam-audio/pyproject.toml`, run with the venv's
   Python.

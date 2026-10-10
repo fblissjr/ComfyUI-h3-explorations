@@ -1,6 +1,6 @@
 # What can be made here: a library of uses
 
-last updated: 2026-10-05 (first written; what each unshipped use needs, added the same day)
+last updated: 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
 
 Written by hand, at the owner's ask (2026-10-05: "a library of potential
 uses given what we have done here and can do here holistically with
@@ -108,7 +108,7 @@ below with what would accept or reject it.
 | A thing that is not a person | the same mask | a mode on the Subject Track without the head comparison | proposed | the board |
 | Correct one shot by hand | none: it is the mask that is corrected | `MiniMaxH3SubjectTrack`'s `corrections`: `shot 3: person 2` or `shot 3: none`, with the numbers the preview shows | built | `../../subject_track.py`, "A correction"; `../../bench/check_subject_track.py`, item 7. Not yet run on a clip |
 | One review per clip before any render | none | a dry run that emits masks, parts, shots and captions | proposed | the board |
-| Movement from a body mesh of the original, with none of its look | the mesh rendered as the video reference | SAM 3D Body, which core runs; the weights are converted | proposed | `bench/results/2026-10-05_sam3d_body_conversion.md`; the board |
+| Movement from a body mesh of the original, with none of its look | the mesh rendered as the video reference | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose` on `MiniMaxH3SubjectBoxes`' boxes, `MiniMaxH3BodyMeshVideo` (`../../body_pose.py`): the crop sampled as Meta's code samples it, no ComfyUI SAM node in the graph, and a table of what each hand's decoder did | built (2026-10-10); no shipped graph wires it yet | `../../bench/results/2026-10-10_sam3d_body_core_against_meta.md`; `../../bench/check_body_pose.py`; [`meta_perception_models.md`](meta_perception_models.md) |
 | Movement from per-shot captions a model writes and the user can edit | the prompt, written by machine | core's text generation over the loaded encoder | proposed; it is still prompting | the board |
 | Movement from a control adapter | a trained mask-and-source path | none | closed: declined by the owner | [`decisions.md`](decisions.md), 2026-10-04 |
 | Movement from a late start on the schedule | the source showing through at the first step | none in the tree | closed: carries the original's look with its pose | `bench/results/2026-10-04_masked_v2v_turn_soft_arms.md` |

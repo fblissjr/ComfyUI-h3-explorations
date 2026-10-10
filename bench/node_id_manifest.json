@@ -109,6 +109,48 @@
       "latent"
     ]
   },
+  "MiniMaxH3BodyMeshVideo": {
+    "inputs": [
+      "pose_data",
+      "style",
+      "size",
+      "width",
+      "height"
+    ],
+    "node_id": "MiniMaxH3BodyMeshVideo",
+    "outputs": [
+      "frames"
+    ]
+  },
+  "MiniMaxH3BodyModelLoader": {
+    "inputs": [
+      "model_file"
+    ],
+    "node_id": "MiniMaxH3BodyModelLoader",
+    "outputs": [
+      "body_model"
+    ]
+  },
+  "MiniMaxH3BodyPose": {
+    "inputs": [
+      "body_model",
+      "frames",
+      "boxes",
+      "hand_refinement",
+      "camera",
+      "fov_degrees",
+      "subject",
+      "first_source_frame",
+      "table_prefix",
+      "batch_size"
+    ],
+    "node_id": "MiniMaxH3BodyPose",
+    "outputs": [
+      "pose_data",
+      "pose_table",
+      "report"
+    ]
+  },
   "MiniMaxH3ChannelBalance": {
     "inputs": [
       "model",

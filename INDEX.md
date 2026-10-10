@@ -93,6 +93,7 @@ with none is a helper the others import.
 | [`__init__.py`](__init__.py) |  | ComfyUI-h3-explorations: tinkering and research hub for the MiniMax H3 ecosystem. |
 | [`attention.py`](attention.py) |  | SageAttention forward for MiniMax H3's packed self-attention. |
 | [`block_spec.py`](block_spec.py) |  | Parsing for the block-index specs several nodes take as a string widget. |
+| [`body_pose.py`](body_pose.py) | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose`, `MiniMaxH3BodyMeshVideo` | A body mesh from frames and boxes, with the crop sampled the way Meta's SAM 3D Body code samples it. |
 | [`channel_balance.py`](channel_balance.py) | `MiniMaxH3ChannelBalance` | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
 | [`checkpoint_overlay.py`](checkpoint_overlay.py) |  | Exact overlays of one int8 H3 checkpoint on another, stored per piece. |
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
@@ -146,9 +147,9 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1319 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1321 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
-| `docs/` | 172 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 173 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
 | `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |

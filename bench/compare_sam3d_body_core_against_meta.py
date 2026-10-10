@@ -87,6 +87,7 @@ The Python for Meta's side, built once, outside the repo (as it was on
     uv pip install --python <dir>/bin/python numpy opencv-python-headless roma pytorch-lightning yacs einops \\
         timm omegaconf braceexpand pillow termcolor ftfy regex scikit-learn submitit torchmetrics
 
+    <python> bench/compare_sam3d_body_core_against_meta.py fixture <meta python> <out.json> <label>=<image> <its JSON> <its meta npz>...
     <python> bench/compare_sam3d_body_core_against_meta.py gather <out.json> <a run's JSON>...
     <python> bench/compare_sam3d_body_core_against_meta.py render <the JSON files>   # the record's tables
 """
@@ -211,6 +212,48 @@ for precision in job["precisions"]:
 np.savez(job["out"], **out)
 print("meta child wrote", len(out), "arrays")
 '''
+
+
+#: Run by `fixture`: Meta's own body crop of each box, as a hash. The transform is the estimator's
+#: (sam_3d_body_estimator.py:48); no model is loaded.
+CROP_CHILD = r'''
+import hashlib, json, os, sys
+os.environ.setdefault("MOMENTUM_ENABLED", "0")
+import numpy as np, torch
+job = json.load(open(sys.argv[1]))
+sys.path.insert(0, job["meta_repo"])
+from torchvision.transforms import ToTensor
+from sam_3d_body.data.transforms import Compose, GetBBoxCenterScale, TopdownAffine, VisionTransformWrapper
+from sam_3d_body.data.utils.prepare_batch import prepare_batch
+transform = Compose([GetBBoxCenterScale(), TopdownAffine(input_size=job["input_size"], use_udp=False),
+                     VisionTransformWrapper(ToTensor())])
+out = {}
+for label, pixels_path, boxes in job["images"]:
+    batch = prepare_batch(np.load(pixels_path), transform, np.asarray(boxes, dtype=np.float32))
+    crops = (batch["img"][0] * 255.0).round().to(torch.uint8).permute(0, 2, 3, 1).contiguous().numpy()
+    out[label] = [hashlib.sha256(c.tobytes()).hexdigest() for c in crops]
+print("CROPS " + json.dumps(out))
+'''
+
+
+def meta_crop_hashes(meta_python: str, images: list) -> dict:
+    """{label: [sha256 of Meta's 8-bit body crop per box]}; `images` is [(label, pixels, boxes)]."""
+    with tempfile.TemporaryDirectory() as tmp:
+        rows = []
+        for label, pixels, boxes in images:
+            path = str(Path(tmp) / f"{label}.npy")
+            np.save(path, pixels)
+            rows.append([label, path, boxes])
+        job = Path(tmp) / "job.json"
+        job.write_text(json.dumps({"meta_repo": str(META_REPO), "input_size": [512, 512], "images": rows}))
+        child = Path(tmp) / "crop_child.py"
+        child.write_text(CROP_CHILD)
+        done = subprocess.run([meta_python, str(child), str(job)], capture_output=True, text=True,
+                              env=dict(os.environ, CUDA_VISIBLE_DEVICES="", MOMENTUM_ENABLED="0"))
+        if done.returncode != 0:
+            raise SystemExit("Meta's crop did not run:\n" + done.stderr[-3000:])
+        line = [x for x in done.stdout.splitlines() if x.startswith("CROPS ")][-1]
+        return json.loads(line[len("CROPS "):])
 
 
 def _first(node_output):
@@ -383,6 +426,45 @@ def render(paths) -> str:
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "render":
         print(render(sys.argv[2:]))
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] == "fixture":
+        # Meta's own answers as a small tracked file a check can hold a node of ours against:
+        #   fixture <meta python> <out.json> <label>=<image> <a run's JSON> <its meta_<label>.npz> [more triples]
+        import hashlib
+        from PIL import Image
+        meta_python, out_path = sys.argv[2], sys.argv[3]
+        images, for_crops = [], []
+        for spec, run_path, npz_path in zip(sys.argv[4::3], sys.argv[5::3], sys.argv[6::3]):
+            label, image_path = spec.split("=", 1)
+            run, meta = json.loads(Path(run_path).read_text()), dict(np.load(npz_path))
+            pixels = np.ascontiguousarray(np.asarray(Image.open(image_path).convert("RGB")))
+            people = []
+            for person, box in enumerate(run["boxes_xyxy"]):
+                cameras = {}
+                for camera in run["people"][person]["cameras"]:
+                    base = f"float32/{camera}/full/{person}"
+                    floor = run["people"][person]["cameras"][camera]["floor_meta_released_against_meta_float32"]
+                    cameras[camera] = {
+                        "keypoints_2d": np.round(meta[f"{base}/pred_keypoints_2d"][:, :2].astype(np.float64), 3).tolist(),
+                        "camera_translation": meta[f"{base}/pred_cam_t"].reshape(-1).astype(np.float64).round(5).tolist(),
+                        "focal_length": float(np.asarray(meta[f"{base}/focal_length"]).reshape(-1)[0]),
+                        "hand_decoder_used": [bool(v > 0.5) for v in meta[f"{base}/hand_decoder_used"]],
+                        "hand_crop_side_px": meta[f"{base}/hand_crop_side_px"].astype(np.float64).round(2).tolist(),
+                        "floor_keypoints_2d_px": floor["keypoints_2d_px"],
+                    }
+                people.append({"box_xyxy": box, "cameras": cameras})
+            images.append({"label": label, "size_wh": run["image_size_wh"], "fov_arm_degrees": run["fov_arm_degrees"],
+                           "pixels_sha256": hashlib.sha256(pixels.tobytes()).hexdigest(), "people": people})
+            for_crops.append((label, pixels, run["boxes_xyxy"]))
+        hashes = meta_crop_hashes(meta_python, for_crops)
+        for image in images:
+            for person, digest in zip(image["people"], hashes[image["label"]], strict=True):
+                person["meta_body_crop_sha256"] = digest
+        Path(out_path).write_text(json.dumps({
+            "what": "Meta's SAM 3D Body inference code, float32 on the CPU, on public samples: its answers per box",
+            "written_by": "bench/compare_sam3d_body_core_against_meta.py fixture",
+            "record": "bench/results/2026-10-10_sam3d_body_core_against_meta.md",
+            "hand_order": ["left", "right"], "images": images}, indent=1) + "\n")
         return 0
     if len(sys.argv) > 1 and sys.argv[1] == "gather":
         # several runs' JSON into the one file a record names: gather <out.json> <in.json>...
