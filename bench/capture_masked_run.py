@@ -57,6 +57,15 @@ node's own `grow` and the Masked Source's rule for the others, in whole tokens u
 frame; the sampler's region is shared by the frames of a latent step, so the real one differs a little at
 moving edges (`planned_region` has the figure from one render). It exists so that `preflight` and `video` can be run on a no-sampling preview, before a render is queued.
 
+**A plan can be a load, and a pass a list of loads.** A whole-subject pass is rendered one load per shot the
+subject is in, each from its own first frame, so a plan takes `at=FIRST` and `frames=N` (the load: its
+region exists on those frames only, and its latent steps are counted from its own first frame, which is what
+the cut rule needs), and `text=`, `audio=` and `still=` to say what the load is given, kept in the manifest
+under `load`. `--loads FILE.json` gives a whole pass at once, as a job builder writes it:
+`{"defaults": {"margin": 64, ...}, "loads": [{"first": F, "frames": N, "subject": LABEL, "text": LABEL, ...}]}`;
+each load is a plan named `name`, or `<subject>_<first>`, and any `--plan` key may sit in a load or in the
+defaults. Preflight adds one rule for a load: `load_starts_on_a_small_subject`.
+
 **preflight** reads a capture folder and writes `flags.json`: each flag has its rule, the subject's label, the
 source frames and the figure that raised it. A flag is a prompt to look at those frames, never a refusal. The
 rules, each with its constant below: a shot taken close to the match line or in frames the caller says the
@@ -64,6 +73,14 @@ subject is not in (`--not-in`); a shot called absent with somebody on screen; a 
 subject, changes size against its own recent frames, or moves within the subject's box; one run's region over
 another subject's mask; a region that is mostly not the subject; a track empty inside a shot the subject was
 taken in; and a text that names a voice over frames with none, or the reverse (`--text`, `--voice-spans`).
+
+**The gate.** `flags.json` carries a `verdict`: `blocked` while any flag at the top level has not been
+overridden, else `clear`, with the blocking flags' ids in `blocking`. `preflight --gate` exits `GATE_BLOCKED`
+when it is blocked, so a job builder can refuse to queue; without `--gate` the exit is 0, for a reader. A flag
+is overridden by `outcome <capture> <flag> overridden --by WHO --note WHY`, both required, written to
+`outcomes.json` as an override and not as a result. An override belongs to the flag as it was when overridden
+(its `key`: the rule, who it is about and its frames): run preflight again and a flag that names more or other
+frames blocks again.
 
 **outcome** records, beside `flags.json`, what a render did against one flag (`outcomes.json`): it happened or it
 did not, in which render, who looked. That is how a threshold's provenance goes from reasoned to measured.
@@ -657,6 +674,46 @@ def spec(text: str) -> tuple[str, dict]:
     return label, dict(item.split("=", 1) for item in rest.split(",") if item)
 
 
+#: What a load says it is given, beside its frames: carried into the manifest, not read.
+LOAD_GIVEN = ("text", "audio", "still")
+
+
+def loads_from_file(path: str) -> list[tuple[str, dict]]:
+    """A pass written as a list of loads, as `--plan` specs: one plan a load, `first` as its `at`.
+
+    The file is `{"defaults": {...}, "loads": [{...}, ...]}`. A load needs `first`, `frames` and `subject`;
+    everything else a `--plan` takes may be given in a load or once in the defaults. Names must differ."""
+    given = json.loads(Path(path).read_text())
+    out, seen = [], set()
+    for n, load in enumerate(given.get("loads", [])):
+        one = {**given.get("defaults", {}), **load}
+        lacking = [k for k in ("first", "frames", "subject") if k not in one]
+        if lacking:
+            raise SystemExit(f"{path}: load {n} lacks {', '.join(lacking)}")
+        name = str(one.pop("name", f"{one['subject']}_{int(one['first']):04d}"))
+        if name in seen:
+            raise SystemExit(f"{path}: two loads are named {name!r}; give one a `name`")
+        seen.add(name)
+        one["at"] = one.pop("first")
+        out.append((name, {k: "+".join(v) if isinstance(v, list) else str(v) for k, v in one.items() if v is not None}))
+    return out
+
+
+def load_frames(first: int, frames: int, at: int, count: int | None) -> np.ndarray:
+    """Which of a span's frames (from source frame `first`) a load holds: `count` frames from source frame `at`."""
+    n = first + np.arange(frames)
+    return (n >= at) & (n < at + count if count is not None else True)
+
+
+def from_the_load(present: np.ndarray, first: int, load_first: int, count: int | None = None) -> np.ndarray:
+    """A per-frame row of a span, renumbered from a load's own first frame: padded with nothing before the span
+    when the load starts earlier, cut when it starts later, and ended on the load's last frame when it has
+    one (`count` frames). A load ends where it ends: the source's next frame is not in its last latent step."""
+    lead = first - load_first
+    row = np.r_[np.zeros(lead, present.dtype), present] if lead >= 0 else present[-lead:]
+    return row if count is None else row[:count]
+
+
 def write_table(path: Path, rows: list[dict]) -> None:
     keys: list[str] = []
     for row in rows:
@@ -690,6 +747,7 @@ def files(a: argparse.Namespace) -> Path:
                          "or --overwrite when nothing queued reads it")
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
+    plans += [load for path in a.loads for load in loads_from_file(path)]
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
@@ -823,6 +881,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             region = planned_region(carried, [lead[o][0] for o in others], int(r["margin"]), _pack("video_mask").grow,
                                     whole_tokens=r.get("edge") != "cells", keep=[lead[o][0] for o in kept_labels])
             read, how = covered.copy(), {"read_from": "worked out from the saved masks: a plan, nothing rendered", "legend_px": None}
+            if "at" in r or "frames" in r:
+                # a load: the plan exists on its own frames only
+                held = load_frames(first, frames, int(r.get("at", first)), int(r["frames"]) if "frames" in r else None)
+                region, carried, read = region & held[:, None, None], carried & held[:, None, None], read & held
+                how["load"] = {"first_frame": int(r.get("at", first)), "frames": int(r["frames"]) if "frames" in r else None,
+                               **{k: (Path(r[k]).name if k != "text" else r[k]) for k in LOAD_GIVEN if r.get(k)}}
         else:
             graph = graph_of(r["render"])
             settings = source_settings(graph)
@@ -933,6 +997,33 @@ report. Gaps go in `data/CAPTURE_GAPS.md`.
 # ------------------------------------------------------------------ preflight
 
 LEVELS = ("likely fine", "iffy", "likely to fail")
+#: `preflight --gate`'s exit status when a flag at the top level stands with no override. Reasoned: not 1 (an
+#: error) and not 2 (argparse's, and the sweep's "not run").
+GATE_BLOCKED = 3
+
+
+def flag_key(flag: dict) -> str:
+    """What a flag is about, apart from its number: the rule, the subject or run and other it names, its frames.
+
+    Flag ids are the order of one preflight run. An override is held against this, so that a flag which
+    names other frames on the next run is a flag nobody has overridden."""
+    import hashlib
+    about = [flag.get(k) for k in ("rule", "subject", "run", "other", "seen_by", "source_frames")]
+    return hashlib.sha256(json.dumps(about, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def gate_verdict(flags: list[dict], outcomes: list[dict]) -> dict:
+    """`clear` or `blocked`: a flag at the top level blocks until an outcome overrides the flag as it now is."""
+    passed = {o.get("key") for o in outcomes if o.get("overridden")}
+    top = [f for f in flags if f["level"] == LEVELS[2]]
+    blocking = [f["id"] for f in top if flag_key(f) not in passed]
+    return {"verdict": "blocked" if blocking else "clear", "blocking": blocking,
+            "overridden": [f["id"] for f in top if flag_key(f) in passed]}
+
+
+def read_outcomes(folder: Path) -> list[dict]:
+    path = folder / "outcomes.json"
+    return json.loads(path.read_text())["outcomes"] if path.is_file() else []
 
 
 def frame_spans(frames: list[int], join: int = 2) -> list[list[int]]:
@@ -1342,8 +1433,7 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
         present = np.unpackbits(np.load(folder / "runs" / run["name"] / "region.npz")["carried"], axis=-1)[..., :w].any(axis=(1, 2))
         # the load's own first frame: a run's render may start before the span this capture covers
         load_first = int(run.get("first_source_frame", first))
-        lead = first - load_first
-        across, shared = cut_frames(cuts, load_first, np.r_[np.zeros(max(lead, 0), bool), present])
+        across, shared = cut_frames(cuts, load_first, from_the_load(present, first, load_first, (run.get("load") or {}).get("frames")))
         across, shared = [f for f in across if f >= first], [f for f in shared if f >= first]
         kind = "plan" if run.get("planned") else "run"
         if across:
@@ -1361,6 +1451,49 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
                                "covers that. Look at those frames after the render; starting the load a few frames earlier can "
                                "move the cut onto a step's edge (`loop_plan.first_frame_choices`)",
                         "figures": {"frames": len(shared), "load_first_frame": load_first}})
+    return out
+
+
+#: A load whose subject is, on its first frame, under this share of the largest it gets in the load starts on
+#: a small subject. Reasoned, not measured: half. The reason for the rule is measured once, on another clip
+#: (the 2026-10-04 postmortem's item 9: a window that began on a large subject held it when it became small).
+SMALL_START = 0.5
+
+
+def small_start(shares: np.ndarray) -> dict | None:
+    """Whether a load starts on its subject small: `shares` is the subject's mask as a share of the frame, per
+    frame of the load. None when the load never shows the subject or starts at half its largest or more."""
+    if not len(shares) or not shares.max():
+        return None
+    largest = int(np.argmax(shares))
+    if shares[0] >= SMALL_START * shares[largest]:
+        return None
+    return {"first_frame_share": round(float(shares[0]), 5), "largest_share": round(float(shares[largest]), 5),
+            "largest_on_load_frame": largest}
+
+
+def flag_loads(manifest: dict, folder: Path) -> list[dict]:
+    """A planned load that starts where its subject is small, when the same load shows it larger later."""
+    first, out = manifest["first_frame"], []
+    for run in manifest["runs"]:
+        load = run.get("load")
+        if not load:
+            continue
+        seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
+        rows = [r for r in json.loads((folder / "subjects" / run["subject"] / "per_frame.json").read_text())["rows"]
+                if r["seen_by"] == seen["by"]]
+        shares = np.array([r.get("track_share") or 0.0 for r in rows])
+        held = load_frames(first, len(shares), load["first_frame"], load["frames"])
+        found = small_start(shares[held])
+        if found:
+            at = load["first_frame"] + found["largest_on_load_frame"]
+            out.append({"rule": "load_starts_on_a_small_subject", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                        "source_frames": [[max(load["first_frame"], first), max(load["first_frame"], first)]],
+                        "why": f"plan {run['name']}: on the load's first frame {run['subject']}'s mask is {found['first_frame_share']:.2%} "
+                               f"of the frame, and {found['largest_share']:.2%} on source frame {at}. A subject is held best from "
+                               "where it is large: a load that reaches that frame from another direction, or a text that states "
+                               "the small state, is the plan to weigh",
+                        "figures": {**found, "largest_on_source_frame": at}, "threshold": {"SMALL_START": SMALL_START}})
     return out
 
 
@@ -1414,7 +1547,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -1455,8 +1588,9 @@ def preflight(a: argparse.Namespace) -> None:
     order = {level: i for i, level in enumerate(LEVELS)}
     flags.sort(key=lambda f: (-order[f["level"]], f["source_frames"][0][0]))
     for i, f in enumerate(flags, 1):
-        f["id"] = f"f{i:03d}"
-    record = {"capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
+        f["id"], f["key"] = f"f{i:03d}", flag_key(f)
+    gate = gate_verdict(flags, read_outcomes(folder))
+    record = {**gate, "capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
               "written": datetime.datetime.now().isoformat(timespec="seconds"), "levels": list(LEVELS),
               # a tracker's own object id can sit beside the label when a tracker hands one back; none does today
               "subjects": [{"label": s["label"], "tracker_object_id": None, "seen_by": [x["by"] for x in s["sightings"]]}
@@ -1469,21 +1603,37 @@ def preflight(a: argparse.Namespace) -> None:
         print(f"{f['id']}  {f['level'].upper():14}  {f['rule']}\n      {f['why']}\n      source frames {spans_text}")
     counts = {level: sum(f["level"] == level for f in flags) for level in LEVELS}
     print(f"{len(flags)} flag(s): " + ", ".join(f"{n} {level}" for level, n in counts.items()) + f"; wrote {folder / 'flags.json'}")
+    print(f"gate: {gate['verdict']}" + (f", on {', '.join(gate['blocking'])}" if gate["blocking"] else "")
+          + (f"; overridden: {', '.join(gate['overridden'])}" if gate["overridden"] else ""))
+    if a.gate and gate["blocking"]:
+        sys.exit(GATE_BLOCKED)
 
 
 def outcome(a: argparse.Namespace) -> None:
     """Record what a render did against one flag, so a threshold's provenance can go from reasoned to measured."""
     folder = Path(a.capture)
-    known = {f["id"]: f for f in json.loads((folder / "flags.json").read_text())["flags"]}
+    listed = json.loads((folder / "flags.json").read_text())
+    known = {f["id"]: f for f in listed["flags"]}
     if a.flag not in known:
         raise SystemExit(f"no flag {a.flag} in {folder / 'flags.json'}; it has {sorted(known)}")
+    override = a.happened == "overridden"
+    if override and not (a.by.strip() and a.note.strip()):
+        raise SystemExit("an override needs --by (who) and --note (why): it is the record of a decision to render past a flag")
+    if not override and not a.render:
+        raise SystemExit("--render is needed: the render the flag was seen in, or not seen in")
     path = folder / "outcomes.json"
     record = json.loads(path.read_text()) if path.is_file() else {"outcomes": []}
-    record["outcomes"].append({"flag": a.flag, "rule": known[a.flag]["rule"], "level": known[a.flag]["level"],
-                               "happened": a.happened == "yes", "render": a.render, "note": a.note, "by": a.by,
-                               "written": datetime.datetime.now().isoformat(timespec="seconds")})
+    entry = {"flag": a.flag, "key": flag_key(known[a.flag]), "rule": known[a.flag]["rule"], "level": known[a.flag]["level"],
+             "render": a.render, "note": a.note, "by": a.by, "written": datetime.datetime.now().isoformat(timespec="seconds")}
+    # an override is a decision made before a render, not what a render did: it carries no `happened`
+    entry.update({"overridden": True, "said": f"overridden by {a.by}: {a.note}"} if override else {"happened": a.happened == "yes"})
+    record["outcomes"].append(entry)
     path.write_text(json.dumps(record, indent=1) + "\n")
     print("recorded", a.flag, a.happened, "in", path)
+    if override:
+        gate = gate_verdict(listed["flags"], record["outcomes"])
+        (folder / "flags.json").write_text(json.dumps({**listed, **gate}, indent=1) + "\n")
+        print(f"gate: {gate['verdict']}" + (f", still on {', '.join(gate['blocking'])}" if gate["blocking"] else ""))
 
 
 def frame_changes(diff: np.ndarray, region: np.ndarray, maps: dict[str, np.ndarray], tracks: dict[str, np.ndarray],
@@ -2256,8 +2406,12 @@ def main() -> None:
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
                         "read from the render's review when there is none (or with region=review); repeatable")
-    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells][,window=F,context=F]",
-                   help="a run that has not rendered: its region is worked out from the masks; repeatable")
+    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells][,window=F,context=F][,at=FIRST,frames=N][,text=LABEL][,audio=FILE][,still=FILE]",
+                   help="a run that has not rendered: its region is worked out from the masks; with at= and frames= it is one "
+                        "load, on those frames only; repeatable")
+    f.add_argument("--loads", action="append", default=[], metavar="FILE.json",
+                   help='a pass as a list of loads: {"defaults": {...}, "loads": [{"first", "frames", "subject", "text", ...}]}; '
+                        "each load is a plan; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))
     f.add_argument("--overwrite", action="store_true", help="rebuild a finished capture folder in place; only when "
@@ -2281,11 +2435,13 @@ def main() -> None:
                    help="source frames the subject is not in, as the caller knows the clip; repeatable")
     g.add_argument("--text", help="the prompt file of the run this capture is for")
     g.add_argument("--voice-spans", help="voice_spans.json for the clip")
+    g.add_argument("--gate", action="store_true", help=f"exit {GATE_BLOCKED} when a flag at the top level stands with no override")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")
     o.add_argument("flag")
-    o.add_argument("happened", choices=("yes", "no"))
-    o.add_argument("--render", required=True, help="the render it was seen in, by file name")
+    o.add_argument("happened", choices=("yes", "no", "overridden"),
+                   help="what a render did against the flag, or `overridden`: render past it, with --by and --note")
+    o.add_argument("--render", help="the render it was seen in, by file name; not needed for an override")
     o.add_argument("--note", default="")
     o.add_argument("--by", default="", help="who looked")
     k = sub.add_parser("look", help="did a whole-subject render draw the new subject or the original's look, by frame")

@@ -61,6 +61,7 @@ No video, no model, no card, no server.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -515,6 +516,108 @@ def saved_regions() -> str:
             "source across a cut has none and is named; files that do not fit the render are refused")
 
 
+def loads() -> str:
+    """A pass as a list of loads: each a plan on its own frames, its steps counted from its own first frame."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "pass.json"
+        path.write_text(json.dumps({"defaults": {"margin": 64, "others": ["b", "c"], "still": "/x/still.png"},
+                                    "loads": [{"first": 278, "frames": 16, "subject": "a", "text": "shot one"},
+                                              {"first": 415, "frames": 23, "subject": "a", "text": "shot two", "margin": 32,
+                                               "name": "second", "audio": None}]}))
+        got = cap.loads_from_file(str(path))
+        assert [n for n, _ in got] == ["a_0278", "second"], got
+        assert got[0][1] == {"margin": "64", "others": "b+c", "still": "/x/still.png", "frames": "16", "subject": "a",
+                             "text": "shot one", "at": "278"}, got[0][1]
+        assert got[1][1]["margin"] == "32" and got[1][1]["at"] == "415" and "audio" not in got[1][1], got[1][1]
+        for bad, word in (({"loads": [{"first": 1, "frames": 2}]}, "lacks subject"),
+                          ({"loads": [{"first": 1, "frames": 2, "subject": "a"}] * 2}, "two loads are named")):
+            path.write_text(json.dumps(bad))
+            try:
+                cap.loads_from_file(str(path))
+            except SystemExit as stop:
+                assert word in str(stop), stop
+            else:
+                raise AssertionError(f"a pass file with {word} was read")
+    # a span of 20 frames from source frame 100; a load of 6 frames from 104, one from 96, one with no end
+    assert np.nonzero(cap.load_frames(100, 20, 104, 6))[0].tolist() == [4, 5, 6, 7, 8, 9]
+    assert np.nonzero(cap.load_frames(100, 20, 96, 6))[0].tolist() == [0, 1]
+    assert cap.load_frames(100, 20, 110, None).tolist() == [False] * 10 + [True] * 10
+    row = np.arange(20) >= 12
+    assert cap.from_the_load(row, 100, 96).tolist() == [False] * 4 + row.tolist(), "a load from before the span"
+    assert cap.from_the_load(row, 100, 110).tolist() == row[10:].tolist(), "a load from inside the span"
+    assert cap.from_the_load(row, 100, 110, 4).tolist() == row[10:14].tolist(), "a load does not end on its last frame"
+    # the reason for a load a shot: the same cut and subject, read from a long load and from the shot's own first frame
+    runs = cap._pack("video_mask").run_lengths(6)
+    cut = 100 + runs[0] + runs[1] + 2               # two frames into the long load's third step
+    present = (100 + np.arange(sum(runs))) >= cut    # the subject is in the shot after the cut
+    long_load, _ = cap.cut_frames([cut], 100, cap.from_the_load(present, 100, 100))
+    assert long_load == [cut - 2, cut - 1], long_load
+    own, shared = cap.cut_frames([cut], cut, cap.from_the_load(present, 100, cut))
+    assert own == [] and shared == [], "a load that starts on its shot's first frame has a cut inside a step"
+    # a load that ends one frame before a cut, at a length that is not a whole number of steps: the cut is not in it
+    before = np.ones(sum(runs), bool)
+    ends = runs[0] + runs[1] + 3
+    assert cap.cut_frames([100 + ends], 100, cap.from_the_load(before, 100, 100, ends)) == ([], []), "a cut after a load's end was named"
+    assert cap.cut_frames([100 + ends], 100, cap.from_the_load(before, 100, 100))[1] != [], "the control: the same cut inside a longer load"
+    # where a load starts against where its subject is largest
+    assert cap.small_start(np.array([0.02, 0.05, 0.20, 0.10])) == {"first_frame_share": 0.02, "largest_share": 0.2, "largest_on_load_frame": 2}
+    assert cap.small_start(np.array([0.11, 0.20, 0.10])) is None, "a load that starts at over half its largest was named"
+    assert cap.small_start(np.zeros(5)) is None and cap.small_start(np.zeros(0)) is None, "no subject, and a small start"
+    return ("a pass file is one plan a load, defaults under each; a load holds its own frames only; a load from its shot's "
+            "first frame has no cut inside a step where a long load names two frames; a start at under half the largest is named")
+
+
+def the_gate() -> str:
+    """A flag at the top level blocks until it is overridden as it stands; an override needs a who and a why."""
+    import argparse
+    import contextlib
+    import io
+    import tempfile
+    top = {"id": "f001", "rule": "two_tracks_on_one_person", "level": cap.LEVELS[2], "subject": "a", "other": "b",
+           "source_frames": [[10, 20]]}
+    iffy = {"id": "f002", "rule": "taken_near_the_line", "level": cap.LEVELS[1], "subject": "a", "source_frames": [[30, 40]]}
+    assert cap.gate_verdict([iffy], []) == {"verdict": "clear", "blocking": [], "overridden": []}, "an iffy flag blocked"
+    assert cap.gate_verdict([top, iffy], [])["blocking"] == ["f001"]
+    # what a render did against a flag is not an override
+    seen = {"flag": "f001", "key": cap.flag_key(top), "happened": False}
+    assert cap.gate_verdict([top], [seen])["verdict"] == "blocked", "an outcome was taken for an override"
+    passed = {"flag": "f001", "key": cap.flag_key(top), "overridden": True}
+    assert cap.gate_verdict([top, iffy], [passed]) == {"verdict": "clear", "blocking": [], "overridden": ["f001"]}
+    # the same flag under another number is the same flag; the flag with more frames is not
+    assert cap.gate_verdict([{**top, "id": "f007"}], [passed])["verdict"] == "clear", "a renumbered flag lost its override"
+    grown = {**top, "source_frames": [[10, 26]]}
+    assert cap.gate_verdict([grown], [passed])["blocking"] == ["f001"], "a flag that grew kept its override"
+    assert cap.flag_key(top) != cap.flag_key({**top, "other": "c"}), "two flags about different subjects share a key"
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f001"], "flags": [top, iffy]}))
+
+        def run(happened: str, **more) -> None:
+            given = {"capture": str(folder), "flag": "f001", "happened": happened, "render": None, "note": "", "by": "", **more}
+            with contextlib.redirect_stdout(io.StringIO()):
+                cap.outcome(argparse.Namespace(**given))
+
+        for missing in ({"by": "someone"}, {"note": "a reason"}, {"by": " ", "note": " "}):
+            try:
+                run("overridden", **missing)
+            except SystemExit as stop:
+                assert "needs --by" in str(stop), stop
+            else:
+                raise AssertionError(f"an override was recorded with {missing} only")
+        assert not (folder / "outcomes.json").exists(), "a refused override was written"
+        run("no", render="r.mp4")
+        assert json.loads((folder / "flags.json").read_text())["verdict"] == "blocked", "an outcome cleared the gate"
+        run("overridden", by="someone", note="a reason")
+        after = json.loads((folder / "flags.json").read_text())
+        assert after["verdict"] == "clear" and after["overridden"] == ["f001"] and len(after["flags"]) == 2, after
+        last = json.loads((folder / "outcomes.json").read_text())["outcomes"][-1]
+        assert last["said"] == "overridden by someone: a reason" and "happened" not in last, last
+    assert cap.GATE_BLOCKED not in (0, 1, 2)
+    return ("a top-level flag blocks, an iffy one does not; an override needs who and why and clears the flag as it stands, "
+            "under any number; a flag that grew blocks again; an outcome is not an override")
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -545,5 +648,7 @@ case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
+case("a pass as a list of loads", loads)
+case("preflight: the gate and its override", the_gate)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())
