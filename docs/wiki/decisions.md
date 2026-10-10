@@ -15,6 +15,26 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-10
+
+- **A hand-written masked text says the least first and gains a sentence
+  only when a render asks for it** (the owner: "let the model guide and
+  infer until you need to get more specific", "just like progressive
+  disclosure"; and of lip sync, to see what the model infers from the frozen
+  audio first). What is never minimal is the reference: the subject's
+  definition, what the still provides and the vendor guide's retention
+  marker. `masked_v2v.md`, "Say the least first", states the order and what
+  the first day showed. It extends 2026-10-07's "the text says nothing it
+  cannot know" from the prompt node's generated text to a text written for
+  one window after looking at it; no node text, graph or default changed.
+- **Where the masked lane's tracker and mask data can be seen is written
+  down**, after a session had to be told the tooling existed:
+  `masked_v2v.md`, "Seeing what the tracker and the masks did". It also
+  records what a read of the tree found missing: no tool captures a run end
+  to end (the 2026-10-07 captures under `data/` were made by scripts that
+  were not kept), and nothing carries a label for which person a mask is
+  on.
+
 ## 2026-10-09
 
 - **In whole-frame video to video the still is left out when the source

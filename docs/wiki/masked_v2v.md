@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 ("Seeing what the tracker and the masks did"); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 ("Seeing what the tracker and the masks did"; "Say the least first" under the prompt); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -298,6 +298,41 @@ scene as finished, not as an edit; movement as one relationship to
 does not know which window of a clip a render takes. The head and
 whole-person roles share the movement sentence and are otherwise as they
 were (`decisions.md`, 2026-10-07; `masked_prompt_text.py`).
+
+**Say the least first, and add a sentence only when a render asks for it**
+(the owner, 2026-10-10: "let the model guide and infer until you need to get
+more specific", "just like progressive disclosure"). It is the rule above
+carried to a text written by hand for one window. The frozen picture round
+the hole and the frozen audio already tell the model most of what a text
+would: the setting, the light, the framing, the pose where the region is
+small, and whether a voice is on the track. So a first text discloses in this
+order and stops:
+
+1. **Who is drawn and from which reference, and this part is never
+   minimal**: the subject's definition, what `<Picture 1>` provides, and the
+   vendor guide's marker for it (`vendor_guides/ref_en.md`, section 4.1):
+   `fully_preserved` for a whole person; `partially_preserved` when only a
+   part of the still is taken, with what is kept and what is not used said
+   in the line; `attribute_transfer` for a motion video.
+2. **Where the subject is, and what on them is the scene's own** (the hair
+   or clothing the plate keeps), in a sentence.
+3. **Nothing about action, expression or voice.**
+
+Then render, look, and add one sentence for what was missing: only what is
+plainly visible in the source at the frames the sentence is about, or
+measured. A voice is measured (a separation of the track says where one
+is); an open mouth in a still is not a voice. An added sentence is checked
+as a default is, against the source, and it is the first thing deleted when
+a render misbehaves.
+
+What the first day of this showed, on one clip, one seed each, read from
+stills and not judged on playback, so a direction and not a record: a
+whole-person swap with hands inside the hole did not draw a two-handed
+action until one sentence named it; a sentence placing a gesture "near the
+end" of a window was drawn through most of the window; and a sentence
+saying the subject performs the voice was written for shots where the track
+has no voice. Two of the three are a sentence added before a render asked
+for it.
 
 - **Set `subject` to match the still.** The shipped graphs say "person"
   because their still is a placeholder. On the one pair rendered, the motion
