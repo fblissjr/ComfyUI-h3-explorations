@@ -21,6 +21,8 @@ the stand-in decode is the source a few levels off with a bright block on every 
 4. **A box, and the step a frame is in.** A box over the block the decode draws: on the frames across the cut the
    decode is far from the source there and the laid frame is the source, with none of the box kept; on a frame
    the subject is on the laid box is the decode's own. The rows of the split step say it is split, and no other.
+   What the step lends a frame: the whole region on a frame across the cut, with nothing of the render kept
+   there under the gate and the render kept there without it; nothing on a frame the subject holds still on.
 5. **A region rebuilt from a capture.** For a render that saved none: the mask read back from a capture, the
    settings from its graph, the cuts from its shot table, the first frame from the stored `next_start` and the
    context. It names the frames the saved region names, with no cell differing; a capture whose region is one
@@ -185,6 +187,18 @@ def a_box() -> str:
         assert int(r["step_split_by_a_cut"]) == 1 and int(r["step"]) == STEP, r
     before = rows[CUT - 1]
     assert float(before["box_laid_off_source"]) == float(before["box_decode_off_source"]) > 50 and float(before["box_share_kept"]) == 1,         f"a frame the subject is on: the box must be the decode's own, got {before}"
+    # what the step lends: on a frame across the cut the whole region is lent (the frame has no mask of its
+    # own), and without the gate the laying keeps the render there; on a frame the subject holds still on, nothing
+    region_cells = int((vm.pixel_alpha(MADE["tokens"], LATENT[3], LATENT[4], 0) > 0.5)[ACROSS[0]].sum())
+    for f in ACROSS:
+        assert int(rows[f]["lent_cells"]) == region_cells > 0 and int(rows[f]["lent_px_kept"]) == 0 and float(rows[f]["lent_off_source"]) == 0, \
+            f"frame {f} across the cut: the whole region ({region_cells} cells) is lent and the gate lays nothing there, got {rows[f]}"
+    assert int(before["lent_cells"]) == 0 and before["lent_off_source"] in ("", None), f"a frame the subject is on lends itself nothing: {before}"
+    ungated = {int(r["frame"]): r for r in csv.DictReader(open(WORK / "f" / "r_window_1.csv"))}
+    rw.run(args("g", as_rendered=["cuts=none"]), decode=handed([]))
+    ungated = {int(r["frame"]): r for r in csv.DictReader(open(WORK / "g" / "r_window_1.csv"))}
+    assert all(int(ungated[f]["lent_px_kept"]) > 0 and float(ungated[f]["lent_off_source"]) > 1 for f in ACROSS), \
+        "with no gate the render is kept in the lent cells across the cut, and the table must say so"
     plain = rows[STARTS[STEP] - 1]
     assert int(plain["step_split_by_a_cut"]) == 0 and float(plain["detail_render"]) > 0 and plain["moved_source"] not in ("", None), plain
     return "across the cut the box is drawn by the decode and given back by the laying; on the subject's frames it is the decode's; the step columns say which step is split"

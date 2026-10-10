@@ -50,7 +50,10 @@ the gate was laid with `--as-rendered cuts=none`, and is then set beside the win
 Each row also says which latent step holds the frame and whether a cut of the source splits that step, and,
 inside what the first laying keeps of the render, how much fine detail the decode and the source hold and how far
 each is from its frame before. Those four columns are what a frame of a split step is set beside its neighbours
-by; they are figures, and say nothing of which frame looks right. `--box x0,x1,y0,y1` adds, for a place in the
+by; they are figures, and say nothing of which frame looks right. Three more say what the latent step lends
+the frame: the cells of its region that the frame's own mask, grown by the margin, does not reach (all of it on a
+frame across a cut; a rim where the subject moves fast inside a step), the pixels of the render the first laying
+keeps there, and how far the laid frame is from the source there. `--box x0,x1,y0,y1` adds, for a place in the
 picture (a prop, a hand), how far the decode is from the source there and how far the laid frame is, so a thing
 that came out as the source's can be put down to the sampler or to the composite.
 
@@ -253,6 +256,21 @@ def moved(frames, where):
     return torch.cat([torch.full((1,), float("nan")), step])
 
 
+def lent_cells(vm, region: dict, latent: tuple):
+    """[F, h, w] of bool: the cells of each frame's region that the frame's own mask, grown by the margin, does not
+    reach. A latent step's region is the maximum over its frames, so these are what the step lends a frame from
+    its other frames: everything, on a frame across a cut from the subject; a rim, where the subject moves fast
+    inside a step. Made with the node's own `token_mask`, a frame at a time, so the edge is the render's.
+    `keep` and `others` are not in a saved region's mask, so a cell they took out of the region is never lent."""
+    import torch
+    mask, margin = region["mask"], region["margin"]
+    whole = region["source"].get("edge", vm.EDGE_TOKENS) == vm.EDGE_TOKENS
+    grown = vm.grow(mask, margin)
+    own = torch.cat([vm.token_mask(grown[f:f + 1], 1, latent[3], latent[4], whole) for f in range(int(mask.shape[0]))], dim=0)
+    there = vm.pixel_alpha(region["tokens"], latent[3], latent[4], 0) > 0.5
+    return there & ~(own > 0.5)
+
+
 def step_rows(vm, latent_t: int, cuts: list[int], first: int) -> list[dict]:
     """For each frame of a window: its latent step, the step's length, and whether a cut falls inside the step."""
     out, at = [], 0
@@ -265,7 +283,7 @@ def step_rows(vm, latent_t: int, cuts: list[int], first: int) -> list[dict]:
 
 
 def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alpha, b, b_alpha, file, steps=None,
-            images=None, box=None) -> list[dict]:
+            images=None, box=None, lent=None) -> list[dict]:
     """A row a frame of the window: what each laying keeps, what differs between them, and the first against the file.
 
     With `steps` (`step_rows`) each row says which latent step holds the frame and whether a cut splits it. With
@@ -274,8 +292,15 @@ def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alph
     frame of a split step has to be set beside its neighbours by. With `box` (x0, x1, y0, y1 in canvas pixels,
     the far edges not counted) it carries how far the decode and the first laying each are from the source inside
     the box, in levels, and the share of the box the laying keeps of the render: the same place before the
-    composite and after it, which is what tells the sampler's doing from the composite's."""
+    composite and after it, which is what tells the sampler's doing from the composite's. With `lent`
+    (`lent_cells`) it carries how many cells the frame's step lends it, how many pixels the first laying keeps
+    of the render inside them, and how far the laid frame is from the source there, in levels."""
+    import torch
     out = []
+    lent_px = None
+    if lent is not None:
+        cell = int(a.shape[1]) // int(lent.shape[1])
+        lent_px = lent.repeat_interleave(cell, dim=1).repeat_interleave(cell, dim=2)[:, :a.shape[1], :a.shape[2]]
     kept = a_alpha > 0.5
     fine = None if images is None else (detail(images, kept), detail(pixels, kept), moved(images, kept), moved(pixels, kept))
     for f in range(int(a.shape[0])):
@@ -291,6 +316,13 @@ def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alph
             row["as_rendered_off_file"] = round(float((a[f] - file[f - trim]).abs().mean()) * 255.0, 3)
         if steps is not None:
             row.update(steps[f])
+        if lent_px is not None:
+            here = lent_px[f]
+            count = int(here.sum())
+            row["lent_cells"] = int(lent[f].sum())
+            row["lent_px_kept"] = int(((a_alpha[f] > 0.5) & here).sum())
+            row["lent_off_source"] = (round(float((a[f] - pixels[f]).abs().mean(dim=-1)[here].mean()) * 255.0, 3)
+                                      if count else None)
         if box is not None and images is not None:
             x0, x1, y0, y1 = box
             there = (slice(y0, y1), slice(x0, x1))
@@ -376,7 +408,7 @@ def run(a: argparse.Namespace, decode=decode_window) -> dict:
     file = written_frames(str(window.with_suffix(".mp4")), size, stored["written"] or frames)
     rows = rows_of(a.source_first + first, stored["trim"], stored["written"], pixels, laid_a, alpha_a, laid_b, alpha_b, file,
                    step_rows(vm, latent[2], region["source"].get("cuts"), first), images,
-                   [int(x) for x in a.box.split(",")] if a.box else None)
+                   [int(x) for x in a.box.split(",")] if a.box else None, lent_cells(vm, region, latent))
     with open(out / f"{window.stem}.csv", "w", newline="") as fh:
         table = csv.DictWriter(fh, fieldnames=list(rows[0]))
         table.writeheader()
