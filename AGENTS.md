@@ -12,8 +12,8 @@ not research-grade. Rigour is proportional: the heavier rules below (blind
 seed distributions, captures, the baseline comparison) apply to a finding we
 publish, not to a practical choice. **When sglang and ComfyUI's own node or
 comfy-kitchen agree on a default and ours differs, adopt theirs** in
-`workflows/h3_config.py` and the generator, rebuild, and say in the CHANGELOG
-what it replaced. Our own evals do not gate that; a later eval showing ours was
+`workflows/h3_config.py` and the generator, rebuild, and say in the commit
+message what it replaced. Our own evals do not gate that; a later eval showing ours was
 better reverses it. One upstream alone, upstreams that disagree, or a knob no
 upstream has is an ordinary judgement call. (Owner, 2026-09-11.) **A
 distill runs on its trainer's contract**, not a downstream template:
@@ -103,6 +103,12 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   created. A file holding a peer's uncommitted hunk is theirs to commit.
   Every subagent prompt says the tree is shared and that the agent must not
   run git.
+- **The changelog is written once a day, from the commits.** A commit
+  carries no changelog entry, no fragment and no version bump: its message
+  is the record, so write the message to be read later. At the end of a
+  working day one session reads the day's `git log`, summarises it into one
+  fragment, and builds `CHANGELOG.md` once (`changelog.d/README.md`). The
+  detail of what happened and why belongs in a postmortem.
 - **Prompt timing, shot counts and dialogue length fit each scene, never a
   template.** `docs/prompting.md` section 5.10.
 

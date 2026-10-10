@@ -1,12 +1,33 @@
-# One file per changelog entry
+# One changelog entry a day
+
+**A commit does not touch the changelog.** No fragment, no build, no version
+bump: the commit message is the record (owner, 2026-10-10). Until that day
+every commit built its own entry, each build wrote `CHANGELOG.md` and
+`pyproject.toml`, and with several sessions in one tree those two files
+were in everybody's commit: on that one day three commits carried a peer's
+entry and every session queued behind the one before it.
+
+**Once, at the end of a working day, one session writes the day's entry**
+from the commits:
+
+1. Read the day's commits: `git log --since=<the day's start> --reverse
+   --format='%h %s%n%b'`. The entry is a summary of what changed for someone
+   using the repo, grouped as Added, Changed and Fixed; it is not the list
+   of commits, and it carries no detail a postmortem should hold.
+2. Write that as one fragment, `changelog.d/day-<YYYY-MM-DD>.md`, in the
+   form below (`bump: minor` when the day added a node, an input or a tool;
+   `patch` otherwise).
+3. Build once and commit the fragment, `CHANGELOG.md` and `pyproject.toml`
+   by pathspec, each of the three steps as its own command.
 
 `CHANGELOG.md`'s newest entries are generated from the files here by
-`bench/build_changelog.py`. Its docstring is the full account; this is the
-part you need at commit time.
+`bench/build_changelog.py`; its docstring is the full account. The fragments
+written per commit before 2026-10-10 stay: the entries above the marker are
+built from them.
 
-## To add an entry
+## The fragment and the build
 
-1. Write `changelog.d/<session>-<a-few-words>.md`:
+1. Write the fragment:
 
    ```
    bump: patch
@@ -25,9 +46,11 @@ part you need at commit time.
    <python> bench/build_changelog.py --with changelog.d/<yours>.md
    ```
 
-3. Commit your fragment and `CHANGELOG.md` with your other paths, by
-   pathspec as always (`git add -- changelog.d/<yours>.md` first: it is a
-   new file you created).
+3. Commit your fragment, `CHANGELOG.md` and `pyproject.toml` by pathspec
+   (`git add -- changelog.d/<yours>.md` first: it is a new file you
+   created). Run the build as a command of its own, with nothing piped
+   after it and nothing chained behind it, and read what it prints: a
+   refusal that is piped or chained does not stop the commit after it.
 
 To revise an entry before it is committed, edit your fragment and run step
 2 again. Each generated entry has a comment under its heading naming the

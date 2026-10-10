@@ -17,6 +17,18 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **The changelog is written once a day, from the commits** (owner). Until
+  now every commit wrote a fragment under `changelog.d/`, built
+  `CHANGELOG.md` and bumped `pyproject.toml`, and `AGENTS.md` told a default
+  adopted from upstream to "say in the CHANGELOG what it replaced". A commit
+  now carries no entry and no version bump, and says such things in its
+  message; one session summarises the day's `git log` into one fragment at
+  the end of the day and builds once. Detail goes in a postmortem. Why: with
+  several sessions in one tree the two files every build writes were in
+  everybody's commit; on this day three commits carried a peer's entry and
+  each session's commit waited on the build before it. `AGENTS.md`
+  (operative rules), `changelog.d/README.md`, `bench/build_changelog.py`'s
+  docstring. Commit subjects no longer begin with a version.
 - **A passage of prose that lost to the code, found by the
   lotsofpeopledance postmortem**
   (`docs/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`).

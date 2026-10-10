@@ -5,6 +5,14 @@
     <python> bench/build_changelog.py --check                          # is CHANGELOG.md what the fragments make
     <python> bench/build_changelog.py --next                           # the version a new patch entry would get
 
+**When it runs, since 2026-10-10: once a day.** A commit no longer carries a
+changelog entry: its message is the record. At the end of a working day one
+session summarises the day's commits into one fragment and builds here once
+(`changelog.d/README.md` has the steps; owner's decision, after a day on
+which three commits carried a peer's entry and every session's commit
+queued behind the last build). Everything below is how a build works, which
+has not changed; what has changed is how often one happens.
+
 **What it buys.** Several sessions commit to this tree at once, and each
 used to add its entry to the top of one file and pick the next version
 number by reading it. Two failures followed, both seen on 2026-10-05: two
