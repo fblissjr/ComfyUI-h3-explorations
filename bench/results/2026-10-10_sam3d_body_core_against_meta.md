@@ -296,7 +296,44 @@ From that check's run on 2026-10-10, on the CPU in float32, default camera:
 - ComfyUI's own crop hashes to Meta's on none of the six; it is the check's
   control.
 
-Not covered, as above: the card, half precision, a clip.
+### On the card
+
+`bench/check_body_pose.py --card` runs the same weights cases in a process
+on the card with the server's memory layer set up, the server stopped. The
+first run was with the loader as first committed, which took the precision
+ComfyUI's own loader takes there, float16 end to end; the second after the
+loader was changed to float32.
+
+| image | person | float16: our keypoints against Meta's, mean (px) | float32 (px) | the floor (px) |
+|---|---|---|---|---|
+| dancing | 0 | 0.334 | 0.036 | 0.227 |
+| dancing | 1 | 0.239 | 0.026 | 0.126 |
+| office_frame60 | 0 | 0.282 | 0.089 | 0.243 |
+| office_frame60 | 1 | 0.071 | 0.010 | 0.082 |
+| office_frame60 | 2 | 0.436 | 0.011 | 0.168 |
+| office_frame60 | 3 | 0.065 | 0.007 | 0.079 |
+
+- **In half precision the body is outside Meta's own floor on four boxes of
+  six**, by a fraction of a pixel: about a tenth of what ComfyUI's crop
+  moved it. In float32 it is inside on all six, as on the CPU.
+- **Every hand is decided as Meta's code decides it in both precisions**
+  (seven refined, five not), and the drawn silhouette is where the
+  projection puts it in both.
+- So `body_pose.py::load_model` loads in float32 always. Meta's code keeps
+  the decoder in float32 whatever the backbone runs in; ComfyUI's port runs
+  the decoder in half when the backbone is.
+- Under the server's memory layer a weight stays stored as the file has it
+  and is cast to its input at use; the check's first line on the card prints
+  both the computed and the stored types.
+- A throwaway arm with the backbone in bfloat16 over half-stored weights was
+  outside the floor on all six and is not a path anything takes.
+
+Cost, one run of the four cases with the load, on these few crops: float32
+took about a second longer and about a quarter more peak memory than half.
+That is not a figure for a clip; the body pass has not been timed on a real
+window.
+
+Not covered: a clip, and the model beside a loaded H3 on the same card.
 
 ## To run it again
 

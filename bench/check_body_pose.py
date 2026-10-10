@@ -57,10 +57,11 @@ pictures.
 
     CUDA_VISIBLE_DEVICES="" <comfy venv python> bench/check_body_pose.py
 
-**`--card`** runs the four weights cases on the card instead, in the precision
-the server's loader picks there, with ComfyUI's dynamic memory layer set up
-as `main.py` sets it (`_lib.server_memory_mode`). The cases and the bounds are
-the same: the claim is that the server's path is also inside Meta's own floor.
+**`--card`** runs the four weights cases on the card instead, as the server's
+loader loads the model there (float32: `body_pose.py::load_model` says why),
+with ComfyUI's dynamic memory layer set up as `main.py` sets it
+(`_lib.server_memory_mode`). The cases and the bounds are the same: the claim
+is that the server's path is also inside Meta's own floor.
 It is a second process holding memory beside the server, so ask whoever holds
 the card first (`AGENTS.md`, "The server process is the resource"); a sweep
 never passes it.
@@ -102,6 +103,10 @@ DINOV3_FILE = "sam_3d_body_dinov3.safetensors"
 # The share of projected vertices that must sit on the drawn silhouette. measured 2026-10-10: 1.0 on four boxes of
 # the two samples; the bound leaves room for one vertex on an edge.
 ON_SILHOUETTE = 0.999
+# How far the drawn silhouette's bounding box may sit from the projection's, in pixels. reasoned: a pixel is drawn
+# when its centre is covered, so a sliver of mesh thinner than a pixel past the last drawn one covers no centre;
+# that is up to a pixel and a half, and 2 leaves the rounding. (First 1.5; one arm on the card landed on 1.51.)
+BOX_AGREEMENT_PX = 2.0
 
 _state: dict = {}
 
@@ -348,7 +353,7 @@ def predicted(label: str):
 
 
 def bodies_are_metas_within_floor():
-    notes = []
+    notes, over = [], []
     for label in SAMPLES:
         image, pose, _, _ = predicted(label)
         for k, person in enumerate(image["people"]):
@@ -356,12 +361,15 @@ def bodies_are_metas_within_floor():
             got = np.asarray(pose["frames"][0][k]["pred_keypoints_2d"], dtype=np.float64)[:, :2]
             mean = float(np.linalg.norm(got - np.asarray(want["keypoints_2d"]), axis=-1).mean())
             floor = want["floor_keypoints_2d_px"]["mean"]
-            assert mean <= floor, (f"{label} box {k}: our keypoints are {mean:.3f} px from Meta's on average, over "
-                                   f"the {floor:.3f} px Meta's own two precisions differ by")
+            if mean > floor:
+                over.append(f"{label} box {k}")
             focal = float(np.asarray(pose["frames"][0][k]["focal_length"]).reshape(-1)[0])
             assert abs(focal - want["focal_length"]) < 1e-2, f"{label} box {k}: focal length {focal} against {want['focal_length']}"
             notes.append(f"{mean:.3f}/{floor:.3f}")
-    return "mean px over floor, per box: " + ", ".join(notes)
+    # every box is measured before any is judged, so a red line carries all six figures
+    figures = "mean px from Meta's over the floor (what Meta's own two precisions differ by), per box: " + ", ".join(notes)
+    assert not over, f"over the floor on {', '.join(over)}. {figures}"
+    return figures
 
 
 def hands_decide_as_metas():
@@ -427,14 +435,20 @@ def mesh_is_where_the_camera_puts_it():
             drawn = [cols.min(), rows.min(), cols.max(), rows.max()]
             projected = [x[inside].min(), y[inside].min(), x[inside].max(), y[inside].max()]
             worst = max(abs(float(a) - float(b)) for a, b in zip(drawn, projected))
-            assert worst <= 1.5, f"{label} box {k}: the silhouette's box {drawn} and the projection's {projected}"
+            assert worst <= BOX_AGREEMENT_PX, (f"{label} box {k}: the silhouette's box {[int(v) for v in drawn]} and the "
+                                               f"projection's {[round(float(v), 1) for v in projected]}")
             notes.append(f"{on:.4f}")
     return "share of vertices on the silhouette, per box: " + ", ".join(notes)
 
 
 def where_it_ran():
     import comfy.model_management as mm
-    return f"device {mm.get_torch_device()}, backbone {patcher().model.backbone_dtype}"
+    inner = patcher().model
+    assert inner.backbone_dtype == bp.MODEL_DTYPE, f"the backbone runs in {inner.backbone_dtype}; the loader says {bp.MODEL_DTYPE}"
+    # What a weight is STORED as is not what it is computed in: under the server's memory layer a weight keeps the
+    # file's type and is cast to its input at use. The figure that holds the precision is the next case's.
+    stored = sorted({str(p.dtype).replace("torch.", "") for p in inner.parameters() if p.is_floating_point()})
+    return f"device {mm.get_torch_device()}, computed in {bp.MODEL_DTYPE}, weights stored as {', '.join(stored)}"
 
 
 def main() -> int:

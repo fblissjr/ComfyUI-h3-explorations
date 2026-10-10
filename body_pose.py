@@ -79,6 +79,11 @@ N_KEYPOINTS_2D = 70
 FOV_MIN, FOV_MAX, FOV_DEFAULT = 5.0, 120.0, 55.0
 #: Crops per forward pass. Inherited: ComfyUI's own default for its predict node.
 BATCH_DEFAULT, BATCH_MAX = 64, 512
+#: The precision the model is loaded and run in. Measured: see `load_model`.
+MODEL_DTYPE = torch.float32
+#: ComfyUI's estimate of the memory a forward needs was calibrated in half precision (`SAM3DBody.memory_used_forward`).
+#: Reasoned: twice the bytes a value.
+MEMORY_FACTOR = 2
 CAMERAS = ("image diagonal", "field of view")
 STYLES = ("mesh", "silhouette")
 SIZES = ("the source's", "width and height")
@@ -230,12 +235,17 @@ class BodyModelViTH(_MetaHandCrops, SAM3DBodyViTH):
 
 
 def load_model(path: str):
-    """Either release in a model patcher: the model class is chosen by what the file holds."""
+    """Either release in a model patcher, in float32: the model class is chosen by what the file holds.
+
+    Float32 whatever the file stores and whatever the device would pick. measured 2026-10-10 on the card
+    (`bench/results/2026-10-10_sam3d_body_core_against_meta.md`, "On the card"): in the half precision ComfyUI's
+    loader picks there, the keypoints are outside Meta's own precision floor on four boxes of six; in float32 they
+    are inside it on all six, as on the CPU. Meta's code keeps the decoder in float32.
+    """
     sd = loader_view(comfy.utils.load_torch_file(path, safe_load=True))
     release = "vith" if VITH_MARKER_KEY in sd else "dinov3"
     load_device = comfy.model_management.get_torch_device()
-    weight_dtype = comfy.utils.weight_dtype(sd)
-    torch_dtype = comfy.model_management.unet_dtype(device=load_device, model_params=-1, weight_dtype=weight_dtype)
+    torch_dtype = MODEL_DTYPE
     manual_cast_dtype = comfy.model_management.unet_manual_cast(torch_dtype, load_device)
     operations = comfy.ops.pick_operations(torch_dtype, manual_cast_dtype, load_device=load_device,
                                            disable_fast_fp8=True)
@@ -312,7 +322,7 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
     if todo:
         step = max(1, int(batch_size))
         comfy.model_management.load_models_gpu(
-            [patcher], memory_required=inner.memory_used_forward(min(step, len(todo)), bool(hands)))
+            [patcher], memory_required=MEMORY_FACTOR * inner.memory_used_forward(min(step, len(todo)), bool(hands)))
         pbar = comfy.utils.ProgressBar(len(todo))
         pixels: dict[int, torch.Tensor] = {}
         for start in range(0, len(todo), step):
@@ -513,7 +523,9 @@ class MiniMaxH3BodyModelLoader(io.ComfyNode):
             display_name="MiniMax H3 Body Model Loader (SAM 3D Body)",
             category="model/latent/minimax",
             description=("Loads SAM 3D Body from models/detection/ for MiniMax H3 Body Pose: either release, told "
-                         "apart by what the file holds. The hands are cropped the way Meta's own code crops them."),
+                         "apart by what the file holds. It runs in full precision on purpose: in half precision "
+                         "the body was measured outside the band Meta's own code keeps to. The hands are cropped "
+                         "the way Meta's own code crops them."),
             inputs=[
                 io.Combo.Input("model_file", options=folder_paths.get_filename_list("detection"),
                                tooltip=("A SAM 3D Body file under models/detection/, as "

@@ -239,8 +239,9 @@ float32. What it found, in words; the record has the tables:
   than one person it is the only box that means one person. This pack makes
   one from a tracked mask: `subject_boxes.py::MiniMaxH3SubjectBoxes`.
 - **The camera is the same on both sides** given the same field of view.
-- Not covered by that run: the card, half precision, a track with its mask,
-  a clip, MoGe's field of view.
+- Not covered by that run: a track with its mask, a clip, MoGe's field of
+  view. The card and half precision were run later the same day for our own
+  node: the record's "On the card".
 
 **What we run instead** (2026-10-10; the owner: this pack does not wire
 ComfyUI's SAM nodes into its graphs). `../../body_pose.py` holds three nodes,
@@ -251,8 +252,10 @@ body and for both hands, and `../../bench/check_body_pose.py` holds it to
 the crop Meta's own code made, bit for bit, with ComfyUI's crop as the
 control. On the two samples our keypoints sit inside Meta's own precision
 floor on every box, the three-person one included, and every hand's decoder
-is used exactly where Meta's code used it. The record's last section has the
-figures. The table that node writes is the input the flags below were
+is used exactly where Meta's code used it. On the card the same holds in
+float32, which is what the loader loads in; in the half precision ComfyUI's
+own loader picks there the body is outside that floor on most boxes. The
+record's last sections have the figures. The table that node writes is the input the flags below were
 missing.
 
 The differences found by reading, with what the run says of each:
