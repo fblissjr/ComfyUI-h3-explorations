@@ -168,12 +168,54 @@ still should explain itself. The form follows the two reviews the owner called t
 (2026-10-09, a numbered tracked review and a vertical how-it-was-made cut, both made by session scripts that
 are gone or tied to one clip); colour by part and contacts are not in it yet.
 
-**What it does not hold.** Anything inside the tracker (its confidence, each call); the part model's own
-doubt; the matte and the held frames (their outputs are not saved by the previews this reads); the token
-mask itself, which no file holds: the region here is read back from a compressed, tinted picture, cell by
-cell, and under the review's legend from a quarter of the signal. `taken_back` is worked out from the
-masks with the node's own `grow`, under a fixed margin only. The server-driven capture (build the
-no-sampling graph from a render's own graph, queue it, pull `/history`) is not built yet.
+**What it does not hold.** Anything inside the tracker beyond its shot table (each call); the part model's
+own doubt; the matte. For a render made before the song node saved each window's region, the token mask
+itself: the region is then read back from a compressed, tinted picture, cell by cell, and under the review's
+legend from a quarter of the signal (`verify` says how far that reading is from the node's own file where
+both exist). `taken_back` is worked out from the masks with the node's own `grow`, under a fixed margin
+only. Whether a render looks like its reference still: every reading here asks whether it differs from the
+source.
+
+**The lines the gate judges by, and where each comes from.** A rule that depends on the picture should take
+its value from the clip in hand, measured in the no-sampling preview (owner, 2026-10-10; `AGENTS.md`). Almost
+none of these does yet. This list is where a change to any of them starts; the value and its own provenance
+are beside each constant. Three kinds: THIS CLIP (measured on the capture's own files each time), CARRIED
+(measured on some other clip or render and kept as a starting value), REASONED (never measured).
+
+    THIS CLIP
+      the floor in `changed`             the render's own difference from the source outside its region
+      the level in `ends`                the load's own median difference under the mask it carried
+      the scale in `look`                the source and a held render of the same frames
+      the bar in `open_runs`             the shot's own mouth openings (`OPEN_SHARE` of them is REASONED)
+      the tracker's match and cut lines  the tracker's, in its shot table; this tool only reads them
+    CARRIED, with what a preview of the clip could measure in its place
+      FACE_TOKENS                        unmeasured even on its own clip. The face sizes at which this clip's
+                                         own accepted renders hold: the outcomes of its first face load
+      KEPT_TURN                          another clip's facing tolerance; one case here. The turn at which
+                                         this clip's own continuations held or failed, once one has rendered;
+                                         before that, the spread of the source's own head angle within a shot
+      SMALL_SUBJECT                      one other clip. The subject's share of the frame on the shots of this
+                                         clip whose renders held
+      HOLD_INSIDE                        two shots of one clip. The score of the saved part on this clip's own
+                                         undoubted frames: a bar just under their lowest
+      KEPT_IN_PART                       one render's outcome. Nothing in a preview; an outcome on this clip
+      SAME_PERSON                        one stretch. The overlaps of this clip's own tracks, which fall in two
+                                         groups when one tracker is on another's person
+      READERS_CELLS, READERS_CARRIED_OFF five renders of one clip. The same comparison on this job's first render
+      END_LAST, END_RUN                  seven renders of one clip. The spread of the load's own curve away from
+                                         its ends, so that a noisy load does not read as a fall
+      MOUTH_PX, MOUTH_APART              a handful of frames read by eye on one clip. The mouth's size against the
+                                         face part's on this clip
+      NEAR_UNDER                         one clip (how far under the line a present subject scored). The tracker's
+                                         own gap between a shot's first-look scores
+    REASONED
+      NEAR_LINE, PART_INSIDE, PART_SIZE, PART_MOVE, RECENT, HOLD_REACH   the part and track rules. Each could be
+                                         the clip's own frame-to-frame spread of the same figure on frames
+                                         nobody doubts, in place of a fixed share
+      REGION_ON_OTHER, NOT_SUBJECT, OWN_SHARE, SEGMENT_PX   shares and a pixel count for "inside a region".
+                                         SEGMENT_PX should scale with the canvas and the subject's size
+      SMALL_START, POSE_OUTSIDE, OPEN_SHARE, OPEN_RUN, END_LEAST, LOOK_LIFT
+      WRITTEN_TOGETHER_S                 not about the picture: how long a preview takes to write its files
 
 Run it from ComfyUI's environment. Nothing here describes what a clip shows: a clip is a file name and a
 subject is a label.
