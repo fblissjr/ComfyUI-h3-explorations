@@ -17,6 +17,13 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **A passage of prose that lost to the code, found by the
+  lotsofpeopledance postmortem**
+  (`docs/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`).
+  `masked_v2v.md` used to claim that "a shot corrected by hand is not
+  searched". 0408a1f1 changed that on 2026-10-07, and the item above it on
+  the same page already said so. The postmortem's other stale passage, the
+  `MASKED_SOURCE` comment, is the entry below. No code or default changed.
 - **Two statements corrected from the notes of the 2026-10-08 sessions, whose
   lessons had stayed in notes.** `docs/h3_references.md` said only "Set
   `force_rate=24` on the loader", which is right for a reference's time
