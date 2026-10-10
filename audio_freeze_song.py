@@ -121,7 +121,8 @@ from .audio_freeze import MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffm
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume, part_coverage, shot_table
 from .prompt_lists import H3PromptLists, fill_windows
-from .loop_output import CLEAN_OUTPUT_ARGS, join_and_mux, saved_outputs, window_dir, write_metadata_png
+from .loop_output import (BT709_TAGS, CLEAN_OUTPUT_ARGS, SAY_BT709, TO_BT709, join_and_mux, saved_outputs,
+                          window_dir, write_metadata_png)
 from .reference_conditioning import H3References, MiniMaxH3ReferenceConditioning, RuntimeVideoReference, _order_records
 from .reference_order import assign_labels
 from . import video_mask
@@ -149,13 +150,20 @@ def _write_pieces_mp4(path: str, pieces, width: int, height: int, crf: int, unde
 
     With `under`, the piped frames are stacked below that video's, frame for frame, in one picture of
     twice the height: a stored window's video over a view drawn now.
+
+    The file is BT.709 and says so (`loop_output.TO_BT709`). The piped frames are converted before they
+    are stacked: left to the stack, they would take ffmpeg's default matrix under the file's tag.
     """
     cmd = [_ffmpeg(), "-y", "-v", "error"] + (["-i", under] if under else []) + [
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{int(width)}x{int(height)}", "-r", str(FPS), "-i", "-"]
     if under:
-        cmd += ["-filter_complex", "[0:v][1:v]vstack=inputs=2:shortest=1[v]", "-map", "[v]", "-r", str(FPS)]
+        cmd += ["-filter_complex", f"[1:v]{TO_BT709},format=yuv420p[drawn];"
+                                   f"[0:v][drawn]vstack=inputs=2:shortest=1,{SAY_BT709}[v]",
+                "-map", "[v]", "-r", str(FPS)]
+    else:
+        cmd += ["-vf", f"{TO_BT709},{SAY_BT709}"]
     cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", str(int(crf)), "-pix_fmt", "yuv420p",
-            *CLEAN_OUTPUT_ARGS, path]
+            *BT709_TAGS, *CLEAN_OUTPUT_ARGS, path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     assert proc.stdin is not None and proc.stderr is not None
     written = 0

@@ -54,6 +54,19 @@ def window_dir(full_out: str, filename: str) -> str:
 # inherited from the owner's VHS fork: `-map_metadata -1` copies no metadata
 # from any input, `-fflags +bitexact` drops the versioned encoder strings.
 CLEAN_OUTPUT_ARGS = ["-map_metadata", "-1", "-fflags", "+bitexact"]
+# What a written file says about its colour, and the conversion that makes it
+# true. Inherited from VHS's `video_formats/h264-mp4.json`, which converts and
+# tags the same way. Left to itself ffmpeg turns piped rgb24 into BT.601 values
+# and writes no tag (measured 2026-10-10 on a render's kept pixels against its
+# BT.709 source), and a player that takes BT.709 for a picture this size then
+# shows a render off in colour beside its own source. A loader reads either
+# form back to the same rgb. `bench/check_audio_freeze.py` holds the case.
+# `SAY_BT709` ends the filter chain: piped rgb frames carry no primaries or
+# transfer, and ffmpeg n9.0.2 then leaves both out of the file whatever the
+# output options say (measured 2026-10-10; VHS sets them on its input).
+TO_BT709 = "scale=out_color_matrix=bt709"
+SAY_BT709 = "setparams=color_primaries=bt709:color_trc=bt709"
+BT709_TAGS = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
 # AAC bitrate for the joined track. Inherited from the owner's VHS fork
 # (`AAC_BITRATE` in its `videohelpersuite/nodes.py`), which measured it on
 # music; the song node's track is music. Owner's choice, 2026-09-23.

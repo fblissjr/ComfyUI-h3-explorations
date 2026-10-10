@@ -57,6 +57,13 @@ things here, each a way the freeze could look present and not be:
    it, the reviews joined from their own files, and each refusal (a window
    missing, a stretch given twice or out of order, a span that does not end
    where the frames do) with nothing written.
+7. **A written file says what colour it holds, and it is true.** Bars of
+   saturated colour through the song node's writer, alone and in the review's
+   stacked form: each file is tagged BT.709 in matrix, transfer and primaries
+   and tv in range, and read back as tagged it is nearer what was written
+   than read back under BT.601. Until 2026-10-10 the
+   files held BT.601 values with no tag, so a player that takes BT.709 for a
+   picture this size showed a render off in colour beside its own source.
 
 The encoder is faked (zeros of the right shape) so this runs with no model,
 no CUDA and no server; the real audio VAE is exercised by
@@ -570,6 +577,55 @@ def check_join(problems):
                                         f"for a {total / fps:.3f}s video")
 
 
+def check_writer_colour(problems):
+    """The song node's writer: the tag on a file, and whether the values under it match.
+
+    The control is the pair of readings: on these bars the wrong matrix is several times further from what
+    was written, so a file tagged one way and converted the other fails, and so does a file with no tag.
+    """
+    import importlib
+    import subprocess
+    import tempfile
+    lo = importlib.import_module("_h3pack.loop_output")
+    song = importlib.import_module("_h3pack.audio_freeze_song")
+    ffmpeg = lo._ffmpeg()
+    width, height, count = 320, 96, 6
+    bars = torch.tensor([[1, 1, 1], [1, 1, 0], [0, 1, 1], [0, 1, 0], [1, 0, 1], [1, 0, 0], [0, 0, 1], [0.8, 0.45, 0.35]])
+    frames = bars.repeat_interleave(width // len(bars), dim=0)[None, None].expand(count, height, width, 3).contiguous()
+
+    def tag(path: str) -> str:
+        """The four things a file says about its colour, as ffprobe orders them: range, matrix, transfer, primaries."""
+        return subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                               "stream=color_range,color_space,color_transfer,color_primaries",
+                               "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip()
+
+    def off(path: str, matrix: str | None, crop: str | None = None) -> float:
+        """Mean distance, in levels, between what was written and the file read back under `matrix` (None: its tag)."""
+        steps = ([crop] if crop else []) + ([f"scale=in_color_matrix={matrix}"] if matrix else [])
+        raw = subprocess.run([ffmpeg, "-v", "error", "-i", path, *(["-vf", ",".join(steps)] if steps else []),
+                              "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
+        if len(raw) != count * height * width * 3:
+            return float("inf")
+        back = torch.frombuffer(bytearray(raw), dtype=torch.uint8).reshape(count, height, width, 3).float()
+        return float((back - frames * 255.0).abs().mean())
+
+    with tempfile.TemporaryDirectory() as tmp:
+        plain = str(Path(tmp) / "plain.mp4")
+        stacked = str(Path(tmp) / "stacked_with_mask.mp4")
+        song._write_frames_mp4(plain, frames, 19)
+        song._write_review_mp4(stacked, iter([frames]), width, height, 19, under=plain)
+        for label, path, crop in (("a render", plain, None),
+                                  ("a review, the stored half", stacked, f"crop={width}:{height}:0:0"),
+                                  ("a review, the drawn half", stacked, f"crop={width}:{height}:0:{height}")):
+            if tag(path) != "tv,bt709,bt709,bt709":
+                _fail(problems, f"writer colour: {label} is tagged {tag(path) or 'nothing'} "
+                                f"(range, matrix, transfer, primaries), not tv,bt709,bt709,bt709")
+            tagged, other = off(path, None, crop), off(path, "bt601", crop)
+            if not tagged * 2 < other:
+                _fail(problems, f"writer colour: {label} read back as tagged is {tagged:.2f} levels from what was "
+                                f"written and {other:.2f} under BT.601; its values are not what its tag says")
+
+
 def check_join_stretches(problems):
     """`bench/join_stretches.py`: several runs' windows, one file, the clip's own audio over the span.
 
@@ -977,6 +1033,7 @@ def main() -> int:
     check_song_plan(problems)
     check_join(problems)
     check_join_stretches(problems)
+    check_writer_colour(problems)
     n, frozen = check_graphs(problems)
     print(f"  {n} api graphs walked, {frozen} carry {FREEZE}, none carry {STOCK_MASK}"
           if not any(STOCK_MASK in p for p in problems) else
@@ -989,7 +1046,7 @@ def main() -> int:
     print("  ok    slice on the grid and exact; nested mask survives the sampler's "
           "reshape and a flat one is refused; every freeze graph is wired end to end; "
           "resume keys; the loop plan lines up with its timeline and its refusals and controls bite; "
-          "the join returns every frame its windows hold")
+          "the join returns every frame its windows hold; a written file is BT.709 and says so")
     return 0
 
 
