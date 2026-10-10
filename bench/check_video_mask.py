@@ -166,6 +166,23 @@ that could happen.
     the Subject Track's own detector, which finds a cut made here and none
     in a held shot; the source record carries them, and the song node gates
     the weight before it composites.
+20. **A window is laid by one function, and a render saves what it was laid
+    with.** `lay_window` is the song node's composite (the weight, the cut
+    gate, the blend) and the song node calls nothing else for it: under
+    `only what changed` and under `whole region` its frames are the pieces'
+    own answer, the weight it returns is the weight it laid, a gated frame
+    is the source bit for bit and no frame without a cut beside it moves,
+    and its lines are the report's. `save_window_region` and
+    `load_window_region` (2026-10-10: a render whose tracker ran in its own
+    graph left its mask nowhere, so a composite could not be run again on
+    it): the mask, the token region, the margin (one number, or each
+    frame's own), the window's first frame, its trim and the settings read
+    back as written, and a window laid from the file is the window laid
+    from the tensors, bit for bit; a soft mask is saved as the 0 or 1 every
+    reader makes of it. The song node writes the file beside the window's
+    latent, removes a stale one with the stale latent, and never assigns the
+    count of reused windows again inside its loop (08c3cb12 did, and the
+    report's first line then gave a frame number for it).
 
 No model, no CUDA, no server.
 
@@ -394,9 +411,10 @@ def check_grow_by(problems):
     if int(vm.margins(vm.area_share(clean), px, cap, 6, vm.GROW_SUBJECT).min()) != 6 \
             or int(vm.margins(vm.area_share(clean), px, cap, 0, vm.GROW_SUBJECT).min()) >= 6:
         problems.append("grow_by: the margin's floor is not feather_pixels")
-    # the composite's old-subject margin is half the window's own, read where the window starts
+    # the composite's old-subject margin is half the window's own (`lay_window`, item 20), read where the window starts
     song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if 'source["feather_pixels"], margin // 2,' not in song_text \
+    if "margin, int(round(w.start * FPS)))" not in song_text \
+            or 'source["feather_pixels"], margin // 2,' not in (REPO / "video_mask.py").read_text(encoding="utf-8") \
             or "margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames," not in song_text \
             or "video_mask.start_zero_tokens(source, src_mask, src_tokens, int(round(w.start * FPS)))" not in song_text:
         problems.append("grow_by: the song node does not hand the composite and the late start the window's own margins")
@@ -674,12 +692,82 @@ def check_cut_gate(problems):
         _fail(problems, f"cut gate: two held pictures joined at frame 12 gave the cuts {vm.source_cuts(clip)}")
     if vm.source_cuts(one.expand(12, -1, -1, -1)):
         _fail(problems, "cut gate: a held shot was given a cut")
-    song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    at_gate, at_lay = song_text.find("video_mask.cut_gate(src_mask,"), song_text.find("images = video_mask.composite(images, src_pixels, alpha)")
-    if at_gate < 0 or at_lay < 0 or at_gate > at_lay or 'source.get("cuts")' not in song_text:
-        _fail(problems, "cut gate: the song node must gate the weight with the source's cuts before it composites")
+    # the song node gates through `lay_window` (item 20, which lays a window across a cut); the record carries the cuts
     if '"cuts": source_cuts(frames, table)' not in (REPO / "video_mask.py").read_text(encoding="utf-8"):
         _fail(problems, "cut gate: the Masked Source's record does not carry the source's cuts")
+
+
+def check_lay_window(problems):
+    """Item 20. The song node's composite as one function, and the file a window's region is saved in."""
+    import tempfile
+
+    grow_px, feather = 32, 8
+    runs = vm.run_lengths(LATENT_T)
+    starts = [sum(runs[:k]) for k in range(len(runs))]
+    k = next(i for i, n in enumerate(runs) if i >= 2 and n >= 3)
+    cut = starts[k] + 1                                  # one frame into a run: the subject's shot ends here
+    old = torch.zeros(FRAMES, H, W)
+    old[:cut, 48:80, 80:112] = 0.8                       # soft, as a tracker's mask is; gone after the cut
+    tokens = vm.token_mask(vm.grow(old, grow_px), LATENT_T, LAT_H, LAT_W)
+    pixels = torch.full((FRAMES, H, W, 3), 0.5)
+    render = pixels.clone()
+    render[:, 40:72, 96:128] = 0.9                       # the new subject, drawn on every frame of every run
+    across = list(range(cut, starts[k] + runs[k]))
+    first = 1000
+    record = {"composite": vm.COMPOSITE_CHANGED, "feather_pixels": feather, "change_threshold": vm.CHANGE_THRESHOLD,
+              "cuts": [first + cut], "grow_pixels": grow_px, "grow_by": vm.GROW_FIXED, "replace": vm.REPLACE_WHOLE,
+              "edge": vm.EDGE_TOKENS}
+
+    out, alpha, lines = vm.lay_window(render, pixels, tokens, old, record, grow_px, first)
+    plain = vm.changed_alpha(render, pixels, tokens, old, feather, grow_px // 2, vm.CHANGE_THRESHOLD)
+    gate = vm.cut_gate(old, LATENT_T, record["cuts"], first)
+    if not torch.equal(alpha, plain * gate[:, None, None]) or not torch.equal(out, vm.composite(render, pixels, alpha)):
+        _fail(problems, "lay window: under `only what changed` the frames are not the changed weight, gated, blended")
+    if not torch.equal(out[across], pixels[across]) or not bool((plain[across] > 0.5).any()):
+        _fail(problems, f"lay window: frames {across} lie across the cut and must be the source bit for bit, with a "
+                        "weight the gate had something to take off")
+    free, _a, quiet = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": []}, grow_px, first)
+    moved = sorted({int(f) for f in (out != free).flatten(1).any(dim=1).nonzero().flatten()})
+    if moved != across:
+        _fail(problems, f"lay window: with and without the cut the frames that differ are {moved}, not the gated {across}")
+    if len(lines) != 2 or "only what changed" not in lines[0] or not lines[1].endswith(", ".join(str(first + f) for f in across)) \
+            or len(quiet) != 1:
+        _fail(problems, f"lay window: the report's lines are {lines} with the cut and {quiet} without")
+    whole, w_alpha, w_lines = vm.lay_window(render, pixels, tokens, old, {**record, "composite": vm.COMPOSITE_REGION, "cuts": []},
+                                            grow_px, first)
+    if not torch.equal(w_alpha, vm.pixel_alpha(tokens, H, W, feather)) or not torch.equal(whole, vm.composite(render, pixels, w_alpha)) \
+            or w_lines:
+        _fail(problems, "lay window: under `whole region` the weight is not the region's own, or a line was reported")
+
+    # the file: what was written comes back, and a window laid from it is the window laid from the tensors
+    each = torch.full((FRAMES,), grow_px, dtype=torch.long)
+    each[::2] = grow_px // 2
+    with tempfile.TemporaryDirectory() as tmp:
+        for margin in (grow_px, each):
+            path = vm.save_window_region(str(Path(tmp) / "w_region.npz"), old, tokens, record, margin, first, 5)
+            got = vm.load_window_region(path)
+            same_margin = torch.equal(got["margin"], margin) if torch.is_tensor(margin) else got["margin"] == margin
+            if not torch.equal(got["mask"], (old > 0.5).float()) or not torch.equal(got["tokens"], tokens) or not same_margin \
+                    or got["first_frame"] != first or got["trim"] != 5 or got["source"] != {key: record[key] for key in vm.REGION_SETTINGS}:
+                _fail(problems, f"window region: the file does not read back as written (margin {vm.margin_note(margin)})")
+                continue
+            want = vm.lay_window(render, pixels, tokens, old, record, margin, first)[0]
+            again = vm.lay_window(render, pixels, got["tokens"], got["mask"], got["source"], got["margin"], got["first_frame"])[0]
+            if not torch.equal(want, again):
+                _fail(problems, f"window region: a window laid from its file is not the window laid from its tensors "
+                                f"(margin {vm.margin_note(margin)})")
+        if sorted(x.name for x in Path(tmp).iterdir()) != ["w_region.npz"]:
+            _fail(problems, f"window region: the write left {sorted(x.name for x in Path(tmp).iterdir())} behind")
+
+    song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if "video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source," not in song_text \
+            or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(")):
+        _fail(problems, "lay window: the song node must lay a window through `video_mask.lay_window` and through nothing else")
+    if "video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin," not in song_text \
+            or "loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
+        _fail(problems, "window region: the song node does not save a window's region beside its latent, or keeps a stale one")
+    if song_text.count("        first = ") != 1 or "        first = len(reused)" not in song_text:
+        _fail(problems, "lay window: the song node assigns `first` (its count of reused windows) more than once")
 
 
 def check_others(problems):
@@ -1583,7 +1671,7 @@ def check_review_robust(problems, song_text):
     if "why = _review_or_reason(window_review, f\"window {w.number}\")" not in song_text \
             or "why = _review_or_reason(joined_review, \"the run\")" not in song_text:
         problems.append("mask review: a failure in a review would fail the render")
-    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number)):" not in song_text:
+    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
         problems.append("mask review: a window that renders again keeps its old review for a later run to join")
     at = song_text.find("why = _review_or_reason(joined_review")
     owed = [song_text.find(mark, at) for mark in ("write_metadata_png(os.path.join(full_out", "shot_table.write_beside(source",
@@ -1663,7 +1751,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

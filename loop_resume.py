@@ -131,6 +131,12 @@ def review_path(work_dir: str, filename: str, number: int) -> str:
     return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_with_mask.mp4"
 
 
+def region_path(work_dir: str, filename: str, number: int) -> str:
+    """Window `number`'s region, beside its latent: the mask and the token region its composite was run with
+    (`video_mask.save_window_region`). Only a window rendered over a source has one."""
+    return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_region.npz"
+
+
 def save_window(work_dir: str, filename: str, number: int, key: str, samples, trim: int,
                 next_start: float, written: int) -> str:
     """Store a rendered window's sampled latent and what the next window needs from it.

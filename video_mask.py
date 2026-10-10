@@ -33,6 +33,9 @@ record for a wholly frozen video). So outside the regenerated tokens the
 source's own pixels go back, with the boundary feathered. `grow_pixels` is
 what keeps the feather on background: the blend reaches `feather_pixels` into
 the regenerated region, and the subject sits at least `grow_pixels` inside it.
+`lay_window` is the whole of it as the song node runs it (the weight, the cut
+gate, the blend), and `save_window_region` writes what it was run with beside
+each window, so a finished render can be laid again off the server.
 
 **The margin's size** (`grow_by`, 2026-10-08). `a fixed margin` is
 `grow_pixels` on every frame. `the subject's size` takes it per frame from the
@@ -206,10 +209,13 @@ Nothing here patches core.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Callable
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from comfy_api.latest import io
@@ -707,6 +713,83 @@ def cut_gate(mask: torch.Tensor, latent_t: int, cuts, first_frame: int = 0) -> t
                     gate[a:b] = 0.0
         at += n
     return gate
+
+
+def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor, mask: torch.Tensor,
+               source: dict, margin, first_frame: int):
+    """A decoded window laid over its source, as the song node writes it: the frames, the weight, the report's lines.
+
+    `images` is the decode, `pixels`, `tokens` and `mask` what `window` returned for it, `margin` its
+    `source_margins` and `first_frame` where the window starts in the source. The weight is the whole
+    region's (`pixel_alpha`) or, under `only what changed`, `changed_alpha`'s; `cut_gate` then takes it off
+    the frames a latent step carries the region onto across a cut; `composite` blends. One function, so
+    that a saved window can be laid again with exactly what the render ran: `bench/recomposite_window.py`
+    decodes a window's stored latent and calls this, with the settings the render used or with one changed.
+    """
+    height, width = int(images.shape[1]), int(images.shape[2])
+    lines = []
+    if source.get("composite") == COMPOSITE_CHANGED:
+        # the render is kept only where it changed the picture or the old subject stood
+        alpha = changed_alpha(images, pixels, tokens, mask, source["feather_pixels"], margin // 2,
+                              source["change_threshold"])
+        whole = float(pixel_alpha(tokens, height, width, 0).mean())
+        lines.append("composite keeps only what changed: "
+                     f"{100.0 * float((alpha > 0.5).float().mean()) / max(whole, 1e-6):.0f}% of the "
+                     "regenerated pixels, the source restored in the rest")
+    else:
+        alpha = pixel_alpha(tokens, height, width, source["feather_pixels"])
+    # a latent step's region covers its whole run of frames; across a cut from the subject
+    # that is the next shot's picture, and it stays the source's (`cut_gate`)
+    first = int(first_frame)
+    gate = cut_gate(mask, int(tokens.shape[0]), source.get("cuts"), first)
+    if not bool(gate.all()):
+        alpha = alpha * gate[:, None, None].to(alpha)
+        across = [first + int(f) for f in (gate < 0.5).nonzero().flatten()]
+        lines.append(f"{len(across)} frame(s) lie across a cut from the subject inside "
+                     "one latent step and are left as the source: frame(s) "
+                     + ", ".join(str(f) for f in across))
+    return composite(images, pixels, alpha), alpha, lines
+
+
+#: What of a source's record a window's composite reads, saved with the window's region (`save_window_region`)
+#: so the window can be laid again without the graph. `lay_window` reads the first four; the rest say how the
+#: region was made.
+REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge")
+
+
+def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
+                       first_frame: int, trim: int) -> str:
+    """Write what a window's composite was run with, beside the window's latent, losslessly.
+
+    The window's fitted mask (bits, packed along the width) and its token region, as `window` returned them,
+    its margin, where it starts in the source, how many frames its video leaves off the front, and
+    `REGION_SETTINGS` of the source. With the window's stored latent and the source's own frames that is
+    everything `lay_window` takes, so a render can be laid again without its tracker or its graph. A render
+    whose tracker ran inside its own graph used to leave its mask nowhere. Written whole or not at all.
+    """
+    settings = {k: source.get(k) for k in REGION_SETTINGS}
+    meta = {"version": 1, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
+            "height": int(mask.shape[1]), "width": int(mask.shape[2]), "source": settings}
+    part = path + ".part"
+    with open(part, "wb") as f:
+        np.savez_compressed(
+            f, mask=np.packbits((mask > 0.5).cpu().numpy(), axis=-1), tokens=(tokens > 0.5).cpu().numpy().astype(np.uint8),
+            margin=(margin.cpu().numpy() if torch.is_tensor(margin) else np.asarray(int(margin))).astype(np.int64),
+            meta=np.asarray(json.dumps(meta)))
+    os.replace(part, path)
+    return path
+
+
+def load_window_region(path: str) -> dict:
+    """A window's saved region as `lay_window` takes it: `mask` [F, H, W] and `tokens` [latent_t, h, w] of 0 or 1,
+    `margin` (a number, or a [F] tensor when it was each frame's own), `first_frame`, `trim` and `source`."""
+    with np.load(path) as z:
+        meta = json.loads(str(z["meta"]))
+        mask = np.unpackbits(z["mask"], axis=-1)[..., :int(meta["width"])]
+        margin = z["margin"]
+        out = {"mask": torch.from_numpy(mask).to(torch.float32), "tokens": torch.from_numpy(z["tokens"]).to(torch.float32),
+               "margin": int(margin) if margin.ndim == 0 else torch.from_numpy(margin).long()}
+    return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": meta["source"]}
 
 
 @dataclass(frozen=True)
