@@ -696,6 +696,17 @@ song loop; `bench/check_recomposite_window.py`'s zoomed window.
   setting is a ceiling the load does not reach, and two arms at two
   settings are one arm. The report's line says which of the two set the
   box; read it before queueing a second arm.
+- 2026-10-10, the first zoomed render, that shot (one load, one seed):
+  it ran clean and wrote its zoomed picture and the box beside it. Read
+  from its own files, the plate is the loaded source to the same figure
+  as the accepted whole-frame render of the load, outside the box and
+  inside it, and the zoomed picture scaled into the box agrees with the
+  piece inside the region
+  ([`2026-10-10_saved_windows_laid_again`](../../bench/results/2026-10-10_saved_windows_laid_again.md),
+  `first_zoomed_render_read_from_its_files`). As seen by the lead in
+  stills, not judged on playback: the face is replaced where it shows and
+  no edge of the box shows. Whether it reads as the reference at this
+  zoom is the owner's to say and is open.
 - 2026-10-10, NOT BUILT, the lever that would reach the setting on a
   subject who travels: a box that FOLLOWS the part through the load (a
   smoothed track, cut at sub-pixel positions) in place of one fixed box.

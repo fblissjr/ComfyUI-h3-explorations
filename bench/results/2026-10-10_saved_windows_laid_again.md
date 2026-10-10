@@ -84,6 +84,19 @@ untracked `data/2026-10-10_recomposite_decodes/`.
   (`no_mask_rule_on_two_face_passes`, with what the render had laid in the
   lent cells of each).
 
+- **The first render made zoomed in, read from its own files.** Added the
+  same evening; no decode, one load, one seed. The lay back leaves the
+  plate alone: outside the box, and inside the box clear of the region,
+  the piece is as far from the fitted source as the accepted whole-frame
+  render of the same load is over the same areas, figure for figure, so
+  what is there is the file's codec and nothing of the zoom. Inside the
+  region the zoomed picture written beside the render, scaled into the
+  box, agrees with the piece to a few levels, which is the agreement the
+  delivery tool will hold a zoomed piece to. The part takes a larger
+  share of the canvas than it took on the whole frame; both shares are in
+  the record (`first_zoomed_render_read_from_its_files`). Nothing here
+  says how the face looks.
+
 ## What it does not show
 
 Whether any of these frames looks worse: the detail figure is a mean over

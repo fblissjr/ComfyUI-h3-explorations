@@ -619,5 +619,87 @@
     }
    ]
   }
+ },
+ "first_zoomed_render_read_from_its_files": {
+  "what": "the first render made with render_region zoomed (516e06e2), one load, one seed, read from the files it wrote; no decode, nothing laid again",
+  "render": "street_0438_zoom2_00001.mp4",
+  "zoomed_picture": "street_0438_zoom2_00001_zoomed.mp4",
+  "baseline": "face_street_0438_tail_00001.mp4 (the accepted whole-frame render of the same load)",
+  "load": {
+   "source_first_frame": 438,
+   "frames": 46,
+   "canvas": [
+    1024,
+    768
+   ]
+  },
+  "zoom": {
+   "box": [
+    208,
+    62,
+    848,
+    542
+   ],
+   "source_size": [
+    1024,
+    768
+   ],
+   "scale": 1.6,
+   "set_by": "the box",
+   "largest_zoom": 2.0,
+   "region_cut_at_box_sides": []
+  },
+  "levels_are": "the largest channel's absolute difference from the source fitted to the canvas, per pixel; a frame's figure is its mean over the area, and the row is the median frame",
+  "piece_against_the_fitted_source": {
+   "zoomed_render": {
+    "outside_the_box": {
+     "mean_levels": 3.32,
+     "pixel_99_9th": 31,
+     "worst_pixel": 98
+    },
+    "inside_the_box_clear_of_the_region": {
+     "mean_levels": 3.64,
+     "pixel_99_9th": 36,
+     "worst_pixel": 101
+    },
+    "inside_the_region": {
+     "mean_levels": 21.25,
+     "frames": 43
+    }
+   },
+   "whole_frame_render": {
+    "the_same_area_outside_the_box": {
+     "mean_levels": 3.33,
+     "pixel_99_9th": 31,
+     "worst_pixel": 98
+    },
+    "the_same_area_inside_the_box_clear_of_its_region": {
+     "mean_levels": 3.66,
+     "pixel_99_9th": 36,
+     "worst_pixel": 102
+    },
+    "inside_its_region": {
+     "mean_levels": 27.29,
+     "frames": 41
+    }
+   }
+  },
+  "zoomed_picture_scaled_into_the_box_against_the_piece": {
+   "where": "inside the region, clear of its edge by four canvas pixels",
+   "filter": "bilinear, antialiased, to the box's size",
+   "median_levels": 2.29,
+   "pixel_99th": 7.9,
+   "pixels": 660300
+  },
+  "frames_of_the_load_with_no_mask": [
+   14,
+   15,
+   16
+  ],
+  "regenerating_share_of_the_canvas": {
+   "zoomed": 0.0559,
+   "whole_frame": 0.0173
+  },
+  "not_shown": "anything about how the face looks or whom it resembles; a second load, subject or seed; the two renders were made from two captures of the shot, so their regions are not the same frames' regions"
  }
 }
