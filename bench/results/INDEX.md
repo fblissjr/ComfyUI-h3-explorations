@@ -92,7 +92,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-01 | lora | [Where a LoRA at the call spends its time (2026-10-01)](2026-10-01_lora_branch_profile.md) |  |
 | 2026-10-01 | kitchen | [comfy-kitchen: h3-frontier merged to upstream main, 2026-10-01](2026-10-01_kitchen_merge_aade8d5.md) |  |
 
-Data files dated this month and not listed: 109.
+Data files dated this month and not listed: 102.
 
 ## 2026-09
 

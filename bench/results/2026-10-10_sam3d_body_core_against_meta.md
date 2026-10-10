@@ -57,7 +57,7 @@ images, six boxes. There is no ground truth: nothing here says which side
 is closer to the person, only how far apart they are and why.
 
 Every number is in
-[`2026-10-10_sam3d_body_core_against_meta.json`](2026-10-10_sam3d_body_core_against_meta.json)
+`data/2026-10-10_sam3d_body_core_against_meta/2026-10-10_sam3d_body_core_against_meta.json` (untracked)
 and both tables below are printed from it by the tool's `render`; where a
 sentence and the file disagree the file is right.
 

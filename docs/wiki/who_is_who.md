@@ -278,7 +278,8 @@ Three rules about it:
   CPU, and a track's mask against a detection's, did not move the top
   third on the frames one run compared (the tracker owner's reading of
   `whole_gallery` in
-  `../../bench/results/2026-10-10_who_is_who_across_shots_looks.json`);
+  `data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_across_shots_looks.json`,
+  untracked);
   another canvas or crop is not measured; the corrections change the
   model's input at its first layer (`sam31_corrections.py::attach`), so on
   and off are taken as not comparable until a run says otherwise. Unlike

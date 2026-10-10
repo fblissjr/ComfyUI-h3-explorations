@@ -69,7 +69,7 @@ per place the best over the gallery, then the lower of the two places).
 
     <python> bench/who_is_who_across_shots.py galleries --table lead=<shots.json> --table second=<shots.json> --json J
 
-Data: [`2026-10-10_who_is_who_across_shots_galleries.json`](2026-10-10_who_is_who_across_shots_galleries.json);
+Data: `data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_across_shots_galleries.json` (untracked);
 the tool's `render --json` prints every row.
 
 | by the rule (the lower of the two places) | lead's frames | second subject's frames |
@@ -125,7 +125,7 @@ BOTH galleries by the gallery rule, in each place a person is compared.
              --width 1024 --height 768 --table lead=<shots.json> --table second=<shots.json> \
              --look 406,410,418,426,434,435,439,443,446 --json J
 
-Data: [`2026-10-10_who_is_who_across_shots_looks.json`](2026-10-10_who_is_who_across_shots_looks.json);
+Data: `data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_across_shots_looks.json` (untracked);
 `render --json` prints every table.
 
 **Controls.** The detections made here on each table's shown frame are the
@@ -229,7 +229,7 @@ own frames.
 
     <python> bench/who_is_who_across_shots.py looks --cpu --crops ... --look 406,410,418,426,434,439,446 --json J
 
-Data: [`2026-10-10_who_is_who_across_shots_crops.json`](2026-10-10_who_is_who_across_shots_crops.json).
+Data: `data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_across_shots_crops.json` (untracked).
 The reading was written in the tool's docstring before the run: worth a
 place only if, on the middle shot, the small subject's lead over the other
 subject and the lead of the right hand-out are WIDER than at the frame's
@@ -389,9 +389,9 @@ job's captures), and every "right" and "wrong" below is by that file. The
 shot tables are under the output folder as
 `Video/mrpop/fun_rest_a_1039/` and `Video/mrpop/fun_rest_b_1466/`. The
 tool's rows as it stands at the end of the day:
-[`2026-10-10_who_is_who_three_subjects_first_load.json`](2026-10-10_who_is_who_three_subjects_first_load.json)
+`data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_three_subjects_first_load.json` (untracked)
 (the lead's and the third's tables; the second was picked nowhere) and
-[`2026-10-10_who_is_who_three_subjects_second_load.json`](2026-10-10_who_is_who_three_subjects_second_load.json)
+`data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_three_subjects_second_load.json` (untracked)
 (all three).
 
 **The trackers alone.** Eleven wrong takes and one miss in fifteen shots,
@@ -460,9 +460,9 @@ the figures below are the complete-looks ones.
 
 **The second load, shots 2 to 6, each subject against the truth** (the
 levels there: lead 1.764, third 1.759, second 1.538, of a possible 2; data
-[`2026-10-10_who_is_who_three_subjects_second_load.json`](2026-10-10_who_is_who_three_subjects_second_load.json),
+`data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_three_subjects_second_load.json` (untracked),
 and from the corrected preview's tables
-[`2026-10-10_who_is_who_three_subjects_second_load_corrected.json`](2026-10-10_who_is_who_three_subjects_second_load_corrected.json)):
+`data/2026-10-10_who_is_who_across_shots/2026-10-10_who_is_who_three_subjects_second_load_corrected.json` (untracked)):
 
 | subject | the truth | its tracker | the sum | the evidence |
 |---|---|---|---|---|
