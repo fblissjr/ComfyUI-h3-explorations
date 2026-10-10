@@ -556,7 +556,9 @@ def subject_rows(label: str, by: str, first: int, track: np.ndarray, covered: np
                 if len(xs) and box:
                     centre = [round((float(xs.mean()) - box[0]) / max(box[2] - box[0], 1), 3),
                               round((float(ys.mean()) - box[1]) / max(box[3] - box[1], 1), 3)]
-                row.update(parts_share=round(float(p.sum()) / area, 5),
+                part_box = box_of(p)
+                row.update(parts_share=round(float(p.sum()) / area, 5), parts_box=part_box,
+                           parts_height_px=None if part_box is None else part_box[3] - part_box[1],
                            parts_of_track=round(float(p.sum()) / max(float(t.sum()), 1.0), 4),
                            parts_inside_track=round(float((p & t).sum()) / float(p.sum()), 4) if p.any() else None,
                            parts_step=overlap(p, parts[n - 1]) if n and covered[n - 1] else None,
@@ -589,6 +591,23 @@ def run_rows(run: str, label: str, first: int, region: np.ndarray, carried: np.n
                        region_step=overlap(region[n], region[n - 1]) if n and read[n - 1] else None)
         rows.append(row)
     return rows
+
+
+def picture_rows(source: str, first: int, frames: int, size: tuple[int, int]) -> list[tuple[float | None, float]]:
+    """Two crude figures of the source's own picture, a frame: how much the whole frame changed from the frame
+    before (mean grey levels; None on the first), and how sharp it is (the variance of its Laplacian).
+
+    They rank a clip's shots against each other (a locked-off shot against a hand-held one, soft old film
+    against sharp video) so that a line can be set from the clip in hand. Neither is a measure of anything
+    absolute: the first rises with motion of any kind, the second with grain as well as with detail."""
+    import cv2
+    out, before = [], None
+    for frame in stream(source, size, first, frames, vf=FIT.format(w=size[0], h=size[1])):
+        grey = frame.astype(np.float32)
+        out.append((None if before is None else round(float(np.abs(grey - before).mean()), 2),
+                    round(float(cv2.Laplacian(grey, cv2.CV_32F).var()), 1)))
+        before = grey
+    return out + [(None, None)] * (frames - len(out))
 
 
 def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict | None = None) -> list[dict]:
@@ -978,7 +997,10 @@ def write_status(out: Path, state: str, **more) -> None:
 
 
 def files(a: argparse.Namespace) -> Path:
-    out = Path(a.out) / f"{a.date}_{a.name}"
+    if not (a.folder or a.name):
+        raise SystemExit("give --name (the capture goes to <out>/<date>_<name>) or --folder (exactly where it goes)")
+    out = Path(a.folder) if a.folder else Path(a.out) / f"{a.date}_{a.name}"
+    a.name = a.name or out.name
     done = out / "status.json"
     if done.is_file() and json.loads(done.read_text()).get("state") == "done" and not a.overwrite:
         # a render may be loading this folder's mask videos: on 2026-10-10 a rebuild rewrote them forty seconds
@@ -1220,6 +1242,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
     cross = cross_rows(first, frames, sightings, captured, voice)
+    for row, (step, sharp) in zip(cross, picture_rows(a.source, first, frames, size)):
+        row.update(source_step=step, source_sharpness=sharp)
     # Who owns each pixel. A subject is a "who" when it has a class map, or when no subject has one: a kept-out
     # or keep mask given as a --mask is a union of things and owns nothing.
     whos = [label for label in sightings if label in class_maps] or list(sightings)
@@ -1424,6 +1448,176 @@ def verify(a: argparse.Namespace) -> None:
     print(f"verify: {verdict}; wrote {folder / 'verify.json'}")
     if failed or unmade:
         sys.exit(VERIFY_FAILED)
+
+
+RULES_INPUT_VERSION = 1
+
+
+def shot_edges(first: int, frames: int, cuts: list[int]) -> list[list[int]]:
+    """A span's shots as [first, last] source frames, from the source frames a new shot starts on."""
+    edges = [first] + sorted(c for c in set(cuts) if first < c < first + frames) + [first + frames]
+    return [[a, b - 1] for a, b in zip(edges, edges[1:])]
+
+
+def head_across(pose: list[dict]) -> dict | None:
+    """The head over a shot, from `pose_state`'s columns on its frames in order: where it faces on the first and
+    last frame that have a pose, the largest turn from the first and the frame it is reached on, the chin's
+    range and the nearest a wrist comes to the nose. None when no frame has a facing."""
+    rows = [r for r in pose if r.get("head_yaw") is not None]
+    if not rows:
+        return None
+    turn = [abs((r["head_yaw"] - rows[0]["head_yaw"] + 180.0) % 360.0 - 180.0) for r in rows]
+    lift = [r["head_lift"] for r in rows]
+    return {"frames_with_a_pose": len(rows), "head_yaw_first": rows[0]["head_yaw"], "head_yaw_last": rows[-1]["head_yaw"],
+            "largest_turn_from_the_first_degrees": round(max(turn), 1), "reached_on_source_frame": rows[int(np.argmax(turn))]["source_frame"],
+            "chin_degrees": [round(min(lift), 1), round(max(lift), 1)],
+            "a_wrist_nearest_the_nose": round(min(min(r["left_wrist_to_nose"], r["right_wrist_to_nose"]) for r in rows), 2)}
+
+
+def rules_input(folder: Path, not_in: dict | None = None) -> dict:
+    """Every figure of a capture that a per-clip rule needs, in one file: per shot and subject, and per load.
+
+    It holds figures and no line: which value a rule judges by is set from the clip by whoever reads this
+    (the job builder's stage), and the lines this tool's own gate uses are listed in the module docstring. A
+    figure that cannot be made is null with a `why`, so a reader can say "not in the capture" and not guess.
+    `sources` names the table each figure came from. Nothing here needs a render."""
+    m = json.loads((folder / "manifest.json").read_text())
+    first, frames, (w, h) = m["first_frame"], m["frames"], m["size"]
+    cross = json.loads((folder / "frames.json").read_text())["rows"]
+    voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
+    names = _pack("sapiens2_parts").CLASS_NAMES
+    tables, cuts = {}, []
+    for s in m["subjects"]:
+        seen = s["sightings"][0]
+        path = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
+        if path.is_file():
+            tables[s["label"]] = (json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
+            cuts = cuts or [tables[s["label"]][1] + c for c in tables[s["label"]][0]["cuts"]]
+    per, poses, mouths = {}, {}, {}
+    for s in m["subjects"]:
+        label, seen = s["label"], s["sightings"][0]
+        base = folder / "subjects" / label
+        per[label] = [r for r in json.loads((base / "per_frame.json").read_text())["rows"] if r["seen_by"] == seen["by"]]
+        pose = base / f"pose__{seen['by']}.json"
+        poses[label] = json.loads(pose.read_text())["rows"] if pose.is_file() else None
+        classes = base / f"classes__{seen['by']}.npz"
+        if not classes.is_file():
+            mouths[label] = "no class map for this subject (classes= on --mask)"
+        elif not (voiced == 0).any():
+            mouths[label] = "every frame is voiced" if (voiced == 1).any() and not np.isnan(voiced).any() else "no voice table over these frames (--voice)"
+        else:
+            saved = np.load(base / f"masks__{seen['by']}.npz")
+            face = np.unpackbits(saved["parts" if "parts" in saved.files else "track"], axis=-1)[..., :w].astype(bool)
+            opening, _ = mouth_openings(class_mask_of(np.load(classes)["classes"], list(MOUTH_CLASSES), names), face)
+            mouths[label] = open_runs(opening, voiced, {}, first)["runs"]
+
+    def q(values: list[float], scale: float = 1.0, digits: int = 1) -> dict | None:
+        return {"median": round(float(np.median(values)) / scale, digits), "least": round(min(values) / scale, digits),
+                "most": round(max(values) / scale, digits)} if values else None
+
+    shots = []
+    for number, (a, b) in enumerate(shot_edges(first, frames, cuts), 1):
+        rows = [r for r in cross if a <= r["source_frame"] <= b]
+        step = [r["source_step"] for r in rows[1:] if r.get("source_step") is not None]
+        sharp = [r["source_sharpness"] for r in rows if r.get("source_sharpness") is not None]
+        one = {"shot": number, "source_frames": [a, b],
+               "picture": {"change_from_the_frame_before_median": round(float(np.median(step)), 2) if step else None,
+                           "sharpness_median": round(float(np.median(sharp)), 1) if sharp else None,
+                           "why": None if sharp else "this capture was made before the picture's own figures were read: run `files` again"},
+               "subjects": {}}
+        for s in m["subjects"]:
+            label = s["label"]
+            mine = [r for r in per[label] if a <= r["source_frame"] <= b]
+            masked = [r for r in mine if r.get("track_share")]
+            entry = {"frames_with_a_mask": len(masked), "frames": len(mine), "share_of_the_frame": q([r["track_share"] for r in masked], digits=5)}
+            said, state, sim, line = "nobody: this subject has no shot table", None, None, None
+            if label in tables:
+                table, at = tables[label]
+                hit = next((x for x in table["shots"] if at + x["first_frame"] <= a <= at + x["last_frame"]), None)
+                if hit is not None:
+                    (state, typed), sim, line = shot_state(hit), hit["subject"].get("similarity"), float(table["match"])
+                    said = "a correction typed on the tracker" if typed else "the tracker"
+            if any(x[0] <= a and b <= x[1] for x in (not_in or {}).get(label, [])):
+                said = "the caller's --not-in" if state in (None, "absent") else said + "; the caller's --not-in says they are not in it"
+            entry["on_screen"] = {"state": state, "said_by": said, "likeness": sim, "line": line}
+            tall = [r["parts_height_px"] for r in mine if r.get("parts_height_px")]
+            entry["part_height"] = None if not tall else {"px": q(tall), "cells": q(tall, CELL), "tokens": q(tall, TOKEN_PX, 2)}
+            if not tall:
+                entry["part_height_why"] = (
+                    "no part for this subject" if not s["sightings"][0].get("parts") else
+                    "the subject has no mask on this shot" if not masked else
+                    "the part is empty on every frame of this shot" if any("parts_height_px" in r for r in mine) else
+                    "this capture was made before the part's box was read: run `files` again")
+            entry["head"] = head_across([r for r in (poses[label] or []) if a <= r["source_frame"] <= b])
+            if entry["head"] is None:
+                entry["head_why"] = "no pose table for this subject (pose= on --mask)" if poses[label] is None else \
+                    "the pose table has no 3D keypoints on this shot's frames"
+            entry["mouth_open_on_unvoiced_frames"] = mouths[label] if isinstance(mouths[label], str) else \
+                [r for r in mouths[label] if a <= r["source_frames"][0] and r["source_frames"][1] <= b]
+            one["subjects"][label] = entry
+        shots.append(one)
+
+    loads = []
+    for run in m["runs"]:
+        base = folder / "runs" / run["name"]
+        inside, path = {}, base / "segments_in_region.json"
+        if path.is_file():
+            rows = json.loads(path.read_text())["rows"]
+            for key in sorted({k[:-len("__cells")] for r in rows for k in r if k.endswith("__cells")}):
+                hit = [(r["source_frame"], r[key + "__cells"]) for r in rows if r.get(key + "__cells")]
+                if hit:
+                    inside[key] = {"frames": len(hit), "source_frames": frame_spans([f for f, _ in hit]), "most_cells": int(max(c for _, c in hit)),
+                                   "whose": "the subject's own, not the part" if key.startswith(run["subject"] + ".") else "another subject's"}
+        others = {}
+        for other in [s["label"] for s in m["subjects"] if s["label"] != run["subject"]]:
+            key = f"region_on__{run['name']}__{other}"
+            hit = [(r["source_frame"], r[key]) for r in cross if r.get(key)]
+            if hit:
+                others[other] = {"frames": len(hit), "source_frames": frame_spans([f for f, _ in hit]), "most_share_of_its_mask": round(max(v for _, v in hit), 4)}
+        saved = np.load(base / "region.npz")
+        bare = [first + f for f in lent_frames(np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool), saved["region"], saved["read"])]
+        windows = []
+        pose = {r["source_frame"]: r for r in (poses.get(run["subject"]) or [])}
+        for win in run.get("planned_windows") or []:
+            kept = None
+            if win.get("kept_frames"):
+                kept = turn_from_kept(pose, win["first_frame"] + win["kept_frames"] - 1, tuple(win["writes_source_frames"])) or \
+                    {"why": "no pose table with 3D keypoints over the kept and the new frames"}
+            windows.append({**{k: win.get(k) for k in ("window", "writes_source_frames", "kept_frames", "frames", "held_frames", "held_share",
+                                                        "held_frames_shown_clean", "subject_on_the_last_real_frame",
+                                                        "step_with_real_and_held_source_frames")},
+                            "the_pose_ahead_against_the_kept_frames": kept})
+        read = np.nonzero(saved["read"])[0]
+        loads.append({"run": run["name"], "subject": run["subject"], "others": run.get("others"), "planned": bool(run.get("planned")),
+                      "region_read_from": run.get("read_from"), "source_frames": [int(first + read.min()), int(first + read.max())] if len(read) else None,
+                      "margin_px": run.get("margin_px"), "region_share_of_the_frame": round(float(saved["region"][saved["read"]].mean()), 4) if len(read) else None,
+                      "inside_the_region": {"by_class": inside, "other_subjects": others,
+                                            "why": None if path.is_file() else "no class map in this capture: what lies inside the region is not read by class"},
+                      "frames_with_no_mask_inside_a_step": frame_spans(sorted(set(bare) | set(run.get("left_as_the_source_with_no_mask") or []))),
+                      "windows": windows or None,
+                      "windows_why": None if windows else ("a what-if plan worked out from the masks has no windows: gate on the node's own plan "
+                                                           "(--run NAME:preview=)" if run.get("planned") else "a rendered run: its windows are in its own files")})
+    return {"rules_input": RULES_INPUT_VERSION, "capture": m["name"], "clip": m["clip"], "first_source_frame": first, "frames": frames,
+            "canvas": [w, h], "cell_px": CELL, "token_px": TOKEN_PX, "written": datetime.datetime.now().isoformat(timespec="seconds"),
+            "shots": shots, "loads": loads,
+            "sources": {"shots": "the cuts of the first shot table in the capture (subjects/<label>/shots__<by>.json)",
+                        "picture": "frames.json: source_step, source_sharpness", "on_screen": "subjects/<label>/shots__<by>.json and --not-in",
+                        "share_of_the_frame, part_height": "subjects/<label>/per_frame.json: track_share, parts_height_px",
+                        "head, the_pose_ahead_against_the_kept_frames": "subjects/<label>/pose__<by>.json (pose_state's columns)",
+                        "mouth_open_on_unvoiced_frames": "subjects/<label>/classes__<by>.npz and frames.json: voiced",
+                        "inside_the_region": "runs/<run>/segments_in_region.json and frames.json: region_on__<run>__<other>",
+                        "windows": "manifest.json: runs[].planned_windows (the node's own plan)"}}
+
+
+def rules(a: argparse.Namespace) -> None:
+    folder = Path(a.capture)
+    not_in: dict = {}
+    for item in a.not_in:
+        label, _, rng = item.partition(":")
+        not_in.setdefault(label, []).append([int(x) for x in rng.split("-")])
+    record = rules_input(folder, not_in)
+    (folder / "rules_input.json").write_text(json.dumps(record, indent=1) + "\n")
+    print(f"wrote {folder / 'rules_input.json'}: {len(record['shots'])} shot(s), {len(record['loads'])} load(s)")
 
 
 def flag_key(flag: dict) -> str:
@@ -2479,6 +2673,8 @@ def preflight(a: argparse.Namespace) -> None:
     print(f"{len(flags)} flag(s): " + ", ".join(f"{n} {level}" for level, n in counts.items()) + f"; wrote {folder / 'flags.json'}")
     for label, n in by_design.items():
         print(f"{n} frame(s) of {label}'s part emptied by the grade, by design: subjects/{label}/part_grades.json")
+    # the figures a per-clip rule reads, in one file, never older than the flags
+    (folder / "rules_input.json").write_text(json.dumps(rules_input(folder, not_in), indent=1) + "\n")
     print(f"gate: {gate['verdict']}" + (f", on {', '.join(gate['blocking'])}" if gate["blocking"] else "")
           + (f"; overridden: {', '.join(gate['overridden'])}" if gate["overridden"] else ""))
     if a.gate and gate["blocking"]:
@@ -3392,7 +3588,8 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="mode", required=True)
     f = sub.add_parser("files", help="build the capture folder from saved mask videos and renders")
-    f.add_argument("--name", required=True)
+    f.add_argument("--name", help="the capture goes to <out>/<date>_<name>; not needed with --folder")
+    f.add_argument("--folder", help="write the capture into exactly this folder: no date and no name are joined on")
     f.add_argument("--date", default=datetime.date.today().isoformat())
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
@@ -3436,6 +3633,9 @@ def main() -> None:
     g.add_argument("--text", help="the prompt file of the run this capture is for")
     g.add_argument("--voice-spans", help="voice_spans.json for the clip")
     g.add_argument("--gate", action="store_true", help=f"exit {GATE_BLOCKED} when a flag at the top level stands with no override")
+    ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")
+    ri.add_argument("capture")
+    ri.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")
     o.add_argument("flag")
@@ -3480,7 +3680,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "verify": verify, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
+    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":

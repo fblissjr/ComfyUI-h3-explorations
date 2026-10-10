@@ -1013,6 +1013,13 @@ def held_tails() -> str:
         assert [(f["rule"], f["level"], f["source_frames"]) for f in far] == [("kept_frames_far_from_the_pose_ahead", cap.LEVELS[1], [[110, 119]])], far
         still = {**m, "runs": [{**m["runs"][0], "planned_windows": [{**win, "first_frame": 96, "writes_source_frames": [106, 109]}]}]}
         assert cap.flag_kept(still, folder) == [], "a continuation whose source holds its pose was flagged"
+    # the figures a per-clip rule reads: a span's shots from its cuts, and the head across one shot
+    assert cap.shot_edges(100, 30, [90, 100, 110, 110, 125, 130, 200]) == [[100, 109], [110, 124], [125, 129]]
+    assert cap.shot_edges(100, 30, []) == [[100, 129]]
+    across = cap.head_across([{"source_frame": 99}] + [table[f] for f in range(105, 120)])
+    assert across["head_yaw_first"] == -76.0 and across["head_yaw_last"] == -4.0 and across["largest_turn_from_the_first_degrees"] == 72.0, across
+    assert across["reached_on_source_frame"] == 119 and across["chin_degrees"] == [-27.0, 0.0] and across["a_wrist_nearest_the_nose"] == 0.36, across
+    assert cap.head_across([{"source_frame": 99}]) is None
     return ("a load's last frame held past its end and shown clean with the subject on it blocks; a tail with its region open, "
             "a load that fills its window and a last frame without the subject do not; an estimate with no windows says it was not checked; "
             "a continuation whose source turns away from its kept frames' pose is named, one that holds its pose is not")
