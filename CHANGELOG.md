@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.237.1
+<!-- changelog.d/mrdeer-capture-video-panel.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py video` draws a panel under the stacked rows, read from the capture folder's own tables so the picture and the tables cannot disagree: the frame number large, each subject's mask and part, each run's region against its subject and what it covers of anybody else, the change inside the region since the frame before for source and render, the preflight's flags that are live on that frame in plain words, the motion video the model was shown (`--motion`) or the word none, the reference stills (`--still LABEL=IMAGE`) and the window (`--windows`). One frame pulled as a still explains itself. The form follows two reviews made by session scripts on 2026-10-09 that are gone or tied to one clip; colour by part and contacts between subjects are not in it yet.
+
 ## 0.237.0
 <!-- changelog.d/mrpop-capture-masked-run.md -->
 

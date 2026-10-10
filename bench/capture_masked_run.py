@@ -63,7 +63,14 @@ mask, frame 0 the span's first frame), so a render can load exactly what was loo
 **video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
 source frame number and the render frame number above every row, with the render's audio. Every subject has
 one colour: an outline for the tracked mask, a solid fill for what was taken from the still, a light fill for
-the margin regenerated round it, and white boxes on margin cells that were given back to somebody else.
+the margin regenerated round it, and white boxes on margin cells that were given back to somebody else. Under
+the rows is a panel read from the same tables: the frame number large, each subject's mask and part, each
+run's region against its subject, what it covers of anybody else, the change inside the region since the
+last frame for source and render, the preflight's flags that are live on that frame, the motion video the
+model was shown (`--motion`) or the word none, and the reference stills (`--still`). One frame pulled as a
+still should explain itself. The form follows the two reviews the owner called the best they had had
+(2026-10-09, a numbered tracked review and a vertical how-it-was-made cut, both made by session scripts that
+are gone or tied to one clip); colour by part and contacts are not in it yet.
 
 **What it does not hold.** Anything inside the tracker (its confidence, each call); the part model's own
 doubt; the matte and the held frames (their outputs are not saved by the previews this reads); the token
@@ -146,6 +153,8 @@ COLOURS = ((60, 220, 90), (255, 70, 220), (255, 170, 40), (70, 150, 255), (240, 
 WHITE, DIM, AMBER, GREEN = (255, 255, 255), (150, 150, 150), (255, 170, 60), (90, 230, 110)
 SOLID, LIGHT = 0.55, 0.28      # the two fills' strengths; reasoned: both readable over a dimmed picture
 HEADER, ZOOM_MIN = 44, 192     # the strip above each row, and the smallest zoom box, in pixels; reasoned
+PANEL = 392                    # the band of numbers under the rows, in pixels; reasoned: fits a 4:3 tile and ten lines
+LEVEL_COLOURS = {"likely fine": (150, 150, 150), "iffy": (255, 190, 60), "likely to fail": (255, 90, 90)}
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 MONO = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
 
@@ -1028,8 +1037,26 @@ def video(a: argparse.Namespace) -> None:
     boxes = zoom_boxes(focus, (w, h))
     z = h                                             # the zoom tile is the row's height, square
     row_h, n_rows = h + HEADER, 3 if render else 2
-    canvas_w, canvas_h = w + z, row_h * n_rows
+    canvas_w, canvas_h = w + z, row_h * n_rows + PANEL
     big, text, small = ImageFont.truetype(MONO, 30), ImageFont.truetype(FONT, 22), ImageFont.truetype(FONT, 17)
+    huge, line = ImageFont.truetype(MONO, 92), ImageFont.truetype(FONT, 19)
+    # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
+    table = {s["label"]: [r for r in json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
+                          if r["seen_by"] == next(x for x in m["subjects"] if x["label"] == s["label"])["sightings"][0]["by"]]
+             for s in subjects}
+    run_table = {r["name"]: json.loads((folder / "runs" / r["name"] / "per_frame.json").read_text())["rows"] for r in runs}
+    flags = json.loads((folder / "flags.json").read_text())["flags"] if (folder / "flags.json").is_file() else None
+    starts = sorted(int(x) for x in a.windows.split(",")) if a.windows else []
+    stills = []
+    for item in a.still:
+        label, _, path = item.partition("=")
+        pic = Image.open(path)
+        pic = pic.convert("RGB").resize((max(1, round(pic.width * 150 / pic.height)), 150))
+        stills.append((label, pic))
+    motions = stream(a.motion, (456, 342), skip, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
+                     pix="rgb24") if a.motion else None
+    region_px = [cells_up(r["region"]) for r in runs]
+    before = None
     lines = legend_lines(subjects, runs)
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
     audio = ["-i", render] if render else ["-ss", f"{first / FPS:.6f}", "-i", str(source)]
@@ -1074,6 +1101,83 @@ def video(a: argparse.Namespace) -> None:
                 d.text((38 + dx, ly + dy), label, font=small, fill=(0, 0, 0))
             d.text((38, ly), label, font=small, fill=WHITE)
             ly += 24
+        # ---- the panel: one frame of it should explain itself
+        py = n_rows * row_h
+        d.line([(0, py), (canvas_w, py)], fill=DIM)
+        d.text((14, py + 6), f"{first + n:05d}", font=huge, fill=WHITE)
+        d.text((16, py + 104), f"source frame     {(first + n) / FPS:.2f} s", font=line, fill=DIM)
+        d.text((16, py + 130), f"render frame {skip + n:04d}" if render else "nothing rendered: a preview", font=text, fill=WHITE)
+        if starts:
+            window = sum(skip + n >= x for x in starts)
+            d.text((16, py + 160), f"window {window} of {len(starts)}", font=line, fill=WHITE)
+            d.text((16, py + 184), "new frames from " + ", ".join(str(x) for x in starts), font=small, fill=DIM)
+        d.text((16, py + 214), said[0] or "no voice table", font=text, fill=said[1])
+        inside = np.zeros((h, w), bool)
+        for px in region_px:
+            inside |= px[n]
+        grey = [cv2.cvtColor(t, cv2.COLOR_RGB2GRAY).astype(np.int16) for t in (tiles[0], tiles[-1])]
+        both = inside & before[2] if before is not None else inside
+        moved = None if before is None or not both.any() else (float(np.abs(grey[0] - before[0])[both].mean()),
+                                                               float(np.abs(grey[1] - before[1])[both].mean()))
+        before = (grey[0], grey[1], inside)
+        tx, ty = 330, py + 10
+        for sub_ in subjects:
+            r = table[sub_["label"]][n]
+            note = "no mask video on this frame" if not r["covered"] else (
+                f"mask {100 * r['track_share']:.2f}% of the frame" + (f", in {r['track_pieces']} pieces" if r.get("track_pieces", 1) > 1 else "")
+                + (f"; part {100 * r['parts_share']:.2f}%, {100 * (r.get('parts_inside_track') or 0):.0f}% of it on the subject"
+                   if r.get("parts_share") is not None else ""))
+            d.rectangle([tx, ty + 4, tx + 14, ty + 18], outline=sub_["colour"], width=3)
+            d.text((tx + 24, ty), f"{sub_['label']}: {note}", font=line, fill=WHITE)
+            ty += 25
+        for r_ in runs:
+            r = run_table[r_["name"]][n]
+            if r.get("region_share"):
+                own = table[r_["subject"]][n].get("track_share") or 0
+                d.text((tx, ty), f"{'plan' if r_.get('planned') else 'run'} {r_['name']}: region {100 * r['region_share']:.1f}% of the frame"
+                       + (f", {r['region_share'] / own:.1f}x {r_['subject']}'s mask" if own else "")
+                       + f"; {100 * r['margin_share'] / r['region_share']:.0f}% of it is not the mask taken", font=line, fill=WHITE)
+            else:
+                d.text((tx, ty), f"{r_['name']}: nothing regenerates on this frame", font=line, fill=AMBER)
+            ty += 25
+            for key, value in rows[n].items():
+                if key.startswith(f"region_on__{r_['name']}__") and value not in ("", None) and float(value) > 0:
+                    other = key.rsplit("__", 1)[1]
+                    back = rows[n].get(f"cells_given_back__{r_['name']}__{other}") or 0
+                    d.text((tx + 24, ty), f"covers {100 * float(value):.0f}% of {other}'s mask; {int(float(back))} margin cells given back",
+                           font=line, fill=AMBER)
+                    ty += 25
+        if moved is not None:
+            d.text((tx, ty), f"change in the region since the last frame: source {moved[0]:.1f}"
+                   + (f", render {moved[1]:.1f}" if render else "") + " grey levels", font=line, fill=WHITE)
+            ty += 25
+        if flags is None:
+            d.text((tx, ty + 4), "no preflight was run on this capture", font=small, fill=DIM)
+        else:
+            live = [f for f in flags if any(x <= first + n <= y for x, y in f["source_frames"]) and f["level"] != LEVELS[0]]
+            if not live:
+                d.text((tx, ty + 4), "no flag on this frame", font=small, fill=DIM)
+            for f in live[:max(1, (py + PANEL - ty - 8) // 23)]:
+                words = f"{f['id']} {f['level'].upper()}: {f['why']}"
+                while d.textlength(words, font=small) > 1000 - tx and len(words) > 20:
+                    words = words[:-8] + "..."
+                d.text((tx, ty + 4), words, font=small, fill=LEVEL_COLOURS[f["level"]])
+                ty += 23
+        mx = 1010
+        d.text((mx, py + 8), "movement, as the model was shown it", font=small, fill=AMBER)
+        if motions is not None:
+            shown = next(motions, None)
+            if shown is not None:
+                img.paste(Image.fromarray(shown), (mx, py + 34))
+        else:
+            d.text((mx, py + 150), "none: this run has no motion video" if not a.motion_note else a.motion_note, font=line, fill=DIM)
+        sx = 1484
+        d.text((sx, py + 8), "taken from" if stills else "", font=small, fill=AMBER)
+        sy = py + 34
+        for label, pic in stills:
+            img.paste(pic, (sx, sy))
+            d.text((sx + pic.width + 8, sy + 4), label, font=small, fill=WHITE)
+            sy += 158
         enc.stdin.write(np.asarray(img).tobytes())
         done = n + 1
         if n % 100 == 0:
@@ -1108,6 +1212,11 @@ def main() -> None:
     v.add_argument("--render", help="the render shown in the bottom row; two rows without one")
     v.add_argument("--render-first", type=int, help="the source frame that is the render's frame 0, when the render "
                    "is not one of the capture's runs (a merged file, say); a run's own is in the manifest")
+    v.add_argument("--motion", help="the motion video the run was given, frame 0 its first frame, shown in the panel")
+    v.add_argument("--motion-note", default="", help="words for the panel when there is no motion video file to show")
+    v.add_argument("--still", action="append", default=[], metavar="LABEL=IMAGE", help="a reference still and the subject "
+                   "it belongs to, shown small in the panel; repeatable")
+    v.add_argument("--windows", help="the render frames where each window's new frames start, e.g. 0,345")
     v.add_argument("--all-runs", action="store_true", help="draw every run's region, also when --render is one run's")
     v.add_argument("--out")
     g = sub.add_parser("preflight", help="the risks in a capture folder, before a render: writes flags.json")
