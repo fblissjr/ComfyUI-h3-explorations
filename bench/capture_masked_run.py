@@ -439,9 +439,17 @@ def segments_in_region(first: int, region: np.ndarray, carried: np.ndarray, clas
 #: one of those over a half had a saved part beside it that read higher. The bar is a half, with "the higher
 #: of the two" doing the rest.
 HOLD_INSIDE = 0.5
+# The least area a part has and is still loaded: two tokens a side (a token is 32 px of the canvas). Reasoned: under
+# that the model has nothing to draw the part in. Held once against a reading by eye (2026-10-10, two face loads of
+# one clip, every frame, by a session that did not make the masks): on one load it empties exactly the frames the
+# reader called fragments; on the other it empties most of the stretch the reader cut and leaves a few frames of
+# it standing. So it is a floor, not a judge of a part. The class map cannot see these frames: it calls the
+# fragment the part's own class, which is how the part came to be there.
+PART_LEAST_PX = 4 * 32 * 32
 
 
-def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int]) -> tuple[np.ndarray, dict[int, dict]]:
+def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int],
+                least_px: int = 0) -> tuple[np.ndarray, dict[int, dict]]:
     """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
 
     A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
@@ -454,7 +462,10 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
     what was done and both scores.
 
     What it cannot see: a frame where the class map itself is wrong. A class map that calls a blurred
-    figure the part's class scores the saved part high; `drop=` is still the caller's."""
+    figure the part's class scores the saved part high; `drop=` is still the caller's. One case of that it
+    does catch, by size: a part left under `least_px` (`PART_LEAST_PX`) is emptied, whatever the class map
+    says of it, and the decision says how many pixels it had. An emptied frame is then a frame with no part,
+    which the gate names at its top level."""
     own = np.isin(classes, made)
     out, decisions = parts.copy(), {}
 
@@ -473,6 +484,12 @@ def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made
         else:
             out[f], did = False, "emptied"
         decisions[f] = {"did": did, "saved_on_its_classes": saved, "fill_on_its_classes": fill}
+    for f in range(len(parts)):
+        px = int(out[f].sum())
+        if 0 < px < least_px:
+            out[f] = False
+            decisions[f] = {**decisions.get(f, {"saved_on_its_classes": inside(parts[f], f), "fill_on_its_classes": None}),
+                            "did": "emptied", "why": "too small to be drawn as the part", "px": px, "least_px": least_px}
     return out, decisions
 
 
@@ -1099,7 +1116,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     every, doubted, _ = held_parts(track, parts, mine)
                     made = [names.index(c) for c in made_of.get(label, [])]
                     if m.get("grade") != "off":
-                        held, graded = grade_holds(parts, held, class_maps[label], made)
+                        held, graded = grade_holds(parts, held, class_maps[label], made, PART_LEAST_PX)
                         held_frames = [f for f, d in graded.items() if d["did"] == "filled"]
                         refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
                         emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]

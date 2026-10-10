@@ -649,6 +649,12 @@ def graded_holds() -> str:
     half[0, 20:40, 50:70] = True                     # the fill: half on the part, half off, and larger
     kept, why = cap.grade_holds(face, half, classes, [2])
     assert (kept[0] == face[0]).all() and why[0]["did"].startswith("saved"), why[0]
+    # a part the class map vouches for, and too small to draw: emptied by size, with its pixels in the decision
+    small, said = cap.grade_holds(face, face, classes, [2], least_px=500)        # the face here is 400 px
+    assert not small[:4].any() and said[3] == {"saved_on_its_classes": 1.0, "fill_on_its_classes": None, "did": "emptied",
+                                               "why": "too small to be drawn as the part", "px": 400, "least_px": 500}, said[3]
+    large, quiet = cap.grade_holds(face, face, classes, [2], least_px=400)
+    assert (large[3] == face[3]).all() and 3 not in quiet, "a part at the least size was emptied"
     return ("a fill on an arm is refused where the saved part is right; a fill on the part replaces a saved part that is "
             "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
 
