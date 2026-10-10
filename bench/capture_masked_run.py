@@ -36,7 +36,8 @@ saves every mask output through `MaskToImage` writes exactly these. What it writ
                              same cells, two sightings of one subject against each other, and `voiced`
     subjects/<label>/        masks__<by>.npz (track, parts), per_frame.csv / .json, shots__<by>.json;
                              with a class map (`classes=`): classes__<by>.npz and segments.csv / .json, the
-                             pixels of each segment `<label>.<class>` per frame
+                             pixels of each segment `<label>.<class>` per frame; segments_whose.csv / .json,
+                             how many of them lie inside the subject's own track, another's, or neither
     runs/<run>/              region.npz (the region in latent cells, and the mask the review shows as
                              carried), per_frame.csv / .json, graph.json (read from the render's picture);
                              segments_in_region.csv / .json: every segment inside the region that is not
@@ -170,6 +171,9 @@ REGION_ON_OTHER = 0.05
 #: A segment with fewer pixels than this inside a region is its edge and is not flagged. Reasoned: under a
 #: quarter of one latent cell.
 SEGMENT_PX = 64
+#: A segment a plan relies on with under this share of its pixels inside its subject's own tracked mask is
+#: flagged as possibly somebody else's. Reasoned: more of it outside the subject than inside.
+OWN_SHARE = 0.5
 #: The least a held render must differ from the source over the look's area, in grey levels, for the look
 #: figure to be read. Reasoned: several times the codec's own difference on an untouched pixel.
 LOOK_LIFT = 10.0
@@ -273,6 +277,31 @@ def segment_rows(label: str, by: str, first: int, classes: np.ndarray, names: tu
     present = [k for k in range(1, len(names)) if counts[:, k].any()]
     return [{"frame": n, "source_frame": first + n, "subject": label, "seen_by": by,
              **{f"{label}.{names[k]}": int(counts[n, k]) for k in present}} for n in range(len(classes))]
+
+
+def whose_rows(label: str, first: int, classes: np.ndarray, own: np.ndarray, others: dict[str, np.ndarray],
+               names: tuple[str, ...]) -> list[dict]:
+    """One row a frame and segment: of a class's pixels on this subject, how many lie inside the subject's own
+    tracked mask, inside another subject's, and in neither.
+
+    The part node cuts its class map to the subject's mask WIDENED by its margin, so a class says what a thing
+    is and, within that margin of the outline, not whose: a neighbour's hand lying along the subject's outline
+    is labelled a hand of the subject's (measured 2026-10-10: on one frame 81% of a "hand" was in the band and
+    57% of it inside the other subject's mask). `in_other` is the largest count over the other subjects, with
+    its label; a pixel inside both masks counts as the subject's own."""
+    rows = []
+    for n in range(len(classes)):
+        counts = np.bincount(classes[n].ravel(), minlength=len(names))
+        for k in np.nonzero(counts[1:len(names)])[0] + 1:
+            px = classes[n] == k
+            mine = int((px & own[n]).sum())
+            theirs = {o: int((px & t[n] & ~own[n]).sum()) for o, t in others.items()}
+            who = max(theirs, key=theirs.get) if theirs else None
+            rows.append({"frame": n, "source_frame": first + n, "segment": f"{label}.{names[k]}", "px": int(counts[k]),
+                         "in_own_track": mine, "in_other_track": theirs[who] if who else 0, "other": who if who and theirs[who] else None,
+                         "in_neither": int(counts[k]) - mine - int(np.logical_or.reduce([px & t[n] & ~own[n] for t in others.values()]).sum()
+                                                                    if others else 0)})
+    return rows
 
 
 def segments_in_region(first: int, region: np.ndarray, carried: np.ndarray, classes: dict, names: tuple[str, ...]) -> list[dict]:
@@ -690,6 +719,12 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     for label, seen in sightings.items():
         rows = [row for by, (track, covered, parts) in seen.items() for row in subject_rows(label, by, first, track, covered, parts)]
         write_table(out / "subjects" / label / "per_frame", rows)
+        if label in class_maps:
+            # only other subjects that are things with a class map of their own: a kept-out mask is not a "who"
+            theirs = {o: next(iter(x.values()))[0] for o, x in sightings.items() if o != label and o in class_maps}
+            write_table(out / "subjects" / label / "segments_whose",
+                        whose_rows(label, first, class_maps[label], next(iter(seen.values()))[0], theirs,
+                                   _pack("sapiens2_parts").CLASS_NAMES))
     captured: dict = {}
     for name, r in [(n, {**x, "planned": False}) for n, x in runs] + [(n, {**x, "planned": True}) for n, x in plans]:
         label, others = r["subject"], [o for o in r.get("others", "").split("+") if o]
@@ -1079,6 +1114,29 @@ def flag_segments(manifest: dict, folder: Path) -> list[dict]:
                                f"{int(gone.sum())} frame(s) while {s['label']} is there: turned away or hidden. There is "
                                "nothing to replace on them; do not fill the part there",
                         "figures": {"frames": int(gone.sum()), "absent": int((there & (px == 0)).sum())}, "threshold": {"PART_SIZE": PART_SIZE}})
+    relied_on = {f"{s['label']}.{c}" for s in manifest["subjects"] for c in (s["sightings"][0].get("part_is_made_of") or [])}
+    for run in manifest["runs"]:
+        path = folder / "runs" / run["name"] / "segments_in_region.json"
+        if path.is_file():
+            relied_on |= {k[:-len("__px")] for r in json.loads(path.read_text())["rows"] for k in r if k.endswith("__px") and r[k] >= SEGMENT_PX}
+    for s in manifest["subjects"]:
+        path = folder / "subjects" / s["label"] / "segments_whose.json"
+        if not path.is_file():
+            continue
+        by_segment: dict = {}
+        for r in json.loads(path.read_text())["rows"]:
+            if r["segment"] in relied_on and r["px"] >= SEGMENT_PX and r["in_own_track"] < OWN_SHARE * r["px"]:
+                by_segment.setdefault(r["segment"], []).append(r)
+        for segment, hit in sorted(by_segment.items()):
+            worst = max(hit, key=lambda r: r["in_other_track"] / r["px"])
+            out.append({"rule": "segment_mostly_outside_its_own_track", "level": LEVELS[1], "subject": s["label"], "segment": segment,
+                        "source_frames": frame_spans([r["source_frame"] for r in hit], join=RECENT),
+                        "why": f"on {len(hit)} frame(s) most of {segment} is not inside {s['label']}'s own tracked mask"
+                               + (f"; at worst {100 * worst['in_other_track'] / worst['px']:.0f}% of it is inside {worst['other']}'s "
+                                  f"(source frame {worst['source_frame']}): it may be theirs" if worst["in_other_track"] else
+                                  ": it lies in the margin round the outline") + ". A class says what a thing is, not whose",
+                        "figures": {"frames": len(hit), "worst_share_in_another": round(worst["in_other_track"] / worst["px"], 3),
+                                    "other": worst["other"]}, "threshold": {"OWN_SHARE": OWN_SHARE}})
     for run in manifest["runs"]:
         path = folder / "runs" / run["name"] / "segments_in_region.json"
         if not path.is_file():

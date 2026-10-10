@@ -33,7 +33,8 @@ overlaps and margins can be counted by hand and reads the rows back.
 9. **Segments.** From a class map: the classes a part mask is made of are read back from the mask; each
    segment `<label>.<class>` has its pixels per frame; what lies inside a run's region and is not the carried
    part is counted in pixels and cells, the subject's own and another subject's; and a segment kept out of
-   the margin is no longer inside (the control).
+   the margin is no longer inside (the control). A class labelled on one subject in the strip beside its
+   outline, inside another subject's track, is counted as inside the other's and none of its own.
 8. **The held part.** On a subject that moves a pixel a frame, a part emptied on one frame and put at the
    subject's feet on another is filled exactly from its neighbours; every other frame is byte for byte what
    was given; with frames chosen by the caller only those are filled; a part with nothing wrong is not
@@ -280,6 +281,13 @@ def segments() -> str:
     assert "a.Face__px" not in inside, "the carried part was counted as something else inside the region"
     assert inside["a.Hair__px"] == 512 and inside["a.Hair__cells"] == 2, inside
     assert inside["b.Hand__px"] == 256 and inside["b.Hand__cells"] == 1, inside
+    track_a, track_b = rect(32, 16, 64, 48), rect(64, 32, 96, 64)
+    reach = mine.copy()
+    reach[:, 32:48, 64:72] = 3                      # a hand labelled on a, in the strip beside a's outline, inside b's track
+    whose = {r["segment"]: r for r in cap.whose_rows("a", 100, reach, track_a, {"b": track_b}, names) if r["frame"] == 0}
+    assert whose["a.Face"]["in_own_track"] == 512 and whose["a.Face"]["in_other_track"] == 0 and whose["a.Face"]["in_neither"] == 0, whose["a.Face"]
+    assert whose["a.Hand"] == {"frame": 0, "source_frame": 100, "segment": "a.Hand", "px": 128, "in_own_track": 0, "in_other_track": 128,
+                               "other": "b", "in_neither": 0}, whose["a.Hand"]
     picked = cap.class_mask_of(mine, ["Hair"], names)
     assert picked.sum() == N * 512 and not (picked & part).any(), "the class mask of Hair is not the hair"
     kept = cap.planned_region(part, [theirs > 0], MARGIN, _grow(), whole_tokens=False)
