@@ -41,6 +41,21 @@ Without weights, on the CPU:
                                  renamed there, ours would never be called and
                                  the hands would go back to ComfyUI's crop.
 
+  marks_are_read_from_the_rig    the `marked` style's parts on a made-up rest
+                                 pose: the head is what lies nearer the ears
+                                 than the neck is, its face side what lies in
+                                 front of the ears, a hand goes to the nearer
+                                 wrist and wins over the head.
+
+  marks_file_reads_back          `body_marks.json` reads for its own vertex
+                                 count, names every part, and is refused with a
+                                 reason for a body of another size or a file that
+                                 is not one; what is written reads back the same;
+                                 and a pose pass has nothing to do with marks
+                                 (`predict` does not name them, its pose data
+                                 does not carry them), so a pass cannot be lost
+                                 to them.
+
 Three more, from mrcorn's cold read of `body_pose.py` (2026-10-10), on a
 stand-in model that says back which frame's pixels and which box each crop
 was made from, so they need no weights:
@@ -68,6 +83,18 @@ of CPU):
   mesh_is_where_the_camera_puts_it  every vertex projected by the predicted camera
                                  lands on the drawn silhouette, and the two
                                  bounding boxes agree to a pixel.
+  marked_is_the_mesh_with_parts_painted  with nothing marked, our own draw is
+                                 the public function's, pixel for pixel (it uses
+                                 pieces private to ComfyUI's module, so this is
+                                 what says they still mean the same), for one
+                                 person and for several in one frame; the marks
+                                 in `body_marks.json` are what the rig gives now
+                                 (`--write-marks` writes the file); marked, it
+                                 changes only where a part is, to the flat
+                                 colours and nothing else; each hand's colour is
+                                 on its own wrist; and a head turned to face the
+                                 camera is nearly all face, turned away nearly
+                                 none.
 
 The second sample is one frame of a video, decoded here with OpenCV. If this
 machine's decoder gives other pixels than the fixture's hash, that image's
@@ -107,6 +134,7 @@ sys.path.insert(0, str(HERE))
 from _lib import COMFY, REPO, bootstrap, card_visible, case, finish, in_sweep, needs, server_memory_mode, skip  # noqa: E402
 
 ON_CARD = "--card" in sys.argv[1:]
+WRITE_MARKS = "--write-marks" in sys.argv[1:]
 if ON_CARD:
     needs("to be run by hand: --card holds memory on the card beside the server", not in_sweep())
     needs("a CUDA device for --card", card_visible())
@@ -364,6 +392,91 @@ def opencv_missing_is_said():
             sys.modules["cv2"] = kept
 
 
+def marks_are_read_from_the_rig():
+    points = np.zeros((70, 3), dtype=np.float64)
+    points[3], points[4] = [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]         # the ears, either side of the origin
+    points[0] = [0.0, 0.0, 2.0]                                      # the nose, straight ahead along z
+    points[69] = [0.0, -3.0, 0.0]                                    # the neck: the head reaches 3 from the ears' midpoint
+    points[41], points[62] = [-10.0, -5.0, 0.0], [10.0, -5.0, 0.0]   # right wrist, left wrist
+    rest = np.array([[0.0, 0.0, 1.0],       # in front of the ears: face
+                     [0.0, 0.0, -1.0],      # behind them: head
+                     [0.0, 2.9, -0.1],      # the crown, just behind the line: head
+                     [0.0, 0.0, 3.5],       # further than the neck is: body
+                     [-9.0, -5.0, 0.0],     # by the right wrist, a hand vertex
+                     [9.0, -5.0, 0.0],      # by the left wrist, a hand vertex
+                     [-9.0, -5.0, 0.0],     # by the right wrist, not a hand vertex: body
+                     [0.2, 0.0, 0.5]])      # inside the head and called a hand: the hand wins
+    hands = np.array([False, False, False, False, True, True, False, True])
+    got = [bp.MARKS[m] for m in bp.rest_marks(rest, points, hands)]
+    want = ["face", "head", "head", "", "right hand", "left hand", "", "left hand"]
+    assert got == want, f"{got}, not {want}"
+    assert set(bp.MARK_COLOURS) == set(bp.MARKS) - {""} and bp.STYLES[-1] == "marked", "a mark with no colour, or the style is not offered"
+    assert len({tuple(v) for v in bp.MARK_COLOURS.values()}) == len(bp.MARK_COLOURS), "two parts share a colour"
+    # the words the legend uses are the colours that are drawn: each word's own channels lead in its value
+    leads = {"yellow": lambda r, g, b: r > 200 and g > 200 and b < 60, "blue": lambda r, g, b: b > 200 and r < 60,
+             "red": lambda r, g, b: r > 200 and g < 60 and b < 60, "green": lambda r, g, b: g > 150 and r < 60 and b < 60}
+    for part, word in bp.MARK_WORDS.items():
+        assert leads[word](*bp.MARK_COLOURS[part]), f"the {part} is called {word} and drawn {bp.MARK_COLOURS[part]}"
+    said = bp.legend("marked")
+    assert set(bp.MARK_WORDS) == set(bp.MARK_COLOURS) and all(word in said for word in bp.MARK_WORDS.values()), said
+    assert said.index(bp.MARK_WORDS["right hand"]) < said.index("right hand") < said.index(bp.MARK_WORDS["left hand"]), said
+    assert bp.legend("mesh") == "" and bp.legend("silhouette") == "", "a style with no colours has no legend"
+    outputs = bp.MiniMaxH3BodyMeshVideo.define_schema().outputs
+    assert [o.display_name for o in outputs] == ["frames", "legend"], "the mesh video's outputs are frames, then the legend"
+
+
+def marks_file_reads_back():
+    import inspect
+    import tempfile
+    held = json.loads(bp.MARKS_FILE.read_text())
+    marks = bp.marks_from_file(held["vertices"])
+    assert marks.dtype == np.uint8 and marks.shape == (held["vertices"],)
+    assert set(np.unique(marks).tolist()) == set(range(len(bp.MARKS))), "a part has no vertex in the file"
+    assert held["face_from"] == bp.FACE_FROM, "the file was written under another line between face and head: --write-marks"
+    rng = np.random.default_rng(0)
+    made = rng.integers(0, len(bp.MARKS), size=257).astype(np.uint8)
+    with tempfile.TemporaryDirectory() as folder:
+        other = Path(folder) / "marks.json"
+        other.write_text(json.dumps(bp.marks_as_file(made)))
+        assert np.array_equal(bp.marks_from_file(257, other), made), "what is written does not read back"
+        refusals = {"another size": lambda: bp.marks_from_file(256, other),
+                    "no file": lambda: bp.marks_from_file(257, Path(folder) / "absent.json")}
+        other2 = Path(folder) / "broken.json"
+        short = bp.marks_as_file(made)
+        short["runs"] = short["runs"][:-1]
+        other2.write_text(json.dumps(short))
+        refusals["runs that do not add up"] = lambda: bp.marks_from_file(257, other2)
+        for k, (name, runs) in enumerate((("a part it does not list", [[len(bp.MARKS), 257]]), ("a mark below zero", [[-1, 257]]),
+                                          ("a mark too big for a byte", [[257, 257]]), ("a mark that is not whole", [[1.7, 257]]),
+                                          ("a count that is not whole", [[1, 256.9]]), ("a run that is not a pair", [[1]]))):
+            odd = Path(folder) / f"odd{k}.json"
+            odd.write_text(json.dumps(dict(bp.marks_as_file(made), runs=runs)))
+            refusals[name] = lambda odd=odd: bp.marks_from_file(257, odd)
+        a_list = Path(folder) / "list.json"
+        a_list.write_text("[1, 2, 3]")
+        refusals["a file that is a list"] = lambda: bp.marks_from_file(257, a_list)
+        for name, call in refusals.items():
+            try:
+                call()
+            except ValueError as exc:
+                assert "no marks for the body's parts" in str(exc), exc
+            else:
+                raise AssertionError(f"{name}: read without a word")
+    assert "marks" not in inspect.getsource(bp.predict), "the pose pass names the marks: a pass could be lost to them"
+    # a pose from the stand-in model, whose body is one triangle: every plain style draws, the marked one is refused
+    pose, _, _ = _predict([[_A]], hands=False)
+    assert set(pose) == {"frames", "faces", "image_size"}, f"the pose data carries more than a pose: {sorted(pose)}"
+    assert bp.render(pose, style="mesh").shape[0] == 1
+    try:
+        bp.render(pose, style="marked")
+    except ValueError as exc:
+        assert "vertices" in str(exc), exc
+    else:
+        raise AssertionError("a body that is not the rig's was drawn marked")
+    nobody = bp.render({"frames": [[]], "faces": pose["faces"], "image_size": pose["image_size"]}, style="marked")
+    assert nobody.shape[0] == 1 and float(nobody.abs().max()) == 0.0, "nobody on any frame is black in every style"
+
+
 def hand_crops_are_still_ours():
     import inspect
     from comfy.ldm.sam3d_body.model.model import SAM3DBody
@@ -461,14 +574,23 @@ def every_person_is_from_its_own_frame_and_box():
 
 def as_many_frames_out_as_in_and_black_where_nobody_is():
     """mrcorn: a body before an empty frame; both styles, both sizes; the table one row a frame, on the source's numbers."""
+    import tempfile
     pose, extras, notes = _predict(_PEOPLE, hands=False)
     want = [bool(b) for b in _PEOPLE]
-    for style in bp.STYLES:
-        for size, w, h in ((bp.SIZES[0], 0, 0), (bp.SIZES[1], 96, 64)):
-            drawn = bp.render(pose, style=style, size=size, width=w, height=h)
-            assert len(drawn) == len(_PEOPLE), f"{len(drawn)} frames drawn from {len(_PEOPLE)} ({style}, {size})"
-            lit = [float(d.abs().max()) > 0 for d in drawn]
-            assert lit == want, f"lit {lit} where people are {want} ({style}, {size})"
+    keep = bp.MARKS_FILE
+    with tempfile.TemporaryDirectory() as folder:
+        # the stand-in's body is one triangle, so the marked style is given a marks file for a triangle: all face
+        bp.MARKS_FILE = Path(folder) / "marks.json"
+        bp.MARKS_FILE.write_text(json.dumps(bp.marks_as_file(np.full(3, bp.MARKS.index("face"), np.uint8))))
+        try:
+            for style in bp.STYLES:
+                for size, w, h in ((bp.SIZES[0], 0, 0), (bp.SIZES[1], 96, 64)):
+                    drawn = bp.render(pose, style=style, size=size, width=w, height=h)
+                    assert len(drawn) == len(_PEOPLE), f"{len(drawn)} frames drawn from {len(_PEOPLE)} ({style}, {size})"
+                    lit = [float(d.abs().max()) > 0 for d in drawn]
+                    assert lit == want, f"lit {lit} where people are {want} ({style}, {size})"
+        finally:
+            bp.MARKS_FILE = keep
     table = bp.pose_table(pose, extras, notes, camera=bp.CAMERAS[0], fov_degrees=55.0, hands=False, subject="s", first_source_frame=604)
     assert [r["source_frame"] for r in table["frames"]] == list(range(604, 604 + len(_PEOPLE)))
     assert [len(r["people"]) for r in table["frames"]] == [len(b) for b in _PEOPLE]
@@ -629,16 +751,94 @@ def where_it_ran():
     return f"device {mm.get_torch_device()}, computed in {bp.MODEL_DTYPE}, weights stored as {', '.join(stored)}"
 
 
+def marked_is_the_mesh_with_parts_painted():
+    import comfy.model_management as mm
+    flat = {name: np.array(colour, dtype=np.float32) / 255.0 for name, colour in bp.MARK_COLOURS.items()}
+    notes = []
+    from_rig = bp.vertex_marks(patcher().model)
+    marks = bp.marks_from_file(from_rig.shape[0])
+    assert np.array_equal(marks, from_rig), (f"body_marks.json is not what the rig gives now ({int((marks != from_rig).sum())} "
+                                             "vertices differ): bench/check_body_pose.py --write-marks, and look at a drawing")
+    for label in SAMPLES:
+        _, pose, _, _ = predicted(label)
+        assert marks.shape == (np.asarray(pose["frames"][0][0]["pred_vertices"]).shape[0],), "one mark a vertex"
+        for k in range(1, len(pose["frames"][0])):
+            one = dict(pose, frames=[[pose["frames"][0][k]]])
+            mesh = bp.render(one, style="mesh")[0].float().cpu()
+            height, width = mesh.shape[:2]
+            unmarked = bp.draw_marked(one, 0, width, height, {}, np.zeros_like(marks)).cpu()
+            assert torch.equal(unmarked, mesh), (f"{label} box {k}: with nothing marked our draw is not ComfyUI's public one "
+                                                 f"(largest difference {float((unmarked - mesh).abs().max()):.4f}): its module changed")
+            marked = bp.render(one, style="marked")[0].float().cpu()
+            changed = (marked != mesh).any(dim=-1)
+            assert bool(changed.any()), f"{label} box {k}: the marked style changed nothing"
+            painted = marked[changed].numpy()
+            nearest = np.min([np.abs(painted - colour).max(axis=1) for colour in flat.values()], axis=0)
+            assert float(nearest.max()) < 1e-3, f"{label} box {k}: a changed pixel is not one of the flat colours (off by {float(nearest.max()):.3f})"
+            person = one["frames"][0][0]
+            verts, points = np.asarray(person["pred_vertices"], dtype=np.float64), np.asarray(person["pred_keypoints_3d"], dtype=np.float64)
+            for name, own, other in (("right hand", 41, 62), ("left hand", 62, 41)):
+                centre = verts[marks == bp.MARKS.index(name)].mean(axis=0)
+                assert np.linalg.norm(centre - points[own]) < np.linalg.norm(centre - points[other]), f"{label} box {k}: the {name}'s colour is on the other wrist"
+            notes.append(f"{float(changed.float().mean()) * 100:.1f}%")
+    # several people in one frame share one depth buffer: unmarked it is still the public draw, marked still only flat
+    _, pose, _, _ = predicted("office_frame60")
+    together = dict(pose, frames=[pose["frames"][0][1:]])
+    mesh = bp.render(together, style="mesh")[0].float().cpu()
+    unmarked = bp.draw_marked(together, 0, mesh.shape[1], mesh.shape[0], {}, np.zeros_like(marks)).cpu()
+    assert torch.equal(unmarked, mesh), "several people in one frame: with nothing marked our draw is not ComfyUI's public one"
+    marked = bp.render(together, style="marked")[0].float().cpu()
+    painted = marked[(marked != mesh).any(dim=-1)].numpy()
+    assert len(painted) and float(np.min([np.abs(painted - colour).max(axis=1) for colour in flat.values()], axis=0).max()) < 1e-3, \
+        "several people in one frame: a changed pixel is not one of the flat colours"
+    # one person turned about the vertical through their own head: facing the camera nearly all face, away nearly none
+    person = pose["frames"][0][2]
+    verts, points = np.asarray(person["pred_vertices"], dtype=np.float64), np.asarray(person["pred_keypoints_3d"], dtype=np.float64)
+    ears = (points[3] + points[4]) / 2.0
+    to_nose = points[0] - ears
+    shares = {}
+    for name, want in (("towards", np.array([0.0, 0.0, -1.0])), ("away", np.array([0.0, 0.0, 1.0])),
+                       ("side-on", np.array([1.0, 0.0, 0.0]))):
+        # the turn about the vertical that points the head's ears-to-nose direction along `want` (z grows away from the camera)
+        a = np.arctan2(want[0], want[2]) - np.arctan2(to_nose[0], to_nose[2])
+        turn = np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+        turned = dict(person, pred_vertices=((verts - ears) @ turn.T + ears).astype(np.float32))
+        image = bp.render(dict(pose, frames=[[turned]]), style="marked")[0].float().cpu().numpy()
+        yellow = int((np.abs(image - flat["face"]).max(axis=-1) < 1e-3).sum())
+        blue = int((np.abs(image - flat["head"]).max(axis=-1) < 1e-3).sum())
+        assert yellow + blue > 0, "no head was drawn"
+        shares[name] = yellow / (yellow + blue)
+    assert shares["towards"] > 0.9 and shares["away"] < 0.1, (f"the face side's share of the head is {shares['towards']:.2f} facing the camera "
+                                                              f"and {shares['away']:.2f} facing away; it should be nearly all and nearly none")
+    del mm
+    # side-on is printed and not held: FACE_FROM claims about half, and nobody has yet said what it should be (mrcorn)
+    return (f"frame share painted, per box: {', '.join(notes)}; face share of the head {shares['towards']:.2f} towards the camera, "
+            f"{shares['away']:.2f} away, {shares['side-on']:.2f} side-on (printed, not held)")
+
+
+def write_marks() -> int:
+    """`--write-marks`: the rig's marks, from the loaded model, into the file the `marked` style reads."""
+    marks = bp.vertex_marks(patcher().model)
+    bp.MARKS_FILE.write_text(json.dumps(bp.marks_as_file(marks), separators=(",", ":")) + "\n")
+    counted = {bp.MARKS[i] or "body": int((marks == i).sum()) for i in range(len(bp.MARKS))}
+    print(f"wrote {bp.MARKS_FILE.name}: {marks.size} vertices, {counted}")
+    return 0
+
+
 def main() -> int:
+    if WRITE_MARKS:
+        torch.set_grad_enabled(False)
+        return write_marks()
     print(f"bench/check_body_pose.py -- {'the card' if ON_CARD else 'CPU'}\n")
     torch.set_grad_enabled(False)
     without = (crop_is_metas_bit_for_bit, boxes_are_read_as_written, camera_is_one_of_two,
                table_says_what_was_predicted, threshold_is_the_models, drawing_scales_with_the_size,
-               no_comfy_sam_node_is_called, opencv_missing_is_said, hand_crops_are_still_ours,
+               no_comfy_sam_node_is_called, opencv_missing_is_said, marks_are_read_from_the_rig, marks_file_reads_back,
+               hand_crops_are_still_ours,
                every_person_is_from_its_own_frame_and_box, as_many_frames_out_as_in_and_black_where_nobody_is,
                a_box_that_is_not_a_person_draws_nothing)
     with_weights = (bodies_are_metas_within_floor, hands_decide_as_metas, nobody_is_nobody,
-                    mesh_is_where_the_camera_puts_it)
+                    mesh_is_where_the_camera_puts_it, marked_is_the_mesh_with_parts_painted)
     for fn in ((where_it_ran,) + with_weights) if ON_CARD else (without + with_weights):
         case(fn.__name__, fn)
     return finish()

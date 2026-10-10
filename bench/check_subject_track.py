@@ -1047,7 +1047,8 @@ def check_others(problems):
     if int(kept(0)[0].shape[0]) != 2 or int(kept(1)[0].shape[0]) != 0 or counts != {0: 0, 1: 2}:
         problems.append(f"others: exactly half on the held person is kept and a pixel more is not; got {counts}")
     text = st.others_report(got.shots, left_out, [5, 6, 7])
-    for need in ("lay mostly on a person another tracker holds", "[4] no subject", "on 3 frame(s): 5-7", "Nothing was cut"):
+    for need in ("lay mostly on a person another tracker holds", "[4] no subject", "on 3 frame(s): 5-7", "Nothing was cut",
+                 "[1] 1 person(s) on the tile's frame, 3, belong to another tracker and are not numbered"):
         if need not in text:
             problems.append(f"others: the report lacks {need!r}: {text!r}")
     table = st.shot_table.build(got, st.without_others(detect, held, {}), mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
@@ -1098,6 +1099,15 @@ def check_track_score(problems):
         pass
     if "track_step" in vars(tracker):
         problems.append("score: an error inside the tap left its wrapper on the tracker object")
+    # a wrapper the object already carried, and a tap inside a tap, are put back and not deleted (mrcorn)
+    theirs = lambda *a, **k: _SteppingTracker.track_step(tracker, *a, **k)  # noqa: E731
+    tracker.track_step = theirs
+    with st.ScoreTap(tracker) as outer:
+        with st.ScoreTap(tracker) as inner:
+            tracker.run([1.0, 2.0])
+    if vars(tracker).get("track_step") is not theirs or inner.seen != {0: 1.0, 1: 2.0} or outer.seen != {0: 1.0, 1: 2.0}:
+        problems.append("score: a tap deleted a wrapper that was on the object before it, or a tap inside a tap did not read")
+    del tracker.track_step
     for made, need in ((_SteppingTracker(twice=1), "more than once"), (_SteppingTracker(objects=2), "object scores on a frame"),
                        (object(), "no `track_step`"), (None, "no `track_step`")):
         with st.ScoreTap(made) as tap:
@@ -1175,14 +1185,14 @@ def check_track_score(problems):
                 if any(v is not None for v in read.values()) or len(scores.get("trouble", [])) != 2:
                     problems.append(f"score ({name}): scores {read} and trouble {scores.get('trouble')}; a run out of step gives none and says why")
                 continue
-            want = {f: (None if (skip_seed and f == 8) else float(f)) for f in range(4, 12)}
+            want = {f: (None if f == 8 else float(f)) for f in range(4, 12)}    # the seed frame is told, not judged: null
             if any((read[f] is None) != (want[f] is None) or (want[f] is not None and abs(read[f] - want[f]) > 1e-4) for f in want):
                 problems.append(f"score ({name}): frame f should score f, forwards and backwards from the seed; got {read}")
             if any(f in scores for f in (3, 12)) or scores.get("trouble"):
                 problems.append(f"score ({name}): scores outside the frames tracked, or trouble where there was none: {scores}")
             scores[5] = 99.0
             track(4, 8, 6, seed_mask)                        # a later track over some of the same frames replaces them
-            if abs(scores[5] - 5.0) > 1e-4 or abs(scores[9] - 9.0) > 1e-4:
+            if abs(scores[5] - 5.0) > 1e-4 or abs(scores[9] - 9.0) > 1e-4 or scores[6] is not None or scores[8] is not None:
                 problems.append(f"score ({name}): a later track did not replace the scores of the frames it covers, and only those")
     finally:
         if kept_module is None:

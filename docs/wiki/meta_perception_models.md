@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body)
+last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style)
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -270,6 +270,24 @@ each person's 3D keypoints in camera space, so one pose pass serves the mesh,
 the preflight and a motion measure. Still true and not fixed by the node:
 `first_source_frame` is a label the caller supplies, and nothing ties it to
 where a loader started.
+
+The mesh video has a third style, `marked` (2026-10-10, for the lane that
+wants state carried by a signal and not by a sentence): the grey body with
+the face side of the head, the back of it and each hand in flat colours
+(`body_pose.py::MARK_COLOURS`): the face side yellow, the back of the head
+blue, the person's right hand red, the left green. A text that uses these
+frames has to name the colours, and takes the sentence from the node's
+second output, `legend` (`body_pose.py::legend`), never from memory: the node
+is the one place that knows them. Which way a head faces is then an area of
+colour: on a public sample turned in the check, the face side is nearly all
+of the head towards the camera and nearly none away. Which vertex is which part is a fact
+about the rig, kept in `body_marks.json` and read only when the style is
+drawn, so a pose pass does nothing for it. It is drawn with pieces
+private to ComfyUI's rasteriser, since its public function lights any colour
+it is given; the check holds that with nothing marked our draw is the public
+one, pixel for pixel. Not known: whether the video model reads it at the few
+tokens a head covers, and whether the colours leak into a render. The mesh
+cannot show a mouth or an expression in any style.
 
 The differences found by reading, with what the run says of each:
 

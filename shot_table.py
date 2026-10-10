@@ -77,7 +77,8 @@ NUMBERING = ("person K is the K-th detection on the shot's shown frame, left to 
 
 #: What a shot's `track_score` holds, carried in every table.
 TRACK_SCORE_IS = ("the tracker's own score that its object is on the frame, per frame of the shot, as the tracker's "
-                  "number: over 0 it takes the object as present. null where no track was made or it could not be read")
+                  "number: over 0 it takes the object as present. null where no track was made, where it could not be "
+                  "read, and on a frame a track was seeded on, where the tracker was told and did not judge")
 
 #: The file endings `MiniMaxH3SaveShotTable` writes after `<prefix>_NNNNN`.
 SUFFIX_JSON, SUFFIX_TEXT, SUFFIX_SHEET = "_shots.json", "_shots.md", "_shots.png"

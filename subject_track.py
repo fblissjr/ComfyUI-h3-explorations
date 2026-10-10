@@ -1030,6 +1030,11 @@ def others_report(shots, left_out: dict[int, int], on_others: list[int]) -> str:
              "lay mostly on a person another tracker holds and were not candidates"]
     for number, shot in enumerate(shots, 1):
         there = sum(left_out.get(f, 0) for f in looked if shot.start <= f < shot.end)
+        on_tile = left_out.get(int(shot.shown), 0)
+        if on_tile:
+            # a correction is typed by the tile's numbers, and these people have none (mrcorn's cold read)
+            lines.append(f"[{number}] {on_tile} person(s) on the tile's frame, {shot.shown}, belong to another tracker and are "
+                         "not numbered: a correction's `person K` counts the people left")
         if there and shot.seed is None:
             lines.append(f"[{number}] no subject: every person compared there was another tracker's, or nobody was "
                          f"like enough ({there} detection(s) left out on the frames looked at)")
@@ -1056,7 +1061,7 @@ class ScoreTap:
 
     def __init__(self, tracker):
         self.tracker, self.seen, self.trouble = tracker, {}, ""
-        self._wrapped = False
+        self._wrapped, self._was = False, None
 
     def __enter__(self):
         step = getattr(self.tracker, "track_step", None)
@@ -1078,13 +1083,19 @@ class ScoreTap:
                 self.seen[int(frame)] = float(logits.detach().float().flatten()[0])
             return out
 
-        self.tracker.track_step = recording   # an attribute of this object only; the class is not touched
+        # an attribute of this object only; the class is not touched. Whatever the object itself already carried
+        # under that name (another wrapper, an outer tap) is remembered and put back, not deleted (mrcorn's cold read)
+        self._was = vars(self.tracker).get("track_step")
+        self.tracker.track_step = recording
         self._wrapped = True
         return self
 
     def __exit__(self, *exc):
         if self._wrapped:
-            del self.tracker.track_step
+            if self._was is None:
+                vars(self.tracker).pop("track_step", None)
+            else:
+                self.tracker.track_step = self._was
             self._wrapped = False
         return False
 
@@ -1330,8 +1341,11 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
         if track_scores is not None:
             count = int(images.shape[0])
             values, why = scores_for(tap.seen, tap.trouble, count, backwards=backwards)
+            # The frame a run is seeded on is GIVEN its mask, and the score the tracker returns there is the constant
+            # it writes for a frame it was told about, not a judgement. Written as null, or a reader would see
+            # "present, high" on exactly the frames a track or a re-find was seeded (mrcorn's cold read).
+            values[-1 if backwards else 0] = None
             for k, value in enumerate(values):
-                # the seed frame of a backward run is the forward run's too, and the forward run's score stands
                 if value is not None or (first + k) not in track_scores:
                     track_scores[first + k] = value
             if why:

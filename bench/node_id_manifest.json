@@ -120,7 +120,8 @@
     ],
     "node_id": "MiniMaxH3BodyMeshVideo",
     "outputs": [
-      "frames"
+      "frames",
+      "legend"
     ]
   },
   "MiniMaxH3BodyModelLoader": {

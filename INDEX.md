@@ -137,6 +137,7 @@ with none is a helper the others import.
 | [`LICENSE`](LICENSE) | MIT License |
 | [`README.md`](README.md) | ComfyUI-h3-explorations |
 | [`VISION.md`](VISION.md) | What this repo holds itself to |
+| [`body_marks.json`](body_marks.json) | which marked part each vertex of the body rig belongs to, at rest |
 | [`pyproject.toml`](pyproject.toml) | (TOML) |
 | [`uv.lock`](uv.lock) | (lock file) |
 

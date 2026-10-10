@@ -27,6 +27,18 @@ when the model's four tests passed, because the model copies it in with `torch.w
 hand, with the side of the hand's crop, which is the quantity the second of those tests compares with
 `HAND_BOX_THRESHOLD_PX`.
 
+**What the mesh video draws.** `mesh` and `silhouette` are ComfyUI's public drawing function, called as one.
+`marked` (2026-10-10) is the same lit grey body with four parts in flat colour, the face side of the head, the
+back of it, and each hand by side, so that at the few tokens a head covers in a reference video, which way it
+faces is an AREA of colour and not a shade, and the two hands can be told apart (`draw_marked`). Which vertex
+belongs to which part is a fact about the rig, the same for every person and frame, so it is not worked out when a
+pose is predicted or drawn: it is in `body_marks.json` beside this file, written once from the rig by
+`bench/check_body_pose.py --write-marks` (`vertex_marks`) and read only when the `marked` style is drawn. A pose
+pass runs nothing for it and its pose data carries nothing for it, so the style also draws a pose that came from
+ComfyUI's own node (mrcorn's cold read and mrpop, 2026-10-10: a pass must not be lost to a decoration). A prompt cannot use a colour it does not name, so the node hands out
+the sentence that names them (`legend`, from `MARK_WORDS`). It is a signal to test, not a default: whether a video model reads
+it, and whether its colours leak into a render, is not known.
+
 OpenCV is needed when a crop is made, not when the pack loads: `_cv2` raises with the package's name.
 
 Not here: mask conditioning (Meta's default is off), a field of view estimated from the picture, smoothing over
@@ -39,6 +51,7 @@ import logging
 import math
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -91,7 +104,24 @@ PARTS = {"head": tuple(range(0, 5)), "shoulders and elbows": (5, 6, 7, 8, 63, 64
          "hips": (9, 10), "knees and ankles": (11, 12, 13, 14), "feet": tuple(range(15, 21)),
          "right hand": tuple(range(21, 42)), "left hand": tuple(range(42, 63))}
 CAMERAS = ("image diagonal", "field of view")
-STYLES = ("mesh", "silhouette")
+STYLES = ("mesh", "silhouette", "marked")
+#: The `marked` style's flat colours, 0 to 255. Chosen (mrwolf's spec for the head-turn test, 2026-10-10): far from
+#: the mesh's grey and from each other, so that at a few tokens across a head the share of yellow against blue is
+#: the turn, the side the yellow sits on is its direction, and red against green tells the hands apart.
+MARK_COLOURS = {"face": (255, 220, 0), "head": (0, 90, 255), "right hand": (255, 0, 0), "left hand": (0, 200, 0)}
+#: The word for each of those colours, for `legend`: a text that leans on this style has to name the colours, and
+#: it takes them from here, never from someone's memory of them. `bench/check_body_pose.py` holds word against value.
+MARK_WORDS = {"face": "yellow", "head": "blue", "right hand": "red", "left hand": "green"}
+#: The rig's marks, one per vertex, as runs: written by `bench/check_body_pose.py --write-marks`, never by hand.
+MARKS_FILE = Path(__file__).resolve().parent / "body_marks.json"
+MARKS_SCHEMA = "h3_body_marks/1"
+#: A vertex's mark is an index into this; 0 is the rest of the body, drawn as `mesh` draws it.
+MARKS = ("", "face", "head", "right hand", "left hand")
+#: How far in front of the ears, as a share of the distance from the point between the ears to the nose, the line
+#: between the face side and the back of the head runs. Reasoned: at the ears a head seen side-on is half and half.
+#: (The rig's own face, every vertex an expression axis moves, was tried first and is nearly the whole head: seen
+#: from behind on a public sample it was still mostly "face".)
+FACE_FROM = 0.0
 SIZES = ("the source's", "width and height")
 
 
@@ -270,6 +300,90 @@ def load_model(path: str):
         size=comfy.model_management.module_size(model),
         fast_disk=comfy.storage.state_dict_fast_disk(sd),
     )
+
+
+# ----------------------------------------------------------------------------- the rig's parts, for a marked drawing
+
+def vertex_marks(inner) -> np.ndarray:
+    """For each vertex of the rig, which marked part it belongs to: an index into `MARKS`, [vertices] uint8.
+
+    Read from the rig at rest, so it is the same for every frame and every person, and from its own keypoints, so
+    no axis or unit is assumed. The head is every vertex nearer the point between the ears than the neck keypoint
+    is. Its face side is the part of it in front of the ears, towards the nose (`FACE_FROM`), so a head seen from
+    the front is all face, from behind none, and side-on half. A hand is ComfyUI's own hand vertices
+    (`compute_hand_vert_mask`: skinned mostly to joints near the hand's keypoints), given to the side whose
+    wrist keypoint is nearer at rest. A hand wins over the head.
+
+    Needs the loaded model, so nothing a graph runs calls it: the bench writes its answer to `MARKS_FILE` and
+    holds the file against it.
+    """
+    from comfy_extras.sam3d_body.utils import compute_hand_vert_mask   # a function of the rig, called as one
+
+    head = inner.head_pose
+    device = head.scale_mean.device
+    zeros = lambda *shape: torch.zeros(1, *shape, device=device)  # noqa: E731
+    with torch.no_grad():
+        out = head.mhr_forward(global_trans=zeros(3), global_rot=zeros(3), body_pose_params=zeros(130),
+                               hand_pose_params=zeros(head.num_hand_comps * 2), scale_params=zeros(head.num_scale_comps),
+                               shape_params=zeros(head.num_shape_comps), expr_params=zeros(head.num_face_comps),
+                               return_keypoints=True)
+        hands = np.asarray(compute_hand_vert_mask(inner), dtype=bool)
+    rest = out[0][0].float().cpu().numpy()
+    points = out[1][0, :N_KEYPOINTS_2D].float().cpu().numpy()
+    return rest_marks(rest, points, hands)
+
+
+def rest_marks(rest: np.ndarray, points: np.ndarray, hands: np.ndarray) -> np.ndarray:
+    """`vertex_marks` from the rest pose's vertices [V, 3], its 70 keypoints and the hands' vertices: no model."""
+    ears = (points[3] + points[4]) / 2.0
+    to_nose = points[0] - ears
+    reach = float(np.linalg.norm(to_nose))
+    forward = (rest - ears) @ (to_nose / max(reach, 1e-8))
+    in_head = np.linalg.norm(rest - ears, axis=1) < np.linalg.norm(points[69] - ears)
+    right = np.linalg.norm(rest - points[41], axis=1) <= np.linalg.norm(rest - points[62], axis=1)
+    marks = np.zeros(rest.shape[0], dtype=np.uint8)
+    marks[in_head] = MARKS.index("head")
+    marks[in_head & (forward > FACE_FROM * reach)] = MARKS.index("face")
+    marks[hands & right] = MARKS.index("right hand")
+    marks[hands & ~right] = MARKS.index("left hand")
+    return marks
+
+
+def marks_as_file(marks: np.ndarray) -> dict:
+    """What `MARKS_FILE` holds for these marks: runs of [mark, how many vertices], in vertex order."""
+    marks = np.asarray(marks, dtype=np.uint8).reshape(-1)
+    edges = np.flatnonzero(np.diff(marks)) + 1
+    starts = np.concatenate([[0], edges])
+    counts = np.diff(np.concatenate([starts, [marks.size]]))
+    return {"schema": MARKS_SCHEMA, "what": "which marked part each vertex of the body rig belongs to, at rest",
+            "written_by": "bench/check_body_pose.py --write-marks", "marks": list(MARKS), "face_from": FACE_FROM,
+            "vertices": int(marks.size), "runs": [[int(marks[i]), int(n)] for i, n in zip(starts, counts)]}
+
+
+def marks_from_file(vertices: int, path: Path | None = None) -> np.ndarray:
+    """The rig's marks for a body of `vertices` vertices, [vertices] uint8, or a ValueError that says why not."""
+    path = MARKS_FILE if path is None else Path(path)
+    try:
+        held = json.loads(path.read_text())
+        if not isinstance(held, dict):
+            raise ValueError("it is not a table of marks")
+        if held.get("schema") != MARKS_SCHEMA or list(held.get("marks", [])) != list(MARKS):
+            raise ValueError(f"it is {held.get('schema')!r} with parts {held.get('marks')}, and this code reads "
+                             f"{MARKS_SCHEMA!r} with {list(MARKS)}")
+        runs = [(m, n) for m, n in held["runs"]]
+        # whole numbers only, and only parts it lists: a 1.7 is not read as a 1 (mrcorn's breaks)
+        if any(type(v) is not int for run in runs for v in run) or any(not 0 <= m < len(MARKS) or n < 0 for m, n in runs):
+            raise ValueError("a run is not [a part it lists, a whole number of vertices]")
+        marks = np.repeat(np.array([m for m, _ in runs], dtype=np.uint8), [n for _, n in runs])
+        if marks.size != int(held["vertices"]):
+            raise ValueError("its runs do not add up to its own vertex count")
+    except (OSError, KeyError, TypeError, ValueError, AttributeError, OverflowError) as exc:
+        raise ValueError(f"the `marked` style has no marks for the body's parts: {path.name} could not be read ({exc}). "
+                         "bench/check_body_pose.py --write-marks writes it from the body model.") from exc
+    if marks.size != int(vertices):
+        raise ValueError(f"the `marked` style has no marks for the body's parts: {path.name} is for a body of {marks.size} "
+                         f"vertices and this pose has {int(vertices)}. It is another rig's, or the pose is.")
+    return marks
 
 
 # ----------------------------------------------------------------------------- prediction
@@ -569,6 +683,71 @@ def scaled_for(pose_data: dict, width: int, height: int) -> dict:
     return dict(pose_data, frames=frames, image_size=(int(height), int(width)))
 
 
+def draw_marked(pose_data: dict, frame_idx: int, width: int, height: int, cache: dict, marks: np.ndarray) -> torch.Tensor:
+    """One frame of the `marked` style, [H, W, 3]: the mesh as `mesh` draws it, with the marked parts in flat colour.
+
+    `marks` is one mark per vertex of the rig (`marks_from_file`); `cache` is for one call of `render`.
+
+    ComfyUI's public drawing function lights whatever colour it is given, so a flat colour has to be drawn here.
+    This is that function's own loop (`render_pose_data_torch`: the people front to back into one depth buffer)
+    with its own pieces (`_rasterize_person`, `_make_shade_fn`, `_vertex_normals`), which are private to its
+    module: `bench/check_body_pose.py` holds that with nothing marked this draws what the public function draws,
+    pixel for pixel, so a change there is seen.
+    """
+    from comfy_extras.sam3d_body import rasterizer as R
+
+    device = comfy.model_management.get_torch_device()
+    people = pose_data["frames"][frame_idx] if frame_idx < len(pose_data["frames"]) else []
+    if not people:
+        return torch.zeros((height, width, 3), device=device, dtype=torch.float32)
+    faces = R._faces_to_device(pose_data["faces"], device, cache)
+    held = cache.get("marks")
+    if held is None or held[0] is not marks:      # the array itself is held, so its identity cannot be reused
+        by_vertex = torch.as_tensor(np.asarray(marks), device=device, dtype=torch.long)[faces]
+        # a triangle is marked when its three corners carry one mark. One across the line between the face side and
+        # the back of the head is head, so no grey seam runs over the skull; one across any other border stays body
+        same = (by_vertex[:, 0] == by_vertex[:, 1]) & (by_vertex[:, 1] == by_vertex[:, 2])
+        face_i, head_i = MARKS.index("face"), MARKS.index("head")
+        on_head = ((by_vertex == face_i) | (by_vertex == head_i)).all(dim=1)
+        of_face = torch.where(same, by_vertex[:, 0], torch.where(on_head, head_i, 0))
+        table = torch.zeros((len(MARKS), 3), device=device, dtype=torch.float32)
+        for name, colour in MARK_COLOURS.items():
+            table[MARKS.index(name)] = torch.tensor(colour, device=device, dtype=torch.float32) / 255.0
+        held = cache["marks"] = (marks, of_face, table)
+    _, of_face, table = held
+    z_buf = torch.full((height * width,), float("inf"), device=device, dtype=torch.float32)
+    colour_buf = torch.zeros((height * width, 3), device=device, dtype=torch.float32)
+    mask_buf = torch.zeros(height * width, device=device, dtype=torch.bool)
+    for person in sorted(people, key=lambda p: -float(np.asarray(p["pred_cam_t"]).reshape(-1)[2])):
+        world = torch.as_tensor(np.asarray(person["pred_vertices"], dtype=np.float32).reshape(-1, 3)
+                                + np.asarray(person["pred_cam_t"], dtype=np.float32).reshape(1, 3), device=device)
+        focal = float(np.asarray(person["focal_length"]).reshape(-1)[0])
+        flip = torch.tensor([1.0, -1.0, -1.0], device=device)
+        normals = R._vertex_normals(world, faces)
+        lit = R._make_shade_fn("default", "mesh_only", normals * flip, world * flip, None, faces,
+                               (0.68, 0.71, 0.78), (0.4, -0.7, -0.6), 0.0)
+
+        def shade(face_idx, bary, lit=lit):
+            which = of_face[face_idx]
+            return torch.where((which > 0).unsqueeze(-1), table[which], lit(face_idx, bary))
+
+        R._rasterize_person(world, faces, focal, width, height, z_buf, colour_buf, mask_buf, shade)
+    return colour_buf.reshape(height, width, 3).clamp(0.0, 1.0)
+
+
+def legend(style: str) -> str:
+    """What the colours of a drawing in `style` mean, as one sentence; empty for a style with no colours.
+
+    The only place the colours are put into words. It says what each colour IS and nothing about what anyone does.
+    """
+    if style != "marked":
+        return ""
+    w = MARK_WORDS
+    return (f"On each grey body the {w['face']} part of the head is the side the face is on and the {w['head']} part is "
+            f"the back of the head; the {w['right hand']} hand is that person's right hand and the {w['left hand']} hand "
+            "is their left.")
+
+
 def render(pose_data: dict, *, style: str = STYLES[0], size: str = SIZES[0], width: int = 1024, height: int = 768) -> torch.Tensor:
     """The mesh of every frame on black, [N, H, W, 3]; a frame with nobody is black."""
     from comfy_extras.sam3d_body.rasterizer import render_pose_data_torch  # the rasteriser, called as a function
@@ -585,10 +764,21 @@ def render(pose_data: dict, *, style: str = STYLES[0], size: str = SIZES[0], wid
     cache: dict = {}
     pbar = comfy.utils.ProgressBar(count)
     frames = []
+    marks = None
+    if style == "marked":
+        # refused before a frame is drawn, and only here: nothing upstream of this node knows the style exists
+        somebody = next((person for people in scaled["frames"] for person in people), None)
+        if somebody is not None:
+            marks = marks_from_file(np.asarray(somebody["pred_vertices"]).reshape(-1, 3).shape[0])
     for f in range(count):
-        image = render_pose_data_torch(scaled, frame_idx=f, W=w, H=h, background=None,
-                                       composite="silhouette" if style == "silhouette" else "mesh_only",
-                                       person_brightness_falloff=1.0, cache=cache)
+        if style == "marked" and marks is not None:
+            image = draw_marked(scaled, f, w, h, cache, marks)
+        elif style == "marked":
+            image = torch.zeros((h, w, 3), dtype=torch.float32)      # nobody on any frame: black, as the other styles
+        else:
+            image = render_pose_data_torch(scaled, frame_idx=f, W=w, H=h, background=None,
+                                           composite="silhouette" if style == "silhouette" else "mesh_only",
+                                           person_brightness_falloff=1.0, cache=cache)
         frames.append(image.to(device=out_device, dtype=out_dtype))
         pbar.update(1)
     return torch.stack(frames, dim=0)
@@ -699,7 +889,10 @@ class MiniMaxH3BodyMeshVideo(io.ComfyNode):
             inputs=[
                 MHRPoseData.Input("pose_data", tooltip="From MiniMax H3 Body Pose."),
                 io.Combo.Input("style", options=list(STYLES), default=STYLES[0],
-                               tooltip="`mesh` is a lit grey body; `silhouette` is its outline filled white."),
+                               tooltip=("`mesh` is a lit grey body; `silhouette` is its outline filled white; `marked` "
+                                        "is the grey body with the face in flat yellow, the rest of the head in blue, "
+                                        "the right hand in red and the left in green, so which way a head faces and "
+                                        "which hand is which can be read at a small size.")),
                 io.Combo.Input("size", options=list(SIZES), default=SIZES[0],
                                tooltip=("`the source's` draws at the size of the frames the pose was read from. "
                                         "`width and height` draws at the two numbers below, the body fitted "
@@ -711,9 +904,13 @@ class MiniMaxH3BodyMeshVideo(io.ComfyNode):
                 io.Int.Input("height", default=768, min=64, max=8192, step=2,
                              tooltip="The frames' height when size is `width and height`."),
             ],
-            outputs=[io.Image.Output(display_name="frames")],
+            outputs=[io.Image.Output(display_name="frames"),
+                     io.String.Output(display_name="legend",
+                                      tooltip=("What the colours of the `marked` style mean, as one sentence to put in "
+                                               "a prompt that uses these frames as a reference; empty for the other "
+                                               "styles. Take the colours from here, never from memory."))],
         )
 
     @classmethod
     def execute(cls, pose_data, style=STYLES[0], size=SIZES[0], width=1024, height=768) -> io.NodeOutput:
-        return io.NodeOutput(render(pose_data, style=style, size=size, width=int(width), height=int(height)))
+        return io.NodeOutput(render(pose_data, style=style, size=size, width=int(width), height=int(height)), legend(style))
