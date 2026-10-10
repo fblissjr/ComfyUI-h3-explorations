@@ -92,7 +92,7 @@ sighting was written in one run (`WRITTEN_TOGETHER_S`: a folder that holds two p
 how a morning's mask gets loaded in the afternoon), is at the capture's canvas and reaches the span; a
 subject's track is not empty on frames its shot table says it was taken in; a plan that carries a part has
 that subject's class map; and for every rendered run, the region the windows SAVED against the region read
-back from the review picture, cell for cell, with the carried mask's agreement (`files` reads both when both
+back from the review picture, cell for cell, with the carried masks' pixels over a pixel apart (`files` reads both when both
 exist and keeps the comparison). The saved files are what the node gave the sampler; the review reader is
 what every capture of a render without them rests on.
 
@@ -1106,11 +1106,15 @@ VERIFY_FAILED = 4
 #: Mask videos of one sighting written further apart than this are from different runs. Reasoned, not
 #: measured: a no-sampling preview writes all its masks within a few minutes; half an hour is far outside one.
 WRITTEN_TOGETHER_S = 1800
-#: The two readers of a run's region agree when at most this share of cells differs, and the carried mask's
-#: median overlap is at least `READERS_CARRIED`. Measured once, on a two-window render of 154 frames
-#: (2026-10-10): no cell of 473,088 differed and the overlap was 0.994; the bars are set a little under that.
+#: The two readers of a run's region agree when at most this share of cells differs, and at most
+#: `READERS_CARRIED_OFF` of the two carried masks' pixels, on the median frame, lie more than a pixel from the
+#: other mask. Measured 2026-10-10 on five renders: a whole person, no cell of 433,152 to 473,088 differing and
+#: nothing over a pixel off; a face of a few thousand pixels, about one cell a frame differing (the review
+#: reader's own one-cell misread, `data/CAPTURE_GAPS.md` 32) and a thousandth of the pixels over a pixel off.
+#: The bars sit a few times above those. The plain overlap is kept in the record and not judged: it falls
+#: with the mask's size for the same edge (0.994 on the person, 0.973 on the face).
 READERS_CELLS = 0.001
-READERS_CARRIED = 0.98
+READERS_CARRIED_OFF = 0.01
 
 
 def input_facts(path: str) -> dict:
@@ -1129,8 +1133,16 @@ def readers_agreement(saved: tuple, review: tuple) -> dict:
     both = read & read2
     differ = (region != region2) & both[:, None, None]
     overlap = [float((a & b).sum() / max((a | b).sum(), 1)) for a, b, ok in zip(carried, carried2, both) if ok and (a.any() or b.any())]
+    # an overlap falls with the mask's size for the same one-pixel edge, so a face reads lower than a whole
+    # person for no fault; the pixels of either mask more than a pixel from the other do not
+    import cv2
+    near = np.ones((3, 3), np.uint8)
+    far = [float(((a & ~cv2.dilate(b.astype(np.uint8), near).astype(bool)) | (b & ~cv2.dilate(a.astype(np.uint8), near).astype(bool))).sum()
+                 / max((a | b).sum(), 1)) for a, b, ok in zip(carried, carried2, both) if ok and (a.any() or b.any())]
     return {"frames_compared": int(both.sum()), "cells": int(region[both].size), "cells_differing": int(differ.sum()),
             "frames_differing": frame_spans(np.nonzero(differ.any(axis=(1, 2)))[0].tolist()),
+            "carried_over_a_pixel_off_median": round(float(np.median(far)), 4) if far else None,
+            "carried_over_a_pixel_off_max": round(float(max(far)), 4) if far else None,
             "carried_overlap_median": round(float(np.median(overlap)), 4) if overlap else None,
             "carried_overlap_min": round(float(min(overlap)), 4) if overlap else None}
 
@@ -1191,11 +1203,16 @@ def verify_checks(manifest: dict, track_flags: list[dict]) -> list[dict]:
         elif not got:
             add("region_saved_against_region_read_back", run["name"], None, "the render has no review video to read back, or `files` was run before it compared the two")
         else:
-            share = got["cells_differing"] / max(got["cells"], 1)
-            ok = share <= READERS_CELLS and (got["carried_overlap_median"] or 0) >= READERS_CARRIED
+            share, off = got["cells_differing"] / max(got["cells"], 1), got.get("carried_over_a_pixel_off_median")
+            if off is None:
+                add("region_saved_against_region_read_back", run["name"], None, "this capture compared the carried masks by overlap only "
+                    "(made before the size-free measure): run `files` again", **got)
+                continue
+            ok = share <= READERS_CELLS and off <= READERS_CARRIED_OFF
             add("region_saved_against_region_read_back", run["name"], ok,
-                f"{got['cells_differing']} of {got['cells']} cells differ on {got['frames_compared']} frames; the carried mask overlaps at "
-                f"{got['carried_overlap_median']} (lowest {got['carried_overlap_min']})"
+                f"{got['cells_differing']} of {got['cells']} cells differ on {got['frames_compared']} frames; of the carried masks' pixels "
+                f"{off:.2%} lie over a pixel from the other on the median frame (worst frame {got['carried_over_a_pixel_off_max']:.2%}; "
+                f"plain overlap {got['carried_overlap_median']})"
                 + ("" if ok else f"; frames that differ: {got['frames_differing'][:8]}"), **got)
     return out
 
@@ -1269,14 +1286,29 @@ def recent_median(values: np.ndarray, reach: int = RECENT) -> np.ndarray:
     return out
 
 
+def shot_state(shot: dict) -> tuple[str, bool]:
+    """A shot's state as the rules read it (`picked`, `taken` or `absent`) and whether a person typed it.
+
+    A corrected shot's state carries the fact in its words (`taken (corrected)`), and its `corrected` field
+    says what was typed."""
+    state = shot["subject"]["state"]
+    return state.split(" (")[0], bool(shot.get("corrected")) or "(corrected)" in state
+
+
 def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]]) -> tuple[list[dict], list[dict]]:
     """A shot table's risks: who was taken close to the line, taken where the caller says the subject is not,
-    or called absent with somebody on screen. Frames in the table count from the load's first frame, `at`."""
+    or called absent with somebody on screen. Frames in the table count from the load's first frame, `at`.
+
+    An absence with people detected is UNRESOLVED until somebody answers it in writing, and is at the top
+    level until then: a typed correction on the tracker (`shot N: person K`, or `shot N: none`) or `--not-in`
+    for the whole shot. The rule was "iffy" until 2026-10-10, when a shot both trackers had called absent,
+    each with its subject on screen, went through a day of renders with nothing laid on it and reached a
+    viewer as the original."""
     flags, shots = [], []
     line = float(table["match"])
     for shot in table["shots"]:
         a, b = at + shot["first_frame"], at + shot["last_frame"]
-        state, sim, people = shot["subject"]["state"], shot["subject"].get("similarity"), len(shot.get("people", []))
+        (state, typed), sim, people = shot_state(shot), shot["subject"].get("similarity"), len(shot.get("people", []))
         level = LEVELS[0]
         barred = [x for x in not_in if x[0] <= b and a <= x[1]]
         if state == "absent" and people:
@@ -1285,7 +1317,7 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
             level = LEVELS[2]
             flags.append({"rule": "taken_where_not_expected", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
                           "why": f"{label} is {state} in a shot the caller says they are not in", "figures": {"similarity": sim, "line": line}})
-        elif state == "taken" and sim is not None and sim - line < NEAR_LINE:
+        elif state == "taken" and not typed and sim is not None and sim - line < NEAR_LINE:      # a typed take is not a guess
             level = LEVELS[1]
             flags.append({"rule": "taken_near_the_line", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
                           "why": f"{label} was taken across a cut at {sim:.3f}, only {sim - line:.3f} above the line: "
@@ -1297,13 +1329,18 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
             # same person's score), and truly absent in three at 0.20 to 0.37 under. So the caller's word does:
             # a shot inside --not-in is fine, any other is a shot to look at, with the distance said.
             near = sim is not None and line - sim < NEAR_UNDER
-            level = LEVELS[0] if barred else LEVELS[1]
+            answered = "a correction typed on the tracker" if typed else "--not-in" if barred else None
+            level = LEVELS[0] if answered else LEVELS[2]
             flags.append({"rule": "absent_with_people_on_screen", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
                           "why": f"{label} is called absent with {people} detected; the closest scored "
                                  + (f"{sim:.3f} against a line of {line:.3f}" if sim is not None else "nothing")
-                                 + (": as the caller says" if barred else (": close enough to be them" if near else
-                                    ": look at the shot, or say with --not-in that they are not in it")),
-                          "figures": {"similarity": sim, "line": line, "people": people}, "threshold": {"NEAR_UNDER": NEAR_UNDER}})
+                                 + (f": answered by {answered}" if answered else
+                                    (": close enough to be them" if near else "")
+                                    + ". UNRESOLVED: nothing is laid on this shot for them. Look at the tile and answer in writing: "
+                                      "a correction on the tracker (`shot N: person K`, read off this tracker's own tile, or "
+                                      "`shot N: none`), or --not-in for the whole shot"),
+                          "figures": {"similarity": sim, "line": line, "people": people, "answered_by": answered},
+                          "threshold": {"NEAR_UNDER": NEAR_UNDER}})
         shots.append({"subject": label, "seen_by": by, "source_frames": [a, b], "state": state, "similarity": sim, "level": level})
     return flags, shots
 
@@ -1421,7 +1458,7 @@ def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: in
     """Frames with no mask inside a shot the subject was taken in."""
     if table is None:
         return []
-    taken = [(at + s["first_frame"], at + s["last_frame"]) for s in table["shots"] if s["subject"]["state"] in ("taken", "picked")]
+    taken = [(at + s["first_frame"], at + s["last_frame"]) for s in table["shots"] if shot_state(s)[0] in ("taken", "picked")]
     empty = [r["source_frame"] for r in rows if r["covered"] and not r["track_share"]
              and any(a <= r["source_frame"] <= b for a, b in taken)]
     if not empty:
@@ -1790,6 +1827,12 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
 SMALL_START = 0.5
 
 
+#: A subject whose mask never reaches this share of the frame in a load is small for the whole of it. Inherited,
+#: from one clip: the 2026-10-04 postmortem's item 9 (a subject at about this share was held only where its
+#: window began on frames in which it was large). Not measured on this lane.
+SMALL_SUBJECT = 0.02
+
+
 def small_start(shares: np.ndarray) -> dict | None:
     """Whether a load starts on its subject small: `shares` is the subject's mask as a share of the frame, per
     frame of the load. None when the load never shows the subject or starts at half its largest or more."""
@@ -1802,9 +1845,23 @@ def small_start(shares: np.ndarray) -> dict | None:
             "largest_on_load_frame": largest}
 
 
-def flag_loads(manifest: dict, folder: Path) -> list[dict]:
-    """A planned load that starts where its subject is small, when the same load shows it larger later."""
+def shots_without(present: np.ndarray, cuts: list[int], first: int) -> list[list[int]]:
+    """The shots of a load its subject has no mask on at all: `present` per frame from source frame `first`,
+    `cuts` the source frames a new shot starts on. A shot with a mask on any frame is not one."""
+    edges = [first] + sorted(c for c in cuts if first < c < first + len(present)) + [first + len(present)]
+    return [[a, b - 1] for a, b in zip(edges, edges[1:]) if not present[a - first:b - first].any()]
+
+
+def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list[dict]:
+    """A planned load that starts where its subject is small, when the same load shows it larger later; and a
+    shot inside a planned load on which its subject has no mask at all, which nobody has said is right."""
     first, out = manifest["first_frame"], []
+    cuts = []
+    for s in manifest["subjects"]:
+        for seen in s["sightings"]:
+            table = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
+            if table.is_file() and not cuts:
+                cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c for c in json.loads(table.read_text())["cuts"]]
     for run in manifest["runs"]:
         load = run.get("load")
         if not load:
@@ -1814,6 +1871,25 @@ def flag_loads(manifest: dict, folder: Path) -> list[dict]:
                 if r["seen_by"] == seen["by"]]
         shares = np.array([r.get("track_share") or 0.0 for r in rows])
         held = load_frames(first, len(shares), load["first_frame"], load["frames"])
+        said = (not_in or {}).get(run["subject"], [])
+        bare = [x for x in shots_without(shares[held] > 0, cuts, max(load["first_frame"], first))
+                if not any(a <= x[0] and x[1] <= b for a, b in said)]
+        if bare:
+            out.append({"rule": "load_has_a_shot_without_the_subject", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": bare,
+                        "why": f"plan {run['name']}: {run['subject']} has no mask on any frame of {len(bare)} shot(s) inside the load, so "
+                               "nothing is laid there and the original shows. If they are in the shot, correct the tracker; if they "
+                               "are not, say so with --not-in or split the load so it does not hold the shot",
+                        "figures": {"shots": len(bare), "frames": sum(b - a + 1 for a, b in bare)}})
+        mine = shares[held]
+        if len(mine) and 0 < mine.max() < SMALL_SUBJECT:
+            out.append({"rule": "subject_small_for_the_whole_load", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                        "source_frames": [[max(load["first_frame"], first), max(load["first_frame"], first) + len(mine) - 1]],
+                        "why": f"plan {run['name']}: {run['subject']}'s mask is never over {mine.max():.2%} of the frame in this load "
+                               f"(median {float(np.median(mine[mine > 0])):.2%}). There is no frame in it where they are large to "
+                               "start from; the margin and the text carry more of the result than the subject does",
+                        "figures": {"largest_share": round(float(mine.max()), 5), "median_share": round(float(np.median(mine[mine > 0])), 5)},
+                        "threshold": {"SMALL_SUBJECT": SMALL_SUBJECT}})
         found = small_start(shares[held])
         if found:
             at = load["first_frame"] + found["largest_on_load_frame"]
@@ -1884,7 +1960,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -2180,6 +2256,49 @@ def with_the_voice(level: np.ndarray, series: np.ndarray) -> dict:
             "with_the_vocal_level_best": [best, by[best]] if best is not None else None}
 
 
+#: A mouth is "open for the shot" on the frames in the top quarter of the source's own openings over the shot.
+#: Reasoned, not measured: the ledger's entry (`docs/wiki/state_signals.md`, "A mouth open with no voice")
+#: asks for the top share; a quarter is the first try.
+OPEN_SHARE = 0.25
+#: A run of open frames is one at least this long. Inherited: the same entry's "a dozen frames or longer".
+OPEN_RUN = 12
+
+
+def open_runs(reference: np.ndarray, voiced: np.ndarray, arms: dict[str, np.ndarray], first: int = 0) -> dict:
+    """The runs where the source's mouth is open with no voice to open it, and what each render's mouth does there.
+
+    `reference` is the source's opening per frame (`mouth_openings`; nan where no mouth is seen), `voiced` the
+    voice table's column on the same frames (1 voiced, 0 not, nan unknown), `arms` each render's opening. A
+    frame counts when the source's opening is in the top `OPEN_SHARE` of its seen frames over the shot and
+    above the shot's median, and the frame is unvoiced; a frame the voice table does not cover does not count, so a capture with no voice
+    table finds nothing and says so. Runs join across two frames, and are kept at `OPEN_RUN` frames or more.
+    Per run and arm: the median opening, and its share of the source's. A face pass has no channel for this
+    state (no voice to follow, no motion video), so a render whose share is near 0 has a closed mouth there."""
+    seen = reference[~np.isnan(reference)]
+    if not len(seen):
+        return {"bar": None, "runs": [], "why_none": "the source's mouth is not seen on any frame"}
+    if not (voiced == 0).any():
+        return {"bar": None, "runs": [], "why_none": "no frame is known to be unvoiced: the capture has no voice table on these frames (--voice)"}
+    bar = float(np.quantile(seen, 1.0 - OPEN_SHARE))
+    # above the shot's own median too: on a mouth that hardly moves the top quarter is the same value as the rest
+    hit = np.nonzero((reference >= bar) & (reference > float(np.median(seen))) & (voiced == 0))[0].tolist()
+    runs = []
+    for lo, hi in frame_spans(hit, join=2):
+        if hi - lo + 1 < OPEN_RUN:
+            continue
+        ref = reference[lo:hi + 1]
+        entry = {"source_frames": [first + lo, first + hi], "frames": hi - lo + 1, "source_opening_median": round(float(np.nanmedian(ref)), 3),
+                 "renders": {}}
+        for name, series in arms.items():
+            mine = series[lo:hi + 1]
+            got = float(np.nanmedian(mine)) if (~np.isnan(mine)).any() else None
+            entry["renders"][name] = {"opening_median": None if got is None else round(got, 3),
+                                      "share_of_the_source": None if got is None else round(got / max(float(np.nanmedian(ref)), 1e-9), 2),
+                                      "frames_with_a_mouth": int((~np.isnan(mine)).sum())}
+        runs.append(entry)
+    return {"bar": round(bar, 3), "top_share": OPEN_SHARE, "least_frames": OPEN_RUN, "shot_opening_median": round(float(np.median(seen)), 3), "runs": runs}
+
+
 def frames_inside(spec: str | None, first: int, frames: int) -> np.ndarray:
     """Which of a span's frames a FIRST-LAST of source frames names; all of them when none is given."""
     if not spec:
@@ -2227,6 +2346,11 @@ def mouth(a: argparse.Namespace) -> None:
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
     level = np.array([np.nan if r.get("vocals_stem_dbfs") in (None, "") else float(r["vocals_stem_dbfs"]) for r in cross])
+    if a.voice:
+        # a capture made without --voice: the clip's own table, on the clip's frames
+        table = read_voice(a.voice)
+        voiced = np.array([float(table[first + n]["voiced"]) if first + n in table else np.nan for n in range(frames)])
+        level = np.array([table[first + n]["vocals_stem_dbfs"] if first + n in table else np.nan for n in range(frames)])
     record = {"subject": a.subject, "reference": a.reference or "the subject's class map", "frames_seen": int((~np.isnan(reference)).sum()),
               "control_reference_against_itself_shifted": control, "arms": {}}
     print(f"reference mouth seen on {record['frames_seen']} of {frames} frames; against itself shifted by frames: {control}")
@@ -2252,10 +2376,12 @@ def mouth(a: argparse.Namespace) -> None:
     record["reference_and_the_voice"] = rests(reference)
     if record["reference_and_the_voice"]:
         print("  the reference and the voice:", record["reference_and_the_voice"])
+    openings = {}
     for item in a.arm:
         name, _, spec = item.partition("=")
         series, centre = mouth_openings(read(spec), face)
         series = np.where(scored, series, np.nan)
+        openings[name] = series
         score = score_mouth(reference, ref_centre, series, centre)
         score["frames_seen"] = int((~np.isnan(series)).sum())
         score["and_the_voice"] = rests(series)
@@ -2264,6 +2390,15 @@ def mouth(a: argparse.Namespace) -> None:
               f"best {score['agreement_at_best_shift']} at {score['best_shift_arm_late_positive']} | same side "
               f"{score['same_side_of_the_reference_median']} | level {score['level_difference_median']} {score['level_difference_quartiles']}"
               + (f" | voice {score['and_the_voice']}" if score["and_the_voice"] else ""))
+    record["open_with_no_voice"] = found = open_runs(reference, voiced, openings, first)
+    if found["runs"]:
+        print(f"  the source's mouth open with no voice (opening at least {found['bar']}, the shot's median {found['shot_opening_median']}):")
+        for run in found["runs"]:
+            print(f"    source frames {run['source_frames'][0]}-{run['source_frames'][1]} ({run['frames']}): source {run['source_opening_median']}"
+                  + "".join(f" | {name} {r['opening_median']} ({r['share_of_the_source']} of the source's, a mouth on {r['frames_with_a_mouth']})"
+                            for name, r in run["renders"].items()))
+    else:
+        print("  the source's mouth open with no voice: no run" + (f" ({found['why_none']})" if found.get("why_none") else ""))
     out = folder / f"mouth__{a.subject}.json"
     out.write_text(json.dumps(record, indent=1) + "\n")
     print("wrote", out)
@@ -2808,6 +2943,7 @@ def main() -> None:
                    "subject's own class map in the capture when not given")
     u.add_argument("--arm", action="append", default=[], metavar="NAME=MASK[@FIRST][:classes]", help="a render's mouth mask; repeatable")
     u.add_argument("--frames", metavar="FIRST-LAST", help="source frames to score; the whole span when not given")
+    u.add_argument("--voice", help="the clip's per-frame voice table, for a capture made without one")
     x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
     x.add_argument("capture")
     x.add_argument("--subject", required=True)

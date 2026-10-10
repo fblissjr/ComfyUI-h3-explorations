@@ -22,7 +22,7 @@ overlaps and margins can be counted by hand and reads the rows back.
    left out; a token the other subject touches is left out unless the subject's own mask is in it; with
    nobody kept out the margin reaches them (the control); and a region in whole tokens holds no part token.
 7. **The preflight's rules**, each with the case that must NOT raise it: a shot taken just above the line
-   against one well above it; a shot called absent with somebody on screen, which is a shot to look at
+   against one well above it; a shot called absent with somebody on screen, at the top until it is answered
    whatever it scored, against the same shot inside frames the caller says the subject is not in; a shot
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
@@ -219,10 +219,24 @@ def shot_rules() -> str:
                    (30, 39, "absent", 0.75, 1), (40, 49, "absent", 0.4, 1), (50, 59, "absent", None, 0))
     flags, shots = cap.flag_shots("a", "run1", table, 100, [])
     got = {(f["rule"], f["source_frames"][0][0]): f["level"] for f in flags}
-    assert got == {("taken_near_the_line", 110): "iffy", ("absent_with_people_on_screen", 130): "iffy",
-                   ("absent_with_people_on_screen", 140): "iffy"}, got
+    # an absence with somebody on screen is unresolved, at the top, whatever the score, until it is answered
+    assert got == {("taken_near_the_line", 110): "iffy", ("absent_with_people_on_screen", 130): "likely to fail",
+                   ("absent_with_people_on_screen", 140): "likely to fail"}, got
     said, _ = cap.flag_shots("a", "run1", table, 100, [[140, 149]])
-    assert {f["source_frames"][0][0]: f["level"] for f in said if f["rule"].startswith("absent")} == {130: "iffy", 140: "likely fine"}, said
+    assert {f["source_frames"][0][0]: f["level"] for f in said if f["rule"].startswith("absent")} == {130: "likely to fail", 140: "likely fine"}, said
+    part, _ = cap.flag_shots("a", "run1", table, 100, [[140, 145]])
+    assert {f["source_frames"][0][0]: f["level"] for f in part if f["rule"].startswith("absent")}[140] == "likely to fail", \
+        "half a shot named in --not-in answered the whole shot"
+    # answered on the tracker: `shot N: none` leaves it absent and typed; `shot N: person K` makes it taken
+    typed = _table((0, 9, "absent (corrected)", 0.75, 1), (10, 19, "absent", 0.4, 2), (20, 29, "taken (corrected)", 0.67, 2))
+    typed["shots"][1]["corrected"] = "none"
+    answered, states = cap.flag_shots("a", "run1", typed, 100, [])
+    assert [(f["rule"], f["level"], f["figures"]["answered_by"]) for f in answered] == \
+        [("absent_with_people_on_screen", "likely fine", "a correction typed on the tracker")] * 2, \
+        "a typed absence was not taken as answered, or a typed take under the line was called a guess"
+    assert [x["state"] for x in states] == ["absent", "absent", "taken"], states
+    assert cap.shot_state({"subject": {"state": "taken (corrected)"}}) == ("taken", True)
+    assert cap.shot_state({"subject": {"state": "taken"}, "corrected": ""}) == ("taken", False)
     assert len(shots) == 6 and shots[2]["level"] == "likely fine", shots
     barred, _ = cap.flag_shots("a", "run1", table, 100, [[120, 125]])
     assert [(f["rule"], f["level"]) for f in barred if f["source_frames"] == [[120, 129]]] == [("taken_where_not_expected", "likely to fail")], barred
@@ -230,7 +244,16 @@ def shot_rules() -> str:
     empty = cap.flag_track("a", "run1", rows, _table((0, 2 * N - 1, "picked", None, 1)), 100)
     assert empty and empty[0]["source_frames"] == [[100 + N, 100 + 2 * N - 1]], empty
     assert not cap.flag_track("a", "run1", rows, _table((0, N - 1, "picked", None, 1), (N, 2 * N - 1, "absent", 0.2, 0)), 100)
-    return "near the line, far from it, barred frames, and a track empty only where the subject was taken"
+    held = cap.flag_track("a", "run1", rows, _table((0, N - 1, "picked", None, 1), (N, 2 * N - 1, "taken (corrected)", 0.6, 1)), 100)
+    assert held and held[0]["source_frames"] == [[100 + N, 100 + 2 * N - 1]], "a corrected shot with no track was not seen as taken"
+    # a load that holds a shot its subject has no mask on: frames 100-119, cuts at 106 and 112
+    there = np.r_[np.ones(6, bool), np.zeros(6, bool), np.ones(8, bool)]
+    assert cap.shots_without(there, [106, 112], 100) == [[106, 111]]
+    there[8] = True
+    assert cap.shots_without(there, [106, 112], 100) == [], "a shot with a mask on one frame was called bare"
+    assert cap.shots_without(np.zeros(20, bool), [], 100) == [[100, 119]] and cap.shots_without(np.zeros(20, bool), [100, 300], 100) == [[100, 119]]
+    return ("near the line, far from it, barred frames; an absence with people on screen at the top until a correction or "
+            "--not-in for the whole shot answers it; a corrected shot read as taken; a shot of a load with no mask of its subject")
 
 
 def part_rules() -> str:
@@ -458,8 +481,24 @@ def mouths() -> str:
     assert cap.with_the_voice(np.full(120, np.nan), series)["with_the_vocal_level_best"] is None, "no voice level, and an agreement"
     named = cap.frames_inside("103-105", 100, 8)
     assert named.tolist() == [False, False, False, True, True, True, False, False] and cap.frames_inside(None, 100, 8).all()
+    # a mouth open with no voice: 60 frames, the source wide open on 20-35 and again on 50-53, a voice on 40-59
+    opening = np.full(60, 0.05)
+    opening[20:36], opening[50:54], opening[28] = 0.3, 0.3, np.nan      # one frame of the run with no mouth seen
+    spoken = np.zeros(60)
+    spoken[40:] = 1
+    shut, follows = np.full(60, 0.04), opening.copy()
+    found = cap.open_runs(opening, spoken, {"shut": shut, "follows": follows}, first=100)
+    assert [r["source_frames"] for r in found["runs"]] == [[120, 135]], "the long unvoiced run, and only it: " + str(found["runs"])
+    one = found["runs"][0]["renders"]
+    assert one["shut"]["share_of_the_source"] < 0.2 and one["follows"]["share_of_the_source"] == 1.0, one
+    assert cap.open_runs(opening, np.ones(60), {}, 100)["runs"] == [], "an open mouth on voiced frames was called open with no voice"
+    assert "no voice table" in cap.open_runs(opening, np.full(60, np.nan), {}, 100)["why_none"], "an unknown voice was read as silence"
+    brief = np.full(60, 0.05)
+    brief[20:28] = 0.3
+    assert cap.open_runs(brief, spoken, {}, 100)["runs"] == [], "eight frames were called a run"
     return ("open reads above shut, the same tilted or with a stray label; a mouth two frames late is placed two frames late, "
-            "against another mouth and against the voice's level; a stretch of source frames scores only its own frames")
+            "against another mouth and against the voice's level; a stretch of source frames scores only its own frames; "
+            "a long run of the source's mouth open on unvoiced frames is found, a voiced or a brief one is not")
 
 
 def saved_regions() -> str:
@@ -567,7 +606,8 @@ def verifying() -> str:
             {"by": "p", "first_source_frame": at, "shots": shots, "classes": "c.mkv" if classes else None, "inputs": inputs}]}]}
 
     good = {"track": video("t.mkv", "13:44:10"), "parts": video("r.mkv", "13:45:50"), "shots": {"file": "s.json", "written": "2026-10-10T13:44:02"}}
-    agree = {"frames_compared": 20, "cells": 1200, "cells_differing": 0, "frames_differing": [], "carried_overlap_median": 0.994, "carried_overlap_min": 0.99}
+    agree = {"frames_compared": 20, "cells": 1200, "cells_differing": 0, "frames_differing": [], "carried_overlap_median": 0.994,
+             "carried_overlap_min": 0.99, "carried_over_a_pixel_off_median": 0.0005, "carried_over_a_pixel_off_max": 0.003}
     run = {"name": "r", "planned": False, "subject": "a", "files": ["w1.npz"], "readers": agree}
     by = lambda checks: {c["check"]: c for c in checks}
     clean = cap.verify_checks(manifest(good, [run]), [])
@@ -589,8 +629,13 @@ def verifying() -> str:
     # the readers: a region that differs, a render with no saved files, files that were refused
     off = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "cells_differing": 30, "frames_differing": [[3, 4]]}}]), []))
     assert off["region_saved_against_region_read_back"]["ok"] is False
-    loose = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "carried_overlap_median": 0.9}}]), []))
+    loose = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "carried_over_a_pixel_off_median": 0.05}}]), []))
     assert loose["region_saved_against_region_read_back"]["ok"] is False
+    # a small mask's plain overlap is low for no fault, and is not what is judged
+    face = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "carried_overlap_median": 0.97}}]), []))
+    assert face["region_saved_against_region_read_back"]["ok"] is True, "a small mask's overlap failed two readers that agree to the pixel"
+    older = by(cap.verify_checks(manifest(good, [{**run, "readers": {k: v for k, v in agree.items() if "pixel_off" not in k}}]), []))
+    assert older["region_saved_against_region_read_back"]["ok"] is None
     none = by(cap.verify_checks(manifest(good, [{"name": "r", "planned": False, "subject": "a"}]), []))
     assert none["region_saved_against_region_read_back"]["ok"] is None, "a render with no saved files was called verified"
     refused = by(cap.verify_checks(manifest(good, [{"name": "r", "planned": False, "subject": "a", "saved_regions_refused": "a gap"}]), []))
@@ -613,6 +658,9 @@ def verifying() -> str:
     got = cap.readers_agreement((region, carried, read), (other, shaved, np.ones(4, bool)))
     assert got["frames_compared"] == 3 and got["cells_differing"] == 1 and got["frames_differing"] == [[1, 1]], got
     assert 0.97 < got["carried_overlap_median"] < 0.98, got
+    assert got["carried_over_a_pixel_off_max"] == 0.0, "a mask shaved by one pixel has pixels over a pixel from the other"
+    moved = cap.readers_agreement((region, carried, read), (region, rect(46, 30, 86, 70), np.ones(4, bool)))
+    assert moved["carried_over_a_pixel_off_median"] > 0.1, moved
     assert cap.VERIFY_FAILED not in (0, 1, 2, cap.GATE_BLOCKED)
     return ("masks of two runs, another canvas, short of the span or late are each named; a pose table of its own pass is not; "
             "a region that differs, refused files or no saved files do not pass; a check that cannot be made is not a pass")
