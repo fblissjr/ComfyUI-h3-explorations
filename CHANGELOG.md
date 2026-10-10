@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.259.3
+<!-- changelog.d/mrdeer-capture-kept-threshold.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py`: `KEPT_IN_PART`, the share of a subject's own cells a `keep` may leave as the original's before `kept_pixels_inside_the_part` fires, goes from 3% to 1%. A second render gave it an outcome: the original's hair came back for eighteen frames of which only the middle nine had over 3% kept. The two renders the constant now rests on disagree at 1 to 2%, and the comment beside it says so.
+
 ## 0.259.2
 <!-- changelog.d/mrpop-two-stale-statements-from-the-final-stretch.md -->
 

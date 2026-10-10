@@ -200,9 +200,12 @@ SAME_PERSON = 0.8
 #: figure to be read. Reasoned: several times the codec's own difference on an untouched pixel.
 LOOK_LIFT = 10.0
 #: The share of the cells holding a subject's own part that a `keep` may leave as the original's before it is
-#: flagged. Reasoned to be low: in the one pair of renders it comes from, 6 to 7% was enough to bring the
-#: original's face back, and the frames at 1 to 2% early in that run still read as the new one.
-KEPT_IN_PART = 0.03
+#: flagged. Measured on two renders, 2026-10-10, which do not agree at the low end: a face pass with a `keep` on an
+#: earring read as the new face while 1 to 2% of the face's cells were kept and went back to the original at 6
+#: to 7%; a whole-subject pass with a `keep` on another person's face and hair went back to the original's hair
+#: for eighteen frames, of which only the middle nine had over 3% kept and the rest 1 to 2%. So the line is at
+#: 1%: it names the whole of the second and some frames of the first that were fine.
+KEPT_IN_PART = 0.01
 #: A region of which more than this share is not the subject's own mask is flagged: that share is background
 #: and props, which the model draws again from the text. Reasoned: more outside the subject than inside.
 NOT_SUBJECT = 0.5
