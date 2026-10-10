@@ -29,6 +29,11 @@ the stand-in decode is the source a few levels off with a bright block on every 
    context. It names the frames the saved region names, with no cell differing; a capture whose region is one
    cell off says one cell a frame; and a run that wires `keep` is refused.
 
+6. **A window rendered zoomed in.** Its region file says a box, and its mask, tokens and decode are of that box
+   scaled to the canvas. The tool cuts the clip to the box as the node did and holds the laying to the zoomed
+   picture beside the window: within a level of it; far from it when the region file's box is two pixels off
+   (the control); and a zoom made for another canvas is refused.
+
 Needs ffmpeg on the path. No model, no card, no server.
 
     <comfy venv python> bench/check_recomposite_window.py
@@ -255,10 +260,56 @@ def rebuilt() -> str:
     return "the same frames as the saved region, no cell differing; a cell off a frame is counted; keep, no region and no first frame refused"
 
 
+def zoomed() -> str:
+    folder = WORK / "z_windows"
+    folder.mkdir()
+    window = folder / "z_window_1.safetensors"
+    save_file({"stream_0": torch.zeros(LATENT), "stream_1": torch.zeros(1, 2, 2, 4)}, str(window),
+              metadata={"key": "k", "trim": str(TRIM), "next_start": repr((FRAMES - TRIM) / rw.FPS), "nested": "True",
+                        "written": str(FRAMES - TRIM)})
+    box = [W // 4, H // 4, W // 4 + W // 2, H // 4 + H // 2]            # half the canvas each way: 2 times
+    assert not any(v % 2 for v in box), box
+
+    def zoom(at):
+        return {"box": at, "source_size": [W, H], "canvas": [W, H], "scale": 2.0, "render_region": vm.RENDER_ZOOM_REPLACED,
+                "set_by": "largest_zoom"}
+    pixels = vm.crop_frames(MADE["pixels"], box, W, H)
+    mask = torch.zeros(FRAMES, H, W)
+    mask[:, 4:12, 4:12] = 1.0                       # small and in a corner: its region leaves plate, which is what a wrong box moves
+    tokens = vm.token_mask(vm.grow(mask, MARGIN), *LATENT[2:])
+    assert bool(tokens.any()) and not bool(tokens.all()), "the fixture's region is nothing, or the whole canvas"
+    settings = {**MADE["settings"], "cuts": [], "composite": vm.COMPOSITE_REGION}
+    decode = pixels + 4.0 / 255.0
+    decode[:, 5:11, 5:11] = 0.95
+    region = folder / "z_window_1_region.npz"
+    vm.save_window_region(str(region), mask, tokens, {**settings, "zoom": zoom(box)}, MARGIN, FIRST, TRIM)
+    mine = dict(window=str(window))
+    first = rw.run(args("z", **mine), decode=lambda *_a: decode.clone())
+    assert first["inputs"].get("zoom") == zoom(box), f"the record does not say the window is zoomed: {first['inputs']}"
+    assert first["summary"]["as_rendered_off_file_levels"] is None, "a comparison with a zoomed picture that is not there"
+    kept = torch.from_numpy(np.load(WORK / "z" / "decoded_z_window_1.npy")).float()
+    laid = vm.lay_window(kept, pixels, tokens, mask, settings, MARGIN, FIRST)[0]
+    lossless(folder / "z_window_1_zoomed.mp4", (laid[TRIM:].clamp(0, 1) * 255).round().to(torch.uint8).numpy(),
+             ["-c:v", "libx264rgb", "-qp", "0"])
+    off = rw.run(args("z", **mine), decode=lambda *_a: decode.clone())["summary"]["as_rendered_off_file_levels"]
+    assert off and off["frames"] == FRAMES - TRIM and off["most"] <= 0.5, f"the zoomed laying is {off} levels from its zoomed picture"
+    vm.save_window_region(str(region), mask, tokens, {**settings, "zoom": zoom([v + 2 if i % 2 == 0 else v for i, v in enumerate(box)])},
+                          MARGIN, FIRST, TRIM)
+    slipped = rw.run(args("z", **mine), decode=lambda *_a: decode.clone())["summary"]["as_rendered_off_file_levels"]
+    assert slipped["most"] > 5 * max(off["most"], 0.1), f"a box two pixels off reads {slipped}, no further than the right one"
+    vm.save_window_region(str(region), mask, tokens, {**settings, "zoom": {**zoom(box), "canvas": [2 * W, H]}}, MARGIN, FIRST, TRIM)
+    try:
+        rw.run(args("z", **mine), decode=lambda *_a: decode.clone())
+    except SystemExit:
+        return f"the zoomed laying is {off['most']} levels from the zoomed picture beside the window at most; a box two pixels off is {slipped['most']}; another canvas's zoom refused"
+    raise AssertionError("a zoom made for another canvas was laid")
+
+
 case("a window with its saved region", saved_region)
 case("the settings of each laying", the_settings)
 case("the decode is kept", the_decode)
 case("a box before and after the composite", a_box)
 case("a region rebuilt from a capture", rebuilt)
+case("a window rendered zoomed in", zoomed)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())

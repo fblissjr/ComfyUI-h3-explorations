@@ -85,6 +85,16 @@ a source also leaves `..._region.npz` beside its latent (2026-10-10): the
 fitted mask, the token region and the settings its composite was run with
 (`video_mask.save_window_region`), which with the stored latent is what
 `bench/recomposite_window.py` needs to lay the window again.
+With `render_region` zoomed on the source (2026-10-10) the whole run is made
+on one box of the load scaled to the canvas (`video_mask.zoomed_source`, once,
+before anything reads the source): each window is sampled, decoded and laid
+there, then laid back into the whole frame (`video_mask.lay_back`), so the
+window's video and the joined file are the whole frame as ever. The laid
+picture in the zoomed space is written beside each window as
+`..._zoomed.mp4` and joined into `<prefix>_NNNNN_zoomed.mp4` with a
+`..._zoomed.json` that says the box, for a delivery built at the source's
+size; the mask review of such a run is drawn in the zoomed space, where the
+cells are the model's.
 A window that does render again, because its seed, the sampler or the
 schedule changed, reuses two things an earlier run in this server session
 made, under the same switch: its source latent and its conditioning
@@ -237,7 +247,30 @@ def _review_or_reason(make, what: str) -> str | None:
 
 
 #: The plan file's name for itself and its version. Bump the version when a field's meaning changes.
+#: What `<stem>_zoomed.json` calls itself (`zoomed_record`).
+ZOOMED_NAME, ZOOMED_VERSION = "h3 zoomed piece", 1
 PLAN_NAME, PLAN_VERSION = "h3 song plan", 2      # 2: `frames_left_as_source` is every frame with no mask, not the cut's alone
+
+
+def zoomed_record(zoom: dict, source: dict, stem: str, frames: int, cut_sides=()) -> dict:
+    """What `<stem>_zoomed.json` says, beside `<stem>_zoomed.mp4`: enough to put the zoomed picture where it
+    belongs in a frame of another size without guessing. The box is in pixels of the frames this run's source
+    was HANDED (`handed` says their size): a graph whose loader fits the clip to the canvas hands canvas-size
+    frames, and the box is then of those, not of the clip's own."""
+    old_w, old_h = zoom["source_size"]
+    return {"file": ZOOMED_NAME, "version": ZOOMED_VERSION, "run": stem, "piece": stem + ".mp4",
+            "zoomed": stem + "_zoomed.mp4", "frames": int(frames), "canvas": list(zoom["canvas"]),
+            "source_size": [old_w, old_h], "box": list(zoom["box"]), "fixed": True, "zoom": float(zoom["scale"]),
+            "render_region": zoom["render_region"], "largest_zoom": float(source.get("largest_zoom", video_mask.ZOOM_LARGEST)),
+            "set_by": zoom["set_by"],
+            # the sides of the box the regenerated region reaches in some window (`video_mask.box_sides_cut`): the
+            # region is cut off there and fades into the whole frame at the box's edge
+            "region_cut_at_box_sides": sorted(cut_sides),
+            "handed": f"the box is [x0, y0, x1, y1], far side exclusive, in pixels of the {old_w}x{old_h} frames the "
+                      "Masked Source was handed, which are the loader's and not necessarily the clip's own",
+            "scaled_in": "the box cut in whole pixels, then comfy.utils.common_upscale(bilinear, no crop) to the canvas",
+            "zoomed_holds": "the render where the node kept it and the enlarged source everywhere else; the piece "
+                            "is the loaded source wherever the node's weight is 0"}
 
 
 def write_plan(source: dict, windows, writes: list[int], context_frames: int, continued: bool, width: int, height: int,
@@ -309,7 +342,9 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
                      # the two kinds apart (`video_mask.unlaid_frames`): across a cut from the subject, and
                      # with no mask of their own and no cut beside them
                      "frames_across_a_cut": [start + f for f in across],
-                     "frames_with_no_mask": [start + f for f in bare]})
+                     "frames_with_no_mask": [start + f for f in bare],
+                     # of a zoomed run: the sides of the box the region reaches and is cut off at (`box_sides_cut`)
+                     "region_cut_at_box_sides": video_mask.box_sides_cut(tokens, source["zoom"]) if source.get("zoom") else []})
         del tokens, mask
     made = {r["region_file"] for r in rows}
     for stale in glob.glob(os.path.join(glob.escape(work_dir), glob.escape(filename) + "_window_*_planned_region.npz")):
@@ -317,6 +352,9 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
             os.remove(stale)        # an earlier plan's window that this plan does not have
     plan = {"plan": PLAN_NAME, "version": PLAN_VERSION, "frames_count_from": "the source's first frame (the load's)",
             "width": int(width), "height": int(height), "context_frames": int(context_frames), **settings,
+            # None, or the one box of the load the run is rendered in (`video_mask.zoomed_source`): every region
+            # file of this plan is then of that box scaled to the canvas, not of the whole frame
+            "zoom": source.get("zoom"),
             "source": {"frames": have, **{k: source.get(k) for k in video_mask.REGION_SETTINGS}},
             "frames_with_the_mask": [list(r) for r in present], "windows": rows}
     part = loop_resume.plan_path(work_dir, filename) + ".part"
@@ -571,6 +609,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         if continue_from:
             lines.append(f"continues from {os.path.basename(continue_from)}: the first {head} frames of this run's "
                          f"track are that window's context and are not written; {kept_frames - head} frames are")
+        zoom, cut_sides = None, set()
+        if source is not None:
+            # A small subject rendered zoomed in (`render_region`): from here on `source` is one box of the load
+            # at the canvas's size, and `source["whole"]` the source as it came, which `lay_back` lays into
+            # a run that continues a stored window is framed as that window was: its kept frames are that latent
+            source, zoom_lines = video_mask.zoomed_source(
+                source, width, height, video_mask.stored_zoom(continue_from) if continue_from else video_mask.NOT_CONTINUED)
+            zoom = source.get("zoom")
+            lines += zoom_lines
         # A run that cannot cover what it was asked for says so here, second line of the report,
         # and in the log: it is not refused (`loop_plan.extent_shortfall`). On a masked graph the
         # usual cause is the loader's frame cap left under a raised extent; the two are separate
@@ -781,6 +828,12 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 empty_video, empty_audio = latent["samples"].unbind()
                 src_pixels, src_encode, src_tokens, src_mask, held = video_mask.window(
                     source, int(round(w.start * FPS)), w.frames, width, height, *empty_video.shape[2:])
+                if zoom is not None and video_mask.box_sides_cut(src_tokens, zoom):
+                    sides = video_mask.box_sides_cut(src_tokens, zoom)
+                    cut_sides.update(sides)
+                    reports.append(f"[{w.number}] the regenerated region reaches the {', '.join(sides)} of the zoomed box: it is "
+                                   "cut off there and fades into the whole frame at the box's edge; a smaller largest_zoom "
+                                   "holds more of the picture")
                 # the margin `window` grew the region by, for the report and the composite below
                 margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames,
                                                    int(width) * int(height))
@@ -866,6 +919,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 mark("sampling")
             prev = {"samples": samples}
 
+            zoomed_images = None
             if untouched and src_pixels is not None:
                 images = src_pixels.clone()
             else:
@@ -878,15 +932,26 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             if src_pixels is not None and src_tokens is not None and not untouched:
                 # the weight, the cut gate and the blend (`video_mask.lay_window`): one function, which
                 # `bench/recomposite_window.py` runs again on this window's stored latent
+                decoded = images
                 images, alpha, laid = video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source,
                                                             margin, int(round(w.start * FPS)))
                 reports.extend(f"[{w.number}] {line}" for line in laid)
+                if zoom is not None:
+                    # laid in the zoomed space above, where the difference was taken; now into the whole frame
+                    zoomed_images = images
+                    images = video_mask.lay_back(decoded, alpha, video_mask.window_frames(
+                        source["whole"], int(round(w.start * FPS)), w.frames, width, height)[0], zoom)
+                del decoded
                 # under `only what changed` the weight is also what the mask review outlines: it is held
                 # through the window's write for that, and freed after the review, where it used to be
                 # freed here
                 kept = alpha if source.get("composite") == video_mask.COMPOSITE_CHANGED else None
                 del alpha
                 mark("composite")
+            elif zoom is not None and src_pixels is not None:
+                # nothing regenerated here: the zoomed picture is the zoomed source, the window's video the whole frame
+                zoomed_images = images
+                images = video_mask.window_frames(source["whole"], int(round(w.start * FPS)), w.frames, width, height)[0]
             images = images[int(trim):]
             overrun = int(images.shape[0]) - writes[i]
             if w.number == n_windows and overrun > 0:
@@ -894,12 +959,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 images = images[:writes[i]]
                 reports.append(f"[{w.number}] the track ends {overrun} frames before this window "
                                "does; they are not written")
+            if zoomed_images is not None:
+                zoomed_images = zoomed_images[int(trim):][:int(images.shape[0])]     # frame for frame with the video
             video_path, latent_path = loop_resume.window_paths(work_dir, filename, w.number)
             # the old latent goes first: a latent on disk must mean its video finished. Its old mask
             # review goes with it: a review on disk must be of the video beside it, and a run with the
             # switch off would otherwise leave the last render's review for a later run to join
             region_path = loop_resume.region_path(work_dir, filename, w.number)
-            for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path):
+            zoomed_path = loop_resume.zoomed_path(work_dir, filename, w.number)
+            for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path, zoomed_path):
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(stale)
             written = _write_frames_mp4(video_path, images, crf)
@@ -908,6 +976,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 stored_latents.append(loop_resume.save_window(work_dir, filename, w.number, keys[i], samples,
                                                               trim, next_start, written))
             reports.append(f"[{w.number}] wrote {written} frames to {os.path.basename(video_path)}")
+            if zoomed_images is not None:
+                # the laid picture in the zoomed space, beside the window; a failure costs that file and not the render
+                try:
+                    _write_frames_mp4(zoomed_path, zoomed_images, crf)
+                except Exception as exc:  # noqa: BLE001 -- the window's video is already written
+                    with contextlib.suppress(FileNotFoundError):
+                        os.remove(zoomed_path)
+                    reports.append(f"[{w.number}] the zoomed picture was NOT written; the window's video is "
+                                   f"unaffected: {type(exc).__name__}: {exc}")
             if src_tokens is not None:
                 # what this window's composite was run with, beside its latent, so the window can be laid
                 # again from its own files; a failure here costs that and not the render
@@ -925,14 +1002,17 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 def window_review():
                     layers = video_mask.window_layers(src_mask, src_tokens, height, width, source["replace"], kept)
                     rows = video_mask.overlay_pieces(src_pixels, layers, int(src_tokens.shape[0]), int(trim),
-                                                     f"{100.0 * float(src_tokens.mean()):.0f}% of this window regenerates")
+                                                     f"{100.0 * float(src_tokens.mean()):.0f}% of this window regenerates"
+                                                     + ("" if zoom is None else f"; ZOOMED {float(zoom['scale']):.2f}x, not the whole frame"))
+                    # of a zoomed run, the zoomed picture: the mask, the cells and the outline are of that space
                     _write_review_mp4(loop_resume.review_path(work_dir, filename, w.number),
-                                      video_mask.render_over(images, rows), width, 2 * height, crf)
+                                      video_mask.render_over(images if zoomed_images is None else zoomed_images, rows),
+                                      width, 2 * height, crf)
                 why = _review_or_reason(window_review, f"window {w.number}")
                 if why:
                     reports.append(f"[{w.number}] mask review FAILED; the window's video is unaffected: {why}")
                 mark("mask review")
-            del images, kept
+            del images, kept, zoomed_images
             reports.append(f"[{w.number}] seconds: " + ", ".join(f"{name} {took:.1f}" for name, took in lap.items()))
 
         # join, and mux the whole track cut to the video
@@ -942,6 +1022,30 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         heard = waveform[..., int(round(head / FPS * rate)):]
         join_and_mux(files, heard, rate, out_path, work_dir, stem, kept_frames - head)
         mark("join and mux")
+        zoomed_files = [loop_resume.zoomed_path(work_dir, filename, w.number) for w in windows] if zoom is not None else []
+        if zoom is not None:
+            # the zoomed pictures joined as the windows are, with what says where the box is; a failure here, or a
+            # window stored without its zoomed picture, is a line of the report and not the render's
+            zoomed_out = os.path.join(full_out, stem + "_zoomed.mp4")
+            missing = [os.path.basename(z) for z in zoomed_files if not os.path.isfile(z)]
+            try:
+                if missing:
+                    raise FileNotFoundError(", ".join(missing))
+                join_and_mux(zoomed_files, heard, rate, zoomed_out, work_dir, stem + "_zoomed", kept_frames - head)
+                part = zoomed_out[:-len(".mp4")] + ".json.part"
+                with open(part, "w", encoding="utf-8") as fh:
+                    json.dump(zoomed_record(zoom, source, stem, kept_frames - head, cut_sides), fh, indent=1)
+                    fh.write("\n")
+                os.replace(part, zoomed_out[:-len(".mp4")] + ".json")
+                reports.append(f"zoomed picture written beside the video: {os.path.basename(zoomed_out)} and "
+                               f"{stem}_zoomed.json, the box it shows")
+            except Exception as exc:  # noqa: BLE001 -- the render above is already joined
+                for gone in (zoomed_out, zoomed_out[:-len(".mp4")] + ".json"):
+                    with contextlib.suppress(FileNotFoundError):
+                        os.remove(gone)
+                reports.append("zoomed picture NOT written beside the video; the render is complete and "
+                               f"unaffected: {type(exc).__name__}: {exc}")
+            mark("zoomed picture")
         review_files: list[str] = []
         if review:
             # One file beside the render: `<stem>_with_mask.mp4`, the windows' reviews joined as the windows
@@ -966,8 +1070,14 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                             int(stored["trim"]), f"{100.0 * float(tokens.mean()):.0f}% of this window regenerates")
                         # as many frames as the stored video holds, which is what this run writes of the
                         # window or it would not have been reused (`loop_resume.stored_frames`)
+                        under = stored["video"]
+                        if zoom is not None:
+                            # the view is of the zoomed space, so it goes over the zoomed picture or not at all
+                            under = loop_resume.zoomed_path(work_dir, filename, rw.number)
+                            if not os.path.isfile(under):
+                                raise FileNotFoundError(f"window {rw.number} was stored without its zoomed picture")
                         _write_review_mp4(path, video_mask.first_frames(rows, writes[rw.number - 1]), width, height,
-                                          crf, under=stored["video"])
+                                          crf, under=under)
                         del pixels, tokens, mask
                         restacked.append(rw.number)
                     review_files.append(path)
@@ -998,7 +1108,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             reports.append("shot table written beside the video: " + ", ".join(table_files))
         if not keep_windows:
             regions = [loop_resume.region_path(work_dir, filename, w.number) for w in windows]
-            for p in files + stored_latents + review_files + regions:
+            for p in files + stored_latents + review_files + regions + zoomed_files:
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(p)
             try:

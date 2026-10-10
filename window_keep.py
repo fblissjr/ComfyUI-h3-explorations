@@ -213,6 +213,11 @@ class Keep:
 
 LATENTS = Keep("source latent", LATENT_BYTES)
 CONDS = Keep("conditioning", COND_BYTES)
+#: Host memory the zoomed pictures of a load may hold (`video_mask.zoomed_source`), in bytes. Reasoned: one
+#: load's frames at the canvas's size with its masks; a few hundred frames of a 1024x768 canvas. Kept so that
+#: the latents and conditionings above, found by the identity of these tensors, hit on the next run.
+ZOOM_BYTES = 6 * 1024 ** 3
+ZOOMS = Keep("zoomed source", ZOOM_BYTES)
 
 #: `video_mask.START_NOISE`, `MOTION_NONE`, `ZOOMED`, `WIRED`, `GROW_FIXED` and `GROW_SUBJECT`, restated so this
 #: module imports nothing from the pack at load; `bench/check_window_keep.py` holds them to the originals.

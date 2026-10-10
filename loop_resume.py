@@ -137,6 +137,12 @@ def region_path(work_dir: str, filename: str, number: int) -> str:
     return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_region.npz"
 
 
+def zoomed_path(work_dir: str, filename: str, number: int) -> str:
+    """Window `number`'s zoomed picture, beside its video: what the window laid in the zoomed space, frame for
+    frame with the video. Only a window of a run with `render_region` zoomed has one (`video_mask.zoomed_source`)."""
+    return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_zoomed.mp4"
+
+
 def planned_region_path(work_dir: str, filename: str, number: int) -> str:
     """Window `number`'s PLANNED region, written by a preview of the song node and by nothing else: the file a
     render of the same graph would write as `region_path`, made with nothing sampled. Its own name, so a preview

@@ -82,7 +82,11 @@ def check_window_settings(window_frames: int, context_frames: int) -> None:
     if window_frames not in CHAIN_LENGTHS:
         raise ValueError(f"window_frames {window_frames} is not on both clocks; use one of {CHAIN_LENGTHS}")
     if context_frames % 17 != 5 or (context_frames * 5) % 3 != 0 or context_frames >= window_frames:
-        raise ValueError(f"context_frames {context_frames} must be 39, 90 or 141 and shorter than the window")
+        # every length on both clocks under the window: until 2026-10-10 this named three, written when no
+        # window in use was longer than the third allows; the condition was always the rule
+        allowed = [c for c in range(int(window_frames)) if c % 17 == 5 and (c * 5) % 3 == 0]
+        raise ValueError(f"context_frames {context_frames} must be one of {allowed}: on both clocks, and shorter "
+                         f"than the {window_frames}-frame window")
 
 
 def parse_timeline(text: str) -> list[tuple[float, str]]:

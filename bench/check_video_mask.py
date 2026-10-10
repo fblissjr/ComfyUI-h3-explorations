@@ -529,9 +529,9 @@ def check_edge(problems):
     except ValueError as err:
         if "edge" not in str(err):
             problems.append(f"an unknown edge was refused without naming it: {err}")
-    inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    # appended inputs keep their place: `motion_video` (2026-10-10) came after it
-    if inputs[-7].id != "edge" or not inputs[-7].optional or inputs[-7].default != vm.EDGE_TOKENS:
+    # appended inputs keep their place (`APPENDED`)
+    got = _appended("edge")
+    if got is None or not got.optional or got.default != vm.EDGE_TOKENS:
         problems.append("edge: it is not where it was appended (the input before `motion_video`), optional, "
                         "defaulting to whole tokens")
     if "edge" not in vm.MASK_KEY_SKIP:
@@ -670,9 +670,9 @@ def check_wired_motion(problems):
                 problems.append(f"wired motion: the refusal of {label} does not say so: {exc}")
     if vm.MOTIONS[-1] != vm.MOTION_WIRED_ZOOM or vm.MOTIONS[:5] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME, vm.MOTION_WIRED):
         problems.append(f"motion_reference: the zoomed wired choice must be appended, the choices before it in place: {vm.MOTIONS}")
-    inputs = node.define_schema().inputs
-    if inputs[-6].id != "motion_video" or not inputs[-6].optional:
-        problems.append("motion_video: it is not the node's last input and optional")
+    got = _appended("motion_video")
+    if got is None or not got.optional:
+        problems.append("motion_video: it is not where it was appended (`APPENDED`) and optional")
     if "motion_video" not in vm.MASK_KEY_SKIP:
         problems.append("motion_video: it is shown to the model and does not make the mask, so it must not be in the "
                         "kept mask's key")
@@ -898,10 +898,16 @@ def check_lay_window(problems):
             or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(")):
         _fail(problems, "lay window: the song node must lay a window through `video_mask.lay_window` and through nothing else")
     if "video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin," not in song_text \
-            or "loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
+            or "loop_resume.review_path(work_dir, filename, w.number), region_path, zoomed_path):" not in song_text:
         _fail(problems, "window region: the song node does not save a window's region beside its latent, or keeps a stale one")
     if song_text.count("        first = ") != 1 or "        first = len(reused)" not in song_text:
         _fail(problems, "lay window: the song node assigns `first` (its count of reused windows) more than once")
+
+
+#: The most the plate inside a zoomed run's box may be from the handed frame, in levels, read through the
+#: file's codec (`check_song_loop`). Measured 2026-10-10 on this fixture: 2 as built, 47 when the laid picture
+#: went back whole in place of the decode under its weight.
+PLATE_OFF_MOST = 24.0
 
 
 def check_song_loop(problems):
@@ -1164,6 +1170,143 @@ def check_song_loop(problems):
         if plan_c["windows"][0]["first_written_frame"] != context or plan_c["continue_from"] != Path(stored).name:
             _fail(problems, f"song loop: a continued run's plan says its first window writes from frame "
                             f"{plan_c['windows'][0]['first_written_frame']}; it writes from {context}, after the context it was handed")
+        # RENDERED ZOOMED IN (2026-10-10): one shot, a small subject, frames handed at the canvas's own size as the
+        # job graphs hand them, so the box is enlarged; the plate is a fine texture, which an enlargement and a
+        # reduction would blur. The run is made on one box of the load; the video is the whole frame with the
+        # region laid back and its plate untouched; the zoomed picture and what says its box are written beside
+        # it; both windows share the box; the plan says it too
+        keeper = importlib.import_module("_h3pack.window_keep")
+        was_short, keeper.ZOOMS.short = keeper.ZOOMS.short, (lambda: False)
+        try:
+            texture = torch.rand(height, width, generator=torch.Generator().manual_seed(11)) * 0.4 + 0.2
+            big = texture[None, :, :, None].expand(total, -1, -1, 3).clone()
+            small = torch.zeros(total, height, width)
+            small[:, 20:24, 28:34] = 1.0
+            one_shot = json.dumps({"table": "h3 shot table", "version": shots.TABLE_VERSION, "frames": total, "size": [width, height],
+                                   "subject_phrase": "person", "pick": "largest", "pick_frame": None, "cuts": [], "shots": [
+                                       {"shot": 1, "first_frame": 0, "last_frame": total - 1, "frames": total, "shown_frame": 0, "people": [{}],
+                                        "subject": {"person": 1, "state": "taken", "why": "made for the check"}, "closest_person": None,
+                                        "corrected": "", "on_screen": True, "frames_with_subject": total, "frames_without_subject": [],
+                                        "caption": ""}]})
+            far = getattr(vm.MiniMaxH3MaskedSource.execute(big, small, grow_pixels=4, feather_pixels=0, composite=vm.COMPOSITE_REGION,
+                                                           shot_table=one_shot, render_region=vm.RENDER_ZOOM_REPLACED, largest_zoom=2.0), "args", None)[0]
+            try:
+                zpath, zreport = run(tmp, "z/run", record=far)[:2]
+                zplan_said = run(tmp, "z/run", record=far, preview=True)[1]
+            except Exception as exc:  # noqa: BLE001 -- the loop raising at all is the finding
+                _fail(problems, f"song loop, zoomed: the loop or its preview raised: {type(exc).__name__}: {exc}")
+                return
+            zfolder, zstem = Path(tmp) / "z" / "run_windows", Path(zpath).stem
+            if "rendered zoomed in on what is replaced" not in zreport or "NOT written" in zreport or "NOT saved" in zreport or "FAILED" in zreport \
+                    or "rendered zoomed in on what is replaced" not in zplan_said:
+                _fail(problems, "song loop, zoomed: the report or the preview does not say the run is zoomed, or says a file failed: "
+                                + "; ".join(x for x in zreport.splitlines() if "NOT " in x or "FAILED" in x))
+            try:
+                record = json.loads((Path(tmp) / "z" / (zstem + "_zoomed.json")).read_text())
+            except Exception as exc:  # noqa: BLE001
+                _fail(problems, f"song loop, zoomed: the box's file beside the render does not read: {type(exc).__name__}: {exc}")
+                return
+            bx0, by0, bx1, by1 = record["box"]
+            if (record["file"], record["frames"], record["canvas"], record["source_size"], record["fixed"], record["piece"], record["zoomed"]) != \
+                    (song.ZOOMED_NAME, total, [width, height], [width, height], True, zstem + ".mp4", zstem + "_zoomed.mp4") \
+                    or (bx1 - bx0, by1 - by0) != (width // 2, height // 2) or abs(record["zoom"] - 2.0) > 1e-9:
+                _fail(problems, f"song loop, zoomed: the box's file says {record}")
+
+            def read(name):
+                got = subprocess.run([song._ffmpeg(), "-v", "error", "-i", str(name), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                                     capture_output=True).stdout
+                if len(got) != total * size:
+                    return None
+                return torch.frombuffer(bytearray(got), dtype=torch.uint8).reshape(total, height, width, 3).float() / 255.0
+            piece, closer = read(zpath), read(Path(tmp) / "z" / (zstem + "_zoomed.mp4"))
+            if piece is None or closer is None:
+                _fail(problems, f"song loop, zoomed: the joined video and the joined zoomed picture must each hold {total} frames of the canvas")
+                return
+            whole_frames = vm.fit_frames(big, width, height)
+            cut = vm.crop_frames(big, record["box"], width, height)
+            # the painted cells are tokens of the ZOOMED picture: 16 px there, 8 px here, inside the box
+            lit, lit_closer = (piece - whole_frames).abs().amax(dim=-1) * 255.0 > 64, (closer - cut).abs().amax(dim=-1) * 255.0 > 64
+            inside = torch.zeros(height, width, dtype=torch.bool)
+            inside[by0:by1, bx0:bx1] = True
+            per_frame, per_closer = lit.flatten(1).sum(dim=1).float(), lit_closer.flatten(1).sum(dim=1).float()
+            if not bool(lit.flatten(1).any(dim=1).all()) or bool(lit[:, ~inside].any()) or not bool(lit_closer.flatten(1).any(dim=1).all()):
+                _fail(problems, "song loop, zoomed: every frame of the video must carry the regenerated cells inside the box and nowhere else, "
+                                "and every frame of the zoomed picture must carry them")
+            elif not 0.15 < float((per_frame / per_closer).median()) < 0.4:
+                _fail(problems, f"song loop, zoomed: the regenerated cells take {float(per_frame.median()):.0f} px of a frame of the video and "
+                                f"{float(per_closer.median()):.0f} of the zoomed picture; at 2 times that is about a quarter")
+            # the plate inside the box, clear of the cells that were regenerated, is the handed frame's own and not
+            # that frame enlarged and reduced again: what would be laid if the laid picture went back in place of
+            # the decode under its weight. In levels, through the file's codec
+            near = torch.nn.functional.max_pool2d(lit.float()[:, None], 5, stride=1, padding=2)[:, 0] > 0
+            plate_off = float(((piece - whole_frames).abs().amax(dim=-1) * 255.0)[(~near) & inside[None]].max())
+            if plate_off > PLATE_OFF_MOST:
+                _fail(problems, f"song loop, zoomed: the plate inside the box is {plate_off:.1f} levels from the handed frame's own at most; "
+                                "only the region is laid back, so it must be the frame as it was handed in")
+            regions = []
+            for number in (1, 2):
+                try:
+                    regions.append(vm.load_window_region(str(zfolder / f"run_window_{number}_region.npz")))
+                except Exception as exc:  # noqa: BLE001
+                    _fail(problems, f"song loop, zoomed: window {number}'s region file does not read: {type(exc).__name__}: {exc}")
+                    return
+                if not (zfolder / f"run_window_{number}_zoomed.mp4").is_file():
+                    _fail(problems, f"song loop, zoomed: window {number} left no zoomed picture beside its video")
+            plan_z = json.loads((zfolder / "run_plan.json").read_text())
+            if regions[0]["zoom"] is None or regions[0]["zoom"] != regions[1]["zoom"] or regions[0]["zoom"]["box"] != record["box"] \
+                    or plan_z.get("zoom") != regions[0]["zoom"]:
+                _fail(problems, f"song loop, zoomed: both windows' region files and the plan must say the one box the load was rendered in "
+                                f"({record['box']}): {regions[0]['zoom']}, {regions[1]['zoom']}, {plan_z.get('zoom')}")
+            zsource = vm.zoomed_source(far, width, height)[0]
+            want = vm.window(zsource, window - context, window, width, height, steps, height // 16, width // 16)
+            if not torch.equal(regions[1]["tokens"], want[2]) or not torch.equal(regions[1]["mask"], (want[3] > 0.5).float()):
+                _fail(problems, "song loop, zoomed: a window's region file must hold the mask and tokens of the ZOOMED picture")
+            zbeside = sorted(x.name for x in (Path(tmp) / "z").iterdir() if x.is_file())
+            if zbeside != sorted([zstem + ".mp4", zstem + "_with_mask.mp4", zstem + "_zoomed.mp4", zstem + "_zoomed.json",
+                                  zstem + shots.SUFFIX_JSON, zstem + shots.SUFFIX_TEXT]):
+                _fail(problems, f"song loop, zoomed: beside the render are {zbeside}")
+            try:
+                run(tmp, "y/run", record={**source, "render_region": vm.RENDER_ZOOM_REPLACED, "largest_zoom": 2.0})
+                _fail(problems, "song loop, zoomed: a load with cuts in it was rendered zoomed; one box cannot frame two shots")
+            except ValueError as exc:
+                if "one box for the whole load" not in str(exc):
+                    _fail(problems, f"song loop, zoomed: the refusal of a load with cuts does not say why: {exc}")
+            # CONTINUING a stored window (the one the continued run above used, which has no region file): a zoomed
+            # run is refused until that window says how it was framed, then takes its box; a whole-frame run is
+            # refused once it says it was zoomed
+            try:
+                run(tmp, "k/run", record=far, continue_from=stored)
+                _fail(problems, "song loop, zoomed: a zoomed run continued a stored window that does not say how it was framed")
+            except ValueError as exc:
+                if "left no region file" not in str(exc):
+                    _fail(problems, f"song loop, zoomed: the refusal of a stored window with no region file does not say so: {exc}")
+            kept_box = {**regions[0]["zoom"], "box": [v - 2 for v in regions[0]["zoom"]["box"]]}
+            vm.save_window_region(stored[:-len(".safetensors")] + "_region.npz", regions[0]["mask"], regions[0]["tokens"],
+                                  {"zoom": kept_box}, 4, 0, 0)
+            try:
+                run(tmp, "k/run", record=far, continue_from=stored)
+                framed = vm.load_window_region(str(Path(tmp) / "k" / "run_windows" / "run_window_1_region.npz"))["zoom"]
+            except Exception as exc:  # noqa: BLE001
+                _fail(problems, f"song loop, zoomed: a zoomed run continuing a zoomed window raised: {type(exc).__name__}: {exc}")
+                return
+            if framed["box"] != kept_box["box"] or framed["set_by"] != vm.CONTINUED_BOX:
+                _fail(problems, f"song loop, zoomed: a continuation must be rendered in the box of the window it continues, "
+                                f"{kept_box['box']}; it was rendered in {framed['box']} ({framed['set_by']})")
+            try:
+                run(tmp, "j/run", continue_from=stored)
+                _fail(problems, "song loop, zoomed: a whole-frame run continued a window that was rendered zoomed in")
+            except ValueError as exc:
+                if "was rendered zoomed in" not in str(exc):
+                    _fail(problems, f"song loop, zoomed: the refusal of a whole-frame run on a zoomed window does not say so: {exc}")
+            if record.get("region_cut_at_box_sides") is None or any("region_cut_at_box_sides" not in r for r in plan_z["windows"]):
+                _fail(problems, "song loop, zoomed: the box's file and each planned window must say which sides of the box the region is cut at")
+            zgone = run(tmp, "x/run", record=far, keep_windows=False)
+            if os.path.isdir(Path(tmp) / "x" / "run_windows") or not os.path.isfile(zgone[0]) \
+                    or not os.path.isfile(zgone[0][:-len(".mp4")] + "_zoomed.mp4"):
+                _fail(problems, "song loop, zoomed: with keep_windows off the windows folder must go and the joined zoomed picture stay")
+        finally:
+            keeper.ZOOMS.short = was_short
+            keeper.ZOOMS.clear()
         gone = run(tmp, "u/run", keep_windows=False)
         if os.path.isdir(Path(tmp) / "u" / "run_windows") or not os.path.isfile(gone[0]):
             _fail(problems, f"song loop: with keep_windows off the windows folder still holds "
@@ -1310,10 +1453,10 @@ def check_motion_look(problems):
         except ValueError as exc:
             if word not in str(exc):
                 problems.append(f"motion look: the refusal of {label} does not say so: {exc}")
-    inputs = node.define_schema().inputs
-    tail = [(i.id, i.optional, getattr(i, "default", None)) for i in inputs[-5:-1]]
+    tail = [(i.id, i.optional, getattr(i, "default", None)) for i in (_appended(name) for name in
+                                                                      ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey")) if i is not None]
     if tail != [("motion_box", True, vm.BOX_SUBJECT), ("motion_blur_share", True, 0.0), ("motion_blur_pixels", True, 0), ("motion_grey", True, False)]:
-        problems.append(f"motion look: the four inputs are not appended last, optional and off: {tail}")
+        problems.append(f"motion look: the four inputs are not where they were appended (`APPENDED`), optional and off: {tail}")
     if any(name not in vm.MASK_KEY_SKIP for name in ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey")):
         problems.append("motion look: an input that changes only what the model is shown is in the kept mask's key")
 
@@ -1327,6 +1470,214 @@ def check_motion_look(problems):
     if song.count("**video_mask.motion_look(source))") != 1 or song.count("video_mask.window_look_note(source,") != 2 \
             or "video_mask.look_boxes(source," not in song:
         problems.append("motion look: the song node does not hand the reference its look, its boxes for a share, or report it")
+
+
+def check_render_zoom(problems):
+    """Item 24. A small subject rendered zoomed in: the one box of a load, the source made of it, the lay back."""
+    import importlib
+    import math
+    import tempfile
+    keep = importlib.import_module("_h3pack.window_keep")
+    short, keep.ZOOMS.short = keep.ZOOMS.short, (lambda: False)     # the host's free memory is not this check's subject
+    try:
+        # 1. the box: whole even pixels of the load's frames, the canvas's proportions exactly, inside what the
+        #    canvas shows, round the subject with its room, never under what `largest` allows
+        for old_w, old_h, width, height in ((1424, 1080, 1024, 768), (1024, 768, 1024, 768), (1920, 1080, 1344, 768), (356, 270, 256, 192)):
+            cx, cy = vm._fit_crop(old_w, old_h, width, height)
+            shown_w, shown_h = old_w - 2 * cx, old_h - 2 * cy
+            mx, my = old_w // 2, old_h // 2
+            cases = {"small, in the middle": ((mx - shown_w // 40, my - shown_h // 30, mx + shown_w // 40, my + shown_h // 30), 2.0, "largest_zoom"),
+                     # from the first EVEN column and row the canvas shows: the box is even, so an odd crop's first
+                     # column is the one pixel a box cannot reach
+                     "small, in a corner": ((cx + cx % 2, cy + cy % 2, cx + shown_w // 20, cy + shown_h // 15), 2.0, "largest_zoom"),
+                     "a quarter of the frame": ((mx - shown_w // 8, my - shown_h // 8, mx + shown_w // 8, my + shown_h // 8), 8.0, "the box")}
+            for name, (subject, largest, by) in cases.items():
+                rows = torch.tensor([list(subject)] * 3 + [[-1] * 4])
+                box, why = vm.zoom_box(rows, old_w, old_h, width, height, largest)
+                if box is None:
+                    _fail(problems, f"render zoom: {name} on {old_w}x{old_h} for {width}x{height} gave no box: {why}")
+                    continue
+                x0, y0, x1, y1 = box
+                scale = shown_w / (x1 - x0)
+                if any(v % 2 for v in box) or (x1 - x0) * height != (y1 - y0) * width \
+                        or x0 < cx or y0 < cy or x1 > old_w - cx or y1 > old_h - cy \
+                        or x0 > subject[0] or y0 > subject[1] or x1 < subject[2] or y1 < subject[3]:
+                    _fail(problems, f"render zoom: {name} on {old_w}x{old_h} for {width}x{height}: the box {box} must be whole even "
+                                    f"pixels in the canvas's proportions, inside what the canvas shows and round the subject {subject}")
+                if why != by or scale > largest + 1e-9 or scale < vm.ZOOM_SMALLEST:
+                    _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: set by {why!r} at {scale:.3f} times; it is set by {by} "
+                                    f"and never over largest_zoom {largest:g}")
+                if by == "largest_zoom" and scale < largest * 0.9:
+                    _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: a small subject comes to {scale:.3f} times under a cap of {largest:g}")
+                if by == "the box" and ((x1 - x0) < (subject[2] - subject[0]) * (1 + 2 * vm.ZOOM_ROOM) - 1e-6
+                                        or (y1 - y0) < (subject[3] - subject[1]) * (1 + 2 * vm.ZOOM_ROOM) - 1e-6):
+                    _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: the box {box} leaves the subject less than its room")
+            big = torch.tensor([[cx + shown_w // 10, cy + shown_h // 10, old_w - cx - shown_w // 10, old_h - cy - shown_h // 10]])
+            if vm.zoom_box(big, old_w, old_h, width, height, 2.0)[0] is not None \
+                    or vm.zoom_box(torch.full((4, 4), -1), old_w, old_h, width, height, 2.0)[0] is not None:
+                _fail(problems, f"render zoom: on {old_w}x{old_h} a subject that fills the frame, or one in no frame, was given a box")
+
+        # 2. the source made of the box: handed frames twice the canvas each way, so a zoom of 2 is a plain cut
+        n, big_h, big_w, width, height = 20, 96, 128, 64, 48
+        frames = (torch.linspace(0.1, 0.5, big_w)[None, None, :, None] + torch.linspace(0.0, 0.3, big_h)[None, :, None, None]).expand(n, -1, -1, 3).clone()
+        mask = torch.zeros(n, big_h, big_w)
+        mask[:, 44:52, 60:72] = 1.0
+        table = json.dumps({"shots": [{"first_frame": 0, "last_frame": n - 1}]})
+        node = vm.MiniMaxH3MaskedSource
+        rec = node.execute(frames, mask, grow_pixels=8, feather_pixels=2, shot_table=table,
+                           render_region=vm.RENDER_ZOOM_REPLACED, largest_zoom=2.0).args[0]
+        if (rec.get("render_region"), rec.get("largest_zoom"), rec.get("cuts")) != (vm.RENDER_ZOOM_REPLACED, 2.0, []):
+            _fail(problems, f"render zoom: the record carries {rec.get('render_region')!r}, {rec.get('largest_zoom')!r} and cuts {rec.get('cuts')}")
+            return
+        plain = {**rec, "render_region": vm.RENDER_WHOLE}
+        same, said = vm.zoomed_source(plain, width, height)
+        if same is not plain or said:
+            _fail(problems, "render zoom: under `the whole frame` the source must come back as it went in, with nothing said")
+        z, said = vm.zoomed_source(rec, width, height)
+        zoom = z.get("zoom")
+        if zoom is None or z.get("whole") is not rec or len(said) != 2 or "handed 128x96 frames for a 64x48 canvas" not in said[0] \
+                or not said[0].startswith("ZOOMED 2.00x: ") or "kept on the host" not in said[1]:
+            _fail(problems, f"render zoom: a zoomed source must carry its zoom and the source as it came, and say what it was handed: {said}")
+            return
+        x0, y0, x1, y1 = zoom["box"]
+        if (x1 - x0, y1 - y0) != (width, height) or abs(zoom["scale"] - 2.0) > 1e-9 or zoom["source_size"] != [big_w, big_h] \
+                or zoom["canvas"] != [width, height] or zoom["set_by"] != "largest_zoom":
+            _fail(problems, f"render zoom: on frames twice the canvas a small subject under a cap of 2 is a {width}x{height} box at 2 times; got {zoom}")
+            return
+        if not torch.equal(z["frames"], frames[:, y0:y1, x0:x1]) or not torch.equal(z["mask"], mask[:, y0:y1, x0:x1]):
+            _fail(problems, "render zoom: at a scale of one the zoomed frames and mask are the box cut out, value for value")
+        want_box = torch.tensor([60 - x0, 44 - y0, 72 - x0, 52 - y0])
+        if not torch.equal(z["region_boxes"][0], want_box) or not torch.equal(z["subject_boxes"][0], want_box) \
+                or abs(float(z["subject_area"][0]) - 12 * 8 / (width * height)) > 1e-6:
+            _fail(problems, f"render zoom: the box tables and the subject's area must be of the zoomed picture: {z['region_boxes'][0].tolist()}, "
+                            f"{z['subject_boxes'][0].tolist()}, {float(z['subject_area'][0]):.4f}")
+        fitted, fitted_mask, _held = vm.window_frames(z, 0, 9, width, height)
+        if not torch.equal(fitted, z["frames"][:9]) or not torch.equal(fitted_mask, z["mask"][:9]):
+            _fail(problems, "render zoom: a window of a zoomed source is its frames and mask as they are: the fit to the canvas must change nothing")
+        again, said_again = vm.zoomed_source(rec, width, height)
+        if again["frames"] is not z["frames"] or again["mask"] is not z["mask"] or "kept from an earlier run" not in said_again[1]:
+            _fail(problems, "render zoom: a second run on the same source must be handed the same tensors, or no kept latent or conditioning hits")
+        for bad, word in (({**rec, "cuts": [7]}, "one box for the whole load"), ({**rec, "region_boxes": None}, "box on each frame"),
+                          ({**rec, "render_region": "closer"}, "unknown render_region")):
+            try:
+                vm.zoomed_source(bad, width, height)
+                _fail(problems, f"render zoom: a source that should be refused ({word}) was not")
+            except ValueError as exc:
+                if word not in str(exc):
+                    _fail(problems, f"render zoom: the refusal does not say {word!r}: {exc}")
+        # a run that CONTINUES a stored window is framed as that window was: its kept frames are that latent
+        other = {**zoom, "box": [x0 - 2, y0 - 2, x1 - 2, y1 - 2]}       # another box that still holds the subject
+        took, said = vm.zoomed_source(rec, width, height, other)
+        if took["zoom"]["box"] != other["box"] or took["zoom"]["set_by"] != vm.CONTINUED_BOX or "the window this run continues" not in said[0] \
+                or not torch.equal(took["frames"], frames[:, y0 - 2:y1 - 2, x0 - 2:x1 - 2]):
+            _fail(problems, f"render zoom: a zoomed run that continues a zoomed window must take that window's box, {other['box']}: {took['zoom']}")
+        for record, stored, word in ((plain, zoom, "was rendered zoomed in"), (rec, None, "was rendered on the whole frame"),
+                                     (rec, vm.NO_REGION_FILE, "left no region file"),
+                                     (rec, {**zoom, "box": [0, 0, width, height]}, "does not fit"),
+                                     (rec, {**zoom, "canvas": [2 * width, 2 * height]}, "another place")):
+            try:
+                vm.zoomed_source(record, width, height, stored)
+                _fail(problems, f"render zoom: a continuation that should be refused ({word}) was not")
+            except ValueError as exc:
+                if word not in str(exc):
+                    _fail(problems, f"render zoom: the continuation's refusal does not say {word!r}: {exc}")
+        for stored in (None, vm.NO_REGION_FILE, vm.NOT_CONTINUED):
+            if vm.zoomed_source(plain, width, height, stored)[0] is not plain:
+                _fail(problems, f"render zoom: a whole-frame run continuing a whole-frame window ({stored!r}) must run as it always has")
+        with tempfile.TemporaryDirectory() as tmp:
+            latent = str(Path(tmp) / "run_window_1.safetensors")
+            cells = torch.ones(1, height // 16, width // 16)
+            if vm.stored_zoom(latent) != vm.NO_REGION_FILE:
+                _fail(problems, "render zoom: a stored window with no region file must say so")
+            vm.save_window_region(latent[:-len(".safetensors")] + "_region.npz", z["mask"][:1], cells, {"zoom": zoom}, 8, 0, 0)
+            if vm.stored_zoom(latent) != zoom:
+                _fail(problems, f"render zoom: a stored window's framing is its region file's: {vm.stored_zoom(latent)}")
+            vm.save_window_region(latent[:-len(".safetensors")] + "_region.npz", z["mask"][:1], cells, {}, 8, 0, 0)
+            if vm.stored_zoom(latent) is not None:
+                _fail(problems, "render zoom: a stored window rendered on the whole frame must read as None")
+        # the region reaching a side of the box that is inside the frame is cut off there, and named; a side that
+        # is the frame's own edge is not
+        cells = torch.zeros(2, height // 16, width // 16)
+        cells[1, 1, 0] = 1.0             # the left column on a middle row, and the top row on a middle column: no corner
+        cells[0, 0, 1] = 1.0
+        at_edge = {**zoom, "box": [0, 0, width, height]}
+        if vm.box_sides_cut(cells, zoom) != ["left", "top"] or vm.box_sides_cut(cells, at_edge) != [] \
+                or vm.box_sides_cut(torch.zeros_like(cells), zoom) != []:
+            _fail(problems, f"render zoom: the sides a region is cut at are {vm.box_sides_cut(cells, zoom)} and, with the box in the "
+                            f"frame's corner, {vm.box_sides_cut(cells, at_edge)}; they are left and top, and none")
+        wide = torch.zeros(n, big_h, big_w)
+        wide[:, 10:86, 12:116] = 1.0
+        filled = node.execute(frames, wide, grow_pixels=8, feather_pixels=2, shot_table=table,
+                              render_region=vm.RENDER_ZOOM_REPLACED).args[0]
+        back, said = vm.zoomed_source(filled, width, height)
+        if back is not filled or len(said) != 1 or "rendered on the whole frame" not in said[0]:
+            _fail(problems, f"render zoom: a subject that fills the frame is rendered on the whole frame, and the report says so: {said}")
+        where, most = _appended("render_region"), _appended("largest_zoom")
+        if where is None or most is None or not where.optional or not most.optional or where.default != vm.RENDER_WHOLE \
+                or most.default != vm.ZOOM_LARGEST or any(k not in vm.MASK_KEY_SKIP for k in ("render_region", "largest_zoom")):
+            _fail(problems, "render zoom: the two inputs must be the node's last (`APPENDED`), optional, defaulting to the whole frame "
+                            "and to ZOOM_LARGEST, and out of the kept mask's key")
+        for kw, word in ((dict(render_region="closer"), "render_region"), (dict(largest_zoom=1.0), "largest_zoom"), (dict(largest_zoom=9.0), "largest_zoom")):
+            try:
+                node.execute(frames, mask, shot_table=table, **kw)
+                _fail(problems, f"render zoom: the Masked Source took {kw}")
+            except ValueError as exc:
+                if word not in str(exc):
+                    _fail(problems, f"render zoom: the Masked Source's refusal of {kw} does not name {word}: {exc}")
+
+        # 3. the lay back, on a box that lands between canvas pixels: nothing shifts, the plate is the whole
+        #    frame's own wherever the weight is 0, and a weight of 1 is the decode
+        old_w, old_h, width, height = 356, 270, 256, 192
+        yy, xx = torch.meshgrid(torch.arange(old_h, dtype=torch.float32), torch.arange(old_w, dtype=torch.float32), indexing="ij")
+        picture = 0.5 + 0.25 * torch.sin(xx / 17.0) * torch.cos(yy / 13.0) + 0.2 * torch.sin((xx + 2.0 * yy) / 29.0)
+        frames = picture[None, :, :, None].expand(3, -1, -1, 3).clone()
+        rows = torch.tensor([[150, 110, 190, 150]] * 3)
+        box, _why = vm.zoom_box(rows, old_w, old_h, width, height, 2.0)
+        cx, _cy = vm._fit_crop(old_w, old_h, width, height)
+        zoom = {"box": list(box), "source_size": [old_w, old_h], "canvas": [width, height], "scale": (old_w - 2 * cx) / (box[2] - box[0]),
+                "render_region": vm.RENDER_ZOOM_REPLACED, "set_by": "largest_zoom"}
+        fx0, fy0, fx1, fy1 = vm._canvas_box(zoom)
+        if all(float(v).is_integer() for v in (fx0, fy0, fx1, fy1)):
+            _fail(problems, f"render zoom: the fixture's box lands on whole canvas pixels ({fx0}, {fy0}); the case below needs one that does not")
+        whole = vm.fit_frames(frames, width, height)
+        zoomed = vm.crop_frames(frames, box, width, height)
+        alpha = torch.zeros(3, height, width)
+        alpha[:, 50:150, 60:200] = 1.0
+        laid = vm.lay_back(zoomed, alpha, whole, zoom)
+        err = float((laid - whole).abs().max())
+        shifted = float((vm.lay_back(zoomed, alpha, whole, {**zoom, "box": [box[0] + 4, box[1], box[2] + 4, box[3]]}) - whole).abs().max())
+        if err > 0.02 or err > 0.5 * shifted:
+            _fail(problems, f"render zoom: the zoomed plate laid back is {err:.4f} from the whole frame's own at most (a box 4 px off "
+                            f"gives {shifted:.4f}); the lay back must put the picture where it was cut from")
+        # the rectangle's place on the canvas, a pixel of slack each way for the filter's reach
+        k = (fx1 - fx0) / width
+        rx0, ry0, rx1, ry1 = fx0 + 60 * k, fy0 + 50 * k, fx0 + 200 * k, fy0 + 150 * k
+        outside = torch.ones(height, width, dtype=torch.bool)
+        outside[max(0, math.floor(ry0) - 2):math.ceil(ry1) + 2, max(0, math.floor(rx0) - 2):math.ceil(rx1) + 2] = False
+        if not torch.equal(laid[:, outside], whole[:, outside]) or not torch.equal(vm.lay_back(zoomed, torch.zeros_like(alpha), whole, zoom), whole):
+            _fail(problems, "render zoom: where the weight is 0 the laid-back frame must be the whole frame's own pixels, bit for bit, "
+                            "inside the box as well as outside it")
+        flat = vm.lay_back(torch.full_like(zoomed, 0.9), alpha, whole, zoom)
+        inner = flat[:, math.ceil(ry0) + 2:math.floor(ry1) - 2, math.ceil(rx0) + 2:math.floor(rx1) - 2]
+        if float((inner - 0.9).abs().max()) > 1e-4:
+            _fail(problems, f"render zoom: under a weight of 1 the laid-back frame is the decode; it is {float((inner - 0.9).abs().max()):.5f} off")
+        try:
+            vm.lay_back(zoomed, alpha[:2], whole, zoom)
+            _fail(problems, "render zoom: a weight that covers other frames than the decode was laid")
+        except ValueError:
+            pass
+
+        # 4. the region file says the box, and a file with none says None
+        with tempfile.TemporaryDirectory() as tmp:
+            tokens = torch.ones(1, height // 16, width // 16)
+            settings = {"composite": vm.COMPOSITE_REGION, "feather_pixels": 0, "zoom": zoom}
+            got = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "z.npz"), alpha[:1], tokens, settings, 8, 0, 0))
+            bare = vm.load_window_region(vm.save_window_region(str(Path(tmp) / "w.npz"), alpha[:1], tokens, {"composite": vm.COMPOSITE_REGION}, 8, 0, 0))
+            if got["zoom"] != zoom or bare["zoom"] is not None or "zoom" in got["source"]:
+                _fail(problems, f"render zoom: a region file must hand back the box its window was rendered in, and None for a whole-frame window: {got['zoom']}, {bare['zoom']}")
+    finally:
+        keep.ZOOMS.short = short
+        keep.ZOOMS.clear()
 
 
 def check_held_tail(problems):
@@ -1374,9 +1725,9 @@ def check_held_tail(problems):
     except ValueError as exc:
         if "unknown held_tail" not in str(exc):
             problems.append(f"held tail: the refusal does not name the choices: {exc}")
-    inputs = node.define_schema().inputs
-    if inputs[-1].id != "held_tail" or not inputs[-1].optional or inputs[-1].default != vm.TAIL_PLATE or "held_tail" not in vm.MASK_KEY_SKIP:
-        problems.append("held tail: it is not the node's last input, optional, defaulting to the plate, and out of the kept mask's key")
+    got = _appended("held_tail")
+    if got is None or not got.optional or got.default != vm.TAIL_PLATE or "held_tail" not in vm.MASK_KEY_SKIP:
+        problems.append("held tail: it is not where it was appended (`APPENDED`), optional, defaulting to the plate, and out of the kept mask's key")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if '"with its region open" if source.get("held_tail") == video_mask.TAIL_OPEN else "unmasked"' not in song \
             or "held frame(s) are INSIDE the track and are written" not in song:
@@ -1463,12 +1814,27 @@ def check_others(problems):
             if word not in str(exc):
                 problems.append(f"others: the refusal of {label} does not say so: {exc}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next,
-    # then `motion_video`, 2026-10-10)
-    if inputs[-8].id != "others" or not inputs[-8].optional:
+    # appended inputs keep their place: a later one goes after, never between (`APPENDED`)
+    got = _appended("others")
+    if got is None or not got.optional:
         problems.append("others: it is not where it was appended (the input before `edge`) and optional")
     if "others" not in vm.MASK_KEY_SKIP:
         problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
+
+
+#: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
+#: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
+#: asks `_appended` for it, and adding an input is one name on the end of this tuple.
+APPENDED = ("others", "edge", "motion_video", "motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey",
+            "held_tail", "render_region", "largest_zoom")
+
+
+def _appended(name: str):
+    """The Masked Source's input `name` when the node's last inputs are `APPENDED` in order, else None."""
+    inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
+    if tuple(i.id for i in inputs[-len(APPENDED):]) != APPENDED:
+        return None
+    return next(i for i in inputs if i.id == name)
 
 
 def _fail(problems, text: str) -> None:
@@ -2285,7 +2651,7 @@ def check_review_robust(problems, song_text):
     if "why = _review_or_reason(window_review, f\"window {w.number}\")" not in song_text \
             or "why = _review_or_reason(joined_review, \"the run\")" not in song_text:
         problems.append("mask review: a failure in a review would fail the render")
-    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
+    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path, zoomed_path):" not in song_text:
         problems.append("mask review: a window that renders again keeps its old review for a later run to join")
     at = song_text.find("why = _review_or_reason(joined_review")
     owed = [song_text.find(mark, at) for mark in ("write_metadata_png(os.path.join(full_out", "shot_table.write_beside(source",
@@ -2365,7 +2731,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_render_zoom, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

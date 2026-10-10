@@ -380,7 +380,9 @@
       "motion_blur_share",
       "motion_blur_pixels",
       "motion_grey",
-      "held_tail"
+      "held_tail",
+      "render_region",
+      "largest_zoom"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

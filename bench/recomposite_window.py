@@ -39,6 +39,12 @@ under `--out` as `decoded_<window's name>.npy` (half floats) and read from there
 does that for one window or several and stops, so the card is held for the decodes alone and the laying, which is
 CPU work, is run afterwards.
 
+**A window rendered zoomed in.** Its region file says the box (`zoom`), and everything here is then in the zoomed
+space: the source is read at the size the node was handed and cut to the box, and "the window's own video" is the
+zoomed picture written beside it (`..._zoomed.mp4`), since the window's video is the whole frame with the region
+laid back. Give `--source` the file the render's loader read; when that loader handed the clip's own frames and
+not a fit to the canvas, the clip's size must be the region's `source_size`.
+
 **`--set` and `--as-rendered`.** Each is `key=value` over the window's own settings: `cuts=none` (no gate),
 `cuts=12,40`, `composite=whole region`, `feather_pixels=4`, `change_threshold=0.08`, and `no_mask=laid` or
 `no_mask=source` (whether a frame with no mask of its own is laid, as renders before 2026-10-10 laid it, or left
@@ -415,8 +421,19 @@ def run(a: argparse.Namespace, decode=decode_window) -> dict:
         raise SystemExit(f"the region is {tuple(region['mask'].shape)} with tokens {tuple(region['tokens'].shape)}; the "
                          f"window is {frames} frames at {size[0]}x{size[1]} with a latent of {tuple(latent[2:])}")
     first = int(region["first_frame"])
-    pixels, held = source_frames(a.source, a.source_first + first, frames, size,
+    # A window rendered zoomed in (`video_mask.zoomed_source`): its mask, tokens, decode and laying are all of
+    # one box of the frames the node was handed, scaled to the canvas. The source is read at that handed size,
+    # cut to the box as the node cut it, and the file the laying is held to is the zoomed picture beside the
+    # window's video; the window's video itself is the whole frame and is not read here.
+    zoom = region.get("zoom")
+    pixels, held = source_frames(a.source, a.source_first + first, frames,
+                                 size if zoom is None else tuple(int(v) for v in zoom["source_size"]),
                                  None if a.source_frames is None else a.source_frames - first)
+    if zoom is not None:
+        if [int(v) for v in zoom["canvas"]] != list(size):
+            raise SystemExit(f"the region's zoom is for a canvas of {zoom['canvas']} and the window is {size[0]}x{size[1]}")
+        pixels = vm.crop_frames(pixels, zoom["box"], *size)
+        how["zoom"] = zoom
 
     out = Path(a.out)
     images, how["decode"] = kept_decode(window, out, a.vae, a.device, decode)
@@ -427,7 +444,8 @@ def run(a: argparse.Namespace, decode=decode_window) -> dict:
     changed = change(region["source"], a.set or [])
     laid_a, alpha_a, lines_a = vm.lay_window(images, pixels, region["tokens"], region["mask"], as_rendered, region["margin"], first)
     laid_b, alpha_b, lines_b = vm.lay_window(images, pixels, region["tokens"], region["mask"], changed, region["margin"], first)
-    file = written_frames(str(window.with_suffix(".mp4")), size, stored["written"] or frames)
+    file = written_frames(str(window.with_suffix(".mp4") if zoom is None else window.with_name(window.stem + "_zoomed.mp4")),
+                          size, stored["written"] or frames)
     rows = rows_of(a.source_first + first, stored["trim"], stored["written"], pixels, laid_a, alpha_a, laid_b, alpha_b, file,
                    step_rows(vm, latent[2], region["source"].get("cuts"), first), images,
                    [int(x) for x in a.box.split(",")] if a.box else None, lent_cells(vm, region, latent), region["mask"])
@@ -447,6 +465,10 @@ def report(record: dict) -> None:
     s, how = record["summary"], record["inputs"]
     print(f"{record['window']}: {record['frames']} frames from source frame {record['source_first'] + record['window_first_frame']}, "
           f"{s['frames_written']} of them in its video; region: {how['region']}; {how['decode']}")
+    if how.get("zoom"):
+        z = how["zoom"]
+        print(f"  RENDERED ZOOMED IN: everything below is of the box {z['box']} of the {z['source_size'][0]}x{z['source_size'][1]} "
+              f"frames the node was handed, {z['scale']:.2f} times; the video it is held to is the zoomed picture beside the window")
     if "cells_differing" in how:
         print(f"  LAID FROM A READ-BACK MASK, not the render's own: the token region rebuilt from it differs from the "
               f"region the review shows on {how['cells_differing']} cells of {how['cells_in_region']} in the region, "

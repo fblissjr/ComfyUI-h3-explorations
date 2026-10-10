@@ -232,6 +232,16 @@ docstring is the authority and lists the steps; `follow` is the function.
   (`subject_tracks.py::one_each`), unless the one that would be kept may be
   a part, and the report, the table and the tile's header count both. A
   correction by number is read off a tile made after this change.
+- **A seed** (added 2026-10-10). `seeds` says who the subject is in a
+  shot by a frame of the load and a box, one line a shot
+  (`frame 410: 543, 253, 157, 186`, or `frame 410: none`), so a tool can
+  write what until now only a person reading this tracker's tile could
+  (`subject_track.py::parse_seeds`). The detection on that frame the box
+  names is taken and tracked; a box nothing agrees with leaves the shot
+  empty and says so, with the nearest detection's box
+  (`subject_track.py::SEED_AGREES`, a starting value). A seed on the
+  picked shot is the pick. The frame is the load's own: whoever writes a
+  seed subtracts the load's first source frame.
 - **Who is who after a cut** (added 2026-10-10, a lane in progress). Each
   tracker decides a shot alone, against one reference and a line. On a
   two-subject load both left a shot empty that held both subjects, and the
@@ -618,6 +628,61 @@ every render so far was made with; any other value is untested.
 [`window_context.md`](window_context.md) is the ledger for this question:
 the mechanism, every lever with its kind and status, and each result as a
 dated line.
+
+## A small subject, rendered zoomed in
+
+Built 2026-10-10; when this was written no render had been made with it.
+
+**Why.** A subject small in the frame is a few of the model's tokens. On
+one clip the owner did not read a small face as replaced, and then did,
+once its load stopped fading at the end (`held_tail`): so how much of that
+was the face's size is not settled, and smaller subjects than that one are
+in the clip. `video_mask.RENDER_WHOLE`'s comment holds the case.
+
+**What it does.** `render_region` on the Masked Source (`RENDER_REGIONS`)
+with `largest_zoom`. Under a zoomed choice the song node crops the load to
+ONE box round the tracked subject or round what is replaced
+(`video_mask.zoom_box`), scales it to the canvas (`zoomed_source`), and
+runs everything as it does on any clip: the margins, the token region, the
+motion reference, the encode, the sampler, the decode and `lay_window` all
+see a clip that happens to be a crop. `lay_back` then puts the region into
+the whole frame, so a window's video and the joined file are the whole
+frame as ever. Where the weight is 0 the pixel is the loaded frame's own.
+
+**What it buys, and what it does not.** Tokens for the subject while it is
+drawn. Not delivered pixels: the window's video is still the canvas. For a
+delivery built at the source's size the laid picture in the zoomed space
+is written beside each window and joined (`<stem>_zoomed.mp4`), with
+`<stem>_zoomed.json` saying the box (`audio_freeze_song.zoomed_record`).
+
+**One box for the whole load.** A continuation's kept frames are the
+window before's latent, so two windows with two boxes would hand the model
+a context of another framing; and a box held across a cut frames nobody on
+one side. So the box is fixed over every frame loaded, and a load with a
+cut inside it is refused: load one shot at a time. A subject who crosses
+the frame makes the box most of the frame; under `ZOOM_SMALLEST` the load
+is rendered on the whole frame and the report says so.
+
+**The box is in the pixels the node was handed.** The job graphs' loader
+fits the clip to the canvas before the Masked Source
+(`workflows/masked_job_graph.py::loader`), so in a job-built graph the
+box is of canvas-size frames and the whole zoom is enlargement of those:
+the plate the model sees is softer by that factor. A loader that hands the
+clip's own frames gives the box more pixels. The report's line says which,
+and the files carry the size as `source_size`. Only the region is laid
+back, so the plate's softness is in no delivered pixel; whether it changes
+what the model draws is the first render's question.
+
+**What changes meaning.** `grow_pixels` and `feather_pixels` are pixels of
+the zoomed picture, so on the whole frame they are divided by the zoom
+(the report gives both). A window's region file and a preview's plan are
+of the zoomed space and carry the box under `zoom`
+(`video_mask.load_window_region`); a reader that lays them or counts
+their cells maps through the box or refuses. The mask review of a zoomed
+run is of the zoomed picture, and its legend says so.
+
+**Checks.** `bench/check_video_mask.py` item 24 and the zoomed case of its
+song loop; `bench/check_recomposite_window.py`'s zoomed window.
 
 ## Known limits
 
