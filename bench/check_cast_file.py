@@ -15,6 +15,7 @@ rules that make it worth keeping.
   a_tile_is_stored_whole_or_not_at_all     one bad pair and nothing is written; the pairs that cannot be are refused by name
   a_tile_that_does_not_show_everybody_is_refused   a table whose shot left another tracker's people out, or does not say
   the_latest_line_for_a_frame_stands       and a withdrawal leaves no answer
+  a_standing_box_is_not_passed_over        a second tile of the same frame that does not outline the subject cannot erase a box
   seeds_are_read_by_the_trackers_own_parser    the text for a load goes through `subject_track.parse_seeds` and names the right shots
   none_outlined_needs_a_choice             no default; `leave` writes no seed, `empty` writes `none` and is called the strong reading
   a_box_is_used_before_none_outlined       in one shot; the other answer is named as unused; later means later in the file
@@ -180,6 +181,31 @@ def the_latest_line_for_a_frame_stands():
         assert len(C.read(path)) == 10, "nothing is rewritten: every line given is still in the file"
 
 
+def a_standing_box_is_not_passed_over():
+    # census B of the same clip: the same shown frame, and the lead has no outline on it
+    other = json.loads(json.dumps(TABLE))
+    other["shots"][0]["people"] = [{"person": 1, "box": [100, 50, 200, 600]}]
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "cast.jsonl"
+        C.append(path, _tile(1, (2, "lead"), (1, "second")))
+        before = path.read_bytes()
+        said = _raises(lambda: C.append(path, _tile(1, (1, "second"), table=other, by="b")), "lead has a confirmed box on frame 1020", "withdraw it first")
+        assert "census_shots.json" in said and "a person" in said, f"the refusal does not say whose box, from which table: {said}"
+        assert path.read_bytes() == before, "a refused tile added a line: the second's line of the same tile went in"
+        assert C.seeds(C.read(path), "lead", FIRST, SIZE, SHOTS, C.LEAVE)["text"] == "frame 20: 600, 80, 300, 500"
+        # the two commands a person means: take the box back, then the tile goes in
+        C.append(path, [C.entry("lead", 1020, C.WITHDRAWN, by="b")])
+        C.append(path, _tile(1, (1, "second"), table=other, by="b"))
+        assert C.current(C.read(path))[("lead", 1020)]["answer"] == C.NONE_OUTLINED
+        # a box replacing a box, and a box replacing a `none`, go in
+        C.append(path, _tile(1, (2, "lead"), (1, "second"), by="c"))
+        C.append(path, _tile(1, (1, "lead"), (2, "second"), by="d"))
+        now = C.current(C.read(path))
+        assert (now[("lead", 1020)]["by"], now[("lead", 1020)]["box"][0], now[("second", 1020)]["box"][0]) == ("d", 100.0, 600.0), now
+        # and the same answer with the second left unnamed is refused: her box would be passed over
+        _raises(lambda: C.append(path, _tile(1, (1, "lead"), by="e")), "second has a confirmed box")
+
+
 def _tracker():
     """`subject_track` as `bench/check_subject_track.py` loads it: a module of a stand-in package, on the CPU."""
     sys.path.insert(0, str(REPO))
@@ -265,7 +291,7 @@ def main() -> int:
     print("bench/check_cast_file.py\n")
     for fn in (two_writers_lose_nothing, a_cut_short_last_line_stops_an_append, a_line_that_cannot_be_read_is_named,
                a_tile_is_answered_by_naming_its_people, a_tile_is_stored_whole_or_not_at_all,
-               a_tile_that_does_not_show_everybody_is_refused, the_latest_line_for_a_frame_stands,
+               a_tile_that_does_not_show_everybody_is_refused, the_latest_line_for_a_frame_stands, a_standing_box_is_not_passed_over,
                seeds_are_read_by_the_trackers_own_parser, none_outlined_needs_a_choice, a_box_is_used_before_none_outlined,
                another_picture_shape_is_refused, an_answer_outside_the_load_is_not_moved):
         case(fn.__name__, fn)

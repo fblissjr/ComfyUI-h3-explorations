@@ -107,7 +107,13 @@ def append(path, lines: list[dict]) -> None:
     """Add the lines of one answer. The only way anything is written: every line checked, then all in one write, under a lock.
 
     A tile's lines are stored whole or not at all. A file whose last line was cut short (a writer that died) is
-    refused, so new lines are never glued to it."""
+    refused, so new lines are never glued to it.
+
+    A STANDING BOX IS NOT REPLACED BY `none of the outlined people`. A person's confirmed box is the strongest
+    thing this file holds, and a second preview of the same frame that happens not to outline the subject would
+    otherwise erase it by passing over (mrcorn's cold read, by running it: the shown frame is chosen by rule, so a
+    census made again lands on the same frames). The answer is refused whole; a box that was wrong is withdrawn
+    first, which is two commands a person means. A box replacing a box, and anything replacing a `none`, go in."""
     if not lines:
         raise ValueError("cast: nothing to add")
     data = "".join(json.dumps(entry(**{k: line[k] for k in FIELDS}), sort_keys=True) + "\n" for line in lines).encode()
@@ -119,6 +125,14 @@ def append(path, lines: list[dict]) -> None:
         size = os.fstat(fd).st_size
         if size and os.pread(fd, 1, size - 1) != b"\n":
             raise ValueError(f"cast: {path} does not end with a whole line; mend it by hand before anything is added")
+        standing = current(read(path))                  # read under the lock: no other writer is between this and the write
+        for line in lines:
+            held = standing.get((line["subject"], int(line["frame"])))
+            if line["answer"] == NONE_OUTLINED and held is not None and held["answer"] == HERE:
+                raise ValueError(f"cast: {line['subject']} has a confirmed box on frame {line['frame']} ({held['by']}, {held['at']}, from "
+                                 f"{held['table']}), and this answer would replace it with `{NONE_OUTLINED}`. Nothing is added. A tile "
+                                 f"that does not outline {line['subject']} does not take a box back: if the box was wrong, withdraw it "
+                                 "first (`withdraw`), then answer.")
         if os.write(fd, data) != len(data):
             raise OSError(f"cast: a short write to {path}")
         os.fsync(fd)
@@ -290,6 +304,13 @@ def main() -> int:
     for one in (a, w):
         one.add_argument("--by", required=True)
     args = p.parse_args()
+    try:
+        return _run(args)
+    except ValueError as e:
+        raise SystemExit(str(e)) from None
+
+
+def _run(args) -> int:
     if args.cmd == "answer":
         lines = from_tile(_table(args.table), args.table, args.first_frame, args.shot,
                           [x.strip() for x in args.subjects.split(",") if x.strip()], args.named or [], args.by)
