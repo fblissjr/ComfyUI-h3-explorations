@@ -394,6 +394,15 @@ def owners() -> str:
     assert (f[0:32] == cap.NOBODY).all() and contested[0] == 2 * 8 * 16, contested[0]
     lent = cap.owned_class_mask(map_one, owner, 0, ["Hand"], ("Background", "a", "b", "c", "d", "Hand"))
     assert lent.sum() == N * 8 * 16 and (lent[0] == (f == 0) & (map_one[0] == 5)).all(), "a class taken where its subject does not own the pixel"
+    # whose pixels a part sits on: a part of one's over columns 40-56 is half one's own, the rest as the strip was settled
+    part = rect(40, 32, 56, 64)
+    whose = cap.part_owners(part, owner, labels, "one")
+    assert whose["pixels"] == N * 16 * 32 and whose["shares"] == {"one": 0.625, "two": 0.125, "contested": 0.25, "nobody": 0.0}, whose
+    assert whose["frames_on_another_or_contested"] == N and whose["most_px_on_one_frame"] == 8 * 24, whose
+    assert cap.part_owners(part, owner, labels, "one", 100)["source_frames_on_another_or_contested"] == [[100, 100 + N - 1]]
+    clear = cap.part_owners(rect(32, 32, 48, 64), owner, labels, "one")
+    assert clear["shares"]["one"] == 1.0 and clear["frames_on_another_or_contested"] == 0, clear
+    assert cap.part_owners(np.zeros_like(part), owner, labels, "one") is None, "an empty part was given shares"
     bare, _, _, left = cap.owner_map({"one": one, "two": two}, {})
     assert left[0] == 16 * 32, "with no class map every pixel both claim is contested"
     return "one claimant owns; of two, the one whose class map names the pixel; named by both or neither is contested, never guessed"

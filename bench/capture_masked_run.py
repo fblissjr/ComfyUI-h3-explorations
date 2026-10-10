@@ -1474,6 +1474,26 @@ def head_across(pose: list[dict]) -> dict | None:
             "a_wrist_nearest_the_nose": round(min(min(r["left_wrist_to_nose"], r["right_wrist_to_nose"]) for r in rows), 2)}
 
 
+def part_owners(part: np.ndarray, owner: np.ndarray, labels: list[str], label: str, first: int = 0) -> dict | None:
+    """Whose pixels a subject's part sits on, by the capture's owner map, over the frames given.
+
+    `shares` is of the part's own pixels: each subject the owner map gives them to, `contested` (several tracks
+    claim them and the class maps did not settle it) and `nobody` (outside every track). A part pass redraws
+    the part, so a part on another subject's or on contested pixels is where it can draw over someone else:
+    the frames it happens on are counted and named (from `first`), with the most pixels on any one of them."""
+    total = int(part.sum())
+    if not total:
+        return None
+    under = owner[part]
+    shares = {name: round(float((under == k).sum()) / total, 4) for k, name in enumerate(labels)}
+    shares["contested"], shares["nobody"] = round(float((under == CONTESTED).sum()) / total, 4), round(float((under == NOBODY).sum()) / total, 4)
+    mine = labels.index(label)
+    off = (part & (owner != mine) & (owner != NOBODY)).reshape(len(part), -1).sum(1)
+    return {"pixels": total, "shares": shares, "frames_on_another_or_contested": int((off > 0).sum()),
+            "source_frames_on_another_or_contested": frame_spans([first + int(i) for i in np.nonzero(off)[0]], join=1),
+            "most_px_on_one_frame": int(off.max())}
+
+
 def rules_input(folder: Path, not_in: dict | None = None) -> dict:
     """Every figure of a capture that a per-clip rule needs, in one file: per shot and subject, and per load.
 
@@ -1493,10 +1513,13 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
         if path.is_file():
             tables[s["label"]] = (json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
             cuts = cuts or [tables[s["label"]][1] + c for c in tables[s["label"]][0]["cuts"]]
-    per, poses, mouths = {}, {}, {}
+    owners = np.load(folder / "owners.npz") if (folder / "owners.npz").is_file() else None
+    per, poses, mouths, part_bits = {}, {}, {}, {}
     for s in m["subjects"]:
         label, seen = s["label"], s["sightings"][0]
         base = folder / "subjects" / label
+        stored = np.load(base / f"masks__{seen['by']}.npz")
+        part_bits[label] = stored["parts"] if "parts" in stored.files else None
         per[label] = [r for r in json.loads((base / "per_frame.json").read_text())["rows"] if r["seen_by"] == seen["by"]]
         pose = base / f"pose__{seen['by']}.json"
         poses[label] = json.loads(pose.read_text())["rows"] if pose.is_file() else None
@@ -1549,6 +1572,15 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                     "the subject has no mask on this shot" if not masked else
                     "the part is empty on every frame of this shot" if any("parts_height_px" in r for r in mine) else
                     "this capture was made before the part's box was read: run `files` again")
+            if owners is None or part_bits[label] is None:
+                entry["part_pixels_owned_by"] = None
+                entry["part_pixels_owned_by_why"] = "no part for this subject" if part_bits[label] is None else \
+                    "no owner map: the capture holds one subject, or no class maps"
+            else:
+                part = np.unpackbits(part_bits[label][a - first:b - first + 1], axis=-1)[..., :w].astype(bool)
+                entry["part_pixels_owned_by"] = part_owners(part, owners["owner"][a - first:b - first + 1], [str(x) for x in owners["labels"]], label, a)
+                if entry["part_pixels_owned_by"] is None:
+                    entry["part_pixels_owned_by_why"] = "the part is empty on every frame of this shot"
             entry["head"] = head_across([r for r in (poses[label] or []) if a <= r["source_frame"] <= b])
             if entry["head"] is None:
                 entry["head_why"] = "no pose table for this subject (pose= on --mask)" if poses[label] is None else \
@@ -1618,6 +1650,7 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                         "share_of_the_frame, part_height": "subjects/<label>/per_frame.json: track_share, parts_height_px",
                         "head, the_pose_ahead_against_the_kept_frames": "subjects/<label>/pose__<by>.json (pose_state's columns)",
                         "mouth_open_on_unvoiced_frames": "subjects/<label>/classes__<by>.npz and frames.json: voiced",
+                        "part_pixels_owned_by": "subjects/<label>/masks__<by>.npz (parts, as the node wrote it) under owners.npz",
                         "inside_the_region": "runs/<run>/segments_in_region.json and frames.json: region_on__<run>__<other>",
                         "windows": "manifest.json: runs[].planned_windows (the node's own plan)",
                         "who_is_who": "who_is_who.json in the capture (bench/who_is_who_across_shots.py corrections, given to preflight)"}}
