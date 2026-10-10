@@ -578,17 +578,6 @@ def saved_regions() -> str:
         assert how["left_as_the_source_with_no_mask"] == [109, 110, 111, 112] and how["left_as_the_source_across_a_cut"] == [], how
         assert carried[2:11, 32:64, 32:64].all() and not carried[11:15].any(), "the carried mask is not each window's own"
         assert how["files"] == [f.name for f in found], how
-        # the same file as an older render wrote it (version 1): that render DID lay those frames, with the step's region
-        current = folder / "pass_window_2_region.npz"
-        with np.load(current) as z:
-            parts = {k: z[k] for k in z.files}
-        older = {**parts, "meta": np.asarray(json.dumps({**json.loads(str(parts["meta"])), "version": 1}))}
-        with open(current, "wb") as fh:
-            np.savez_compressed(fh, **older)
-        region, carried, read, how = cap.read_saved_regions(found, 98, 16, (W, H), at=100, render_frames=13)
-        assert region[11:15, 2, 6].all() and how["left_as_the_source_with_no_mask"] == [], "an older render's file was read as if its frames were not laid"
-        assert not carried[11:15].any()
-        assert cap.lent_frames(carried, region, read) == [11, 12, 13, 14], "the frames an older render laid with no mask of their own"
         # a cut inside a step with the subject on one side: the other side is left as the source and named
         gated_mask, gated_tokens = one(96, slice(0, 7))
         vm.save_window_region(str(folder / "pass_window_2_region.npz"), gated_mask, gated_tokens, {**settings, "cuts": [11]}, 8, 4, 5)

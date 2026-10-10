@@ -795,13 +795,13 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
         if tuple(mask.shape[1:]) != (h, w):
             mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
-        # a render made since the composite leaves every frame with no mask of its own as the source says so in its
-        # file (`lay_frames_with_no_mask` false); an older one laid such frames with their step's region
-        laid_bare = bool(got["source"].get("lay_frames_with_no_mask", True))
+        # the composite leaves every frame with no mask of its own as the source. A render from before that rule
+        # (2026-10-10) laid such frames with their step's region, and read back here it differs on them: an edge
+        # accepted with the node, which no longer keeps the switch that said which kind a file was
         for k in range(trim, count if last is None else min(count, last - start)):
             n = at + start + k - first
             empty = not bool((mask[k] > 0.5).any())
-            unlaid = empty and not laid_bare and bool(cells[k].any())
+            unlaid = empty and bool(cells[k].any())
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy() & (not unlaid), (mask[k] > 0.5).numpy(), True
             if unlaid:
@@ -2795,8 +2795,8 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
                         "source_frames": frame_spans(shared),
                         "why": f"{kind} {run['name']}: {run['subject']} is on both sides of a cut inside one latent step on "
                                f"{len(shared)} frame(s): each side is given the other side's region as well as its own, and no gate "
-                               "covers that. Look at those frames after the render; starting the load a few frames earlier can "
-                               "move the cut onto a step's edge (`loop_plan.first_frame_choices`)",
+                               "covers that. Look at those frames after the render; a load "
+                               "that ends on the cut does not have this",
                         "figures": {"frames": len(shared), "load_first_frame": load_first}})
     return out
 
