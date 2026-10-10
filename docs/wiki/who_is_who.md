@@ -270,6 +270,42 @@ Three rules about it:
   stops. Two answers that give one person on one frame to two subjects
   suspend both looks and raise an ask.
 
+**The files, and who reads which** (2026-10-10, agreed with the builder of
+the analysis workflow before either side is built):
+
+| file under `data/<the video's stem>/` | written by | read by |
+|---|---|---|
+| `cast/log.jsonl` | the cast tool only, by appending | the cast tool only |
+| `cast/state.json` | the cast tool, as the fold of the log; made again from the log at any time and never edited | everything else: the analysis workflow, the decision, the gate, the job builder |
+| `cast/lock` | whoever is appending | the cast tool |
+| `cast/sheets/<n>/` | the cast tool: the tiles, `sheet.json` (what each tile asks and the count of them) and the answers as given | a person; the cast tool |
+| `analysis/<run>/` | the analysis workflow: the census (below) and later the trackers' tables | the cast tool, the decision |
+
+`state.json` holds the revision, the source it is about, the scenes, the
+subjects in the order they were named, their appearances and looks, the
+known bystanders, the clues' grades, the floors with the shots they came
+from, the audit, and `questions`: how many tiles were asked up front, how
+many shots ask now, and how many answers each of the owner and each
+session has given. That last field is where the count of section 9 is
+read.
+
+**What the cast is not.** It says who is in the source. Which still
+replaces a subject and which parts a pass takes are a job's choices and
+live with the job: two jobs on one clip may put different people on the
+same subject. And it holds no correction: a correction is in the numbers
+of one tracker's own tile on one load, so it is the decision's output for
+that load (section 8), made from the cast.
+
+**What the census has to write that a shot table does not carry today:**
+
+- for the whole clip, every frame's cut score, not only the cuts;
+- for each shot, several steady looks and not one, each with its frame,
+  the plate vector and the count of people;
+- for each person on each look: the mask itself, since a look that is
+  confirmed must be storable and signable again; the feature cells under
+  it; and a name that means the same person on every look of the shot;
+- once a run, the fingerprint of what made its signatures.
+
 ### 5. Seeding it up front
 
 **The casting pass.** Before any load is planned, over the whole input
@@ -486,10 +522,14 @@ tracker's own pick (`subject_track.py::follow` applies corrections even
 when nothing was picked), so `subject_from` is not wired. "Take" then
 means the job builder writes the correction, and "ask" means a person
 answers a tile and the tool writes it. Two things this stage needs that do
-not exist: the casting pass's table of people with no subject, and a
-correction that names a frame, because today a correction applies on the
-frame a tile shows and a subject who is not on that frame cannot be named
-in that shot.
+not exist: the casting pass's table of people with no subject, and a seed
+a tool can write for a shot without reading a tile: the source frame and
+the mask or box of the subject there, or nobody. Today a correction is two
+numbers read off one tracker's tile, it applies on the frame that tile
+shows, and the tracker's own pass chooses that frame; so a subject who is
+not on it cannot be named in that shot, and a tool that has not seen that
+load's tiles cannot write one at all. Typed numbers stay as they are for a
+person.
 
 **Stage two is one tracker for every name**, reading the cast and writing
 one mask a subject, with the decision made where the detections are. It
