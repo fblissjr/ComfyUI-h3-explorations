@@ -495,22 +495,6 @@ load.
    top way is at least `DECISION_LOOKS_AGREE`, and no clue graded `veto`
    disagrees.
 
-*2026-10-10, the evidence total's first real run, in a first form the
-tracker's owner built with the levels taken from a load's own galleries
-(reported by its builder; the figures are to be in the record's section on
-the first run with three subjects). On five shots that held a person
-nobody named, it was right that two named subjects were not there, where
-the built total had handed them that person. On the same shots it lost
-the one subject who was there, small in an inset: under her own level on
-some and beaten by the clear unnamed person on others, where the built
-total had her right on all. The two totals failed in opposite directions
-on the same shots, and since a take needs them to agree, every one of
-those rows asks. So this section does not say the evidence total is the
-better of the two, and a level from galleries is not yet a refusal to
-rely on for a subject who is on screen and small. What one load
-suggests: a level has to come from looks at the size a person will be
-compared at.*
-
 *2026-10-10, a correction the same day, from the tracker owner's read of
 this page. As first written this section had "nobody" as a choice under
 the built total, where it can never win, and a separate second test that
