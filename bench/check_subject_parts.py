@@ -683,6 +683,42 @@ def check_held(problems):
         problems.append(f"held: the report does not say on how many frames something is held: {text!r}")
 
 
+def check_classes(problems):
+    """Every class on the subject is handed out, and it comes back from a mask exactly."""
+    frames, mask = scene()
+    person(frames[0], mask[0], LEFT)
+    got = run(frames, mask, (HAIR,), subject_margin=2)
+    if got.classes is None or tuple(got.classes.shape) != tuple(mask.shape) or got.classes.dtype != torch.uint8:
+        problems.append("the part pass returns no per-pixel class map of the frames' size")
+        return
+    wide = sp.grow(mask, 2)[0] > 0.5
+    if bool(got.classes[0][~wide].any()):
+        problems.append("the class map names a class outside the subject's mask widened by subject_margin")
+    if not torch.equal(got.classes[0] == HAIR, got.parts[0] > 0.5):
+        problems.append("the pixels the class map calls hair are not the pixels `parts` took for hair")
+    if len(torch.unique(got.classes[0])) < 3:
+        problems.append("the class map holds fewer than three classes on a painted person: it is the chosen part, "
+                        "not every class")
+    # the control for 'every class': a class that was not ticked is in the map and not in `parts`
+    other = [int(c) for c in torch.unique(got.classes[0]).tolist() if c not in (0, HAIR)]
+    if other and bool(((got.classes[0] == other[0]) & (got.parts[0] > 0.5)).any()):
+        problems.append("a class that was not chosen is in `parts`")
+    # the mask form: every index back exactly, through a saver that rounds and one that truncates
+    every = torch.arange(len(sp.CLASS_NAMES), dtype=torch.uint8).view(1, 1, -1)
+    carried = sp.class_mask(every)
+    if float(carried.max()) > 1.0 or float(carried[0, 0, 0]) != 0.0:
+        problems.append("the class mask leaves 0..1, or class 0 is not an empty mask")
+    for name, saved in (("rounds", (carried * 255.0).round()), ("truncates", (carried * 255.0).floor())):
+        if not torch.equal(sp.class_indices(saved / 255.0), every):
+            problems.append(f"a class index does not come back from a saver that {name}")
+    bare = (every.to(torch.float32) / 255.0 * 255.0).floor().to(torch.uint8)
+    if torch.equal(bare, every):
+        print("note  the bare quotient index/255 also truncates back on this machine: CLASS_NUDGE is not shown needed here")
+    outputs = [o.display_name for o in sp.MiniMaxH3SubjectParts.define_schema().outputs]
+    if outputs[-1] != "classes" or outputs[:5] != ["parts", "matte", "preview", "report", "held"]:
+        problems.append(f"the node's outputs are {outputs}: `classes` must be appended, the five before it unmoved")
+
+
 def _graded(check):
     def run():
         problems: list[str] = []
@@ -706,7 +742,8 @@ def main() -> int:
             ("the preview and the report", check_shown),
             ("the report says how much of the subject the parts cover", check_coverage),
             ("the models are shown the subject alone", check_alone),
-            ("what the subject holds is found by where it is, with no name", check_held)):
+            ("what the subject holds is found by where it is, with no name", check_held),
+            ("every class on the subject is handed out and comes back exactly", check_classes)):
         case(name, _graded(check))
     return finish()
 

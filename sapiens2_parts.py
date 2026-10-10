@@ -350,7 +350,29 @@ class Found:
     labels: dict[int, torch.Tensor] = field(default_factory=dict)  # the label map of each frame in `keep`
     coverage: Coverage | None = None         # how much of the subject `parts` covers, per frame
     holds: torch.Tensor | None = None        # [N, H, W], 1 on what the subject holds (`HELD_ANCHORS`), or None
+    classes: torch.Tensor | None = None      # [N, H, W] uint8, each pixel's class on the widened subject, 0 off it
     seconds: float = 0.0                     # the whole pass, both models
+
+
+#: What is added to a class index before it is written as a mask value over 255. Reasoned: a saver that rounds
+#: and one that truncates both then give the index back, where the bare quotient can land a hair under it.
+CLASS_NUDGE = 0.25
+
+
+def class_mask(classes: torch.Tensor) -> torch.Tensor:
+    """The per-pixel class indices [N, H, W] as a mask a graph can carry: (index + CLASS_NUDGE) / 255, 0 on class 0.
+
+    A mask is a float in 0..1 and a class is an integer below `len(CLASS_NAMES)`, so the index rides as an
+    8-bit grey level. `class_indices` reads it back. It survives a lossless grey save and nothing lossy: a codec
+    that blends two neighbouring classes makes a third.
+    """
+    index = classes.to(torch.float32)
+    return torch.where(index > 0, (index + CLASS_NUDGE) / 255.0, torch.zeros_like(index))
+
+
+def class_indices(mask: torch.Tensor) -> torch.Tensor:
+    """The class indices `class_mask` wrote, from the mask or from the 8-bit level a saver made of it (as 0..1)."""
+    return (mask.to(torch.float32) * 255.0).floor().clamp(0, len(CLASS_NAMES) - 1).to(torch.uint8)
 
 
 def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[int, ...],
@@ -383,6 +405,7 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
     wanted = torch.tensor(classes, dtype=torch.long)
     anchors = torch.tensor([CLASS_NAMES.index(c) for c in HELD_ANCHORS], dtype=torch.long)
     out.holds = torch.zeros((n, height, width), dtype=torch.float32)
+    out.classes = torch.zeros((n, height, width), dtype=torch.uint8)
     began = time.perf_counter()
     for i in range(0, len(where), int(batch)):
         index = where[i:i + int(batch)]
@@ -403,6 +426,9 @@ def subject_parts(frames: torch.Tensor, subject: torch.Tensor, classes: tuple[in
             chosen = torch.isin(label.to(torch.long), wanted) & on_subject
             out.seen[f] = torch.bincount(label[on_subject].to(torch.long), minlength=len(CLASS_NAMES))
             out.parts[f] = chosen.to(torch.float32)
+            # the frame's own labels as the model gave them, every class, before any merge or hold: `parts` on
+            # a held frame is a neighbour's part moved here, and this is not
+            out.classes[f] = label * on_subject.to(torch.uint8)
             out.found[f] = bool(chosen.any())
             out.boxes[f] = box
             anchored.append(torch.isin(label.to(torch.long), anchors) & on_subject)
@@ -767,6 +793,15 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
                                         "for it. Wire it to the Masked Source's `keep` so a cigarette, a cone or a "
                                         "microphone stays the original's while the person is replaced. Empty on a "
                                         "frame where nothing is held.")),
+                # appended 2026-10-10: every class the model found, not only the ones ticked, for a capture that
+                # gives each part of a person its own id (`bench/capture_masked_run.py`)
+                io.Mask.Output(display_name="classes",
+                               tooltip=("One mask per frame whose grey level says which part each pixel of the "
+                                        "subject is: hair, face and neck, each hand and arm, the clothing, lips, "
+                                        "teeth and tongue, every class the part model has, whatever is ticked "
+                                        "above. Level 0 is off the subject or unlabelled. For a capture or a "
+                                        "preview that colours each part; save it lossless, since a lossy save "
+                                        "blends neighbouring parts into a third. Not for the Masked Source.")),
             ],
         )
 
@@ -796,7 +831,7 @@ class MiniMaxH3SubjectParts(io.ComfyNode):
         logger.info("[h3] MiniMaxH3SubjectParts: %s", text.replace("\n", "; "))
         sheet = preview(frames, found, size)
         shown = {**ui.PreviewImage(sheet, cls=cls).as_dict(), **ui.PreviewText(text).as_dict()}
-        return io.NodeOutput(found.parts, found.matte, sheet, text, found.holds, ui=shown)
+        return io.NodeOutput(found.parts, found.matte, sheet, text, found.holds, class_mask(found.classes), ui=shown)
 
 
 def check_inputs(frames: torch.Tensor, subject_mask: torch.Tensor) -> torch.Tensor:

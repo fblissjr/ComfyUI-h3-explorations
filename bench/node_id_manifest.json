@@ -601,7 +601,8 @@
       "matte",
       "preview",
       "report",
-      "held"
+      "held",
+      "classes"
     ]
   },
   "MiniMaxH3SubjectTrack": {
