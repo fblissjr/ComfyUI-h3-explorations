@@ -12,6 +12,7 @@
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
+    <python> bench/capture_masked_run.py changed data/<date>_<NAME> --run pass_a --source CLIP --render A.mp4 --series a.Face_Neck
     <python> bench/capture_masked_run.py mask data/<date>_<NAME> --subject b --classes Face_Neck+Hair --out keep_b.mkv
 
 **What it buys.** One folder per captured span, `data/<date>_<name>/` (untracked), that says for every frame
@@ -72,6 +73,12 @@ differ in lightness there, and refuses when the held render does not. Its blind 
 written: the area is the ORIGINAL's head, so a new subject who sits lower or smaller in the frame leaves wall
 there and reads near a half while being plainly the new subject in stills. A figure near 0 is the original's
 look; a figure in between is a frame to look at, not a verdict.
+
+**changed** says what a run redrew: each segment and each subject inside its region, as the mean grey difference
+from the source against the floor (pixels outside the region), a segment's difference frame by frame
+(`--series`), and the change from the frame before inside the region for render and source. It is the
+after-the-render half of `segment_inside_region`: that rule says what a region will take, this says what was
+taken.
 
 **mask** writes any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or
 `others`: the same file form as every other mask here.
@@ -1309,6 +1316,13 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
         plan = run.get("windows")
         seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
         table = folder / "subjects" / run["subject"] / f"shots__{seen['by']}.json"
+        if not table.is_file():
+            # cuts are the source's, the same in every tracker's table: any subject's table in the capture will do
+            for other in manifest["subjects"]:
+                seen = other["sightings"][0]
+                table = folder / "subjects" / other["label"] / f"shots__{seen['by']}.json"
+                if table.is_file():
+                    break
         if not plan or not table.is_file():
             continue
         cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c - first for c in json.loads(table.read_text())["cuts"]]
@@ -1439,6 +1453,124 @@ def outcome(a: argparse.Namespace) -> None:
                                "written": datetime.datetime.now().isoformat(timespec="seconds")})
     path.write_text(json.dumps(record, indent=1) + "\n")
     print("recorded", a.flag, a.happened, "in", path)
+
+
+def frame_changes(diff: np.ndarray, region: np.ndarray, maps: dict[str, np.ndarray], tracks: dict[str, np.ndarray],
+                  names: tuple[str, ...], least: int = SEGMENT_PX) -> dict:
+    """What one frame of a render changed, read off `diff` (the absolute grey difference from the source).
+
+    `region` is the run's region on this frame in pixels, `maps` each subject's class map and `tracks` each
+    subject's mask, all for this frame. Returns the floor (labelled or tracked pixels outside the region: the
+    codec and the VAE, nothing regenerated), each segment's pixels and mean difference INSIDE the region, and
+    each subject's inside and outside it. A figure well above the floor is a thing drawn again."""
+    labelled = np.zeros(region.shape, bool)
+    for cm in maps.values():
+        labelled |= cm > 0
+    for t in tracks.values():
+        labelled |= t
+    rest = labelled & ~region
+    out = {"floor": float(diff[rest].mean()) if rest.sum() >= 500 else None, "segments": {}, "subjects": {}}
+    for label, cm in maps.items():
+        inside = np.where(region, cm, 0)
+        for k in np.nonzero(np.bincount(inside.ravel(), minlength=len(names))[1:len(names)] >= least)[0] + 1:
+            px = inside == k
+            out["segments"][f"{label}.{names[k]}"] = (int(px.sum()), float(diff[px].mean()))
+    for label, t in tracks.items():
+        a, b = t & region, t & ~region
+        out["subjects"][label] = {"inside_px": int(a.sum()), "inside": float(diff[a].mean()) if a.sum() >= least else None,
+                                  "outside": float(diff[b].mean()) if b.sum() >= least else None}
+    return out
+
+
+def changed(a: argparse.Namespace) -> None:
+    """What a run redrew, per segment and per subject, against the floor; and how it moves from frame to frame.
+
+    The reading behind four of the first day's findings (2026-10-10): a pass that redrew the other subject where
+    its region ran over them; a face that went back toward the original once kept pixels sat beside it (its
+    difference from the source on freely regenerated face pixels fell by half over ninety frames); a face pass
+    that stayed level across a window boundary; and no step at a seam. `--series LABEL.Class` prints that
+    segment's difference frame by frame in bins, which is the "stays level or falls" reading. `step` is the
+    change from the frame before inside the region, render beside source: a seam is a render step well above
+    its neighbours where the source's is not. Writes `runs/<run>/changed.json`."""
+    folder = Path(a.capture)
+    m = json.loads((folder / "manifest.json").read_text())
+    w, h = m["size"]
+    first, frames = m["first_frame"], m["frames"]
+    lo, hi = (int(x) for x in a.frames.split("-")) if a.frames else (first, first + frames - 1)
+    names = _pack("sapiens2_parts").CLASS_NAMES
+    region = cells_up(np.load(folder / "runs" / a.run / "region.npz")["region"])
+    maps, tracks = {}, {}
+    for s in m["subjects"]:
+        by = s["sightings"][0]["by"]
+        z = np.load(folder / "subjects" / s["label"] / f"masks__{by}.npz")
+        path = folder / "subjects" / s["label"] / f"classes__{by}.npz"
+        if path.is_file():
+            maps[s["label"]] = np.load(path)["classes"]
+            tracks[s["label"]] = np.unpackbits(z["track"], axis=-1)[..., :w].astype(bool)
+        elif not maps:
+            tracks[s["label"]] = np.unpackbits(z["track"], axis=-1)[..., :w].astype(bool)
+    start = next((r.get("first_source_frame", first) for r in m["runs"] if r["name"] == a.run), first)
+    src = stream(a.source, (w, h), first, frames, vf=FIT.format(w=w, h=h))
+    ren = stream(a.render, (w, h), max(first - start, 0), frames)
+    floors, segs, subs, series, steps, before = [], {}, {}, {}, [], None
+    for n, (s_, r_) in enumerate(zip(src, ren)):
+        s16, r16 = s_.astype(np.int16), r_.astype(np.int16)
+        if before is not None and lo <= first + n <= hi:
+            both = region[n] & region[n - 1]
+            if both.any():
+                steps.append((first + n, float(np.abs(s16 - before[0])[both].mean()), float(np.abs(r16 - before[1])[both].mean())))
+        before = (s16, r16)
+        if not lo <= first + n <= hi:
+            continue
+        one = frame_changes(np.abs(s16 - r16), region[n], {k: v[n] for k, v in maps.items()}, {k: v[n] for k, v in tracks.items()}, names)
+        if one["floor"] is not None:
+            floors.append(one["floor"])
+        for key, (px, d) in one["segments"].items():
+            segs.setdefault(key, []).append((first + n, px, d))
+        for key, v in one["subjects"].items():
+            subs.setdefault(key, []).append((first + n, v))
+        if a.series and a.series in one["segments"]:
+            series[first + n] = one["segments"][a.series][1]
+    if not floors:
+        raise SystemExit("no frame had enough labelled pixels outside the region to set a floor")
+    floor = float(np.median(floors))
+    record = {"run": a.run, "render": Path(a.render).name, "source_frames": [lo, hi], "floor": round(floor, 2), "segments": {}, "subjects": {}}
+    print(f"run {a.run}, source frames {lo}-{hi}; floor {floor:.2f} grey levels (labelled pixels outside the region)")
+    for key, rows in sorted(segs.items(), key=lambda kv: -len(kv[1])):
+        d = float(np.median([x[2] for x in rows]))
+        record["segments"][key] = {"frames": len(rows), "first": rows[0][0], "last": rows[-1][0], "px_median": int(np.median([x[1] for x in rows])),
+                                   "off_the_source": round(d, 2), "times_the_floor": round(d / floor, 1)}
+        print(f"  {key.ljust(26)} {len(rows):4d} frames ({rows[0][0]}-{rows[-1][0]}), {int(np.median([x[1] for x in rows])):6d} px a frame, "
+              f"off the source {d:5.1f} ({d / floor:.1f}x the floor)")
+    for key, rows in subs.items():
+        ins = [v["inside"] for _, v in rows if v["inside"] is not None]
+        out_ = [v["outside"] for _, v in rows if v["outside"] is not None]
+        record["subjects"][key] = {"frames_with_pixels_inside": len(ins), "inside": round(float(np.median(ins)), 2) if ins else None,
+                                   "outside": round(float(np.median(out_)), 2) if out_ else None}
+        print(f"  subject {key}: its mask inside the region on {len(ins)} frames, off the source there "
+              + (f"{np.median(ins):.1f}" if ins else "-") + ", outside it " + (f"{np.median(out_):.1f}" if out_ else "-"))
+    if steps:
+        sv, rv = np.array([x[1] for x in steps]), np.array([x[2] for x in steps])
+        ratio = rv / np.maximum(sv, 0.5)
+        top = sorted(zip(ratio.tolist(), steps), reverse=True)[:8]
+        record["step"] = {"source_median": round(float(np.median(sv)), 2), "render_median": round(float(np.median(rv)), 2),
+                          "largest_render_over_source": [[f, round(x, 2), round(y, 2)] for _, (f, x, y) in top]}
+        print(f"  change in the region from the frame before: source median {np.median(sv):.2f}, render {np.median(rv):.2f}; "
+              f"largest render over source (frame, source, render): {record['step']['largest_render_over_source'][:5]}")
+        for mark in a.around or []:
+            near = [(f, round(x, 1), round(y, 1)) for f, x, y in steps if abs(f - mark) <= 3]
+            print(f"  around source frame {mark} (frame, source, render): {near}")
+    if a.series:
+        got = sorted(series.items())
+        record["series"] = {"segment": a.series, "by_frame": {str(f): round(v, 2) for f, v in got}}
+        if got:
+            vals = np.array([v for _, v in got])
+            print(f"  {a.series} off the source, {len(got)} frames, median {np.median(vals):.1f}; by {a.bin} frames from {got[0][0]}: "
+                  f"{[round(float(np.mean(vals[i:i + a.bin])), 1) for i in range(0, len(vals), a.bin)]}")
+            for mark in a.around or []:
+                print(f"  around source frame {mark}: {[(f, round(v, 1)) for f, v in got if abs(f - mark) <= 6]}")
+    (folder / "runs" / a.run / "changed.json").write_text(json.dumps(record, indent=1) + "\n")
+    print("wrote", folder / "runs" / a.run / "changed.json")
 
 
 def class_mask_of(classes: np.ndarray, wanted: list[str], names: tuple[str, ...]) -> np.ndarray:
@@ -1934,6 +2066,15 @@ def main() -> None:
     k.add_argument("--frames", metavar="A-B+C-D", help="source frames to read; when not given and the render is one of the "
                    "capture's runs, the frames its region is not empty on")
     k.add_argument("--top", type=float, default=0.45, help="the share of the subject's mask, from its top, the figure is read over")
+    c = sub.add_parser("changed", help="what a run redrew, per segment and subject, against the floor")
+    c.add_argument("capture")
+    c.add_argument("--run", required=True)
+    c.add_argument("--source", required=True)
+    c.add_argument("--render", required=True)
+    c.add_argument("--frames", metavar="FIRST-LAST", help="source frames; the whole span when not given")
+    c.add_argument("--series", metavar="LABEL.Class", help="print this segment's difference from the source frame by frame")
+    c.add_argument("--bin", type=int, default=24, help="frames a bin of the series")
+    c.add_argument("--around", type=int, action="append", help="a source frame to print the step and the series round; repeatable")
     x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
     x.add_argument("capture")
     x.add_argument("--subject", required=True)
@@ -1943,7 +2084,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask}[a.mode](a)
+    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed}[a.mode](a)
 
 
 if __name__ == "__main__":

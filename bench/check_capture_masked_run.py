@@ -27,6 +27,9 @@ overlaps and margins can be counted by hand and reads the rows back.
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+13. **What a run changed.** On a frame whose difference from the source is known by construction: a face drawn
+   again, a hairline left alone and the half of a neighbour's hand inside the region each read at their own
+   figure; a subject's pixels inside and outside the region are told apart; and under 500 pixels set no floor.
 12. **A region carried across a cut.** With the node's own frame runs: a cut two frames into a latent step names
    the step's two frames on the side the subject is not on; a cut on a step's own edge, a subject on both
    sides, and a frame lost inside a shot name nothing; the same frames as the node's `cut_gate` when the tree
@@ -378,6 +381,29 @@ def across_a_cut() -> str:
     return "the frames of a step on the far side of a cut are named; not a cut on a step's edge, a subject on both sides, or a lost frame"
 
 
+def what_changed() -> str:
+    names = ("Background", "Face", "Hair", "Hand")
+    mine = np.zeros((H, W), np.uint8)
+    mine[32:48, 32:64] = 1
+    mine[16:32, 32:64] = 2
+    theirs = np.zeros((H, W), np.uint8)
+    theirs[32:48, 64:96] = 3
+    region = np.zeros((H, W), bool)
+    region[16:48, 32:80] = True                     # the face, the hair, and half of their hand
+    diff = np.full((H, W), 2.0)
+    diff[32:48, 32:64] = 20.0                       # the face was drawn again
+    diff[32:48, 64:80] = 9.0                        # and the half of the hand inside the region; the hair was not
+    one = cap.frame_changes(diff, region, {"a": mine, "b": theirs}, {"a": mine > 0, "b": theirs > 0}, names)
+    assert one["floor"] is None, "a floor from under 500 pixels"
+    assert one["segments"] == {"a.Face": (512, 20.0), "a.Hair": (512, 2.0), "b.Hand": (256, 9.0)}, one["segments"]
+    assert one["subjects"]["b"] == {"inside_px": 256, "inside": 9.0, "outside": 2.0}, one["subjects"]
+    assert one["subjects"]["a"]["outside"] is None, "a subject wholly inside the region has no outside"
+    big = np.zeros((H, W), np.uint8)
+    big[64:96, 0:160] = 2                           # enough labelled pixels outside the region for a floor
+    assert cap.frame_changes(diff, region, {"a": mine, "c": big}, {}, names)["floor"] == 2.0
+    return "a redrawn face, an untouched hairline and half of a neighbour's hand each read at their own difference"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -399,6 +425,7 @@ case("control: a mask moved on purpose", moved)
 case("a plan's region from the masks", plan)
 case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
+case("what a run changed", what_changed)
 case("whose a pixel is", owners)
 case("the held part", held_part)
 case("segments and what is inside a region", segments)
