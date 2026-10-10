@@ -305,6 +305,23 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                 t["correction"] = t["would_type"] = ""
             cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
         status = UNRESOLVED if cannot else DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
+        note = ""
+        # A shot every tracker PICKED its subject in is not decided here: a pick is a person's word (or the pick rule's,
+        # which a person set), the pick frames are usually different frames showing different people, and a row that
+        # blocks every job on its pick shot teaches people to override (mrdeer, reading the first real file,
+        # 2026-10-10). What is still checked there: two trackers that picked ONE person on one frame.
+        if not fault and all(t["called"] == "picked" for t in trackers.values()):
+            picks = [(label, t["tile_frame"], next((_xyxy(p["box"]) for p in tables[label]["shots"][n]["people"] if p["person"] == t["called_person"]), None))
+                     for label, t in trackers.items()]
+            same = [(a[0], b[0]) for i, a in enumerate(picks) for b in picks[i + 1:]
+                    if a[1] == b[1] and a[2] is not None and b[2] is not None and S.box_overlap(a[2], b[2]) >= 0.9]
+            for t in trackers.values():
+                t["would_type"] = ""
+            if same:
+                status, why = UNRESOLVED, f"{same[0][0]} and {same[0][1]} picked one person on one frame: two trackers on one person"
+            else:
+                status, note = AGREES, "every tracker picked its subject in this shot; a pick is not decided here" + (
+                    "" if answer["takes"] is not None else " (and its pick frames show different people, so nothing could be compared)")
         # a weak row suggests nobody: no text is filled in, and each tracker that would change gets a question
         suggests = status == DIFFERS and (verdict == S.TAKE or (suggest_lead is not None and answer["lead"] is not None and answer["lead"] >= suggest_lead))
         for label, t in trackers.items():
@@ -328,7 +345,7 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                         "handed_to": next((label for label in labels if answer["takes"] is not None and answer["takes"][label] == name), None)}
                        for name, v in sorted(seen.items())]
         rows.append({"shot": first["shots"][n]["shot"], "frames": [first["shots"][n]["first_frame"], first["shots"][n]["last_frame"]],
-                     "status": status, "suggests": bool(suggests), "verdict": verdict, "why": why,
+                     "status": status, "note": note, "suggests": bool(suggests), "verdict": verdict, "why": why,
                      "looks_with_signatures": frames, "looks_used": answer["looks_used"], "people": answer["people"],
                      "lead": answer["lead"], "trackers": trackers, "people_seen": people_seen})
     return {"what": "every shot of one load decided for all its trackers' subjects at once; a file for the gate, not a job",
@@ -367,7 +384,7 @@ def render_corrections(out: dict):
         asked = "; ".join(row["trackers"][label].get("ask", "") for label in labels if row["trackers"][label].get("ask"))
         typed = typed or (f"NOT SUGGESTED. {asked}" if asked else "nothing")
         print(f"| {row['shot']} | {row['frames'][0]}-{row['frames'][1]} | {row['status']} | {row['looks_used']} | {row['people']} | {_f(row['lead'])} | "
-              + " | ".join(cells) + f" | {row['verdict']}: {row['why']} | {typed} |")
+              + " | ".join(cells) + f" | {row['verdict']}: {row['why']}" + (f". {row['note']}" if row.get("note") else "") + f" | {typed} |")
 
 
 # ----------------------------------------------------------------------------- the model

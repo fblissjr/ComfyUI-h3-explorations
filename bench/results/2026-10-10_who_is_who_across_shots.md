@@ -215,6 +215,91 @@ which is no margin. So:
   and the lead is left with nobody. Nothing here says what happens when a
   stranger stands in that frame.
 
+## The joint decision on real tables (the acceptance, the same evening)
+
+The preview of the same load queued again on the server once it served the
+tracker of b0079d98, by the tracked job builder: both trackers on the same
+447 frames from frame 604 of the copy, the pack's SAM corrections on, the
+second tracker told who the first holds, no correction typed. Its two shot
+tables are under the output folder as
+`Video/mrsheep/fun_kitchen_who_0604/fun_kitchen_who_0604_lead_shots_00001_shots.json`
+and `..._second_shots_00001_shots.json`; the file the tool wrote from them is
+`data/2026-10-10_fun_kitchen_who_0604_job/who_is_who.json` (untracked, with
+the job's captures). Queued and run by the lead session; read here from the
+files.
+
+    <python> bench/who_is_who_across_shots.py corrections --table lead=<...lead_shots...json> --table second=<...second_shots...json> --first-frame 604 --out <the file>
+
+**The trackers alone, on these tables.**
+
+| shot | lead's tracker | second's tracker |
+|---|---|---|
+| 0-405 | picked on frame 60 | picked on frame 4 |
+| 406-434 | absent: 0.641 on its best look, 0.52 to 0.55 on the other three, the floor 0.80 | TAKEN at 0.815, the floor 0.80, two people on its tile |
+| 435-446 | absent at 0.316, rightly | taken at 0.884 |
+
+So the second subject's tracker, which called her absent in the morning's
+preview of this shot, takes her now, by fifteen thousandths. What moved,
+read from the tables: the three nested detections are joined, so her tile
+has two people (`duplicates_joined`: one on the shown frame, the kept mask
+0.948 of the largest); and her two shots' first-look scores are 0.815 and
+0.884 where the morning's were 0.799 and 0.904, so they are no longer far
+enough apart for the automatic line to be put between them
+(`match_moved_by_gap` is null and the line is the floor). `others` left
+nobody out on any frame looked at, so it is not the cause. What moved the
+scores themselves is not in a table: the morning's preview and this one
+differ in more than the tracker's code, the SAM corrections among them. A
+take by fifteen thousandths is the same thin margin as the refusal was.
+
+**The tool's three rows.**
+
+| shot | status | looks used | people | lead of the top way | lead's tracker: called, the sum says | second's tracker: called, the sum says |
+|---|---|---|---|---|---|---|
+| 0-405 | unresolved | 0 of 2 | 3 | none | picked person 2; cannot say | picked person 2; cannot say |
+| 406-434 | differs | 4 of 4 | 2 | 0.430 | absent; person 1 on its tile, frame 406 | taken person 2; person 2 |
+| 435-446 | agrees | 2 of 2 | 1 | 0.293 | absent; nobody | taken person 1; person 1 |
+
+Three rows of three as said beforehand. The middle shot's row asks about
+the lead and only the lead, with no answer filled in (`suggests` false:
+"which numbered person is lead? 1, 2, or none"), and what the top way
+would type is `shot 2: person 1`, the correction the lead session typed by
+hand that afternoon from the same tile. The last shot leaves the lead with
+nobody. The first shot is unresolved for the reason given beforehand: the
+two pick frames are 56 frames apart, one shows the printed figure and the
+other the lead, and no look holds all three.
+
+Three things the file shows that the made-up tables did not:
+
+- **A person's total for one subject, read alone, points at the wrong
+  person.** In the middle shot the second subject's total over the four
+  looks is 6.861 on the lead's person and 6.176 on her own; the lead's is
+  7.276 and 6.161. The hand-out is right because it totals a WAY: lead and
+  second on their own people 13.452, swapped 13.022. So the `candidates`
+  a weak row offers must never be ordered or marked by their own totals;
+  they are written in tile order, and a figure worth showing a person
+  beside a candidate would be the best total of any way that gives the
+  subject that person, which is not built.
+- **The lead of 0.430 is four looks added up**, the first frame after the
+  cut among them; on the first measurement that frame alone had a lead of
+  a few thousandths.
+- **The printed figure is in the first shot's row as a person**: seen on
+  one look of two, 4,335 pixels of box, handed to nobody only because the
+  row is unresolved. Nothing in the tool knows it is a thing.
+
+**Changed after reading that file: a shot every tracker picked agrees.**
+The gate read the file the same hour and blocked on the first shot's
+`unresolved` row, which would have blocked every job on its pick shot. A
+pick is a person's word and is not this tool's to decide, so a shot in
+which every tracker picked its subject now reads `agrees`, with a `note`
+saying so and whether anything could be compared; it reads `unresolved`
+only when two trackers picked one person on one frame. Run again on the
+same two tables the first row is `agrees` and the other two are unchanged.
+
+One load, one clip, an answer known in advance, and tables the tool had not
+seen. It says the tool reads real tables and repeats the measurement's
+answer on the card with the corrections on; it does not make the form
+tested on a second clip.
+
 ## A cast file: remembering each named subject across shots, loads and sessions (a scope; nothing is built)
 
 The owner's question, the same day: why not look across cuts, how far back
@@ -362,7 +447,6 @@ only then a tracker that reads it.
   after which a followed subject is off screen is this case. Whether a
   stretch of it has such a cut is one run of the tracker's cut finder and
   has not been looked at; no stretch is named here because none was seen.
-- The acceptance on this load: the preview queued again so its tables
-  carry signatures, then `corrections` on the two tables.
+- (Done the same evening: "The joint decision on real tables".)
 - Sapiens2's features or the body model's shape as a vote: after the step
   above has a number to beat.

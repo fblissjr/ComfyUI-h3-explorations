@@ -1287,8 +1287,22 @@ def check_settled_from_tables(problems):
     if three["trackers"]["lead"]["the_sum_says"] is not None or three["trackers"]["lead"]["correction"] != "" \
             or three["trackers"]["second"]["the_sum_says"] != 1 or three["trackers"]["second"]["correction"] != "" or three["status"] != "agrees":
         problems.append(f"settled: in shot 3 the one person is the second subject's and the lead has nobody, as the trackers said: {three['trackers']}")
-    if one["status"] != "agrees" or one["trackers"]["lead"]["the_sum_says"] != 2 or one["trackers"]["second"]["the_sum_says"] != 1:
-        problems.append(f"settled: in the picked shot the sum agrees with both picks: {one['trackers']}")
+    if one["status"] != "agrees" or "a pick is not decided here" not in one["note"] or any(t["ask"] or t["correction"] or t["would_type"] for t in one["trackers"].values()):
+        problems.append(f"settled: a shot every tracker picked its subject in is not decided and asks nothing: {one['status']}, {one['note']}")
+    # the first real file (2026-10-10): the two pick frames showed different people, nothing could be compared, and the
+    # row blocked the job. It agrees and says why; two trackers that picked ONE person on one frame do not
+    apart = json.loads(json.dumps(tables))
+    apart["second"]["shots"][0]["shown_frame"] = 5
+    for person in apart["second"]["shots"][0]["people"]:      # on its own frame, somebody standing somewhere else
+        person["box"] = [100, 60, 20, 10]
+    row = tool.settle_tables(apart)["rows"][0]
+    if row["status"] != "agrees" or "nothing could be compared" not in row["note"]:
+        problems.append(f"settled: picks on two frames that cannot be compared should agree and say so: {row['status']}, {row['note']}")
+    both = json.loads(json.dumps(tables))
+    both["second"]["shots"][0] = json.loads(json.dumps(tables["lead"]["shots"][0]))
+    row = tool.settle_tables(both)["rows"][0]
+    if row["status"] != "unresolved" or "picked one person on one frame" not in row["why"]:
+        problems.append(f"settled: two trackers that picked one person on one frame must not agree: {row['status']}, {row['why']}")
     if any(row["verdict"] != "ask" or "measured" not in row["why"] for row in out["rows"]):
         problems.append(f"settled: with no lead measured every row is a question: {[(r['verdict'], r['why']) for r in out['rows']]}")
     switched = tool.settle_tables(tables, unsure="take")
