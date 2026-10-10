@@ -653,6 +653,9 @@ class Shot:
     candidates: int = 0          # detections on `shown`
     picked: bool = False         # the shot the pick was made in
     lone: bool = False           # taken under the line, as the only person on its frame
+    # a frame where one person was left only because another tracker's people were set aside: not taken as "the only
+    # person", whatever it scored there. None when that did not happen in this shot
+    left_by_others: int | None = None
     width: int = 0               # columns the mask on `shown` covers
     seen: int = 0                # the most detections on any frame looked at
     corrected: str = ""          # what a correction said of this shot: `person 2`, `none`, or nothing
@@ -876,7 +879,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
            stride: int = PROBE_STRIDE, offset: int = PROBE_OFFSET,
            corrections: dict[int, int | None] | None = None, gallery: list[tuple] | None = None,
            sign_whole: Callable[[int, torch.Tensor], torch.Tensor | None] | None = None,
-           seeds: dict[int, tuple[int, tuple | None]] | None = None) -> Followed:
+           seeds: dict[int, tuple[int, tuple | None]] | None = None,
+           removed: dict[int, int] | None = None) -> Followed:
     """The subject's mask per frame, shot by shot. The model work is in three callables.
 
     `detect(frame)` returns that frame's detections, [N, H, W] and their
@@ -909,6 +913,18 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     names, left empty for `None`, or left empty and marked refused when no
     detection there agrees with the box (`_seed`). A shot may not carry
     both a seed and a correction.
+
+    `removed` is {frame looked at: detections another tracker's people took
+    out of `detect`'s answer} (`without_others` fills it as frames are
+    looked at). It switches off ONE rule: "the only person on the frame is
+    taken whatever it scores". With people set aside, the one left is only
+    the person nobody earlier claimed, which is evidence of nothing: on
+    2026-10-10 the third of three trackers took another subject that way at
+    0.59 (`bench/results/2026-10-10_who_is_who_across_shots.md`). So a look
+    on which anybody was set aside is never a lone take, and neither is any
+    look when somebody was set aside on the pick frame, since "nobody to
+    mistake the subject for" was then never true. The likeness line still
+    decides those shots.
 
     `sign_whole(frame, mask)`, when given, is a person's signature under
     their WHOLE mask. NOTHING HERE IS DECIDED ON IT: it is kept beside
@@ -1080,6 +1096,9 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     result.match = float(match_threshold) if match_threshold is not None else auto_match([s.first for s in rest], floor)
     # nobody else on the pick frame and nothing named: there is nobody to mistake the subject for
     alone = match_threshold is None and not others
+    held = removed if removed is not None else {}
+    # ...unless another tracker's people were set aside on that frame: then there was somebody, and they were hidden
+    lone_allowed = alone and not held.get(int(frame0), 0)
 
     for shot in shots:
         if shot.start <= frame0 < shot.end:
@@ -1103,7 +1122,10 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
             if score >= result.match:
                 taken = (score, f, i)
                 break
-            if alone and heads == 1 and (lone is None or score > lone[0]):
+            if alone and heads == 1 and (not lone_allowed or held.get(int(f), 0)):
+                if shot.left_by_others is None:
+                    shot.left_by_others = int(f)      # one person left, and only because others were set aside
+            elif alone and heads == 1 and (lone is None or score > lone[0]):
                 lone = (score, f, i)
         if taken is None and lone is not None:
             taken, shot.lone = lone, True
@@ -1565,6 +1587,9 @@ def report(found: Followed, cuts: list[int], pick: str, phrase: str, named_frame
         else:
             why = (f"best similarity {s.best:.2f} on frame {s.shown}{_framing(s, found)}" if s.best >= 0 else
                    "no detection" if not s.seen else f"up to {s.seen} detection(s), none that could be compared")
+            if s.left_by_others is not None:
+                why += (f"; one person was left on frame {s.left_by_others} once another tracker's people were set aside, "
+                        "which is not taken as the only person")
             lines.append(f"{span}: absent ({why})")
     lines.append(f"{seconds:.0f} s")
     return "\n".join(lines)
@@ -1924,7 +1949,8 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         with torch.no_grad():
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
-                           gallery=handed, sign_whole=getattr(sign, "whole", None), seeds=seeded)
+                           gallery=handed, sign_whole=getattr(sign, "whole", None), seeds=seeded,
+                           removed=left_out if others is not None else None)
         # Stray specks of the tracker's go before anything reads the mask: the tiles, the shot table and every node
         # after this one widen what they are given (`subject_tracks.drop_specks`).
         # In place: `assemble` returns a tensor nothing else holds, and a copy of a clip's mask is gigabytes.

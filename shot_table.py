@@ -192,7 +192,10 @@ def _why(shot, state: str, match: float, pick: str, phrase: str, named_frame: bo
     if shot.seed is not None:
         return f"similarity {shot.best:.2f} on frame {shot.seed}, at or above the line {match:.2f}"
     if shot.best >= 0:
-        return f"best similarity {shot.best:.2f} on frame {shot.shown}, under the line {match:.2f}"
+        left = getattr(shot, "left_by_others", None)
+        return (f"best similarity {shot.best:.2f} on frame {shot.shown}, under the line {match:.2f}"
+                + ("" if left is None else f"; the one person left on frame {left} once another tracker's people were set aside "
+                                           "is not taken as the only person"))
     if not getattr(shot, "seen", 0):
         return "no detection in this shot"
     return f"up to {shot.seen} detection(s), none that could be compared"

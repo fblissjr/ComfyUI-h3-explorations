@@ -376,6 +376,139 @@ seen. It says the tool reads real tables and repeats the measurement's
 answer on the card with the corrections on; it does not make the form
 tested on a second clip.
 
+## The first run with three subjects (the same evening)
+
+The rest of the clip, as two loads with three trackers each (lead, third,
+second, in that order, each later one told who the earlier ones hold),
+nothing typed: frames 1039 to 1465 of the copy, nine shots, and 1466 to
+1919, six shots. Queued and read by the lead session. WHO IS REALLY IN
+EACH SHOT is no table's: it is that session's reading of the tiles and
+the source, kept in
+`data/2026-10-10_fun_rest_who_is_where_truth.json` (untracked, with the
+job's captures), and every "right" and "wrong" below is by that file. The
+shot tables are under the output folder as
+`Video/mrpop/fun_rest_a_1039/` and `Video/mrpop/fun_rest_b_1466/`. The
+tool's rows as it stands at the end of the day:
+[`2026-10-10_who_is_who_three_subjects_first_load.json`](2026-10-10_who_is_who_three_subjects_first_load.json)
+(the lead's and the third's tables; the second was picked nowhere) and
+[`2026-10-10_who_is_who_three_subjects_second_load.json`](2026-10-10_who_is_who_three_subjects_second_load.json)
+(all three).
+
+**The trackers alone.** Eleven wrong takes and one miss in fifteen shots,
+by the truth file's own count; the wrong takes scored 0.59 to 0.87 and the
+same trackers' right takes 0.80 to 0.92. No line separates them. Four
+kinds of fault, each seen:
+
+- **A line taking another named subject.** The first load's first shot
+  holds the second subject alone; the lead's tracker took her at 0.86.
+- **One wrong take making a later subject unpickable.** That take put her
+  on the second tracker's `others`, on the second's own pick frame, so the
+  second's tracker picked nobody and was absent in all nine shots.
+- **"The only person on the frame" after people were set aside.** With an
+  earlier tracker's people removed, the one left is only the person nobody
+  claimed. The third's tracker took the second subject that way at 0.59,
+  and in the first load's last shot the lead's tracker took the third
+  subject (0.81) and the third's then took the lead as the only person
+  left (0.76): a swap.
+- **A person the job does not name.** In the second load's last five shots
+  such a person fills the frame and the lead is small in an inset. The
+  By the truth file the lead's tracker took that person in three, took the
+  inset lead rightly in one and called her absent in one; the third's
+  took the unnamed person in two; and the second's took the inset lead as
+  the only person left in two.
+
+**What changed in the tool because of this run**, each with a check:
+
+- A tracker that picked nobody is named first as a finding (`not_picked`)
+  and the rest is decided without it; the tool had refused the table.
+- A shot with nobody detected, or only detections with no head on any
+  look, has every subject nobody and agrees; a headless detection is
+  listed and never handed out.
+- NOBODY HAS A VALUE. Each subject gets a LEVEL from the load's own
+  tables: the highest score any look known NOT to be it (another subject's
+  gallery look; a person beside it on its pick frame) reaches against its
+  gallery. The evidence for a person is their score less that level,
+  summed over the looks; nobody is worth zero. A row agrees only when the
+  tracker, the sum and the evidence all say the same.
+
+- ONLY COMPLETE LOOKS ARE READ, and a shot a person has answered (a pick,
+  a typed correction, a seed) is not asked about again: both below.
+
+And in the tracker (the commit this section lands with): a look on which
+another tracker's people were set aside is never an only-person take, and
+no look is when somebody was set aside on the pick frame.
+
+**The tool's answers moved between two previews of one load, and why.**
+The second load was previewed twice: as above, and again after the lead
+session typed corrections (`Video/mrpop/fun_rest_b2_1466/`). Read by the
+tool as it then was, the sum had the lead right on all five of the last
+shots from the first preview's tables and wrong on three of five from the
+second's, on the same frames. The cause is in the tables: a tracker told
+who earlier trackers hold lists a frame's people with those people
+REMOVED, so its looks are not the frame. In the first preview the lead's
+tracker had wrongly taken the unnamed person, who was therefore missing
+from the later trackers' looks, seen on one look of seven, left out as
+seldom seen, and the lead was handed the inset person: right, for the
+wrong reason. In the second preview her tracker held the inset person,
+who went missing the same way, and the lead was handed the unnamed one.
+The sum was following whoever the first tracker did not hold. The tool
+now reads a look only from a table that removed nobody there, lists the
+frames it left unread, and gives a tracker whose own tile frame is not a
+complete look "cannot say". Read that way the two previews give the same
+answers. The first reading of this run, made before that, is withdrawn;
+the figures below are the complete-looks ones.
+
+**The second load, shots 2 to 6, each subject against the truth** (the
+levels there: lead 1.764, third 1.759, second 1.538, of a possible 2; data
+[`2026-10-10_who_is_who_three_subjects_second_load.json`](2026-10-10_who_is_who_three_subjects_second_load.json),
+and from the corrected preview's tables
+[`2026-10-10_who_is_who_three_subjects_second_load_corrected.json`](2026-10-10_who_is_who_three_subjects_second_load_corrected.json)):
+
+| subject | the truth | its tracker | the sum | the evidence |
+|---|---|---|---|---|
+| lead | small in the inset, all five | right in one, the unnamed person in three, absent in one | right in four, the unnamed person in one | wrong in five: the unnamed person each time |
+| third | nobody, all five | the unnamed person in two | cannot say in four (his tile frame is not a complete look), the unnamed person in one | right in five |
+| second | nobody, all five | the inset lead, as the only person left, in two | right in three, cannot say in two | right in four, cannot say in one |
+
+Most of those shots have ONE complete look, the first tracker's tile, so
+the sum's answers there rest on a single frame, which the first
+measurement already showed is not enough; its one wrong answer for the
+lead is such a row. The two totals fail in opposite directions. The sum
+is right about who IS there more often than not and cannot say nobody.
+The evidence is right about who is NOT there, and it prefers the clear
+unnamed person to a subject who is small in an inset, every time: her
+level was set by a close, clear look of another subject. Requiring the
+tracker, the sum and the evidence to agree: from the first preview's
+tables four of those five rows are unresolved and one differs; none
+agrees with a wrong take. From the corrected preview's tables the four
+rows a person had answered agree and say they were answered by hand, and
+the fifth asks about the lead's own uncorrected take, which is right.
+
+**The first load, the lead's and the third's tables** (the second's has no
+gallery, so with all three tables every row that hands a person out is
+unresolved and the first line says why). Of its four wrong takes, none is
+in a row that agrees: the lead's take of the second subject differs (the
+evidence says nobody); the third's only-person take of her is unresolved,
+his tile frame not being a complete look; and the swap is unresolved,
+with the sum naming the lead as person 1 on her own tile, which is the
+truth. The no-person shot agrees, its detections listed as things. The
+cost: two rows differ where the lead's tracker was right, because in
+another outfit she is under her own level.
+
+**What the run asks for that is not built.** A tracker's looks should
+list everybody on the frame, with a mark on whoever another tracker
+holds, so that every table's looks are complete; today only the first
+tracker's are. The design's casting pass, which looks at every shot with
+no subject and no `others`, is that by construction
+(`docs/wiki/who_is_who.md`, section 5). Until one of them exists, most
+shots of a load with several trackers have one complete look.
+
+**Seen on the tiles and in no table** (the lead session's reading): after
+the lead's tracker was corrected in the swap shot, her track there is her
+head alone for the whole shot, because the detection the correction
+seeded from was a head behind another person. A face pass can use it; a
+whole-person pass could not.
+
 ## A cast file: remembering each named subject across shots, loads and sessions (a scope; nothing is built)
 
 The owner's question, the same day: why not look across cuts, how far back

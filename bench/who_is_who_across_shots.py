@@ -26,6 +26,30 @@ line. This tool asks what the trackers' own data says when it is read for all su
                 Under `--suggest-lead`, which is unset until a clip has measured its own, a differing row writes
                 no correction: each tracker gets the numbered people of its own tile as `candidates` and an `ask`
                 to show a person, who picks one or none. What the sum says stays in the file for tools.
+                NOBODY HAS A VALUE (the first version of the design's "evidence total", docs/wiki/who_is_who.md
+                section 6; 2026-10-10, after the tool agreed with a tracker that had taken the wrong person). A sum
+                of likenesses is always positive, so somebody always beats nobody. A load's tables already hold
+                looks KNOWN NOT to be a subject: every other subject's gallery, and whoever stood beside it on its
+                own pick frame. The highest score any of those reaches against a subject is that subject's
+                LEVEL on this clip: how like it a person who is not it can look. The evidence for a person is
+                their score less the level, summed over the looks; nobody is worth zero, and any subject may
+                take nobody. A row agrees only when the tracker, the sum and the evidence all say the same; where
+                the evidence says nobody and a tracker or the sum has a person, the row differs and asks whether
+                that person is the subject in a new look. The levels are in the file. They come from the picked
+                shots alone, so a subject whose look has changed is under its own level too: that costs a
+                question, never a take.
+                ONLY COMPLETE LOOKS ARE READ (2026-10-10, found by the lead comparing two previews of one load,
+                where the sum's answer for a subject followed whichever person the FIRST tracker did not hold).
+                A tracker told who earlier trackers hold (`others`) lists a frame's people with those people
+                removed, so its looks are not the frame: a person an earlier tracker holds is missing from them,
+                is then "seldom seen", and the subject is handed whoever is left. A look is read only from a
+                table that removed nobody there (`others_left_out`); the frames left unread are listed in the
+                row, and a tracker whose own tile frame is not a complete look gets "cannot say", not a number.
+                A SHOT A PERSON HAS ANSWERED IS NOT ASKED AGAIN: a tracker whose shot is picked, corrected by hand
+                or seeded has a person's word (or a tool's) and is not this tool's to decide; the row says so and
+                is settled by the trackers nobody has answered for, if any.
+                A DETECTION WITH NO HEAD on any look it is seen on is listed (`people_seen`, `headless`) and never
+                handed to anybody: a thing the detector called a person is not a candidate for a person.
     render      prints the tables of a `looks`, `galleries` or `corrections` JSON.
 
     <python> bench/who_is_who_across_shots.py galleries --table L=<shots.json> --table S=<shots.json> [--json J]
@@ -200,6 +224,38 @@ def _best(sig, held: list) -> float | None:
 AGREES, DIFFERS, UNRESOLVED = "agrees", "differs", "unresolved"
 
 
+def hand_out_or_nobody(looks: list[dict[str, dict[int, float | None]]], levels: dict[str, float | None], seen_on_most: float) -> dict:
+    """`subject_tracks.hand_out` with a zero: each score less its subject's level, and nobody (worth 0) open to every subject.
+
+    `looks[i][subject][person]` as for `hand_out`; a subject whose level is None is left out (nothing known not to
+    be it). People seen on fewer than `seen_on_most` of the looks are left out first, as there. Returns {"takes":
+    {subject: person or None} or None when no look can be used, "total", "lead" over the next way, "next",
+    "looks_used", "subjects"}.
+    """
+    import itertools
+    subjects = sorted(s for look in looks for s in look if levels.get(s) is not None)
+    subjects = sorted(set(subjects))
+    everyone = sorted({p for look in looks for scores in look.values() for p in scores})
+    seen = {p: sum(1 for look in looks if all(s in look and look[s].get(p) is not None for s in subjects)) for p in everyone}
+    people = [p for p in everyone if looks and seen[p] >= seen_on_most * len(looks)]
+    usable = [look for look in looks if all(s in look and all(look[s].get(p) is not None for p in people) for s in subjects)]
+    out = {"takes": None, "total": None, "lead": None, "next": None, "looks_used": len(usable), "subjects": subjects}
+    if not subjects or not usable:
+        return out
+    totals = {}
+    for way in itertools.product(list(people) + [None], repeat=len(subjects)):
+        taken = [p for p in way if p is not None]
+        if len(taken) != len(set(taken)):
+            continue
+        totals[way] = sum(float(look[s][p]) - float(levels[s]) for look in usable for s, p in zip(subjects, way) if p is not None)
+    # a tie goes to the way that hands out FEWER people, then to the one that reads first: nobody is the default
+    order = sorted(totals, key=lambda w: (-round(totals[w], 9), sum(p is not None for p in w), tuple(-1 if p is None else p for p in w)))
+    out.update(takes=dict(zip(subjects, order[0])), total=totals[order[0]])
+    if len(order) > 1:
+        out.update(lead=totals[order[0]] - totals[order[1]], next=dict(zip(subjects, order[1])))
+    return out
+
+
 def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsure: str = "ask", first_source_frame: int | None = None,
                   suggest_lead: float | None = None) -> dict:
     """Every shot of one load decided for all its trackers' subjects at once. See the module docstring, `corrections`.
@@ -255,23 +311,58 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
     top = {label: [v[0] for v in tables[label]["gallery"]["signatures"] if v and v[0] is not None] for label in labels}
     whole = {label: [v for v in tables[label]["gallery"]["whole"] if v is not None] for label in labels}
     least = S.TOGETHER_LEAD if least_lead is None else least_lead
+
+    def score_of(sig_top, sig_whole, label) -> float | None:
+        a, b = _best(sig_top, top[label]), _best(sig_whole, whole[label])
+        return None if a is None or b is None else a + b
+
+    # Each subject's LEVEL: the highest score a look KNOWN NOT to be it reaches against its gallery. Known not to be
+    # it: every other picked subject's gallery looks, and whoever stood beside it on its own pick frame.
+    levels, levels_from = {}, {}
+    for label in labels:
+        known = []
+        for other in labels:
+            if other != label:
+                held = tables[other]["gallery"]
+                known += [(score_of(views[0], full, label), f"{other}'s gallery") for views, full in zip(held["signatures"], held["whole"])
+                          if views and views[0] is not None and full is not None]
+        picked = next((shot for shot in tables[label]["shots"] if shot["subject"]["state"] == "picked"), None)
+        if picked is not None:
+            known += [(score_of(p["signatures"][0], p["whole_signature"], label), f"a person beside {label} on its pick frame")
+                      for p in picked["people"] if p["person"] != picked["subject"]["person"]
+                      and (p.get("signatures") or [None])[0] is not None and p.get("whole_signature") is not None]
+        known = [(v, src) for v, src in known if v is not None]
+        levels[label] = max(known)[0] if known else None
+        levels_from[label] = {"looks_known_not_to_be_it": len(known), "the_highest_is": max(known)[1] if known else None}
     rows = []
     for n in range(len(first["shots"])):
         by_frame: dict[int, list] = {}
+        unread: set[int] = set()
         for label in everyone:
             shot = tables[label]["shots"][n]
-            for frame, people in [(shot["shown_frame"], shot["people"])] + [(look["frame"], look["people"]) for look in shot.get("looks", [])]:
+            aside = shot.get("others_left_out") or {}
+            for k, (frame, people) in enumerate([(shot["shown_frame"], shot["people"])] + [(look["frame"], look["people"]) for look in shot.get("looks", [])]):
                 signed = [p for p in people if (p.get("signatures") or [None])[0] is not None and p.get("whole_signature") is not None]
-                if people and len(signed) == len(people) and len(people) > len(by_frame.get(int(frame), [])):
+                if not people or len(signed) != len(people):
+                    continue
+                # a list another tracker's people were removed from is not the frame: not read (see the module docstring)
+                if int(aside.get("on_shown_frame", 0) if k == 0 else aside.get("on_frames_looked_at", 0)):
+                    unread.add(int(frame))
+                    continue
+                if len(people) > len(by_frame.get(int(frame), [])):
                     by_frame[int(frame)] = people
+        unread -= set(by_frame)
         frames = sorted(by_frame)
         names = S.same_people([[_xyxy(p["box"]) for p in by_frame[f]] for f in frames])
+        # a detection with no head on ANY look it is seen on is a thing the detector called a person: listed, never handed out
+        headed = {name for f, row in zip(frames, names) for name, p in zip(row, by_frame[f]) if len(p["signatures"]) > 1 and p["signatures"][1] is not None}
+        headless = {name for row in names for name in row} - headed
         looks = []
         for f, row in zip(frames, names):
-            looks.append({label: {name: (None if _best(p["signatures"][0], top[label]) is None or _best(p["whole_signature"], whole[label]) is None
-                                         else _best(p["signatures"][0], top[label]) + _best(p["whole_signature"], whole[label]))
-                                  for name, p in zip(row, by_frame[f])} for label in labels})
+            looks.append({label: {name: score_of(p["signatures"][0], p["whole_signature"], label)
+                                  for name, p in zip(row, by_frame[f]) if name not in headless} for label in labels})
         answer = S.hand_out(looks)
+        evidence = hand_out_or_nobody(looks, levels, S.SEEN_ON_MOST)
         verdict, why = S.sure(answer, least)
         if verdict == S.ASK and unsure == "take" and answer["takes"] is not None:
             verdict, why = S.TAKE, f"UNSURE AND TAKEN BY THE SWITCH ({why})"
@@ -280,26 +371,34 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
         for label in labels:
             shot = tables[label]["shots"][n]
             called = {"state": shot["subject"]["state"], "person": shot["subject"]["person"]}
-            says, correction, tile = "cannot say", "", int(shot["shown_frame"])
-            if answer["takes"] is not None:
-                name = answer["takes"][label]
+            tile = int(shot["shown_frame"])
+
+            def on_tile(name, shot=shot, tile=tile):
+                """A name as this tracker's own number for them on its own tile frame, or a sentence saying why not."""
                 if name is None:
-                    says = None
+                    return None
+                if tile not in on_frame:
+                    return "cannot say: this tracker's tile frame is not among the looks read"
+                if name not in on_frame[tile]:
+                    return "cannot say: that person is not on this tracker's tile frame"
+                # the same frame, so the same person's two boxes are one box: this tracker's own number for them
+                overlap, person = max(((S.box_overlap(_xyxy(p["box"]), on_frame[tile][name]), p["person"]) for p in shot["people"]),
+                                      default=(0.0, None))
+                return person if overlap >= 0.9 else "cannot say: that person is not numbered on this tracker's tile"
+
+            says, correction = "cannot say", ""
+            if answer["takes"] is not None:
+                says = on_tile(answer["takes"][label])
+                if says is None:
                     correction = "" if called["person"] is None else f"shot {shot['shot']}: none"
-                elif tile not in on_frame:
-                    says = "cannot say: this tracker's tile frame is not among the looks read"
-                elif name not in on_frame[tile]:
-                    says = "cannot say: that person is not on this tracker's tile frame"
-                else:
-                    # the same frame, so the same person's two boxes are one box: this tracker's own number for them
-                    overlap, person = max(((S.box_overlap(_xyxy(p["box"]), on_frame[tile][name]), p["person"]) for p in shot["people"]),
-                                          default=(0.0, None))
-                    if overlap >= 0.9:
-                        says = person
-                        correction = "" if called["person"] == says else f"shot {shot['shot']}: person {says}"
-                        given.append((label, tile, on_frame[tile][name]))
-                    else:
-                        says = "cannot say: that person is not numbered on this tracker's tile"
+                elif isinstance(says, int):
+                    correction = "" if called["person"] == says else f"shot {shot['shot']}: person {says}"
+                    given.append((label, tile, on_frame[tile][answer["takes"][label]]))
+            # what the evidence says: the same reading, with nobody worth zero. A string when it cannot say
+            if evidence["takes"] is None or label not in evidence["takes"]:
+                proof = "cannot say: nothing in these tables is known not to be this subject" if levels.get(label) is None else "cannot say"
+            else:
+                proof = on_tile(evidence["takes"][label])
             # this subject's total, over the looks used, on each person of ITS OWN tile: what a person choosing is shown
             candidates = []
             if tile in on_frame:
@@ -310,8 +409,17 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                         got = [look[label].get(name_there) for look in looks if label in look and look[label].get(name_there) is not None]
                         total = round(float(sum(got)), 3) if got else None
                     candidates.append({"person": p["person"], "box": p["box"], "total": total, "looks": 0 if total is None else len(got)})
+            # the text to type exists only when the sum and the evidence say the same thing; otherwise it is a question
+            agreed = isinstance(proof, str) or proof == says
+            # a person's word (a pick, a typed correction) or a tool's (a seed) for this tracker in this shot
+            word = ("picked" if called["state"] == "picked" else "corrected by hand" if shot.get("corrected") else
+                    "seeded" if shot.get("seeded") else "")
+            if word:
+                correction = ""
             trackers[label] = {"called": called["state"], "called_person": called["person"], "the_sum_says": says,
-                               "correction": correction, "would_type": correction, "candidates": candidates,
+                               "answered_by": word,
+                               "the_evidence_says": proof, "correction": correction if agreed else "",
+                               "would_type": correction if agreed else "", "candidates": candidates,
                                "typed_in_this_table": str(shot.get("corrected", "") or ""), "tile_frame": tile}
         fault = [(a[0], b[0]) for i, a in enumerate(given) for b in given[i + 1:] if a[1] == b[1] and S.box_overlap(a[2], b[2]) >= 0.9]
         cannot = answer["takes"] is None or any(isinstance(t["the_sum_says"], str) for t in trackers.values())
@@ -321,11 +429,25 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
         for label in not_picked:
             shot = tables[label]["shots"][n]
-            trackers[label] = {"called": shot["subject"]["state"], "called_person": shot["subject"]["person"],
-                               "the_sum_says": "cannot say: this subject was never picked", "correction": "", "would_type": "", "candidates": [],
+            trackers[label] = {"called": shot["subject"]["state"], "called_person": shot["subject"]["person"], "answered_by": "",
+                               "the_sum_says": "cannot say: this subject was never picked",
+                               "the_evidence_says": "cannot say: this subject was never picked", "correction": "", "would_type": "", "candidates": [],
                                "typed_in_this_table": str(shot.get("corrected", "") or ""), "tile_frame": int(shot["shown_frame"])}
-        status = UNRESOLVED if cannot else DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
+        # a row agrees only when the tracker, the sum and the evidence all say the same; the evidence disagreeing with
+        # a take (it says nobody, a tracker or the sum has a person) is the wrong take this tool used to agree with
+        # only the trackers nobody has answered for are decided: a pick, a typed correction and a seed are words, not calls
+        open_ = {label: t for label, t in trackers.items() if label in labels and not t["answered_by"]}
+        doubted = {label: t for label, t in open_.items() if not isinstance(t["the_evidence_says"], str)
+                   and not isinstance(t["the_sum_says"], str) and t["the_evidence_says"] != t["the_sum_says"]}
+        differs = any(t["would_type"] for t in open_.values()) or bool(doubted) or any(
+            not isinstance(t["the_evidence_says"], str) and t["the_evidence_says"] != t["called_person"] for t in open_.values())
+        cannot = cannot and (bool(fault) or any(isinstance(t["the_sum_says"], str) for t in open_.values()) or (answer["takes"] is None and bool(open_)))
+        status = UNRESOLVED if cannot else DIFFERS if differs else AGREES
         note = ""
+        answered = {label: t["answered_by"] for label, t in trackers.items() if t["answered_by"]}
+        if answered and not fault:
+            note = ("answered, and not decided here: " + ", ".join(f"{label} ({how})" for label, how in answered.items())
+                    + ("" if open_ else ". Nobody is left to decide in this shot"))
         if not_picked and not fault and answer["takes"] is not None and any(p is not None for p in answer["takes"].values()):
             status = UNRESOLVED
             why = (f"{', '.join(not_picked)} was never picked, so a person handed out in this shot could be them. "
@@ -336,12 +458,15 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
         # which is an answer and not a failure to compare. It agrees when every tracker called its subject absent.
         nobody_seen = not any(tables[label]["shots"][n]["people"] or any(look["people"] for look in tables[label]["shots"][n].get("looks", []))
                               for label in everyone)
-        if nobody_seen and not fault:
+        # ...and so is a shot whose only detections have no head on any look: things, listed and handed to nobody
+        only_things = bool(frames) and not ({name for row in names for name in row} - headless)
+        if (nobody_seen or only_things) and not fault:
             for label, t in trackers.items():
-                t["the_sum_says"] = None
+                t["the_sum_says"] = t["the_evidence_says"] = None
                 t["correction"] = t["would_type"] = "" if t["called_person"] is None else f"shot {first['shots'][n]['shot']}: none"
             status = DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
-            note = "no table lists anybody in this shot: every subject has nobody"
+            note = ("no table lists anybody in this shot: every subject has nobody" if nobody_seen else
+                    "every detection in this shot has no head on any look: listed as things, and every subject has nobody")
         # A shot every tracker PICKED its subject in is not decided here: a pick is a person's word (or the pick rule's,
         # which a person set), the pick frames are usually different frames showing different people, and a row that
         # blocks every job on its pick shot teaches people to override (mrdeer, reading the first real file,
@@ -352,21 +477,31 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             same = [(a[0], b[0]) for i, a in enumerate(picks) for b in picks[i + 1:]
                     if a[1] == b[1] and a[2] is not None and b[2] is not None and S.box_overlap(a[2], b[2]) >= 0.9]
             for t in trackers.values():
-                t["would_type"] = ""
+                t["would_type"] = t["correction"] = ""
             if same:
                 status, why = UNRESOLVED, f"{same[0][0]} and {same[0][1]} picked one person on one frame: two trackers on one person"
             else:
                 status, note = AGREES, "every tracker picked its subject in this shot; a pick is not decided here" + (
                     "" if answer["takes"] is not None else " (and its pick frames show different people, so nothing could be compared)")
+        if unread and status != AGREES:
+            note = (note + ". " if note else "") + (f"{len(unread)} look(s) not read, because another tracker's people had been removed from them: "
+                                                   f"frames {', '.join(str(f) for f in sorted(unread)[:8])}" + (" and more" if len(unread) > 8 else ""))
         # a weak row suggests nobody: no text is filled in, and each tracker that would change gets a question
-        suggests = status == DIFFERS and (verdict == S.TAKE or (suggest_lead is not None and answer["lead"] is not None and answer["lead"] >= suggest_lead))
+        suggests = (status == DIFFERS and not doubted
+                    and (verdict == S.TAKE or (suggest_lead is not None and answer["lead"] is not None and answer["lead"] >= suggest_lead)))
         for label, t in trackers.items():
             t["ask"] = ""
-            if status == DIFFERS and not suggests:
-                if t["would_type"]:
+            if status == DIFFERS and not suggests and not t.get("answered_by"):
+                proof = t.get("the_evidence_says")
+                wrong_for_evidence = label in labels and not isinstance(proof, str) and proof != t["called_person"]
+                if t["would_type"] or label in doubted or wrong_for_evidence:
                     numbers = ", ".join(str(c["person"]) for c in t["candidates"]) or "nobody is numbered"
                     t["ask"] = (f"shot {first['shots'][n]['shot']}, {label}'s tile (frame {t['tile_frame']}): which numbered person is {label}? "
                                 f"{numbers}, or none. Type `shot {first['shots'][n]['shot']}: person K` or `shot {first['shots'][n]['shot']}: none` into {label}'s tracker")
+                    if proof is None and (t["called_person"] is not None or isinstance(t["the_sum_says"], int)):
+                        who = t["called_person"] if t["called_person"] is not None else t["the_sum_says"]
+                        t["ask"] += (f". The evidence says NOBODY: person {who} is no more like {label} than people known not to be {label} "
+                                     f"on this clip are. If that is {label} in a new look, type the number; if not, type none")
                 t["correction"] = ""
         # everybody seen in the shot, for a reader that must tell a person from a thing that never moves
         seen = {}
@@ -374,7 +509,7 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             for name, p in zip(row, by_frame[f]):
                 box = _xyxy(p["box"])
                 seen.setdefault(name, []).append(((box[0] + box[2]) / 2, (box[1] + box[3]) / 2, (box[2] - box[0]) * (box[3] - box[1])))
-        people_seen = [{"name": name, "looks_seen": len(v),
+        people_seen = [{"name": name, "looks_seen": len(v), "headless": name in headless,
                         "centre_moved_px": round(max(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 for a in v for b in v), 1),
                         "box_area_px": [int(min(x[2] for x in v)), int(max(x[2] for x in v))],
                         "left_out_as_seldom_seen": name in answer["left_out"],
@@ -382,8 +517,9 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                        for name, v in sorted(seen.items())]
         rows.append({"shot": first["shots"][n]["shot"], "frames": [first["shots"][n]["first_frame"], first["shots"][n]["last_frame"]],
                      "status": status, "note": note, "suggests": bool(suggests), "verdict": verdict, "why": why,
-                     "looks_with_signatures": frames, "looks_used": answer["looks_used"], "people": answer["people"],
-                     "lead": answer["lead"], "trackers": trackers, "people_seen": people_seen})
+                     "looks_with_signatures": frames, "looks_not_read_as_incomplete": sorted(unread),
+                     "looks_used": answer["looks_used"], "people": answer["people"],
+                     "lead": answer["lead"], "evidence_lead": evidence["lead"], "trackers": trackers, "people_seen": people_seen})
     return {"what": "every shot of one load decided for all its trackers' subjects at once; a file for the gate, not a job",
             "status_is": f"{AGREES}: the sum would change nothing. {DIFFERS}: it would, and `correction` is the text to type into that "
                          f"tracker. {UNRESOLVED}: it cannot say. A row agrees once its correction is typed and the preview run again",
@@ -394,6 +530,11 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                           "one) writes no correction: `suggests` is false, each tracker has `candidates` and an `ask` to show a person. "
                           "`would_type` is what the top way would have written, for tools; do not show it as a suggestion",
             "not_picked": not_picked,
+            "levels": levels, "levels_from": levels_from,
+            "levels_are": "per subject, the highest score (top third plus whole mask, each the best over the subject's gallery) that a look "
+                          "KNOWN NOT to be that subject reaches: another subject's gallery look, or a person beside it on its own pick frame. "
+                          "The evidence for a person is their score less this, summed over the looks used; nobody is worth zero. From the "
+                          "picked shots of this load only: a starting value for this clip, not a line",
             "tables": everyone, "least_lead": least, "unsure": unsure, "rows": rows}
 
 
@@ -409,6 +550,10 @@ def render_corrections(out: dict):
     labels = out["tables"]
     for label, why in (out.get("not_picked") or {}).items():
         print(f"NOT PICKED: {why}. The other subjects are decided without it, and no row that hands a person out is resolved.\n")
+    if out.get("levels"):
+        print("levels (how like each subject a person who is NOT it can look, on this load): "
+              + "; ".join(f"{label} {_f(v)} ({out['levels_from'][label]['looks_known_not_to_be_it']} looks, the highest {out['levels_from'][label]['the_highest_is']})"
+                          for label, v in out["levels"].items()) + "\n")
     print(f"{out['what']}\n{out['status_is']}\nleast lead to take without a person: {out['least_lead']}; unsure rows: {out['unsure']}; {out['frames_are']}\n")
     print("| shot | frames | status | looks used | people | lead | " + " | ".join(f"{label}: called, the sum says" for label in labels) + " | without a person | to type |")
     print("|---|---|---|---|---|---|" + "---|" * len(labels) + "---|---|")
@@ -418,7 +563,9 @@ def render_corrections(out: dict):
             t = row["trackers"][label]
             called = t["called"] + ("" if t["called_person"] is None else f" (person {t['called_person']})")
             says = "nobody" if t["the_sum_says"] is None else (f"person {t['the_sum_says']}" if isinstance(t["the_sum_says"], int) else t["the_sum_says"])
-            cells.append(f"{called}; {says}")
+            proof = t.get("the_evidence_says", "")
+            proof = "nobody" if proof is None else (f"person {proof}" if isinstance(proof, int) else "cannot say" if proof else "")
+            cells.append(f"{called}; {says}" + (f"; evidence: {proof}" if proof else ""))
         typed = "; ".join(f"{label}: `{row['trackers'][label]['correction']}`" for label in labels if row["trackers"][label]["correction"])
         asked = "; ".join(row["trackers"][label].get("ask", "") for label in labels if row["trackers"][label].get("ask"))
         typed = typed or (f"NOT SUGGESTED. {asked}" if asked else "nothing")
