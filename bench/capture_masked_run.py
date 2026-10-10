@@ -2315,7 +2315,10 @@ def preflight(a: argparse.Namespace) -> None:
     for i, f in enumerate(flags, 1):
         f["id"], f["key"] = f"f{i:03d}", flag_key(f)
     gate = gate_verdict(flags, read_outcomes(folder))
-    record = {**gate, "capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
+    # decisions the capture made itself, each with its record: seen in the summary, not asked as a question
+    by_design = {s["label"]: n for s in m["subjects"] for n in
+                 [sum(b - a + 1 for x in s["sightings"] for a, b in x.get("parts_emptied_by_grade_on_source_frames") or [])] if n}
+    record = {**gate, "emptied_by_the_grade": by_design, "capture": m["name"], "clip": m["clip"], "span": [m["first_frame"], m["first_frame"] + m["frames"] - 1],
               "written": datetime.datetime.now().isoformat(timespec="seconds"), "levels": list(LEVELS),
               # a tracker's own object id can sit beside the label when a tracker hands one back; none does today
               "subjects": [{"label": s["label"], "tracker_object_id": None, "seen_by": [x["by"] for x in s["sightings"]]}
@@ -2328,6 +2331,8 @@ def preflight(a: argparse.Namespace) -> None:
         print(f"{f['id']}  {f['level'].upper():14}  {f['rule']}\n      {f['why']}\n      source frames {spans_text}")
     counts = {level: sum(f["level"] == level for f in flags) for level in LEVELS}
     print(f"{len(flags)} flag(s): " + ", ".join(f"{n} {level}" for level, n in counts.items()) + f"; wrote {folder / 'flags.json'}")
+    for label, n in by_design.items():
+        print(f"{n} frame(s) of {label}'s part emptied by the grade, by design: subjects/{label}/part_grades.json")
     print(f"gate: {gate['verdict']}" + (f", on {', '.join(gate['blocking'])}" if gate["blocking"] else "")
           + (f"; overridden: {', '.join(gate['overridden'])}" if gate["overridden"] else ""))
     if a.gate and gate["blocking"]:
