@@ -118,6 +118,13 @@ def a_tile_that_does_not_show_everybody_is_refused():
     table["shots"][1]["others_left_out"]["on_shown_frame"] = 1
     _raises(lambda: C.from_table(table, "t.json", FIRST, 2, "lead", 1, "a"), "not everybody")
     _raises(lambda: C.from_table(table, "t.json", FIRST, 2, "lead", None, "a"), "not everybody")
+    # a table made before the field existed does not SAY that nobody was left out, and is not read as if it did
+    old = json.loads(json.dumps(TABLE))
+    del old["shots"][0]["others_left_out"]
+    _raises(lambda: C.from_table(old, "t.json", FIRST, 1, "lead", 1, "a"), "does not say whether anybody was left out")
+    _raises(lambda: C.from_table(old, "t.json", FIRST, 1, "lead", None, "a"), "does not say whether anybody was left out")
+    # None is what the table writes when the tracker had nobody to leave out: that IS everybody (shot 1 of TABLE)
+    assert C.from_table(TABLE, "t.json", FIRST, 1, "lead", 1, "a")["answer"] == C.HERE
 
 
 def a_number_not_on_the_tile_is_refused():
@@ -187,8 +194,12 @@ def a_box_is_used_before_not_on_this_frame():
     # two boxes in one shot: the later given is the one seed, and the other is named
     two = [C.entry("lead", FIRST + 5, C.HERE, by="a", box=[1, 1, 50, 50], size=SIZE, table="t.json", at="2026-01-01T00:00:00Z"),
            C.entry("lead", FIRST + 30, C.HERE, by="a", box=[2, 2, 60, 60], size=SIZE, table="t.json", at="2026-01-02T00:00:00Z")]
-    out = C.seeds(list(reversed(two)), "lead", FIRST, SIZE, SHOTS, C.LEAVE)
+    out = C.seeds(two, "lead", FIRST, SIZE, SHOTS, C.LEAVE)
     assert out["text"] == "frame 30: 2, 2, 60, 60" and [u["frame"] for u in out["unused"]] == [FIRST + 5], out
+    # "later" is the file's order and nothing else: the same two lines the other way round, the later LINE carrying
+    # the earlier time, and it is the later line that is used
+    out = C.seeds(list(reversed(two)), "lead", FIRST, SIZE, SHOTS, C.LEAVE)
+    assert out["text"] == "frame 5: 1, 1, 50, 50" and [u["frame"] for u in out["unused"]] == [FIRST + 30], f"sorted on a typed time: {out['text']!r}"
 
 
 def another_picture_shape_is_refused():
@@ -207,6 +218,9 @@ def an_answer_outside_the_load_is_not_moved():
     out = C.seeds(lines, "lead", FIRST, SIZE, SHOTS, C.EMPTY)
     assert out["text"] == "" and out["outside_this_load"] == [FIRST - 1, FIRST + 100], out
     assert all(row["seed"] is None and row["why"] == "no answer inside this shot" for row in out["shots"]), out["shots"]
+    # every answer is in exactly one list: with a hole between two shots, an answer in the hole is named, not dropped
+    holed = C.seeds([C.entry("lead", FIRST + 15, C.NOT_ON_FRAME, by="a")], "lead", FIRST, SIZE, [(0, 10), (20, 30)], C.EMPTY)
+    assert holed["inside_the_load_in_no_shot"] == [FIRST + 15] and holed["text"] == "" and not holed["outside_this_load"], holed
 
 
 def main() -> int:

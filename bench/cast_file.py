@@ -26,10 +26,12 @@ Four rules, each a fault of 2026-10-10 that this file exists to not repeat:
     <python> bench/cast_file.py seeds --cast CAST --subject lead --table LOAD_SHOTS.json --first-frame N --not-on-frame leave|empty
     <python> bench/cast_file.py show --cast CAST
 
-`--first-frame` is the frame of the source copy that the table's frame 0 is on. `seeds` prints the text the
+`--first-frame` is the frame of the source copy that the table's frame 0 is on. It is TYPED, and a shot table holds
+nothing to check it against: a wrong value stores a true box on a wrong frame and nothing refuses. A session has
+to remember to take it from the job that made the table (`job.first`). `seeds` prints the text the
 Subject Track's `seeds` input takes for one load (`subject_track.py::parse_seeds`), one line a shot that has an
-answer inside it, and says what it did with every answer of that subject: used, unused and why, or outside the
-load. An answer outside the load is never moved to a frame inside it. A box is scaled only to a picture of the
+answer inside it, and says what it did with every answer of that subject: used, unused and why, in no shot of the table, or outside
+the load. An answer outside the load is never moved to a frame inside it. A box is scaled only to a picture of the
 same shape; another shape is refused, since the loader crops before it scales.
 
 A cast file lives under the untracked `data/`, one a source video. No model, no card.
@@ -134,7 +136,16 @@ def from_table(table: dict, table_name: str, first: int, shot: int, subject: str
     found = next((s for s in table.get("shots", []) if int(s["shot"]) == int(shot)), None)
     if found is None:
         raise ValueError(f"cast: {table_name} has no shot {shot}")
-    left = (found.get("others_left_out") or {}).get("on_shown_frame", 0)
+    # Three cases, and only one of them is "everybody" (mrcorn's cold read: of forty real tables, twenty-three carry
+    # the field on no shot, and a missing field was being read as nobody left out). None is what the table writes
+    # when the tracker had nobody to leave out; a count is how many it left out; ABSENT is a table that does not say.
+    if "others_left_out" not in found:
+        raise ValueError(f"cast: {table_name}, shot {shot}: this table does not say whether anybody was left out of its tiles "
+                         "(it was made before the table recorded that), so its numbers cannot be trusted to be everybody. "
+                         "Answer from a new preview with one subject and no `others`.")
+    left = (found["others_left_out"] or {}).get("on_shown_frame")
+    if found["others_left_out"] is not None and left is None:
+        raise ValueError(f"cast: {table_name}, shot {shot}: `others_left_out` has no `on_shown_frame`")
     if left:
         raise ValueError(f"cast: {table_name}, shot {shot}: {left} detection(s) were left out of this tile as another tracker's "
                          "people, so its numbers are not everybody on the frame. Answer from a preview with one subject and no `others`.")
@@ -156,7 +167,9 @@ def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[i
 
     `first` is the source-copy frame of the load's frame 0, `size` its picture (width, height), `shots` its
     (first frame, one past the last) per shot in the load's own frames. `not_on_frame` is `LEAVE` or `EMPTY`.
-    In a shot with several answers a box is used before a `not on this frame`, and among boxes the latest given.
+    In a shot with several answers a box is used before a `not on this frame`, and among boxes the one later in the
+    file: the file's order is the only order nobody can type wrong, so `at` is never sorted on (it is the same order
+    `current` uses).
     That is a tie-break and not a judgement: each box is true of its own frame, a shot takes one seed, and the newer
     answer did not correct the older. What the caller chose for `not_on_frame` is in the result, in words."""
     if not_on_frame not in NOT_ON_FRAME_MEANS:
@@ -171,10 +184,12 @@ def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[i
             raise ValueError(f"cast: {subject}'s answer on frame {line['frame']} was read on a {line['size'][0]}x{line['size'][1]} picture "
                              f"and this load is {size[0]}x{size[1]}: another shape. A box is not carried across a crop.")
     order = {id(line): n for n, line in enumerate(lines)}
+    # a table's shots meet end to end, so this is empty on a real one; it is here so that every answer is in a list
+    in_no_shot = sorted(line["frame"] for line in inside if not any(start <= line["frame"] - first < end for start, end in shots))
     rows, text, unused = [], [], []
     for number, (start, end) in enumerate(shots, 1):
         here = sorted((line for line in inside if start <= line["frame"] - first < end),
-                      key=lambda line: (line["answer"] == HERE, line["at"], order.get(id(line), 0)))
+                      key=lambda line: (line["answer"] == HERE, order[id(line)]))
         row = {"shot": number, "frames": [int(start), int(end) - 1], "seed": None, "from_frame": None, "why": "no answer inside this shot"}
         if here:
             used = here[-1]
@@ -197,7 +212,8 @@ def seeds(lines: list[dict], subject: str, first: int, size, shots: list[tuple[i
                 text.append(row["seed"])
         rows.append(row)
     return {"subject": subject, "first_source_frame": int(first), "size": [int(size[0]), int(size[1])], "text": "\n".join(text),
-            "not_on_frame": not_on_frame, "not_on_frame_means": NOT_ON_FRAME_MEANS[not_on_frame], "shots": rows, "unused": unused, "outside_this_load": outside}
+            "not_on_frame": not_on_frame, "not_on_frame_means": NOT_ON_FRAME_MEANS[not_on_frame], "shots": rows, "unused": unused, "outside_this_load": outside,
+            "inside_the_load_in_no_shot": in_no_shot}
 
 
 def _table(path: str) -> dict:
@@ -247,6 +263,8 @@ def main() -> int:
             print(f"# shot {row['shot']} (frames {row['frames'][0]}-{row['frames'][1]}): {row['seed'] or 'no seed'}; {row['why']}", file=sys.stderr)
         for one in out["unused"]:
             print(f"# UNUSED: the answer on frame {one['frame']} ({one['answer']}): {one['why']}", file=sys.stderr)
+        if out["inside_the_load_in_no_shot"]:
+            print(f"# IN NO SHOT of this table, not used: {args.subject}'s answers on frames {out['inside_the_load_in_no_shot']}", file=sys.stderr)
         if out["outside_this_load"]:
             print(f"# outside this load, not moved: {args.subject}'s answers on frames {out['outside_this_load']}", file=sys.stderr)
     else:
