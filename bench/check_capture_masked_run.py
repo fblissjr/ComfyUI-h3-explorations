@@ -1199,6 +1199,19 @@ def a_look() -> str:
     return "a look records who, when, which loads and a note; the maker's own, a load the capture lacks and an empty note are refused"
 
 
+def a_load_that_lays_nothing() -> str:
+    """Where the subject is tracked and a load's own mask is empty with no region on the frame, nothing is laid: named per load."""
+    carried = rect(32, 32, 64, 64, 6)
+    carried[2:5] = False                             # frames 2 to 4: the part is empty
+    region = np.zeros((6, H // 16, W // 16), bool)
+    region[[0, 1, 2, 5], 2, 2] = True                # frame 2 sits in a step that has a region (a lent frame, another rule's)
+    read = np.array([True] * 5 + [False])            # frame 5 is not the load's
+    tracked = np.array([True, True, True, True, False, True])
+    assert cap.bare_frames(carried, region, read, tracked) == [3], "frames with a region, without the subject, or outside the load were named"
+    assert cap.bare_frames(rect(32, 32, 64, 64, 6), region, read, tracked) == [], "a load that lays its mask on every frame was named"
+    return "a frame the load reads, with the subject tracked, an empty mask and no region is named; a lent frame, an untracked one and one outside the load are not"
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1235,6 +1248,7 @@ case("preflight: a face only a few tokens tall", face_sizes)
 case("preflight: a shot the who-is-who sum has not settled", who_is_who)
 case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("looked: one line by somebody who did not make the capture", a_look)
+case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

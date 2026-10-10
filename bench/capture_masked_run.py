@@ -2376,6 +2376,14 @@ def lent_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray) -> li
     return np.nonzero(read & region.any(axis=(1, 2)) & ~carried.any(axis=(1, 2)))[0].tolist()
 
 
+def bare_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray, tracked: np.ndarray) -> list[int]:
+    """Frames a load reads on which the subject is tracked, the mask the load carries is empty and no region is
+    on them: nothing is laid there and the source shows. A part the part model lost, a part the grade emptied
+    (too small, or on something else) and a frame the caller dropped all end here."""
+    has, on = carried.reshape(len(carried), -1).any(1), region.reshape(len(region), -1).any(1)
+    return [int(f) for f in np.nonzero(read & tracked & ~has & ~on)[0]]
+
+
 def flag_lent(manifest: dict, folder: Path) -> list[dict]:
     """A run, or a plan read from the node's files, with frames that have no mask of their own inside a latent
     step that has a region.
@@ -2392,7 +2400,30 @@ def flag_lent(manifest: dict, folder: Path) -> list[dict]:
     first, w, out = manifest["first_frame"], manifest["size"][0], []
     for run in manifest["runs"]:
         saved = np.load(folder / "runs" / run["name"] / "region.npz")
-        lent = [first + f for f in lent_frames(np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool), saved["region"], saved["read"])]
+        carried = np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool)
+        lent = [first + f for f in lent_frames(carried, saved["region"], saved["read"])]
+        # the same question a load at a time: where the subject is tracked and this load lays nothing at all. The
+        # grade's own emptyings were only a line in the summary ("by design"), and on 2026-10-10 a face load went
+        # to the queue with nothing of a face on most of its frames
+        seen = next(x for x in manifest["subjects"] if x["label"] == run["subject"])["sightings"][0]["by"]
+        rows = json.loads((folder / "subjects" / run["subject"] / "per_frame.json").read_text())["rows"]
+        tracked = np.zeros(manifest["frames"], bool)
+        for r in rows:
+            if r["seen_by"] == seen and r.get("track_share") and 0 <= r["source_frame"] - first < manifest["frames"]:
+                tracked[r["source_frame"] - first] = True
+        named = set(lent) | set(run.get("left_as_the_source_with_no_mask") or [])     # the rule below names these
+        bare = [first + f for f in bare_frames(carried, saved["region"], saved["read"], tracked) if first + f not in named]
+        if bare:
+            total = int(saved["read"].sum())
+            kind = "plan" if run.get("planned") else "run"
+            out.append({"rule": "load_lays_nothing_on_frames", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans(bare, join=1),
+                        "why": f"{kind} {run['name']}: on {len(bare)} of its {total} frame(s) {run['subject']} is tracked and the mask the "
+                               "load carries is empty: nothing is laid there and the source shows. The part was lost, dropped, or emptied "
+                               f"by the grade (subjects/{run['subject']}/part_grades.json says which and why). If the subject is rightly "
+                               "left as the source there, override with the reason or cut the load to the frames it does lay; if the "
+                               "part should be there, look at those frames before anything renders",
+                        "figures": {"frames": len(bare), "frames_of_the_load": total}})
         unlaid = [f for f in run.get("left_as_the_source_with_no_mask") or [] if first <= f < first + manifest["frames"]]
         if lent or unlaid:
             kind = "plan" if run.get("planned") else "run"
