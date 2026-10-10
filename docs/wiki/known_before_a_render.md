@@ -156,3 +156,24 @@ renders after it.
   beside every "clear", and a stretch a person knows about is left out in
   the job with its why. The gate does not read the job's `left_out` yet; a
   flag there is answered by an override with the reason.
+- **2026-10-10 (mrsheep): audio that outlasts its load by one sample writes
+  a frame more, and the job builder now cuts it.** The table's row on held
+  frames written past a shot gives its predictor as the audio's length
+  against the load's; this is the same fault at its smallest. The song node
+  writes as many frames as its audio is long, rounded up, and reads the
+  track's own length for that, not the extent it was asked for
+  (`loop_plan.frames_kept`, called from `audio_freeze_song.py`). A load given
+  the loader's own audio for exactly its frames can get back audio a sample
+  long, and then its plan writes one frame past the load: the first frame of
+  the next shot. Seen on one planned load of twelve on the rest-of-clip run
+  (the node's own plan file says so: `frames_written` one more than the load
+  holds); found by the capture's author while gating the plans, before a
+  render was read. What raises it before sampling now: nothing has to, the
+  builder removes the cause. `workflows/masked_job_graph.py` cuts every
+  load's audio short of the load (`AUDIO_SHORT_BY`, with why that amount),
+  the source's track and an audio file alike, and
+  `bench/check_masked_job.py` holds the cut to the planner's own count for
+  every length up to the longest window. The twelve renders of that run were
+  built before the cut. Not built: a flag of the gate for a plan that writes
+  more frames than its load holds, which would also catch a graph the
+  builder did not make.
