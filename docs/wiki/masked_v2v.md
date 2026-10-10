@@ -105,6 +105,44 @@ compare with this lane, and what they do that it has not tried:
 [`references.md`](references.md), "Masks and edited video upstream, beside
 the masked lane".*
 
+## Running a job: one tool, on the video's analysis folder
+
+A masked job is built and queued by `bench/masked_job.py`, from a job file,
+and by nothing else: until 2026-10-10 every session wrote its own script for
+this, each patching a graph lifted out of an earlier render. The tool's
+docstring is the reference; `bench/check_masked_job.py` holds it. What a
+session starting a job needs to know:
+
+- **It starts from the input video's analysis folder.** `data/<stem>/`, named
+  by the video's file name, made by `bench/clip_analysis.py init`
+  (`clip_folder.py` has the rules of that folder). The builder refuses a job
+  whose video has none, or whose file is no longer the one the folder was
+  made from. Added 2026-10-10: the folder holds the video's identity and the
+  copy jobs render from, and nothing measured yet; the trackers, the capture
+  and the settings of a job are still made per job, as below.
+- **The stages, in order, each a `build` and a `queue`:** `preview` (who is
+  where: one tracker a subject, each told who the earlier ones hold, parts,
+  class maps, pose, mesh; nothing sampled), then `collect`, which fails by
+  name when a file is missing or a subject was found in no shot and prints
+  the capture's `files` command; the capture and its gate
+  (`bench/capture_masked_run.py`); `plan` a load (the song node says what
+  each window will be given), which the capture reads; `render` a load,
+  which is refused unless the capture passes `verify` again, its gate is
+  clear, and the gate read the node's own plan for that load.
+- **A load is one subject on one shot**, written in the capture's words, with
+  its text given to it. What a load carries by default, and why each value,
+  is the `MASKED_JOB_*` block of `workflows/h3_config.py`; a value measured
+  on one clip is a starting value, a job file may set any of them, and a
+  load's build record says which were set by the job and what the capture
+  measured on this clip.
+- **Not built, added 2026-10-10:** the one-window patch (until it is,
+  `bench/patch_render_window.py build` and the session script the masking
+  board's `note-do-not-build-on-these-2026-10-10` names are the only route,
+  and neither is checked); the analysis folder's own passes, its
+  `profile.json` and the rules that set a load's values from the clip
+  (the masking board, `build-per-video-analysis-folder`); a subject's
+  `seeds` in a job file (the tracker has the input, section 1 below).
+
 ## The rule: data before a render, and the same data after
 
 Set by the owner on 2026-10-10 for every session on this lane: "take a data
