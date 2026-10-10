@@ -349,6 +349,21 @@ Older history lives elsewhere and is not copied here:
     rebuilt).
   - NOT BUILT AND WANTED: the builder's refusal on `looks.json`; the gate
     reading a zoomed run. Both have cards on the masking board.
+  - 2026-10-10, later the same evening (the capture's session): two
+    changes to the list above, each from something that happened after it
+    was written. ADDED TO KEEP: `load_lays_nothing_on_frames` (9b3c49d1),
+    a load whose own mask is empty on frames where its subject is tracked;
+    it is the state a frame-by-frame reading by another session found
+    missing, and the grade's size floor (0416ac3f) feeds it. MOVED FROM
+    REMOVE TO SIMPLIFY: the mouth against the voice. A face load was
+    rendered again with the isolated vocal as its audio to see whether the
+    vocal moves the mouth; the voice table had no voiced frame on that
+    load, so the test could say nothing, and the warning
+    `mouth_open_with_no_voice` had named the stretch beforehand in a list
+    nobody read. What stays of it is one line a load in `shots --loads`
+    (voiced frames of the load; frames where the source's mouth is open
+    with no voice), not a flag; the `mouth` reading and the two text rules
+    still go.
 
 ## 2026-10-09
 
