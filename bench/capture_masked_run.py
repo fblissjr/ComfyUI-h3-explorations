@@ -1805,6 +1805,38 @@ def flag_segments(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def lent_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray) -> list[int]:
+    """The frames that have a region and no mask of their own: lent one by their latent step.
+
+    The sampler's region is one per latent step, made from every frame of the step. A frame whose own mask
+    is empty (the part emptied because the face is turned away, a subject gone for a frame) inside a step
+    whose other frames have one is regenerated all the same."""
+    return np.nonzero(read & region.any(axis=(1, 2)) & ~carried.any(axis=(1, 2)))[0].tolist()
+
+
+def flag_lent(manifest: dict, folder: Path) -> list[dict]:
+    """A run or a plan read from the node's files that regenerates on frames with no mask of their own.
+
+    Measured 2026-10-10 on two face-only renders: six such frames, each beside a turn; the render was 7 to 25
+    grey levels from the source inside the lent region against a floor of 2 to 3, and on one of them a face
+    was drawn under a hat brim where the source shows none. A plan worked out from the masks (`--plan`)
+    cannot show it: its region is per frame."""
+    first, w, out = manifest["first_frame"], manifest["size"][0], []
+    for run in manifest["runs"]:
+        saved = np.load(folder / "runs" / run["name"] / "region.npz")
+        lent = lent_frames(np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool), saved["region"], saved["read"])
+        if lent:
+            kind = "plan" if run.get("planned") else "run"
+            out.append({"rule": "region_on_a_frame_with_no_mask", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans([first + f for f in lent]),
+                        "why": f"{kind} {run['name']}: {len(lent)} frame(s) have no mask of {run['subject']}'s and are regenerated all the "
+                               "same, because their latent step holds frames that do have one. If the mask was emptied there on "
+                               "purpose (turned away, hidden), the render can draw the part where the source shows none: look at "
+                               "these frames, or empty the step's other frames too",
+                        "figures": {"frames": len(lent)}})
+    return out
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2044,7 +2076,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}

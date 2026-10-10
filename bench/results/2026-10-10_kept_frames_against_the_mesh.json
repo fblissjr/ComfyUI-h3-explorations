@@ -1,0 +1,278 @@
+{
+ "what": "Whether a whole-subject masked render makes a head turn its body mesh shows, with and without kept frames of the subject turned the other way before it",
+ "scope": "one stretch of one clip (60 frames, every second read), one subject, one seed a render; a pose model's reading, nobody has watched the renders",
+ "date": "2026-10-10",
+ "predictor": "ComfyUI core's SAM 3D Body node, release vith, on cuda:0 (bench/measure_subject_yaw.py); not this pack's body_pose.py",
+ "frames": "frame 0 of the stretch is where every render has frames; the source's head turns from side-on to the camera over the first 14 frames and stays there",
+ "columns": {
+  "head_off_source_degrees": "mean distance of the head's facing (from the ears) from the source's, on the turn's frames and after them",
+  "chin_degrees": "the nose against the line between the ears on frames 30 to 55, down negative; the source lowers the head there",
+  "wrist_to_nose": "the nearer wrist's distance from the nose on frames 30 to 55, in torso units, median; the source brings a hand to the face there",
+  "followed_in_step": "bench/measure_subject_motion.py over the joints the source moves; and the same for the hands"
+ },
+ "source": {
+  "chin_degrees": -30.0,
+  "wrist_to_nose": 0.28
+ },
+ "renders": {
+  "mom_kitchen_mesh": {
+   "is": "the pass's second window: a continuation behind 90 kept frames, the mesh at half the canvas's short edge",
+   "head_off_source_degrees": {
+    "on_the_turn": 51.9,
+    "after_it": 45.1
+   },
+   "chin_degrees": -8.1,
+   "wrist_to_nose": 0.83,
+   "followed_in_step": [
+    0.198,
+    0.198
+   ],
+   "hands_followed_in_step": [
+    -0.03,
+    0.124
+   ]
+  },
+  "mom_kitchen": {
+   "is": "an earlier pass of the same frames with the source's own frames as the motion video",
+   "head_off_source_degrees": {
+    "on_the_turn": 48.5,
+    "after_it": 58.5
+   },
+   "chin_degrees": 3.5,
+   "wrist_to_nose": 0.71,
+   "followed_in_step": [
+    0.064,
+    0.0
+   ],
+   "hands_followed_in_step": [
+    -0.157,
+    0.0
+   ]
+  },
+  "mom_kitchen_patch_0942": {
+   "is": "a one-window patch on the pass's render, its new frames starting on the turn",
+   "head_off_source_degrees": {
+    "on_the_turn": 52.1,
+    "after_it": 49.2
+   },
+   "chin_degrees": -6.3,
+   "wrist_to_nose": 0.86,
+   "followed_in_step": [
+    0.089,
+    0.0
+   ],
+   "hands_followed_in_step": [
+    -0.023,
+    0.0
+   ]
+  },
+  "mom_kitchen_patch_0900": {
+   "is": "a one-window patch on the pass's render, its new frames starting well before the turn",
+   "head_off_source_degrees": {
+    "on_the_turn": 64.9,
+    "after_it": 58.5
+   },
+   "chin_degrees": -6.8,
+   "wrist_to_nose": 0.83,
+   "followed_in_step": [
+    0.085,
+    0.0
+   ],
+   "hands_followed_in_step": [
+    0.132,
+    0.0
+   ]
+  },
+  "cont_ctx90_mesh768": {
+   "is": "the same continuation with the mesh at the canvas's short edge",
+   "head_off_source_degrees": {
+    "on_the_turn": 51.8,
+    "after_it": 46.4
+   },
+   "chin_degrees": -8.0,
+   "wrist_to_nose": 0.83,
+   "followed_in_step": [
+    0.195,
+    0.038
+   ],
+   "hands_followed_in_step": [
+    -0.028,
+    0.098
+   ]
+  },
+  "cont_ctx90_mesh768_kvrows": {
+   "is": "the same with the cheaper Sol sink",
+   "head_off_source_degrees": {
+    "on_the_turn": 51.7,
+    "after_it": 46.0
+   },
+   "chin_degrees": -8.0,
+   "wrist_to_nose": 0.83,
+   "followed_in_step": [
+    0.198,
+    0.193
+   ],
+   "hands_followed_in_step": [
+    -0.056,
+    0.116
+   ]
+  },
+  "fresh_0936_m768": {
+   "is": "a load of its own from the original, starting before the turn: no kept frames",
+   "head_off_source_degrees": {
+    "on_the_turn": 5.6,
+    "after_it": 2.2
+   },
+   "chin_degrees": -28.0,
+   "wrist_to_nose": 0.29,
+   "followed_in_step": [
+    0.729,
+    0.963
+   ],
+   "hands_followed_in_step": [
+    0.757,
+    0.951
+   ]
+  },
+  "mesh_video": {
+   "is": "the body mesh the renders were given, read by the same predictor",
+   "head_off_source_degrees": {
+    "on_the_turn": 1.6,
+    "after_it": 1.5
+   },
+   "chin_degrees": -36.6,
+   "wrist_to_nose": 0.34,
+   "followed_in_step": [
+    0.786,
+    0.972
+   ],
+   "hands_followed_in_step": [
+    0.651,
+    0.929
+   ]
+  }
+ },
+ "from_the_fresh_loads_first_frame": {
+  "frames": "74 frames, the turn starts about 10 frames in",
+  "head_off_source_degrees_by_12_frames": {
+   "mom_kitchen_mesh": [
+    2.1,
+    37.9,
+    66.2,
+    47.0,
+    40.6,
+    37.3
+   ],
+   "mom_kitchen_patch_0942": [
+    2.0,
+    37.8,
+    66.5,
+    50.8,
+    46.3,
+    42.9
+   ],
+   "mom_kitchen_patch_0900": [
+    6.7,
+    50.7,
+    78.0,
+    59.9,
+    55.1,
+    51.5
+   ],
+   "fresh_0936_m768": [
+    5.6,
+    4.2,
+    6.7,
+    2.4,
+    0.8,
+    1.2
+   ],
+   "mesh_video": [
+    2.5,
+    1.4,
+    2.4,
+    0.9,
+    1.4,
+    1.8
+   ]
+  }
+ },
+ "another_shot_same_subject": {
+  "scope": "141 frames, one load, one seed a render",
+  "renders": {
+   "mom_open_mesh_ours": {
+    "is": "the mesh to the video model, Sol sink exact_kv_and_all_rows",
+    "followed_in_step": [
+     0.625,
+     0.898
+    ],
+    "hands_followed_in_step": [
+     0.647,
+     0.945
+    ],
+    "head_off_source_degrees": 4.4
+   },
+   "mom_open_mesh_ours_kvrows": {
+    "is": "the same, Sol sink exact_kv_and_rows",
+    "followed_in_step": [
+     0.638,
+     0.928
+    ],
+    "hands_followed_in_step": [
+     0.646,
+     0.945
+    ],
+    "head_off_source_degrees": 4.2
+   },
+   "mom_open_mesh_enc768": {
+    "is": "the mesh to the text encoder only",
+    "followed_in_step": [
+     0.248,
+     0.62
+    ],
+    "hands_followed_in_step": [
+     0.243,
+     0.69
+    ],
+    "head_off_source_degrees": 13.1
+   },
+   "mom_open_mesh": {
+    "is": "an earlier render with core's mesh",
+    "followed_in_step": [
+     0.583,
+     0.905
+    ],
+    "hands_followed_in_step": [
+     0.558,
+     0.889
+    ],
+    "head_off_source_degrees": 3.9
+   },
+   "mesh_video": {
+    "is": "the mesh itself",
+    "followed_in_step": [
+     0.724,
+     0.961
+    ],
+    "hands_followed_in_step": [
+     0.732,
+     0.964
+    ],
+    "head_off_source_degrees": 1.3
+   }
+  }
+ },
+ "a_load_with_no_kept_frames_that_did_not_follow": {
+  "scope": "29 frames, a subject who is a small share of the frame behind another person; first eight frames read (the predictor's reading of the source is unsteady later, as she is covered)",
+  "head_facing_degrees_first_eight": {
+   "source": 72.8,
+   "mesh": 58.6,
+   "render": 6.9
+  },
+  "wrist_to_nose_first_eight": {
+   "source": 0.3,
+   "mesh": 0.29,
+   "render": 0.88
+  }
+ }
+}

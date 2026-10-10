@@ -297,6 +297,16 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   follows far less than the mesh in the video model, and the cheaper Sol
   sink (`exact_kv_and_rows`) is not behind `exact_kv_and_all_rows` on any
   joint group. One clip; one seed each.
+- **Added 2026-10-10 (mrdeer): the figures have a tracked record.**
+  `bench/results/2026-10-10_kept_frames_against_the_mesh.md` and its json
+  hold every render's row (head on the turn and after it, chin, the nearer
+  wrist to the nose, the motion measure), the same from the fresh load's
+  first frame, the opening shot, and the short load that did not follow.
+  Two things the summary above leaves out: the readings are ComfyUI core's
+  body node, not this pack's, on every second frame; and the two
+  one-window patches laid on the pass's own render fail exactly as the
+  continuation does, which is what says "kept frames" and not "a
+  continuation": a patch keeps the render's own turned-away frames too.
 - **Added 2026-10-10 (mrpop): a load with no kept frames that did NOT
   follow its mesh.** `data/2026-10-10_fun_pose/shot_1010_*`: a 29-frame
   load of a subject who is a small share of the frame, behind another

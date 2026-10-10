@@ -889,8 +889,16 @@ def planned_regions() -> str:
             assert "2 plan file(s)" in str(stop)
         else:
             raise AssertionError("a folder with two plans was read as one")
+    # a frame with no mask of its own inside a latent step that has one is lent the step's region
+    step = np.zeros((6, H // 16, W // 16), bool)
+    step[1:5, 2, 3] = True                           # one step over frames 1 to 4
+    own = rect(48, 32, 64, 48, 6)
+    own[[0, 2, 5]] = False                           # frame 2 was emptied on purpose; 0 and 5 are outside the step
+    assert cap.lent_frames(own, step, np.ones(6, bool)) == [2], "the emptied frame inside the step, and only it"
+    assert cap.lent_frames(own, step, np.array([1, 1, 0, 1, 1, 1], bool)) == [], "a frame that was not read was called lent"
     return ("the plan says which window writes a frame and which frame is left as the source; a held tail is not read; an "
-            "unplanned window, a missing file, a gap and two plans in one folder are each refused")
+            "unplanned window, a missing file, a gap and two plans in one folder are each refused; a frame with no mask "
+            "inside a step that has one is named as lent")
 
 
 def text_rules() -> str:
