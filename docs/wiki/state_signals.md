@@ -93,6 +93,18 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   empty or a sliver, and a fill from neighbouring frames drew a face shape
   on hair, a hat or an arm. The face part is emptied on those frames and
   never filled (`data/CAPTURE_GAPS.md` item 39).
+- **Added 2026-10-10 (mrdeer): the line above overstated the harm, and the
+  rule is now code.** The "face shape on hair" was the MASK's shape. A
+  control exists: one street shot rendered twice, the part kept on four
+  turned-away frames in one render and emptied in the other. Kept, the
+  render redrew the hair for those frames and drew no face; emptied, the
+  frames are the source's
+  (`bench/results/2026-10-10_face_part_kept_or_emptied_on_a_turn.md`, one
+  shot, one seed). The deciding is `bench/capture_masked_run.py::grade_holds`
+  (`part_grades.json` in a capture): a part or a fill is kept on a frame only
+  where it lies on the part's own classes, and it found four frames my hand
+  had missed. It reads the class map, so a frame where the class map is
+  wrong is still the caller's to empty.
 
 ## Head lift, and a hand at the face
 
@@ -102,6 +114,14 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
 - **A hand at the face: not built.** The pose table holds both wrists and
   the head's points, so it is a distance read from one table. Nobody has
   written it.
+- **Added 2026-10-10 (mrdeer): both are columns of the capture now, for a
+  pose table that carries 3D keypoints.** `bench/capture_masked_run.py::pose_state`
+  writes, per frame and subject, the body's, hips' and head's facing and the
+  chin's lift by `measure_subject_yaw.py`'s own arithmetic, and each wrist's
+  distance from the nose in torso units (`pose=` on `--mask`; the table is
+  what `MiniMaxH3BodyPose` writes). Pinned on a hand-built skeleton only: no
+  real table with 3D keypoints had been read when this was written, and no
+  distance has been set for "at the face".
 
 ## Who is in front of whom
 
@@ -333,6 +353,18 @@ Added 2026-10-10 (mrwolf), at the lead's ask, before the case is measured.
   says nothing yet about a shot with no voice.
 - **Not a candidate:** a sentence. "Mouth open" is an event with a time,
   and a laugh written from stills is on record as drawn on every frame.
+- **Added 2026-10-10 (mrdeer): the join exists, and it names the frames.**
+  `bench/capture_masked_run.py mouth` reports the source's runs of a dozen
+  frames or more with the opening in the shot's top quarter, above its
+  median, on unvoiced frames (`open_runs`, `OPEN_SHARE`, `OPEN_RUN`; `--voice`
+  for a capture made without the table), with each render's opening over the
+  run as a share of the source's. On the two street face shots it finds one
+  run on the first and none on the second; the run's frames and the source's
+  opening are in
+  `bench/results/2026-10-10_face_part_kept_or_emptied_on_a_turn.json`
+  (`mouth_open_with_no_voice`). The render's column is empty there: it needs
+  the part model's class map of each render, queued when this was written.
+  So the case's frames are measured and the case itself is not yet.
 
 ## The states a text has been made to carry
 

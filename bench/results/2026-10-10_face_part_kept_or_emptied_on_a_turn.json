@@ -1,0 +1,233 @@
+{
+ "what": "A face-only masked pass on one shot in which the subject spins: what a part mask kept on frames where the head is turned away costs, against the same pass with those frames emptied; and where the source's mouth is open with no voice",
+ "scope": "one shot of one clip (121 frames), one seed, two renders that differ only in the part mask on four frames; read from tables and stills, nobody has watched either",
+ "date": "2026-10-10",
+ "canvas": [
+  1024,
+  768
+ ],
+ "levels": "grey levels as ffmpeg's gray gives them, source and renders read the same way",
+ "tool": "bench/capture_masked_run.py (grade_holds, changed, mouth); the four-frame comparison by a session reading on the same frames",
+ "the_two_part_masks": {
+  "kept": "the part as the preview saved it, with four frames on which the part node's own hold lies on hair (the head turned away), kept by hand",
+  "emptied": "the same with every frame emptied on which the part scores under HOLD_INSIDE on its own classes (grade_holds), and one blurred frame emptied by hand"
+ },
+ "grades_on_the_emptied_frames": [
+  {
+   "source_frame": 350,
+   "did": "emptied",
+   "saved_on_its_classes": 0.127,
+   "fill_on_its_classes": null
+  },
+  {
+   "source_frame": 351,
+   "did": "emptied",
+   "saved_on_its_classes": 0.116,
+   "fill_on_its_classes": null
+  },
+  {
+   "source_frame": 352,
+   "did": "emptied",
+   "saved_on_its_classes": 0.0,
+   "fill_on_its_classes": null
+  },
+  {
+   "source_frame": 353,
+   "did": "emptied",
+   "saved_on_its_classes": 0.0,
+   "fill_on_its_classes": null
+  },
+  {
+   "source_frame": 354,
+   "did": "emptied",
+   "saved_on_its_classes": 0.006,
+   "fill_on_its_classes": null
+  },
+  {
+   "source_frame": 355,
+   "did": "emptied",
+   "saved_on_its_classes": null,
+   "fill_on_its_classes": 0.0
+  },
+  {
+   "source_frame": 356,
+   "did": "emptied",
+   "saved_on_its_classes": null,
+   "fill_on_its_classes": 0.0
+  },
+  {
+   "source_frame": 357,
+   "did": "emptied",
+   "saved_on_its_classes": null,
+   "fill_on_its_classes": 0.106
+  },
+  {
+   "source_frame": 358,
+   "did": "emptied",
+   "saved_on_its_classes": 0.261,
+   "fill_on_its_classes": 0.16
+  }
+ ],
+ "by_frame": [
+  {
+   "source_frame": 346,
+   "part_px_in_the_kept_mask": 2777,
+   "off_the_source_in_the_parts_area": {
+    "kept": 8.8,
+    "emptied": 8.7
+   },
+   "the_two_renders_against_each_other": 2.1
+  },
+  {
+   "source_frame": 347,
+   "part_px_in_the_kept_mask": 3517,
+   "off_the_source_in_the_parts_area": {
+    "kept": 9.1,
+    "emptied": 8.9
+   },
+   "the_two_renders_against_each_other": 2.7
+  },
+  {
+   "source_frame": 348,
+   "part_px_in_the_kept_mask": 3330,
+   "off_the_source_in_the_parts_area": {
+    "kept": 9.9,
+    "emptied": 9.4
+   },
+   "the_two_renders_against_each_other": 3.6
+  },
+  {
+   "source_frame": 349,
+   "part_px_in_the_kept_mask": 3969,
+   "off_the_source_in_the_parts_area": {
+    "kept": 8.2,
+    "emptied": 7.1
+   },
+   "the_two_renders_against_each_other": 3.4
+  },
+  {
+   "source_frame": 350,
+   "part_px_in_the_kept_mask": 3865,
+   "off_the_source_in_the_parts_area": {
+    "kept": 9.4,
+    "emptied": 1.8
+   },
+   "the_two_renders_against_each_other": 8.9
+  },
+  {
+   "source_frame": 351,
+   "part_px_in_the_kept_mask": 3778,
+   "off_the_source_in_the_parts_area": {
+    "kept": 15.3,
+    "emptied": 1.8
+   },
+   "the_two_renders_against_each_other": 14.8
+  },
+  {
+   "source_frame": 352,
+   "part_px_in_the_kept_mask": 3629,
+   "off_the_source_in_the_parts_area": {
+    "kept": 16.2,
+    "emptied": 1.7
+   },
+   "the_two_renders_against_each_other": 15.9
+  },
+  {
+   "source_frame": 353,
+   "part_px_in_the_kept_mask": 3840,
+   "off_the_source_in_the_parts_area": {
+    "kept": 16.4,
+    "emptied": 1.9
+   },
+   "the_two_renders_against_each_other": 15.7
+  },
+  {
+   "source_frame": 354,
+   "part_px_in_the_kept_mask": 0,
+   "off_the_source_in_the_parts_area": {
+    "kept": 2.0,
+    "emptied": 2.0
+   },
+   "the_two_renders_against_each_other": 1.1
+  },
+  {
+   "source_frame": 355,
+   "part_px_in_the_kept_mask": 0,
+   "off_the_source_in_the_parts_area": {
+    "kept": 2.5,
+    "emptied": 2.4
+   },
+   "the_two_renders_against_each_other": 1.3
+  },
+  {
+   "source_frame": 356,
+   "part_px_in_the_kept_mask": 0,
+   "off_the_source_in_the_parts_area": {
+    "kept": 2.5,
+    "emptied": 2.5
+   },
+   "the_two_renders_against_each_other": 1.2
+  },
+  {
+   "source_frame": 357,
+   "part_px_in_the_kept_mask": 0,
+   "off_the_source_in_the_parts_area": {
+    "kept": 2.6,
+    "emptied": 2.6
+   },
+   "the_two_renders_against_each_other": 1.2
+  },
+  {
+   "source_frame": 358,
+   "part_px_in_the_kept_mask": 0,
+   "off_the_source_in_the_parts_area": {
+    "kept": 4.5,
+    "emptied": 4.5
+   },
+   "the_two_renders_against_each_other": 1.5
+  },
+  {
+   "source_frame": 359,
+   "part_px_in_the_kept_mask": 2491,
+   "off_the_source_in_the_parts_area": {
+    "kept": 7.3,
+    "emptied": 7.8
+   },
+   "the_two_renders_against_each_other": 2.2
+  }
+ ],
+ "area": "the kept mask's part on that frame grown by the pass's margin; on a frame with no part, the last part's box",
+ "floor_far_from_any_part": {
+  "kept": 2.4,
+  "emptied": 2.4
+ },
+ "over_the_frames_both_have_a_part": {
+  "frames": 106,
+  "off_the_source_inside_the_part": {
+   "kept": 17.2,
+   "emptied": 17.2
+  },
+  "the_two_renders_against_each_other": 2.6
+ },
+ "stills": "head crops on ten frames, the source over both renders: on the four frames the kept render shows hair with strands that are not the source's; no face is drawn on the back of the head in either; the emptied render's four frames are the source's",
+ "mouth_open_with_no_voice": {
+  "source": {
+   "bar": 0.266,
+   "top_share": 0.25,
+   "least_frames": 12,
+   "shot_opening_median": 0.195,
+   "runs": [
+    {
+     "source_frames": [
+      366,
+      390
+     ],
+     "frames": 25,
+     "source_opening_median": 0.323,
+     "renders": {}
+    }
+   ]
+  },
+  "renders": "not read when this was written: it needs the part model's class map of each render"
+ }
+}
