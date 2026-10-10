@@ -744,6 +744,19 @@ picked on read as unresolved and blocked the gate; since 2901cd00 a shot
 every tracker picked agrees. In this design the naming tile is the pick,
 so that shot is never a question and is not in any count here.*
 
+*2026-10-10, the first real count, as reported by the lead session at the
+end of the day; the lists are with the gate's owner and not yet in a
+record. For two loads of fifteen shots and three subjects, with the
+trackers as they are and none of this design's sheet: thirty-two answers
+from a person. Fourteen were typed in the previews, thirteen given to
+the gate before any load existed and five after. Seven of them said
+"nobody is in this shot" and six "left out on purpose". That is about
+two answers a shot, which is the figure this design has to beat. Two
+things it says about where answers go: the seven were a person telling
+a tracker that its subject was not in a shot, which is the answer the
+decision can now give for itself; and the six were a job's choice to
+leave a stretch out, which no recognition removes.*
+
 **What to expect, said in advance.** A subject whose look has changed
 since their last typed look is asked about, once for each such change
 (section 6). So the questions are one for each named subject in each

@@ -489,3 +489,45 @@ before anything is built on it.
 - **Everything was measured on one soft clip.** *Signal:* none; it is
   true today. *Held by:* what may vote is set on each video, and step 7
   is a sharp one.
+
+## 10. What enforces each rule today, and what a session has to remember
+
+*2026-10-10, written at the end of the day the two pages were written.*
+One row for each rule of [`who_is_who.md`](who_is_who.md) and of this
+page. "A tool" means something refuses, blocks or cannot do otherwise,
+and a check holds it. "A session" means nothing stops the rule being
+broken: it is kept only if whoever runs the job knows it. The second
+column is the list the next job most needs.
+
+| the rule | enforced today by a tool | or kept only by a session remembering |
+|---|---|---|
+| a job is built on its input video's analysis folder | `bench/masked_job.py` refuses without one, or with another file's or a stale one (`clip_folder.py`; `bench/check_clip_folder.py`) | |
+| a render is queued only behind a verified capture and a clear gate | `bench/masked_job.py`, `queue` | |
+| a shot called absent with people on screen is answered before a render | the gate's `absent_with_people_on_screen` (`bench/capture_masked_run.py::flag_shots`) | |
+| a shot is decided for all named subjects together, and a row that does not agree is answered | the gate's `who_is_who_unanswered` (`bench/capture_masked_run.py::flag_who`), when the decision's file is given to it | giving it the file: a preflight run without one says so in a field and does not block |
+| nothing is taken without a person | `subject_tracks.py::TOGETHER_LEAD` is `None`, so every differing row asks | not passing `--unsure take` to `bench/who_is_who_across_shots.py`; the switch exists and nothing refuses it |
+| a weak row suggests nobody | the corrections file (`--suggest-lead` unset); `bench/check_subject_track.py` | |
+| one detection a person; a detection with no head is handed to nobody; only looks nobody was removed from are read; nobody has a value | `subject_tracks.py::one_each` and the corrections tool, each with a check | |
+| no look in the first frames after a cut | for the tracker's own looks, `subject_track.py::PROBE_OFFSET` | for any look taken another way |
+| a seed a tool can write for a shot | the Subject Track's `seeds` input (`subject_track.py::parse_seeds`) | the step from source frames to the load's frames: nothing does that subtraction yet |
+| thresholds come from the clip | the cut line and the match line (`subject_track.py::auto_cuts`, `auto_match`); the levels the corrections tool takes from a load's own tables | every other line: the rule is in `AGENTS.md` and no tool checks a constant against it |
+| the census: every shot looked at with no subject and nobody set aside | | not built. `bench/clip_analysis.py` makes the folder and nothing more yet. Until it exists most shots have one complete look |
+| the cast file: one writer, never edited, a revision in every decision, a removal that marks what leaned on it | | not built. Today's memory of who is who is typed corrections in a job file, a load at a time |
+| one confirmation a subject a scene; scenes and appearances | | not built. A session reads every tile |
+| only a look a person confirmed leans a take | | not built; nothing is taken, so nothing can break it yet |
+| clues are compared only when made the same way (the SAM corrections on or off, the canvas, the precision) | | a session. Two previews of one load differed enough to flip a call the day this was written |
+| two votes must agree, or a person is asked | | not built: the seeded-tracker vote does not exist |
+| what the votes said and the answer given is recorded by the lead or a neutral session | | a session. The one instance is the truth file of the first test bed |
+| no typed weight; a feature votes on a video only if that video's own piles stand apart | | a session; nothing computes the piles |
+| a feature is scored only after a record earns it | | a session reading the record |
+| each idea is scored on shots with a known answer before anything is built on it | | a session. The truth file exists; no tool scores against it |
+| no classifier for each video; recognition reads the source, never a render | | a session, from [`decisions.md`](decisions.md) and this page |
+| a thing inside a region is answered for before a render | for a tracked subject's own parts, the gate's `segment_inside_region`, which warns and does not block | for an object: a session adds a tracker by hand, or nothing knows it is there |
+| a cut is a spike, not a level; the confirmed look is shown again | | not built: `subject_track.py::find_cuts` takes every frame over the line |
+
+**What the table says.** What is enforced is what was built this day
+around the trackers as they are: the folder, the gate, the decision that
+asks. Everything that is this design and not yet code is in the right
+column, and the two rows there that cost a job most are the census and
+the confirmation for each scene: without them a person answers shot by
+shot, load by load, and the answers live in a job file.
