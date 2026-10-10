@@ -37,6 +37,19 @@ as three people, and their three labels were drawn on top of each other
 the larger, and the one the detector scored highest stands for them. WHAT IT CANNOT TELL: one person wholly in front of
 another whose mask was drawn through them. That would be joined too, so every join is counted and reported.
 
+**A shot for all the named subjects at once** (`hand_out`). A tracker decides a shot alone, against a line. On
+2026-10-10 a shot holding two named subjects was left empty by both trackers, and the measurement that followed
+(`bench/results/2026-10-10_who_is_who_across_shots.md`) showed three things on that load: likeness cannot name a person
+against a line (a person scored over the line against the WRONG subject's gallery); asking each subject for its best
+person fails, because a large, clear person is the best match of every gallery; and handing the frame's people to all
+the subjects at once, by the highest total, had the known answer on top on every look, by nothing on the first frame
+after the cut and by a real lead a few frames later. So `hand_out` takes every look of a shot, with the same person
+under the same name on each (`same_people` follows them from look to look by where they are), and totals each way of
+handing them out over all the looks. IT ANSWERS AND DOES NOT DECIDE: `sure` says take only over a lead that is NOT
+MEASURED YET (`TOGETHER_LEAD`), so today every answer is a question for a person with the answer filled in. WHAT IT
+CANNOT SEE: a stranger on the frame while a named subject is away. With as many people as subjects everybody is handed
+somebody; only a count of fewer people than subjects leaves a subject with nobody.
+
 **Taking a subject back after a loss** (`take_back`). On hard crowd footage a change of the input too small to see
 moved a regain's lead over the next person by about the lead the Subject Track requires
 (`bench/results/2026-10-07_subject_track_under_nudge.md`), so likeness alone cannot settle the closest cases. Where the
@@ -470,6 +483,104 @@ AT_THE_PLACE = 0.3
 OVER_THE_LINE, FIRST_BY_A_MARGIN = "over the line", "first, by a margin"
 TOOK_AT_THE_PLACE, NOBODY_THERE, TWO_THERE, NO_LAST_PLACE = ("the one where the subject last was", "nobody where the subject last was",
                                                            "more than one where the subject last was", "no last place to judge by")
+
+
+#: The lead of the best way of handing people to subjects over the next way, at or over which the answer may be taken
+#: without a person. NOT MEASURED: None, so nothing is taken. One shot of one clip put the right way first by two
+#: thousandths on one frame and a tenth on another (2026-10-10); a second clip, with a stranger on the frame while a
+#: named subject is away, comes before a number goes here (mrpop's condition, the same day).
+TOGETHER_LEAD: float | None = None
+TAKE, ASK = "take", "ask"
+#: A person seen on fewer than this share of a shot's looks is left out of the handing-out. Reasoned: a detection that
+#: comes and goes (a duplicate at the detection threshold was on the card's frame and not the CPU's, 2026-10-10) must
+#: not make every look it is missing from unusable; a person in the shot is on most of its looks.
+SEEN_ON_MOST = 0.5
+
+
+def same_people(looks: list[list], same: float = AGREE_AT) -> list[list[int]]:
+    """The people of several looks, each given a name that means the same person on every look.
+
+    `looks[i]` is the boxes (x0, y0, x1, y1) of the people on look i, in the order the looks are given (by frame).
+    Returns, per look, a name (an integer) per person: a person takes the name of the person on the nearest
+    earlier look whose box theirs overlaps most, at `same` or more (`box_overlap`), when nobody else on their own
+    look has taken it; otherwise a new name. Model-free and by place only: two people who swap places between two
+    looks swap names, and a newcomer standing where a person who has left stood takes that person's name, which is
+    why the looks are of one shot and never across a cut. A person missing on a look and back SOMEWHERE ELSE is
+    two names (`hand_out` then leaves both out as seldom seen, and `sure` asks).
+    """
+    names: list[list[int]] = []
+    last: dict[int, tuple] = {}          # name: the box it was last seen with
+    fresh = 0
+    for boxes in looks:
+        pairs = sorted(((box_overlap(box, held), i, name) for i, box in enumerate(boxes) for name, held in last.items()), reverse=True)
+        mine: dict[int, int] = {}
+        for overlap, i, name in pairs:
+            if overlap >= same and i not in mine and name not in mine.values():
+                mine[i] = name
+        row = []
+        for i, box in enumerate(boxes):
+            if i not in mine:
+                mine[i], fresh = fresh, fresh + 1
+            row.append(mine[i])
+            last[mine[i]] = box
+        names.append(row)
+    return names
+
+
+def hand_out(looks: list[dict[str, dict[int, float | None]]]) -> dict:
+    """A shot's people handed to all its named subjects at once: the way with the highest total likeness.
+
+    `looks[i][subject][person]` is how like `subject` the person named `person` is on look i, or None where it
+    could not be made; a person keeps one name over the looks (`same_people`). A way gives each subject one person
+    nobody else has; a subject is left with nobody (None) only when the shot has fewer people than subjects. A
+    way's total is the sum, over the looks every person and subject can be compared on, of the likenesses it uses.
+
+    A person who can be compared with every subject on fewer than `SEEN_ON_MOST` of the looks is LEFT OUT first, and
+    named in "left_out": a detection that comes and goes would otherwise make every look it is missing from
+    unusable. The looks used are then those on which everybody left can be compared with every subject.
+
+    Returns {"takes": {subject: person or None}, "total", "lead": the total's lead over the next way or None when
+    there is no other way, "next": the next way or None, "looks_used", "looks", "people", "subjects", "left_out"};
+    "takes" is None when no look can be used. The lead is a sum over `looks_used` looks: read it with that number.
+    """
+    import itertools
+    subjects = sorted({s for look in looks for s in look})
+    everyone = sorted({p for look in looks for scores in look.values() for p in scores})
+    seen = {p: sum(1 for look in looks if all(s in look and look[s].get(p) is not None for s in subjects)) for p in everyone}
+    people = [p for p in everyone if seen[p] >= SEEN_ON_MOST * len(looks)]
+    usable = [look for look in looks
+              if all(s in look and all(look[s].get(p) is not None for p in people) for s in subjects)]
+    out = {"takes": None, "total": None, "lead": None, "next": None, "looks_used": len(usable), "looks": len(looks),
+           "people": len(people), "subjects": len(subjects), "left_out": [p for p in everyone if p not in people]}
+    if not subjects or not people or not usable:
+        return out
+    slots: list[int | None] = list(people) + [None] * max(len(subjects) - len(people), 0)
+    totals = {}
+    for way in set(itertools.permutations(slots, len(subjects))):
+        totals[way] = sum(float(look[s][p]) for look in usable for s, p in zip(subjects, way) if p is not None)
+    # a tie goes to the way that reads first, so the answer does not depend on the order of a set
+    order = sorted(totals, key=lambda w: (-totals[w], tuple(-1 if p is None else p for p in w)))
+    out.update(takes=dict(zip(subjects, order[0])), total=totals[order[0]])
+    if len(order) > 1:
+        out.update(lead=totals[order[0]] - totals[order[1]], next=dict(zip(subjects, order[1])))
+    return out
+
+
+def sure(answer: dict, least_lead: float | None = TOGETHER_LEAD) -> tuple[str, str]:
+    """Whether `hand_out`'s answer may be taken without a person: (`TAKE` or `ASK`, why)."""
+    if answer.get("takes") is None:
+        return ASK, "no look on which every person can be compared with every subject"
+    if answer.get("left_out"):
+        # mrcorn's cold read: one person missing on a look and back elsewhere is two names, both left out, and the
+        # answer would read "this subject: nobody" with the person standing there. Away means nobody was dropped.
+        return ASK, f"{len(answer['left_out'])} person(s) seen on too few looks were left out: a subject with nobody may be one of them"
+    if least_lead is None:
+        return ASK, "no lead is measured yet at which an answer may be taken (TOGETHER_LEAD)"
+    if answer["people"] > answer["subjects"]:
+        return ASK, "more people than named subjects: one of them may be a stranger standing in for a subject who is away"
+    if answer["lead"] is not None and answer["lead"] < least_lead:
+        return ASK, f"the lead over the next way, {answer['lead']:.3f}, is under {least_lead:.3f}"
+    return TAKE, ("the only way" if answer["lead"] is None else f"leads the next way by {answer['lead']:.3f}")
 
 
 def box_overlap(a, b) -> float:

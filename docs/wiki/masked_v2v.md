@@ -241,8 +241,12 @@ docstring is the authority and lists the steps; `follow` is the function.
   The shot table now keeps what a refused shot was judged on
   (`shot_table.py::LOOKS_ARE`, `SIGNATURES_ARE`), and the report says when
   the automatic line was put in a gap between two shots
-  (`subject_track.py::moved_by_a_gap`). Deciding a shot for all subjects
-  together is not built.
+  (`subject_track.py::moved_by_a_gap`). A shot is decided for all the
+  subjects together by a tool that ASKS: `bench/who_is_who_across_shots.py
+  corrections` reads the trackers' tables of one preview and writes one
+  file, a row per shot, with the correction to type into each tracker
+  (`subject_tracks.py::hand_out`). It takes nothing without a person, and
+  it is known to hand a stranger to a subject who is away.
 
 Why not core's tracker with a text prompt: across a cut it starts new
 objects, it has an object cap that detection stops at for good, and a

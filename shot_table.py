@@ -87,7 +87,13 @@ LOOKS_ARE = ("every frame the shot was judged on after a cut, in frame order (th
              "(`subject_tracks.AGREE_AT`), or null")
 SIGNATURES_ARE = ("each person on a shot's shown frame carries the signature of each place they are compared in (null "
                   "where it is missing), unit length, as the gallery's are: what a reader needs to compare them with "
-                  "ANOTHER tracker's subject. On the picked shot the shown frame is the pick frame")
+                  "ANOTHER tracker's subject. On the picked shot the shown frame is the pick frame. `whole_signature` is "
+                  "the same under the person's whole mask, and the gallery's `whole` holds the subject's: the tracker "
+                  "decides nothing on it. On a shot with no subject taken by the tracker, the people on up to "
+                  "LOOKS_SIGNED_MOST of its looks carry both as well, so the shot can be read over several frames")
+#: On a shot the tracker took nobody on, the most looks whose people carry their signatures. Reasoned, to bound the
+#: table: a long shot with nobody is looked at every stride frame, and a person's signatures are about 30 kB as text.
+LOOKS_SIGNED_MOST = 8
 #: What a shot's `track_score` holds, carried in every table.
 TRACK_SCORE_IS = ("the tracker's own score that its object is on the frame, per frame of the shot, as the tracker's "
                   "number: over 0 it takes the object as present. null where no track was made, where it could not be "
@@ -243,14 +249,23 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
             })
             seen = judged.get(int(shot.shown))
             if seen is not None and index < len(seen):
-                people[-1]["signatures"] = [None if v is None else [round(float(x), 5) for x in v.tolist()] for v in seen[index][0]]
+                people[-1].update(_signed(seen[index]))
         looks, before = [], None
-        for f in sorted(k for k in judged if int(shot.start) <= k < int(shot.end) and not getattr(shot, "picked", False)):
+        judged_here = sorted(k for k in judged if int(shot.start) <= k < int(shot.end) and not getattr(shot, "picked", False))
+        # on a shot the tracker's own rule took nobody on (absent, or settled by hand), the looks that carry signatures:
+        # spread over the shot, the shown frame among them
+        signed_looks = set()
+        if shot.seed is None or getattr(shot, "corrected", ""):
+            most = max(int(LOOKS_SIGNED_MOST), 1)
+            spread = judged_here if len(judged_here) <= most else [judged_here[round(k * (len(judged_here) - 1) / (most - 1))] for k in range(most)]
+            signed_looks = set(spread) | ({int(shot.shown)} & set(judged_here))
+        for f in judged_here:
             there, there_scores = detect(f)
             order = person_order(there)
             row = []
             for person, index in enumerate(order, 1):
-                views, each, lowest = judged[f][index] if index < len(judged[f]) else ((), [], None)
+                entry = judged[f][index] if index < len(judged[f]) else ((), [], None)
+                views, each, lowest = entry[:3]
                 box = _box(there[index])
                 same = None
                 if before is not None and int(before[0].shape[0]):
@@ -266,6 +281,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                     "lowest": None if lowest is None else round(float(lowest), 3),
                     "same_as": same,
                 })
+                if f in signed_looks:
+                    row[-1].update(_signed(entry))
             looks.append({"frame": int(f), "people": row})
             before = (there, order)
         word = state(shot)
@@ -353,11 +370,22 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
         "gallery": {"frames": [int(f) for f in getattr(found, "gallery_frames", [])],
                     "signatures": [[None if v is None else [round(float(x), 5) for x in v.flatten().tolist()] for v in views]
                                    for views in getattr(found, "gallery", [])],
+                    # the same frames under the subject's whole mask; the tracker compares nothing with it
+                    "whole": [None if v is None else [round(float(x), 5) for x in v.flatten().tolist()]
+                              for v in getattr(found, "gallery_whole", [])],
                     "handed_in": int(getattr(found, "gallery_given", 0)),
                     "pick_probes": [{"frame": int(f), "detections": int(n), "best": round(float(best), 3),
                                      "next_person": None if second < 0 else round(float(second), 3)}
                                     for f, n, best, second in getattr(found, "pick_probes", [])]},
     }
+
+
+def _signed(entry: tuple) -> dict:
+    """A judged person's signatures as the table writes them: one per place compared, and the whole mask's."""
+    views = entry[0] if entry else ()
+    whole = entry[3] if len(entry) > 3 else None
+    return {"signatures": [None if v is None else [round(float(x), 5) for x in v.flatten().tolist()] for v in views],
+            "whole_signature": None if whole is None else [round(float(x), 5) for x in whole.flatten().tolist()]}
 
 
 def gallery_of(table: dict) -> list[tuple]:

@@ -666,8 +666,10 @@ class Followed:
     pick_probes: list[tuple[int, int, float, float]] = field(default_factory=list)
     # every frame a shot was judged on after a cut, and the pick frame: {frame: one entry per detection there, in the
     # detector's order: (its signature per place compared, its likeness to the subject per place or None, the lowest
-    # of those or None)}. On the pick frame the likeness is None: that frame is what the others are compared with.
+    # of those or None, its whole-mask signature or None)}. On the pick frame the likeness is None: that frame is what
+    # the others are compared with.
     judged: dict[int, list[tuple]] = field(default_factory=dict)
+    gallery_whole: list = field(default_factory=list)   # the gallery frames' whole-mask signatures, or None each
 
 
 _CORRECTION = re.compile(r"^shot\s*(\d+)\s*[:=]?\s*(?:person\s*(\d+)|(none))$", re.IGNORECASE)
@@ -803,7 +805,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
            sign: Callable[[int, torch.Tensor], torch.Tensor | None],
            track: Callable[[int, int, int, torch.Tensor], torch.Tensor],
            stride: int = PROBE_STRIDE, offset: int = PROBE_OFFSET,
-           corrections: dict[int, int | None] | None = None, gallery: list[tuple] | None = None) -> Followed:
+           corrections: dict[int, int | None] | None = None, gallery: list[tuple] | None = None,
+           sign_whole: Callable[[int, torch.Tensor], torch.Tensor | None] | None = None) -> Followed:
     """The subject's mask per frame, shot by shot. The model work is in three callables.
 
     `detect(frame)` returns that frame's detections, [N, H, W] and their
@@ -829,6 +832,14 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     with a person who is the subject by the gallery (`clear_best`) is the
     pick. When nobody is, nothing is picked and every mask is empty: a gap
     is the honest answer where the rule would take somebody else.
+
+    `sign_whole(frame, mask)`, when given, is a person's signature under
+    their WHOLE mask. NOTHING HERE IS DECIDED ON IT: it is kept beside
+    everything judged and beside the gallery (`Followed.judged`,
+    `gallery_whole`) for a reader that settles a shot for several trackers'
+    subjects together (`subject_tracks.hand_out`), where on the one shot
+    measured it and the top third failed on different frames
+    (`bench/results/2026-10-10_who_is_who_across_shots.md`).
     """
     corrections = dict(corrections or {})
     shots = [Shot(s, e, probe=min(s + max(int(offset), 0), e - 1)) for s, e in shot_ranges(n_frames, cuts)]
@@ -876,7 +887,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         centres.append(torch.stack(have, dim=0).mean(dim=0) if have else None)
     reference = tuple(relative(v, c) for v, c in zip(mine, centres))
     result.pick_frame, result.others, result.pick_width = frame0, len(others), _width(picked)
-    result.judged[int(frame0)] = [(mine if i == which else theirs[i - (i > which)], [None] * len(mine), None)
+    result.judged[int(frame0)] = [(mine if i == which else theirs[i - (i > which)], [None] * len(mine), None,
+                                   None if sign_whole is None else sign_whole(frame0, masks0[i]))
                                   for i in range(int(masks0.shape[0]))]
     result.views, result.views_used = len(mine), len(use)
 
@@ -898,7 +910,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         found, _ = detect(f)
         sigs = [sign(f, m) for m in found]
         sims = [alike(v) for v in sigs]
-        result.judged[int(f)] = [(_views(v), per_view(v), a) for v, a in zip(sigs, sims)]
+        result.judged[int(f)] = [(_views(v), per_view(v), a, None if sign_whole is None else sign_whole(f, m))
+                                 for v, a, m in zip(sigs, sims, found)]
         heads = sum(1 for v in sigs if _has_head(v))
         able = [k for k, v in enumerate(sims) if v is not None]
         if not able:
@@ -975,6 +988,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
                 # the subject as this track shows them, for a loss later in the shot and for the run after this one
                 result.gallery_frames = [f + shot.start for f in gallery_frames(piece)]
                 result.gallery = [_views(sign(f, (piece[f - shot.start] > 0.5).to(torch.float32))) for f in result.gallery_frames]
+                if sign_whole is not None:
+                    result.gallery_whole = [sign_whole(f, (piece[f - shot.start] > 0.5).to(torch.float32)) for f in result.gallery_frames]
                 regain(shot)
             continue
         taken = lone = None        # (similarity, frame, detection)
@@ -1485,7 +1500,7 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
             detections[f] = (masks.to(torch.float32).cpu(), scores[:int(masks.shape[0])])
         return detections[f]
 
-    def sign(f: int, mask: torch.Tensor):
+    def trunk_of(f: int) -> torch.Tensor:
         if f not in features:
             comfy.model_management.load_model_gpu(segmenter)
             device = comfy.model_management.get_torch_device()
@@ -1495,12 +1510,22 @@ def _sam_callables(segmenter, segmenter_clip, frames: torch.Tensor, phrase: str,
             trunk = segmenter.model.diffusion_model.detector.backbone["vision_backbone"].trunk(x)
             trunk = trunk[-1] if isinstance(trunk, (list, tuple)) else trunk
             features[f] = trunk[0].to(torch.float32).cpu()
+        return features[f]
+
+    def whole(f: int, mask: torch.Tensor):
+        """The whole mask's signature. Kept for the shot table and compared by nobody here (`follow`, `sign_whole`)."""
+        return signature(trunk_of(f), mask)
+
+    def sign(f: int, mask: torch.Tensor):
+        trunk_of(f)
         if f not in head_masks:
             out = SAM3_Detect.execute(segmenter, frames[f:f + 1], conditioning=head_cond,
                                       threshold=float(detection_threshold), individual_masks=True)
             head_masks[f] = getattr(out, "args", out)[0].to(torch.float32).cpu()
         head = head_of(mask, head_masks[f])
         return signature(features[f], top_third(mask)), (None if head is None else signature(features[f], head))
+
+    sign.whole = whole
 
     def run(images: torch.Tensor, mask: torch.Tensor, first: int, backwards: bool = False) -> torch.Tensor:
         """Track `images` from `mask` on their first frame. `first` is the clip frame of the lowest-numbered one."""
@@ -1706,7 +1731,7 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         with torch.no_grad():
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
-                           gallery=handed)
+                           gallery=handed, sign_whole=getattr(sign, "whole", None))
         # Stray specks of the tracker's go before anything reads the mask: the tiles, the shot table and every node
         # after this one widen what they are given (`subject_tracks.drop_specks`).
         # In place: `assemble` returns a tensor nothing else holds, and a copy of a clip's mask is gigabytes.

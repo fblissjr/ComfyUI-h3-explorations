@@ -685,10 +685,92 @@ def nested_detections_are_one_thing():
     assert S.kept_share(torch.stack([left, right]), S.one_each(torch.stack([left, right]), [0.9, 0.8])[1]) == {}
 
 
+def a_shot_is_handed_out_to_all_subjects_at_once():
+    """2026-10-10, the kitchen load's two shots after the cut, as measured (the record's figures: top third and whole mask, summed)."""
+    # person 0 is the large person in front (the lead), person 1 the small one behind (the second subject)
+    middle = [{"lead": {0: 0.914 + 0.933, 1: 0.744 + 0.773}, "second": {0: 0.865 + 0.858, 1: 0.700 + 0.766}},     # the first frame after the cut
+              {"lead": {0: 0.894 + 0.937, 1: 0.805 + 0.834}, "second": {0: 0.846 + 0.886, 1: 0.855 + 0.849}},
+              {"lead": {0: 0.863 + 0.930, 1: 0.756 + 0.795}, "second": {0: 0.802 + 0.871, 1: 0.805 + 0.770}},
+              {"lead": {0: 0.838 + 0.925, 1: 0.708 + 0.769}, "second": {0: 0.771 + 0.883, 1: 0.723 + 0.729}},
+              {"lead": {0: 0.948 + 0.938, 1: 0.545 + 0.693}, "second": {0: 0.891 + 0.901, 1: 0.511 + 0.688}}]
+    got = S.hand_out(middle)
+    assert got["takes"] == {"lead": 0, "second": 1} and got["next"] == {"lead": 1, "second": 0}, got
+    assert got["looks_used"] == 5 and got["people"] == 2 and got["subjects"] == 2
+    assert abs(got["lead"] - (0.072 + 0.164 + 0.144 + 0.084 + 0.055)) < 0.004, f"the lead is the five looks' leads added up: {got['lead']}"
+    # what failed on that shot: each subject's own best person is the SAME person, on every look
+    assert all(max(look[s], key=look[s].get) == 0 for look in middle for s in look), "the control: the large person is everyone's best"
+    # the first frame alone has the answer by almost nothing, and that is why a shot is its looks added up
+    assert 0 < S.hand_out(middle[:1])["lead"] < 0.08 < S.hand_out(middle[1:2])["lead"]
+    # the last shot: one person, two subjects. She is the second subject's, and the lead is left with nobody
+    last = [{"lead": {0: 0.846 + 0.889}, "second": {0: 0.939 + 0.942}}, {"lead": {0: 0.887 + 0.887}, "second": {0: 0.936 + 0.945}}]
+    got = S.hand_out(last)
+    assert got["takes"] == {"lead": None, "second": 0} and got["next"] == {"lead": 0, "second": None} and got["lead"] > 0.2, got
+    # nothing is taken while no lead is measured; with one, only over it and never with more people than subjects
+    assert S.TOGETHER_LEAD is None, "TOGETHER_LEAD has a value: read its provenance, and the second clip it waited for"
+    assert S.sure(S.hand_out(middle))[0] == S.ASK and "measured" in S.sure(S.hand_out(middle))[1]
+    assert S.sure(S.hand_out(middle), 0.3)[0] == S.TAKE and S.sure(S.hand_out(middle[:1]), 0.3)[0] == S.ASK
+    crowd = [{"lead": {0: 1.8, 1: 1.2, 2: 1.1}, "second": {0: 1.3, 1: 1.7, 2: 1.0}}]
+    assert S.hand_out(crowd)["takes"] == {"lead": 0, "second": 1} and S.sure(S.hand_out(crowd), 0.3)[0] == S.ASK
+    assert "stranger" in S.sure(S.hand_out(crowd), 0.3)[1]
+    # KNOWN LIMIT, held so nobody is surprised: a stranger in a frame the lead is away from is handed to the lead
+    stranger = [{"lead": {0: 1.2, 1: 1.3}, "second": {0: 1.9, 1: 1.25}}]
+    assert S.hand_out(stranger)["takes"] == {"lead": 1, "second": 0}
+    # a subject is left with nobody only by the COUNT, never because a score is low or below zero
+    low = [{"a": {0: 0.9, 1: -0.2}, "b": {0: 0.1, 1: -0.1}}]
+    assert S.hand_out(low)["takes"] == {"a": 0, "b": 1}, f"as many people as subjects: everybody is handed somebody: {S.hand_out(low)['takes']}"
+    # a look on which somebody cannot be compared is left out, and with none left there is no answer
+    holed = middle[:2] + [{"lead": {0: 1.8, 1: None}, "second": {0: 1.7, 1: 1.6}}, {"lead": {0: 1.8}, "second": {0: 1.7}}]
+    assert S.hand_out(holed)["looks_used"] == 2 and S.hand_out(holed)["looks"] == 4 and S.hand_out(holed)["left_out"] == []
+    # a detection that comes and goes (on one look of five) is left out and named, and the other four looks still count
+    flicker = [dict(look) for look in middle]
+    flicker[2] = {s: {**scores, 7: 1.0} for s, scores in middle[2].items()}
+    got = S.hand_out(flicker)
+    assert got["left_out"] == [7] and got["looks_used"] == 5 and got["people"] == 2 and got["takes"] == {"lead": 0, "second": 1}, got
+    # a person on most of the looks is NOT left out: the looks they are missing from are
+    often = [dict(look) for look in middle]
+    for k in (0, 1, 2):
+        often[k] = {s: {**scores, 7: 0.1} for s, scores in middle[k].items()}
+    got = S.hand_out(often)
+    assert got["left_out"] == [] and got["people"] == 3 and got["looks_used"] == 3, got
+    assert abs(S.SEEN_ON_MOST - 0.5) < 1e-9, "SEEN_ON_MOST moved; read its provenance before changing this case"
+    # mrcorn: one person missing on a look and back somewhere else is two names, both left out; the answer then reads
+    # "nobody" for a subject whose person is standing there, so it is asked whatever lead is named
+    split = [{"a": {0: 0.9, 1: 0.2}, "b": {0: 0.2, 1: 0.9}}, {"a": {0: 0.9}, "b": {0: 0.2}}, {"a": {0: 0.9}, "b": {0: 0.2}},
+             {"a": {0: 0.9, 2: 0.2}, "b": {0: 0.2, 2: 0.9}}, {"a": {0: 0.9}, "b": {0: 0.2}}]
+    got = S.hand_out(split)
+    assert got["left_out"] == [1, 2] and got["takes"] == {"a": 0, "b": None}, got
+    assert S.sure(got, 0.01)[0] == S.ASK and "left out" in S.sure(got, 0.01)[1], S.sure(got, 0.01)
+    assert S.sure(S.hand_out(flicker), 0.01)[0] == S.ASK, "a stray detection left out is a question too"
+    none = S.hand_out([{"lead": {0: None}, "second": {0: 1.0}}])
+    assert none["takes"] is None and S.sure(none)[0] == S.ASK and S.hand_out([])["takes"] is None
+    # a tie is answered the same way whatever order the looks or the subjects come in
+    tie = [{"a": {0: 1.0, 1: 1.0}, "b": {0: 1.0, 1: 1.0}}]
+    assert S.hand_out(tie)["takes"] == {"a": 0, "b": 1} and S.hand_out(tie)["lead"] == 0.0
+    # three subjects, three people
+    three = [{"a": {0: 0.9, 1: 0.2, 2: 0.1}, "b": {0: 0.3, 1: 0.8, 2: 0.2}, "c": {0: 0.1, 1: 0.3, 2: 0.7}}]
+    assert S.hand_out(three)["takes"] == {"a": 0, "b": 1, "c": 2}
+    return f"the middle shot's lead over five looks {S.hand_out(middle)['lead']:.3f}, on its first frame alone {S.hand_out(middle[:1])['lead']:.3f}"
+
+
+def people_keep_their_names_from_look_to_look():
+    """`same_people`: by place, from one look to the next."""
+    a, b = (0.10, 0.20, 0.50, 0.90), (0.60, 0.30, 0.75, 0.60)
+    moved = lambda box, dx: (box[0] + dx, box[1], box[2] + dx, box[3])   # noqa: E731
+    names = S.same_people([[a, b], [moved(b, 0.02), moved(a, 0.02)], [moved(a, 0.04)], [moved(a, 0.05), moved(b, 0.05), (0.9, 0.9, 0.95, 0.95)]])
+    assert names[0] == [0, 1] and names[1] == [1, 0], f"each person keeps their name when the detector returns them in another order: {names}"
+    assert names[2] == [0], "a person missing on a look does not give their name to anyone"
+    assert names[3] == [0, 1, 2], f"a person missing on one look is themselves again on the next; a newcomer gets a new name: {names[3]}"
+    # two people on one look cannot both take one earlier person's name: the better overlap has it, the other is new
+    assert S.same_people([[a], [a, moved(a, 0.05)]])[1] == [0, 1]
+    assert S.same_people([]) == [] and S.same_people([[], [a]]) == [[], [0]]
+    assert S.same_people([[a], [moved(a, 0.5)]])[1] == [1], "a box somewhere else is somebody else"
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, stray_specks_go_and_the_subject_stays_whole, nested_detections_are_one_thing, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, stray_specks_go_and_the_subject_stays_whole, nested_detections_are_one_thing,
+               a_shot_is_handed_out_to_all_subjects_at_once, people_keep_their_names_from_look_to_look, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

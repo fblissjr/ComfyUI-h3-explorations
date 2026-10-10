@@ -14,11 +14,19 @@ line. This tool asks what the trackers' own data says when it is read for all su
                 subject's gallery, per view, and the frame is settled for all subjects together (below). Controls:
                 the detections on a table's shown frame must be the table's people, and the top-third signature
                 made here must be the node's own.
-    render      prints the tables of a `looks` or `galleries` JSON.
+    corrections no model. From the K shot tables of one preview (one Subject Track per named subject, the same
+                frames): every shot decided for all the subjects at once (`subject_tracks.hand_out`), over every
+                look whose people carry signatures, and ONE FILE written for the gate: a row per shot with what
+                each tracker called, what the sum says, its lead over the next way, and `ask` or `take`. It
+                writes a correction as TEXT IN THAT FILE (`shot 2: person 4`, in the numbers of that tracker's
+                own tile), never into a job. Everything is `ask` until a lead is measured
+                (`subject_tracks.TOGETHER_LEAD`); `--unsure take` is the one switch that takes the top way anyway.
+    render      prints the tables of a `looks`, `galleries` or `corrections` JSON.
 
     <python> bench/who_is_who_across_shots.py galleries --table L=<shots.json> --table S=<shots.json> [--json J]
     <python> bench/who_is_who_across_shots.py looks --clip C --first-frame F --frames N --width W --height H \\
              --table L=<shots.json> --table S=<shots.json> --look 406,410,... --truth 'S@406-434=small' ... --json J [--cpu]
+    <python> bench/who_is_who_across_shots.py corrections --table lead=<shots.json> --table second=<shots.json> --out J [--unsure take]
     <python> bench/who_is_who_across_shots.py render --json J
 
 THREE VIEWS. The node signs a person in two places, the top third of the mask and the head. `looks` adds the WHOLE
@@ -156,6 +164,160 @@ def render_galleries(out: dict):
     print(f"\nby the rule (the lower of the two views): {over} of {total} frames score at or over the regain line "
           f"({out['line']}) against ANOTHER subject's gallery; own minus other is positive on "
           f"{sum(1 for v in leads if v is not None and v > 0)} of {len(leads)}, smallest {min(leads):.3f}")
+
+
+# ----------------------------------------------------------------------------- every shot, for all subjects, from the tables
+
+def _xyxy(box) -> tuple[float, float, float, float]:
+    return (float(box[0]), float(box[1]), float(box[0] + box[2]), float(box[1] + box[3]))
+
+
+def _best(sig, held: list) -> float | None:
+    """A signature's best likeness over a gallery's; None when either is missing."""
+    if sig is None or not held:
+        return None
+    v = np.asarray(sig, dtype=np.float64)
+    return max(float(np.asarray(g, dtype=np.float64) @ v) for g in held)
+
+
+AGREES, DIFFERS, UNRESOLVED = "agrees", "differs", "unresolved"
+
+
+def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsure: str = "ask", first_source_frame: int | None = None) -> dict:
+    """Every shot of one load decided for all its trackers' subjects at once. See the module docstring, `corrections`.
+
+    A person's score for a subject is their top third's best likeness over that subject's gallery plus their whole
+    mask's (the two fail on different frames; one shot measured, 2026-10-10). A look is used when every person on it
+    carries both signatures. `least_lead` None reads `subject_tracks.TOGETHER_LEAD`.
+
+    THE NUMBER WRITTEN FOR A TRACKER IS READ ON THAT TRACKER'S OWN TILE FRAME, from its own list of people there
+    (mrcorn's cold read, 2026-10-10: mapped from where a person stood on the LAST look, a subject who walked across
+    the shot was written as the person she ended up beside). A tracker whose tile frame is not among the looks read
+    gets no number: "cannot say", never a guess from another frame. A row that would hand two trackers one person
+    on one frame is a fault of this tool and is written as unresolved, with no text to type.
+
+    Each row's `status` is one of `agrees` (the sum would change nothing), `differs` (it would: `correction` is the
+    text to type into that tracker) or `unresolved` (it cannot say). A row made from tables in which the correction
+    is already typed agrees, so a second run after correcting clears itself. `verdict` is whether a differing row
+    may be taken without a person (`subject_tracks.sure`), which today is always `ask`.
+    """
+    import subject_tracks as S
+    labels = list(tables)
+    first = tables[labels[0]]
+    for label, t in tables.items():
+        if t["frames"] != first["frames"] or list(t["cuts"]) != list(first["cuts"]) or list(t.get("size", [])) != list(first.get("size", [])):
+            raise SystemExit(f"{label} and {labels[0]} are not tables of one load (frames, size or cuts differ): each tracker "
+                             "must be given the same frames")
+        if "whole" not in (t.get("gallery") or {}):
+            raise SystemExit(f"{label}: this shot table was written before the tracker kept whole-mask signatures; run the preview again")
+        if not [v for v in t["gallery"]["signatures"] if v and v[0] is not None] or not [v for v in t["gallery"]["whole"] if v is not None]:
+            raise SystemExit(f"{label}: this shot table carries no gallery of its subject (nobody was picked, or the picked shot was "
+                             "settled by hand), so nobody can be compared with that subject")
+    top = {label: [v[0] for v in t["gallery"]["signatures"] if v and v[0] is not None] for label, t in tables.items()}
+    whole = {label: [v for v in t["gallery"]["whole"] if v is not None] for label, t in tables.items()}
+    least = S.TOGETHER_LEAD if least_lead is None else least_lead
+    rows = []
+    for n in range(len(first["shots"])):
+        by_frame: dict[int, list] = {}
+        for label in labels:
+            shot = tables[label]["shots"][n]
+            for frame, people in [(shot["shown_frame"], shot["people"])] + [(look["frame"], look["people"]) for look in shot.get("looks", [])]:
+                signed = [p for p in people if (p.get("signatures") or [None])[0] is not None and p.get("whole_signature") is not None]
+                if people and len(signed) == len(people) and len(people) > len(by_frame.get(int(frame), [])):
+                    by_frame[int(frame)] = people
+        frames = sorted(by_frame)
+        names = S.same_people([[_xyxy(p["box"]) for p in by_frame[f]] for f in frames])
+        looks = []
+        for f, row in zip(frames, names):
+            looks.append({label: {name: (None if _best(p["signatures"][0], top[label]) is None or _best(p["whole_signature"], whole[label]) is None
+                                         else _best(p["signatures"][0], top[label]) + _best(p["whole_signature"], whole[label]))
+                                  for name, p in zip(row, by_frame[f])} for label in labels})
+        answer = S.hand_out(looks)
+        verdict, why = S.sure(answer, least)
+        if verdict == S.ASK and unsure == "take" and answer["takes"] is not None:
+            verdict, why = S.TAKE, f"UNSURE AND TAKEN BY THE SWITCH ({why})"
+        on_frame = {f: {name: _xyxy(p["box"]) for name, p in zip(row, by_frame[f])} for f, row in zip(frames, names)}
+        trackers, given = {}, []
+        for label in labels:
+            shot = tables[label]["shots"][n]
+            called = {"state": shot["subject"]["state"], "person": shot["subject"]["person"]}
+            says, correction, tile = "cannot say", "", int(shot["shown_frame"])
+            if answer["takes"] is not None:
+                name = answer["takes"][label]
+                if name is None:
+                    says = None
+                    correction = "" if called["person"] is None else f"shot {shot['shot']}: none"
+                elif tile not in on_frame:
+                    says = "cannot say: this tracker's tile frame is not among the looks read"
+                elif name not in on_frame[tile]:
+                    says = "cannot say: that person is not on this tracker's tile frame"
+                else:
+                    # the same frame, so the same person's two boxes are one box: this tracker's own number for them
+                    overlap, person = max(((S.box_overlap(_xyxy(p["box"]), on_frame[tile][name]), p["person"]) for p in shot["people"]),
+                                          default=(0.0, None))
+                    if overlap >= 0.9:
+                        says = person
+                        correction = "" if called["person"] == says else f"shot {shot['shot']}: person {says}"
+                        given.append((label, tile, on_frame[tile][name]))
+                    else:
+                        says = "cannot say: that person is not numbered on this tracker's tile"
+            trackers[label] = {"called": called["state"], "called_person": called["person"], "the_sum_says": says,
+                               "correction": correction, "typed_in_this_table": str(shot.get("corrected", "") or ""),
+                               "tile_frame": tile}
+        fault = [(a[0], b[0]) for i, a in enumerate(given) for b in given[i + 1:] if a[1] == b[1] and S.box_overlap(a[2], b[2]) >= 0.9]
+        cannot = answer["takes"] is None or any(isinstance(t["the_sum_says"], str) for t in trackers.values())
+        if fault:
+            for t in trackers.values():
+                t["correction"] = ""
+            cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
+        status = UNRESOLVED if cannot else DIFFERS if any(t["correction"] for t in trackers.values()) else AGREES
+        # everybody seen in the shot, for a reader that must tell a person from a thing that never moves
+        seen = {}
+        for f, row in zip(frames, names):
+            for name, p in zip(row, by_frame[f]):
+                box = _xyxy(p["box"])
+                seen.setdefault(name, []).append(((box[0] + box[2]) / 2, (box[1] + box[3]) / 2, (box[2] - box[0]) * (box[3] - box[1])))
+        people_seen = [{"name": name, "looks_seen": len(v),
+                        "centre_moved_px": round(max(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 for a in v for b in v), 1),
+                        "box_area_px": [int(min(x[2] for x in v)), int(max(x[2] for x in v))],
+                        "left_out_as_seldom_seen": name in answer["left_out"],
+                        "handed_to": next((label for label in labels if answer["takes"] is not None and answer["takes"][label] == name), None)}
+                       for name, v in sorted(seen.items())]
+        rows.append({"shot": first["shots"][n]["shot"], "frames": [first["shots"][n]["first_frame"], first["shots"][n]["last_frame"]],
+                     "status": status, "verdict": verdict, "why": why,
+                     "looks_with_signatures": frames, "looks_used": answer["looks_used"], "people": answer["people"],
+                     "lead": answer["lead"], "trackers": trackers, "people_seen": people_seen})
+    return {"what": "every shot of one load decided for all its trackers' subjects at once; a file for the gate, not a job",
+            "status_is": f"{AGREES}: the sum would change nothing. {DIFFERS}: it would, and `correction` is the text to type into that "
+                         f"tracker. {UNRESOLVED}: it cannot say. A row agrees once its correction is typed and the preview run again",
+            "frames_are": "the load's own frame numbers" + ("" if first_source_frame is None else f"; the load's first frame is the source's {int(first_source_frame)}, as given"),
+            "first_source_frame": first_source_frame,
+            "tables": labels, "least_lead": least, "unsure": unsure, "rows": rows}
+
+
+def cmd_corrections(a):
+    tables = read_tables(a.table)
+    out = settle_tables(tables, unsure=a.unsure, first_source_frame=a.first_frame)
+    out["files"] = {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)}
+    Path(a.out).write_text(json.dumps(out, indent=1))
+    render_corrections(out)
+
+
+def render_corrections(out: dict):
+    labels = out["tables"]
+    print(f"{out['what']}\n{out['status_is']}\nleast lead to take without a person: {out['least_lead']}; unsure rows: {out['unsure']}; {out['frames_are']}\n")
+    print("| shot | frames | status | looks used | people | lead | " + " | ".join(f"{label}: called, the sum says" for label in labels) + " | without a person | to type |")
+    print("|---|---|---|---|---|---|" + "---|" * len(labels) + "---|---|")
+    for row in out["rows"]:
+        cells = []
+        for label in labels:
+            t = row["trackers"][label]
+            called = t["called"] + ("" if t["called_person"] is None else f" (person {t['called_person']})")
+            says = "nobody" if t["the_sum_says"] is None else (f"person {t['the_sum_says']}" if isinstance(t["the_sum_says"], int) else t["the_sum_says"])
+            cells.append(f"{called}; {says}")
+        typed = "; ".join(f"{label}: `{row['trackers'][label]['correction']}`" for label in labels if row["trackers"][label]["correction"]) or "nothing"
+        print(f"| {row['shot']} | {row['frames'][0]}-{row['frames'][1]} | {row['status']} | {row['looks_used']} | {row['people']} | {_f(row['lead'])} | "
+              + " | ".join(cells) + f" | {row['verdict']}: {row['why']} | {typed} |")
 
 
 # ----------------------------------------------------------------------------- the model
@@ -397,7 +559,7 @@ def render_looks(R: dict):
 
 def cmd_render(a):
     R = json.loads(Path(a.json).read_text())
-    (render_looks if "looks" in R else render_galleries)(R)
+    (render_looks if "looks" in R else render_corrections if "rows" in R and "tables" in R and isinstance(R["tables"], list) else render_galleries)(R)
 
 
 def main():
@@ -425,6 +587,12 @@ def main():
     k.add_argument("--cpu", action="store_true")
     k.add_argument("--json", required=True)
     k.set_defaults(fn=cmd_looks)
+    c = sub.add_parser("corrections")
+    c.add_argument("--table", action="append", required=True, help="LABEL=PATH of a shot table; one per tracker of the preview")
+    c.add_argument("--out", required=True, help="the file for the gate")
+    c.add_argument("--unsure", choices=("ask", "take"), default="ask", help="what an unsure row becomes; `take` takes the top way anyway")
+    c.add_argument("--first-frame", type=int, default=None, help="the source's frame that is the load's frame 0; written into the file as given")
+    c.set_defaults(fn=cmd_corrections)
     r = sub.add_parser("render")
     r.add_argument("--json", required=True)
     r.set_defaults(fn=cmd_render)

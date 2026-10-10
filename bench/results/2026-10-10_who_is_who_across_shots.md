@@ -102,10 +102,17 @@ from the first shot.
   tracker's subject (`shot_table.py::LOOKS_ARE`, `SIGNATURES_ARE`).
 - The report says when the automatic line stands above its floor and which
   two scores it was put between (`subject_track.py::moved_by_a_gap`).
-- Deciding a shot for all subjects together is the next step. The
-  measurement below says what form it cannot take (each subject's best
-  person) and what form held on this load (the sum, over more than one
-  look).
+- Deciding a shot for all subjects together is built, to ASK and not to
+  decide: `subject_tracks.py::hand_out` totals every way of handing a
+  shot's people to the subjects over several looks, and
+  `bench/who_is_who_across_shots.py corrections` reads the trackers' shot
+  tables of one preview and writes one file for the gate, a row per shot,
+  with the correction to type filled in. It takes nothing without a person
+  (`subject_tracks.py::TOGETHER_LEAD` is unmeasured). The measurement below
+  says what form it could not take (each subject's best person) and what
+  form held on this load (the sum, over more than one look). It has not
+  read a real table yet: the tables of this load were written before a
+  person's signatures were kept.
 
 ## Across the cut, on the model
 
@@ -211,6 +218,16 @@ which is no margin. So:
 ## Not done
 
 - A second clip, and a crowd.
-- A shot with a stranger in it and a named subject away.
+- A shot with a stranger in it and a named subject away, which is the
+  case `hand_out` is known to get wrong (it hands the stranger to the
+  subject) and the one a second clip has to hold before anything is taken
+  without a person. Of the owner's cleared test videos, the crowd clip
+  (`lotsofpeopledance_0414_0720.mkv`) has other people on every frame (the
+  2026-10-07 records count sixteen detections a look), so any cut of it
+  after which a followed subject is off screen is this case. Whether a
+  stretch of it has such a cut is one run of the tracker's cut finder and
+  has not been looked at; no stretch is named here because none was seen.
+- The acceptance on this load: the preview queued again so its tables
+  carry signatures, then `corrections` on the two tables.
 - Sapiens2's features or the body model's shape as a vote: after the step
   above has a number to beat.
