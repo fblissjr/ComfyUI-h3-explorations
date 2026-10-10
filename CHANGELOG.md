@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.279.2
+<!-- changelog.d/mrwolf-state-signals-wired-zoom-exists.md -->
+
+### Changed
+
+- `docs/wiki/state_signals.md`: a dated line under the line that said a wired motion video has no zoom. It has one since f7e5de99, not yet rendered; the line says where its first use belongs (the short load that did not follow its mesh with no kept frames in the way, the zoom as the one field changed).
+
 ## 0.279.1
 <!-- changelog.d/mrcorn-class-rule-narrowed.md -->
 
