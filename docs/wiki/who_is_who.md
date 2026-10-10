@@ -183,9 +183,9 @@ scenes they are not.
 The proposal will be wrong in two ways. It will split one room in two when
 the camera turns round, which costs a few more questions. It will join two
 scenes filmed in one place in different outfits, which is the dangerous
-way, and section 6's second test is what catches it: a person who is under
-the floor against the appearance that scene holds is asked about, not
-taken.
+way, and section 6's evidence total is what catches it: a person under
+the impostor level against the appearance that scene holds counts
+against being taken, and is asked about.
 
 **An appearance** belongs to one subject and has a name a person gives or
 the tool numbers (`lead/1`). A subject's claim on a person in a shot is
@@ -395,31 +395,72 @@ frame between
 ([`../../bench/results/2026-10-07_subject_regain_looks.md`](../../bench/results/2026-10-07_subject_regain_looks.md)).
 
 **The slots.** Each person goes to one subject, one known bystander, or
-"unknown". Each subject takes one person or nobody. This is `hand_out`
-with two things it lacks today: bystanders as takers, and "nobody" as a
-choice for every subject whatever the count.
+"unknown". Each subject takes one person or nobody.
 
 **The score** of a subject on a person: per appearance of that subject in
 the scene, per `scored` clue, the best likeness over the appearance's
 `typed` looks nearest to the person in size, at most `CAST_LOOKS_COMPARED`
 of them so that a subject with more looks has no more chances; the clues
-summed; the best appearance kept.
+summed; the best appearance kept. Open: one odd look in a gallery is a real
+thing (the record, the lead's two frames entering and leaving the frame),
+but nothing measured says the nearest in size is the right neighbour, and
+the one-scale run may make size stop mattering.
 
-**Three tests for a take.** All three, or the row asks.
+**Two totals, because a sum of likenesses has no zero.**
 
-1. *Who is more like whom.* The totals of every way, the top way, and its
-   lead over the next way against a floor. This is what is built
-   (`subject_tracks.py::hand_out`, `sure`).
-2. *Not an impostor.* Each person a subject would take scores above that
-   subject's impostor level in this scene: the highest score any look
-   known not to be that subject (another subject's, a bystander's) reaches
-   against the same appearance at a like size. A person under it is
-   "unknown" to that subject, however the totals fall. This is a line, and
-   the record says no line names a person. It is used only to refuse, and
-   it comes from this clip's own frames.
+- *The built total* (`subject_tracks.py::hand_out`): the scores summed.
+  Every likeness is positive, so handing a subject anybody adds to it and
+  a subject is left with nobody only by the count. It says who is most
+  like whom and nothing about whether anybody is. Here it orders the
+  candidates on a tile.
+- *The evidence total*: each person's score for a taker, less that
+  taker's **impostor level** in the scene, which is the highest score any
+  look known not to be that taker (another subject's, a bystander's)
+  reaches against the same appearance. Over the level counts for a way,
+  under it counts against, and "nobody" and "unknown" are worth zero. It
+  is summed over the shot's looks and not judged look by look, so one poor
+  look does not refuse a person. This is what makes the two slots mean
+  something. It needs the levels from the clip, so it is step 5 of section
+  12 and means nothing before that.
+
+The level is a line, and the record says no line names a person. It is
+not used to name. It says where zero is, from this clip's own frames.
+Whether it should be taken at a like size is open: nothing measured says
+the level falls at a like size.
+
+**What the evidence total says on the very shot this design exists for.**
+By the record's own rows, on the kitchen's middle shot each subject's own
+person scores under that subject's impostor level on most looks or on all
+of them (the tracker owner's reading of "The galleries" against "The
+middle shot, both subjects there"). So the evidence total leaves both
+subjects with nobody, the built total says who each is most like, and the
+row asks. The same will happen on every shot where a subject's look has
+changed across a cut. That is not a second failure beside section 3's new
+appearance: it is the same event, seen in the arithmetic. No appearance
+explains the person, so a person is asked, and the answer is a new look or
+a new appearance that later shots are measured against. It is safe, and
+it is most of the count of questions (section 9).
+
+**A take needs all of these, or the row asks.**
+
+1. *The evidence leads.* The top way of the evidence total leads the next
+   way by the clip's floor.
+2. *The two totals agree.* It hands each subject the person the built
+   total does, or nobody where the count or the known bystanders account
+   for everyone on screen. Where the evidence says nobody and the built
+   total hands that subject a free person, the row asks whether this is
+   the subject in a new appearance.
 3. *Look by look.* The share of the looks whose own top way is the summed
    top way is at least `DECISION_LOOKS_AGREE`, and no clue graded `veto`
    disagrees.
+
+*2026-10-10, a correction the same day, from the tracker owner's read of
+this page. As first written this section had "nobody" as a choice under
+the built total, where it can never win, and a separate second test that
+refused, look by look, any person under the impostor level "however the
+totals fall". The two are now one total with a zero, summed over looks;
+and the page says in advance, here and in section 9, that the measured
+shot asks under it.*
 
 And never a take when: a person was left out as seldom seen; the count
 alone decided and the scene has any bystander or any detection close to
@@ -452,16 +493,18 @@ beside `TOGETHER_LEAD`).
 own tile numbers, since b0079d98) shown as a tile, with four things added:
 which test failed; the stable clues at any grade; the ids of the nearest
 cast looks; and what the answer is worth, as the shot's frames and the
-subject's size. Where the first test's lead is at or over
+subject's size. Where the evidence total's lead is at or over
 `ASK_SUGGEST_LEAD` the tile outlines the suggested person and asks yes or
-no. Under it the tile numbers the candidates and suggests nobody, because
-a yes to a weak suggestion is a guess with a person's name on it.
+no. Under it the tile numbers the candidates, in the built total's order,
+and suggests nobody, because a yes to a weak suggestion is a guess with a
+person's name on it. Until a clip has a floor for the lead, every row is
+under it; that is intended.
 
 **Stop or guess: one switch, `unsure`, in the job file; the default is
 stop.** The owner has not chosen. With `stop` an ask blocks the gate until
 it is answered, as an absence with people on screen does now
 (`bench/capture_masked_run.py::flag_shots`). With `guess` the top way of
-the first test is taken; the row is marked guessed in the decision file,
+the built total is taken; the row is marked guessed in the decision file,
 in the gate's flags (listed, not blocking) and in the delivery record; and
 a guessed shot adds only `decision` looks, which lean nothing. Two rows
 stop under either setting: a subject's first shot in a scene, and a row
@@ -472,9 +515,10 @@ the tool marks as its own fault.
 - **A subject away for a long time.** Nothing in the file decays. A person
   back in a scene they were confirmed in is decided as any shot. Back in a
   new scene, they are asked about once (section 3).
-- **Back, and unlike every stored look.** The second test refuses them,
-  the first still says who they are most like, and the row asks. The
-  answer is a new look and, if the person says so, a new appearance.
+- **Back, and unlike every stored look.** The evidence total leaves
+  them with nobody, the built total still says who they are most like,
+  and the row asks. The answer is a new look and, if the person says so,
+  a new appearance.
 - **Bystanders on screen and a named subject away.** The bystanders the
   cast knows take their own people. One it does not know is "unknown" if
   under every subject's impostor level. One over it is the case this
@@ -551,8 +595,20 @@ For the job of 2026-10-10, three named people in three scenes by the lead
 session's count: one naming tile, then at most nine required yes-or-no
 answers, fewer since not everybody is in every scene. For the one load
 that has been through a measurement, the kitchen's three shots: the middle
-shot asks, on one tile showing both subjects, and the other two agree with
-what the trackers did alone (the record's first table). What the rest of
+shot asks, on one tile showing both subjects, and the trackers alone were
+right about the other two (the record's first table). With the tool as
+built today the first of those two will likely read as unresolved and not
+as agreeing, since the two trackers' pick frames are apart and show
+different sets of people, so no look holds everybody; the casting pass's
+own looks remove that.
+
+**What to expect, said in advance.** A subject whose look has changed
+since their last typed look is asked about, once for each such change
+(section 6). So the questions are one for each named subject in each
+scene, plus one for each time a subject turns up looking unlike what the
+cast holds of them in that scene: a hat off, hair thrown about, far
+smaller. On soft film with two looks a subject in a scene, that second
+number may be as large as the first. What the rest of
 that job would ask is not known and is the first figure step 4 of section
 12 reports. While takes are off, every shot where the decision differs
 from the trackers is a tile; that is the cost of the present state and
@@ -597,7 +653,7 @@ like the ones who are:
 - **Two named, the other four confirmed as known bystanders** on the
   sheet. This is the design as written.
 - **Two named, the others unknown** to the cast. This is what the
-  "unknown" slot and the second test are for.
+  "unknown" slot and the impostor level are for.
 - **All six named.** The most the together-decision can be given, as the
   upper bound.
 
@@ -609,12 +665,12 @@ the bystanders-with-subjects-away case that today's job lacks.
 any is run:
 
 1. *The take rule.* On any shot of the second clip, in the first way of
-   running it, a wrong answer passes all three tests. Then the tests or
+   running it, a wrong answer passes every test for a take. Then the tests or
    the floors change before anything is taken anywhere.
 2. *Known bystanders.* The first way makes no fewer wrong top answers than
    the second. Then confirming bystanders buys nothing and comes out of
    the sheet.
-3. *The second test.* In the second way a bandmate is handed to a named
+3. *The impostor level.* In the second way a bandmate is handed to a named
    subject who is away and passes the impostor level. Then the level is
    not a refusal worth having and every shot with an unknown person asks.
 4. *More looks.* With the cast's looks from several shots, the smallest
@@ -739,8 +795,8 @@ a constant with its provenance beside it, and leaves this table.
 
 | name | for | starting value | what the clip sets it from |
 |---|---|---|---|
-| the lead's floor (today `subject_tracks.py::TOGETHER_LEAD`, `None`) | the first test | none: from the clip | above the widest lead a simulated wrong answer reaches on the clip's typed shots |
-| the impostor level | the second test | none: from the clip | per subject and scene, the highest score a look known not to be them reaches |
+| the lead's floor (today `subject_tracks.py::TOGETHER_LEAD`, `None`) | the lead a take needs | none: from the clip | above the widest lead a simulated wrong answer reaches on the clip's typed shots |
+| the impostor level | where zero is in the evidence total | none: from the clip | per subject and scene, the highest score a look known not to be them reaches |
 | `ASK_SUGGEST_LEAD` | the lead under which a tile suggests nobody | none: from the clip | the clip's own floor for the lead |
 | `SIGN_CELLS_LEAST` | the feature cells under which a signature is not scored | none: from the clip | the size under which a typed look's lead over the other subjects is inside the spread of one person's own looks; the one-scale run gives its first reading |
 | `CAST_LOOKS_COMPARED` | looks of one appearance a person is compared with, nearest in size | `4` | leaving one typed look out at a time: the number past which the smallest right lead stops widening |
@@ -764,7 +820,7 @@ they can be argued with.
 
 | # | what failed | likely | cost | the signal before a render | the mitigation, in a line |
 |---|---|---|---|---|---|
-| 1 | a bystander is taken as a named subject who is away | 3 | 3 | the taken person's score beside the subject's impostor level; the scene has bystanders in the casting table; the count alone decided | "unknown" and "nobody" as slots; the second test; no take on the count in a scene with bystanders |
+| 1 | a bystander is taken as a named subject who is away | 3 | 3 | the taken person's score beside the subject's impostor level; the scene has bystanders in the casting table; the count alone decided | "unknown" and "nobody" as slots worth zero; the impostor level; no take on the count in a scene with bystanders |
 | 2 | the questions are answered carelessly because there are too many | 3 | 3 | the count of shots asking; answers the rest of the cast contradicts | one question a scene, not a shot; a budget; no suggestion on a weak row; a second ask when the cast disagrees |
 | 3 | a wrong look is confirmed and every later shot leans on it | 2 | 3 | the audit: a typed look more like another subject's looks than its own appearance | only typed looks lean; removal marks what leaned; one confirmation a scene bounds the spread |
 | 4 | a new outfit; and a bystander in the new scene wearing the old one | 2 | 3 | a claim made from an appearance last seen in another scene | scene-bound clues stop at a scene's edge; the first shot in a scene always asks |
@@ -773,7 +829,7 @@ they can be argued with.
 | 7 | the lead's floor, set from one clip | 2 | 3 | the calibration's own sample, printed with the floor | floors from the clip's own shots; takes off until the second clip |
 | 8 | soft film and sharp video do not behave alike | 2 | 3 | each clip's floors and leave-one-out leads, side by side | nothing carried between clips; result 6 of section 10 |
 | 9 | the detector's duplicate masks change the count | 2 | 2 | detections near the detection threshold; a count that differs between looks | people seen on most looks; no take on the count beside such a detection |
-| 10 | scenes are grouped wrong | 2 | 2 | a subject under the floor against the scene's own appearance | the proposal decides nothing; a person's word; the second test |
+| 10 | scenes are grouped wrong | 2 | 2 | a subject under the floor against the scene's own appearance | the proposal decides nothing; a person's word; the evidence total |
 | 11 | a vote that lies is given weight | 2 | 2 | the clue's grade and the record behind it, in the cast | grades; a clue rises only by a record, and starts where it can only add asks |
 | 12 | stored signatures are no longer comparable | 2 | 2 | unlike fingerprints between a look and a table | compared only like with like; signed again, or asked |
 | 13 | a session answers for the owner and is wrong | 2 | 2 | the share of typed looks answered by a session | the file keeps who; a page of session-answered tiles for the owner's glance |
@@ -799,14 +855,14 @@ that scene has any person no sheet has named. In the row: that the count
 decided.
 
 **Mitigation.** Every subject may take "nobody" whatever the count; every
-person may be "unknown"; the second test refuses a person under the
-impostor level; a subject's first shot in a scene always asks; and takes
-are off until this exact case has been run on a second clip.
+person may be "unknown", each worth zero; a person under the impostor
+level counts against any way that takes them; a subject's first shot in a
+scene always asks; and takes are off until this exact case has been run
+on a second clip.
 
 **Left.** A person never seen before, on screen without the subject, who
 scores over the impostor level against a subject already confirmed in
-that scene. With takes on, that is a wrong take with all three tests
-passed. The impostor level comes from people the job has seen, and says
+that scene. With takes on, that is a wrong take with every test passed. The impostor level comes from people the job has seen, and says
 nothing about one it has not.
 
 ### 2. The questions are answered carelessly because there are too many
@@ -904,7 +960,10 @@ are arithmetic on a table.
 part; parts that disagree ask.
 
 **Left.** A crossing between two people the clues cannot tell apart leaves
-no signature signal, only the boxes. And both signals need looks close
+no signature signal, only the boxes. With the top third and the whole
+mask as the scored views, two people in one outfit are that case. The
+head view is the one that would still differ, so it is kept on every look
+even while it is graded `shown` and scores nothing. And both signals need looks close
 enough together to catch the crossing; the tracker's looks are a fixed
 stride apart (`subject_track.py::PROBE_STRIDE`).
 
@@ -971,7 +1030,7 @@ the difference, and the old outfit's looks voted in the new scene.
 **Signal.** A confirmed subject under the impostor level against their
 own appearance in that scene, on a shot where they are plainly present.
 
-**Mitigation.** The proposal only orders the sheet. The second test turns
+**Mitigation.** The proposal only orders the sheet. The evidence total turns
 a wrong join into asks. A scene split in two costs questions and nothing
 else.
 
