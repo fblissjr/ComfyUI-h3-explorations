@@ -1230,49 +1230,25 @@ def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
-def window_plan(frames: int, window: int, context: int) -> list[tuple[int, int, int]]:
-    """(first frame, length, first frame it writes) for each window of a run of `frames` frames, as the song node
-    lays them: each starts `window - context` after the one before and writes from where that one ended; the
-    last is as long as what is left. The node picks the last window's length from its own list, so a run whose
-    remainder is not on that list is planned a little differently there: the run's own report is the authority."""
-    out, start, written = [], 0, 0
-    while written < frames:
-        length = min(window, frames - start)
-        out.append((start, length, written))
-        written = start + length
-        start += window - context
-    return out
+def cut_frames(cuts: list[int], first: int, present: np.ndarray) -> tuple[list[int], list[int]]:
+    """The frames of a load that a latent step lays a subject's region on across a cut, and the frames of a step
+    the subject is on BOTH sides of a cut in. Both in the numbering `cuts` and `first` are given in.
 
-
-def straddled_frames(present: np.ndarray, runs: list[int], cuts: list[int]) -> list[int]:
-    """Frames of one window that a latent step carries the subject's region onto across a cut.
-
-    One latent step is a run of frames and the region is one per step, so a step whose run is split by a cut
-    regenerates the other shot's frames too. A frame is named when its run is split by a cut, the subject is on
-    no frame of the run on this frame's side, and is on some frame of another side. `present` is whether the
-    subject's mask is non-empty on each of the window's frames, `runs` the frames under each latent step
-    (`video_mask.run_lengths`), `cuts` the window's frames that start a shot. The same rule as the node's
-    `video_mask.cut_gate`, which leaves these frames unlaid in the composite; every render made before that
-    gate has them laid, so the rule names them for those too."""
-    out, at = [], 0
-    inside = sorted(set(int(c) for c in cuts))
-    for n in runs:
-        edges = [at] + [c for c in inside if at < c < at + n] + [min(at + n, len(present))]
-        sides = [(a, b) for a, b in zip(edges, edges[1:]) if a < b]
-        has = [bool(present[a:b].any()) for a, b in sides]
-        if len(sides) > 1 and any(has):
-            out += [f for (a, b), on in zip(sides, has) if not on for f in range(a, b)]
-        at += n
-    return out
+    `present` is whether the subject's mask is non-empty on each frame of the load, from its first frame. The
+    arithmetic is `loop_plan.split_steps`, which owns it: the steps' edges are fixed for a whole load, counted
+    from its first frame, whatever the windows, so no window plan is needed. `across` are the frames the node's
+    `video_mask.cut_gate` leaves as the source; a render made before that gate has them repainted. `shared`
+    are frames where each side of the cut is given the other side's region too, which no gate covers."""
+    on = [(first + lo, first + hi) for lo, hi in frame_spans(np.nonzero(present)[0].tolist(), join=1)]
+    split = _pack("loop_plan").split_steps(cuts, first_frame=first, present=on, frames=len(present))
+    return sorted(f for s_ in split for f in s_["across"]), sorted(f for s_ in split for f in s_["shared"])
 
 
 def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
-    """A run's region carried across a cut by a latent step, per window. Needs the run's windows (read from a
-    render's graph, or `window=` and `context=` on a plan) and the cuts of its subject's shot table."""
-    vm = _pack("video_mask")
-    first, frames, out = manifest["first_frame"], manifest["frames"], []
+    """A run's region carried across a cut by a latent step: the masks, the shot table's cuts and the load's
+    first frame are all it needs."""
+    first, out = manifest["first_frame"], []
     for run in manifest["runs"]:
-        plan = run.get("windows")
         seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
         table = folder / "subjects" / run["subject"] / f"shots__{seen['by']}.json"
         if not table.is_file():
@@ -1282,26 +1258,32 @@ def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
                 table = folder / "subjects" / other["label"] / f"shots__{seen['by']}.json"
                 if table.is_file():
                     break
-        if not plan or not table.is_file():
+        if not table.is_file():
             continue
-        cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c - first for c in json.loads(table.read_text())["cuts"]]
+        cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c for c in json.loads(table.read_text())["cuts"]]
         w = manifest["size"][0]
         present = np.unpackbits(np.load(folder / "runs" / run["name"] / "region.npz")["carried"], axis=-1)[..., :w].any(axis=(1, 2))
-        named = []
-        for start, length, written in window_plan(frames, plan["window_frames"], plan["context_frames"]):
-            runs, total = [], 0
-            while total < length:
-                runs = vm.run_lengths(len(runs) + 1)
-                total = sum(runs)
-            hit = straddled_frames(present[start:start + length], runs, [c - start for c in cuts])
-            named += [start + f for f in hit if start + f >= written]
-        if named:
+        # the load's own first frame: a run's render may start before the span this capture covers
+        load_first = int(run.get("first_source_frame", first))
+        lead = first - load_first
+        across, shared = cut_frames(cuts, load_first, np.r_[np.zeros(max(lead, 0), bool), present])
+        across, shared = [f for f in across if f >= first], [f for f in shared if f >= first]
+        kind = "plan" if run.get("planned") else "run"
+        if across:
             out.append({"rule": "region_carried_across_a_cut", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
-                        "source_frames": frame_spans([first + f for f in sorted(set(named))]),
-                        "why": f"{'plan' if run.get('planned') else 'run'} {run['name']}: on {len(set(named))} frame(s) beside a cut the "
-                               f"region of {run['subject']} is laid on the other shot, because one latent step covers frames on both "
-                               "sides of the cut. A render made without the node's cut gate repaints them",
-                        "figures": {"frames": len(set(named)), "windows": plan}})
+                        "source_frames": frame_spans(across),
+                        "why": f"{kind} {run['name']}: on {len(across)} frame(s) beside a cut the region of {run['subject']} is laid on "
+                               "the other shot, because one latent step covers frames on both sides of the cut. A render made "
+                               "without the node's cut gate repaints them",
+                        "figures": {"frames": len(across), "load_first_frame": load_first}})
+        if shared:
+            out.append({"rule": "region_shared_across_a_cut", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans(shared),
+                        "why": f"{kind} {run['name']}: {run['subject']} is on both sides of a cut inside one latent step on "
+                               f"{len(shared)} frame(s): each side is given the other side's region as well as its own, and no gate "
+                               "covers that. Look at those frames after the render; starting the load a few frames earlier can "
+                               "move the cut onto a step's edge (`loop_plan.first_frame_choices`)",
+                        "figures": {"frames": len(shared), "load_first_frame": load_first}})
     return out
 
 

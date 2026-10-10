@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.262.1
+<!-- changelog.d/mrdeer-capture-cut-rule-calls-split-steps.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py`'s cut rule calls `loop_plan.split_steps` in place of its own copy of the latent-step arithmetic (`window_plan` and `straddled_frames` are gone; `cut_frames` turns a mask's presence into the ranges that function takes). It needs no window plan any more: the steps' edges are fixed for a whole load. It names the same frames as before on the three captures it had been run on.
+
+### Added
+
+- A preflight flag, `region_shared_across_a_cut`: the frames of a latent step in which a subject is on both sides of a cut, where each side is given the other side's region too and no gate covers it.
+
 ## 0.262.0
 <!-- changelog.d/mrnemo-lay-window-and-saved-region.md -->
 
