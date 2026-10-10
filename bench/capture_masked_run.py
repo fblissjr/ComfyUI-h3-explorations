@@ -11,6 +11,7 @@
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
+    <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
 
 **What it buys.** One folder per captured span, `data/<date>_<name>/` (untracked), that says for every frame
 and every subject where the tracker's mask was, what part of it was taken, what the sampler regenerated and
@@ -58,6 +59,11 @@ taken in; and a text that names a voice over frames with none, or the reverse (`
 did not, in which render, who looked. That is how a threshold's provenance goes from reasoned to measured.
 **diagnose** prints what every table says about a stretch of source frames somebody marked as wrong, for every
 subject and run, with the flags that were raised on those frames: the first step after a bad render.
+
+**look** answers one question about a whole-subject render, per frame: is this the new subject or a look-alike
+of the original. It reads the mean grey level over the top of the subject's mask and places the render between
+the source (0) and a render of the same subject that held (1). It tells two subjects apart only where they
+differ in lightness there, and refuses when the held render does not.
 
 **status.json** says how the folder came to be: `running`, `done` or `failed`, with the message and the inputs
 that were missing. A folder without it was never finished. A finished folder is not rebuilt in place unless
@@ -160,6 +166,13 @@ REGION_ON_OTHER = 0.05
 #: A segment with fewer pixels than this inside a region is its edge and is not flagged. Reasoned: under a
 #: quarter of one latent cell.
 SEGMENT_PX = 64
+#: The least a held render must differ from the source over the look's area, in grey levels, for the look
+#: figure to be read. Reasoned: several times the codec's own difference on an untouched pixel.
+LOOK_LIFT = 10.0
+#: The share of the cells holding a subject's own part that a `keep` may leave as the original's before it is
+#: flagged. Reasoned to be low: in the one pair of renders it comes from, 6 to 7% was enough to bring the
+#: original's face back, and the frames at 1 to 2% early in that run still read as the new one.
+KEPT_IN_PART = 0.03
 #: A region of which more than this share is not the subject's own mask is flagged: that share is background
 #: and props, which the model draws again from the text. Reasoned: more outside the subject than inside.
 NOT_SUBJECT = 0.5
@@ -1080,6 +1093,48 @@ def flag_segments(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def flag_keep(manifest: dict, folder: Path) -> list[dict]:
+    """Kept pixels of the original inside the subject's own part: expect the original back.
+
+    A run whose graph wires the Masked Source's `keep`, on frames where cells holding the carried part were not
+    regenerated: those cells show the original's own pixels inside the thing being replaced, and the model
+    draws the rest to match them. Provenance, one pair of renders, 2026-10-10: a face pass with a `keep` on an
+    earring left 6 to 7% of the face's cells as the original's cheek, and on the pixels it was free to redraw
+    the face fell from 13 grey levels off the source to about 6, with stills that read as the original; the
+    same pass without `keep` stayed at 13 to 15. The lane's 2026-10-07 record has the same thing for a kept
+    body beside a head. It needs a rendered run: a plan does not know about `keep` yet."""
+    out = []
+    for run in manifest["runs"]:
+        graph = folder / "runs" / run["name"] / "graph.json"
+        if run.get("planned") or not graph.is_file():
+            continue
+        wired = any(node.get("class_type") == "MiniMaxH3MaskedSource" and node["inputs"].get("keep") is not None
+                    for node in json.loads(graph.read_text()).values())
+        if not wired:
+            continue
+        z = np.load(folder / "runs" / run["name"] / "region.npz")
+        w = manifest["size"][0]
+        # the part as the capture's own mask has it: the review's carried mask is cut to the region when it is
+        # read, so it cannot show a cell that was kept
+        seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
+        saved = np.load(folder / "subjects" / run["subject"] / f"masks__{seen['by']}.npz")
+        part = np.unpackbits(saved["parts" if "parts" in saved.files else "track"], axis=-1)[..., :w].astype(bool)
+        carried = cells_any(part)
+        kept = (carried & ~z["region"]).sum(axis=(1, 2))
+        share = kept / np.maximum(carried.sum(axis=(1, 2)), 1)
+        hit = np.nonzero((share > KEPT_IN_PART) & z["read"])[0]
+        if len(hit):
+            first = manifest["first_frame"]
+            out.append({"rule": "kept_pixels_inside_the_part", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans((hit + first).tolist(), join=RECENT),
+                        "why": f"run {run['name']} wires `keep`, and on {len(hit)} frame(s) up to {100 * share.max():.0f}% of the cells "
+                               f"holding {run['subject']}'s own part were kept as the original's pixels: expect the original's "
+                               "look to come back in the rest of the part",
+                        "figures": {"frames": int(len(hit)), "worst_share": round(float(share.max()), 3),
+                                    "median_share": round(float(np.median(share[hit])), 3)}, "threshold": {"KEPT_IN_PART": KEPT_IN_PART}})
+    return out
+
+
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
     """The sentences of a prompt that say a voice is performed, and those that deny one."""
     import re
@@ -1130,7 +1185,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
-    flags += flag_runs(m, folder) + flag_segments(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder)
     for s in m["subjects"]:
         path = folder / "subjects" / s["label"] / "doubted_frames.json"
         if path.is_file():
@@ -1242,6 +1297,94 @@ def diagnose(a: argparse.Namespace) -> None:
             print("  none: if something is wrong here, no rule predicted it; that is a new rule or an entry in data/CAPTURE_GAPS.md")
     else:
         print("\nno flags.json: preflight was not run on this capture")
+    for path in sorted(folder.glob("delivery__*.json")):     # written by bench/assemble_delivery.py, in the same shape
+        hit = [f for f in json.loads(path.read_text()).get("flags", []) if any(x <= hi and y >= lo for x, y in f["source_frames"])]
+        print(f"\nFLAGS from the delivery {path.name} that touch these frames: {len(hit)}")
+        for f in hit:
+            print(f"  {f.get('id', '')} {f['level']}: {f['why']}")
+
+
+def look_figure(source: np.ndarray, render: np.ndarray, held: np.ndarray, area: np.ndarray) -> tuple[np.ndarray, float]:
+    """Per frame, where a render sits between the source (0) and a render that held the new subject (1).
+
+    `source`, `render` and `held` are each frame's mean grey level over `area` (NaN where there is none);
+    `held` may cover fewer frames. The lift is the median of what the held render added over the source on
+    the frames it covers; the figure is the render's own difference from the source over that lift. It reads
+    one thing only, how light or dark the area is, so it tells two subjects apart when they differ there (dark
+    hair against fair) and says nothing when they do not: a lift near zero is refused by the caller."""
+    both = ~np.isnan(source[:len(held)]) & ~np.isnan(held)
+    lift = float(np.median(held[both] - source[:len(held)][both])) if both.any() else float("nan")
+    return (render - source) / lift, lift
+
+
+def look(a: argparse.Namespace) -> None:
+    """Did a whole-subject render draw the new subject or go back to the original's look, frame by frame.
+
+    Written for a fault no mask flag predicts (2026-10-10: one window of a long render drew a look-alike of
+    the original, the next the new subject, with identical regions). Reads the subject's mask from a capture
+    folder and compares the render with a render of the same subject that held."""
+    folder = Path(a.capture)
+    m = json.loads((folder / "manifest.json").read_text())
+    w, h = m["size"]
+    first, frames = m["first_frame"], m["frames"]
+    subject = next(s for s in m["subjects"] if a.subject in (None, s["label"]))
+    z = np.load(folder / "subjects" / subject["label"] / f"masks__{subject['sightings'][0]['by']}.npz")
+    track = np.unpackbits(z["track"], axis=-1)[..., :w].astype(bool)
+
+    def series(path: str, at: int, vf: str = "") -> np.ndarray:
+        out = np.full(frames, np.nan)
+        lead = max(at - first, 0)
+        for n, img in enumerate(stream(path, (w, h), max(first - at, 0), max(frames - lead, 0), vf=vf), start=lead):
+            box = box_of(track[n])
+            if box is None:
+                continue
+            area = track[n].copy()
+            area[box[1] + int(a.top * (box[3] - box[1])):] = False
+            if area.sum() >= 500:
+                out[n] = float(img[area].mean())
+        return out
+
+    def named(text: str) -> tuple[str, int]:
+        path, _, at = text.partition("@")
+        return path, int(at) if at else first
+
+    src = series(a.source, 0, FIT.format(w=w, h=h))
+    ren = series(*named(a.render))
+    ref = series(*named(a.held))
+    # Only where this render regenerated the subject: its own region when it is one of the capture's runs (the
+    # capture's mask can come from another tracker run that took somebody else on other shots), or --frames.
+    own = next((r for r in m["runs"] if r.get("render") == Path(named(a.render)[0]).name), None)
+    if a.frames:
+        keep = np.zeros(frames, bool)
+        for span in a.frames.split("+"):
+            lo, hi = (int(x) for x in (span.split("-") * 2)[:2])
+            keep[max(lo - first, 0):max(hi - first + 1, 0)] = True
+        ren[~keep] = np.nan
+    elif own is not None:
+        ren[~np.load(folder / "runs" / own["name"] / "region.npz")["region"].any(axis=(1, 2))] = np.nan
+    seen = ~np.isnan(ref)
+    figure, lift = look_figure(src, ren, ref[:int(np.nonzero(seen)[0].max()) + 1] if seen.any() else ref[:0], None)
+    if not np.isfinite(lift) or abs(lift) < LOOK_LIFT:
+        raise SystemExit(f"the held render differs from the source by {lift:.1f} grey levels over this area: too little to tell "
+                         "the two subjects apart by it; give another --top or another reference")
+    have = np.nonzero(~np.isnan(figure))[0]
+    runs_of = frame_spans(have.tolist(), join=1)
+    record = {"render": Path(named(a.render)[0]).name, "held_reference": Path(named(a.held)[0]).name, "subject": subject["label"],
+              "area": f"the top {a.top:.2f} of the subject's mask", "lift_grey_levels": round(lift, 1), "spans": [],
+              "figure_by_span_frame": [None if np.isnan(x) else round(float(x), 3) for x in figure]}
+    print(f"{record['render']} against {record['held_reference']}: 0 is the source's look, 1 the held render's "
+          f"(the held render is {lift:.1f} grey levels from the source over {record['area']})")
+    for lo, hi in runs_of:
+        seg = figure[lo:hi + 1]
+        seg = seg[~np.isnan(seg)]
+        row = {"span_frames": [lo, hi], "source_frames": [first + lo, first + hi], "median": round(float(np.median(seg)), 2),
+               "min": round(float(seg.min()), 2), "max": round(float(seg.max()), 2),
+               "reads_as": "the new subject" if np.median(seg) > 0.6 else ("the original's look" if np.median(seg) < 0.4 else "between")}
+        record["spans"].append(row)
+        print(f"  frames {lo}-{hi} (source {first + lo}-{first + hi}): median {row['median']:.2f}, from {row['min']:.2f} to {row['max']:.2f}: {row['reads_as']}")
+    out = folder / f"look__{Path(named(a.render)[0]).stem}.json"
+    out.write_text(json.dumps(record, indent=1) + "\n")
+    print("wrote", out)
 
 
 # ------------------------------------------------------------------ video
@@ -1546,11 +1689,20 @@ def main() -> None:
     o.add_argument("--render", required=True, help="the render it was seen in, by file name")
     o.add_argument("--note", default="")
     o.add_argument("--by", default="", help="who looked")
+    k = sub.add_parser("look", help="did a whole-subject render draw the new subject or the original's look, by frame")
+    k.add_argument("capture")
+    k.add_argument("--source", required=True)
+    k.add_argument("--render", required=True, metavar="R.mp4[@FIRST]", help="the render to read; FIRST is the source frame of its frame 0")
+    k.add_argument("--held", required=True, metavar="REF.mp4[@FIRST]", help="a render of the same subject that held the new one")
+    k.add_argument("--subject", help="the subject's label; the first when not given")
+    k.add_argument("--frames", metavar="A-B+C-D", help="source frames to read; when not given and the render is one of the "
+                   "capture's runs, the frames its region is not empty on")
+    k.add_argument("--top", type=float, default=0.45, help="the share of the subject's mask, from its top, the figure is read over")
     d = sub.add_parser("diagnose", help="everything the capture says about a stretch marked as wrong")
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose}[a.mode](a)
+    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look}[a.mode](a)
 
 
 if __name__ == "__main__":

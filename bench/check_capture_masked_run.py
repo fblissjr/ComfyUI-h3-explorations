@@ -27,6 +27,9 @@ overlaps and margins can be counted by hand and reads the rows back.
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+10. **The look.** A render at the source's level over the area reads 0, one at the level of a render that held
+   reads 1, a frame with no area reads nothing, and a reference no different from the source has no lift
+   (which the command refuses).
 9. **Segments.** From a class map: the classes a part mask is made of are read back from the mask; each
    segment `<label>.<class>` has its pixels per frame; what lies inside a run's region and is not the carried
    part is counted in pixels and cells, the subject's own and another subject's; and a segment kept out of
@@ -297,6 +300,20 @@ def under_a_doubted_part() -> str:
     return "the part, hair, another class and nothing are each named from what lies under the fill"
 
 
+def the_look() -> str:
+    source = np.array([40.0, 41.0, 39.0, 40.0, np.nan, 40.0])
+    held = np.array([80.0, 81.0, 79.0])             # a render that held the new subject, on the first three frames
+    like_original = np.array([42.0, 41.0, 40.0, 43.0, np.nan, 39.0])
+    like_new = source + 40.0
+    figure, lift = cap.look_figure(source, like_original, held, None)
+    assert lift == 40.0 and np.nanmax(np.abs(figure)) < 0.1 and np.isnan(figure[4]), (lift, figure)
+    figure, _ = cap.look_figure(source, like_new, held, None)
+    assert np.allclose(figure[~np.isnan(figure)], 1.0), figure
+    flat, lift = cap.look_figure(source, like_new, source[:3], None)
+    assert lift == 0.0, "a reference no different from the source gave a lift"
+    return "a render at the source's level reads 0, one at the held render's reads 1, a frame with no area reads nothing"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -321,5 +338,6 @@ case("preflight: a part that leaves its subject", part_rules)
 case("the held part", held_part)
 case("segments and what is inside a region", segments)
 case("what lies under a doubted part", under_a_doubted_part)
+case("the look between the original and a render that held", the_look)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())
