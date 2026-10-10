@@ -386,3 +386,17 @@ flag reads the source's own frame-to-frame change for it.
   differ (13,249 to 21,150 pixels over 12 levels). md5
   `551320daee14dcf05b2030da8cb03b2c`. `_a`, `_b` and the locked file are
   untouched.
+- 2026-10-10, the shots proof takes its cuts from the trackers where it can.
+  This tool's own cut finder (a mean change of the luma against one line)
+  was tried on the rest of the clip before any table for it was written:
+  of thirteen cuts found by another finder on source frames 1039-1919 it
+  read twelve, and the thirteenth (1134) moved 37.5 levels against a line
+  of 40 while a move inside a shot (1156) read 36.8. No line separates
+  those. Where a capture's shot table covers frames, its cuts are now the
+  cuts on the frames inside it (not on its own first frame: a load made for
+  one shot begins on a cut its table cannot hold); this tool's own are used
+  elsewhere, and the record lists every disagreement. A build that spans
+  frames no shot table covers can still misplace a shot's edge, so a
+  preview's capture is given to the build. `fun_0000_1050_c.mp4`'s bytes
+  read the same under it (passes, no square over the bound); the false cut
+  at 315 inside a street shot is gone from its shots.

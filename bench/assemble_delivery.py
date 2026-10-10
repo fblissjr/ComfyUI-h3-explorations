@@ -192,8 +192,9 @@ subject's count for the shot; a dissolve is not a cut; a row whose subject is no
 consecutive frames that each move over `CUT` are one cut at the first of them (a blur or a flash is not a shot a
 frame: the first build of a street shot failed on three such "shots" inside one), listed in the record. Where a
 capture's shot table covers the frames and puts its cuts elsewhere, the record says so
-(`cuts_a_capture_puts_elsewhere`): the tracker's cut finder is the better one, and this one is only what needs no
-capture.
+(`cuts_a_capture_puts_elsewhere`), and THE TABLE'S CUTS ARE USED on the frames it covers: the tracker's cut finder
+is the better one, and this one (a mean change of the luma against one line) is only what needs no capture. So
+give the build the capture of a preview that covers the span, or a `source` line may fit no shot.
 
 **A locked file is never written over.** A folder's `LOCKED.md` lists the files the owner has accepted, one to a
 list line: the name in backticks, then `md5 <sum>`. A build whose `--out` is one of them is refused before anything
@@ -1234,8 +1235,20 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
     # consecutive frames that each move over the line are one event (a whip, a flash, a blur), not a shot a frame:
     # the first of them is the cut. Read as several cuts, a blur of five frames inside one shot made three shots of
     # one frame, each "tracked, nothing laid", and failed a build whose face part was emptied there on purpose
-    cuts = [n for n in over if n - 1 not in set(over)]
+    found = [n for n in over if n - 1 not in set(over)]
     blurs = [run for run in frame_spans(over) if run[1] > run[0]]
+    # Where a capture's shot table covers the frames, ITS cuts are the cuts: the tracker's cut finder is the better
+    # one (this one is a mean change of the luma against one line, and on the second stretch it was tried on a real
+    # cut read 37.5 and a move inside a shot 36.8, either side of nothing). This tool's own are used only on frames no
+    # shot table covers, and every disagreement is written down.
+    # A table has the word on the frames INSIDE it, not on its own first frame: a load made for one shot begins on a
+    # cut its table cannot hold, and that cut is this tool's to find.
+    tables = captures.shot_tables() if captures else []
+    covered = set()
+    for t in tables:
+        covered.update(range(min(x["frames"][0] for x in t["shots"]) + 1, max(x["frames"][1] for x in t["shots"]) + 1))
+    from_tables = {c for t in tables for c in t["cuts"]}
+    cuts = sorted({c for c in from_tables if span[0] < c <= span[1]} | {c for c in found if c not in covered})
     edges = [span[0], *cuts, span[1] + 1]
     shots = [(a, b - 1) for a, b in zip(edges, edges[1:]) if b > a]
     named, unknown = {}, []                           # label -> its rows' pieces
@@ -1254,7 +1267,6 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
         return None if mask is None else bool(mask.any())
 
     flagged = captures.said_absent_with_people() if captures else []
-    tables = captures.shot_tables() if captures else []
 
     def people_on(a, b):
         """(how many people a shot table found on this shot, whose table) or (None, None): the table shot that
@@ -1336,7 +1348,7 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
     apart = []
     for t in tables:
         lo, hi = min(x["frames"][0] for x in t["shots"]), max(x["frames"][1] for x in t["shots"])
-        theirs, ours = {c for c in t["cuts"] if lo < c <= hi}, {c for c in cuts if lo < c <= hi and span[0] < c}
+        theirs, ours = {c for c in t["cuts"] if lo < c <= hi}, {c for c in found if lo < c <= hi and span[0] < c}
         if theirs != ours:
             apart.append({"table": f"{t['subject']}'s in {t['capture']}", "frames": [lo, hi], "its_cuts": sorted(theirs),
                           "cuts_here_it_does_not_have": sorted(ours - theirs), "its_cuts_not_found_here": sorted(theirs - ours)})
@@ -1348,7 +1360,10 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
         missing.append("rows whose subject is not known are not asked about: " + ", ".join(sorted(set(unknown))))
     if not tables and not flagged:
         missing.append("no capture given holds a shot table or the flag, so no shot can read as people detected")
-    return ({"cut_over_levels": CUT, "cuts": cuts, "runs_of_frames_over_the_line_read_as_one_cut": blurs,
+    return ({"cut_over_levels": CUT, "cuts": cuts,
+             "cuts_are": "a capture's shot table's where one covers the frames, this tool's own (a move over the line) elsewhere",
+             "frames_a_shot_table_has_the_word_on": frame_spans(sorted(n for n in covered if span[0] <= n <= span[1])),
+             "runs_of_frames_over_the_line_read_as_one_cut": blurs,
              "cuts_a_capture_puts_elsewhere": apart, "shots": out,
              "where_a_named_subject_is_the_source's_own": own, "missing": missing}, problems)
 

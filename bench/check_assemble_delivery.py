@@ -91,7 +91,7 @@ of known place and size into them, and reads the tool's answers back.
     says so in a `source` line (the words kept), when the people detected are another subject's that is laid
     there, when nobody was detected, and when nothing is known. A `source` line over a shot that has something
     laid, and one that covers no whole shot, fail. Consecutive frames that each move over the line are one cut, not
-    a shot a frame. The frames of the first shot where the subject is tracked and
+    a shot a frame; and where a capture's shot table covers the frames, its cuts are the cuts. The frames of the first shot where the subject is tracked and
     nothing is laid yet are listed with the longest run. The first locked file passed every proof with a shot of
     29 frames on which nothing was laid for either of its subjects; this is the proof that would have failed it.
 18. **A frame its run carried no mask on.** A piece painted on every frame, and a capture whose run carried a mask
@@ -961,6 +961,29 @@ with tempfile.TemporaryDirectory() as _tmp:
         section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, [])
         assert [e["frames"] for e in section["shots"]] == [[0, 19], [20, 30], [31, 39]] and not problems \
             and section["runs_of_frames_over_the_line_read_as_one_cut"] == [[20, 22]], (section["cuts"], section["runs_of_frames_over_the_line_read_as_one_cut"])
+        # where a capture's shot table covers the frames its cuts are the cuts: a cut this tool's line misses is
+        # taken from it, and a move this tool's line calls a cut inside one of its shots is not one
+
+        class Tables:
+            def shot_tables(self):
+                return [{"subject": "a", "capture": "made", "cuts": [10, 25],
+                         "shots": [{"frames": [0, 9], "people": 1, "state": "picked"}, {"frames": [10, 24], "people": 1, "state": "taken"},
+                                   {"frames": [25, 34], "people": 1, "state": "taken"}]},
+                        # a load made for one shot: its table holds no cut, and its first frame is a cut of the source
+                        {"subject": "a", "capture": "one shot", "cuts": [], "shots": [{"frames": [35, 39], "people": 1, "state": "picked"}]}]
+
+            def said_absent_with_people(self):
+                return []
+
+            def mask(self, label, n, prefer=None):
+                return None
+        section, problems = tool.shots_of({"rows": {}}, [], Tables(), (0, 39), {**moved, 35: 66.0, 37: 50.0}, [])
+        # the cut at 35 is this tool's own: it is the second table's FIRST frame, which that table has no word on;
+        # the move at 37, inside it, is not a cut because the table has none there
+        assert [e["frames"] for e in section["shots"]] == [[0, 9], [10, 24], [25, 34], [35, 39]] \
+            and section["frames_a_shot_table_has_the_word_on"] == [[1, 34], [36, 39]], (section["cuts"], section["frames_a_shot_table_has_the_word_on"])
+        apart = section["cuts_a_capture_puts_elsewhere"][0]
+        assert apart["its_cuts_not_found_here"] == [10, 25] and apart["cuts_here_it_does_not_have"] == [20, 31], apart
         return ("a shot with its subject tracked and nothing laid fails by its frames; so does one called absent with people detected, by the "
                 "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
                 "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")
