@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 ("Seeing what the tracker and the masks did"; "Say the least first" under the prompt); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 (the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -104,6 +104,48 @@ means that. How vllm-omni's mask editing and the third-party masking packs
 compare with this lane, and what they do that it has not tried:
 [`references.md`](references.md), "Masks and edited video upstream, beside
 the masked lane".*
+
+## The rule: data before a render, and the same data after
+
+Set by the owner on 2026-10-10 for every session on this lane: "take a data
+driven approach to all of this". It is a rule, not advice, because the lane's
+earlier jobs spent their card time finding out what a few minutes of looking
+at masks would have said, and explained failures by a session's reading that
+the next render refuted.
+
+1. **Before a render: capture, flags, a look, then the render.** A
+   no-sampling run saves what every tracker and part node made, for every
+   person and object in the load (`bench/capture_masked_run.py`, "Seeing what
+   the tracker and the masks did" below). Its `preflight` lists what is at
+   risk, each flag with its reason and its frames: a person taken in a shot
+   they are not in, a part mask off its person, one person's region over
+   another, things inside a region that are not its subject, a text that
+   disagrees with a measured fact. The flagged frames are looked at. The
+   render then loads the masks that were checked and does not track again.
+   Nothing renders on a guess about what the tracker took.
+2. **After a render: the capture is read first.** When a render is wrong,
+   the first step is a lookup, not a probe: on the frames in question, was
+   the mask on the right person, what else was inside the region, what was
+   the model shown as movement and as text, was there a voice. A new probe
+   comes only after the tables have been read and found silent.
+3. **A "why" cites a row, a frame range or a measured figure.** A cause
+   stated without one is labelled a reading, and gets a control before
+   anything is built on it.
+4. **Every flag gets its outcome, and every surprise becomes a flag or a
+   gap.** What happened on the flagged frames is written beside the flag, so
+   a threshold's provenance can move from reasoned to measured. A fault no
+   flag predicted is a new rule in the preflight, or an entry in
+   `data/CAPTURE_GAPS.md` saying what was not captured, too coarse, filtered
+   wrongly or resting on a one-person assumption.
+5. **Captured data lives under `data/`**, which is not tracked. A tool
+   worth running twice lives in the tracked tree with a check, never in a
+   scratchpad: the 2026-10-07 captures were made by scripts that were not
+   kept.
+
+What the upfront data can and cannot say: it says where and why a render is
+at risk. It does not say what the model will draw inside the region; that
+still takes a render, and the flags say which shot to render first and which
+frames to look at.
 
 ## The pieces, in the order a render meets them
 
@@ -221,6 +263,13 @@ where in core.
   phrase that SAM held for the window's first seconds only; not judged.
 - **`replace`.** `whole subject`, or `head and hair`, which keeps the body's
   pixels and finds the part with SAM 3 from `part_phrases`.
+- **A setting it will refuse is refused when the graph is queued**
+  (2026-10-10): a feather wider than the margin, or a softened start with
+  `paint_out` (`video_mask.settings_refusal`, called by the node's
+  `validate_inputs` and again by `execute` for a value that arrives through
+  a link). Until then these failed only when the node ran, behind whatever
+  was ahead of it in the queue. A refusal that needs a tensor (`keep`,
+  `others`) is still made at run time.
 - **What is encoded.** The source frames themselves; with `paint_out`, a copy
   with the subject filled in from its surroundings (`fill_subject`).
 - **The composite.** After the decode the source's pixels come back outside
@@ -505,6 +554,19 @@ wider set, with what each would buy and what is known about it.
 Written 2026-10-10, after a session had to be told this tooling existed. It
 is in four places and none of them is one command. Read this before writing
 a probe.
+
+**One command for the masks of a run, any number of people**:
+`bench/capture_masked_run.py files` reads the mask videos a preview saved and
+a render's own review, and writes `data/<date>_<name>/` with a `subject` on
+every row and file, the rows across subjects (`frames.csv`: each pair's
+overlap, a run's region on another subject, the margin cells given back) and
+a README of what it does not hold; `preflight` lists what is at risk before a
+render; `video` draws the stacked, frame-numbered picture from those same
+files. Its docstring is the schema; `bench/check_capture_masked_run.py` is its
+check; what is still missing is in `data/CAPTURE_GAPS.md`. What the models
+behind the lane's signals do and do not give (a body mesh has no mouth; no
+model here scores lip sync) is in
+[`meta_perception_models.md`](meta_perception_models.md).
 
 **What every masked render already wrote beside itself** (the song node,
 `audio_freeze_song.py`):

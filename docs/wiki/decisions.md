@@ -27,6 +27,15 @@ Older history lives elsewhere and is not copied here:
   the first day showed. It extends 2026-10-07's "the text says nothing it
   cannot know" from the prompt node's generated text to a text written for
   one window after looking at it; no node text, graph or default changed.
+- **A masked render is run on data, before and after: a rule, at the
+  owner's word** ("take a data driven approach to all of this ... it needs
+  to be a rule in the masking core docs and wiki"). Capture and flags before
+  a render, the same capture read first after a bad one, a cause cited to a
+  row or a figure, every flag given its outcome. `masked_v2v.md`, "The rule:
+  data before a render, and the same data after", and one line in
+  `AGENTS.md`. The same day the owner said node changes and sweeps are
+  welcome where they remove a class of failure, and that a new job is not
+  built by patching the last job's graph.
 - **Where the masked lane's tracker and mask data can be seen is written
   down**, after a session had to be told the tooling existed:
   `masked_v2v.md`, "Seeing what the tracker and the masks did". It also

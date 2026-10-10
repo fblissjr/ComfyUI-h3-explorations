@@ -1316,6 +1316,30 @@ def detect_part(segmenter, segmenter_clip, frames: torch.Tensor, where: torch.Te
     return torch.cat(parts, dim=0)
 
 
+#: The widest margin and blend the node's widgets take. Reasoned, as they stood in the schema: the schema and
+#: the queue-time validation read them from here so the two cannot drift.
+GROW_PIXELS_MAX = 512
+FEATHER_PIXELS_MAX = 128
+
+
+def settings_refusal(grow_pixels, feather_pixels, paint_out=False, start_from=START_NOISE) -> str | None:
+    """Why these settings cannot run, or None: the refusals that need only the node's own widgets.
+
+    One function for both moments. The node's queue-time validation calls it, so a graph with such a setting is
+    refused when it is submitted; `execute` calls it too, for a value that arrives through a link and is not
+    known until then. Until 2026-10-10 these were raised only when the node ran, which on a busy queue is after
+    everything ahead of it (a preview with a feather wider than its margin waited a quarter of an hour to fail).
+    A refusal that needs a tensor (`keep`, `others`, the frames' shape) cannot be made here and stays in `execute`.
+    """
+    if int(feather_pixels) > int(grow_pixels):
+        return (f"feather_pixels {int(feather_pixels)} is wider than grow_pixels {int(grow_pixels)}: the blend "
+                "would reach the subject's own pixels and bring the original back at its edge")
+    if start_from != START_NOISE and paint_out:
+        return ("paint_out fills the subject in before the encode, so a softened start has nothing to "
+                "soften: turn one of the two off")
+    return None
+
+
 class MiniMaxH3MaskedSource(io.ComfyNode):
     #: Part of a kept mask's key (`mask_store.py`). Raise it when a change
     #: would give a different mask from the same inputs and settings: that is
@@ -1388,13 +1412,13 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                           "On: the video model also gets its own copy, which costs rows on "
                                           "every sampling step and may not fit the card at a long window. "
                                           "Read the song node's report before queueing.")),
-                io.Int.Input("grow_pixels", default=GROW_PIXELS, min=0, max=512,
+                io.Int.Input("grow_pixels", default=GROW_PIXELS, min=0, max=GROW_PIXELS_MAX,
                              tooltip=("How far the mask is widened before it reaches the model, in pixels of "
                                       "the render canvas. Raise it when the replacement is cut off at its "
                                       "edge. The hole's shape is all that tells the model where the original "
                                       "stood, so a wider one lets the new subject stand somewhere else and "
                                       "uncover what the original hid.")),
-                io.Int.Input("feather_pixels", default=8, min=0, max=128,
+                io.Int.Input("feather_pixels", default=8, min=0, max=FEATHER_PIXELS_MAX,
                              tooltip=("Width of the blend between the regenerated region and the source's "
                                       "own pixels, to each side of the boundary. Raise it if the boundary "
                                       "shows; it cannot exceed grow_pixels.")),
@@ -1556,6 +1580,25 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         return missing
 
     @classmethod
+    def validate_inputs(cls, grow_pixels, feather_pixels, paint_out=False, start_from=START_NOISE) -> bool | str:
+        """Refuse at queue time what `settings_refusal` would refuse at run time.
+
+        Only these four are named: core skips its own range and choice tests for an input a validation
+        function names (`execution.py::validate_inputs`), so those tests are made again here and every other
+        input keeps core's. A value that comes through a link is None at this point and is left to `execute`.
+        """
+        if grow_pixels is None or feather_pixels is None:
+            return True
+        if not 0 <= int(grow_pixels) <= GROW_PIXELS_MAX:
+            return f"grow_pixels {int(grow_pixels)} is outside 0 to {GROW_PIXELS_MAX}"
+        if not 0 <= int(feather_pixels) <= FEATHER_PIXELS_MAX:
+            return f"feather_pixels {int(feather_pixels)} is outside 0 to {FEATHER_PIXELS_MAX}"
+        if start_from is not None and start_from not in (START_NOISE, START_TOP):
+            return f"unknown start_from {start_from!r}; one of {[START_NOISE, START_TOP]}"
+        return settings_refusal(grow_pixels, feather_pixels, bool(paint_out),
+                                START_NOISE if start_from is None else start_from) or True
+
+    @classmethod
     # `mask` has no default: it is required in the schema, and core hands a lazy input it was not asked to run
     # as None, which is what a hit on a kept mask looks like here.
     def execute(cls, frames, mask, grow_pixels=GROW_PIXELS, feather_pixels=8, replace=REPLACE_WHOLE, paint_out=False,
@@ -1568,10 +1611,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 edge=EDGE_TOKENS) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
-        if int(feather_pixels) > int(grow_pixels):
-            raise ValueError(
-                f"feather_pixels {int(feather_pixels)} is wider than grow_pixels {int(grow_pixels)}: the blend "
-                "would reach the subject's own pixels and bring the original back at its edge")
         if grow_by not in GROW_BY:
             raise ValueError(f"unknown grow_by {grow_by!r}; one of {list(GROW_BY)}")
         if edge not in EDGES:
@@ -1580,10 +1619,9 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown replace {replace!r}; one of {[REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS]}")
         if start_from not in (START_NOISE, START_TOP):
             raise ValueError(f"unknown start_from {start_from!r}; one of {[START_NOISE, START_TOP]}")
-        if start_from != START_NOISE and paint_out:
-            raise ValueError(
-                "paint_out fills the subject in before the encode, so a softened start has nothing to "
-                "soften: turn one of the two off")
+        refusal = settings_refusal(grow_pixels, feather_pixels, paint_out, start_from)
+        if refusal:
+            raise ValueError(refusal)
         if composite not in (COMPOSITE_REGION, COMPOSITE_CHANGED):
             raise ValueError(f"unknown composite {composite!r}; one of {[COMPOSITE_REGION, COMPOSITE_CHANGED]}")
         if motion_reference not in MOTIONS:

@@ -122,6 +122,15 @@ that could happen.
    tokens give, so the model's labels do not move and only what is put back
    does. `window` reads the choice from the record, an unset record is the
    default bit for bit, and the node refuses an unknown choice.
+16. **A setting the node will refuse is refused when the graph is queued.**
+    (2026-10-10.) `settings_refusal` names a feather wider than the margin and
+    a softened start with `paint_out`, and passes the shipped defaults; the
+    node's `validate_inputs` returns that same message for the same values,
+    True for the defaults, True for a value that is a link and so not known
+    yet, and a message for a margin, a feather or a `start_from` outside what
+    the schema allows (core stops testing an input a validation function
+    names, so the range is tested there). The control: `execute` still raises
+    the same message, for a value that only arrives through a link.
 
 No model, no CUDA, no server.
 
@@ -444,6 +453,44 @@ def check_edge(problems):
         problems.append("edge: it is not the node's last input, optional, defaulting to whole tokens")
     if "edge" not in vm.MASK_KEY_SKIP:
         problems.append("`edge` is not in MASK_KEY_SKIP: a change of edge would track the subject again")
+
+
+def check_queue_time_refusals(problems):
+    node = vm.MiniMaxH3MaskedSource
+    if vm.settings_refusal(vm.GROW_PIXELS, 8) is not None:
+        problems.append("settings_refusal refuses the shipped margin and feather")
+    wide = vm.settings_refusal(0, 8)
+    soft = vm.settings_refusal(vm.GROW_PIXELS, 8, True, vm.START_TOP)
+    if not wide or "wider than grow_pixels" not in wide:
+        problems.append(f"settings_refusal does not name a feather wider than the margin: {wide!r}")
+    if not soft or "paint_out" not in soft:
+        problems.append(f"settings_refusal does not name a softened start with paint_out: {soft!r}")
+    if vm.settings_refusal(8, 8) is not None or vm.settings_refusal(vm.GROW_PIXELS, 8, True) is not None:
+        problems.append("settings_refusal refuses a feather equal to the margin, or paint_out alone")
+    if node.validate_inputs(vm.GROW_PIXELS, 8) is not True:
+        problems.append("validate_inputs does not pass the shipped defaults")
+    if node.validate_inputs(0, 8) != wide or node.validate_inputs(vm.GROW_PIXELS, 8, True, vm.START_TOP) != soft:
+        problems.append("validate_inputs does not return settings_refusal's message for the same values")
+    if node.validate_inputs(None, 8) is not True or node.validate_inputs(vm.GROW_PIXELS, None) is not True:
+        problems.append("validate_inputs refuses a margin or feather that is a link, which it cannot know yet")
+    for label, got in (("a margin over the schema's largest", node.validate_inputs(vm.GROW_PIXELS_MAX + 1, 8)),
+                       ("a negative feather", node.validate_inputs(vm.GROW_PIXELS, -1)),
+                       ("a feather over the schema's largest", node.validate_inputs(vm.GROW_PIXELS_MAX, vm.FEATHER_PIXELS_MAX + 1)),
+                       ("an unknown start_from", node.validate_inputs(vm.GROW_PIXELS, 8, False, "from somewhere"))):
+        if not isinstance(got, str):
+            problems.append(f"validate_inputs passes {label}: it names the input, so core no longer tests it")
+    ranges = {i.id: (i.min, i.max) for i in node.define_schema().inputs if i.id in ("grow_pixels", "feather_pixels")}
+    if ranges != {"grow_pixels": (0, vm.GROW_PIXELS_MAX), "feather_pixels": (0, vm.FEATHER_PIXELS_MAX)}:
+        problems.append(f"the schema's ranges {ranges} are not the constants the validation tests against")
+    # the control: the run-time path still refuses, with the same words
+    frames, mask = torch.rand(FRAMES, H, W, 3), torch.zeros(FRAMES, H, W)
+    mask[:, 20:40, 30:50] = 1.0
+    try:
+        node.execute(frames, mask, grow_pixels=0, feather_pixels=8)
+        problems.append("execute runs a feather wider than the margin")
+    except ValueError as e:
+        if str(e) != wide:
+            problems.append(f"execute refuses a feather wider than the margin in other words: {e}")
 
 
 def check_others(problems):
@@ -1425,7 +1472,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1434,7 +1481,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words")
     return 1 if problems else 0
 
 

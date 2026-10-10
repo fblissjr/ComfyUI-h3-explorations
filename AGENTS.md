@@ -74,6 +74,13 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
 - **ComfyUI caches.** A wall time or VRAM figure is a statement about cache
   state; say which state you measured in. `/history` is the observable for
   which arm ran; a log line can belong to someone else's run.
+- **A masked render is run on data, before and after.** A no-sampling
+  capture and its flags before it samples; the same capture read first when
+  it goes wrong; a "why" cites a row, a frame range or a measured figure;
+  every flag gets its outcome. `docs/wiki/masked_v2v.md`, "The rule: data
+  before a render, and the same data after"; the tool is
+  `bench/capture_masked_run.py`, and captured data lives under the untracked
+  `data/`.
 - **A rendered clip cannot A/B a numerical change.** The trajectory diverges
   at frame zero under any sampler. Grade on captured activations
   (`bench/grade_sage_on_capture.py`).
