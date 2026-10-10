@@ -412,6 +412,17 @@ def no_context_geometry(latent_t: int) -> dict:
             "stride_frames": frames, "stride_seconds": frames / FPS}
 
 
+#: The mask the context's latent steps carry: how much of the stream's noise the frames a window inherits are
+#: shown with. 0 is what the node has always written: the previous window's frames fed clean on every step,
+#: labelled at the conditioning timestep and never moved (`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint`,
+#: `comfy/ldm/minimax/model.py::_forward`, `t_pin_v`). Inherited. A value above 0 is REASONED and untested
+#: (2026-10-10): core runs a mask value m as that row's own strength ("mask value m puts a row at sigma =
+#: m * sigma_stream"), so the context is shown part noised and is redrawn by that share on every step. It is
+#: for a continuation that follows its context more than its motion reference; the reference-noise node
+#: cannot reach these rows, because masked rows read core's constant and not the payload it sets.
+CONTEXT_NOISE = 0.0
+
+
 class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -452,6 +463,16 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
                                          "connected, this window's audio rows are sliced from it on the grid "
                                          "instead of encoding the slice, so every window shares the seam's "
                                          "values exactly. `audio` is still needed for the muxer outputs.")),
+                # appended 2026-10-10: the context shown weaker (`CONTEXT_NOISE`)
+                io.Float.Input("context_noise", default=CONTEXT_NOISE, min=0.0, max=1.0, step=0.05, optional=True,
+                               tooltip=("How much noise the frames kept from the previous window are shown with. "
+                                        "0 shows them clean and fixed, as always. Higher, the model sees them "
+                                        "less sharply and redraws them by that share, so they hold the new "
+                                        "frames less tightly; at 1 they are redrawn whole, which is no context. "
+                                        "The cost: what the previous window already wrote is not redrawn, so the "
+                                        "higher this is, the more this window's first new frame can differ from "
+                                        "the last frame written before it. Those frames are not written either "
+                                        "way. With no source video the whole of them is redrawn by that share.")),
             ],
             outputs=[
                 io.Latent.Output(display_name="latent"),
@@ -466,7 +487,10 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
 
     @classmethod
     def execute(cls, latent, audio_vae, audio, start_seconds, context_frames, previous=None,
-                audio_mask=0.0, level="clip_guard", track_latent=None) -> io.NodeOutput:
+                audio_mask=0.0, level="clip_guard", track_latent=None, context_noise=CONTEXT_NOISE) -> io.NodeOutput:
+        context_noise = float(context_noise)
+        if not 0.0 <= context_noise <= 1.0:
+            raise ValueError(f"context_noise {context_noise} is not between 0 (the context shown clean) and 1 (redrawn whole)")
         video, target_audio = _av_streams(latent["samples"])
         latent_t = int(video.shape[2])
         audio_t = int(target_audio.shape[-1])
@@ -521,7 +545,7 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
             # the tail copied from the previous window must start on its run phase
             window_geometry(prev_t, int(context_frames))
             video[:, :, :c] = prev_video[:, :, prev_t - c:].to(device=video.device, dtype=video.dtype)
-            video_mask[:, :, :c] = 0.0
+            video_mask[:, :, :c] = context_noise
         out = latent.copy()
         out["samples"] = comfy.nested_tensor.NestedTensor((video, z))
         audio_part = torch.full((1, 1) + tuple(z.shape[2:]), float(audio_mask), dtype=torch.float32)
@@ -544,7 +568,8 @@ class MiniMaxH3FreezeAudioWindow(io.ComfyNode):
         next_start = start_seconds + next_geo["stride_seconds"]
         report = (
             f"window from {start_seconds:.3f}s: {geo['frames']} frames, context {geo['context_frames']} frames "
-            f"({c} latent steps{' copied from the previous window and frozen' if has_context else ''}), "
+            f"({c} latent steps{' copied from the previous window and frozen' if has_context else ''}"
+            f"{f', shown at noise {context_noise:g} and redrawn by that share: this window may not start where the last one ended' if has_context and context_noise > 0 else ''}), "
             f"next window starts at {next_start:.3f}s; track from step {start_step} ({start_seconds:.3f}s), "
             f"{audio_t} steps frozen at mask {float(audio_mask):g}"
             + (f", {padded_steps} trailing steps silent" if padded_steps else "")

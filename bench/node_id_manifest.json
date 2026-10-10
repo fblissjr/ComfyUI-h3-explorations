@@ -89,7 +89,8 @@
       "lists",
       "source",
       "save_mask_review",
-      "continue_from"
+      "continue_from",
+      "context_noise"
     ],
     "node_id": "MiniMaxH3AudioFreezeSong",
     "outputs": [
@@ -288,7 +289,8 @@
       "previous",
       "audio_mask",
       "level",
-      "track_latent"
+      "track_latent",
+      "context_noise"
     ],
     "node_id": "MiniMaxH3FreezeAudioWindow",
     "outputs": [

@@ -77,6 +77,10 @@ LITERAL_ZERO = {
     ("pdd_lora.py", "head_strength"): (
         "same: zero means the head patch contributes nothing, and the guard "
         "skips installing it."),
+    ("audio_freeze.py", "context_noise"): (
+        "zero noise is zero noise: the context's rows carry this value as their mask, "
+        "0 included, on one code path. The `> 0` test only adds the sentence about the "
+        "seam to the window's report when the context is shown with any noise."),
 }
 
 #: Zero selects a different MODE. This is the defect the check exists for, and

@@ -7,6 +7,20 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.271.0
+<!-- changelog.d/mrnemo-context-noise.md -->
+
+### Added
+
+- `context_noise` on `MiniMaxH3AudioFreezeSong` and `MiniMaxH3FreezeAudioWindow`: how much noise the frames a window keeps from the one before are shown with. Appended last on both, optional, and its default (`audio_freeze.CONTEXT_NOISE`) writes the mask every render so far was made with, bit for bit, so no graph changes. A continuation window has been seen to follow its frozen context more than its motion reference; the cause read from core is that a row at mask 0 is fed clean on every step and labelled at the conditioning timestep (`comfy/model_base.py::MiniMaxH3.scale_latent_inpaint`, `comfy/ldm/minimax/model.py::_forward`), and that `reference_noise.py` cannot reach such a row, because masked rows read core's constant and not the payload. Core runs a mask value between 0 and 1 as that row's own strength, so the window node now writes this value on the context's latent steps where it wrote 0: the context is shown part noised and redrawn by that share. With a source wired the song node's minimum with the region keeps the plate at 0, so only the region's share of the context is affected. The context's frames are not written either way. A value above 0 is reasoned and untested; nothing patches core. What it costs, said in both tooltips and in the window's report line: the frames the previous window wrote are not redrawn, so above 0 a window's first new frame can differ from the last frame written before it. Two things it leaves as they are: a stored window's context steps are then a blend of what was copied and what was sampled (the next window copies a window's tail, so nothing reads them; `bench/recomposite_window.py` says so for a decode), and the frozen video cache, which no masked graph wires, decides what is frozen by its own threshold and not by this input. The input is not among `loop_resume.SONG_PER_WINDOW`, so a run at another value shares no stored window with one at 0.
+- `docs/wiki/masked_v2v.md`: what "frozen" is in core's terms, why a window follows its context, and the levers that loosen it; and a table of every place in the lane that holds a thing over a latent step's frames, what that does at a cut inside the step, and what names it.
+
+### Checks
+
+- `bench/check_audio_freeze.py`: the default writes the same mask as the input unwired; a value lands on the context's latent steps and nowhere else and changes no latent, trim or next start; a first window is untouched; a value outside 0 to 1 is refused; the input is last and optional on both nodes and the song node hands it on.
+- `bench/check_video_mask.py`, item 21: the loop run with `context_noise` over a subject on every frame hands the second window's sampler a mask with the value on the context's region cells, 0 on the context's plate and the default run's on every new step. Seen red on a scratch copy with the song node not handing the value on, and with the plate taking the value too.
+- `bench/check_literal_widgets.py` lists the input as a literal zero (zero noise is zero noise; the `> 0` test only words the report); `bench/node_id_manifest.json` records the two appended inputs.
+
 ## 0.270.0
 <!-- changelog.d/mrfrog-two-trackers-and-box-floor.md -->
 

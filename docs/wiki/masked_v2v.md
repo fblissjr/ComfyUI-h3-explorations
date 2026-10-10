@@ -542,6 +542,58 @@ window shares with the one before are frozen latent steps copied whole
 (`audio_freeze_song.py`), which is why the context is a length that ends
 on a step's edge.
 
+**Everything else that is held over a step.** An audit of the lane's code
+on 2026-10-10 for every place that holds a thing over a latent step's frames
+or reads per frame what is per step. Read from the code; the one measured
+row says so.
+
+| place | what it holds over a step | what that does at a cut inside the step | named by |
+|---|---|---|---|
+| `video_mask.token_mask` (the region) | the maximum of the subject's cells over the step's frames | the region lies on the other shot's frames and the sampler regenerates them | the preflight's `region_carried_across_a_cut` (`loop_plan.split_steps`); the song node's report |
+| `pixel_alpha`, the composite's weight | the step's region on each of its frames | the render is laid on the other shot's frames | fixed: `cut_gate` in `lay_window` |
+| `changed_alpha`'s hold | the maximum over the step of "changed, or the old subject stood here" | the far frames differ from the source over the whole region, so the subject's own frames keep the whole region and less of the margin is restored (measured, `bench/results/2026-10-10_saved_windows_laid_again.json`) | nothing; `data/CAPTURE_GAPS.md` U6 |
+| `keep` in `window` | a token with a kept pixel on any frame of the step is kept on all of them | with the subject on both sides, one shot's keep leaves the source showing inside the other shot's subject | the preflight's flag for a subject on both sides of a cut in one step |
+| `others` in `window` | the same hold, taken out unless the subject's own mask has a pixel in the token on a frame of the step | the same | the same flag |
+| `cut_gate` | which side of each cut the subject is on, per step | with the subject on both sides it gates nothing: each side has the other's region | the same flag; open (a region per side) |
+| `start_zero_tokens` (a late start) | the body's hole and the top share kept, as maxima over the step | the other shot's frames start from the same emptied cells; the kept top of one shot is kept on the other | nothing; only with `start_from` other than noise |
+| the mask review's region layer (`token_region`) | the region the sampler was given, per step | under `whole region` a gated frame still shows the region tinted though nothing was laid on it; under `only what changed` the outline is the gated weight | a reading caveat, not a fault |
+| the capture's planned region | per frame, where the sampler's is per step | a plan's "inside the region" figures are a floor, most of all at a cut and across a fast move | `data/CAPTURE_GAPS.md` 30 |
+| the frozen context | whole latent steps copied from the window before | after a cut the context is another shot's picture | one load per shot |
+| the video VAE | clips of one cycle, encoded apart and causally, decoded a window of steps at a time | both shots share a decode window; ordinary, and not the lane's to change | the paragraph above |
+
+Not held over a step, checked: the motion reference and a wired motion
+video are cut per frame in step with the source, a short one holding its
+last frame; the margin under `the subject's size` is each frame's own, from
+a running median that keeps a step at a cut; the zoom's boxes are per shot;
+the trim and what a window writes fall on a step's edge.
+
+**What "frozen" is, and why a window follows its context.** Read from
+core's code on 2026-10-10, nothing run. A row at mask 0, a context row or a
+plate row alike, is conditioning inside the picture: on every step the
+sampler feeds it the clean latent (`comfy/model_base.py`,
+`MiniMaxH3.scale_latent_inpaint`), the model labels it at the conditioning
+timestep (`comfy/ldm/minimax/model.py`, `_forward`: `t_pin_v`), and its
+velocity is zeroed. It is never noised. A reference still and a reference
+video's own copy carry the same label by another path, but their level can
+be set (`reference_noise.py`), and a masked row's cannot: both places read
+core's constant and not the payload that node writes. So a continuation
+window is shown the frames it inherits exactly as clean and as trusted as
+its references, at the canvas's full size, next to the frames it draws,
+and a short window holds more rows of them than of a motion video at a
+small short edge. Renders of 2026-10-08 and 2026-10-10 followed the
+context's pose where the motion video's had moved on
+(`docs/research/postmortems/`, the masking board's card on it).
+
+The levers that loosen it without a patch to core: fewer context frames
+(`context_frames`), none (a load of its own, `continue_from` unwired), a
+longer window, a larger motion video, and `context_noise` on the song node
+and the window node (`audio_freeze.CONTEXT_NOISE`): core runs a mask value
+between 0 and 1 as that row's own strength, so the context's rows can be
+shown part noised and redrawn by that share. With a source wired the
+plate's rows stay at 0 (the song node takes the minimum with the region),
+so only the region's share of the context loosens. Its default is the mask
+every render so far was made with; any other value is untested.
+
 ## Known limits
 
 Each line names where the evidence is. "Seen" means on a render or a tile.

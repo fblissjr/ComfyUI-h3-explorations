@@ -28,6 +28,11 @@ frames a latent step lays across a cut (`video_mask.cut_gate`).
   A load that was capped inside the window (one load per shot) needs `--source-frames`, the cap: the node holds
   the last frame from there, and so must this.
 
+**A window rendered with `context_noise` above 0** (the song node, 2026-10-10) holds on its context's latent steps
+a blend of what was copied from the window before and what was sampled: decoded here, those frames are a redrawn
+context, not the previous window's frames. They are trimmed from the window's video, so the rows marked written
+are unaffected.
+
 **The decode is a model.** It is the video VAE: no sampling, but card time, or minutes on the CPU. `--device cpu`
 (the default) opens no CUDA context beside a render; `--device cuda` is for a gap in the queue. The decode is kept
 under `--out` as `decoded_<window's name>.npy` (half floats) and read from there the next time. `--decode-only`

@@ -121,7 +121,7 @@ import latent_preview
 from comfy_extras.nodes_custom_sampler import Guider_Basic
 from comfy_extras.nodes_minimax_h3 import FPS, _empty_av_latent
 
-from .audio_freeze import MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffmpeg, _stereo
+from .audio_freeze import CONTEXT_NOISE, MiniMaxH3EncodeTrack, MiniMaxH3FreezeAudioWindow, _ffmpeg, _stereo
 from .conditioning import MiniMaxH3Conditioning
 from . import loop_plan, loop_resume, part_coverage, shot_table
 from .prompt_lists import H3PromptLists, fill_windows
@@ -346,6 +346,17 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                          "context_frames frames before its first new frame; those frames are not "
                                          "written. To sample as one long run would, set seed to that run's seed "
                                          "plus the windows it rendered. Empty starts cold.")),
+                # appended 2026-10-10: the context shown weaker (`audio_freeze.CONTEXT_NOISE`)
+                io.Float.Input("context_noise", default=CONTEXT_NOISE, min=0.0, max=1.0, step=0.05, optional=True,
+                               tooltip=("How much noise the frames each window keeps from the one before are shown "
+                                        "with. 0 shows them clean and fixed, as always. Higher, the model sees "
+                                        "them less sharply and redraws them by that share, so a window follows "
+                                        "its own movement and text more and the window before it less; at 1 "
+                                        "they are redrawn whole, which is no context. The cost: what the window "
+                                        "before already wrote is not redrawn, so the higher this is, the more a "
+                                        "window's first new frame can differ from the last frame written before "
+                                        "it. Those frames are not written either way. With a source video only "
+                                        "the region's share of them is affected: the rest stays the source's.")),
             ],
             outputs=[
                 io.String.Output(display_name="path"),
@@ -368,7 +379,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 width, height, window_frames, context_frames, extent, seed, audio_mask, level,
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
                 reuse_windows=False, lists=None, source=None, save_mask_review=True,
-                continue_from="") -> io.NodeOutput:
+                continue_from="", context_noise=CONTEXT_NOISE) -> io.NodeOutput:
         import folder_paths
         # A DynamicCombo arrives as one nested dict (the selection under its own
         # id, the option's inputs beside it) or, from an API prompt that sets
@@ -674,7 +685,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             # session removed, and it raised on the first run after (2026-09-13).
             win = MiniMaxH3FreezeAudioWindow.execute(
                 latent, audio_vae, audio, w.start, context_frames,
-                previous=prev, audio_mask=audio_mask, level=level, track_latent=track_latent)
+                previous=prev, audio_mask=audio_mask, level=level, track_latent=track_latent,
+                context_noise=context_noise)
             win = getattr(win, "args", win)
             wlatent, _clip_audio, _span, trim, next_start, wreport, _new_audio = win
             reports.append(f"[{w.number}] {wreport}")

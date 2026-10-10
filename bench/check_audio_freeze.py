@@ -308,6 +308,48 @@ def check_window_geometry(problems):
         _fail(problems, "window 1 did not copy the previous window's last 12 latent steps into its head")
     if v2[:, :, 12:].abs().max() != 0.0:
         _fail(problems, "window 1 wrote outside the context")
+    # `context_noise` (2026-10-10): its default writes the mask the node always wrote, bit for bit; a value
+    # lands on the context's steps and nowhere else, changes no latent, and is said in the report
+    named = getattr(af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39, previous=prev,
+                                                          context_noise=af.CONTEXT_NOISE), "args", None)
+    for a, b in zip(lat["noise_mask"].unbind(), named[0]["noise_mask"].unbind()):
+        if not torch.equal(a, b):
+            _fail(problems, "context_noise at its default does not write the mask the node writes with the input unwired")
+    soft = getattr(af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39, previous=prev,
+                                                         context_noise=0.5), "args", None)
+    svm, sam = soft[0]["noise_mask"].unbind()
+    if not bool((svm[:, :, :12] == 0.5).all()) or svm[:, :, 12:].min() != 1.0 or sam.max() != 0.0:
+        _fail(problems, "context_noise 0.5 must put 0.5 on the context's 12 latent steps and leave every other row as it was")
+    if not torch.equal(soft[0]["samples"].unbind()[0], v2) or soft[3] != trim or soft[4] != next_start:
+        _fail(problems, "context_noise changed the window's latent, its trim or where the next window starts")
+    if "shown at noise 0.5" not in soft[5] or "shown at noise" in _rep:
+        _fail(problems, f"the report says the context's noise only when it is above 0: {soft[5]!r}")
+    unseen = getattr(af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 0.0, 39, previous=None,
+                                                           context_noise=0.5), "args", None)
+    if unseen[0]["noise_mask"].unbind()[0].min() != 1.0:
+        _fail(problems, "context_noise touched a first window, which has no context")
+    for bad in (-0.1, 1.5):
+        try:
+            af.MiniMaxH3FreezeAudioWindow.execute(fresh, FakeAudioVAE(), song, 306 / 24, 39, previous=prev, context_noise=bad)
+            _fail(problems, f"context_noise {bad} was accepted")
+        except ValueError:
+            pass
+    if af.CONTEXT_NOISE != 0.0:
+        _fail(problems, f"CONTEXT_NOISE is {af.CONTEXT_NOISE}: the default must stay the mask every render so far was made with")
+    for name in ("audio_freeze.py", "audio_freeze_song.py"):
+        text = (REPO / name).read_text(encoding="utf-8")
+        at = text.find('io.Float.Input("context_noise", default=CONTEXT_NOISE, min=0.0, max=1.0, step=0.05, optional=True,')
+        if at < 0 or "io." in text[at + 20:text.find("outputs=[", at)].split("tooltip=")[1]:
+            _fail(problems, f"{name}: context_noise must be the node's last input, optional, at the shared default")
+    if "context_noise=context_noise)" not in (REPO / "audio_freeze_song.py").read_text(encoding="utf-8"):
+        _fail(problems, "the song node does not hand its context_noise to the window node")
+    # a changed context_noise changes what every window after the first samples, so it must change every
+    # stored window's key: it stays OUT of the inputs the graph signature skips
+    import loop_resume
+    if "context_noise" in loop_resume.SONG_PER_WINDOW:
+        _fail(problems, "context_noise is among loop_resume.SONG_PER_WINDOW: a run at another value would reuse windows sampled at this one")
+    if "may not start where the last one ended" not in soft[5]:
+        _fail(problems, f"the report does not say what a context shown with noise costs at the seam: {soft[5]!r}")
     vm, am = lat["noise_mask"].unbind()
     if vm[:, :, :12].max() != 0.0 or vm[:, :, 12:].min() != 1.0 or am.max() != 0.0:
         _fail(problems, "window 1's masks are wrong")

@@ -200,7 +200,10 @@ that could happen.
     subject is on carries the bright cells. Each window leaves a region
     file that reads back as `window` makes the window's mask and tokens,
     with its first frame and trim; a stale one from an earlier run is
-    replaced; and with `keep_windows` off the folder is gone.
+    replaced; and with `keep_windows` off the folder is gone. With
+    `context_noise` the mask the second window's sampler is handed carries
+    the value on the context's region cells, 0 on the context's plate, and
+    is the default run's everywhere else.
 
 No model, no CUDA, no server.
 
@@ -876,9 +879,12 @@ def check_song_loop(problems):
         def set_conds(self, conds):
             pass
 
+        masks: list = []        # the video mask each window's sampler was handed, in order
+
         def sample(self, noise, latent_image, sampler, sigmas, denoise_mask=None, callback=None, disable_pbar=False, seed=None):
             video, audio = latent_image.unbind()
             video = video.clone()
+            Sampler.masks.append(denoise_mask.unbind()[0].clone())
             asked = denoise_mask.unbind()[0].expand_as(video[:, 0:1]) > 0.5
             video[:, 0:1] = torch.where(asked, torch.ones_like(video[:, 0:1]), video[:, 0:1])
             return comfy.nested_tensor.NestedTensor((video, audio))
@@ -890,7 +896,7 @@ def check_song_loop(problems):
 
     track = {"waveform": torch.zeros(1, 2, total * 32000 // 24), "sample_rate": 32000}
 
-    def run(out_dir: str, prefix: str, **more):
+    def run(out_dir: str, prefix: str, record=None, **more):
         real = (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
                 song.comfy.sample.fix_empty_latent_channels, song.latent_preview.prepare_callback)
         song.Guider_Basic, song.MiniMaxH3Conditioning = Sampler, Conditioning
@@ -901,7 +907,7 @@ def check_song_loop(problems):
             got = song.MiniMaxH3AudioFreezeSong.execute(
                 object(), Encoder(), VideoVAE(), AudioVAE(), track, object(), torch.linspace(1.0, 0.0, 5), "a prompt", "",
                 False, width, height, window, context, "whole", 7, 0.0, "clip_guard", prefix, 4,
-                save_metadata_png=False, source=source, **more)
+                save_metadata_png=False, source=source if record is None else record, **more)
         finally:
             (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
              song.comfy.sample.fix_empty_latent_channels, song.latent_preview.prepare_callback) = real
@@ -953,6 +959,38 @@ def check_song_loop(problems):
         stem = Path(path).stem
         if beside != sorted([stem + ".mp4", stem + "_with_mask.mp4", stem + shots.SUFFIX_JSON, stem + shots.SUFFIX_TEXT]):
             _fail(problems, f"song loop: beside the render are {beside}; it owes the video, its mask review and the shot table")
+        # `context_noise` (2026-10-10): the mask the second window's sampler is handed carries the value on the
+        # context's steps where the region is, 0 on the context's plate, and is the default run's on every new step
+        # over a subject who is on every frame, so the context holds region and plate both
+        everywhere = torch.zeros(total, height, width)
+        everywhere[:, 0:8, 0:8] = 1.0                    # small and in a corner: its region is one token of this canvas, not all of it
+        held = getattr(vm.MiniMaxH3MaskedSource.execute(frames, everywhere, grow_pixels=8, feather_pixels=2,
+                                                        composite=vm.COMPOSITE_CHANGED, shot_table=table), "args", None)[0]
+        Sampler.masks.clear()
+        try:
+            run(tmp, "w/run", record=held)
+            plain = [m.clone() for m in Sampler.masks]
+            Sampler.masks.clear()
+            noisy_report = run(tmp, "v/run", record=held, context_noise=0.5)[1]
+        except Exception as exc:  # noqa: BLE001 -- the loop raising at all is the finding
+            _fail(problems, f"song loop: the loop raised with context_noise 0.5: {type(exc).__name__}: {exc}")
+            return
+        noisy = [m.clone() for m in Sampler.masks]
+        steps = next(t for t in range(1, window + 1) if af.pixel_frames(t) == window)
+        ctx = next(t for t in range(1, steps) if af.pixel_frames(t) == context)
+        region = vm.window(held, window - context, window, width, height, steps, height // 16, width // 16)[2][:ctx] > 0.5
+        if len(plain) != 2 or len(noisy) != 2 or not torch.equal(plain[0], noisy[0]):
+            _fail(problems, f"song loop: context_noise changed the first window's mask, or a window was not sampled ({len(plain)}, {len(noisy)})")
+        elif not region.any() or region.all():
+            _fail(problems, "song loop: the fixture's context has no region, or nothing but region; the case below would show nothing")
+        else:
+            was, now = plain[1][0, 0], noisy[1][0, 0]
+            if bool(was[:ctx].any()) or not bool((now[:ctx][region] == 0.5).all()) or bool(now[:ctx][~region].any()) \
+                    or not torch.equal(was[ctx:], now[ctx:]):
+                _fail(problems, "song loop: with context_noise 0.5 the second window's mask must be 0.5 on the context's region cells, "
+                                "0 on the context's plate and unchanged on its new steps, and all 0 on the context at the default")
+        if "shown at noise 0.5" not in noisy_report:
+            _fail(problems, "song loop: the report does not say the context was shown with noise")
         gone = run(tmp, "u/run", keep_windows=False)
         if os.path.isdir(Path(tmp) / "u" / "run_windows") or not os.path.isfile(gone[0]):
             _fail(problems, f"song loop: with keep_windows off the windows folder still holds "
