@@ -443,6 +443,48 @@ Added 2026-10-10 (mrwolf), at the lead's ask, before the case is measured.
   (`mouth_open_with_no_voice`). The render's column is empty there: it needs
   the part model's class map of each render, queued when this was written.
   So the case's frames are measured and the case itself is not yet.
+- **Added 2026-10-10 (mrdeer): the case holds, by measure.** With the
+  render's own class map read, the render's mouth over the source's open
+  run stays at its ordinary opening while the source's widens, and over the
+  rest of the shot it matches the source's size; its timing follows the
+  source's throughout, with no motion video and no voice. So the missing
+  channel is narrower than "the mouth": it is how far it opens. Figures:
+  `mouth__singer.json` in `data/2026-10-10_fun_face_street_0294_run`
+  (untracked), `open_with_no_voice`. The gate raises the run before a
+  render (`mouth_open_with_no_voice`). One shot, two renders of it, one
+  seed.
+
+## Whether a render looks like the reference
+
+Added 2026-10-10 (mrdeer), after the owner asked it of a small face.
+
+- **Not built, and one candidate is ruled out.** Every reading the capture
+  makes of a render asks whether it differs from the source (`changed`,
+  `look`, `ends`). None asks whether it looks like the reference still. A
+  face that is new and nobody's in particular passes all of them.
+- **Tried once and it cannot: the tracker's own signature**
+  (`subject_track.signature`, the trunk's features under a detected head).
+  On a few frames each of two face passes, one whose face the owner
+  accepted and one in question, a render and its source are almost the
+  same head to it, and a render is nearer the reference still than its
+  source is by an amount that is small on both passes and no larger on the
+  accepted one. Figures: `data/2026-10-10_fun_likeness_try.json`
+  (untracked; the script is a session's one-off and nothing ships it). Do
+  not try it again for this. Two limits on what that rules out: it was
+  read under a whole head, hair and hat included, which a face pass leaves
+  alone; and it was built to tell people apart across a cut.
+- **What it does not rule out:** a measure on the face part's own pixels,
+  by a model made for faces. None is in the pack or its checkouts.
+- **What exists in its place:** a warning before a render when the face a
+  pass will replace is only a few of the model's tokens tall
+  (`face_small_in_tokens`; its line is unmeasured and its comment says how
+  little it rests on).
+- **A related state found the same day:** a part region that holds the
+  whole head takes the head's angle and the eyes from the reference still
+  when nothing in the graph says where the head points (one hair-and-face
+  load, read from stills). The source's head angle is a column of the
+  capture for a pose table with 3D keypoints; the still's own is not
+  measured anywhere.
 
 ## The states a text has been made to carry
 
