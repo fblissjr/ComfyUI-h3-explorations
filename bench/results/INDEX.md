@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-10 | sam3d | [ComfyUI core's SAM 3D Body against Meta's own inference code, on the same image, boxes and camera (2026-10-10)](2026-10-10_sam3d_body_core_against_meta.md) | on two public samples, on the CPU in float32: core's port computes what Meta's code computes once both are given the same crop, to under the difference between Meta's own two precisions for five boxes of six; as shipped core is off Meta by millimetres, all of it from how core samples the crop, smallest when the person's crop is about the model's input size and larger when it is shrunk or enlarged; one hand moved by centimetres where the two sides disagreed on using the hand decoder; the camera is the same on both sides; expression is zero on both |
 | 2026-10-09 | whole-frame | [Whole-frame video to video on one clip: what the text decides, how small the video model's copy can be, and when the still is needed (2026-10-09)](2026-10-09_whole_frame_text_and_copy_size.md) | on one clip, read from stills and one timing measure and not judged on playback: a window's text decided whether the render kept its source's framing in five matched pairs; the video model's copy of the source held all five windows at a 576 short edge and followed more loosely at 384; a lead who is already in the source kept his face with no still wired when the video model had its copy, and lost it when it did not |
 | 2026-10-09 | masked video to video | [Masked video to video on one window where the subject goes from large to small: a text written to what the window shows, and the finer edge (2026-10-09)](2026-10-09_masked_text_and_edge_one_window.md) | not judged. One window, one seed, three renders, read from stills only: the control and the finer-edge render show the lead facing the camera at the start, where the source shows a back, and a bare-headed figure in a white shirt from about the middle; the render whose text names only what the window shows keeps the cap and T-shirt on every still read. Nothing here is a default. |
 | 2026-10-09 | masked video to video | [Why three masked renders of one window each came out wrong: ten more renders, each one change, and what was measured (2026-10-09)](2026-10-09_masked_one_window_why.md) | on one window of one clip with one lead: the wrong-way start is the node's own text on a window that opens on the lead's back, and the sentences saying which way he faces fix it alone; the other man's look came at one seed of two and not without the motion video; the half cap is in the model's draw and tied to that one opening; the tracker's mask sits on its own frame throughout; about half of what is redrawn is not the lead, and a lower margin brings the other man's look back for a stretch. Partly watched by the owner; nothing is a default. |
@@ -83,7 +84,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-01 | lora | [Where a LoRA at the call spends its time (2026-10-01)](2026-10-01_lora_branch_profile.md) |  |
 | 2026-10-01 | kitchen | [comfy-kitchen: h3-frontier merged to upstream main, 2026-10-01](2026-10-01_kitchen_merge_aade8d5.md) |  |
 
-Data files dated this month and not listed: 96.
+Data files dated this month and not listed: 97.
 
 ## 2026-09
 

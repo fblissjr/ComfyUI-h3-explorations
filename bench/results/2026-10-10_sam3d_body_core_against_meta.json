@@ -1,0 +1,5905 @@
+{
+ "script": "bench/compare_sam3d_body_core_against_meta.py",
+ "records": [
+  {
+   "script": "bench/compare_sam3d_body_core_against_meta.py",
+   "image": "dancing",
+   "image_size_wh": [
+    2250,
+    1500
+   ],
+   "boxes_xyxy": [
+    [
+     0.0,
+     0.0,
+     2250.0,
+     1500.0
+    ],
+    [
+     732.0,
+     114.0,
+     1523.0,
+     1451.0
+    ]
+   ],
+   "fov_arm_degrees": 55.0,
+   "core": {
+    "file": "sam_3d_body_dinov3.safetensors",
+    "backbone_dtype": "torch.float32",
+    "device": "cpu",
+    "dynamic_vram": false,
+    "torch": "2.14.1+cu132"
+   },
+   "meta": {
+    "released_backbone_dtype": "torch.bfloat16",
+    "float32_backbone_dtype": "torch.float32",
+    "device": "cpu"
+   },
+   "people": [
+    {
+     "person": 0,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.017764819785952568,
+         "max": 0.04927491769194603,
+         "mean_after_centring": 0.013719290494918823
+        },
+        "keypoints_3d_m": {
+         "mean": 0.018449697643518448,
+         "max": 0.046289242804050446
+        },
+        "keypoints_2d_px": {
+         "mean": 4.456260681152344,
+         "max": 13.974102973937988
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.018274208530783653,
+          "keypoints_2d_px_mean": 9.423741340637207,
+          "keypoints_2d_px_max": 13.974102973937988
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.016468720510601997,
+          "keypoints_2d_px_mean": 5.993854522705078,
+          "keypoints_2d_px_max": 8.749648094177246
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.019595470279455185,
+          "keypoints_2d_px_mean": 1.746238112449646,
+          "keypoints_2d_px_max": 2.3158154487609863,
+          "about_the_wrist_m_mean": 0.0006990709807723761
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.019515346735715866,
+          "keypoints_2d_px_mean": 4.299520492553711,
+          "keypoints_2d_px_max": 5.342305660247803,
+          "about_the_wrist_m_mean": 0.0013057254254817963
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.11005863547325134,
+          0.8499136567115784,
+          3.9155423641204834
+         ],
+         "b": [
+          0.11293597519397736,
+          0.8569141626358032,
+          3.9199628829956055
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.0759492814540863,
+         "mean_abs": 0.06094321608543396
+        },
+        "body_pose_params": {
+         "max_abs": 0.19807052612304688,
+         "mean_abs": 0.011291929118902444
+        },
+        "hand_pose_params": {
+         "max_abs": 0.06999629735946655,
+         "mean_abs": 0.014126220365546437
+        },
+        "shape_params": {
+         "max_abs": 0.08128458261489868,
+         "mean_abs": 0.02332358273367087
+        },
+        "scale_params": {
+         "max_abs": 0.1885853409767151,
+         "mean_abs": 0.035303424345329404
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.01775061897933483,
+         "max": 0.04821796342730522,
+         "mean_after_centring": 0.013784567825496197
+        },
+        "keypoints_3d_m": {
+         "mean": 0.018222451210021973,
+         "max": 0.045288607478141785
+        },
+        "keypoints_2d_px": {
+         "mean": 4.530519008636475,
+         "max": 14.78838062286377
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.018574830144643784,
+          "keypoints_2d_px_mean": 9.816350936889648,
+          "keypoints_2d_px_max": 14.78838062286377
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.016463924199342728,
+          "keypoints_2d_px_mean": 6.105252265930176,
+          "keypoints_2d_px_max": 9.002518653869629
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.018375152722001076,
+          "keypoints_2d_px_mean": 1.8147950172424316,
+          "keypoints_2d_px_max": 2.399723768234253,
+          "about_the_wrist_m_mean": 0.000839034968521446
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.019911861047148705,
+          "keypoints_2d_px_mean": 4.263003826141357,
+          "keypoints_2d_px_max": 5.089826583862305,
+          "about_the_wrist_m_mean": 0.0013952308800071478
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.11005863547325134,
+          0.8499136567115784,
+          3.9155423641204834
+         ],
+         "b": [
+          0.11300474405288696,
+          0.8571248650550842,
+          3.9192981719970703
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.07551416754722595,
+         "mean_abs": 0.06017268697420756
+        },
+        "body_pose_params": {
+         "max_abs": 0.2244504690170288,
+         "mean_abs": 0.011761124711483717
+        },
+        "hand_pose_params": {
+         "max_abs": 0.05841636657714844,
+         "mean_abs": 0.013439445127948636
+        },
+        "shape_params": {
+         "max_abs": 0.07928776741027832,
+         "mean_abs": 0.023726348082224527
+        },
+        "scale_params": {
+         "max_abs": 0.16107600927352905,
+         "mean_abs": 0.033631903352215886
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0007864065119065344,
+         "max": 0.001851842156611383,
+         "mean_after_centring": 0.000749882310628891
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0008302871719934046,
+         "max": 0.0015675097238272429
+        },
+        "keypoints_2d_px": {
+         "mean": 0.22710086405277252,
+         "max": 1.0418871641159058
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0010921602370217443,
+          "keypoints_2d_px_mean": 0.7168632745742798,
+          "keypoints_2d_px_max": 1.0418871641159058
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0004067930276505649,
+          "keypoints_2d_px_mean": 0.17295856773853302,
+          "keypoints_2d_px_max": 0.3484122157096863
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0013717649271711707,
+          "keypoints_2d_px_mean": 0.10271789878606796,
+          "keypoints_2d_px_max": 0.23063912987709045,
+          "about_the_wrist_m_mean": 0.00038202572613954544
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0006902855820953846,
+          "keypoints_2d_px_mean": 0.29417237639427185,
+          "keypoints_2d_px_max": 0.8009074926376343,
+          "about_the_wrist_m_mean": 0.0004490695137064904
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.11300474405288696,
+          0.8571248650550842,
+          3.9192981719970703
+         ],
+         "b": [
+          0.11293597519397736,
+          0.8569141626358032,
+          3.9199628829956055
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.0016083717346191406,
+         "mean_abs": 0.0007705291112263998
+        },
+        "body_pose_params": {
+         "max_abs": 0.030913174152374268,
+         "mean_abs": 0.0008738468203315497
+        },
+        "hand_pose_params": {
+         "max_abs": 0.022259891033172607,
+         "mean_abs": 0.0040671635005209185
+        },
+        "shape_params": {
+         "max_abs": 0.005576327443122864,
+         "mean_abs": 0.0013582845942841635
+        },
+        "scale_params": {
+         "max_abs": 0.042234331369400024,
+         "mean_abs": 0.007865305191704206
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.019395379349589348,
+         "max": 0.04991382360458374,
+         "mean_after_centring": 0.015553409233689308
+        },
+        "keypoints_3d_m": {
+         "mean": 0.022461190819740295,
+         "max": 0.046675220131874084
+        },
+        "keypoints_2d_px": {
+         "mean": 6.828015327453613,
+         "max": 14.590326309204102
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.016932543367147446,
+          "keypoints_2d_px_mean": 10.343791007995605,
+          "keypoints_2d_px_max": 14.590326309204102
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.017836354672908783,
+          "keypoints_2d_px_mean": 6.508716106414795,
+          "keypoints_2d_px_max": 12.169235229492188
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.02473260648548603,
+          "keypoints_2d_px_mean": 3.9755382537841797,
+          "keypoints_2d_px_max": 8.803695678710938,
+          "about_the_wrist_m_mean": 0.006932067684829235
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.026571420952677727,
+          "keypoints_2d_px_mean": 9.193110466003418,
+          "keypoints_2d_px_max": 11.222942352294922,
+          "about_the_wrist_m_mean": 0.00840323232114315
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.1228567585349083,
+          0.8609808683395386,
+          3.8458971977233887
+         ],
+         "b": [
+          0.1273368000984192,
+          0.8685018420219421,
+          3.857541084289551
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.07281604409217834,
+         "mean_abs": 0.059224079052607216
+        },
+        "body_pose_params": {
+         "max_abs": 0.1559590846300125,
+         "mean_abs": 0.008710566235888274
+        },
+        "hand_pose_params": {
+         "max_abs": 0.02281057834625244,
+         "mean_abs": 0.006433135194971261
+        },
+        "shape_params": {
+         "max_abs": 0.08055305480957031,
+         "mean_abs": 0.021892058761376475
+        },
+        "scale_params": {
+         "max_abs": 0.0867067277431488,
+         "mean_abs": 0.02032595660005297
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 8.315805462189019e-05,
+         "max": 0.00036014715442433953,
+         "mean_after_centring": 8.275575964944437e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00013604696141555905,
+         "max": 0.0003408430202398449
+        },
+        "keypoints_2d_px": {
+         "mean": 0.040881846100091934,
+         "max": 0.14122678339481354
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 4.4048279960406944e-05,
+          "keypoints_2d_px_mean": 0.035333141684532166,
+          "keypoints_2d_px_max": 0.043859027326107025
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.308182906243019e-05,
+          "keypoints_2d_px_mean": 0.027362868189811707,
+          "keypoints_2d_px_max": 0.05986607074737549
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00013766401389148086,
+          "keypoints_2d_px_mean": 0.056622255593538284,
+          "keypoints_2d_px_max": 0.14122678339481354,
+          "about_the_wrist_m_mean": 0.0001885153615148738
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0002581533626653254,
+          "keypoints_2d_px_mean": 0.04126903414726257,
+          "keypoints_2d_px_max": 0.07907602936029434,
+          "about_the_wrist_m_mean": 9.365094592794776e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.11292753368616104,
+          0.8569353222846985,
+          3.919872283935547
+         ],
+         "b": [
+          0.11293597519397736,
+          0.8569141626358032,
+          3.9199628829956055
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00014322996139526367,
+         "mean_abs": 6.4067542552948e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.006135344505310059,
+         "mean_abs": 0.00013323720453545116
+        },
+        "hand_pose_params": {
+         "max_abs": 0.003641188144683838,
+         "mean_abs": 0.0011163875934909339
+        },
+        "shape_params": {
+         "max_abs": 0.007356762886047363,
+         "mean_abs": 0.0003039397713210848
+        },
+        "scale_params": {
+         "max_abs": 0.01674807071685791,
+         "mean_abs": 0.0028596959808575256
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 6.0133312217658386e-05,
+         "max": 0.00019610437448136508,
+         "mean_after_centring": 6.0049351304769516e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 9.3311675300356e-05,
+         "max": 0.0001941829250426963
+        },
+        "keypoints_2d_px": {
+         "mean": 0.02758965641260147,
+         "max": 0.05528724193572998
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 3.159936022711918e-05,
+          "keypoints_2d_px_mean": 0.02653903141617775,
+          "keypoints_2d_px_max": 0.03741459921002388
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.2941708670696244e-05,
+          "keypoints_2d_px_mean": 0.02492900751531124,
+          "keypoints_2d_px_max": 0.05528724193572998
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 7.516773621318862e-05,
+          "keypoints_2d_px_mean": 0.026750516146421432,
+          "keypoints_2d_px_max": 0.02851250022649765,
+          "about_the_wrist_m_mean": 8.634623554826248e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00018131613614968956,
+          "keypoints_2d_px_mean": 0.03159299120306969,
+          "keypoints_2d_px_max": 0.04266318306326866,
+          "about_the_wrist_m_mean": 3.841034776996821e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.12733587622642517,
+          0.8685183525085449,
+          3.857443332672119
+         ],
+         "b": [
+          0.1273368000984192,
+          0.8685018420219421,
+          3.857541084289551
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00015991926193237305,
+         "mean_abs": 6.090352932612101e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.000398099422454834,
+         "mean_abs": 2.4796421534584878e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 6.052851676940918e-05,
+         "mean_abs": 2.22161826160219e-05
+        },
+        "shape_params": {
+         "max_abs": 0.00021210312843322754,
+         "mean_abs": 5.826834175321791e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0005368888378143311,
+         "mean_abs": 9.49555542320013e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 189.0420379638672,
+         "right_hand_crop_side_px": 199.52503967285156,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 185.65928649902344,
+         "right_hand_crop_side_px": 196.0718231201172,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 185.66748046875,
+         "right_hand_crop_side_px": 196.07958984375,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 185.53184509277344,
+         "right_hand_crop_side_px": 196.02964782714844,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.017005614936351776,
+         "max": 0.04843984916806221,
+         "mean_after_centring": 0.012943816371262074
+        },
+        "keypoints_3d_m": {
+         "mean": 0.017397770658135414,
+         "max": 0.0454680360853672
+        },
+        "keypoints_2d_px": {
+         "mean": 3.969756603240967,
+         "max": 13.098793983459473
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.016592809930443764,
+          "keypoints_2d_px_mean": 8.855585098266602,
+          "keypoints_2d_px_max": 13.098793983459473
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.016942746937274933,
+          "keypoints_2d_px_mean": 6.010505199432373,
+          "keypoints_2d_px_max": 9.098078727722168
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.019103556871414185,
+          "keypoints_2d_px_mean": 1.2687325477600098,
+          "keypoints_2d_px_max": 1.9934039115905762,
+          "about_the_wrist_m_mean": 0.0010789362713694572
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.016382012516260147,
+          "keypoints_2d_px_mean": 3.2723817825317383,
+          "keypoints_2d_px_max": 4.890039920806885,
+          "about_the_wrist_m_mean": 0.0021936316043138504
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.10786861926317215,
+          0.8284683227539062,
+          2.1937742233276367
+         ],
+         "b": [
+          0.11017999798059464,
+          0.8349922299385071,
+          2.1879489421844482
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.06651164591312408,
+         "mean_abs": 0.05555113653341929
+        },
+        "body_pose_params": {
+         "max_abs": 0.19921764731407166,
+         "mean_abs": 0.011191430716964424
+        },
+        "hand_pose_params": {
+         "max_abs": 0.07831710577011108,
+         "mean_abs": 0.013554430068729239
+        },
+        "shape_params": {
+         "max_abs": 0.08109444379806519,
+         "mean_abs": 0.02406637230888009
+        },
+        "scale_params": {
+         "max_abs": 0.26254624128341675,
+         "mean_abs": 0.037050556358216066
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.017004800960421562,
+         "max": 0.047335244715213776,
+         "mean_after_centring": 0.013052912428975105
+        },
+        "keypoints_3d_m": {
+         "mean": 0.017240094020962715,
+         "max": 0.04442125931382179
+        },
+        "keypoints_2d_px": {
+         "mean": 4.004333972930908,
+         "max": 13.858098030090332
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.01690225675702095,
+          "keypoints_2d_px_mean": 9.196592330932617,
+          "keypoints_2d_px_max": 13.858098030090332
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.01686812750995159,
+          "keypoints_2d_px_mean": 6.12640905380249,
+          "keypoints_2d_px_max": 9.35098934173584
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.018211890012025833,
+          "keypoints_2d_px_mean": 1.2243188619613647,
+          "keypoints_2d_px_max": 2.0974974632263184,
+          "about_the_wrist_m_mean": 0.0010412492556497455
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.016756132245063782,
+          "keypoints_2d_px_mean": 3.2239186763763428,
+          "keypoints_2d_px_max": 4.865634918212891,
+          "about_the_wrist_m_mean": 0.001783522660844028
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.10786861926317215,
+          0.8284683227539062,
+          2.1937742233276367
+         ],
+         "b": [
+          0.11019543558359146,
+          0.8352128863334656,
+          2.1875452995300293
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.06592170894145966,
+         "mean_abs": 0.05461539328098297
+        },
+        "body_pose_params": {
+         "max_abs": 0.20118871331214905,
+         "mean_abs": 0.011316911618512376
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0753360390663147,
+         "mean_abs": 0.013388240798290266
+        },
+        "shape_params": {
+         "max_abs": 0.0788387656211853,
+         "mean_abs": 0.02384326943817238
+        },
+        "scale_params": {
+         "max_abs": 0.18669652938842773,
+         "mean_abs": 0.03418187793743398
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0007289270288310945,
+         "max": 0.0019121445948258042,
+         "mean_after_centring": 0.0006717944052070379
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0006880199071019888,
+         "max": 0.001482117222622037
+        },
+        "keypoints_2d_px": {
+         "mean": 0.2115640789270401,
+         "max": 1.022103190422058
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0011251058895140886,
+          "keypoints_2d_px_mean": 0.7060199975967407,
+          "keypoints_2d_px_max": 1.022103190422058
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00040204913238994777,
+          "keypoints_2d_px_mean": 0.15976832807064056,
+          "keypoints_2d_px_max": 0.26739591360092163
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0010571809252724051,
+          "keypoints_2d_px_mean": 0.1297992318868637,
+          "keypoints_2d_px_max": 0.20312705636024475,
+          "about_the_wrist_m_mean": 0.00014911631296854466
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0005279973265714943,
+          "keypoints_2d_px_mean": 0.23233000934123993,
+          "keypoints_2d_px_max": 0.3339471220970154,
+          "about_the_wrist_m_mean": 0.0005560077261179686
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.11019543558359146,
+          0.8352128863334656,
+          2.1875452995300293
+         ],
+         "b": [
+          0.11017999798059464,
+          0.8349922299385071,
+          2.1879489421844482
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.0017201900482177734,
+         "mean_abs": 0.00093574325243632
+        },
+        "body_pose_params": {
+         "max_abs": 0.007954120635986328,
+         "mean_abs": 0.0004962005852056402
+        },
+        "hand_pose_params": {
+         "max_abs": 0.011043727397918701,
+         "mean_abs": 0.003187985918312161
+        },
+        "shape_params": {
+         "max_abs": 0.018985271453857422,
+         "mean_abs": 0.0016666624746802781
+        },
+        "scale_params": {
+         "max_abs": 0.07584971189498901,
+         "mean_abs": 0.008878600251461779
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.01814047060906887,
+         "max": 0.046493321657180786,
+         "mean_after_centring": 0.014478701166808605
+        },
+        "keypoints_3d_m": {
+         "mean": 0.021305853500962257,
+         "max": 0.043512847274541855
+        },
+        "keypoints_2d_px": {
+         "mean": 6.444486618041992,
+         "max": 14.427456855773926
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.015732135623693466,
+          "keypoints_2d_px_mean": 10.276487350463867,
+          "keypoints_2d_px_max": 14.427456855773926
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.016404537484049797,
+          "keypoints_2d_px_mean": 6.431615352630615,
+          "keypoints_2d_px_max": 11.082438468933105
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.025639906525611877,
+          "keypoints_2d_px_mean": 4.068691253662109,
+          "keypoints_2d_px_max": 7.260146617889404,
+          "about_the_wrist_m_mean": 0.006494011729955673
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.023666981607675552,
+          "keypoints_2d_px_mean": 7.921998500823975,
+          "keypoints_2d_px_max": 9.990935325622559,
+          "about_the_wrist_m_mean": 0.008195958100259304
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.12233144789934158,
+          0.8454540371894836,
+          2.1510989665985107
+         ],
+         "b": [
+          0.12472851574420929,
+          0.8519266247749329,
+          2.154477834701538
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.06173075735569,
+         "mean_abs": 0.052444979548454285
+        },
+        "body_pose_params": {
+         "max_abs": 0.14816035330295563,
+         "mean_abs": 0.008627631038924525
+        },
+        "hand_pose_params": {
+         "max_abs": 0.024359136819839478,
+         "mean_abs": 0.0063716241043207614
+        },
+        "shape_params": {
+         "max_abs": 0.084261953830719,
+         "mean_abs": 0.023306417983904894
+        },
+        "scale_params": {
+         "max_abs": 0.05674251914024353,
+         "mean_abs": 0.01757995080281814
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 6.868064519949257e-05,
+         "max": 0.0003323672863189131,
+         "mean_after_centring": 6.466556078521535e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 9.602963837096468e-05,
+         "max": 0.0003133933641947806
+        },
+        "keypoints_2d_px": {
+         "mean": 0.04943389073014259,
+         "max": 0.20200540125370026
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 5.157092891749926e-05,
+          "keypoints_2d_px_mean": 0.04267159849405289,
+          "keypoints_2d_px_max": 0.05427165701985359
+         },
+         "body": {
+          "keypoints_3d_m_mean": 5.1088125474052504e-05,
+          "keypoints_2d_px_mean": 0.02632320113480091,
+          "keypoints_2d_px_max": 0.04610982909798622
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0001584943092893809,
+          "keypoints_2d_px_mean": 0.08789484202861786,
+          "keypoints_2d_px_max": 0.20200540125370026,
+          "about_the_wrist_m_mean": 9.15742784854956e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 9.337201481685042e-05,
+          "keypoints_2d_px_mean": 0.037894703447818756,
+          "keypoints_2d_px_max": 0.07453309744596481,
+          "about_the_wrist_m_mean": 0.00012668062117882073
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.1101696714758873,
+          0.8350268006324768,
+          2.187965154647827
+         ],
+         "b": [
+          0.11017999798059464,
+          0.8349922299385071,
+          2.1879489421844482
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.00010269880294799805,
+         "mean_abs": 6.251285473505656e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.005925208330154419,
+         "mean_abs": 0.00012234531525046304
+        },
+        "hand_pose_params": {
+         "max_abs": 0.003214433789253235,
+         "mean_abs": 0.0008596053553952111
+        },
+        "shape_params": {
+         "max_abs": 0.0006165504455566406,
+         "mean_abs": 0.0001833783255683051
+        },
+        "scale_params": {
+         "max_abs": 0.015500426292419434,
+         "mean_abs": 0.0017459445095612733
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 6.128117820480838e-05,
+         "max": 0.00018201481725554913,
+         "mean_after_centring": 6.003633461659774e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 9.436887921765447e-05,
+         "max": 0.0001802569313440472
+        },
+        "keypoints_2d_px": {
+         "mean": 0.035767290741205215,
+         "max": 0.056482091546058655
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 3.381443093530834e-05,
+          "keypoints_2d_px_mean": 0.027955517172813416,
+          "keypoints_2d_px_max": 0.038506604731082916
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.4614673242904246e-05,
+          "keypoints_2d_px_mean": 0.028184089809656143,
+          "keypoints_2d_px_max": 0.05192868784070015
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 9.325925930170342e-05,
+          "keypoints_2d_px_mean": 0.03447917103767395,
+          "keypoints_2d_px_max": 0.03620254248380661,
+          "about_the_wrist_m_mean": 1.0207095328951254e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00016438894090242684,
+          "keypoints_2d_px_mean": 0.04722077399492264,
+          "keypoints_2d_px_max": 0.056482091546058655,
+          "about_the_wrist_m_mean": 4.426835585036315e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.12473157048225403,
+          0.8519612550735474,
+          2.1544437408447266
+         ],
+         "b": [
+          0.12472851574420929,
+          0.8519266247749329,
+          2.154477834701538
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.0001614689826965332,
+         "mean_abs": 6.698071956634521e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.00040656328201293945,
+         "mean_abs": 3.0146699916935505e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 7.121264934539795e-05,
+         "mean_abs": 2.451422915328294e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0002486705780029297,
+         "mean_abs": 6.102621555328369e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0004235506057739258,
+         "mean_abs": 8.793015565190996e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 198.11572265625,
+         "right_hand_crop_side_px": 193.83074951171875,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 194.42564392089844,
+         "right_hand_crop_side_px": 190.99864196777344,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 194.429443359375,
+         "right_hand_crop_side_px": 191.0144500732422,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 194.27430725097656,
+         "right_hand_crop_side_px": 190.98046875,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    },
+    {
+     "person": 1,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0040679206140339375,
+         "max": 0.009490870870649815,
+         "mean_after_centring": 0.003911443054676056
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005605034530162811,
+         "max": 0.00940806232392788
+        },
+        "keypoints_2d_px": {
+         "mean": 1.409321904182434,
+         "max": 3.8388381004333496
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003760725259780884,
+          "keypoints_2d_px_mean": 2.6498212814331055,
+          "keypoints_2d_px_max": 3.8388381004333496
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.002360875252634287,
+          "keypoints_2d_px_mean": 1.5507985353469849,
+          "keypoints_2d_px_max": 2.1994638442993164
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.008637313731014729,
+          "keypoints_2d_px_mean": 0.7886637449264526,
+          "keypoints_2d_px_max": 1.2116953134536743,
+          "about_the_wrist_m_mean": 0.000589514325838536
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.006565001793205738,
+          "keypoints_2d_px_mean": 1.5796724557876587,
+          "keypoints_2d_px_max": 1.9081809520721436,
+          "about_the_wrist_m_mean": 0.0012414815137162805
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14142055809497833,
+          0.8618369698524475,
+          3.84295392036438
+         ],
+         "b": [
+          0.1429954171180725,
+          0.8635838031768799,
+          3.8444437980651855
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00399625301361084,
+         "mean_abs": 0.0018422106901804607
+        },
+        "body_pose_params": {
+         "max_abs": 0.022583112120628357,
+         "mean_abs": 0.002597738870422188
+        },
+        "hand_pose_params": {
+         "max_abs": 0.03004595637321472,
+         "mean_abs": 0.007951223190132252
+        },
+        "shape_params": {
+         "max_abs": 0.020541876554489136,
+         "mean_abs": 0.006535699611736668
+        },
+        "scale_params": {
+         "max_abs": 0.07577109336853027,
+         "mean_abs": 0.01584171749813582
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.0041162436828017235,
+         "max": 0.009905700571835041,
+         "mean_after_centring": 0.003931035287678242
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005631360691040754,
+         "max": 0.009840013459324837
+        },
+        "keypoints_2d_px": {
+         "mean": 1.3939476013183594,
+         "max": 3.878802537918091
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0037744957953691483,
+          "keypoints_2d_px_mean": 2.6949634552001953,
+          "keypoints_2d_px_max": 3.878802537918091
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.002544927643612027,
+          "keypoints_2d_px_mean": 1.5716379880905151,
+          "keypoints_2d_px_max": 2.3077239990234375
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.009178408421576023,
+          "keypoints_2d_px_mean": 0.7951700091362,
+          "keypoints_2d_px_max": 1.1255414485931396,
+          "about_the_wrist_m_mean": 0.0005938016111031175
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.005906802136451006,
+          "keypoints_2d_px_mean": 1.4883458614349365,
+          "keypoints_2d_px_max": 2.0747132301330566,
+          "about_the_wrist_m_mean": 0.0016413687262684107
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14142055809497833,
+          0.8618369698524475,
+          3.84295392036438
+         ],
+         "b": [
+          0.143123060464859,
+          0.8636406660079956,
+          3.8444619178771973
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.004236102104187012,
+         "mean_abs": 0.0020124117533365884
+        },
+        "body_pose_params": {
+         "max_abs": 0.021957501769065857,
+         "mean_abs": 0.002721600859365566
+        },
+        "hand_pose_params": {
+         "max_abs": 0.03560149669647217,
+         "mean_abs": 0.008843117550929525
+        },
+        "shape_params": {
+         "max_abs": 0.02211940288543701,
+         "mean_abs": 0.0068878438944617905
+        },
+        "scale_params": {
+         "max_abs": 0.0970606803894043,
+         "mean_abs": 0.019999729335333023
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.00039458987885154784,
+         "max": 0.0014051733305677772,
+         "mean_after_centring": 0.000334034237312153
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0005396071937866509,
+         "max": 0.00122962542809546
+        },
+        "keypoints_2d_px": {
+         "mean": 0.1261105239391327,
+         "max": 0.5120437741279602
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00020658285939134657,
+          "keypoints_2d_px_mean": 0.1278037130832672,
+          "keypoints_2d_px_max": 0.17040172219276428
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.000355680676875636,
+          "keypoints_2d_px_mean": 0.11299882084131241,
+          "keypoints_2d_px_max": 0.3019881546497345
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.000554230879060924,
+          "keypoints_2d_px_mean": 0.06789283454418182,
+          "keypoints_2d_px_max": 0.1633244752883911,
+          "about_the_wrist_m_mean": 0.0001230830093845725
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0008057184750214219,
+          "keypoints_2d_px_mean": 0.19828549027442932,
+          "keypoints_2d_px_max": 0.5120437741279602,
+          "about_the_wrist_m_mean": 0.0005421600653789937
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.143123060464859,
+          0.8636406660079956,
+          3.8444619178771973
+         ],
+         "b": [
+          0.1429954171180725,
+          0.8635838031768799,
+          3.8444437980651855
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00024330615997314453,
+         "mean_abs": 0.00017020106315612793
+        },
+        "body_pose_params": {
+         "max_abs": 0.024183541536331177,
+         "mean_abs": 0.0005541375734934345
+        },
+        "hand_pose_params": {
+         "max_abs": 0.016826093196868896,
+         "mean_abs": 0.0033530206764461816
+        },
+        "shape_params": {
+         "max_abs": 0.003625929355621338,
+         "mean_abs": 0.0009741678420040343
+        },
+        "scale_params": {
+         "max_abs": 0.02959340810775757,
+         "mean_abs": 0.005714975097881896
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0035622771829366684,
+         "max": 0.007859405130147934,
+         "mean_after_centring": 0.0033529328648000956
+        },
+        "keypoints_3d_m": {
+         "mean": 0.004357489757239819,
+         "max": 0.007535294629633427
+        },
+        "keypoints_2d_px": {
+         "mean": 1.8391873836517334,
+         "max": 3.7691712379455566
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004013583995401859,
+          "keypoints_2d_px_mean": 2.6076102256774902,
+          "keypoints_2d_px_max": 3.7691712379455566
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0024194943252950907,
+          "keypoints_2d_px_mean": 1.3813221454620361,
+          "keypoints_2d_px_max": 1.9663289785385132
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.005870035383850336,
+          "keypoints_2d_px_mean": 2.0937657356262207,
+          "keypoints_2d_px_max": 2.68231201171875,
+          "about_the_wrist_m_mean": 0.0013791074743494391
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0050493949092924595,
+          "keypoints_2d_px_mean": 1.9031221866607666,
+          "keypoints_2d_px_max": 2.3053760528564453,
+          "about_the_wrist_m_mean": 0.0031933486461639404
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.13917724788188934,
+          0.8706565499305725,
+          3.8442060947418213
+         ],
+         "b": [
+          0.14128050208091736,
+          0.8720969557762146,
+          3.8458940982818604
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.003372490406036377,
+         "mean_abs": 0.0021848976612091064
+        },
+        "body_pose_params": {
+         "max_abs": 0.03624558448791504,
+         "mean_abs": 0.002677396500622766
+        },
+        "hand_pose_params": {
+         "max_abs": 0.006617888808250427,
+         "mean_abs": 0.0020486788168825485
+        },
+        "shape_params": {
+         "max_abs": 0.02283155918121338,
+         "mean_abs": 0.006922421400021347
+        },
+        "scale_params": {
+         "max_abs": 0.017271339893341064,
+         "mean_abs": 0.005253899110747235
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 5.339459312381223e-05,
+         "max": 0.00026509302551858127,
+         "mean_after_centring": 4.757331043947488e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 8.315942250192165e-05,
+         "max": 0.00025699264369904995
+        },
+        "keypoints_2d_px": {
+         "mean": 0.02689991518855095,
+         "max": 0.09768342226743698
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 2.9676733902306296e-05,
+          "keypoints_2d_px_mean": 0.012258022092282772,
+          "keypoints_2d_px_max": 0.015320462174713612
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.133540278417058e-05,
+          "keypoints_2d_px_mean": 0.012300819158554077,
+          "keypoints_2d_px_max": 0.03913431987166405
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 5.118844273965806e-05,
+          "keypoints_2d_px_mean": 0.02979023940861225,
+          "keypoints_2d_px_max": 0.05270515754818916,
+          "about_the_wrist_m_mean": 6.988311361055821e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00017367165128234774,
+          "keypoints_2d_px_mean": 0.043485235422849655,
+          "keypoints_2d_px_max": 0.09768342226743698,
+          "about_the_wrist_m_mean": 5.6185082939919084e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14299538731575012,
+          0.8635805249214172,
+          3.8445112705230713
+         ],
+         "b": [
+          0.1429954171180725,
+          0.8635838031768799,
+          3.8444437980651855
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00010883808135986328,
+         "mean_abs": 6.64020578066508e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.001123964786529541,
+         "mean_abs": 4.030485756527212e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0023612380027770996,
+         "mean_abs": 0.000625819623194359
+        },
+        "shape_params": {
+         "max_abs": 0.0009326096624135971,
+         "mean_abs": 0.0001322958618402481
+        },
+        "scale_params": {
+         "max_abs": 0.012156486511230469,
+         "mean_abs": 0.001619467611557671
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 5.386482735048048e-05,
+         "max": 0.00014766884851269424,
+         "mean_after_centring": 4.561066452879459e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 7.378996087936684e-05,
+         "max": 0.0001456504105590284
+        },
+        "keypoints_2d_px": {
+         "mean": 0.009411250241100788,
+         "max": 0.027156803756952286
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 3.647475750767626e-05,
+          "keypoints_2d_px_mean": 0.008110038936138153,
+          "keypoints_2d_px_max": 0.01513684168457985
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.453622022992931e-05,
+          "keypoints_2d_px_mean": 0.011793380603194237,
+          "keypoints_2d_px_max": 0.027156803756952286
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 4.993447146262042e-05,
+          "keypoints_2d_px_mean": 0.003444024594500661,
+          "keypoints_2d_px_max": 0.00775722973048687,
+          "about_the_wrist_m_mean": 6.395895070454571e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00013856982695870101,
+          "keypoints_2d_px_mean": 0.01307929027825594,
+          "keypoints_2d_px_max": 0.018638521432876587,
+          "about_the_wrist_m_mean": 2.5441562684136443e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14128687977790833,
+          0.872093677520752,
+          3.845989227294922
+         ],
+         "b": [
+          0.14128050208091736,
+          0.8720969557762146,
+          3.8458940982818604
+         ]
+        },
+        "focal_length_px": {
+         "a": 2704.16357421875,
+         "b": 2704.16357421875
+        },
+        "global_rot": {
+         "max_abs": 0.00011903047561645508,
+         "mean_abs": 6.626546382904053e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.00022205710411071777,
+         "mean_abs": 2.63706941150577e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 8.524954319000244e-05,
+         "mean_abs": 2.120155841112137e-05
+        },
+        "shape_params": {
+         "max_abs": 0.00028361380100250244,
+         "mean_abs": 7.75606267982059e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0005380511283874512,
+         "mean_abs": 6.733156208481108e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 158.8523406982422,
+         "right_hand_crop_side_px": 186.05975341796875,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 156.8477020263672,
+         "right_hand_crop_side_px": 185.25059509277344,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 156.85165405273438,
+         "right_hand_crop_side_px": 185.24969482421875,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 157.07460021972656,
+         "right_hand_crop_side_px": 185.080810546875,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.003956418018788099,
+         "max": 0.009598253294825554,
+         "mean_after_centring": 0.0037388948258012533
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005222839768975973,
+         "max": 0.009520379826426506
+        },
+        "keypoints_2d_px": {
+         "mean": 1.5709871053695679,
+         "max": 3.7366585731506348
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003975653555244207,
+          "keypoints_2d_px_mean": 2.5295603275299072,
+          "keypoints_2d_px_max": 3.7366585731506348
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00239882105961442,
+          "keypoints_2d_px_mean": 1.5328062772750854,
+          "keypoints_2d_px_max": 2.141408920288086
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.008439199067652225,
+          "keypoints_2d_px_mean": 1.5888041257858276,
+          "keypoints_2d_px_max": 2.4225027561187744,
+          "about_the_wrist_m_mean": 0.0007881186902523041
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.005396405700594187,
+          "keypoints_2d_px_mean": 1.3667553663253784,
+          "keypoints_2d_px_max": 2.096864938735962,
+          "about_the_wrist_m_mean": 0.0010281245922669768
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14486436545848846,
+          0.8535703420639038,
+          2.140807867050171
+         ],
+         "b": [
+          0.14654098451137543,
+          0.85556960105896,
+          2.1418352127075195
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.003108978271484375,
+         "mean_abs": 0.0015225373208522797
+        },
+        "body_pose_params": {
+         "max_abs": 0.06591029465198517,
+         "mean_abs": 0.003452040176292447
+        },
+        "hand_pose_params": {
+         "max_abs": 0.052792131900787354,
+         "mean_abs": 0.013216973467798973
+        },
+        "shape_params": {
+         "max_abs": 0.02253495156764984,
+         "mean_abs": 0.006843301612469885
+        },
+        "scale_params": {
+         "max_abs": 0.10775089263916016,
+         "mean_abs": 0.019672163562583073
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.004114365205168724,
+         "max": 0.010439069010317326,
+         "mean_after_centring": 0.003870126325637102
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005520448088645935,
+         "max": 0.01036500558257103
+        },
+        "keypoints_2d_px": {
+         "mean": 1.5744246244430542,
+         "max": 3.754028797149658
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003941355273127556,
+          "keypoints_2d_px_mean": 2.5602831840515137,
+          "keypoints_2d_px_max": 3.754028797149658
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0025255747605115175,
+          "keypoints_2d_px_mean": 1.5309443473815918,
+          "keypoints_2d_px_max": 2.212261915206909
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.009169257245957851,
+          "keypoints_2d_px_mean": 1.625735878944397,
+          "keypoints_2d_px_max": 2.387820243835449,
+          "about_the_wrist_m_mean": 0.0007852490525692701
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00552771333605051,
+          "keypoints_2d_px_mean": 1.3360064029693604,
+          "keypoints_2d_px_max": 1.769668698310852,
+          "about_the_wrist_m_mean": 0.0012526747304946184
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14486436545848846,
+          0.8535703420639038,
+          2.140807867050171
+         ],
+         "b": [
+          0.146697998046875,
+          0.8556584119796753,
+          2.1417136192321777
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.003387928009033203,
+         "mean_abs": 0.0015459122757116954
+        },
+        "body_pose_params": {
+         "max_abs": 0.049732506275177,
+         "mean_abs": 0.0033820211306158313
+        },
+        "hand_pose_params": {
+         "max_abs": 0.05396077036857605,
+         "mean_abs": 0.01302911808145129
+        },
+        "shape_params": {
+         "max_abs": 0.024985700845718384,
+         "mean_abs": 0.007518377072281307
+        },
+        "scale_params": {
+         "max_abs": 0.12247079610824585,
+         "mean_abs": 0.01922073501295277
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0003525317879393697,
+         "max": 0.001295721041969955,
+         "mean_after_centring": 0.0003315846552141011
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0004727497580461204,
+         "max": 0.0012657193001359701
+        },
+        "keypoints_2d_px": {
+         "mean": 0.1213865801692009,
+         "max": 0.45870503783226013
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00016700630658306181,
+          "keypoints_2d_px_mean": 0.10701409727334976,
+          "keypoints_2d_px_max": 0.1311139315366745
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.000354071642505005,
+          "keypoints_2d_px_mean": 0.09125063568353653,
+          "keypoints_2d_px_max": 0.2548382878303528
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0007412841659970582,
+          "keypoints_2d_px_mean": 0.08207794278860092,
+          "keypoints_2d_px_max": 0.1236584484577179,
+          "about_the_wrist_m_mean": 9.831885836319998e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00040699209785088897,
+          "keypoints_2d_px_mean": 0.1971232295036316,
+          "keypoints_2d_px_max": 0.45870503783226013,
+          "about_the_wrist_m_mean": 0.0005392752354964614
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.146697998046875,
+          0.8556584119796753,
+          2.1417136192321777
+         ],
+         "b": [
+          0.14654098451137543,
+          0.85556960105896,
+          2.1418352127075195
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.0002789497375488281,
+         "mean_abs": 0.0001653730869293213
+        },
+        "body_pose_params": {
+         "max_abs": 0.016177788376808167,
+         "mean_abs": 0.0004573862043846595
+        },
+        "hand_pose_params": {
+         "max_abs": 0.013538897037506104,
+         "mean_abs": 0.0019698950496536715
+        },
+        "shape_params": {
+         "max_abs": 0.01224207878112793,
+         "mean_abs": 0.0012499826235903633
+        },
+        "scale_params": {
+         "max_abs": 0.025179624557495117,
+         "mean_abs": 0.004710234235972166
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0034861976746469736,
+         "max": 0.00800144113600254,
+         "mean_after_centring": 0.0033569629304111004
+        },
+        "keypoints_3d_m": {
+         "mean": 0.004596536047756672,
+         "max": 0.007870849221944809
+        },
+        "keypoints_2d_px": {
+         "mean": 1.9038199186325073,
+         "max": 3.6173713207244873
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003466221271082759,
+          "keypoints_2d_px_mean": 2.506688117980957,
+          "keypoints_2d_px_max": 3.6173713207244873
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0021291649900376797,
+          "keypoints_2d_px_mean": 1.4280835390090942,
+          "keypoints_2d_px_max": 1.9578015804290771
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.005940948612987995,
+          "keypoints_2d_px_mean": 2.2122373580932617,
+          "keypoints_2d_px_max": 2.7835795879364014,
+          "about_the_wrist_m_mean": 0.0014333549188449979
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00622360548004508,
+          "keypoints_2d_px_mean": 1.9729076623916626,
+          "keypoints_2d_px_max": 2.5957400798797607,
+          "about_the_wrist_m_mean": 0.0033149104565382004
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14293023943901062,
+          0.8638131022453308,
+          2.1352407932281494
+         ],
+         "b": [
+          0.1450984627008438,
+          0.8653602004051208,
+          2.1360137462615967
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.0033693909645080566,
+         "mean_abs": 0.0013297523061434429
+        },
+        "body_pose_params": {
+         "max_abs": 0.036722272634506226,
+         "mean_abs": 0.0026602496076165174
+        },
+        "hand_pose_params": {
+         "max_abs": 0.006215840578079224,
+         "mean_abs": 0.002018998637073242
+        },
+        "shape_params": {
+         "max_abs": 0.01776742935180664,
+         "mean_abs": 0.006078907692184051
+        },
+        "scale_params": {
+         "max_abs": 0.015440046787261963,
+         "mean_abs": 0.004529085708782077
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 6.940813909750432e-05,
+         "max": 0.0003908248618245125,
+         "mean_after_centring": 6.300799577729777e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 9.869616042124107e-05,
+         "max": 0.00026086063007824123
+        },
+        "keypoints_2d_px": {
+         "mean": 0.03498511761426926,
+         "max": 0.15946665406227112
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 5.097635948914103e-05,
+          "keypoints_2d_px_mean": 0.010300742462277412,
+          "keypoints_2d_px_max": 0.018914202228188515
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.536317283054814e-05,
+          "keypoints_2d_px_mean": 0.01564113236963749,
+          "keypoints_2d_px_max": 0.05218642204999924
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 4.8902413254836574e-05,
+          "keypoints_2d_px_mean": 0.018225207924842834,
+          "keypoints_2d_px_max": 0.043052807450294495,
+          "about_the_wrist_m_mean": 4.296832048567012e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00021826404554303735,
+          "keypoints_2d_px_mean": 0.07880853116512299,
+          "keypoints_2d_px_max": 0.15946665406227112,
+          "about_the_wrist_m_mean": 0.00012923455506097525
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14654242992401123,
+          0.8555641174316406,
+          2.1419057846069336
+         ],
+         "b": [
+          0.14654098451137543,
+          0.85556960105896,
+          2.1418352127075195
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 8.58306884765625e-05,
+         "mean_abs": 6.0127427180608116e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.007224708795547485,
+         "mean_abs": 0.00015099846610897467
+        },
+        "hand_pose_params": {
+         "max_abs": 0.004023492336273193,
+         "mean_abs": 0.0006826270751103207
+        },
+        "shape_params": {
+         "max_abs": 0.002142667770385742,
+         "mean_abs": 0.00022810523708661397
+        },
+        "scale_params": {
+         "max_abs": 0.024384260177612305,
+         "mean_abs": 0.0028966367577335666
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 5.171074371901341e-05,
+         "max": 0.00014100965927354991,
+         "mean_after_centring": 4.512609666562639e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 7.294271199498326e-05,
+         "max": 0.00013906766253057867
+        },
+        "keypoints_2d_px": {
+         "mean": 0.013938847929239273,
+         "max": 0.03546431288123131
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 3.112940612481907e-05,
+          "keypoints_2d_px_mean": 0.00962083786725998,
+          "keypoints_2d_px_max": 0.016663603484630585
+         },
+         "body": {
+          "keypoints_3d_m_mean": 4.3308697058819234e-05,
+          "keypoints_2d_px_mean": 0.013656898401677608,
+          "keypoints_2d_px_max": 0.03546431288123131
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 5.8208752307109535e-05,
+          "keypoints_2d_px_mean": 0.004977525677531958,
+          "keypoints_2d_px_max": 0.010262803174555302,
+          "about_the_wrist_m_mean": 6.0952033891226165e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0001300885051023215,
+          "keypoints_2d_px_mean": 0.02423706464469433,
+          "keypoints_2d_px_max": 0.030427418649196625,
+          "about_the_wrist_m_mean": 2.854694139386993e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.14510388672351837,
+          0.8653554320335388,
+          2.1360626220703125
+         ],
+         "b": [
+          0.1450984627008438,
+          0.8653602004051208,
+          2.1360137462615967
+         ]
+        },
+        "focal_length_px": {
+         "a": 1440.736572265625,
+         "b": 1440.736572265625
+        },
+        "global_rot": {
+         "max_abs": 0.00012052059173583984,
+         "mean_abs": 6.167093912760417e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.00021880865097045898,
+         "mean_abs": 2.7290610176392067e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 7.238984107971191e-05,
+         "mean_abs": 2.1570482877669513e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0002747774124145508,
+         "mean_abs": 7.604659638471074e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0006390511989593506,
+         "mean_abs": 7.484309441809143e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 160.47230529785156,
+         "right_hand_crop_side_px": 181.04017639160156,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 158.63758850097656,
+         "right_hand_crop_side_px": 180.02137756347656,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 158.63818359375,
+         "right_hand_crop_side_px": 180.02459716796875,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 158.78553771972656,
+         "right_hand_crop_side_px": 179.876953125,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "script": "bench/compare_sam3d_body_core_against_meta.py",
+   "image": "office_frame60",
+   "image_size_wh": [
+    640,
+    360
+   ],
+   "boxes_xyxy": [
+    [
+     0.0,
+     0.0,
+     640.0,
+     360.0
+    ],
+    [
+     45.0,
+     95.0,
+     190.0,
+     245.0
+    ],
+    [
+     320.0,
+     55.0,
+     600.0,
+     345.0
+    ],
+    [
+     345.0,
+     100.0,
+     440.0,
+     215.0
+    ]
+   ],
+   "fov_arm_degrees": 55.0,
+   "core": {
+    "file": "sam_3d_body_dinov3.safetensors",
+    "backbone_dtype": "torch.float32",
+    "device": "cpu",
+    "dynamic_vram": false,
+    "torch": "2.14.1+cu132"
+   },
+   "meta": {
+    "released_backbone_dtype": "torch.bfloat16",
+    "float32_backbone_dtype": "torch.float32",
+    "device": "cpu"
+   },
+   "people": [
+    {
+     "person": 0,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.004563197027891874,
+         "max": 0.012103942222893238,
+         "mean_after_centring": 0.004011510405689478
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0061052110977470875,
+         "max": 0.011753120459616184
+        },
+        "keypoints_2d_px": {
+         "mean": 1.1722544431686401,
+         "max": 2.803760528564453
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0015154762659221888,
+          "keypoints_2d_px_mean": 1.0084083080291748,
+          "keypoints_2d_px_max": 1.2002087831497192
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.004957989789545536,
+          "keypoints_2d_px_mean": 0.9821583032608032,
+          "keypoints_2d_px_max": 1.9018868207931519
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.009092980995774269,
+          "keypoints_2d_px_mean": 2.0547261238098145,
+          "keypoints_2d_px_max": 2.803760528564453,
+          "about_the_wrist_m_mean": 0.009957199916243553
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.005466714967042208,
+          "keypoints_2d_px_mean": 0.5369940996170044,
+          "keypoints_2d_px_max": 0.7963802814483643,
+          "about_the_wrist_m_mean": 0.001127693336457014
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.43736252188682556,
+          1.3831843137741089,
+          2.0424559116363525
+         ],
+         "b": [
+          0.43814465403556824,
+          1.384621024131775,
+          2.038473129272461
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.04053473472595215,
+         "mean_abs": 0.029928088188171387
+        },
+        "body_pose_params": {
+         "max_abs": 0.16561242938041687,
+         "mean_abs": 0.003635280861876401
+        },
+        "hand_pose_params": {
+         "max_abs": 0.04134330153465271,
+         "mean_abs": 0.009055520054836827
+        },
+        "shape_params": {
+         "max_abs": 0.0405726283788681,
+         "mean_abs": 0.012475407123565674
+        },
+        "scale_params": {
+         "max_abs": 0.04110350459814072,
+         "mean_abs": 0.01603675034129992
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.004463480319827795,
+         "max": 0.012464611791074276,
+         "mean_after_centring": 0.0038455731701105833
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005859559867531061,
+         "max": 0.012117914855480194
+        },
+        "keypoints_2d_px": {
+         "mean": 1.1651334762573242,
+         "max": 2.9495956897735596
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0013510786229744554,
+          "keypoints_2d_px_mean": 0.9626985788345337,
+          "keypoints_2d_px_max": 1.1744511127471924
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005119200795888901,
+          "keypoints_2d_px_mean": 1.0290666818618774,
+          "keypoints_2d_px_max": 1.808803915977478
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.009262938983738422,
+          "keypoints_2d_px_mean": 2.1575093269348145,
+          "keypoints_2d_px_max": 2.9495956897735596,
+          "about_the_wrist_m_mean": 0.009769485332071781
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.004340500105172396,
+          "keypoints_2d_px_mean": 0.3699825406074524,
+          "keypoints_2d_px_max": 0.6337080597877502,
+          "about_the_wrist_m_mean": 0.0010946248658001423
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.43736252188682556,
+          1.3831843137741089,
+          2.0424559116363525
+         ],
+         "b": [
+          0.4389343559741974,
+          1.3847397565841675,
+          2.04056715965271
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.043041229248046875,
+         "mean_abs": 0.031488656997680664
+        },
+        "body_pose_params": {
+         "max_abs": 0.15986508131027222,
+         "mean_abs": 0.0034856512893999656
+        },
+        "hand_pose_params": {
+         "max_abs": 0.04090626537799835,
+         "mean_abs": 0.009211955111823045
+        },
+        "shape_params": {
+         "max_abs": 0.03487969934940338,
+         "mean_abs": 0.011447723127073713
+        },
+        "scale_params": {
+         "max_abs": 0.04471507668495178,
+         "mean_abs": 0.01677221027784981
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.000770079786889255,
+         "max": 0.002272325102239847,
+         "mean_after_centring": 0.0006424238672479987
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0009929088409990072,
+         "max": 0.002198781818151474
+        },
+        "keypoints_2d_px": {
+         "mean": 0.24292199313640594,
+         "max": 0.45564860105514526
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0006244978285394609,
+          "keypoints_2d_px_mean": 0.06160523369908333,
+          "keypoints_2d_px_max": 0.11273757368326187
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0006338214152492583,
+          "keypoints_2d_px_mean": 0.24558931589126587,
+          "keypoints_2d_px_max": 0.45564860105514526
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0005090036429464817,
+          "keypoints_2d_px_mean": 0.2660812735557556,
+          "keypoints_2d_px_max": 0.3383180499076843,
+          "about_the_wrist_m_mean": 0.0006134518189355731
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0019578172359615564,
+          "keypoints_2d_px_mean": 0.26001206040382385,
+          "keypoints_2d_px_max": 0.3679754137992859,
+          "about_the_wrist_m_mean": 0.0008063015411607921
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4389343559741974,
+          1.3847397565841675,
+          2.04056715965271
+         ],
+         "b": [
+          0.43814465403556824,
+          1.384621024131775,
+          2.038473129272461
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.0025064945220947266,
+         "mean_abs": 0.0015605688095092773
+        },
+        "body_pose_params": {
+         "max_abs": 0.008617177605628967,
+         "mean_abs": 0.0004513622681729328
+        },
+        "hand_pose_params": {
+         "max_abs": 0.009703375399112701,
+         "mean_abs": 0.0018195446248649172
+        },
+        "shape_params": {
+         "max_abs": 0.007100723683834076,
+         "mean_abs": 0.0018517357607682546
+        },
+        "scale_params": {
+         "max_abs": 0.05596649646759033,
+         "mean_abs": 0.004661107681126201
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.003694141749292612,
+         "max": 0.012535516172647476,
+         "mean_after_centring": 0.003015174763277173
+        },
+        "keypoints_3d_m": {
+         "mean": 0.004250280559062958,
+         "max": 0.012391806580126286
+        },
+        "keypoints_2d_px": {
+         "mean": 1.2768254280090332,
+         "max": 1.984827995300293
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0014806684339419007,
+          "keypoints_2d_px_mean": 1.0378873348236084,
+          "keypoints_2d_px_max": 1.1049094200134277
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.004937914665788412,
+          "keypoints_2d_px_mean": 1.0791540145874023,
+          "keypoints_2d_px_max": 1.9218242168426514
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.003761705942451954,
+          "keypoints_2d_px_mean": 1.705507516860962,
+          "keypoints_2d_px_max": 1.984827995300293,
+          "about_the_wrist_m_mean": 0.0016907703829929233
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.004645162262022495,
+          "keypoints_2d_px_mean": 1.121530294418335,
+          "keypoints_2d_px_max": 1.4483033418655396,
+          "about_the_wrist_m_mean": 0.001589891966432333
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4421098530292511,
+          1.3725565671920776,
+          2.038011074066162
+         ],
+         "b": [
+          0.4431820809841156,
+          1.3741391897201538,
+          2.0349223613739014
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.044934988021850586,
+         "mean_abs": 0.03200848897298177
+        },
+        "body_pose_params": {
+         "max_abs": 0.015064239501953125,
+         "mean_abs": 0.0016050117071306584
+        },
+        "hand_pose_params": {
+         "max_abs": 0.009286396205425262,
+         "mean_abs": 0.0024837114394392337
+        },
+        "shape_params": {
+         "max_abs": 0.033324360847473145,
+         "mean_abs": 0.008668025539049672
+        },
+        "scale_params": {
+         "max_abs": 0.0786515474319458,
+         "mean_abs": 0.016356476565956006
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0012542082695290446,
+         "max": 0.0022814797703176737,
+         "mean_after_centring": 0.0008057765662670135
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0014150103088468313,
+         "max": 0.0022312537766993046
+        },
+        "keypoints_2d_px": {
+         "mean": 0.20627769827842712,
+         "max": 0.5869300961494446
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0012987281661480665,
+          "keypoints_2d_px_mean": 0.04377333074808121,
+          "keypoints_2d_px_max": 0.0567329004406929
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0010484796948730946,
+          "keypoints_2d_px_mean": 0.21290047466754913,
+          "keypoints_2d_px_max": 0.5869300961494446
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0017629556823521852,
+          "keypoints_2d_px_mean": 0.35933470726013184,
+          "keypoints_2d_px_max": 0.4546123147010803,
+          "about_the_wrist_m_mean": 0.001053119427524507
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.001496189390309155,
+          "keypoints_2d_px_mean": 0.08465863764286041,
+          "keypoints_2d_px_max": 0.2243443876504898,
+          "about_the_wrist_m_mean": 0.0006797676323913038
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4375793933868408,
+          1.3850864171981812,
+          2.0380051136016846
+         ],
+         "b": [
+          0.43814465403556824,
+          1.384621024131775,
+          2.038473129272461
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.01321268081665039,
+         "mean_abs": 0.008964816729227701
+        },
+        "body_pose_params": {
+         "max_abs": 0.019756212830543518,
+         "mean_abs": 0.0007701377083260313
+        },
+        "hand_pose_params": {
+         "max_abs": 0.005208656191825867,
+         "mean_abs": 0.0015352202441405367
+        },
+        "shape_params": {
+         "max_abs": 0.011908292770385742,
+         "mean_abs": 0.003465634501642651
+        },
+        "scale_params": {
+         "max_abs": 0.024968385696411133,
+         "mean_abs": 0.004053885379107669
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0011781331850215793,
+         "max": 0.0021292869932949543,
+         "mean_after_centring": 0.0008293483988381922
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0012409231858327985,
+         "max": 0.002074713818728924
+        },
+        "keypoints_2d_px": {
+         "mean": 0.1319245547056198,
+         "max": 0.5336018204689026
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0012945228954777122,
+          "keypoints_2d_px_mean": 0.05770038440823555,
+          "keypoints_2d_px_max": 0.07981450110673904
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0010803098557516932,
+          "keypoints_2d_px_mean": 0.19798171520233154,
+          "keypoints_2d_px_max": 0.5336018204689026
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0007658214308321476,
+          "keypoints_2d_px_mean": 0.03419103845953941,
+          "keypoints_2d_px_max": 0.06599394977092743,
+          "about_the_wrist_m_mean": 0.0001766188652254641
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.001879172632470727,
+          "keypoints_2d_px_mean": 0.1749822199344635,
+          "keypoints_2d_px_max": 0.23154300451278687,
+          "about_the_wrist_m_mean": 0.00018072471721097827
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.44268283247947693,
+          1.3746370077133179,
+          2.0346596240997314
+         ],
+         "b": [
+          0.4431820809841156,
+          1.3741391897201538,
+          2.0349223613739014
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.01366424560546875,
+         "mean_abs": 0.009369730949401855
+        },
+        "body_pose_params": {
+         "max_abs": 0.0036828219890594482,
+         "mean_abs": 0.000361816229778377
+        },
+        "hand_pose_params": {
+         "max_abs": 0.002405792474746704,
+         "mean_abs": 0.0006861414219235519
+        },
+        "shape_params": {
+         "max_abs": 0.012716948986053467,
+         "mean_abs": 0.0034243081230670215
+        },
+        "scale_params": {
+         "max_abs": 0.024474501609802246,
+         "mean_abs": 0.0043812524527311325
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 91.96442413330078,
+         "right_hand_crop_side_px": 91.20797729492188,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 91.18572235107422,
+         "right_hand_crop_side_px": 90.4447250366211,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 91.22834014892578,
+         "right_hand_crop_side_px": 90.50778198242188,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 91.1251449584961,
+         "right_hand_crop_side_px": 90.45403289794922,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.004106658510863781,
+         "max": 0.011265489272773266,
+         "mean_after_centring": 0.0036243086215108633
+        },
+        "keypoints_3d_m": {
+         "mean": 0.005420778412371874,
+         "max": 0.011160354129970074
+        },
+        "keypoints_2d_px": {
+         "mean": 1.060552716255188,
+         "max": 2.470447301864624
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0014960960252210498,
+          "keypoints_2d_px_mean": 0.9559394121170044,
+          "keypoints_2d_px_max": 1.1594688892364502
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.004481704905629158,
+          "keypoints_2d_px_mean": 1.154022216796875,
+          "keypoints_2d_px_max": 2.470447301864624
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.006435317452996969,
+          "keypoints_2d_px_mean": 0.8978919982910156,
+          "keypoints_2d_px_max": 1.8896350860595703,
+          "about_the_wrist_m_mean": 0.009029077365994453
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.006369196344166994,
+          "keypoints_2d_px_mean": 1.1457500457763672,
+          "keypoints_2d_px_max": 1.581893801689148,
+          "about_the_wrist_m_mean": 0.0016147352289408445
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4600403308868408,
+          1.4025672674179077,
+          1.0198800563812256
+         ],
+         "b": [
+          0.4610106945037842,
+          1.4038077592849731,
+          1.0176535844802856
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.010700821876525879,
+         "mean_abs": 0.007618546485900879
+        },
+        "body_pose_params": {
+         "max_abs": 0.16620904207229614,
+         "mean_abs": 0.004358925143277791
+        },
+        "hand_pose_params": {
+         "max_abs": 0.04547609016299248,
+         "mean_abs": 0.010645769285339932
+        },
+        "shape_params": {
+         "max_abs": 0.03189042583107948,
+         "mean_abs": 0.010228225340445837
+        },
+        "scale_params": {
+         "max_abs": 0.0641840398311615,
+         "mean_abs": 0.018426843503610662
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.003781735897064209,
+         "max": 0.011521070264279842,
+         "mean_after_centring": 0.0033139889128506184
+        },
+        "keypoints_3d_m": {
+         "mean": 0.004719594493508339,
+         "max": 0.011410361155867577
+        },
+        "keypoints_2d_px": {
+         "mean": 1.0610569715499878,
+         "max": 2.673497200012207
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0012935609556734562,
+          "keypoints_2d_px_mean": 0.9116697311401367,
+          "keypoints_2d_px_max": 1.1365673542022705
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.004649406764656305,
+          "keypoints_2d_px_mean": 1.2148077487945557,
+          "keypoints_2d_px_max": 2.673497200012207
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0054368069395422935,
+          "keypoints_2d_px_mean": 1.010190725326538,
+          "keypoints_2d_px_max": 2.0521907806396484,
+          "about_the_wrist_m_mean": 0.0074732182547450066
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.004894975107163191,
+          "keypoints_2d_px_mean": 0.9790977239608765,
+          "keypoints_2d_px_max": 1.2553993463516235,
+          "about_the_wrist_m_mean": 0.001200527185574174
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4600403308868408,
+          1.4025672674179077,
+          1.0198800563812256
+         ],
+         "b": [
+          0.46176356077194214,
+          1.403925895690918,
+          1.0183227062225342
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.011440038681030273,
+         "mean_abs": 0.00793759028116862
+        },
+        "body_pose_params": {
+         "max_abs": 0.12990684062242508,
+         "mean_abs": 0.003807541978181361
+        },
+        "hand_pose_params": {
+         "max_abs": 0.05228199064731598,
+         "mean_abs": 0.010852001494775457
+        },
+        "shape_params": {
+         "max_abs": 0.025170862674713135,
+         "mean_abs": 0.00865950087706248
+        },
+        "scale_params": {
+         "max_abs": 0.052722930908203125,
+         "mean_abs": 0.020047981126221463
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0009740670793689787,
+         "max": 0.0037924812640994787,
+         "mean_after_centring": 0.0008250063401646912
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0014159841230139136,
+         "max": 0.003672295482829213
+        },
+        "keypoints_2d_px": {
+         "mean": 0.2777978181838989,
+         "max": 0.6650097370147705
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.000667337910272181,
+          "keypoints_2d_px_mean": 0.0551585778594017,
+          "keypoints_2d_px_max": 0.09967251121997833
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0006369720213115215,
+          "keypoints_2d_px_mean": 0.17470212280750275,
+          "keypoints_2d_px_max": 0.26894640922546387
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0016879492904990911,
+          "keypoints_2d_px_mean": 0.4536663293838501,
+          "keypoints_2d_px_max": 0.6650097370147705,
+          "about_the_wrist_m_mean": 0.001814029412344098
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0021754710469394922,
+          "keypoints_2d_px_mean": 0.26785287261009216,
+          "keypoints_2d_px_max": 0.42819902300834656,
+          "about_the_wrist_m_mean": 0.0008061303524300456
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.46176356077194214,
+          1.403925895690918,
+          1.0183227062225342
+         ],
+         "b": [
+          0.4610106945037842,
+          1.4038077592849731,
+          1.0176535844802856
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0007392168045043945,
+         "mean_abs": 0.0006161133448282877
+        },
+        "body_pose_params": {
+         "max_abs": 0.039304882287979126,
+         "mean_abs": 0.0009553151579811833
+        },
+        "hand_pose_params": {
+         "max_abs": 0.015565268695354462,
+         "mean_abs": 0.003548736686719133
+        },
+        "shape_params": {
+         "max_abs": 0.006719563156366348,
+         "mean_abs": 0.002061618119478226
+        },
+        "scale_params": {
+         "max_abs": 0.025452017784118652,
+         "mean_abs": 0.005436790391935834
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0034585483372211456,
+         "max": 0.011856477707624435,
+         "mean_after_centring": 0.0029792794957756996
+        },
+        "keypoints_3d_m": {
+         "mean": 0.004169527906924486,
+         "max": 0.011723766103386879
+        },
+        "keypoints_2d_px": {
+         "mean": 1.266175389289856,
+         "max": 3.1412458419799805
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0009774811333045363,
+          "keypoints_2d_px_mean": 0.9073758125305176,
+          "keypoints_2d_px_max": 0.9486063718795776
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.004677729681134224,
+          "keypoints_2d_px_mean": 1.2587169408798218,
+          "keypoints_2d_px_max": 3.1412458419799805
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.004570521414279938,
+          "keypoints_2d_px_mean": 1.529024600982666,
+          "keypoints_2d_px_max": 1.8026530742645264,
+          "about_the_wrist_m_mean": 0.0017263543559238315
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0039719450287520885,
+          "keypoints_2d_px_mean": 1.0969232320785522,
+          "keypoints_2d_px_max": 1.3656725883483887,
+          "about_the_wrist_m_mean": 0.0016015706351026893
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.46103695034980774,
+          1.3889857530593872,
+          1.0082286596298218
+         ],
+         "b": [
+          0.462006539106369,
+          1.3905593156814575,
+          1.0069012641906738
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.011470317840576172,
+         "mean_abs": 0.010504047075907389
+        },
+        "body_pose_params": {
+         "max_abs": 0.014774978160858154,
+         "mean_abs": 0.001609903765506202
+        },
+        "hand_pose_params": {
+         "max_abs": 0.009693041443824768,
+         "mean_abs": 0.002528382475483576
+        },
+        "shape_params": {
+         "max_abs": 0.03154310584068298,
+         "mean_abs": 0.008601785823702812
+        },
+        "scale_params": {
+         "max_abs": 0.08294224739074707,
+         "mean_abs": 0.016864037307511483
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0013462489005178213,
+         "max": 0.002736366353929043,
+         "mean_after_centring": 0.0008879745146259665
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0016079022316262126,
+         "max": 0.002593838609755039
+        },
+        "keypoints_2d_px": {
+         "mean": 0.2935606837272644,
+         "max": 0.5631967782974243
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0013012636918574572,
+          "keypoints_2d_px_mean": 0.09079498052597046,
+          "keypoints_2d_px_max": 0.12247472256422043
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0010632448829710484,
+          "keypoints_2d_px_mean": 0.2436039000749588,
+          "keypoints_2d_px_max": 0.5631967782974243
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0020979621913284063,
+          "keypoints_2d_px_mean": 0.39565372467041016,
+          "keypoints_2d_px_max": 0.5061771869659424,
+          "about_the_wrist_m_mean": 0.0009193329024128616
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0017873807810246944,
+          "keypoints_2d_px_mean": 0.29445984959602356,
+          "keypoints_2d_px_max": 0.4508076608181,
+          "about_the_wrist_m_mean": 0.0004255825188010931
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4605453610420227,
+          1.4043242931365967,
+          1.0174202919006348
+         ],
+         "b": [
+          0.4610106945037842,
+          1.4038077592849731,
+          1.0176535844802856
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.006977558135986328,
+         "mean_abs": 0.004758199055989583
+        },
+        "body_pose_params": {
+         "max_abs": 0.017951413989067078,
+         "mean_abs": 0.0008002256421386299
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0132366344332695,
+         "mean_abs": 0.002598713101448353
+        },
+        "shape_params": {
+         "max_abs": 0.010932564735412598,
+         "mean_abs": 0.0030734832915994856
+        },
+        "scale_params": {
+         "max_abs": 0.01887819916009903,
+         "mean_abs": 0.004112593763108764
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0011312351562082767,
+         "max": 0.002041248604655266,
+         "mean_after_centring": 0.0007733195670880377
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0011716868029907346,
+         "max": 0.0019131222506985068
+        },
+        "keypoints_2d_px": {
+         "mean": 0.13476619124412537,
+         "max": 0.5981529355049133
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0012561972253024578,
+          "keypoints_2d_px_mean": 0.050078313797712326,
+          "keypoints_2d_px_max": 0.07389682531356812
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.001066726166754961,
+          "keypoints_2d_px_mean": 0.20730936527252197,
+          "keypoints_2d_px_max": 0.5981529355049133
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0007844502688385546,
+          "keypoints_2d_px_mean": 0.03670696169137955,
+          "keypoints_2d_px_max": 0.06610262393951416,
+          "about_the_wrist_m_mean": 0.00016648562450427562
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0016537589253857732,
+          "keypoints_2d_px_mean": 0.1735372394323349,
+          "keypoints_2d_px_max": 0.22255295515060425,
+          "about_the_wrist_m_mean": 0.00013399729505181313
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.46144989132881165,
+          1.3909674882888794,
+          1.006617784500122
+         ],
+         "b": [
+          0.462006539106369,
+          1.3905593156814575,
+          1.0069012641906738
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.008831262588500977,
+         "mean_abs": 0.0060882965723673505
+        },
+        "body_pose_params": {
+         "max_abs": 0.003290906548500061,
+         "mean_abs": 0.00036443021022399566
+        },
+        "hand_pose_params": {
+         "max_abs": 0.002566605806350708,
+         "mean_abs": 0.0006791207668491687
+        },
+        "shape_params": {
+         "max_abs": 0.011778712272644043,
+         "mean_abs": 0.003480039619737201
+        },
+        "scale_params": {
+         "max_abs": 0.024798691272735596,
+         "mean_abs": 0.004645434324629605
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 90.8565673828125,
+         "right_hand_crop_side_px": 90.34503936767578,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 90.1336669921875,
+         "right_hand_crop_side_px": 89.20736694335938,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 90.1651611328125,
+         "right_hand_crop_side_px": 89.27519989013672,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 90.05368041992188,
+         "right_hand_crop_side_px": 89.23681640625,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    },
+    {
+     "person": 1,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.002466175239533186,
+         "max": 0.003526502288877964,
+         "mean_after_centring": 0.0017624021274968982
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0025168629363179207,
+         "max": 0.0034987316466867924
+        },
+        "keypoints_2d_px": {
+         "mean": 0.42367851734161377,
+         "max": 0.6350257992744446
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0025017638690769672,
+          "keypoints_2d_px_mean": 0.38236528635025024,
+          "keypoints_2d_px_max": 0.49640148878097534
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0025545365642756224,
+          "keypoints_2d_px_mean": 0.35841667652130127,
+          "keypoints_2d_px_max": 0.5827798843383789
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.002799130277708173,
+          "keypoints_2d_px_mean": 0.5457075834274292,
+          "keypoints_2d_px_max": 0.6350257992744446,
+          "about_the_wrist_m_mean": 0.0008525208104401827
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0021969296503812075,
+          "keypoints_2d_px_mean": 0.3829633295536041,
+          "keypoints_2d_px_max": 0.42827433347702026,
+          "about_the_wrist_m_mean": 0.0005143005982972682
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6928523778915405,
+          1.3433524370193481,
+          3.0785961151123047
+         ],
+         "b": [
+          -0.6923575401306152,
+          1.3420816659927368,
+          3.076444149017334
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.004568934440612793,
+         "mean_abs": 0.002077162265777588
+        },
+        "body_pose_params": {
+         "max_abs": 0.009062528610229492,
+         "mean_abs": 0.0010191985402480327
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0023903027176856995,
+         "mean_abs": 0.0007071534047200759
+        },
+        "shape_params": {
+         "max_abs": 0.015540659427642822,
+         "mean_abs": 0.004405670281913545
+        },
+        "scale_params": {
+         "max_abs": 0.01899576187133789,
+         "mean_abs": 0.004226555881489601
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.003235085867345333,
+         "max": 0.005073066800832748,
+         "mean_after_centring": 0.0021640295162796974
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0032773378770798445,
+         "max": 0.005004568956792355
+        },
+        "keypoints_2d_px": {
+         "mean": 0.46968960762023926,
+         "max": 0.9836556911468506
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003380937036126852,
+          "keypoints_2d_px_mean": 0.38879328966140747,
+          "keypoints_2d_px_max": 0.5202456116676331
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.003246303414925933,
+          "keypoints_2d_px_mean": 0.456598699092865,
+          "keypoints_2d_px_max": 0.9836556911468506
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.003234055358916521,
+          "keypoints_2d_px_mean": 0.5349716544151306,
+          "keypoints_2d_px_max": 0.6247650384902954,
+          "about_the_wrist_m_mean": 0.0009588151006028056
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0033299436327069998,
+          "keypoints_2d_px_mean": 0.43800634145736694,
+          "keypoints_2d_px_max": 0.4764689803123474,
+          "about_the_wrist_m_mean": 0.0005675583379343152
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6928523778915405,
+          1.3433524370193481,
+          3.0785961151123047
+         ],
+         "b": [
+          -0.6926100254058838,
+          1.341802954673767,
+          3.0768883228302
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.005863361060619354,
+         "mean_abs": 0.00271742045879364
+        },
+        "body_pose_params": {
+         "max_abs": 0.009943187236785889,
+         "mean_abs": 0.0012005312207217951
+        },
+        "hand_pose_params": {
+         "max_abs": 0.004355855286121368,
+         "mean_abs": 0.0011611627126479074
+        },
+        "shape_params": {
+         "max_abs": 0.02676224708557129,
+         "mean_abs": 0.00803321757250362
+        },
+        "scale_params": {
+         "max_abs": 0.036391258239746094,
+         "mean_abs": 0.007894680635737521
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0009380574338138103,
+         "max": 0.002303859917446971,
+         "mean_after_centring": 0.0005165981710888445
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0009297002688981593,
+         "max": 0.0022855575662106276
+        },
+        "keypoints_2d_px": {
+         "mean": 0.0823853388428688,
+         "max": 0.5362265706062317
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0009662400116212666,
+          "keypoints_2d_px_mean": 0.015351951122283936,
+          "keypoints_2d_px_max": 0.03435520455241203
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0009432259830646217,
+          "keypoints_2d_px_mean": 0.14100666344165802,
+          "keypoints_2d_px_max": 0.5362265706062317
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.000655543408356607,
+          "keypoints_2d_px_mean": 0.04081672802567482,
+          "keypoints_2d_px_max": 0.0676049068570137,
+          "about_the_wrist_m_mean": 0.00012300869275350124
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0011803433299064636,
+          "keypoints_2d_px_mean": 0.0757099986076355,
+          "keypoints_2d_px_max": 0.10478252172470093,
+          "about_the_wrist_m_mean": 0.00015503712347708642
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6926100254058838,
+          1.341802954673767,
+          3.0768883228302
+         ],
+         "b": [
+          -0.6923575401306152,
+          1.3420816659927368,
+          3.076444149017334
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.0021331310272216797,
+         "mean_abs": 0.0012636234362920125
+        },
+        "body_pose_params": {
+         "max_abs": 0.0022992193698883057,
+         "mean_abs": 0.00034534704129218606
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0021020695567131042,
+         "mean_abs": 0.0006208026100432983
+        },
+        "shape_params": {
+         "max_abs": 0.012037515640258789,
+         "mean_abs": 0.0040419028864966495
+        },
+        "scale_params": {
+         "max_abs": 0.017395496368408203,
+         "mean_abs": 0.003805271117016673
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0024443943984806538,
+         "max": 0.003585494589060545,
+         "mean_after_centring": 0.0017526050796732306
+        },
+        "keypoints_3d_m": {
+         "mean": 0.002508976962417364,
+         "max": 0.0035576478112488985
+        },
+        "keypoints_2d_px": {
+         "mean": 0.43310976028442383,
+         "max": 0.6605587601661682
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.002440741751343012,
+          "keypoints_2d_px_mean": 0.3879440724849701,
+          "keypoints_2d_px_max": 0.49866244196891785
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0025517090689390898,
+          "keypoints_2d_px_mean": 0.366468608379364,
+          "keypoints_2d_px_max": 0.5779900550842285
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0028144309762865305,
+          "keypoints_2d_px_mean": 0.579800546169281,
+          "keypoints_2d_px_max": 0.6605587601661682,
+          "about_the_wrist_m_mean": 0.0008283855277113616
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0021729671861976385,
+          "keypoints_2d_px_mean": 0.37016063928604126,
+          "keypoints_2d_px_max": 0.4175650477409363,
+          "about_the_wrist_m_mean": 0.0005013385089114308
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6911773085594177,
+          1.3433688879013062,
+          3.073537588119507
+         ],
+         "b": [
+          -0.6906839609146118,
+          1.3421136140823364,
+          3.0712385177612305
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.004554413259029388,
+         "mean_abs": 0.002065598964691162
+        },
+        "body_pose_params": {
+         "max_abs": 0.008706241846084595,
+         "mean_abs": 0.00100728965371399
+        },
+        "hand_pose_params": {
+         "max_abs": 0.002436600625514984,
+         "mean_abs": 0.0007168190150642422
+        },
+        "shape_params": {
+         "max_abs": 0.015420559793710709,
+         "mean_abs": 0.0043742493622832826
+        },
+        "scale_params": {
+         "max_abs": 0.020116329193115234,
+         "mean_abs": 0.004173706950885909
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.00013720104470849037,
+         "max": 0.00020570670312736183,
+         "mean_after_centring": 8.286720549222082e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00013896617747377604,
+         "max": 0.00020377960754558444
+        },
+        "keypoints_2d_px": {
+         "mean": 0.011976491659879684,
+         "max": 0.06777500361204147
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00016017875168472528,
+          "keypoints_2d_px_mean": 0.0023125228472054005,
+          "keypoints_2d_px_max": 0.004255232866853476
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00012488097127061337,
+          "keypoints_2d_px_mean": 0.02440844103693962,
+          "keypoints_2d_px_max": 0.06777500361204147
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00011976603127550334,
+          "keypoints_2d_px_mean": 0.010147783905267715,
+          "keypoints_2d_px_max": 0.015111527405679226,
+          "about_the_wrist_m_mean": 2.221992690465413e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00016854240675456822,
+          "keypoints_2d_px_mean": 0.0024901959113776684,
+          "keypoints_2d_px_max": 0.003921486437320709,
+          "about_the_wrist_m_mean": 1.7040525563061237e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6923317313194275,
+          1.3421205282211304,
+          3.076108694076538
+         ],
+         "b": [
+          -0.6923575401306152,
+          1.3420816659927368,
+          3.076444149017334
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.00023321062326431274,
+         "mean_abs": 0.00014058624704678854
+        },
+        "body_pose_params": {
+         "max_abs": 0.00024965405464172363,
+         "mean_abs": 3.626147334120775e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.000215090811252594,
+         "mean_abs": 6.499894704945661e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0014998316764831543,
+         "mean_abs": 0.0004793234997325473
+        },
+        "scale_params": {
+         "max_abs": 0.001985788345336914,
+         "mean_abs": 0.0004919840555105891
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0001380962203256786,
+         "max": 0.00020489629241637886,
+         "mean_after_centring": 8.358751802006736e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00014136165555100888,
+         "max": 0.00020290084648877382
+        },
+        "keypoints_2d_px": {
+         "mean": 0.012059604749083519,
+         "max": 0.06693397462368011
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00015925310435704887,
+          "keypoints_2d_px_mean": 0.0023289029486477375,
+          "keypoints_2d_px_max": 0.0046004680916666985
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00012535357382148504,
+          "keypoints_2d_px_mean": 0.024685006588697433,
+          "keypoints_2d_px_max": 0.06693397462368011
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00012482033343985677,
+          "keypoints_2d_px_mean": 0.00967275071889162,
+          "keypoints_2d_px_max": 0.014469041489064693,
+          "about_the_wrist_m_mean": 2.1690866560675204e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00017117580864578485,
+          "keypoints_2d_px_mean": 0.002935470314696431,
+          "keypoints_2d_px_max": 0.0048429048620164394,
+          "about_the_wrist_m_mean": 1.6620451788185164e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.6906530857086182,
+          1.3421556949615479,
+          3.0708889961242676
+         ],
+         "b": [
+          -0.6906839609146118,
+          1.3421136140823364,
+          3.0712385177612305
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.0002375096082687378,
+         "mean_abs": 0.0001427978277206421
+        },
+        "body_pose_params": {
+         "max_abs": 0.00023031234741210938,
+         "mean_abs": 3.635370053518984e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.00021903961896896362,
+         "mean_abs": 6.451498699822912e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0014864206314086914,
+         "mean_abs": 0.00048605518208609685
+        },
+        "scale_params": {
+         "max_abs": 0.0019470453262329102,
+         "mean_abs": 0.0005012366787663528
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 99.56597900390625,
+         "right_hand_crop_side_px": 72.46984100341797,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 99.71015167236328,
+         "right_hand_crop_side_px": 72.28765106201172,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 99.70392608642578,
+         "right_hand_crop_side_px": 72.28606414794922,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 99.7584228515625,
+         "right_hand_crop_side_px": 72.37176513671875,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0026317674200981855,
+         "max": 0.0038441119249910116,
+         "mean_after_centring": 0.0018702952656894922
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0026850923895835876,
+         "max": 0.003813318209722638
+        },
+        "keypoints_2d_px": {
+         "mean": 0.4255889654159546,
+         "max": 0.6953989267349243
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.002684794133529067,
+          "keypoints_2d_px_mean": 0.36690300703048706,
+          "keypoints_2d_px_max": 0.4879550039768219
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.002682316582649946,
+          "keypoints_2d_px_mean": 0.3692721426486969,
+          "keypoints_2d_px_max": 0.6953989267349243
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0027267185505479574,
+          "keypoints_2d_px_mean": 0.5261828303337097,
+          "keypoints_2d_px_max": 0.6447721123695374,
+          "about_the_wrist_m_mean": 0.0009475714177824557
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0026465775445103645,
+          "keypoints_2d_px_mean": 0.4006483852863312,
+          "keypoints_2d_px_max": 0.454699844121933,
+          "about_the_wrist_m_mean": 0.0006257062777876854
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7800613045692444,
+          1.3715711832046509,
+          1.6392219066619873
+         ],
+         "b": [
+          -0.779610812664032,
+          1.3705475330352783,
+          1.63813054561615
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.00471341609954834,
+         "mean_abs": 0.0020142830908298492
+        },
+        "body_pose_params": {
+         "max_abs": 0.010360151529312134,
+         "mean_abs": 0.0010477639238010475
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0024995356798171997,
+         "mean_abs": 0.0007112000867319121
+        },
+        "shape_params": {
+         "max_abs": 0.016004502773284912,
+         "mean_abs": 0.004343665629211399
+        },
+        "scale_params": {
+         "max_abs": 0.022711068391799927,
+         "mean_abs": 0.004422235651873052
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.0034620710648596287,
+         "max": 0.005265533458441496,
+         "mean_after_centring": 0.002277947496622801
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00353845558129251,
+         "max": 0.005205160938203335
+        },
+        "keypoints_2d_px": {
+         "mean": 0.4644259810447693,
+         "max": 1.0903425216674805
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003645721124485135,
+          "keypoints_2d_px_mean": 0.37217915058135986,
+          "keypoints_2d_px_max": 0.5113024711608887
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.003393127815797925,
+          "keypoints_2d_px_mean": 0.44845569133758545,
+          "keypoints_2d_px_max": 1.0903425216674805
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0032208433840423822,
+          "keypoints_2d_px_mean": 0.4932692348957062,
+          "keypoints_2d_px_max": 0.6236168146133423,
+          "about_the_wrist_m_mean": 0.0010477358009666204
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00398969603702426,
+          "keypoints_2d_px_mean": 0.47503751516342163,
+          "keypoints_2d_px_max": 0.5646425485610962,
+          "about_the_wrist_m_mean": 0.0007144379196688533
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7800613045692444,
+          1.3715711832046509,
+          1.6392219066619873
+         ],
+         "b": [
+          -0.7799848318099976,
+          1.3702770471572876,
+          1.6386263370513916
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.005851879715919495,
+         "mean_abs": 0.0027518135805924735
+        },
+        "body_pose_params": {
+         "max_abs": 0.011344581842422485,
+         "mean_abs": 0.0012319919437036983
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0043212249875068665,
+         "mean_abs": 0.0012083040529870669
+        },
+        "shape_params": {
+         "max_abs": 0.027464866638183594,
+         "mean_abs": 0.008184979700793822
+        },
+        "scale_params": {
+         "max_abs": 0.04102754592895508,
+         "mean_abs": 0.008250426268205047
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0009659339557401836,
+         "max": 0.0021116272546350956,
+         "mean_after_centring": 0.0005143695743754506
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0009943482000380754,
+         "max": 0.0020948147866874933
+        },
+        "keypoints_2d_px": {
+         "mean": 0.08544465154409409,
+         "max": 0.5183717608451843
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0009997152956202626,
+          "keypoints_2d_px_mean": 0.015890177339315414,
+          "keypoints_2d_px_max": 0.029377290979027748
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0009231395088136196,
+          "keypoints_2d_px_mean": 0.12625263631343842,
+          "keypoints_2d_px_max": 0.5183717608451843
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0006889827200211585,
+          "keypoints_2d_px_mean": 0.046315789222717285,
+          "keypoints_2d_px_max": 0.06439650803804398,
+          "about_the_wrist_m_mean": 0.00011476141662569717
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0013764261966571212,
+          "keypoints_2d_px_mean": 0.09643964469432831,
+          "keypoints_2d_px_max": 0.14271102845668793,
+          "about_the_wrist_m_mean": 0.000191398779861629
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7799848318099976,
+          1.3702770471572876,
+          1.6386263370513916
+         ],
+         "b": [
+          -0.779610812664032,
+          1.3705475330352783,
+          1.63813054561615
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.001994013786315918,
+         "mean_abs": 0.0011742735902468364
+        },
+        "body_pose_params": {
+         "max_abs": 0.002268746495246887,
+         "mean_abs": 0.0003189994155733909
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0023052990436553955,
+         "mean_abs": 0.0006385579299940555
+        },
+        "shape_params": {
+         "max_abs": 0.012077629566192627,
+         "mean_abs": 0.004137009734080897
+        },
+        "scale_params": {
+         "max_abs": 0.01831647753715515,
+         "mean_abs": 0.003911571793391236
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0026341064367443323,
+         "max": 0.003825850086286664,
+         "mean_after_centring": 0.0018580902833491564
+        },
+        "keypoints_3d_m": {
+         "mean": 0.002692662412300706,
+         "max": 0.003790587419643998
+        },
+        "keypoints_2d_px": {
+         "mean": 0.43184694647789,
+         "max": 0.69645756483078
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0026912917383015156,
+          "keypoints_2d_px_mean": 0.3675374984741211,
+          "keypoints_2d_px_max": 0.48488718271255493
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0026853925082832575,
+          "keypoints_2d_px_mean": 0.37344372272491455,
+          "keypoints_2d_px_max": 0.69645756483078
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00271178362891078,
+          "keypoints_2d_px_mean": 0.5527284741401672,
+          "keypoints_2d_px_max": 0.6588114500045776,
+          "about_the_wrist_m_mean": 0.0008956071687862277
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0026818299666047096,
+          "keypoints_2d_px_mean": 0.3902427554130554,
+          "keypoints_2d_px_max": 0.4475618898868561,
+          "about_the_wrist_m_mean": 0.0006480042356997728
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7810354232788086,
+          1.3726003170013428,
+          1.6415743827819824
+         ],
+         "b": [
+          -0.7806923985481262,
+          1.3715548515319824,
+          1.6406750679016113
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.004703417420387268,
+         "mean_abs": 0.0020076719423135123
+        },
+        "body_pose_params": {
+         "max_abs": 0.01014372706413269,
+         "mean_abs": 0.0010309009248201729
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0024833083152770996,
+         "mean_abs": 0.0007150934220084713
+        },
+        "shape_params": {
+         "max_abs": 0.016119495034217834,
+         "mean_abs": 0.004402222732702891
+        },
+        "scale_params": {
+         "max_abs": 0.023451462388038635,
+         "mean_abs": 0.004372552602684924
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.00013498650514520705,
+         "max": 0.0002109023043885827,
+         "mean_after_centring": 8.387525303987786e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00013747872435487807,
+         "max": 0.00020929334277752787
+        },
+        "keypoints_2d_px": {
+         "mean": 0.013562098145484924,
+         "max": 0.08524361252784729
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0001548457657918334,
+          "keypoints_2d_px_mean": 0.0021612809505313635,
+          "keypoints_2d_px_max": 0.0030438893008977175
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00012474112736526877,
+          "keypoints_2d_px_mean": 0.028221871703863144,
+          "keypoints_2d_px_max": 0.08524361252784729
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00011036094656446949,
+          "keypoints_2d_px_mean": 0.00805852934718132,
+          "keypoints_2d_px_max": 0.013931452296674252,
+          "about_the_wrist_m_mean": 2.2202517357072793e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.00017441215459257364,
+          "keypoints_2d_px_mean": 0.005724203307181597,
+          "keypoints_2d_px_max": 0.0093693220987916,
+          "about_the_wrist_m_mean": 2.0582538127200678e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7795678377151489,
+          1.3705769777297974,
+          1.6379338502883911
+         ],
+         "b": [
+          -0.779610812664032,
+          1.3705475330352783,
+          1.63813054561615
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.00021989643573760986,
+         "mean_abs": 0.00012047216296195984
+        },
+        "body_pose_params": {
+         "max_abs": 0.00026670098304748535,
+         "mean_abs": 3.59468753764728e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.00021041929721832275,
+         "mean_abs": 6.589910481125116e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0014810562133789062,
+         "mean_abs": 0.000503504110707177
+        },
+        "scale_params": {
+         "max_abs": 0.0019490718841552734,
+         "mean_abs": 0.0005051234870084695
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.00013172141916584224,
+         "max": 0.00021134935377631336,
+         "mean_after_centring": 8.187058119801804e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00013384681369643658,
+         "max": 0.00020933852647431195
+        },
+        "keypoints_2d_px": {
+         "mean": 0.013054308481514454,
+         "max": 0.08446074277162552
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00015071697998791933,
+          "keypoints_2d_px_mean": 0.001666088355705142,
+          "keypoints_2d_px_max": 0.0023403719533234835
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.00012292497558519244,
+          "keypoints_2d_px_mean": 0.028461454436182976,
+          "keypoints_2d_px_max": 0.08446074277162552
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00010636694059940055,
+          "keypoints_2d_px_mean": 0.008634050376713276,
+          "keypoints_2d_px_max": 0.014701778069138527,
+          "about_the_wrist_m_mean": 2.1436511815409176e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0001692719670245424,
+          "keypoints_2d_px_mean": 0.0033115555997937918,
+          "keypoints_2d_px_max": 0.00636933371424675,
+          "about_the_wrist_m_mean": 1.958292159542907e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          -0.7806471586227417,
+          1.371586799621582,
+          1.6404764652252197
+         ],
+         "b": [
+          -0.7806923985481262,
+          1.3715548515319824,
+          1.6406750679016113
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.00021591782569885254,
+         "mean_abs": 0.00011668230096499126
+        },
+        "body_pose_params": {
+         "max_abs": 0.00026547908782958984,
+         "mean_abs": 3.6023122160450406e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.00020413100719451904,
+         "mean_abs": 6.525208569925141e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0014722943305969238,
+         "mean_abs": 0.000499643882115682
+        },
+        "scale_params": {
+         "max_abs": 0.0018745660781860352,
+         "mean_abs": 0.0004972841124981642
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 107.5691146850586,
+         "right_hand_crop_side_px": 73.34880828857422,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 107.7214584350586,
+         "right_hand_crop_side_px": 73.06021881103516,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 107.71062469482422,
+         "right_hand_crop_side_px": 73.0569076538086,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 107.79641723632812,
+         "right_hand_crop_side_px": 73.12023162841797,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    },
+    {
+     "person": 2,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.011229441501200199,
+         "max": 0.04817568510770798,
+         "mean_after_centring": 0.01167110726237297
+        },
+        "keypoints_3d_m": {
+         "mean": 0.015238926745951176,
+         "max": 0.044550396502017975
+        },
+        "keypoints_2d_px": {
+         "mean": 3.6648032665252686,
+         "max": 11.861352920532227
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0035828840918838978,
+          "keypoints_2d_px_mean": 0.7101921439170837,
+          "keypoints_2d_px_max": 0.8816019892692566
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.010829975828528404,
+          "keypoints_2d_px_mean": 2.261197566986084,
+          "keypoints_2d_px_max": 4.955991744995117
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.028586264699697495,
+          "keypoints_2d_px_mean": 8.930085182189941,
+          "keypoints_2d_px_max": 11.861352920532227,
+          "about_the_wrist_m_mean": 0.02556089498102665
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009495694190263748,
+          "keypoints_2d_px_mean": 0.6402819156646729,
+          "keypoints_2d_px_max": 0.7647901177406311,
+          "about_the_wrist_m_mean": 0.0005177659913897514
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.48422521352767944,
+          1.3721281290054321,
+          2.084897518157959
+         ],
+         "b": [
+          0.47924432158470154,
+          1.3714839220046997,
+          2.064809560775757
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.013436436653137207,
+         "mean_abs": 0.007637699445088704
+        },
+        "body_pose_params": {
+         "max_abs": 0.26481565833091736,
+         "mean_abs": 0.014862115371489156
+        },
+        "hand_pose_params": {
+         "max_abs": 0.35199153423309326,
+         "mean_abs": 0.05272718003295638
+        },
+        "shape_params": {
+         "max_abs": 0.14697149395942688,
+         "mean_abs": 0.04795565619650814
+        },
+        "scale_params": {
+         "max_abs": 0.355954110622406,
+         "mean_abs": 0.09171706157420496
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.011365708895027637,
+         "max": 0.048040539026260376,
+         "mean_after_centring": 0.011808627285063267
+        },
+        "keypoints_3d_m": {
+         "mean": 0.015224273316562176,
+         "max": 0.044423557817935944
+        },
+        "keypoints_2d_px": {
+         "mean": 3.7800610065460205,
+         "max": 11.964150428771973
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.003868200583383441,
+          "keypoints_2d_px_mean": 0.7071467638015747,
+          "keypoints_2d_px_max": 0.8810683488845825
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.011010316200554371,
+          "keypoints_2d_px_mean": 2.345017910003662,
+          "keypoints_2d_px_max": 5.172304153442383
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.028654417023062706,
+          "keypoints_2d_px_mean": 9.034185409545898,
+          "keypoints_2d_px_max": 11.964150428771973,
+          "about_the_wrist_m_mean": 0.02535150945186615
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009113246574997902,
+          "keypoints_2d_px_mean": 0.8292975425720215,
+          "keypoints_2d_px_max": 1.0308339595794678,
+          "about_the_wrist_m_mean": 0.0007577831274829805
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.48422521352767944,
+          1.3721281290054321,
+          2.084897518157959
+         ],
+         "b": [
+          0.4786604046821594,
+          1.3712191581726074,
+          2.0645108222961426
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.014182806015014648,
+         "mean_abs": 0.008331219355265299
+        },
+        "body_pose_params": {
+         "max_abs": 0.26399359107017517,
+         "mean_abs": 0.014952909746259815
+        },
+        "hand_pose_params": {
+         "max_abs": 0.3519776463508606,
+         "mean_abs": 0.05283859297978105
+        },
+        "shape_params": {
+         "max_abs": 0.1462981030344963,
+         "mean_abs": 0.047012975253164765
+        },
+        "scale_params": {
+         "max_abs": 0.3526996970176697,
+         "mean_abs": 0.09127224807577607
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0005257267621345818,
+         "max": 0.000898789381608367,
+         "mean_after_centring": 0.00046377876424230635
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0004786960198543966,
+         "max": 0.0008900922839529812
+        },
+        "keypoints_2d_px": {
+         "mean": 0.16773223876953125,
+         "max": 0.44483134150505066
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0006121753249317408,
+          "keypoints_2d_px_mean": 0.040757644921541214,
+          "keypoints_2d_px_max": 0.060467589646577835
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0005927854217588902,
+          "keypoints_2d_px_mean": 0.19028916954994202,
+          "keypoints_2d_px_max": 0.44483134150505066
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0003527330991346389,
+          "keypoints_2d_px_mean": 0.1490948647260666,
+          "keypoints_2d_px_max": 0.2002367228269577,
+          "about_the_wrist_m_mean": 0.00023268455697689205
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0004479229683056474,
+          "keypoints_2d_px_mean": 0.1918964833021164,
+          "keypoints_2d_px_max": 0.28083333373069763,
+          "about_the_wrist_m_mean": 0.00033960456494241953
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4786604046821594,
+          1.3712191581726074,
+          2.0645108222961426
+         ],
+         "b": [
+          0.47924432158470154,
+          1.3714839220046997,
+          2.064809560775757
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.0014257431030273438,
+         "mean_abs": 0.0007545550664265951
+        },
+        "body_pose_params": {
+         "max_abs": 0.0025243759155273438,
+         "mean_abs": 0.0002752016652970666
+        },
+        "hand_pose_params": {
+         "max_abs": 0.002375040203332901,
+         "mean_abs": 0.0005043135886942899
+        },
+        "shape_params": {
+         "max_abs": 0.004541188478469849,
+         "mean_abs": 0.001431486631433169
+        },
+        "scale_params": {
+         "max_abs": 0.01308506727218628,
+         "mean_abs": 0.0024432461775307146
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0008699181489646435,
+         "max": 0.0024528938811272383,
+         "mean_after_centring": 0.0005130508216097951
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0008212017710320652,
+         "max": 0.0024101329036056995
+        },
+        "keypoints_2d_px": {
+         "mean": 0.11068858951330185,
+         "max": 0.4899226129055023
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0008153595845215023,
+          "keypoints_2d_px_mean": 0.057315655052661896,
+          "keypoints_2d_px_max": 0.08787320554256439
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.001004172838293016,
+          "keypoints_2d_px_mean": 0.2110348790884018,
+          "keypoints_2d_px_max": 0.4899226129055023
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0004982068203389645,
+          "keypoints_2d_px_mean": 0.04778267815709114,
+          "keypoints_2d_px_max": 0.10164856165647507,
+          "about_the_wrist_m_mean": 0.0003292215697001666
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0009451907826587558,
+          "keypoints_2d_px_mean": 0.0763992965221405,
+          "keypoints_2d_px_max": 0.0987248569726944,
+          "about_the_wrist_m_mean": 0.00014049463788978755
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.47209253907203674,
+          1.36912202835083,
+          2.0287563800811768
+         ],
+         "b": [
+          0.4717444181442261,
+          1.3691456317901611,
+          2.0281691551208496
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.006772041320800781,
+         "mean_abs": 0.005232334136962891
+        },
+        "body_pose_params": {
+         "max_abs": 0.003877878189086914,
+         "mean_abs": 0.0004252602238579184
+        },
+        "hand_pose_params": {
+         "max_abs": 0.001466020941734314,
+         "mean_abs": 0.000380838593830251
+        },
+        "shape_params": {
+         "max_abs": 0.0061926692724227905,
+         "mean_abs": 0.0017695307731628418
+        },
+        "scale_params": {
+         "max_abs": 0.01734781265258789,
+         "mean_abs": 0.002989378583151847
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 4.845588773605414e-05,
+         "max": 0.00022658203670289367,
+         "mean_after_centring": 5.526216045836918e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 4.6705517888767645e-05,
+         "max": 0.00022451486438512802
+        },
+        "keypoints_2d_px": {
+         "mean": 0.013813774101436138,
+         "max": 0.07917805761098862
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 1.7311356714344583e-05,
+          "keypoints_2d_px_mean": 0.0019054881995543838,
+          "keypoints_2d_px_max": 0.004372069146484137
+         },
+         "body": {
+          "keypoints_3d_m_mean": 8.164737664628774e-05,
+          "keypoints_2d_px_mean": 0.029354693368077278,
+          "keypoints_2d_px_max": 0.07917805761098862
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 2.6477218852960505e-05,
+          "keypoints_2d_px_mean": 0.00466462317854166,
+          "keypoints_2d_px_max": 0.00589779345318675,
+          "about_the_wrist_m_mean": 7.888000254752114e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 3.566277518984862e-05,
+          "keypoints_2d_px_mean": 0.008777223527431488,
+          "keypoints_2d_px_max": 0.01538334134966135,
+          "about_the_wrist_m_mean": 2.0504869098658673e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.47923630475997925,
+          1.3714871406555176,
+          2.0646955966949463
+         ],
+         "b": [
+          0.47924432158470154,
+          1.3714839220046997,
+          2.064809560775757
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 9.059906005859375e-05,
+         "mean_abs": 5.2928924560546875e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.0002827942371368408,
+         "mean_abs": 2.7817364561518555e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 0.00023069977760314941,
+         "mean_abs": 5.2392344783853604e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0003644675016403198,
+         "mean_abs": 9.139813482761383e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0008248090744018555,
+         "mean_abs": 0.00022157537750899792
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 4.247482866048813e-05,
+         "max": 0.00018078387074638158,
+         "mean_after_centring": 4.689457273343578e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 4.346806963440031e-05,
+         "max": 0.00017969384498428553
+        },
+        "keypoints_2d_px": {
+         "mean": 0.015558246523141861,
+         "max": 0.06768311560153961
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 1.3285362911119591e-05,
+          "keypoints_2d_px_mean": 0.002319046063348651,
+          "keypoints_2d_px_max": 0.0030545888002961874
+         },
+         "body": {
+          "keypoints_3d_m_mean": 7.081291551003233e-05,
+          "keypoints_2d_px_mean": 0.028442325070500374,
+          "keypoints_2d_px_max": 0.06768311560153961
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 3.382250724826008e-05,
+          "keypoints_2d_px_mean": 0.010382669046521187,
+          "keypoints_2d_px_max": 0.012334841303527355,
+          "about_the_wrist_m_mean": 7.744156391709112e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 3.035086592717562e-05,
+          "keypoints_2d_px_mean": 0.00977487675845623,
+          "keypoints_2d_px_max": 0.012535445392131805,
+          "about_the_wrist_m_mean": 8.10053461464122e-06
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.47171923518180847,
+          1.3691550493240356,
+          2.0280094146728516
+         ],
+         "b": [
+          0.4717444181442261,
+          1.3691456317901611,
+          2.0281691551208496
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 7.390975952148438e-05,
+         "mean_abs": 4.764397939046224e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.00018167495727539062,
+         "mean_abs": 2.099755237621248e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 7.991492748260498e-05,
+         "mean_abs": 1.963783331491329e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0002511143684387207,
+         "mean_abs": 7.212145460976495e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0005006790161132812,
+         "mean_abs": 0.00011426662760121482
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 91.69635772705078,
+         "right_hand_crop_side_px": 96.9730224609375,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 91.77912139892578,
+         "right_hand_crop_side_px": 97.17098999023438,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 91.77890014648438,
+         "right_hand_crop_side_px": 97.16256713867188,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 91.71746063232422,
+         "right_hand_crop_side_px": 97.10822296142578,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.002301330678164959,
+         "max": 0.010099713690578938,
+         "mean_after_centring": 0.002405548933893442
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0038234132807701826,
+         "max": 0.01004173792898655
+        },
+        "keypoints_2d_px": {
+         "mean": 0.9390721917152405,
+         "max": 2.2895352840423584
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0009323535487055779,
+          "keypoints_2d_px_mean": 0.12919676303863525,
+          "keypoints_2d_px_max": 0.20697999000549316
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0010297413682565093,
+          "keypoints_2d_px_mean": 0.2731863558292389,
+          "keypoints_2d_px_max": 0.470089852809906
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.009009291417896748,
+          "keypoints_2d_px_mean": 2.0562808513641357,
+          "keypoints_2d_px_max": 2.2895352840423584,
+          "about_the_wrist_m_mean": 0.001637783832848072
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0023856188636273146,
+          "keypoints_2d_px_mean": 0.7439942359924316,
+          "keypoints_2d_px_max": 0.8307490348815918,
+          "about_the_wrist_m_mean": 0.0004229492333251983
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.5135836005210876,
+          1.3972866535186768,
+          1.0357149839401245
+         ],
+         "b": [
+          0.513675332069397,
+          1.397414207458496,
+          1.036584734916687
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0032650232315063477,
+         "mean_abs": 0.0011711517969767253
+        },
+        "body_pose_params": {
+         "max_abs": 0.05301305651664734,
+         "mean_abs": 0.0020312120034219347
+        },
+        "hand_pose_params": {
+         "max_abs": 0.021147318184375763,
+         "mean_abs": 0.005582867036099304
+        },
+        "shape_params": {
+         "max_abs": 0.029588498175144196,
+         "mean_abs": 0.00583520868482689
+        },
+        "scale_params": {
+         "max_abs": 0.04585142433643341,
+         "mean_abs": 0.011570615797869064
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.002281028078868985,
+         "max": 0.008196644484996796,
+         "mean_after_centring": 0.0021625806111842394
+        },
+        "keypoints_3d_m": {
+         "mean": 0.003518670564517379,
+         "max": 0.008139604702591896
+        },
+        "keypoints_2d_px": {
+         "mean": 0.8843656778335571,
+         "max": 1.9884006977081299
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0011604918399825692,
+          "keypoints_2d_px_mean": 0.13283845782279968,
+          "keypoints_2d_px_max": 0.15599873661994934
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0012439930578693748,
+          "keypoints_2d_px_mean": 0.3395354747772217,
+          "keypoints_2d_px_max": 0.7204853892326355
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.007359301671385765,
+          "keypoints_2d_px_mean": 1.7547739744186401,
+          "keypoints_2d_px_max": 1.9884006977081299,
+          "about_the_wrist_m_mean": 0.0012273492757230997
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0027308231219649315,
+          "keypoints_2d_px_mean": 0.7896111011505127,
+          "keypoints_2d_px_max": 0.9271722435951233,
+          "about_the_wrist_m_mean": 0.00034155839239247143
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.5135836005210876,
+          1.3972866535186768,
+          1.0357149839401245
+         ],
+         "b": [
+          0.5131695866584778,
+          1.3972216844558716,
+          1.036557912826538
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0035387277603149414,
+         "mean_abs": 0.0015966494878133137
+        },
+        "body_pose_params": {
+         "max_abs": 0.048897236585617065,
+         "mean_abs": 0.001878080386720962
+        },
+        "hand_pose_params": {
+         "max_abs": 0.01656259596347809,
+         "mean_abs": 0.00501469970482436
+        },
+        "shape_params": {
+         "max_abs": 0.02214173972606659,
+         "mean_abs": 0.006244357835708393
+        },
+        "scale_params": {
+         "max_abs": 0.041626691818237305,
+         "mean_abs": 0.009846439485305123
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0007353998371399939,
+         "max": 0.002135435352101922,
+         "mean_after_centring": 0.000693223555572331
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0010263759177178144,
+         "max": 0.002114817500114441
+        },
+        "keypoints_2d_px": {
+         "mean": 0.20158137381076813,
+         "max": 0.431783527135849
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0005385272670537233,
+          "keypoints_2d_px_mean": 0.045329637825489044,
+          "keypoints_2d_px_max": 0.0708790123462677
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0005027162842452526,
+          "keypoints_2d_px_mean": 0.17795135080814362,
+          "keypoints_2d_px_max": 0.4241448640823364
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0017189269419759512,
+          "keypoints_2d_px_mean": 0.33423930406570435,
+          "keypoints_2d_px_max": 0.431783527135849,
+          "about_the_wrist_m_mean": 0.0005771437427029014
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0010235117515549064,
+          "keypoints_2d_px_mean": 0.1320067048072815,
+          "keypoints_2d_px_max": 0.21810556948184967,
+          "about_the_wrist_m_mean": 0.00037447302020154893
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.5131695866584778,
+          1.3972216844558716,
+          1.036557912826538
+         ],
+         "b": [
+          0.513675332069397,
+          1.397414207458496,
+          1.036584734916687
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0013074874877929688,
+         "mean_abs": 0.0005780855814615885
+        },
+        "body_pose_params": {
+         "max_abs": 0.007865607738494873,
+         "mean_abs": 0.00043543929731319276
+        },
+        "hand_pose_params": {
+         "max_abs": 0.004994913935661316,
+         "mean_abs": 0.001352802911747454
+        },
+        "shape_params": {
+         "max_abs": 0.007446758449077606,
+         "mean_abs": 0.0013647938561108378
+        },
+        "scale_params": {
+         "max_abs": 0.013953924179077148,
+         "mean_abs": 0.0035412550330095527
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0008364520035684109,
+         "max": 0.002200161572545767,
+         "mean_after_centring": 0.0005246874061413109
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0007958273636177182,
+         "max": 0.002145291306078434
+        },
+        "keypoints_2d_px": {
+         "mean": 0.1134699136018753,
+         "max": 0.45900392532348633
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.0008063036948442459,
+          "keypoints_2d_px_mean": 0.05168461054563522,
+          "keypoints_2d_px_max": 0.07979635894298553
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.000951235240790993,
+          "keypoints_2d_px_mean": 0.21917220950126648,
+          "keypoints_2d_px_max": 0.45900392532348633
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0004888396942988038,
+          "keypoints_2d_px_mean": 0.04227413982152939,
+          "keypoints_2d_px_max": 0.0914541482925415,
+          "about_the_wrist_m_mean": 0.00030582345789298415
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0009301122045144439,
+          "keypoints_2d_px_mean": 0.08360730111598969,
+          "keypoints_2d_px_max": 0.1075972318649292,
+          "about_the_wrist_m_mean": 0.00012337529915384948
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4987221360206604,
+          1.3902164697647095,
+          1.0102688074111938
+         ],
+         "b": [
+          0.49833399057388306,
+          1.3901774883270264,
+          1.009965181350708
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0021429061889648438,
+         "mean_abs": 0.0017232100168863933
+        },
+        "body_pose_params": {
+         "max_abs": 0.0040024518966674805,
+         "mean_abs": 0.00045180489104311157
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0015077441930770874,
+         "mean_abs": 0.00045062945692161857
+        },
+        "shape_params": {
+         "max_abs": 0.005479693412780762,
+         "mean_abs": 0.001776588459809621
+        },
+        "scale_params": {
+         "max_abs": 0.01716327667236328,
+         "mean_abs": 0.0032145608441039386
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.00010736983676906675,
+         "max": 0.0005809751455672085,
+         "mean_after_centring": 0.00011907172302016988
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00017571084026712924,
+         "max": 0.0005556514370255172
+        },
+        "keypoints_2d_px": {
+         "mean": 0.050311654806137085,
+         "max": 0.15862305462360382
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 1.8167111193179153e-05,
+          "keypoints_2d_px_mean": 0.001967824762687087,
+          "keypoints_2d_px_max": 0.005934242159128189
+         },
+         "body": {
+          "keypoints_3d_m_mean": 8.3743485447485e-05,
+          "keypoints_2d_px_mean": 0.03323346748948097,
+          "keypoints_2d_px_max": 0.08175547420978546
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0004182490811217576,
+          "keypoints_2d_px_mean": 0.11814756691455841,
+          "keypoints_2d_px_max": 0.15862305462360382,
+          "about_the_wrist_m_mean": 0.0002461398544255644
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 7.140921661630273e-05,
+          "keypoints_2d_px_mean": 0.01269086915999651,
+          "keypoints_2d_px_max": 0.027329610660672188,
+          "about_the_wrist_m_mean": 4.7905719839036465e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.5136443972587585,
+          1.3974119424819946,
+          1.036492109298706
+         ],
+         "b": [
+          0.513675332069397,
+          1.397414207458496,
+          1.036584734916687
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.000179290771484375,
+         "mean_abs": 0.00010232130686442058
+        },
+        "body_pose_params": {
+         "max_abs": 0.006111621856689453,
+         "mean_abs": 0.00011601340536840428
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0014343857765197754,
+         "mean_abs": 0.0003663216269126645
+        },
+        "shape_params": {
+         "max_abs": 0.0009412094950675964,
+         "mean_abs": 0.00013196489049328698
+        },
+        "scale_params": {
+         "max_abs": 0.007521510124206543,
+         "mean_abs": 0.0007796600070183299
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 4.486470788833685e-05,
+         "max": 0.00019062994397245347,
+         "mean_after_centring": 5.008124207961373e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 4.4382144551491365e-05,
+         "max": 0.0001889495615614578
+        },
+        "keypoints_2d_px": {
+         "mean": 0.016943998634815216,
+         "max": 0.07086353003978729
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 1.7156486137537286e-05,
+          "keypoints_2d_px_mean": 0.0019419819582253695,
+          "keypoints_2d_px_max": 0.002644309075549245
+         },
+         "body": {
+          "keypoints_3d_m_mean": 7.228960021166131e-05,
+          "keypoints_2d_px_mean": 0.029742656275629997,
+          "keypoints_2d_px_max": 0.07086353003978729
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 3.5460019716992974e-05,
+          "keypoints_2d_px_mean": 0.011775323189795017,
+          "keypoints_2d_px_max": 0.013398467563092709,
+          "about_the_wrist_m_mean": 8.926443115342408e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 2.92212516797008e-05,
+          "keypoints_2d_px_mean": 0.011667011305689812,
+          "keypoints_2d_px_max": 0.014561234973371029,
+          "about_the_wrist_m_mean": 9.633281479182187e-06
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.4983036518096924,
+          1.390183448791504,
+          1.0098861455917358
+         ],
+         "b": [
+          0.49833399057388306,
+          1.3901774883270264,
+          1.009965181350708
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0001621246337890625,
+         "mean_abs": 9.735425313313802e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.00016779638826847076,
+         "mean_abs": 2.1594974800552192e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 8.192658424377441e-05,
+         "mean_abs": 2.2510566783172112e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0003147423267364502,
+         "mean_abs": 8.758637640211317e-05
+        },
+        "scale_params": {
+         "max_abs": 0.00047659873962402344,
+         "mean_abs": 0.00011320556015042322
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 89.5587158203125,
+         "right_hand_crop_side_px": 91.4718017578125,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 89.66352081298828,
+         "right_hand_crop_side_px": 91.65966796875,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 89.6612548828125,
+         "right_hand_crop_side_px": 91.6490478515625,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": true,
+         "right_hand_decoder_used": true,
+         "left_hand_crop_side_px": 89.5792236328125,
+         "right_hand_crop_side_px": 91.62289428710938,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    },
+    {
+     "person": 3,
+     "cameras": {
+      "default": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.005574450362473726,
+         "max": 0.011429999023675919,
+         "mean_after_centring": 0.0043108188547194
+        },
+        "keypoints_3d_m": {
+         "mean": 0.006845048628747463,
+         "max": 0.01134033314883709
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6401177644729614,
+         "max": 1.2563536167144775
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004775013774633408,
+          "keypoints_2d_px_mean": 0.3966597020626068,
+          "keypoints_2d_px_max": 0.4947914779186249
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005709297489374876,
+          "keypoints_2d_px_mean": 0.7731111645698547,
+          "keypoints_2d_px_max": 1.2563536167144775
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.006105363368988037,
+          "keypoints_2d_px_mean": 0.3867623805999756,
+          "keypoints_2d_px_max": 0.46825674176216125,
+          "about_the_wrist_m_mean": 0.0013486003736034036
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009321515448391438,
+          "keypoints_2d_px_mean": 0.805779755115509,
+          "keypoints_2d_px_max": 0.9747430682182312,
+          "about_the_wrist_m_mean": 0.0017442097887396812
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2611875832080841,
+          1.2753180265426636,
+          4.068428993225098
+         ],
+         "b": [
+          0.2603393793106079,
+          1.273494839668274,
+          4.057119846343994
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.005339145660400391,
+         "mean_abs": 0.00258845587571462
+        },
+        "body_pose_params": {
+         "max_abs": 0.029141008853912354,
+         "mean_abs": 0.0025411236381746435
+        },
+        "hand_pose_params": {
+         "max_abs": 0.00325678288936615,
+         "mean_abs": 0.001173549694040385
+        },
+        "shape_params": {
+         "max_abs": 0.032524049282073975,
+         "mean_abs": 0.006407255870807502
+        },
+        "scale_params": {
+         "max_abs": 0.029008090496063232,
+         "mean_abs": 0.005009155604057014
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.005516561679542065,
+         "max": 0.011552860029041767,
+         "mean_after_centring": 0.004225326701998711
+        },
+        "keypoints_3d_m": {
+         "mean": 0.006824607495218515,
+         "max": 0.011470087803900242
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6250665187835693,
+         "max": 1.1550108194351196
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004762301687151194,
+          "keypoints_2d_px_mean": 0.39371034502983093,
+          "keypoints_2d_px_max": 0.4852260649204254
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005583979655057192,
+          "keypoints_2d_px_mean": 0.7280157208442688,
+          "keypoints_2d_px_max": 1.1550108194351196
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00586284976452589,
+          "keypoints_2d_px_mean": 0.3668985366821289,
+          "keypoints_2d_px_max": 0.44060659408569336,
+          "about_the_wrist_m_mean": 0.0013290339848026633
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009636173956096172,
+          "keypoints_2d_px_mean": 0.8255656957626343,
+          "keypoints_2d_px_max": 0.9877676963806152,
+          "about_the_wrist_m_mean": 0.001748346840031445
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2611875832080841,
+          1.2753180265426636,
+          4.068428993225098
+         ],
+         "b": [
+          0.2598458528518677,
+          1.2734923362731934,
+          4.056484699249268
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.00493311882019043,
+         "mean_abs": 0.0020673125982284546
+        },
+        "body_pose_params": {
+         "max_abs": 0.027966409921646118,
+         "mean_abs": 0.00249009750323034
+        },
+        "hand_pose_params": {
+         "max_abs": 0.003039538860321045,
+         "mean_abs": 0.0011443555080471993
+        },
+        "shape_params": {
+         "max_abs": 0.032190918922424316,
+         "mean_abs": 0.00646934073107938
+        },
+        "scale_params": {
+         "max_abs": 0.02917337417602539,
+         "mean_abs": 0.005079125370165067
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0005567553453147411,
+         "max": 0.0010222101118415594,
+         "mean_after_centring": 0.00045314006274566054
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0006105017382651567,
+         "max": 0.0010045942617580295
+        },
+        "keypoints_2d_px": {
+         "mean": 0.07908734679222107,
+         "max": 0.2160378098487854
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.000503492308780551,
+          "keypoints_2d_px_mean": 0.010855418629944324,
+          "keypoints_2d_px_max": 0.01345743052661419
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0005650151870213449,
+          "keypoints_2d_px_mean": 0.08035807311534882,
+          "keypoints_2d_px_max": 0.2160378098487854
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.00039228348759934306,
+          "keypoints_2d_px_mean": 0.060886286199092865,
+          "keypoints_2d_px_max": 0.06630212068557739,
+          "about_the_wrist_m_mean": 5.818092540721409e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0009040168952196836,
+          "keypoints_2d_px_mean": 0.11214234679937363,
+          "keypoints_2d_px_max": 0.12463756650686264,
+          "about_the_wrist_m_mean": 0.0001586578437127173
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2598458528518677,
+          1.2734923362731934,
+          4.056484699249268
+         ],
+         "b": [
+          0.2603393793106079,
+          1.273494839668274,
+          4.057119846343994
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.0013827085494995117,
+         "mean_abs": 0.0006713469823201498
+        },
+        "body_pose_params": {
+         "max_abs": 0.0021177828311920166,
+         "mean_abs": 0.00022707644918289289
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0004038810729980469,
+         "mean_abs": 0.00013244509076078734
+        },
+        "shape_params": {
+         "max_abs": 0.0018766224384307861,
+         "mean_abs": 0.0004569278823004829
+        },
+        "scale_params": {
+         "max_abs": 0.002469778060913086,
+         "mean_abs": 0.0006635409580277545
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0055696903727948666,
+         "max": 0.011532275006175041,
+         "mean_after_centring": 0.004339912906289101
+        },
+        "keypoints_3d_m": {
+         "mean": 0.00683635612949729,
+         "max": 0.011442924849689007
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6522576212882996,
+         "max": 1.3139879703521729
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004704660270363092,
+          "keypoints_2d_px_mean": 0.3668701946735382,
+          "keypoints_2d_px_max": 0.4784036874771118
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005782297812402248,
+          "keypoints_2d_px_mean": 0.7935299873352051,
+          "keypoints_2d_px_max": 1.3139879703521729
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.005980953574180603,
+          "keypoints_2d_px_mean": 0.3701705038547516,
+          "keypoints_2d_px_max": 0.4599635899066925,
+          "about_the_wrist_m_mean": 0.0013493066653609276
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009353750385344028,
+          "keypoints_2d_px_mean": 0.8475671410560608,
+          "keypoints_2d_px_max": 1.0160788297653198,
+          "about_the_wrist_m_mean": 0.0017653026152402163
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.25882312655448914,
+          1.2747454643249512,
+          4.056609630584717
+         ],
+         "b": [
+          0.2582094669342041,
+          1.2730125188827515,
+          4.046166896820068
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 0.005358457565307617,
+         "mean_abs": 0.002508158485094706
+        },
+        "body_pose_params": {
+         "max_abs": 0.02942650020122528,
+         "mean_abs": 0.00258115351706029
+        },
+        "hand_pose_params": {
+         "max_abs": 0.0033053308725357056,
+         "mean_abs": 0.0012909492943435907
+        },
+        "shape_params": {
+         "max_abs": 0.03289055824279785,
+         "mean_abs": 0.0065213929861783985
+        },
+        "scale_params": {
+         "max_abs": 0.029890477657318115,
+         "mean_abs": 0.0051610820394541535
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 5.1468097808538005e-05,
+         "max": 9.955315908882767e-05,
+         "mean_after_centring": 3.928377554984763e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 6.12384028499946e-05,
+         "max": 9.892567322822288e-05
+        },
+        "keypoints_2d_px": {
+         "mean": 0.007260285317897797,
+         "max": 0.027871087193489075
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 4.487584010348655e-05,
+          "keypoints_2d_px_mean": 0.0019577289931476116,
+          "keypoints_2d_px_max": 0.002567107090726495
+         },
+         "body": {
+          "keypoints_3d_m_mean": 5.049404353485443e-05,
+          "keypoints_2d_px_mean": 0.012612845748662949,
+          "keypoints_2d_px_max": 0.027871087193489075
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 7.207951421150938e-05,
+          "keypoints_2d_px_mean": 0.002513534389436245,
+          "keypoints_2d_px_max": 0.0032110598403960466,
+          "about_the_wrist_m_mean": 1.0044122063845862e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 6.606079114135355e-05,
+          "keypoints_2d_px_mean": 0.007407219149172306,
+          "keypoints_2d_px_max": 0.008035125210881233,
+          "about_the_wrist_m_mean": 1.1249614544794895e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.260334849357605,
+          1.2734934091567993,
+          4.0566487312316895
+         ],
+         "b": [
+          0.2603393793106079,
+          1.273494839668274,
+          4.057119846343994
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 4.839897155761719e-05,
+         "mean_abs": 4.0883819262186684e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.0002754032611846924,
+         "mean_abs": 2.08785899221561e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 7.168948650360107e-05,
+         "mean_abs": 1.4652558429925531e-05
+        },
+        "shape_params": {
+         "max_abs": 0.000324055552482605,
+         "mean_abs": 8.789648741690649e-05
+        },
+        "scale_params": {
+         "max_abs": 0.00029984116554260254,
+         "mean_abs": 7.426331285387278e-05
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 5.131947182235308e-05,
+         "max": 9.873609815258533e-05,
+         "mean_after_centring": 3.8315763958962634e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 6.110572576289997e-05,
+         "max": 9.821635467233136e-05
+        },
+        "keypoints_2d_px": {
+         "mean": 0.006943040527403355,
+         "max": 0.02672470547258854
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 4.363030529930256e-05,
+          "keypoints_2d_px_mean": 0.001700609689578414,
+          "keypoints_2d_px_max": 0.0022542246151715517
+         },
+         "body": {
+          "keypoints_3d_m_mean": 5.122922084410675e-05,
+          "keypoints_2d_px_mean": 0.01180308684706688,
+          "keypoints_2d_px_max": 0.02672470547258854
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 6.970381218707189e-05,
+          "keypoints_2d_px_mean": 0.0018580181058496237,
+          "keypoints_2d_px_max": 0.0026101451367139816,
+          "about_the_wrist_m_mean": 8.737117241253145e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 6.748553278157488e-05,
+          "keypoints_2d_px_mean": 0.00795335229486227,
+          "keypoints_2d_px_max": 0.008507400751113892,
+          "about_the_wrist_m_mean": 1.0506370927032549e-05
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.25820648670196533,
+          1.2730088233947754,
+          4.04573917388916
+         ],
+         "b": [
+          0.2582094669342041,
+          1.2730125188827515,
+          4.046166896820068
+         ]
+        },
+        "focal_length_px": {
+         "a": 734.3023681640625,
+         "b": 734.3023681640625
+        },
+        "global_rot": {
+         "max_abs": 4.9114227294921875e-05,
+         "mean_abs": 4.001955191294352e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.0002667158842086792,
+         "mean_abs": 2.1070891403053937e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 7.11679458618164e-05,
+         "mean_abs": 1.508049252960417e-05
+        },
+        "shape_params": {
+         "max_abs": 0.00031027570366859436,
+         "mean_abs": 9.211901989248064e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0003255903720855713,
+         "mean_abs": 7.893868522452456e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.56975173950195,
+         "right_hand_crop_side_px": 28.368675231933594,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.4149169921875,
+         "right_hand_crop_side_px": 27.88212776184082,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.41015625,
+         "right_hand_crop_side_px": 27.88176155090332,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.4412841796875,
+         "right_hand_crop_side_px": 27.95185661315918,
+         "expression_all_zero": true
+        }
+       }
+      },
+      "fov": {
+       "core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.005658723413944244,
+         "max": 0.011487234383821487,
+         "mean_after_centring": 0.004323179367929697
+        },
+        "keypoints_3d_m": {
+         "mean": 0.006972321309149265,
+         "max": 0.01140083558857441
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6154892444610596,
+         "max": 1.2658416032791138
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004735528025776148,
+          "keypoints_2d_px_mean": 0.36387261748313904,
+          "keypoints_2d_px_max": 0.4783594310283661
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005842601414769888,
+          "keypoints_2d_px_mean": 0.7488797307014465,
+          "keypoints_2d_px_max": 1.2658416032791138
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.006450394634157419,
+          "keypoints_2d_px_mean": 0.42293840646743774,
+          "keypoints_2d_px_max": 0.5096530318260193,
+          "about_the_wrist_m_mean": 0.0014717088779434562
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009264132007956505,
+          "keypoints_2d_px_mean": 0.7218544483184814,
+          "keypoints_2d_px_max": 0.878046452999115,
+          "about_the_wrist_m_mean": 0.0018952523823827505
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2642100155353546,
+          1.278793215751648,
+          1.9508888721466064
+         ],
+         "b": [
+          0.26336997747421265,
+          1.2769792079925537,
+          1.9449104070663452
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.005647420883178711,
+         "mean_abs": 0.0031966964403788247
+        },
+        "body_pose_params": {
+         "max_abs": 0.029614493250846863,
+         "mean_abs": 0.002606989557616749
+        },
+        "hand_pose_params": {
+         "max_abs": 0.004036068916320801,
+         "mean_abs": 0.0012820736498084712
+        },
+        "shape_params": {
+         "max_abs": 0.03193199634552002,
+         "mean_abs": 0.006503994048883518
+        },
+        "scale_params": {
+         "max_abs": 0.029124349355697632,
+         "mean_abs": 0.005054819863289595
+        }
+       },
+       "core_against_meta_released": {
+        "vertices_m": {
+         "mean": 0.005599222611635923,
+         "max": 0.011598546989262104,
+         "mean_after_centring": 0.004243770614266396
+        },
+        "keypoints_3d_m": {
+         "mean": 0.006964537315070629,
+         "max": 0.011517772451043129
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6097924709320068,
+         "max": 1.1814104318618774
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004689383320510387,
+          "keypoints_2d_px_mean": 0.3636322021484375,
+          "keypoints_2d_px_max": 0.46883392333984375
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005724247545003891,
+          "keypoints_2d_px_mean": 0.7156214714050293,
+          "keypoints_2d_px_max": 1.1814104318618774
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0062577552162110806,
+          "keypoints_2d_px_mean": 0.40302520990371704,
+          "keypoints_2d_px_max": 0.48237133026123047,
+          "about_the_wrist_m_mean": 0.0014437081990763545
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009571436792612076,
+          "keypoints_2d_px_mean": 0.759261429309845,
+          "keypoints_2d_px_max": 0.911756157875061,
+          "about_the_wrist_m_mean": 0.00191125541459769
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2642100155353546,
+          1.278793215751648,
+          1.9508888721466064
+         ],
+         "b": [
+          0.26291435956954956,
+          1.2769819498062134,
+          1.9447290897369385
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0051915645599365234,
+         "mean_abs": 0.0026240944862365723
+        },
+        "body_pose_params": {
+         "max_abs": 0.028620049357414246,
+         "mean_abs": 0.002564485443062744
+        },
+        "hand_pose_params": {
+         "max_abs": 0.003855764865875244,
+         "mean_abs": 0.001254931891809166
+        },
+        "shape_params": {
+         "max_abs": 0.03153562545776367,
+         "mean_abs": 0.006578383046305842
+        },
+        "scale_params": {
+         "max_abs": 0.0294225811958313,
+         "mean_abs": 0.005203835932271821
+        }
+       },
+       "floor_meta_released_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.0005429544253274798,
+         "max": 0.0011555100791156292,
+         "mean_after_centring": 0.00044813595013692975
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0006325222202576697,
+         "max": 0.0011323611252009869
+        },
+        "keypoints_2d_px": {
+         "mean": 0.07964012026786804,
+         "max": 0.19503998756408691
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.00044560115202330053,
+          "keypoints_2d_px_mean": 0.007988975383341312,
+          "keypoints_2d_px_max": 0.014048862271010876
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.0005321016069501638,
+          "keypoints_2d_px_mean": 0.07071124017238617,
+          "keypoints_2d_px_max": 0.19503998756408691
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.0003683399991132319,
+          "keypoints_2d_px_mean": 0.0655607357621193,
+          "keypoints_2d_px_max": 0.07092340290546417,
+          "about_the_wrist_m_mean": 5.918877650401555e-05
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.0010511938016861677,
+          "keypoints_2d_px_mean": 0.12055853754281998,
+          "keypoints_2d_px_max": 0.13175228238105774,
+          "about_the_wrist_m_mean": 0.00018899471615441144
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.26291435956954956,
+          1.2769819498062134,
+          1.9447290897369385
+         ],
+         "b": [
+          0.26336997747421265,
+          1.2769792079925537,
+          1.9449104070663452
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.0013644695281982422,
+         "mean_abs": 0.0006409486134847006
+        },
+        "body_pose_params": {
+         "max_abs": 0.0020110607147216797,
+         "mean_abs": 0.00022325227457217704
+        },
+        "hand_pose_params": {
+         "max_abs": 0.000532105565071106,
+         "mean_abs": 0.00014056518880857361
+        },
+        "shape_params": {
+         "max_abs": 0.0015229657292366028,
+         "mean_abs": 0.00047120791342523363
+        },
+        "scale_params": {
+         "max_abs": 0.002224445343017578,
+         "mean_abs": 0.0006420326951359
+        }
+       },
+       "body_only_core_against_meta_float32": {
+        "vertices_m": {
+         "mean": 0.005720185581594706,
+         "max": 0.011796741746366024,
+         "mean_after_centring": 0.004437517374753952
+        },
+        "keypoints_3d_m": {
+         "mean": 0.0070045022293925285,
+         "max": 0.01170305721461773
+        },
+        "keypoints_2d_px": {
+         "mean": 0.6210527420043945,
+         "max": 1.2984251976013184
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 0.004830195568501949,
+          "keypoints_2d_px_mean": 0.4093119204044342,
+          "keypoints_2d_px_max": 0.5226253271102905
+         },
+         "body": {
+          "keypoints_3d_m_mean": 0.005936904344707727,
+          "keypoints_2d_px_mean": 0.7676563858985901,
+          "keypoints_2d_px_max": 1.2984251976013184
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 0.006174996495246887,
+          "keypoints_2d_px_mean": 0.36566492915153503,
+          "keypoints_2d_px_max": 0.44762909412384033,
+          "about_the_wrist_m_mean": 0.0014244915219023824
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 0.009520973078906536,
+          "keypoints_2d_px_mean": 0.7662890553474426,
+          "keypoints_2d_px_max": 0.9273234009742737,
+          "about_the_wrist_m_mean": 0.0019118508789688349
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.26251161098480225,
+          1.2782893180847168,
+          1.947760820388794
+         ],
+         "b": [
+          0.26170584559440613,
+          1.276484727859497,
+          1.9419260025024414
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 0.006227970123291016,
+         "mean_abs": 0.0033597350120544434
+        },
+        "body_pose_params": {
+         "max_abs": 0.030293136835098267,
+         "mean_abs": 0.0026209893180372517
+        },
+        "hand_pose_params": {
+         "max_abs": 0.003879636526107788,
+         "mean_abs": 0.001264273548494438
+        },
+        "shape_params": {
+         "max_abs": 0.03125983476638794,
+         "mean_abs": 0.006361203517816547
+        },
+        "scale_params": {
+         "max_abs": 0.029131650924682617,
+         "mean_abs": 0.005014168065307396
+        }
+       },
+       "control_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 4.838129461859353e-05,
+         "max": 0.00010551267041591927,
+         "mean_after_centring": 3.890262814820744e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 5.528998372028582e-05,
+         "max": 0.00010489551641512662
+        },
+        "keypoints_2d_px": {
+         "mean": 0.006739708129316568,
+         "max": 0.026028649881482124
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 4.0203758544521406e-05,
+          "keypoints_2d_px_mean": 0.0020278659649193287,
+          "keypoints_2d_px_max": 0.002680166158825159
+         },
+         "body": {
+          "keypoints_3d_m_mean": 5.199879524298012e-05,
+          "keypoints_2d_px_mean": 0.011675570160150528,
+          "keypoints_2d_px_max": 0.026028649881482124
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 5.73769721086137e-05,
+          "keypoints_2d_px_mean": 0.0027743049431592226,
+          "keypoints_2d_px_max": 0.00320525374263525,
+          "about_the_wrist_m_mean": 8.569091733079404e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 6.039958316250704e-05,
+          "keypoints_2d_px_mean": 0.006421033293008804,
+          "keypoints_2d_px_max": 0.006905878894031048,
+          "about_the_wrist_m_mean": 9.939733899955172e-06
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.26336196064949036,
+          1.2769768238067627,
+          1.9446929693222046
+         ],
+         "b": [
+          0.26336997747421265,
+          1.2769792079925537,
+          1.9449104070663452
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 5.5789947509765625e-05,
+         "mean_abs": 4.717707633972168e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.0003057718276977539,
+         "mean_abs": 2.131908274206676e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 5.85019588470459e-05,
+         "mean_abs": 1.4954229333886394e-05
+        },
+        "shape_params": {
+         "max_abs": 0.00030566751956939697,
+         "mean_abs": 8.449227445655399e-05
+        },
+        "scale_params": {
+         "max_abs": 0.0002815723419189453,
+         "mean_abs": 7.588087048913752e-05
+        }
+       },
+       "control_body_only_core_opencv_crop_against_meta_float32": {
+        "vertices_m": {
+         "mean": 4.678145342040807e-05,
+         "max": 0.00010358524014009163,
+         "mean_after_centring": 3.692974496516399e-05
+        },
+        "keypoints_3d_m": {
+         "mean": 5.381827213568613e-05,
+         "max": 0.00010295074753230438
+        },
+        "keypoints_2d_px": {
+         "mean": 0.006429888308048248,
+         "max": 0.025929275900125504
+        },
+        "groups": {
+         "head": {
+          "keypoints_3d_m_mean": 3.751763142645359e-05,
+          "keypoints_2d_px_mean": 0.002369977068156004,
+          "keypoints_2d_px_max": 0.0030685344245284796
+         },
+         "body": {
+          "keypoints_3d_m_mean": 5.125606548972428e-05,
+          "keypoints_2d_px_mean": 0.011662646196782589,
+          "keypoints_2d_px_max": 0.025929275900125504
+         },
+         "right_hand": {
+          "keypoints_3d_m_mean": 5.6364700867561623e-05,
+          "keypoints_2d_px_mean": 0.002134053036570549,
+          "keypoints_2d_px_max": 0.0025622500106692314,
+          "about_the_wrist_m_mean": 8.591976438765414e-06
+         },
+         "left_hand": {
+          "keypoints_3d_m_mean": 5.795917604700662e-05,
+          "keypoints_2d_px_mean": 0.005961254239082336,
+          "keypoints_2d_px_max": 0.006427428685128689,
+          "about_the_wrist_m_mean": 9.039457836479414e-06
+         }
+        },
+        "camera_translation_m": {
+         "a": [
+          0.2616994380950928,
+          1.2764816284179688,
+          1.9417110681533813
+         ],
+         "b": [
+          0.26170584559440613,
+          1.276484727859497,
+          1.9419260025024414
+         ]
+        },
+        "focal_length_px": {
+         "a": 345.77679443359375,
+         "b": 345.77679443359375
+        },
+        "global_rot": {
+         "max_abs": 5.435943603515625e-05,
+         "mean_abs": 4.621346791585287e-05
+        },
+        "body_pose_params": {
+         "max_abs": 0.0002967715263366699,
+         "mean_abs": 2.127862097765494e-05
+        },
+        "hand_pose_params": {
+         "max_abs": 5.666911602020264e-05,
+         "mean_abs": 1.5089322847348672e-05
+        },
+        "shape_params": {
+         "max_abs": 0.0003011971712112427,
+         "mean_abs": 8.203109933270348e-05
+        },
+        "scale_params": {
+         "max_abs": 0.00029224157333374023,
+         "mean_abs": 7.873263010489089e-05
+        }
+       },
+       "hands": {
+        "core": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.4595947265625,
+         "right_hand_crop_side_px": 29.5096435546875,
+         "expression_all_zero": true
+        },
+        "core_opencv_crop": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.43732833862305,
+         "right_hand_crop_side_px": 29.10344123840332,
+         "expression_all_zero": true
+        },
+        "meta_float32": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.43198013305664,
+         "right_hand_crop_side_px": 29.101903915405273,
+         "expression_all_zero": true
+        },
+        "meta_released": {
+         "left_hand_decoder_used": false,
+         "right_hand_decoder_used": false,
+         "left_hand_crop_side_px": 42.47819900512695,
+         "right_hand_crop_side_px": 29.15654182434082,
+         "expression_all_zero": true
+        }
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

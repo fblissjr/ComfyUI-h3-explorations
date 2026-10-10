@@ -12,7 +12,7 @@ this file is only a way to find a script by what it says it does.
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
-| [`compare_*`](#compare) | 18 |
+| [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
 | [the rest](#the-rest) | 132 |
@@ -232,6 +232,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_pdd_conversions.py`](compare_pdd_conversions.py) | Grade our PDD conversion against the paper, the vendor adapter, and Kijai's. |
 | [`compare_pdd_head_fusion.py`](compare_pdd_head_fusion.py) | Fused-head fidelity across PDD implementations, CPU only. |
 | [`compare_pdd_head_selection.py`](compare_pdd_head_selection.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md. CUDA_VISIBLE_DEVICES="" with the ComfyUI venv. |
+| [`compare_sam3d_body_core_against_meta.py`](compare_sam3d_body_core_against_meta.py) | ComfyUI core's SAM 3D Body predict against Meta's own inference code, on the same image, boxes and camera. |
 | [`compare_sam3d_body_releases.py`](compare_sam3d_body_releases.py) | SAM 3D Body's two releases on one frame: core's predict and render through the DINOv3 file and the ViT-H file. |
 | [`compare_sol_probe_records.py`](compare_sol_probe_records.py) | Set two Sol probe records side by side, block by block. |
 | [`compare_sol_records.py`](compare_sol_records.py) | Compare two renders' Sol counts, call for call: the cache-state control. |
@@ -539,7 +540,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-861 tracked files: [`results/INDEX.md`](results/INDEX.md).
+863 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
