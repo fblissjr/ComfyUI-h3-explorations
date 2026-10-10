@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 96 |
+| [`check_*`](#check) | 97 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 18 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 130 |
+| [the rest](#the-rest) | 131 |
 
 ## check
 
@@ -30,6 +30,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_camera_vocabulary.py`](check_camera_vocabulary.py) | Camera motion in every shipped prompt comes from base_en 4.3's closed sets. |
 | [`check_capture_manifest.py`](check_capture_manifest.py) | Check that activation captures contain valid, conforming manifest.json files. |
 | [`check_capture_manifest_controls.py`](check_capture_manifest_controls.py) | Red controls for the capture-manifest contract: each case is a fixture built to violate one rule, and the run is green only when every violation is caught and the two legitimate fixtures pass. |
+| [`check_capture_masked_run.py`](check_capture_masked_run.py) | The capture tool's tables against masks whose answers are known by construction, for three subjects. |
 | [`check_changelog.py`](check_changelog.py) | `CHANGELOG.md`'s top is what the fragments in `changelog.d/` make, and the builder cannot lose an entry. |
 | [`check_channel_balance.py`](check_channel_balance.py) | Check `MiniMaxH3ChannelBalance`: the fold is exact, RoPE-safe, off by default, and picks the blocks the shipped checkpoint's weights say it should. |
 | [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
@@ -300,6 +301,7 @@ this file is only a way to find a script by what it says it does.
 | [`blind_panel.py`](blind_panel.py) | Build a blinded panel of stacked pairs from clips that already exist, with a sealed key. |
 | [`blind_score_app.py`](blind_score_app.py) | Write a self-contained scoring page into a blind batch directory. |
 | [`calibrate_sparse_table.py`](calibrate_sparse_table.py) | Calibrate a per-head tau table from tau-sweep records (`sol_tau_sweep.py`). |
+| [`capture_masked_run.py`](capture_masked_run.py) | Capture what the tracker and the masks did on a masked run, for any number of subjects, and show it. |
 | [`checkpoint_delta_map.py`](checkpoint_delta_map.py) | Where each distill changes H3, from full-precision weights. CPU only. |
 | [`classify_kijai_pdd_banks.py`](classify_kijai_pdd_banks.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md section 1. Network (HTTP range requests to Hugging Face) and CPU; no GPU. |
 | [`clip_recipe_coverage.py`](clip_recipe_coverage.py) | Which rendered recipes have a graph in this repo, and which have none. |

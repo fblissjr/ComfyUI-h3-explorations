@@ -7,6 +7,13 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.237.0
+<!-- changelog.d/mrpop-capture-masked-run.md -->
+
+### Added
+
+- `bench/capture_masked_run.py`, written by session mrdeer: one tool for what the tracker and the masks did on a masked run, for any number of subjects, and for the look before a render. `files` reads the mask videos a no-sampling preview saved and a render's own review and writes `data/<date>_<name>/` (untracked) with a `subject` on every row and file, the rows across subjects (each pair's overlap, a run's region on another subject, the margin cells given back), every mask as a lossless video a render can load, and a `status.json`; `--plan` works a run's region out from the masks before it has rendered. `preflight` writes `flags.json`: what is at risk, each flag with a level, its rule, the subject, the frames and the figure, the thresholds as constants with their provenance. `outcome` records what a render did against a flag; `diagnose` prints what every table says about a span of frames; `video` draws the stacked, frame-numbered picture from the same files. It replaces the 2026-10-07 capture scripts, which were not kept. `bench/check_capture_masked_run.py` holds the tables and the gate's rules on masks whose answers are known by construction; `docs/checks.md` has its row.
+
 ## 0.236.0
 <!-- changelog.d/mrpop-queue-time-refusals-and-the-data-rule.md -->
 
