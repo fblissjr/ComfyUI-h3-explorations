@@ -74,6 +74,14 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
 - **ComfyUI caches.** A wall time or VRAM figure is a statement about cache
   state; say which state you measured in. `/history` is the observable for
   which arm ran; a log line can belong to someone else's run.
+- **Nothing an earlier run made is reused by a key.** A store that hands
+  back a mask, a window, a latent or an encoding because a key matched is
+  never reliable: the key cannot see everything the result depends on. A
+  result is made again, or it is handed in explicitly as a named file or
+  wired input that the job says it reads. A mask is preprocessing data for
+  the job that reads it, temporary, and rebuilt when preprocessing runs
+  again. A store that keeps rows inside one run for that run's later steps
+  is not this. (Owner, 2026-10-10.)
 - **A masked render is run on data, before and after.** A no-sampling
   capture and its flags before it samples; the same capture read first when
   it goes wrong; a "why" cites a row, a frame range or a measured figure;

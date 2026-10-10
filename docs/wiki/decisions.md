@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **Nothing an earlier run made is reused by a key** (owner, to the lead,
+  on the list of stores a session drew up that evening). Until this line
+  the pack had a kept-mask store (`reuse_mask`), stored-window reuse
+  (`reuse_windows`) and an in-memory keep of source latents and
+  conditionings, each switched off in code or by default since 2026-10-04
+  to 2026-10-07 after a stale stored mask hid a fix, and each still in the
+  nodes' schemas; and a reference store on the references lane's nodes.
+  Now a result is made again or handed in explicitly as a named file or
+  wired input; a mask is temporary preprocessing data for the job that
+  reads it. The stores, their inputs, code, checks and prose are removed in
+  a node change of their own; window files a person names (`keep_windows`,
+  `continue_from`) are not stores and stay. The rule is in `AGENTS.md`,
+  "Operative rules".
+
 - **No more data files under `bench/results/`** (owner, to the lead: the
   folder had been taking files that serve the same purpose as `data/`).
   Until this line a dated record was a `.md` with a `.json` of the same
