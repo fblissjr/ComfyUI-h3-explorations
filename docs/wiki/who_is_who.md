@@ -761,6 +761,90 @@ and nothing follows a bowl or a dish unless a session adds a tracker by
 hand. Not known: whether a whole-mask signature tells one held thing from
 another, and everything else in this section.
 
+**Stage one for things, as a scope** (2026-10-10; nothing here is built).
+Its aim is narrow: before a render, every thing near a named subject is
+found, tied to that subject, and either answered for or blocking. It
+decides nothing by how a thing looks. Today that knowledge arrives after
+a render: a bowl and a dish inside a whole-person region were redrawn as
+other things because nothing named or kept them (`data/CAPTURE_GAPS.md`,
+"Segments, not only people", untracked), and by the lead session's
+account, not yet in a record, a thing in a hand was caught only because
+the gate was run on a mask made by hand.
+
+*What is found, and by what.* Nothing new is loaded.
+
+| a thing that is | found by | when | known limit |
+|---|---|---|---|
+| held, with no name | the part node's `held` output on the subject's own track (`sapiens2_parts.py`) | with the trackers, a frame at a time | it cannot see what the tracker's mask leaves out, and a part of the body the model fails to label near a hand counts as held |
+| named by a noun | SAM 3.1 asked for a plain singular noun ([`sam3_prompting.md`](sam3_prompting.md), "a thing"), from a list in the cast | on the census's looks | a phrase found a small prop for the first seconds of a window and then not at all (the same page, "a small thing") |
+| taken for a person | the census itself: a "person" on whom no head is found on any look of a shot (`subject_track.py`, step 7, the hanging microphone; the record's printed figure on a box) | on the census's looks | a real person seen from behind or cut by the frame has no head either, so it is offered on the sheet, never decided |
+| found by nothing | a box typed off a numbered tile | once, by a person | the box is that one look's; following it is the next stage |
+
+Not in stage one: finding a thing nobody named with no phrase and no box
+(a grid of points round a subject is the candidate; untried), and
+matching a thing across a cut by its look.
+
+*Which nouns work is the clip's to say.* By the owner's rule
+(`AGENTS.md`, "A rule that depends on the picture takes its value from
+the input video, up front"), the census reports for each noun the share
+of looks on which it found anything. A noun that finds nothing on this
+picture is said so before anybody relies on it.
+
+*The relation, for every thing and every subject on a look:*
+
+- the **gap**: the smallest distance between the two masks, in the
+  subject's head heights (the head the tracker already asks for on every
+  look; with no head, a share of the subject's box height, and the row
+  says which);
+- how much of the thing's mask is **inside** the subject's track;
+- what part of the subject it is **at** (a hand, the lips, the head, the
+  torso), from the class map where there is one;
+- whether it lies inside the region each planned run would take.
+
+A thing is **near** a subject on a look when the gap is at most
+`THING_NEAR`. It **belongs** to a subject for a shot when it is near them
+on most of the shot's looks and near nobody else named. Near two is
+**contested**, and asks.
+
+*The capture* gives every thing an id that holds for the whole capture
+and one colour in every picture, as the gaps file already scopes for
+segments (`<subject>.held.<n>`, and the thing's own label), and writes the
+relation as a table a frame.
+
+*The gate*, three rules:
+
+- `thing_inside_region`, blocking until answered: a thing lies inside a
+  run's region and the job says nothing about it. The answer is one word
+  a thing a job, never a shot at a time: it **stays** as the source's, it
+  **goes with** the subject and is drawn again, or it is **left** to
+  chance on purpose.
+- `thing_near_two_subjects`: a contested thing. It asks.
+- `thing_lost_within_a_shot`: near a hand on some looks of a shot and not
+  found on others while the hand is there. A warning that the noun is
+  failing on this picture.
+
+*The job builder*, by the answer. For a thing that stays: where it does
+not touch the subject it is kept out of the region at the sampler, as
+another person is (`others`); where it touches, it is given back at
+assembly (`bench/assemble_delivery.py`, `restore=`) and never kept at the
+sampler, since a keep on what touches the subject has brought the
+original back more than once
+([`known_before_a_render.md`](known_before_a_render.md);
+[`../../bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md`](../../bench/results/2026-10-07_masked_switch_keep_prompt_verdicts.md)). Both need the
+thing's mask on every frame. A held thing has one already. A thing found
+by a noun or a box gets one from a Subject Track of its own on that noun,
+seeded shot by shot from the relation table with the seed of section 8,
+since a thing has no head and the tracker matches nobody across a cut
+without one. For a thing that goes with the subject, the builder does
+nothing to the region and the job's text has to account for it.
+
+*Accepted when* the gate, run on the kitchen stretch of the job of
+2026-10-10 before any render, from the census and one typed list of
+nouns, raises `thing_inside_region` for the things that were redrawn that
+day. *Wrong, in part, if* the nouns find those things on too few looks to
+place them in most shots: then a typed box and following it come before
+anything else here.
+
 ### 12. The order to build it in
 
 Each step waits on the one before it.
