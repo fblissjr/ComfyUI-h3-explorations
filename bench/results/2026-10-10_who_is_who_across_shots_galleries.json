@@ -1,0 +1,281 @@
+{
+ "tables": {
+  "lead": "pick_face_kitchen_0604_pick_00001_shots.json",
+  "second": "pick_kitchen_0604_pick_00001_shots.json"
+ },
+ "rows": [
+  {
+   "subject": "lead",
+   "gallery_frame": 2,
+   "has_head": false,
+   "top third": {
+    "own": 0.45999847199999994,
+    "as second": 0.22896399820000002
+   },
+   "head": {
+    "own": null,
+    "as second": null
+   },
+   "rule": {
+    "own": null,
+    "as second": null
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 58,
+   "has_head": true,
+   "top third": {
+    "own": 0.9362378062000001,
+    "as second": 0.8964471741
+   },
+   "head": {
+    "own": 0.9450314497000001,
+    "as second": 0.8948403695000001
+   },
+   "rule": {
+    "own": 0.9362378062000001,
+    "as second": 0.8948403695000001
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 114,
+   "has_head": true,
+   "top third": {
+    "own": 0.9362378062000001,
+    "as second": 0.8659374496999999
+   },
+   "head": {
+    "own": 0.9450314497000001,
+    "as second": 0.8722486877000001
+   },
+   "rule": {
+    "own": 0.9362378062000001,
+    "as second": 0.8659374496999999
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 170,
+   "has_head": true,
+   "top third": {
+    "own": 0.9257311881,
+    "as second": 0.8528926019
+   },
+   "head": {
+    "own": 0.9253173862000001,
+    "as second": 0.8931677672
+   },
+   "rule": {
+    "own": 0.9253173862000001,
+    "as second": 0.8528926019
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 226,
+   "has_head": true,
+   "top third": {
+    "own": 0.9257311881,
+    "as second": 0.8844684812999999
+   },
+   "head": {
+    "own": 0.9253173862000001,
+    "as second": 0.8975044666999998
+   },
+   "rule": {
+    "own": 0.9253173862000001,
+    "as second": 0.8844684812999999
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 282,
+   "has_head": true,
+   "top third": {
+    "own": 0.9055645658,
+    "as second": 0.8826208931999999
+   },
+   "head": {
+    "own": 0.9174978565,
+    "as second": 0.9032026749
+   },
+   "rule": {
+    "own": 0.9055645658,
+    "as second": 0.8826208931999999
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 364,
+   "has_head": true,
+   "top third": {
+    "own": 0.9055645658,
+    "as second": 0.8438753712999999
+   },
+   "head": {
+    "own": 0.9174978565,
+    "as second": 0.8756394561000002
+   },
+   "rule": {
+    "own": 0.9055645658,
+    "as second": 0.8438753712999999
+   }
+  },
+  {
+   "subject": "lead",
+   "gallery_frame": 394,
+   "has_head": false,
+   "top third": {
+    "own": 0.45999847199999994,
+    "as second": 0.23428367740000003
+   },
+   "head": {
+    "own": null,
+    "as second": null
+   },
+   "rule": {
+    "own": null,
+    "as second": null
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 0,
+   "has_head": true,
+   "top third": {
+    "own": 0.9211555586,
+    "as lead": 0.8260905823
+   },
+   "head": {
+    "own": 0.9360002106999998,
+    "as lead": 0.8975044666999998
+   },
+   "rule": {
+    "own": 0.9211555586,
+    "as lead": 0.8260905823
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 58,
+   "has_head": true,
+   "top third": {
+    "own": 0.9556456227999999,
+    "as lead": 0.8844684812999999
+   },
+   "head": {
+    "own": 0.9671648189000001,
+    "as lead": 0.9032026749
+   },
+   "rule": {
+    "own": 0.9556456227999999,
+    "as lead": 0.8844684812999999
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 116,
+   "has_head": true,
+   "top third": {
+    "own": 0.9556456227999999,
+    "as lead": 0.8447871179000002
+   },
+   "head": {
+    "own": 0.9671648189000001,
+    "as lead": 0.8938307697
+   },
+   "rule": {
+    "own": 0.9556456227999999,
+    "as lead": 0.8447871179000002
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 174,
+   "has_head": true,
+   "top third": {
+    "own": 0.9471326358000001,
+    "as lead": 0.8308888279
+   },
+   "head": {
+    "own": 0.9487233569000002,
+    "as lead": 0.8750618927
+   },
+   "rule": {
+    "own": 0.9471326358000001,
+    "as lead": 0.8308888279
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 231,
+   "has_head": true,
+   "top third": {
+    "own": 0.9703232366,
+    "as lead": 0.8934459535999999
+   },
+   "head": {
+    "own": 0.977054072,
+    "as lead": 0.9000729534
+   },
+   "rule": {
+    "own": 0.9703232366,
+    "as lead": 0.8934459535999999
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 289,
+   "has_head": true,
+   "top third": {
+    "own": 0.9703232366,
+    "as lead": 0.8964471741
+   },
+   "head": {
+    "own": 0.977054072,
+    "as lead": 0.8985524524999999
+   },
+   "rule": {
+    "own": 0.9703232366,
+    "as lead": 0.8964471741
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 347,
+   "has_head": true,
+   "top third": {
+    "own": 0.9538925207,
+    "as lead": 0.8485169099
+   },
+   "head": {
+    "own": 0.9531961483,
+    "as lead": 0.8523953046999999
+   },
+   "rule": {
+    "own": 0.9531961483,
+    "as lead": 0.8485169099
+   }
+  },
+  {
+   "subject": "second",
+   "gallery_frame": 405,
+   "has_head": true,
+   "top third": {
+    "own": 0.9471326358000001,
+    "as lead": 0.8375362709
+   },
+   "head": {
+    "own": 0.9487233569000002,
+    "as lead": 0.8568513143
+   },
+   "rule": {
+    "own": 0.9471326358000001,
+    "as lead": 0.8375362709
+   }
+  }
+ ],
+ "line": 0.88
+}

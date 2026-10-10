@@ -614,10 +614,81 @@ def stray_specks_go_and_the_subject_stays_whole():
     return "a far speck goes; a large detached piece, a small near piece, a lone piece and an empty frame stay; the reach follows the subject's size"
 
 
+def nested_detections_are_one_thing():
+    """2026-10-10: one small person came back as three nested masks and was numbered as three people."""
+    h, w = 60, 80
+    def box(top, bottom, left, right):
+        m = _blank(h, w)
+        m[top:bottom, left:right] = 1.0
+        return m
+    lead = box(5, 55, 5, 40)
+    tall, middle, tight = box(20, 58, 50, 66), box(20, 40, 50, 66), box(20, 32, 50, 66)     # one place, one top edge
+    kept, stands = S.one_each(torch.stack([lead, tall, middle, tight]), [0.97, 0.52, 0.68, 0.77])
+    assert kept == [0, 3], f"the three nested masks should be one thing, the highest scored standing for them; kept {kept}"
+    assert stands[3] == [3, 2, 1] and stands[0] == [0], stands
+    # side by side, sharing an edge and a little more: two people
+    left, right = box(10, 50, 10, 32), box(10, 50, 30, 52)
+    assert S.one_each(torch.stack([left, right]), [0.9, 0.8])[0] == [0, 1], "two people side by side were joined"
+    # the line: a share of the smaller mask inside the larger, at the line and a column under it
+    big = box(10, 50, 10, 50)
+    at, under = box(10, 20, 42, 52), box(10, 20, 43, 53)          # 8 and 7 of 10 columns inside
+    assert abs(S.SAME_THING - 0.8) < 1e-9, "SAME_THING moved; read its provenance before changing this case"
+    assert S.one_each(torch.stack([big, at]), [0.9, 0.5])[0] == [0], "a mask eight tenths inside another is the same thing"
+    assert S.one_each(torch.stack([big, under]), [0.9, 0.5])[0] == [0, 1], "a mask seven tenths inside another is its own thing"
+    # the smaller one scored higher: it stands, the larger is the duplicate
+    assert S.one_each(torch.stack([big, box(15, 30, 15, 30)]), [0.5, 0.9])[0] == [1]
+    # an empty mask is nobody's duplicate, a tie goes to the larger, no score counts as zero, nothing in is nothing out
+    assert S.one_each(torch.stack([big, _blank(h, w)]), [0.9, 0.8])[0] == [0, 1]
+    assert S.one_each(torch.stack([box(15, 30, 15, 30), big]), [0.7, 0.7])[0] == [1]
+    assert S.one_each(torch.stack([big, box(15, 30, 15, 30)]), [0.4])[0] == [0]
+    assert S.one_each(torch.zeros((0, h, w)), []) == ([], {})
+    # mrcorn's cold read: a whole person, their head and their torso, the torso scored highest. The head lies outside
+    # the torso and inside the whole: all three are one thing. Chosen as it went this kept head and torso and lost the whole.
+    whole, head, torso = box(10, 50, 20, 40), box(10, 20, 24, 36), box(22, 44, 20, 40)
+    kept, stands = S.one_each(torch.stack([whole, head, torso]), [0.6, 0.7, 0.9])
+    assert kept == [2] and stands[2] == [2, 1, 0], f"a whole, its head and its torso are one thing: kept {kept}, {stands}"
+    share = S.kept_share(torch.stack([whole, head, torso]), stands)
+    assert abs(share[2] - (22 * 20) / (40 * 20)) < 1e-9, f"the kept torso is that share of the whole it stands for: {share}"
+    # a chain is one thing whatever the order the detector returned it in
+    for order in ([0, 1, 2], [2, 1, 0], [1, 2, 0]):
+        masks = torch.stack([[whole, head, torso][i] for i in order])
+        assert len(S.one_each(masks, [[0.6, 0.7, 0.9][i] for i in order])[0]) == 1, f"order {order}"
+    # mrcorn's second read: something small lying in BOTH of two people's masks does not make them one person.
+    # Two people sharing a strip, and a hand in the strip: two things, the hand going to whoever holds more of it.
+    a, b, hand = box(10, 50, 10, 42), box(10, 50, 38, 70), box(25, 31, 38, 42)        # the strip is columns 38 to 41
+    more_b = box(25, 31, 39, 45)                                                      # three columns in the strip, all six in b
+    for scores, want in (([0.9, 0.8, 0.5], [0, 1]), ([0.5, 0.6, 0.9], None)):
+        for order in ([0, 1, 2], [2, 0, 1], [1, 2, 0]):
+            masks, sc = torch.stack([[a, b, hand][i] for i in order]), [scores[i] for i in order]
+            kept, stands = S.one_each(masks, sc)
+            assert len(kept) == 2, f"two people and a hand between them are two things, scores {scores}, order {order}: kept {kept}"
+            if want is not None:
+                assert sorted(order[k] for k in kept) == want, f"the two people are kept when they are scored over the hand: {kept}"
+    kept, stands = S.one_each(torch.stack([a, b, more_b]), [0.9, 0.8, 0.5])
+    assert kept == [0, 1] and stands[1] == [1, 2], f"a hand half in one person and wholly in the other goes to the other: {stands}"
+    # a hand nested in both people (all of it in one, eight tenths in the other) goes to the one that holds more of it
+    in_both = box(25, 31, 37, 42)
+    kept, stands = S.one_each(torch.stack([a, b, in_both]), [0.9, 0.8, 0.5])
+    assert kept == [0, 1] and stands[0] == [0, 2] and stands[1] == [1], f"a hand nested in both goes to whoever holds more of it: {stands}"
+    # with the hand scored highest it stands for ONE of them, and the other person is still there
+    kept, stands = S.one_each(torch.stack([a, b, hand]), [0.5, 0.6, 0.9])
+    assert 2 in kept and len(kept) == 2 and len(stands[2]) == 2, f"the hand scored highest stands for one person, not both: {kept}, {stands}"
+    # three people in a row with something small in each overlap stay three
+    p1, p2, p3 = box(10, 50, 4, 30), box(10, 50, 26, 54), box(10, 50, 50, 78)
+    row = torch.stack([p1, p2, p3, box(20, 26, 26, 30), box(20, 26, 50, 54)])
+    assert len(S.one_each(row, [0.9, 0.8, 0.7, 0.4, 0.3])[0]) == 3, "three people in a row with a hand in each overlap are three things"
+    # going up in size is the one safe way through: small in middle in large is one thing
+    kept, stands = S.one_each(torch.stack([box(10, 50, 10, 50), box(12, 40, 12, 40), box(14, 22, 14, 22)]), [0.5, 0.6, 0.9])
+    assert kept == [2] and sorted(stands[2]) == [0, 1, 2], f"a small mask in a middle one in a large one is one thing: {stands}"
+    # two people and a third overlapping each a little stay three; nobody standing alone has a share
+    assert S.one_each(torch.stack([box(10, 50, 5, 25), box(10, 50, 45, 65), box(10, 50, 22, 48)]), [0.9, 0.8, 0.7])[0] == [0, 1, 2]
+    assert S.kept_share(torch.stack([left, right]), S.one_each(torch.stack([left, right]), [0.9, 0.8])[1]) == {}
+
+
 def main() -> int:
     for fn in (a_strip_is_not_a_subject, the_same_at_any_size, a_slid_track_is_doubted, trusted_is_both,
                a_held_figure_is_one_run, a_jump_is_cut, a_return_after_a_gap_is_outside, a_gallery_is_taken_inside_the_run,
-               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, stray_specks_go_and_the_subject_stays_whole, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
+               the_frame_beside_a_jump_is_no_gallery_frame, a_jump_without_warning_costs_a_good_frame, a_creep_is_not_caught, a_slow_move_off_passes_the_default, taking_back_is_by_likeness_then_place, a_clear_leader_elsewhere_is_refused, taking_back_by_place_asks_where_first, the_one_in_the_way_is_named_by_the_box, stray_specks_go_and_the_subject_stays_whole, nested_detections_are_one_thing, notes_say_a_place_in_the_clip, a_note_lands_in_its_shot,
                the_text_to_type_round_trips):
         case(fn.__name__, fn)
     return finish()

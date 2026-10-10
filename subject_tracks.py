@@ -30,6 +30,13 @@ every step of that shares most of its pixels with the one before; the area and t
 overlap so a report can show one, and nothing is cut on them. `gallery_span` is the part of a run a gallery may be
 taken from: the run less the frame beside a jump, which was seen to lie on both figures at once.
 
+**One detection a thing** (`one_each`). The detector can return one person several times, as masks nested in each
+other: on 2026-10-10 a small, half-hidden person on one frame came back as three detections at one place, were numbered
+as three people, and their three labels were drawn on top of each other
+(`bench/results/2026-10-10_who_is_who_across_shots.md`). Detections are joined when most of the smaller mask lies inside
+the larger, and the one the detector scored highest stands for them. WHAT IT CANNOT TELL: one person wholly in front of
+another whose mask was drawn through them. That would be joined too, so every join is counted and reported.
+
 **Taking a subject back after a loss** (`take_back`). On hard crowd footage a change of the input too small to see
 moved a regain's lead over the next person by about the lead the Subject Track requires
 (`bench/results/2026-10-07_subject_track_under_nudge.md`), so likeness alone cannot settle the closest cases. Where the
@@ -76,6 +83,59 @@ BOX_FILL_LEAST = 0.1
 #: track's mask. Tracker and detector masks of one person differ at the edges, so the line is well under 1. To be read
 #: against the base rate `bench/` measures (how often a track nobody doubts has no detection behind it).
 AGREE_AT = 0.3
+
+
+#: Two detections are one thing when at least this share of the smaller mask lies inside the larger. Reasoned, with one
+#: frame of one clip seen (2026-10-10, three nested masks of one person, each wholly inside the next): two people side
+#: by side share an edge, not most of the smaller one's area.
+SAME_THING = 0.8
+
+
+def one_each(masks: torch.Tensor, scores: list[float], same: float = SAME_THING) -> tuple[list[int], dict[int, list[int]]]:
+    """Which of a frame's detections stand for a thing each, once nested ones are joined.
+
+    `masks` is [N, H, W] and `scores` the detector's score of each. Returns (the detections kept, in their own order,
+    {a kept detection: every detection it stands for, itself first}).
+
+    A THING IS A LARGER DETECTION AND WHATEVER IS NESTED IN IT. Taken largest first, a detection either lies `same`
+    inside one already taken, and then belongs to the thing of the one that holds most of it, or it starts a thing
+    of its own. So a whole person, their head and their torso are one thing though the head lies outside the torso
+    (both lie in the whole); and two people whose masks share a strip stay two when something small lies in that
+    strip, a hand across somebody or a held thing, which goes to whoever holds more of it. Two rules were tried and
+    lost before this one, both found by mrcorn's cold reads on 2026-10-10: choosing as it went in score order split
+    the whole, head and torso into two people and lost the whole; joining everything linked through any other
+    detection made one thing of two people with a hand between them, and of three people in a row.
+
+    Of a thing the highest scored detection is kept, the larger on a tie. That can be a PART (a head scored above
+    the whole): `kept_share` says how much of the thing's largest mask the kept one is, and the tracker reports it,
+    since the kept mask is what is sized, compared and seeded.
+    """
+    on = [(m > 0.5) for m in masks]
+    area = [int(o.sum()) for o in on]
+    score = [float(scores[i]) if i < len(scores) else 0.0 for i in range(len(on))]
+    thing: dict[int, int] = {}                       # detection: the detection that started its thing
+    for i in sorted(range(len(on)), key=lambda k: (-area[k], -score[k], k)):
+        inside = [(int((on[i] & on[k]).sum()), k) for k in thing] if area[i] else []
+        held = [(shared, -area[k], -k) for shared, k in inside if shared >= same * area[i]]
+        thing[i] = thing[-max(held)[2]] if held else i
+    members: dict[int, list[int]] = {}
+    for i, start in thing.items():
+        members.setdefault(start, []).append(i)
+    stands = {}
+    for those in members.values():
+        best = min(those, key=lambda k: (-score[k], -area[k], k))
+        stands[best] = [best] + sorted((k for k in those if k != best), key=lambda k: (-score[k], -area[k], k))
+    return sorted(stands), stands
+
+
+def kept_share(masks: torch.Tensor, stands: dict[int, list[int]]) -> dict[int, float]:
+    """For each kept detection that stands for others: its area as a share of the largest mask it stands for."""
+    out = {}
+    for kept, those in stands.items():
+        if len(those) > 1:
+            areas = [int((masks[i] > 0.5).sum()) for i in those]
+            out[kept] = areas[0] / max(max(areas), 1)
+    return out
 
 
 #: A piece of a tracked mask is a speck only under this share of the frame's largest piece. Measured on one load, the

@@ -1001,6 +1001,211 @@ def check_signature(problems):
         problems.append("an empty mask has a signature, or a missing signature has a similarity")
 
 
+def check_one_detection_each(problems):
+    """One person, three nested detections (2026-10-10): numbered once, a candidate once, counted in the report and the table."""
+    boxes, detect, sign, track, calls = _world()
+    nested = boxes[1].clone()
+    rows = (nested > 0.5).any(dim=1).nonzero().flatten()
+    nested[int(rows.min()) + max(1, (int(rows.max()) - int(rows.min())) // 2):] = 0     # the top half of person 1
+
+    def doubled(f):
+        masks, scores = detect(f)
+        if f == 3 and int(masks.shape[0]) >= 2:
+            # person 1 again, as a looser detection scored lower and a tighter one scored lower still
+            return torch.cat([masks, nested[None], nested[None]]), list(scores) + [0.3, 0.2]
+        return masks, scores
+
+    joined: dict[int, int] = {}
+    parts: dict[int, float] = {}
+    one = st.one_detection_each(doubled, joined, parts=parts)
+    masks, scores = one(3)
+    plain, plain_scores = detect(3)
+    if int(masks.shape[0]) != int(plain.shape[0]) or joined.get(3) != 2 or not torch.equal(masks, plain) or list(scores) != list(plain_scores):
+        problems.append(f"one detection each: frame 3 should be the frame's own people with two duplicates left out; "
+                        f"{int(masks.shape[0])} detections, joined {joined}")
+    if one(3) is not one(3) or one(4)[0].shape[0] != detect(4)[0].shape[0] or joined.get(4) != 0:
+        problems.append("one detection each: a frame is not kept once looked at, or a frame with no duplicates lost someone")
+    got = st.follow(32, [8, 16, 24], st.PICK_LARGEST, 3, 0.8, one, sign, track, stride=4, offset=1)
+    text = st.joined_report(got.shots, joined)
+    for need in ("returned the same thing more than once on 1 of", "(2 extra detection(s))", "[1] 2 of them on the tile's frame, 3"):
+        if need not in text:
+            problems.append(f"one detection each: the report lacks {need!r}: {text!r}")
+    label = st.tile_label(1, got.shots[0], joined)
+    if not label.endswith("(2 duplicates joined)") or "duplicate" in st.tile_label(2, got.shots[1], joined) \
+            or st.tile_label(1, got.shots[0], {3: 1}).count("(1 duplicate joined)") != 1 or "duplicate" in st.tile_label(1, got.shots[0]):
+        problems.append(f"one detection each: the tile's header does not say what was joined on its frame, or says it where nothing was: {label!r}")
+    # the kept detection is the whole person here, so the join is safe and its share is 1
+    if parts != {3: 1.0} or "NOT joined" in st.joined_report(got.shots, joined, parts):
+        problems.append(f"one detection each: the kept detection is the largest of its group; parts are {parts}")
+    got.shots[0].corrected = "person 2"
+    if "This shot is corrected by hand (person 2): the numbers count the people left" not in st.joined_report(got.shots, joined, parts):
+        problems.append("one detection each: a corrected shot whose tile frame had a join is not told to check its number")
+    got.shots[0].corrected = ""
+    # mrcorn: when the best scored of a thing is a PART, nothing is joined: every detection keeps a number, so a
+    # correction can take the whole or the part, and the report and the tile say so
+    def a_part_scored_highest(f):
+        masks, scores = detect(f)
+        if f == 3 and int(masks.shape[0]) >= 2:
+            small = torch.zeros_like(masks[0])
+            rows = (masks[0] > 0.5).any(dim=1).nonzero().flatten()
+            cols = (masks[0] > 0.5).any(dim=0).nonzero().flatten()
+            small[int(rows.min()):int(rows.min()) + 3, int(cols.min()):int(cols.min()) + 3] = 1.0      # a few pixels of person 1
+            return torch.cat([masks, small[None]]), list(scores) + [0.99]
+        return masks, scores
+    j2, p2, u2 = {}, {}, {}
+    cautious = st.one_detection_each(a_part_scored_highest, j2, parts=p2, unsure=u2)
+    masks3, scores3 = cautious(3)
+    if int(masks3.shape[0]) != int(plain.shape[0]) + 1 or j2.get(3) != 0 or u2 != {3: 2} or p2 != {}:
+        problems.append(f"one detection each: a part scored over its person must leave both numbered; {int(masks3.shape[0])} detections, "
+                        f"joined {j2}, unsure {u2}, parts {p2}")
+    said = st.joined_report(got.shots, j2, p2, u2)
+    for need in ("were NOT joined", "a correction can take the whole or the part", "[1] 2 detections on the tile's frame, 3, may be one thing"):
+        if need not in said:
+            problems.append(f"one detection each: the report lacks {need!r}: {said!r}")
+    if not st.tile_label(1, got.shots[0], j2, u2).endswith("(2 may be one, not joined)"):
+        problems.append(f"one detection each: the tile's header does not say two detections may be one: {st.tile_label(1, got.shots[0], j2, u2)!r}")
+    if abs(st.A_PART_UNDER - 0.5) > 1e-9:
+        problems.append("one detection each: A_PART_UNDER moved; read its provenance before changing this check")
+    if st.joined_report(got.shots, {3: 0, 9: 0}) != "":
+        problems.append("one detection each: a report line with nothing joined")
+    table = st.shot_table.build(got, one, st.assemble(32, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=[8, 16, 24], joined=joined, parts=parts)
+    first = table["shots"][0]
+    if first["duplicates_joined"] != {"on_shown_frame": 2, "on_frames_looked_at": 2, "kept_share_of_largest": 1.0, "may_be_one_not_joined": 0} \
+            or len(first["people"]) != int(plain.shape[0]):
+        problems.append(f"one detection each: the table's first shot says {first['duplicates_joined']} with {len(first['people'])} people")
+    bare = st.shot_table.build(got, one, st.assemble(32, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                               named_frame=True, named_value=True, cuts=[8, 16, 24])
+    if bare["shots"][0]["duplicates_joined"] is not None:
+        problems.append("one detection each: a table built without the count writes something other than null")
+
+
+def check_moved_by_a_gap(problems):
+    """2026-10-10: the automatic line was put between two shots that both held the subject, and the report said nothing."""
+    def found(firsts, bests, floor, picked=0, taken=()):
+        shots = [st.Shot(8 * i, 8 * i + 8, probe=8 * i, best=b, first=f) for i, (f, b) in enumerate(zip(firsts, bests))]
+        shots[picked].picked = True
+        for i in taken:
+            shots[i].seed = shots[i].start
+        rest = [s.first for s in shots if not s.picked]
+        return st.Followed(shots, pick_frame=3, match=st.auto_match(rest, floor), floor=floor, gap=st.auto_gap(rest, floor), others=1)
+    if abs(st.auto_match([0.799, 0.904], st.MATCH_FLOOR) - 0.8515) > 1e-6 or st.auto_gap([0.799, 0.904], st.MATCH_FLOOR) != (0.799, 0.904):
+        problems.append("gap: the day's two scores should put the automatic line in their middle and name them as its ends")
+    # the line is the gap's middle or the floor, exactly as before `auto_gap` was split out
+    for scores, floor in (([0.95, 0.83], 0.8), ([0.85, 0.82], 0.8), ([0.82, 0.60, 0.30], 0.8), ([0.7, 0.3], 0.8), ([], 0.8), ([0.9], 0.8), ([-1.0, 0.9, 0.5], 0.91)):
+        gap, line = st.auto_gap(scores, floor), st.auto_match(scores, floor)
+        if (gap is None and line != floor) or (gap is not None and (abs(line - sum(gap) / 2) > 1e-9 or line <= floor)):
+            problems.append(f"gap: {scores} at floor {floor}: the line {line} and the gap {gap} disagree")
+    kitchen = found([1.0, 0.799, 0.904], [1.0, 0.799, 0.904], st.MATCH_FLOOR, taken=(2,))
+    if st.moved_by_a_gap(kitchen, False) != (0.799, 0.904):
+        problems.append(f"gap: the line stands between 0.799 and 0.904 and that is not said: {st.moved_by_a_gap(kitchen, False)}")
+    text = st.report(kitchen, [8, 16], st.PICK_LARGEST, "person", True, False, 1.0)
+    for need in ("the automatic line is above its floor (0.80)", "on their first look, 0.80 and 0.90", "shot 2, whose best over the whole shot is 0.80",
+                 "on its first look it was under the floor as well"):
+        if need not in text:
+            problems.append(f"gap: the report lacks {need!r}: {text!r}")
+    # mrcorn's case: first looks 0.90 and 0.60 put the line at 0.75; the lower shot's later frames lift it to 0.74, or to 0.77 and it is taken
+    for best, taken, need in ((0.74, (2,), "shot 2, whose best over the whole shot is 0.74"),
+                              (0.77, (1, 2), "shot 2, whose best over the whole shot is 0.77 and which was taken")):
+        lifted = found([1.0, 0.60, 0.90], [1.0, best, 0.90], 0.5, taken=taken)
+        if st.moved_by_a_gap(lifted, False) != (0.60, 0.90):
+            problems.append(f"gap: the ends are the first looks, 0.60 and 0.90, whatever the shot scored later; got {st.moved_by_a_gap(lifted, False)}")
+        said = st.report(lifted, [8, 16], st.PICK_LARGEST, "person", True, False, 1.0)
+        if need not in said or "so the gap alone refused it there" not in said:
+            problems.append(f"gap: the report lacks {need!r}, or that the gap alone refused the first look: {said!r}")
+    for name, quiet in (("a named value", st.moved_by_a_gap(kitchen, True)),
+                        ("a line at its floor", st.moved_by_a_gap(found([1.0, 0.82, 0.85], [1.0, 0.82, 0.85], st.MATCH_FLOOR), False)),
+                        ("nobody picked", st.moved_by_a_gap(st.Followed([st.Shot(0, 8, probe=0)]), False))):
+        if quiet is not None:
+            problems.append(f"gap: {name} is reported as moved by a gap: {quiet}")
+    # a real `follow` whose line a gap moves: alone on the pick frame, one shot of somebody 0.86 alike, one of the subject
+    e = lambda *v: torch.tensor(v, dtype=torch.float32) / torch.tensor(v, dtype=torch.float32).norm()   # noqa: E731
+    me, alike = _box(40, 10, 80, 60), _box(0, 20, 20, 50)
+    sig = lambda _f, m: e(1.0, 0, 0) if torch.equal(m, me) else e(1.0, 0.593, 0)   # noqa: E731
+    seen = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, lambda f: (torch.stack([alike if 8 <= f < 16 else me]), [0.9]), sig,
+                     lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1), stride=4, offset=1)
+    if seen.gap is None or abs(seen.gap[0] - 0.86) > 0.005 or abs(seen.gap[1] - 1.0) > 1e-4 or abs(seen.match - sum(seen.gap) / 2) > 1e-9 \
+            or seen.floor != st.PLAIN_FLOOR:
+        problems.append(f"gap: a shot 0.86 alike and a shot of the subject should put the line between them; gap {seen.gap}, line {seen.match}")
+    if "the automatic line is above its floor (0.91)" not in st.report(seen, [8, 16], st.PICK_LARGEST, "person", True, False, 1.0):
+        problems.append("gap: a real run whose line a gap moved does not say so in its report")
+    # the real thing: `follow` keeps each shot's first look and the ends it handed the rule
+    boxes, detect, sign, track, calls = _world()
+    got = st.follow(32, [8, 16, 24], st.PICK_LARGEST, 3, None, detect, sign, track, stride=4, offset=1)
+    rest = [s for s in got.shots if not s.picked]
+    if got.gap != st.auto_gap([s.first for s in rest], got.floor) or any(s.first > s.best + 1e-9 for s in rest) \
+            or abs(got.match - st.auto_match([s.first for s in rest], got.floor)) > 1e-9:
+        problems.append(f"gap: follow's line {got.match}, gap {got.gap} and first looks {[s.first for s in rest]} do not agree")
+    table = st.shot_table.build(got, detect, st.assemble(32, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=False, cuts=[8, 16, 24], gap=st.moved_by_a_gap(got, False))
+    if abs(table["match_floor"] - got.floor) > 1e-3 or got.floor not in (st.MATCH_FLOOR, st.PLAIN_FLOOR) \
+            or table["match_moved_by_gap"] != (None if got.gap is None else [round(v, 3) for v in got.gap]):
+        problems.append(f"gap: the table's floor and gap are {table['match_floor']}, {table['match_moved_by_gap']}; the run's floor {got.floor}")
+
+
+def check_looks_in_the_table(problems):
+    """2026-10-10: a shot refused after a cut left one number in the table. Now every look is there, with everybody on it."""
+    subject, twin, other = _box(40, 10, 80, 60), _box(0, 20, 20, 50), _box(100, 20, 120, 50)
+    e = lambda *v: torch.tensor(v, dtype=torch.float32) / torch.tensor(v, dtype=torch.float32).norm()   # noqa: E731
+    shoulders = [(subject, e(1.0, 0, 0)), (twin, e(1.0, 0.05, 0)), (other, e(0, 1.0, 0))]
+    heads = [(subject, e(1.0, 0, 0)), (twin, e(0, 0, 1.0)), (other, e(0, 1.0, 0))]
+    def detect(f: int):
+        if 8 <= f < 16:      # the detector's order here is NOT left to right: the other first, then the double
+            return torch.stack([other, twin], dim=0), [0.8, 0.9]
+        return torch.stack([subject, other], dim=0), [0.9, 0.8]
+    find = lambda table, mask: next(v for m, v in table if torch.equal(m, mask))   # noqa: E731
+    # in shot 3 the other person has no head found: their head likeness is null and so is their lowest
+    sign = lambda f, m: (find(shoulders, m), None if (f >= 16 and torch.equal(m, other)) else find(heads, m))   # noqa: E731
+    track = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+    got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, detect, sign, track, stride=4, offset=1)
+    table = st.shot_table.build(got, detect, st.assemble(24, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=False, cuts=[8, 16])
+    one, two, three = table["shots"]
+    if one["looks"] != [] or one["shown_frame"] != 2 or [len(p.get("signatures") or []) for p in one["people"]] != [2, 2]:
+        problems.append("looks: the picked shot has no looks, and its people on the pick frame carry their signatures")
+    else:
+        # left to right on frame 2: the subject is person 1, the other person 2
+        mine, theirs = one["people"][0]["signatures"], one["people"][1]["signatures"]
+        if max(abs(a - b) for a, b in zip(mine[0], [1.0, 0.0, 0.0])) > 1e-4 or max(abs(a - b) for a, b in zip(theirs[1], [0.0, 1.0, 0.0])) > 1e-4:
+            problems.append(f"looks: on the pick frame each person's signatures are their own: {mine}, {theirs}")
+    if "in frame order" not in table["looks_are"]:
+        problems.append("looks: the table does not say its looks are in frame order")
+    if [look["frame"] for look in two["looks"]] != [8, 9, 12] or any(len(look["people"]) != 2 for look in two["looks"]):
+        problems.append(f"looks: the refused shot was judged on frames 9, 8 and 12 with two people each, written in frame order; the table has "
+                        f"{[(look['frame'], len(look['people'])) for look in two['looks']]}")
+    else:
+        first, second = two["looks"][0]["people"], two["looks"][1]["people"]
+        # left to right: the twin is person 1, the other person 2
+        if set(first[0]["likeness"]) != {"top third", "head"} or first[0]["likeness"]["top third"] < 0.9 \
+                or first[0]["likeness"]["head"] > 0.5 or abs(first[0]["lowest"] - first[0]["likeness"]["head"]) > 1e-9:
+            problems.append(f"looks: the double is like the subject at the shoulders and not at the head, and the lowest is the head's: {first[0]}")
+        if abs(two["subject"]["similarity"] - max(p["lowest"] for look in two["looks"] for p in look["people"])) > 1e-3:
+            problems.append("looks: the shot's own best similarity is not the best `lowest` among its looks")
+        if [p["same_as"] for p in first] != [None, None] or [p["same_as"] for p in second] != [1, 2]:
+            problems.append(f"looks: nobody is linked on a shot's first look, and each is their own number on the next: "
+                            f"{[p['same_as'] for p in first]}, {[p['same_as'] for p in second]}")
+        if first[0]["box"] != [0, 20, 20, 30] or first[0]["area_px"] != 600 or first[0]["detector_score"] != 0.9:
+            problems.append(f"looks: a person's box, area and detector score: {first[0]}")
+    signed = [p.get("signatures") for p in two["people"]]
+    if any(v is None or len(v) != 2 for v in signed) or max(abs(a - b) for a, b in zip(signed[0][0], e(1.0, 0.05, 0).tolist())) > 1e-4 \
+            or max(abs(a - b) for a, b in zip(signed[0][1], [0.0, 0.0, 1.0])) > 1e-4:
+        problems.append(f"looks: each person on a refused shot's shown frame carries their own two signatures: {signed}")
+    last = three["looks"][0]["people"]
+    headless = next(p for p in last if p["person"] == 2)
+    if headless["likeness"]["head"] is not None or headless["lowest"] is not None or headless["likeness"]["top third"] is None:
+        problems.append(f"looks: a person with no head found has no head likeness and no lowest: {headless}")
+    if next(p for p in three["people"] if p["person"] == 2)["signatures"][1] is not None:
+        problems.append("looks: a missing place is null among a person's signatures")
+    if not table["looks_are"] or not table["signatures_are"]:
+        problems.append("looks: the table does not say what its looks and signatures are")
+    # a tracker's result without the record (an older one, or a stand-in) builds a table with empty looks and no signatures
+    got.judged = {}
+    old = st.shot_table.build(got, detect, st.assemble(24, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                              named_frame=True, named_value=False, cuts=[8, 16])
+    if any(s["looks"] for s in old["shots"]) or any("signatures" in p for s in old["shots"] for p in s["people"]):
+        problems.append("looks: with nothing recorded the table still writes looks or signatures")
+
+
 def check_others(problems):
     """Two trackers, one person (2026-10-10): what another tracker holds is never this one's subject."""
     boxes, detect, sign, track, calls = _world()
@@ -1277,7 +1482,7 @@ def check_schema(problems):
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
-                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_others,
+                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_others,
                   check_track_score, check_schema):
         check(problems)
     for p in problems:

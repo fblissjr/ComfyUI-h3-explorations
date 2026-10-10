@@ -67,6 +67,8 @@ import torch
 from comfy_api.latest import io, ui
 from PIL import Image
 
+from . import subject_tracks
+
 #: Bumped when a field changes meaning or leaves; a reader checks it.
 TABLE_VERSION = 1
 
@@ -75,6 +77,17 @@ TABLE_VERSION = 1
 NUMBERING = ("person K is the K-th detection on the shot's shown frame, left to right by the "
              "centre column of its mask, ties to the higher one, counted from 1")
 
+#: What each place a person is compared in is called in the table, in the order the tracker's `sign` returns them.
+VIEW_NAMES = ("top third", "head")
+LOOKS_ARE = ("every frame the shot was judged on after a cut, in frame order (the probe frame is looked at first and "
+             "is not always the earliest); each person there with their box, "
+             "their area in pixels, the detector's score, their likeness to the subject in each place compared (null where "
+             "it could not be made) and the lowest of those, which is the number the line is held against; `same_as` is "
+             "their number on the look before in frame order in this shot, by overlap of the two masks "
+             "(`subject_tracks.AGREE_AT`), or null")
+SIGNATURES_ARE = ("each person on a shot's shown frame carries the signature of each place they are compared in (null "
+                  "where it is missing), unit length, as the gallery's are: what a reader needs to compare them with "
+                  "ANOTHER tracker's subject. On the picked shot the shown frame is the pick frame")
 #: What a shot's `track_score` holds, carried in every table.
 TRACK_SCORE_IS = ("the tracker's own score that its object is on the frame, per frame of the shot, as the tracker's "
                   "number: over 0 it takes the object as present. null where no track was made, where it could not be "
@@ -185,7 +198,9 @@ def _runs(flags: list[bool], first: int) -> list[list[int]]:
 def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask: torch.Tensor, *,
           state: Callable[[object], str], phrase: str, pick: str, named_frame: bool, named_value: bool,
           cuts: list[int], left_out: dict[int, int] | None = None, on_others: list[int] | None = None,
-          track_scores: dict | None = None) -> dict:
+          track_scores: dict | None = None, joined: dict[int, int] | None = None,
+          gap: tuple[float, float] | None = None, parts: dict[int, float] | None = None,
+          unsure: dict[int, int] | None = None) -> dict:
     """The table for one clip, from the tracker's result.
 
     `found` is the tracker's `Followed`, `detect` its detector callable (the
@@ -198,9 +213,20 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
     tracker given the people others hold, {frame looked at: detections left
     out as theirs}; `on_others`, the frames where this track's own mask lies
     mostly on those people; `track_scores`, {frame: the tracker's own score
-    there or None}, with its reasons under "trouble".
+    there or None}, with its reasons under "trouble"; `joined`, {frame looked
+    at: detections left out as another detection of the same thing}; `gap`,
+    the two shots' scores an automatic line was put between when it stands
+    above its floor (`subject_track.moved_by_a_gap`); `parts`, {frame with a
+    join: the smallest share a kept detection is of the largest it stands for};
+    `unsure`, {frame: detections that may be one thing and were not joined}.
+
+    `found.judged` is indexed by the detector's order on each frame as the
+    tracker saw it, and this calls `detect` again for the masks: THE DETECTOR
+    MUST ANSWER A FRAME THE SAME WAY TWICE. The tracker's own callables and
+    its wrappers keep each frame they have answered.
     """
     theirs = set(on_others or [])
+    judged = getattr(found, "judged", None) or {}
     frames, height, width = int(mask.shape[0]), int(mask.shape[1]), int(mask.shape[2])
     present = (mask > 0.5).flatten(1).any(dim=1)
     rows = []
@@ -215,6 +241,33 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                 "share_of_frame": round(float((masks[index] > 0.5).sum()) / float(height * width), 4),
                 "detector_score": round(float(scores[index]), 3) if index < len(scores) else None,
             })
+            seen = judged.get(int(shot.shown))
+            if seen is not None and index < len(seen):
+                people[-1]["signatures"] = [None if v is None else [round(float(x), 5) for x in v.tolist()] for v in seen[index][0]]
+        looks, before = [], None
+        for f in sorted(k for k in judged if int(shot.start) <= k < int(shot.end) and not getattr(shot, "picked", False)):
+            there, there_scores = detect(f)
+            order = person_order(there)
+            row = []
+            for person, index in enumerate(order, 1):
+                views, each, lowest = judged[f][index] if index < len(judged[f]) else ((), [], None)
+                box = _box(there[index])
+                same = None
+                if before is not None and int(before[0].shape[0]):
+                    on = there[index] > 0.5
+                    overlap = [float((on & (m > 0.5)).sum()) / max(float((on | (m > 0.5)).sum()), 1.0) for m in before[0]]
+                    best = max(range(len(overlap)), key=lambda k: overlap[k])
+                    same = before[1].index(best) + 1 if overlap[best] >= subject_tracks.AGREE_AT else None
+                row.append({
+                    "person": person, "box": list(box) if box else None, "area_px": int((there[index] > 0.5).sum()),
+                    "detector_score": round(float(there_scores[index]), 3) if index < len(there_scores) else None,
+                    "likeness": {VIEW_NAMES[k] if k < len(VIEW_NAMES) else f"view {k + 1}": None if v is None else round(float(v), 3)
+                                 for k, v in enumerate(each)},
+                    "lowest": None if lowest is None else round(float(lowest), 3),
+                    "same_as": same,
+                })
+            looks.append({"frame": int(f), "people": row})
+            before = (there, order)
         word = state(shot)
         taken = shot.seed is not None
         candidate = person_number(masks, shot.index)
@@ -252,6 +305,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                                     for f, n, best, second in getattr(shot, "probes", [])],
             "gallery_frames": [int(f) for f in getattr(shot, "gallery", [])],
             "caption": "",
+            # every frame this shot was judged on after a cut, with everybody on it (`LOOKS_ARE`); empty for the picked shot
+            "looks": looks,
             # with the `others` input wired: detections left out as another tracker's person, on the shown frame and
             # on every frame looked at in the shot; and the frames this track's own mask lies mostly on such a person
             "others_left_out": None if left_out is None else {
@@ -259,6 +314,14 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                 "on_frames_looked_at": int(sum(v for f, v in left_out.items() if shot.start <= f < shot.end))},
             "frames_on_others": None if on_others is None else _runs(
                 [f in theirs for f in range(int(shot.start), int(shot.end))], int(shot.start)),
+            # detections that were another detection of the same thing, joined before anyone was numbered
+            "duplicates_joined": None if joined is None else {
+                "on_shown_frame": int(joined.get(int(shot.shown), 0)),
+                "on_frames_looked_at": int(sum(v for f, v in joined.items() if shot.start <= f < shot.end)),
+                # on the shown frame: the kept detection's area as a share of the largest it stands for, the smallest
+                "kept_share_of_largest": None if (parts or {}).get(int(shot.shown)) is None else round(float(parts[int(shot.shown)]), 3),
+                # on the shown frame: detections that may be one thing and were left numbered, the best scored being under half the largest
+                "may_be_one_not_joined": int((unsure or {}).get(int(shot.shown), 0))},
             # one value per frame of the shot, null where the tracker made no track or its score could not be read
             "track_score": None if track_scores is None else [
                 None if track_scores.get(f) is None else round(float(track_scores[f]), 2)
@@ -275,9 +338,14 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
         "pick_frame_named": bool(named_frame),
         "match": round(float(found.match), 3),
         "match_named": bool(named_value),
+        # the floor an automatic line starts from, and the two shots' scores it was put between when it stands above it
+        "match_floor": round(float(getattr(found, "floor", 0.0)), 3),
+        "match_moved_by_gap": None if gap is None else [round(float(gap[0]), 3), round(float(gap[1]), 3)],
         "cuts": [int(c) for c in cuts],
         "numbering": NUMBERING,
         "track_score_is": TRACK_SCORE_IS,
+        "looks_are": LOOKS_ARE,
+        "signatures_are": SIGNATURES_ARE,
         "track_score_trouble": [] if track_scores is None else [str(x) for x in track_scores.get("trouble", [])],
         "shots": rows,
         # the subject as the picked shot's own track showed them, for a later run to recognise them by

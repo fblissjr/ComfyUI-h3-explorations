@@ -158,6 +158,32 @@ the preview's outlines, who was taken and why. It is the fourth output, and
 its text is shown under the report. It reads `follow`'s result and changes
 nothing about how anyone is followed, so it does not move `MASK_VERSION`.
 
+**One detection a person** (`one_detection_each`, 2026-10-10). The detector
+can return one person several times, as masks nested in each other; they
+were numbered as several people, their labels drawn on top of each other,
+and "the largest" could be a second, looser mask of a person. Detections
+that are one thing (`subject_tracks.one_each`) are joined before anything
+else sees them, the one the detector scored highest standing for them,
+unless that one is under half of the largest and so may be a part: then
+they are left as they came, each numbered. The report, the shot table and
+the tile's header count what was joined and what was left. A correction typed by
+number before this change may name another person now: the numbers count
+the people left.
+
+**What a refused shot leaves behind** (2026-10-10). A shot judged after a
+cut used to leave one number, its best similarity. `follow` now keeps, for
+every frame it judged, every detection's signature and its likeness to the
+subject in each place compared (`Followed.judged`), and the shot table
+writes them: `looks` per shot, and the signatures of the people on the shown
+frame (`shot_table.LOOKS_ARE`, `SIGNATURES_ARE`). The signatures are there
+so a reader can compare a shot's people with ANOTHER tracker's subject: on
+the load that prompted this, the plain likeness could not name a person
+against a line and could say which of two named subjects a person was more
+like (`bench/results/2026-10-10_who_is_who_across_shots.md`). And when the
+automatic line stands above its floor, the report and the table say which
+two shots' scores it was put between (`moved_by_a_gap`): if the subject is
+in both, the lower one was refused by the gap.
+
 **A correction** (`corrections`, `parse_corrections`) fixes one shot by hand
 with two numbers: `shot 3: person 2` takes person 2 of shot 3, `shot 3: none`
 leaves the shot alone. The shot number is the one the report and the tile
@@ -577,12 +603,18 @@ def auto_match(scores: list[float], floor: float) -> float:
     the floor and its middle is too. With no such gap everything at or above
     the floor is the subject, which is right when they are in every shot.
     """
+    gap = auto_gap(scores, floor)
+    return float(floor) if gap is None else (gap[0] + gap[1]) / 2
+
+
+def auto_gap(scores: list[float], floor: float) -> tuple[float, float] | None:
+    """The two scores `auto_match` puts its line between, (the lower, the higher); None when the floor stands."""
     ordered = sorted((float(s) for s in scores if s >= 0), reverse=True)
-    widest, cut = 0.0, float(floor)
+    widest, ends = 0.0, None
     for high, low in zip(ordered, ordered[1:]):
         if high >= floor and high - low >= MIN_GAP and high - low > widest:
-            widest, cut = high - low, (high + low) / 2
-    return max(cut, float(floor))
+            widest, ends = high - low, (low, high)
+    return ends if ends is not None and (ends[0] + ends[1]) / 2 > float(floor) else None
 
 
 @dataclass
@@ -593,6 +625,7 @@ class Shot:
     probe: int                   # the frame the shot is first judged on
     seed: int | None = None      # the frame the subject was taken on; None when absent
     best: float = -1.0           # the best similarity seen
+    first: float = -1.0          # the similarity on the shot's first look, which is what the automatic line is set from
     shown: int = 0               # the frame the preview shows: the seed, or where the best was seen
     index: int | None = None     # which detection on `shown` is the subject, or the best one when absent
     candidates: int = 0          # detections on `shown`
@@ -618,6 +651,8 @@ class Followed:
     pick_frame: int | None = None    # None when nothing was detected to pick
     others: int = 0                  # people on the pick frame the comparison is relative to
     match: float = 0.0               # the similarity a shot had to reach
+    floor: float = 0.0               # the floor the automatic line started from; the line is above it only by a gap
+    gap: tuple[float, float] | None = None   # the two first-look scores an automatic line was put between, or None
     pick_width: int = 0              # columns the subject's mask covers on the pick frame
     looks: list[tuple[int, int, int, float]] = field(default_factory=list)   # (shot, frame, detections, best similarity)
     views: int = 1                   # places a person is compared: head and shoulders, and the head
@@ -629,6 +664,10 @@ class Followed:
     gallery_given: int = 0           # signatures handed in from an earlier run, which then chose the pick
     # with a gallery handed in, every frame looked at for the pick: (frame, detections, best similarity, the next person's or -1)
     pick_probes: list[tuple[int, int, float, float]] = field(default_factory=list)
+    # every frame a shot was judged on after a cut, and the pick frame: {frame: one entry per detection there, in the
+    # detector's order: (its signature per place compared, its likeness to the subject per place or None, the lowest
+    # of those or None)}. On the pick frame the likeness is None: that frame is what the others are compared with.
+    judged: dict[int, list[tuple]] = field(default_factory=dict)
 
 
 _CORRECTION = re.compile(r"^shot\s*(\d+)\s*[:=]?\s*(?:person\s*(\d+)|(none))$", re.IGNORECASE)
@@ -837,20 +876,29 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         centres.append(torch.stack(have, dim=0).mean(dim=0) if have else None)
     reference = tuple(relative(v, c) for v, c in zip(mine, centres))
     result.pick_frame, result.others, result.pick_width = frame0, len(others), _width(picked)
+    result.judged[int(frame0)] = [(mine if i == which else theirs[i - (i > which)], [None] * len(mine), None)
+                                  for i in range(int(masks0.shape[0]))]
     result.views, result.views_used = len(mine), len(use)
+
+    def per_view(sig) -> list[float | None]:
+        """A person's similarity to the subject in each place compared; None where the person or the subject lacks it."""
+        views = _views(sig)
+        return [similarity(reference[k], relative(views[k], centres[k])) if k in use and k < len(views) and views[k] is not None else None
+                for k in range(len(mine))]
 
     def alike(sig) -> float | None:
         """A person's similarity to the subject: the lowest over the views the subject has. None when one is missing."""
-        views = _views(sig)
-        if not use or any(views[k] is None for k in use):
+        each = per_view(sig)
+        if not use or any(each[k] is None for k in use):
             return None
-        return min(similarity(reference[k], relative(views[k], centres[k])) for k in use)
+        return min(each[k] for k in use)
 
     def judge(f: int) -> tuple[float, int | None, int, torch.Tensor]:
         """Frame `f`'s best similarity, which detection has it, how many there have a head, and the detections."""
         found, _ = detect(f)
         sigs = [sign(f, m) for m in found]
         sims = [alike(v) for v in sigs]
+        result.judged[int(f)] = [(_views(v), per_view(v), a) for v, a in zip(sigs, sims)]
         heads = sum(1 for v in sigs if _has_head(v))
         able = [k for k, v in enumerate(sims) if v is not None]
         if not able:
@@ -909,8 +957,12 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
 
     rest = [s for s in shots if not s.start <= frame0 < s.end]
     first = {id(s): look(s, s.probe) for s in rest}
+    for shot in rest:
+        shot.first = shot.best
     floor = MATCH_FLOOR if others else PLAIN_FLOOR
-    result.match = float(match_threshold) if match_threshold is not None else auto_match([s.best for s in rest], floor)
+    result.floor = float(floor)
+    result.gap = None if match_threshold is not None else auto_gap([s.first for s in rest], floor)
+    result.match = float(match_threshold) if match_threshold is not None else auto_match([s.first for s in rest], floor)
     # nobody else on the pick frame and nothing named: there is nobody to mistake the subject for
     alone = match_threshold is None and not others
 
@@ -1007,6 +1059,86 @@ def without_others(detect, others: torch.Tensor, left_out: dict[int, int], most:
         return kept[f]
 
     return detect_others_removed
+
+
+def one_detection_each(detect, joined: dict[int, int], same: float = subject_tracks.SAME_THING,
+                       parts: dict[int, float] | None = None, unsure: dict[int, int] | None = None):
+    """`detect` with detections that are another detection of the same thing left out (`subject_tracks.one_each`).
+
+    The one the detector scored highest stands for them, so a person is numbered once on the tile, is one candidate
+    for the pick, a shot's match and a re-find, and "as many people as subjects" can be counted. `joined[frame]` is
+    how many were left out on each frame looked at.
+
+    NOT JOINED WHEN THE ONE KEPT WOULD BE A PART (mrcorn's cold read, 2026-10-10). The highest scored of a thing can
+    be a head or a hand; kept, it would be what is sized, compared and seeded, and the whole would have no number
+    for a correction to name. So a thing whose kept detection is under `A_PART_UNDER` of its largest mask
+    (`subject_tracks.kept_share`) is left as the detector returned it, every detection numbered, which is what it
+    cost before this existed: an extra number. `unsure[frame]` counts those detections. `parts[frame]` is the
+    smallest share among the things that WERE joined there, so it is never under the line.
+    """
+    kept: dict[int, tuple[torch.Tensor, list[float]]] = {}
+
+    def detect_one_each(f: int):
+        if f not in kept:
+            masks, scores = detect(f)
+            _, stands = subject_tracks.one_each(masks, scores, same)
+            shares = subject_tracks.kept_share(masks, stands)
+            keep, left, doubted, safe = [], 0, 0, []
+            for best, those in stands.items():
+                if len(those) > 1 and shares[best] < A_PART_UNDER:
+                    keep.extend(those)
+                    doubted += len(those)
+                else:
+                    keep.append(best)
+                    left += len(those) - 1
+                    if len(those) > 1:
+                        safe.append(shares[best])
+            keep.sort()
+            joined[int(f)] = left
+            if unsure is not None and doubted:
+                unsure[int(f)] = doubted
+            if parts is not None and safe:
+                parts[int(f)] = min(safe)
+            kept[f] = (masks[keep], [scores[i] for i in keep if i < len(scores)])
+        return kept[f]
+
+    return detect_one_each
+
+
+#: A thing is joined only when the detection kept for it is at least this share of the largest mask it stands for;
+#: under it the kept one may be a part of the person and the detections are left as they came. Reasoned: a tighter
+#: mask of the same person is most of the looser one (the one real frame seen, 2026-10-10: the kept mask was about
+#: nine tenths of the largest by area); a head or a hand is well under half of a whole person.
+A_PART_UNDER = 0.5
+
+
+def joined_report(shots, joined: dict[int, int], parts: dict[int, float] | None = None, unsure: dict[int, int] | None = None) -> str:
+    """The report's lines about detections joined as one thing, and about those left alone as possibly one; empty when neither."""
+    frames = sorted(f for f, n in joined.items() if n)
+    parts, unsure = parts or {}, unsure or {}
+    lines = []
+    if frames:
+        lines.append(f"the detector returned the same thing more than once on {len(frames)} of the {len(joined)} frame(s) looked at "
+                     f"({sum(joined.values())} extra detection(s)): each is joined with the one it scored highest and is not numbered")
+    if unsure:
+        lines.append(f"on {len(unsure)} frame(s) detections that may be one thing were NOT joined, because the one the detector "
+                     f"scored highest is under half of the largest and may be a part: {_frame_list(sorted(unsure))}. Each is numbered; "
+                     "a correction can take the whole or the part")
+    for number, shot in enumerate(shots, 1):
+        n, doubt = joined.get(int(shot.shown), 0), unsure.get(int(shot.shown), 0)
+        if n:
+            share = parts.get(int(shot.shown))
+            lines.append(f"[{number}] {n} of them on the tile's frame, {shot.shown}"
+                         + ("" if share is None else f"; the detection kept is {share:.2f} of the largest it stands for")
+                         + (f". This shot is corrected by hand ({shot.corrected}): the numbers count the people left, so check the "
+                            "number against this tile" if shot.corrected else ""))
+        if doubt:
+            lines.append(f"[{number}] {doubt} detections on the tile's frame, {shot.shown}, may be one thing and are numbered separately")
+    return "\n".join(lines)
+
+
+#: The report says the shot table's size when its text is longer than this, in characters. Chosen: a megabyte.
+TABLE_SAID_OVER = 1_000_000
 
 
 def frames_on_others(mask: torch.Tensor, others: torch.Tensor, most: float = ON_OTHERS) -> list[int]:
@@ -1159,6 +1291,19 @@ def _framing(shot: Shot, found: Followed) -> str:
     return f"; framed differently, the mask is {ratio:.1f} times as wide as on the pick frame"
 
 
+def moved_by_a_gap(found: Followed, named_value: bool) -> tuple[float, float] | None:
+    """The two scores the automatic line was put between, (the lower, the higher), when it stands above its floor.
+
+    `auto_match` moves the line to the middle of the widest gap in the shots' scores ON THEIR FIRST LOOK, and those
+    are the scores returned here (`Followed.gap`), not the shots' final bests: a refused shot is looked at again on
+    every stride frame and its best can rise, even past the line (mrcorn's cold read, 2026-10-10). A gap is right
+    when the shots under it show somebody else. When the subject is in both, it lies between two right answers: on
+    2026-10-10 a subject at 0.80 was refused under a line of 0.85 set between her own two shots
+    (`bench/results/2026-10-10_who_is_who_across_shots.md`). None when the value was named, or the floor stands.
+    """
+    return None if named_value or found.pick_frame is None else found.gap
+
+
 def report(found: Followed, cuts: list[int], pick: str, phrase: str, named_frame: bool, named_value: bool,
            seconds: float, cutting: str | None = None) -> str:
     """What was found, in words: the cuts, the pick, the line between the subject and others, each shot, the cost.
@@ -1203,6 +1348,16 @@ def report(found: Followed, cuts: list[int], pick: str, phrase: str, named_frame
         below = " ".join(f"{v:.2f}" for v in scores if v < found.match)
         lines.append(f"match: {'the value named' if named_value else 'automatic'}, {found.match:.2f}; "
                      f"shots' scores: {above or '(none)'} | {below or '(none)'}")
+        gap = moved_by_a_gap(found, named_value)
+        if gap is not None:
+            under = [(n, s) for n, s in enumerate(shots, 1) if not s.picked and abs(s.first - gap[0]) < 1e-9]
+            which = ", ".join(f"shot {n}, whose best over the whole shot is {s.best:.2f}" + ("" if s.seed is None else " and which was taken")
+                              for n, s in under)
+            lines.append(f"the automatic line is above its floor ({found.floor:.2f}): it was put in the gap between two shots' "
+                         f"scores on their first look, {gap[0]:.2f} and {gap[1]:.2f}. The lower is " + (which or "a shot")
+                         + ("; on its first look it was over the floor, so the gap alone refused it there" if gap[0] >= found.floor else
+                            "; on its first look it was under the floor as well")
+                         + ". If the subject is in both shots, look at the lower one's tile and correct it or name the value")
     for n, s in enumerate(shots, 1):
         span = f"[{n}] frames {s.start}-{s.end - 1}"
         if s.corrected:
@@ -1236,7 +1391,22 @@ def _font(size: int):
         return ImageFont.load_default()
 
 
-def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect) -> torch.Tensor:
+def tile_label(number: int, shot: Shot, joined: dict[int, int] | None = None, unsure: dict[int, int] | None = None) -> str:
+    """A tile's header: the shot, its frames, its score, its state, and how many duplicate detections its frame had.
+
+    The last is said here because the header is where a person typing a correction looks, and a join can be wrong
+    (`subject_tracks.one_each`, what it cannot tell): a person missing from the numbers has an explanation in sight.
+    """
+    score = "" if shot.picked or shot.best < 0 else f"  {shot.best:.2f}"
+    extra = int((joined or {}).get(int(shot.shown), 0))
+    doubt = int((unsure or {}).get(int(shot.shown), 0))
+    return (f"{number}  frames {shot.start}-{shot.end - 1}{score}  {_state(shot)}"
+            + (f"  ({extra} duplicate{'s' if extra != 1 else ''} joined)" if extra else "")
+            + (f"  ({doubt} may be one, not joined)" if doubt else ""))
+
+
+def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect, joined: dict[int, int] | None = None,
+            unsure: dict[int, int] | None = None) -> torch.Tensor:
     """One labelled frame per shot, [shots, h, TILE_WIDTH, 3].
 
     The frame is the one the shot was taken on, or where its best candidate
@@ -1245,7 +1415,8 @@ def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect)
     white for the rest. Each outline carries its person number at the top,
     the number the shot table and a correction use (`shot_table.person_order`:
     left to right). The label gives the shot, its frames, its score and
-    whether it was picked, taken or absent.
+    whether it was picked, taken or absent, and how many detections on that
+    frame were joined with another as the same thing (`tile_label`).
     """
     height, width = int(frames.shape[1]), int(frames.shape[2])
     th = max(2, round(height * TILE_WIDTH / width))
@@ -1263,8 +1434,7 @@ def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect)
             img[_outline(m, thick)] = torch.tensor(colour)
         small = F.interpolate(img.movedim(-1, 0)[None], size=(th, TILE_WIDTH), mode="area")[0].movedim(0, -1)
         pil = Image.fromarray((small.clamp(0, 1) * 255).round().to(torch.uint8).numpy())
-        score = "" if s.picked or s.best < 0 else f"  {s.best:.2f}"
-        text = f"{n}  frames {s.start}-{s.end - 1}{score}  {_state(s)}"
+        text = tile_label(n, s, joined, unsure)
         draw, font = ImageDraw.Draw(pil), _font(22)
         box = draw.textbbox((8, 6), text, font=font)
         draw.rectangle((box[0] - 6, box[1] - 4, box[2] + 6, box[3] + 4), fill=(0, 0, 0))
@@ -1392,8 +1562,10 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     #: the track let go, and the hand-over. 10: a corrected shot is searched too,
     #: and `most central` is measured in the frame's own proportions. 11: stray
     #: specks are dropped from the mask (`subject_tracks.drop_specks`). 12: a
-    #: detection lying mostly on `others` is not a candidate.
-    MASK_VERSION = 12
+    #: detection lying mostly on `others` is not a candidate. 13: detections
+    #: that are another detection of the same thing are joined before anyone
+    #: is numbered, picked or compared (`one_detection_each`).
+    MASK_VERSION = 13
 
     @classmethod
     def define_schema(cls):
@@ -1524,6 +1696,10 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         track_scores: dict = {}
         detect, sign, track = _sam_callables(segmenter, segmenter_clip, frames, subject_phrase, detection_threshold,
                                              int(max_people), head_phrase, track_scores=track_scores)
+        joined: dict[int, int] = {}
+        parts: dict[int, float] = {}
+        unsure: dict[int, int] = {}
+        detect = one_detection_each(detect, joined, parts=parts, unsure=unsure)
         left_out: dict[int, int] = {}
         if others is not None:
             detect = without_others(detect, others, left_out)
@@ -1540,6 +1716,8 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         if speck_frames:
             text += (f"\nstray specks removed from the mask: {speck_pixels} px on {len(speck_frames)} frame(s), "
                      f"each tiny beside the subject and away from them: {_frame_list(speck_frames)}")
+        if joined_report(found.shots, joined, parts, unsure):
+            text += "\n" + joined_report(found.shots, joined, parts, unsure)
         on_others = None
         if others is not None:
             on_others = frames_on_others(mask, others)
@@ -1549,11 +1727,17 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
             text += ("\nthe tracker's own score per frame could not be read on " + f"{len(trouble)} run(s), and is left "
                      "out of the shot table there: " + "; ".join(trouble[:4]) + (" and more" if len(trouble) > 4 else ""))
         logger.info("[h3] MiniMaxH3SubjectTrack: %s", text.replace("\n", "; "))
-        tiles = preview(frames, mask, found.shots, detect)
+        tiles = preview(frames, mask, found.shots, detect, joined, unsure)
         table = shot_table.build(found, detect, mask, state=_state, phrase=subject_phrase, pick=pick,
                                  named_frame=named_frame, named_value=named_value, cuts=found_cuts,
                                  left_out=left_out if others is not None else None, on_others=on_others,
-                                 track_scores=track_scores)
+                                 track_scores=track_scores, joined=joined, gap=moved_by_a_gap(found, named_value),
+                                 parts=parts, unsure=unsure)
+        table_json = shot_table.as_json(table)
+        if len(table_json) > TABLE_SAID_OVER:
+            # the signatures of every shot's people are most of it (mrcorn's cold read: nobody should meet it first in a browser)
+            text += (f"\nthe shot table is {len(table_json) / 1e6:.1f} MB as text: it carries the signatures of the people on "
+                     "every shot's shown frame")
         both = text + "\n\n" + shot_table.as_text(table)
         shown = {**ui.PreviewImage(tiles, cls=cls).as_dict(), **ui.PreviewText(both).as_dict()}
-        return io.NodeOutput(mask, tiles, text, shot_table.as_json(table), ui=shown)
+        return io.NodeOutput(mask, tiles, text, table_json, ui=shown)

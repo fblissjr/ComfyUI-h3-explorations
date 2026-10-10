@@ -225,6 +225,24 @@ docstring is the authority and lists the steps; `follow` is the function.
 - **What it shows.** One labelled tile per shot and a text report: who was
   taken, who was the best candidate where nobody was, every score with the
   line marked, every phrase and threshold used.
+- **One detection a person** (added 2026-10-10). The detector can return
+  one person several times, as masks nested in each other; they used to be
+  numbered as several people with their labels drawn on top of each other.
+  They are joined before anyone is numbered, picked or compared
+  (`subject_tracks.py::one_each`), unless the one that would be kept may be
+  a part, and the report, the table and the tile's header count both. A
+  correction by number is read off a tile made after this change.
+- **Who is who after a cut** (added 2026-10-10, a lane in progress). Each
+  tracker decides a shot alone, against one reference and a line. On a
+  two-subject load both left a shot empty that held both subjects, and the
+  trackers' own galleries show why a line cannot do it there and a
+  comparison between the named subjects can:
+  [`2026-10-10_who_is_who_across_shots.md`](../../bench/results/2026-10-10_who_is_who_across_shots.md).
+  The shot table now keeps what a refused shot was judged on
+  (`shot_table.py::LOOKS_ARE`, `SIGNATURES_ARE`), and the report says when
+  the automatic line was put in a gap between two shots
+  (`subject_track.py::moved_by_a_gap`). Deciding a shot for all subjects
+  together is not built.
 
 Why not core's tracker with a text prompt: across a cut it starts new
 objects, it has an object cap that detection stops at for good, and a

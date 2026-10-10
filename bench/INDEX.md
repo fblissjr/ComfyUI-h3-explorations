@@ -15,7 +15,7 @@ this file is only a way to find a script by what it says it does.
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 136 |
+| [the rest](#the-rest) | 137 |
 
 ## check
 
@@ -425,6 +425,7 @@ this file is only a way to find a script by what it says it does.
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
 | [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 | [`voice_spans.py`](voice_spans.py) | Where a voice is on a clip's track, by video frame, on this machine only. |
+| [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | After a cut, which named subject is each person on the frame? Several trackers' shot tables read together. |
 | [`x0_step_frames.py`](x0_step_frames.py) | Where in time each sampling step's x0 prediction still moves. CPU only. |
 
 ## Other files
@@ -552,7 +553,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-874 tracked files: [`results/INDEX.md`](results/INDEX.md).
+876 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 
