@@ -328,6 +328,19 @@ graphs; `workflows/h3_config.py::MASKED_UPPER_PARTS`), while a garment
 swapped for a reference picture has not been rendered: the masking
 board's card `use-part-menu-garment` has what it still needs.*
 
+*2026-10-10, the owner, on what segments cannot be counted on: a hat on
+the street hides the hair, so the hair says nothing there; a shot may
+show only a face; hair worn down is a different shape from hair worn up.
+Each look shows a different set of segments and none is always there.
+So no segment is ever required, a look is described by the segments it
+actually shows, and a subject has several looks a scene on purpose
+(`who_is_who.md`, section 5). A close-up of a face is compared with the
+faces of that subject's confirmed looks and with nothing else; if no
+confirmed look has a face to compare, it is a question. The one vote
+that does not depend on which segments show is the tracker's memory
+from a frame where the person is known, which is one more reason it is
+half of the starting rule.*
+
 **Body build.** The one clue that should not change with an outfit. The
 body model estimates it afresh on every frame and completes what it
 cannot see, so it is read only on frames where most of the body is in the
