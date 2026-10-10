@@ -1,0 +1,194 @@
+{
+ "what": "One load per subject shot against one long load over several shots, for a whole-subject masked pass: the same shot rendered both ways, read against the source",
+ "scope": "two shots of one clip, one seed, one still, the same text and the same body mesh as the motion video; one render each way",
+ "date": "2026-10-10",
+ "canvas": [
+  1024,
+  768
+ ],
+ "levels": "grey levels as ffmpeg's gray gives them (a tv-range file widened to full range), source and render read the same way",
+ "over": "a pixel more than 12 of those levels from the source",
+ "tool": "bench/capture_masked_run.py files, look and changed; the box figure by a session reading on the same frames",
+ "shots": [
+  {
+   "shot": "a",
+   "frames": 16,
+   "table_box_xyxy": [
+    404,
+    524,
+    921,
+    674
+   ],
+   "renders": {
+    "per_shot": {
+     "region_share_of_frame": 0.4806,
+     "over_share_of_frame": 0.1645,
+     "over_share_of_region": 0.331,
+     "over_share_outside_region": 0.0104,
+     "off_source_on_subject_mask": 31.8,
+     "off_source_in_table_box": 9.9,
+     "step_in_region_median": 4.21,
+     "look_median_min_max": [
+      1.21,
+      1.18,
+      1.24
+     ]
+    },
+    "long_load": {
+     "region_share_of_frame": 0.4801,
+     "over_share_of_frame": 0.2602,
+     "over_share_of_region": 0.5312,
+     "over_share_outside_region": 0.0103,
+     "off_source_on_subject_mask": 42.7,
+     "off_source_in_table_box": 26.4,
+     "step_in_region_median": 3.06,
+     "look_median_min_max": [
+      0.71,
+      0.63,
+      0.78
+     ]
+    }
+   },
+   "source_step_in_region_median": 4.42
+  },
+  {
+   "shot": "b",
+   "frames": 23,
+   "table_box_xyxy": [
+    398,
+    523,
+    982,
+    673
+   ],
+   "renders": {
+    "per_shot": {
+     "region_share_of_frame": 0.4556,
+     "over_share_of_frame": 0.1547,
+     "over_share_of_region": 0.3259,
+     "over_share_outside_region": 0.0109,
+     "off_source_on_subject_mask": 32.2,
+     "off_source_in_table_box": 8.7,
+     "step_in_region_median": 5.03,
+     "look_median_min_max": [
+      0.85,
+      0.55,
+      1.02
+     ]
+    },
+    "long_load": {
+     "region_share_of_frame": 0.457,
+     "over_share_of_frame": 0.2564,
+     "over_share_of_region": 0.548,
+     "over_share_outside_region": 0.0112,
+     "off_source_on_subject_mask": 42.5,
+     "off_source_in_table_box": 24.4,
+     "step_in_region_median": 4.59,
+     "look_median_min_max": [
+      0.49,
+      0.33,
+      0.69
+     ]
+    }
+   },
+   "source_step_in_region_median": 4.47
+  }
+ ],
+ "look": "bench/capture_masked_run.py look: 0 is the source's lightness over the top of the subject's mask, 1 that of another render of the same shot that held the new subject; it also falls when the new subject sits lower in the frame than the original did",
+ "motion": {
+  "tool": "bench/measure_subject_yaw.py (core's SAM 3D Body predictor, release vith, every frame, the subject's box from her tracked mask) then bench/measure_subject_motion.py",
+  "predictor": "ComfyUI core's node (comfy_extras.nodes_sam3d_body), not this pack's body_pose.py, which landed the same day",
+  "reading": "in_body: joints in 3D from the hips in units of the torso, each from its own mean over the shot; `followed` 1 moving as the source's joints do, 0 not moving; `in_step` the cosine of the two motions at any amplitude; `verdict` by measure_subject_motion's FOLLOWS line, which was set on one other clip",
+  "shots": [
+   {
+    "shot": "a",
+    "device": "cpu",
+    "frames": 16,
+    "renders": {
+     "per_shot": {
+      "verdict": "does not follow",
+      "moved_joints": [
+       "right_wrist"
+      ],
+      "followed": 0.116,
+      "in_step": 0.499,
+      "followed_at_best_shift": [
+       2,
+       0.312
+      ],
+      "stray": -0.017,
+      "on_screen_followed": 0.48,
+      "on_screen_in_step": 0.678,
+      "facing_mean_difference_degrees": 3.0,
+      "largest_turn_degrees": 1.4,
+      "largest_turn_source_degrees": 2.9
+     },
+     "long_load": {
+      "verdict": "does not follow",
+      "moved_joints": [
+       "right_wrist"
+      ],
+      "followed": -0.045,
+      "in_step": 0.0,
+      "followed_at_best_shift": [
+       -3,
+       -0.004
+      ],
+      "stray": -0.0243,
+      "on_screen_followed": -0.027,
+      "on_screen_in_step": 0.0,
+      "facing_mean_difference_degrees": 2.6,
+      "largest_turn_degrees": 0.3,
+      "largest_turn_source_degrees": 2.9
+     }
+    }
+   },
+   {
+    "shot": "b",
+    "device": "cuda:0",
+    "frames": 23,
+    "renders": {
+     "per_shot": {
+      "verdict": "follows",
+      "moved_joints": [
+       "right_elbow",
+       "left_wrist",
+       "right_wrist"
+      ],
+      "followed": 0.607,
+      "in_step": 0.914,
+      "followed_at_best_shift": [
+       1,
+       0.637
+      ],
+      "stray": -0.0004,
+      "on_screen_followed": 0.805,
+      "on_screen_in_step": 0.977,
+      "facing_mean_difference_degrees": 2.3,
+      "largest_turn_degrees": 9.2,
+      "largest_turn_source_degrees": 13.8
+     },
+     "long_load": {
+      "verdict": "follows",
+      "moved_joints": [
+       "right_elbow",
+       "left_wrist",
+       "right_wrist"
+      ],
+      "followed": 0.625,
+      "in_step": 0.869,
+      "followed_at_best_shift": [
+       1,
+       0.655
+      ],
+      "stray": -0.0068,
+      "on_screen_followed": 0.797,
+      "on_screen_in_step": 0.979,
+      "facing_mean_difference_degrees": 4.4,
+      "largest_turn_degrees": 5.8,
+      "largest_turn_source_degrees": 13.8
+     }
+    }
+   }
+  ]
+ }
+}

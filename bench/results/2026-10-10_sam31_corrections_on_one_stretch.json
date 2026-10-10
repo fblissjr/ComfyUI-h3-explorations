@@ -1,0 +1,207 @@
+{
+ "what": "The Subject Track on one stretch of one clip with and without the pack's corrections of ComfyUI's SAM 3.1 port (MiniMaxH3SAM31Corrections) wired before both trackers",
+ "scope": "one clip, one stretch of seven shots, one preview each way; no sampling",
+ "date": "2026-10-10",
+ "frames": 212,
+ "canvas": [
+  1024,
+  768
+ ],
+ "match_line": {
+  "uncorrected": 0.8,
+  "corrected": 0.8
+ },
+ "cuts_equal": true,
+ "tool": "bench/capture_masked_run.py files, then its tables; the previews were made by a session's graph builder (two Subject Tracks, the first picked as the largest person on a named frame)",
+ "lead_tracker_by_shot": [
+  {
+   "shot": 1,
+   "frames_of_the_load": [
+    0,
+    28
+   ],
+   "what_is_there_by_eye": "the lead, in front",
+   "uncorrected": {
+    "state": "picked",
+    "similarity": null,
+    "detections": 3,
+    "right": true,
+    "median_mask_share": 0.2776
+   },
+   "corrected": {
+    "state": "picked",
+    "similarity": null,
+    "detections": 2,
+    "right": true,
+    "median_mask_share": 0.2766
+   }
+  },
+  {
+   "shot": 2,
+   "frames_of_the_load": [
+    29,
+    50
+   ],
+   "what_is_there_by_eye": "the second subject alone: the lead is not in the shot",
+   "uncorrected": {
+    "state": "absent",
+    "similarity": 0.732,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.0
+   },
+   "corrected": {
+    "state": "absent",
+    "similarity": 0.753,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.0
+   }
+  },
+  {
+   "shot": 3,
+   "frames_of_the_load": [
+    51,
+    82
+   ],
+   "what_is_there_by_eye": "the lead alone",
+   "uncorrected": {
+    "state": "taken",
+    "similarity": 0.835,
+    "detections": 3,
+    "right": true,
+    "median_mask_share": 0.2291
+   },
+   "corrected": {
+    "state": "taken",
+    "similarity": 0.843,
+    "detections": 2,
+    "right": true,
+    "median_mask_share": 0.234
+   }
+  },
+  {
+   "shot": 4,
+   "frames_of_the_load": [
+    83,
+    123
+   ],
+   "what_is_there_by_eye": "the lead alone",
+   "uncorrected": {
+    "state": "taken",
+    "similarity": 0.887,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.2443
+   },
+   "corrected": {
+    "state": "taken",
+    "similarity": 0.892,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.2463
+   }
+  },
+  {
+   "shot": 5,
+   "frames_of_the_load": [
+    124,
+    145
+   ],
+   "what_is_there_by_eye": "the lead alone",
+   "uncorrected": {
+    "state": "taken",
+    "similarity": 0.889,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.2575
+   },
+   "corrected": {
+    "state": "taken",
+    "similarity": 0.9,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.2614
+   }
+  },
+  {
+   "shot": 6,
+   "frames_of_the_load": [
+    146,
+    178
+   ],
+   "what_is_there_by_eye": "the lead alone",
+   "uncorrected": {
+    "state": "absent",
+    "similarity": 0.8,
+    "detections": 1,
+    "right": false,
+    "median_mask_share": 0.0
+   },
+   "corrected": {
+    "state": "taken",
+    "similarity": 0.814,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.24
+   }
+  },
+  {
+   "shot": 7,
+   "frames_of_the_load": [
+    179,
+    211
+   ],
+   "what_is_there_by_eye": "an insert with nobody in it",
+   "uncorrected": {
+    "state": "absent",
+    "similarity": null,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.0
+   },
+   "corrected": {
+    "state": "absent",
+    "similarity": null,
+    "detections": 1,
+    "right": true,
+    "median_mask_share": 0.0
+   }
+  }
+ ],
+ "lead_mask": {
+  "frames_with_a_mask": {
+   "uncorrected": 124,
+   "corrected": 157
+  },
+  "frames_both_have_one": 124,
+  "intersection_over_union_median": 0.989,
+  "intersection_over_union_5th_percentile": 0.955
+ },
+ "second_tracker": {
+  "note": "the second Subject Track, meant for the second subject, takes the lead on shots 3 to 6 on both paths and has nothing on shot 1, where the second subject is small at the back",
+  "frames_where_both_tracks_are_one_mask": {
+   "uncorrected": 95,
+   "corrected": 128
+  },
+  "why_the_corrected_count_is_higher": "the lead's own track now exists on shot 6 as well, so the two tracks coincide there too"
+ },
+ "separation": {
+  "the_one_candidate_that_is_not_the_lead": {
+   "uncorrected": 0.732,
+   "corrected": 0.753
+  },
+  "the_lead_after_a_cut_lowest": {
+   "uncorrected": 0.8,
+   "corrected": 0.814
+  },
+  "gap": {
+   "uncorrected": 0.068,
+   "corrected": 0.061
+  },
+  "a_right_absence_under_the_line_by": {
+   "uncorrected": 0.068,
+   "corrected": 0.047
+  }
+ }
+}
