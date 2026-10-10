@@ -3,7 +3,7 @@
 passes over the same frames merged by what each changed, and a check by decode that every frame is there once.
 
     <python> bench/assemble_delivery.py --source SOURCE.mp4 --table TABLE.txt --out OUT.mp4 \\
-        [--span FIRST-LAST] [--capture data/<date>_<name>]... [--soften SIGMA] [--crf 12] [--check-only]
+        [--span FIRST-LAST] [--size canvas|source] [--capture data/<date>_<name>]... [--soften SIGMA] [--crf 12] [--check-only]
 
 **What it buys.** A masked render is a window of a clip, at the lane's canvas and the lane's rate, with a track
 that was resampled to fit. What gets watched is the whole stretch: several renders by frame range, the frames
@@ -31,6 +31,13 @@ SAME pixel, order alone cannot say whose it is: with a capture folder (`--captur
 `bench/capture_masked_run.py` writes) the pixel goes to the piece whose subject's tracked mask it lies in, and
 only a pixel in both masks or neither falls to the later row. Either way the frames are flagged.
 
+**`--size source`** writes the file at the SOURCE's size and not the canvas's. Every frame is the source's own
+picture, never scaled, and only what a piece changed is put back over it, scaled up from the canvas to the
+place the loader's crop took it from; the rows or columns that crop dropped stay the source's. Every row is
+laid by region there, the first as well. Measured 2026-10-10 on two fixed-camera renders of one clip: scaled
+up by 1.39 the regenerated region read about as sharp and as busy as the source's own pixels beside it, where
+at the canvas's size it read crisper; not judged on playback. The source must be BT.709, as the pieces are.
+
 **Flags** (in the check json, and in each capture folder given), each with frames and a figure, to be looked at
 and never a refusal: a piece that changes the picture on frames where its subject has no tracked mask at all
 (a pass that redrew somebody else; one was caught this way on 2026-10-10, past a cut the tracker had matched
@@ -39,7 +46,8 @@ a token (the new subject reaching further than the old one stood, or something e
 where); a piece whose changed area jumps against its own median (`JUMP`), which needs no capture and is what
 catches a tracker that followed the wrong person, since the mask it left then says the subject is there; two
 pieces changing the same pixels, with the box and how many were settled by a mask and how many by
-order; a piece that changes nothing on frames a row gives it. The first two need a capture; without one they
+order; a piece that changes nothing on frames a row gives it; and, at the source's size, a piece whose change reaches
+the edge the loader's crop cut at, beyond which only the source's picture exists. The first two need a capture; without one they
 are not checked and the json says so.
 
 **What is written.** Pieces are decoded to their own YUV and never pass through RGB; the frames go down one
@@ -323,9 +331,9 @@ class Captures:
         return None
 
 
-def merged(pieces, hard, subject_masks):
-    """The first piece whole, each later piece's changed region over it. Returns the frame and how the shared
-    pixels were settled. `hard[i]` is `changed` of piece i; `subject_masks[i]` its subject's mask or None."""
+def owners(hard, subject_masks):
+    """Which piece each changed pixel is taken from (-1: none changed it), and how the shared pixels were settled.
+    `hard[i]` is `changed` of piece i; `subject_masks[i]` is its subject's tracked mask or None."""
     h, w = hard[0].shape
     owner = np.full((h, w), -1, np.int8)
     for i, m in enumerate(hard):
@@ -344,15 +352,68 @@ def merged(pieces, hard, subject_masks):
         settled = shared & (claims == 1)               # in exactly one of the changing pieces' subjects
         owner[settled] = whose[settled]
         by_mask = int(settled.sum())
+    return owner, {"px": int(shared.sum()), "box": box_of(shared), "by_mask": by_mask, "by_order": int(shared.sum()) - by_mask}
+
+
+def weight_of(owner, i):
+    """Piece i's weight over the canvas: one where it owns the pixel, feathered into pixels nobody changed."""
+    mine = cv2.dilate((owner == i).astype(np.uint8), disc(GROW)).astype(bool) & ((owner == i) | (owner == -1))
+    return cv2.GaussianBlur(mine.astype(np.float32), (0, 0), FEATHER)
+
+
+def to_bytes(planes_):
+    return b"".join(np.clip(np.round(x), 0, 255).astype(np.uint8).tobytes() for x in planes_)
+
+
+def merged(pieces, owner):
+    """At the canvas's size: the first piece whole, each later piece's changed region over it."""
+    h, w = owner.shape
     out = [p.copy() for p in pieces[0]]
     for i in range(1, len(pieces)):
-        mine = cv2.dilate((owner == i).astype(np.uint8), disc(GROW)).astype(bool) & ((owner == i) | (owner == -1))
-        weight = cv2.GaussianBlur(mine.astype(np.float32), (0, 0), FEATHER)
+        weight = weight_of(owner, i)
         half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
         for k, wgt in enumerate((weight, half, half)):
             out[k] += (pieces[i][k] - out[k]) * wgt
-    frame = b"".join(np.clip(np.round(x), 0, 255).astype(np.uint8).tobytes() for x in out)
-    return frame, {"px": int(shared.sum()), "box": box_of(shared), "by_mask": by_mask, "by_order": int(shared.sum()) - by_mask}
+    return to_bytes(out)
+
+
+def crop_of(sw, sh, w, h):
+    """The box of the source the loader's filter keeps for a w x h canvas: (width, height, x, y), as ffmpeg's crop
+    rounds them for 4:2:0 (down to even, centred)."""
+    ar = float(w) / float(h)
+    cw, ch = (sw, sw / ar) if ar > sw / sh else (sh * ar, sh)
+    cw, ch = int(cw) & ~1, int(ch) & ~1
+    return cw, ch, ((sw - cw) // 2) & ~1, ((sh - ch) // 2) & ~1
+
+
+def laid_over(base, pieces, owner, box):
+    """At the source's size: the source's own planes with every piece's changed region scaled up and laid over."""
+    cw, ch, x0, y0 = box
+    out = [p.copy() for p in base]
+    for i, piece in enumerate(pieces):
+        if not (owner == i).any():
+            continue
+        weight = cv2.resize(weight_of(owner, i), (cw, ch), interpolation=cv2.INTER_LINEAR)
+        half = cv2.resize(weight, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
+        for k, (wgt, (pw, ph, px, py)) in enumerate(((weight, (cw, ch, x0, y0)), (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)),
+                                                     (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)))):
+            up = cv2.resize(piece[k], (pw, ph), interpolation=cv2.INTER_CUBIC)
+            view = out[k][py:py + ph, px:px + pw]
+            view += (up - view) * wgt
+    return to_bytes(out)
+
+
+def source_frames(source, first, last, sw, sh):
+    """The source's own frames first..last, as they decode: nothing scaled, nothing converted."""
+    many = last - first + 1
+    cmd = [FFMPEG, "-v", "error", "-an", "-i", str(source), "-vf", f"select='between(n\\,{first}\\,{last})'", "-fps_mode",
+           "passthrough", "-frames:v", str(many), "-f", "rawvideo", "-pix_fmt", "yuv420p", "-"]
+    got = 0
+    for buf in pipe_frames(cmd, sw * sh * 3 // 2):
+        got += 1
+        yield buf
+    if got != many:
+        raise SystemExit(f"the source gave {got} of {many} frames for {first}-{last}")
 
 
 def softened(frame, hard, sigma, w, h):
@@ -363,36 +424,41 @@ def softened(frame, hard, sigma, w, h):
     return np.clip(np.round(y), 0, 255).astype(np.uint8).tobytes() + frame[w * h:]
 
 
-def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None):
-    """Every frame of the span as yuv420p bytes. `record`, when given, is filled with what each piece changed."""
+def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=None):
+    """Every frame of the span as yuv420p bytes. `record`, when given, is filled with what each piece changed.
+    `full` is (source width, source height) for a file at the source's size, None for one at the canvas's."""
+    box = crop_of(*full, w, h) if full else None
     for first, last, rows in segs:
-        orig = original_frames(source, first, last, w, h)
         if not rows:
-            yield from orig
+            yield from (source_frames(source, first, last, *full) if full else original_frames(source, first, last, w, h))
             continue
+        orig = original_frames(source, first, last, w, h)
+        whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
         runs = [captures.run_of(r["piece"]) if captures else None for r in rows]
         got = 0
-        for k, bufs in enumerate(zip(orig, *(piece_frames(r, first, last, w, h) for r in rows))):
+        for k, (obuf, sbuf, *pbufs) in enumerate(zip(orig, whole, *(piece_frames(r, first, last, w, h) for r in rows))):
             n = first + k
-            o = planes(bufs[0], w, h)
-            pieces = [planes(b, w, h) for b in bufs[1:]]
+            o = planes(obuf, w, h)
+            pieces = [planes(b, w, h) for b in pbufs]
             hard = [changed(p, o) for p in pieces]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
+            owner, shared = owners(hard, masks)
             if record is not None:
                 for r, m, run, s in zip(rows, hard, runs, masks):
-                    row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None}
+                    row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
+                           "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
                     if s is not None and run is not None:
                         reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
                         far = m & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
                         row.update({"away": int(far.sum()), "away_box": box_of(far), "subject_px": int(s.sum())})
                     record["rows"].setdefault(r["piece"], {})[n] = row
-            got += 1
-            if len(rows) == 1:
-                frame = bufs[1]
-            else:
-                frame, shared = merged(pieces, hard, masks)
-                if record is not None:
+                if len(rows) > 1:
                     record["shared"][n] = shared
+            got += 1
+            if full:
+                yield laid_over(planes(sbuf, *full), pieces, owner, box)
+                continue
+            frame = pbufs[0] if len(rows) == 1 else merged(pieces, owner)
             yield softened(frame, hard, soften, w, h) if soften else frame
         if got != last - first + 1:
             raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")
@@ -436,11 +502,13 @@ def packet_samples(source) -> int:
 
 def build(args, segs, canvas, span, src, captures):
     w, h = canvas
+    full = (src["width"], src["height"]) if args.size == "source" else None
+    ow, oh = full or canvas
     many = span[1] - span[0] + 1
     rate = src["rate"]
     sound = audio_rate(args.source)
     track = track_only(args.source, args.out + ".track.mov") if sound and span[0] else None
-    cmd = [FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", f"{w}x{h}",
+    cmd = [FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", f"{ow}x{oh}",
            "-framerate", f"{rate[0]}/{rate[1]}", "-i", "-"]
     if sound:
         cmd += audio_input(args.source, span, rate, packet_samples(args.source) / sound, track) + ["-map", "0:v:0", "-map", "1:a:0", "-c:a", "copy"]
@@ -450,7 +518,7 @@ def build(args, segs, canvas, span, src, captures):
     assert enc.stdin is not None and enc.stderr is not None
     fed = 0
     try:
-        for frame in fed_frames(args.source, segs, w, h, soften=args.soften, captures=captures):
+        for frame in fed_frames(args.source, segs, w, h, soften=args.soften, captures=captures, full=full):
             enc.stdin.write(frame)
             fed += 1
     finally:
@@ -505,6 +573,12 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                f"{len(jump)} frame(s): a different shot, a different person, or a region that grew",
                         "figures": {"frames": len(jump), "worst_px": max(jump.values()), "usual_px": int(usual)},
                         "threshold": {"JUMP": JUMP}})
+        edge = [n for n, v in area.items() if v.get("at_the_crop")]
+        if edge:
+            out.append({"rule": "piece_changes_up_to_the_loader's_crop", "level": LEVELS[1], **names, "source_frames": frame_spans(edge),
+                        "why": f"{names['piece']} changes pixels on the canvas's edge on {len(edge)} frame(s), where the loader's crop cut "
+                               f"the source: beyond it the file at the source's size holds only the source's picture",
+                        "figures": {"frames": len(edge)}, "threshold": {"CHANGE": CHANGE}})
         idle = [n for n, v in area.items() if not v["px"]]
         if idle:
             out.append({"rule": "piece_changes_nothing", "level": LEVELS[1], **names, "source_frames": frame_spans(idle),
@@ -561,11 +635,16 @@ def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[s
 
 def check(args, segs, canvas, span, src, rows, captures):
     w, h = canvas
+    full = (src["width"], src["height"]) if args.size == "source" else None
+    ow, oh = full or canvas
     many = span[1] - span[0] + 1
-    per = w * h * 3 // 2
+    per = ow * oh * 3 // 2
     rate = src["rate"]
     result = {"out": args.out, "source": os.path.basename(args.source), "span": list(span), "frames_expected": many,
-              "soften_sigma": args.soften, "failures": []}
+              "size": [ow, oh], "at": args.size, "soften_sigma": args.soften, "failures": []}
+    if full:
+        cw, ch, x0, y0 = crop_of(*full, w, h)
+        result["the_loader's_crop_of_the_source"] = {"width": cw, "height": ch, "x": x0, "y": y0}
     fail = result["failures"].append
 
     # count, timestamps and what the file says about its colour
@@ -580,6 +659,8 @@ def check(args, segs, canvas, span, src, rows, captures):
                        "says_range_matrix_transfer_primaries": info["says"]}
     if info["says"] != SAYS:
         fail(f"the file says {info['says']} about its colour, not {SAYS}")
+    if (info["width"], info["height"]) != (ow, oh):
+        fail(f"the file is {info['width']}x{info['height']}, not {ow}x{oh}")
     if info["frames"] != many:
         fail(f"{info['frames']} frames in the file, {many} expected")
     if info["rate"] != rate:
@@ -594,14 +675,14 @@ def check(args, segs, canvas, span, src, rows, captures):
     def arr(buf):
         return np.frombuffer(buf, np.uint8).astype(np.int16)
 
-    cuts = (0, w * h, w * h * 5 // 4, per)
+    cuts = (0, ow * oh, ow * oh * 5 // 4, per)
     bias = np.zeros(3)
 
     def mad(a, b):
         return float(np.abs(a - b).mean())
 
     record = {"rows": {}, "shared": {}}
-    fed = fed_frames(args.source, segs, w, h, record, args.soften, captures)
+    fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full)
     window = [None, arr(next(fed)), None]            # fed k-1, k, k+1
     placed = static = misplaced = decoded = 0
     own, worst, bad = [], (0.0, None), []
@@ -710,6 +791,8 @@ def main():
     p.add_argument("--table", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--span", help="first-last in source frames; default 0 to the last frame any row names")
+    p.add_argument("--size", choices=("canvas", "source"), default="canvas",
+                   help="canvas: the pieces' size. source: the source's own size, with only what the pieces changed put back over it")
     p.add_argument("--capture", action="append", default=[], help="a capture folder of bench/capture_masked_run.py; repeatable")
     p.add_argument("--crf", type=int, default=12)
     p.add_argument("--soften", type=float, default=0.0, help="sigma in pixels of a luma blur inside what the pieces changed")
@@ -736,6 +819,11 @@ def main():
     span = tuple(int(v) for v in args.span.split("-")) if args.span else (0, max(r["last"] for r in rows))
     if span[1] >= src["frames"]:
         raise SystemExit(f"the source ends at frame {src['frames'] - 1}")
+    if args.size == "source":
+        if args.soften:
+            raise SystemExit("--soften is for a file at the canvas's size; at the source's the scale-up softens the region")
+        if src["matrix"] != "bt709":
+            raise SystemExit(f"{args.source} is tagged {src['matrix']}; a file at the source's size needs a BT.709 source, as the pieces are")
     captures = Captures(args.capture, canvas) if args.capture else None
     segs = segments(rows, span)
     for first, last, covering in segs:

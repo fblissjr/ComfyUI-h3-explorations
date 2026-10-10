@@ -27,6 +27,11 @@ of known place and size into them, and reads the tool's answers back.
    is far from its subject's mask; one whose changed area jumps; one that changes nothing. And the case that
    must raise none: the rectangle on its subject's mask, the same size throughout. The tables land in the
    capture folder.
+8. **At the source's size** (`--size source`). The file is the source's size and passes its check; away from
+   the rectangle every pixel is the source's own, the rows the loader's crop dropped included; the rectangle is
+   where the crop and the scale put it, within `SLACK`; a piece that kept every pixel, scaled up, is nearer the
+   source's picture where it is laid than three pixels to any side; and a piece painted up to the canvas's top edge raises
+   the flag that says the source's rows above it were left as they were.
 
 ## Running it
 
@@ -328,6 +333,45 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert r["pieces_with_no_capture"] == ["jumpy.mp4"], r["pieces_with_no_capture"]
         return "no mask, a mask far away, a jump in area, nothing changed; none on a piece that stays on its subject"
 
+    def at_the_sources_size() -> str:
+        code, r, out = deliver(TMP, "full", [(10, 29, PIECE_A, 10)], "5-34", "--size", "source")
+        assert code == 0 and r["verdict"] == "passes" and r["size"] == [SW, SH], (r["failures"], r["size"])
+        cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
+        assert (cw, ch, x0, y0) == (400, 300, 0, 2) == tuple(r["the_loader's_crop_of_the_source"][k] for k in ("width", "height", "x", "y"))
+
+        def luma(path, frame):
+            raw = run([tool.FFMPEG, "-v", "error", "-i", str(path), "-vf", f"select='eq(n\\,{frame})'", "-fps_mode", "passthrough",
+                       "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"])
+            return np.frombuffer(raw, np.uint8).reshape(SH, SW).astype(np.float32)
+        ours, theirs = luma(out, 15), luma(SOURCE, 20)             # the file starts at source frame 5
+        moved = np.abs(ours - theirs) > 30                           # the paint moves a pixel by half of full scale
+        want = [x0 + RECT_A[0] * cw / W, y0 + RECT_A[1] * ch / H, x0 + RECT_A[2] * cw / W, y0 + RECT_A[3] * ch / H]
+        box = tool.box_of(moved)
+        assert box is not None and all(abs(a - b) <= SLACK for a, b in zip(box, want)), f"the rectangle is at {box}, the crop and scale put it at {want}"
+        far = np.ones_like(moved)
+        far[int(want[1]) - 4 * SLACK:int(want[3]) + 4 * SLACK, int(want[0]) - 4 * SLACK:int(want[2]) + 4 * SLACK] = False
+        away = float(np.abs(ours - theirs)[far].mean())
+        assert away < 1.0, f"away from the rectangle the file is {away:.2f} levels from the source's own picture"
+        dropped = float(np.abs(ours[:y0] - theirs[:y0]).mean())
+        assert dropped < 1.5, f"the rows the loader's crop dropped are {dropped:.2f} levels from the source's"
+        before = float(np.abs(luma(out, 2) - luma(SOURCE, 7)).mean())
+        assert before < 1.0, f"a frame no piece covers is {before:.2f} levels from the source's"
+        # the scale-up lands on the source: a piece that kept every pixel, laid over the whole crop, is nearest the
+        # source's own picture where it is put and not a few pixels to either side
+        base = tool.planes(next(tool.source_frames(SOURCE, 20, 20, SW, SH)), SW, SH)
+        laid = tool.planes(tool.laid_over(base, [planes_of(KEPT, 20)], np.zeros((H, W), np.int8), (cw, ch, x0, y0)), SW, SH)[0]
+        inner = (slice(y0 + 8, y0 + ch - 8), slice(x0 + 8, x0 + cw - 8))
+        here = float(np.abs(laid[inner] - base[0][inner]).mean())
+        beside = min(float(np.abs(np.roll(laid, (dy, dx), (0, 1))[inner] - base[0][inner]).mean()) for dy, dx in ((0, 3), (0, -3), (3, 0), (-3, 0)))
+        assert here < beside, f"a kept piece scaled up is {here:.2f} levels from the source in place and {beside:.2f} three pixels aside"
+        top = write("to_the_top", painted(WHOLE[10:40], (100, 0, 160, 40)))
+        code, r, _ = deliver(TMP, "full_top", [(10, 29, top, 10)], "10-29", "--size", "source")
+        assert code == 0 and [f["rule"] for f in r["flags"]] == ["piece_changes_up_to_the_loader's_crop"], [f["rule"] for f in r["flags"]]
+        code, r, _ = deliver(TMP, "canvas_top", [(10, 29, top, 10)], "10-29")
+        assert r["flags"] == [], "at the canvas's size nothing is beyond the crop, and the flag was raised"
+        return (f"the rectangle within {SLACK} px of where the crop and scale put it; {away:.2f} levels from the source elsewhere; "
+                f"a kept piece scaled up {here:.2f} from the source in place, {beside:.2f} three pixels aside")
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -335,4 +379,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a span from the middle begins its track at the span", middle_span)
     case("two pieces on the same frames", two_pieces)
     case("the flags", flags)
+    case("at the source's size", at_the_sources_size)
 sys.exit(finish())

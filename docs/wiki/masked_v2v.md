@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 (the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 (the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -263,6 +263,24 @@ where in core.
   phrase that SAM held for the window's first seconds only; not judged.
 - **`replace`.** `whole subject`, or `head and hair`, which keeps the body's
   pixels and finds the part with SAM 3 from `part_phrases`.
+- **`motion_video`** (optional, 2026-10-10) with `motion_reference` on
+  `a video I wire` (`video_mask.MOTION_WIRED`): a video that runs beside the
+  source frame for frame and is shown to the model as the movement, in place
+  of anything cut from the source: a body mesh of the original, a pose, a map
+  of where a mouth opens. It says how the subject moves without showing the
+  original and without the text saying it. Each window is shown its own
+  frames of it (`wired_motion`), which a reference video appended to the
+  chain is not: that one is cut from frame zero for every window. With
+  `motion_vae` on, the video model has its own copy at every frame; off, the
+  text encoder sees two frames a second. The prompt has to say what
+  `<Video 1>` is and what is taken from it. Rendered as an appended video on
+  one window before this input existed, with a body mesh from core's SAM 3D
+  Body nodes and the video model's copy: on that one shot and seed the
+  action was drawn with no action words, and things inside the region came
+  back as other things until one sentence named them (the masking board,
+  `route-motion-signal-not-words`). What that body model gives and does not
+  (no mouth; one whole-frame crop when given no box) is in
+  [`meta_perception_models.md`](meta_perception_models.md).
 - **A setting it will refuse is refused when the graph is queued**
   (2026-10-10): a feather wider than the margin, or a softened start with
   `paint_out` (`video_mask.settings_refusal`, called by the node's
@@ -579,7 +597,11 @@ something on frames its subject has no mask on, far from its subject, far
 more than it usually does, or the same pixels as another pass. Given capture
 folders (`--capture`) it settles shared pixels by whose mask they lie in
 before falling back on the table's order, and writes its table and flags
-into them. Judge a render's colour on this file: it is BT.709 and says so,
+into them. With `--size source` the file is at the source's own size: every
+frame is the source's picture, never scaled, and only what a render changed
+is scaled up and put back over it, so nothing outside the regenerated region
+is resampled and the rows the loader's crop dropped are kept. Judge a
+render's colour on this file: it is BT.709 and says so,
 as renders are since the song node's writer converts and tags, and a render
 written before that plays off in a player that guesses the matrix from the
 size. Its docstring is the account; `bench/check_assemble_delivery.py` is
