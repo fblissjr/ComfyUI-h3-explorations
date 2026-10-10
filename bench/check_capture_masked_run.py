@@ -25,6 +25,10 @@ overlaps and margins can be counted by hand and reads the rows back.
    frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+8. **The held part.** On a subject that moves a pixel a frame, a part emptied on one frame and put at the
+   subject's feet on another is filled exactly from its neighbours; every other frame is byte for byte what
+   was given; with frames chosen by the caller only those are filled; a part with nothing wrong is not
+   touched; and the middle of a gap longer than `HOLD_REACH` is left and listed.
 
 No video, no model, no card, no server.
 
@@ -215,6 +219,35 @@ def part_rules() -> str:
     return "empty, spilled, shrunk and moved are each named on their frame; a steady part raises nothing"
 
 
+def held_part() -> str:
+    frames = 40
+    track = np.zeros((frames, H, W), bool)
+    part = np.zeros((frames, H, W), bool)
+    for n in range(frames):                         # the subject walks a pixel a frame; the part rides at its top
+        track[n, 16:80, 20 + n:60 + n] = True
+        part[n, 16:32, 28 + n:52 + n] = True
+    broken = part.copy()
+    broken[20] = False                              # empty on one frame
+    broken[30] = False
+    broken[30, 64:80, 28 + 30:52 + 30] = True       # at the subject's feet on another
+    rows = cap.subject_rows("a", "run1", 0, track, np.ones(frames, bool), broken)
+    held, which, left = cap.held_parts(track, broken, rows)
+    assert which == [20, 30] and left == [], (which, left)
+    for n in which:
+        assert (held[n] == part[n]).all(), (n, cap.overlap(held[n], part[n]))
+    same = [n for n in range(frames) if n not in which]
+    assert (held[same] == broken[same]).all(), "a frame no rule named was changed"
+    chosen, which, _ = cap.held_parts(track, broken, rows, only=[[120, 120]], first=100)
+    assert which == [20] and (chosen[30] == broken[30]).all(), "a frame the caller did not choose was filled"
+    steady, none, _ = cap.held_parts(track, part, cap.subject_rows("a", "run1", 0, track, np.ones(frames, bool), part))
+    assert none == [] and (steady == part).all(), "a part with nothing wrong was held"
+    gone = part.copy()
+    gone[5:35] = False                              # a gap longer than the reach either way from its middle
+    _, which, left = cap.held_parts(track, gone, cap.subject_rows("a", "run1", 0, track, np.ones(frames, bool), gone))
+    assert left and set(left) == set(range(5, 35)) - set(which) and all(abs(n - 4) <= cap.HOLD_REACH or abs(n - 35) <= cap.HOLD_REACH for n in which), (which, left)
+    return "an empty frame and a moved one are filled exactly from their neighbours; only the chosen frames when chosen; a long gap is left"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -236,5 +269,6 @@ case("control: a mask moved on purpose", moved)
 case("a plan's region from the masks", plan)
 case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
+case("the held part", held_part)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())

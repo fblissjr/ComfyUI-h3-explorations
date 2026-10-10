@@ -58,7 +58,13 @@ subject and run, with the flags that were raised on those frames: the first step
 **status.json** says how the folder came to be: `running`, `done` or `failed`, with the message and the inputs
 that were missing. A folder without it was never finished. Every mask is also saved as a lossless video
 (`track__<by>.mkv`, `parts__<by>.mkv`, `runs/<run>/region.mkv` and `carried.mkv`: ffv1, grey, white on the
-mask, frame 0 the span's first frame), so a render can load exactly what was looked at.
+mask, frame 0 the span's first frame), so a render can load exactly what was looked at. `parts__<by>.mkv` is
+the part as the preview saved it; `parts_held__<by>.mkv` is the same with the frames the gate doubts (empty on
+the subject, a jump in size, moved within the subject's box) filled from their undoubted neighbours
+(`held_parts`). A part can be rightly empty, so look first and pass `hold=FIRST-LAST+FIRST-LAST` in the
+`--mask` spec to fill only the source frames you chose; without it every doubted frame in reach is filled.
+The manifest lists the frames filled and the doubted frames left. Written only when the mask video covers
+the whole span.
 
 **video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
 source frame number and the render frame number above every row, with the render's audio. Every subject has
@@ -137,6 +143,9 @@ PART_SIZE = 0.5
 PART_MOVE = 0.15
 #: Frames either side that "recent" means. Reasoned: about a second, longer than a blink or a turn of the head.
 RECENT = 12
+#: The furthest a doubted part frame may be from an undoubted one and still be filled from it. Reasoned: half a
+#: second; past that a straight line between two frames says nothing about where a head went.
+HOLD_REACH = 12
 #: A run's region over this share of ANOTHER subject's mask is flagged. Reasoned: under it is the margin's
 #: ordinary brush against a neighbour.
 REGION_ON_OTHER = 0.05
@@ -520,8 +529,15 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         np.savez_compressed(folder / f"masks__{by}.npz", track=np.packbits(track, axis=-1), covered=covered,
                             **({"parts": np.packbits(parts, axis=-1)} if parts is not None else {}))
         write_mask_video(folder / f"track__{by}.mkv", track)
+        held_frames: list[int] = []
+        left_frames: list[int] = []
         if parts is not None:
             write_mask_video(folder / f"parts__{by}.mkv", parts)
+            mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
+            if all(r["covered"] for r in mine):
+                only = [[int(x) for x in (span.split("-") * 2)[:2]] for span in m["hold"].split("+")] if m.get("hold") else None
+                held, held_frames, left_frames = held_parts(track, parts, mine, only, first)
+                write_mask_video(folder / f"parts_held__{by}.mkv", held)
         if m.get("shots"):
             shutil.copyfile(m["shots"], folder / f"shots__{by}.json")
             beside = Path(m["shots"]).with_suffix(".md")
@@ -533,7 +549,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             manifest["subjects"].append(entry)
         entry["sightings"].append({"by": by, "track": Path(m["track"]).name, "parts": Path(m["parts"]).name if m.get("parts") else None,
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
-                                   "frames_covered": int(covered.sum())})
+                                   "frames_covered": int(covered.sum()),
+                                   "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
+                                   "parts_doubted_and_left_on_source_frames": frame_spans([first + f for f in left_frames])})
         print(f"subject {label} seen by {by}: {int(covered.sum())} of {frames} frames covered, "
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
     for label, seen in sightings.items():
@@ -707,6 +725,83 @@ def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: in
              "nothing regenerates there", "figures": {"frames": len(empty)}}]
 
 
+def part_faults(rows: list[dict]) -> tuple[dict[str, np.ndarray], np.ndarray]:
+    """Per rule, the rows (all covered, all with a part column) on which a part mask left its subject; and the
+    share of the part inside the subject. One place for the rules, read by the flags and by the held part."""
+    seen = np.array([bool(r["track_share"]) for r in rows])
+    size = np.array([r["parts_share"] if r["parts_share"] else np.nan for r in rows], float)
+    inside = np.array([r["parts_inside_track"] if r["parts_inside_track"] is not None else np.nan for r in rows], float)
+    cx = np.array([r["parts_centre_in_box"][0] if r.get("parts_centre_in_box") else np.nan for r in rows], float)
+    cy = np.array([r["parts_centre_in_box"][1] if r.get("parts_centre_in_box") else np.nan for r in rows], float)
+    ratio = size / recent_median(size)
+    moved = np.hypot(cx - recent_median(cx), cy - recent_median(cy))
+    return {"part_empty_on_the_subject": seen & np.isnan(size), "part_off_the_subject": inside < PART_INSIDE,
+            "part_changes_size": (ratio < PART_SIZE) | (ratio > 1.0 / PART_SIZE),
+            "part_moves_on_the_subject": moved > PART_MOVE}, inside
+
+
+#: The faults a held part repairs. Not a spill: a part lying partly off its subject is the right part in the
+#: wrong outline, and the Masked Source already cuts a wired part to the subject's mask.
+HELD_FOR = ("part_empty_on_the_subject", "part_changes_size", "part_moves_on_the_subject")
+
+
+def held_parts(track: np.ndarray, parts: np.ndarray, rows: list[dict], only: list[list[int]] | None = None,
+               first: int = 0) -> tuple[np.ndarray, list[int], list[int]]:
+    """The part mask with doubted frames filled from their neighbours; the frames filled; the frames left.
+
+    A doubted frame (`part_faults` under `HELD_FOR`) takes the shape of the nearest undoubted frame's part,
+    shifted so its centre lies where a straight line between the undoubted frames either side puts it, and
+    cut to this frame's subject. No scaling. A frame more than `HOLD_REACH` from an undoubted one on either
+    side is left as it is and listed: a line across that long a gap is a guess.
+
+    Why not the part node's own `hold`, which moves a part with the subject's box: tried first on one preview
+    (2026-10-10, a face on a dancing subject). The box is the whole body's, so a raised arm stretched the face
+    to several times its size and a passer-by in front shrank the box and dropped the part altogether.
+
+    `only` limits it to source-frame spans the caller chose after looking, since a part can be rightly empty
+    (the face turned away, somebody in front): on that same preview two of seven doubted stretches were."""
+    import torch
+    vm, sp = _pack("video_mask"), _pack("sapiens2_parts")
+    faults, _ = part_faults(rows)
+    bad = np.zeros(len(rows), bool)
+    for rule in HELD_FOR:
+        bad |= faults[rule]
+    has = np.array([bool(r.get("parts_share")) for r in rows])
+    good = np.nonzero(~bad & has)[0]
+    out, held, left = parts.copy(), [], []
+    if not len(good) or not bad.any():
+        return out, held, left
+
+    def centre(g):
+        ys, xs = np.nonzero(parts[g])
+        return np.array([xs.mean(), ys.mean()])
+
+    for f in np.nonzero(bad)[0].tolist():
+        if only is not None and not any(a <= first + f <= b for a, b in only):
+            continue
+        before, after = good[good < f], good[good > f]
+        g0, g1 = (int(before[-1]) if len(before) else None), (int(after[0]) if len(after) else None)
+        near = [g for g in (g0, g1) if g is not None and abs(g - f) <= HOLD_REACH]
+        if not track[f].any() or len(near) < (2 if g0 is not None and g1 is not None else 1) or not near:
+            left.append(f)
+            continue
+        g = min(near, key=lambda x: abs(x - f))
+        if g0 is not None and g1 is not None:
+            at = centre(g0) + (centre(g1) - centre(g0)) * (f - g0) / (g1 - g0)
+        else:
+            at = centre(g)
+        dx, dy = (int(round(v)) for v in (at - centre(g)))
+        moved = np.zeros_like(parts[g])
+        h, w = moved.shape
+        ys, xs = np.nonzero(parts[g])
+        keep = (ys + dy >= 0) & (ys + dy < h) & (xs + dx >= 0) & (xs + dx < w)
+        moved[ys[keep] + dy, xs[keep] + dx] = True
+        on_subject = vm.grow(torch.from_numpy(track[f:f + 1]).to(torch.float32), sp.SUBJECT_MARGIN)[0].numpy() > 0.5
+        out[f] = moved & on_subject
+        held.append(f)
+    return out, held, left
+
+
 def flag_parts(label: str, by: str, rows: list[dict]) -> list[dict]:
     """A part mask that left its subject: spilled off the subject's mask, changed size against its own recent
     frames, moved within the subject's box, or is empty while the subject is there.
@@ -718,13 +813,7 @@ def flag_parts(label: str, by: str, rows: list[dict]) -> list[dict]:
     if not rows:
         return []
     src = np.array([r["source_frame"] for r in rows])
-    seen = np.array([bool(r["track_share"]) for r in rows])
-    size = np.array([r["parts_share"] if r["parts_share"] else np.nan for r in rows], float)
-    inside = np.array([r["parts_inside_track"] if r["parts_inside_track"] is not None else np.nan for r in rows], float)
-    cx = np.array([r["parts_centre_in_box"][0] if r.get("parts_centre_in_box") else np.nan for r in rows], float)
-    cy = np.array([r["parts_centre_in_box"][1] if r.get("parts_centre_in_box") else np.nan for r in rows], float)
-    usual = recent_median(size)
-    moved = np.hypot(cx - recent_median(cx), cy - recent_median(cy))
+    faults, inside = part_faults(rows)
     out = []
 
     def add(rule, level, where, why, **figures):
@@ -732,15 +821,14 @@ def flag_parts(label: str, by: str, rows: list[dict]) -> list[dict]:
             out.append({"rule": rule, "level": level, "subject": label, "seen_by": by, "source_frames": frame_spans(src[where].tolist()),
                         "why": why.format(n=int(where.sum())), "figures": {"frames": int(where.sum()), **figures}})
 
-    add("part_empty_on_the_subject", LEVELS[2], seen & np.isnan(size),
+    add("part_empty_on_the_subject", LEVELS[2], faults["part_empty_on_the_subject"],
         label + "'s part mask is empty on {n} frame(s) where the subject is there: nothing of the part regenerates")
-    add("part_off_the_subject", LEVELS[1], inside < PART_INSIDE,
+    add("part_off_the_subject", LEVELS[1], faults["part_off_the_subject"],
         label + "'s part mask lies partly off the subject's own mask on {n} frame(s)", threshold_PART_INSIDE=PART_INSIDE,
         lowest=round(float(np.nanmin(inside)), 3) if np.isfinite(inside).any() else None)
-    ratio = size / usual
-    add("part_changes_size", LEVELS[1], (ratio < PART_SIZE) | (ratio > 1.0 / PART_SIZE),
+    add("part_changes_size", LEVELS[1], faults["part_changes_size"],
         label + "'s part mask is under half or over twice its recent size on {n} frame(s)", threshold_PART_SIZE=PART_SIZE)
-    add("part_moves_on_the_subject", LEVELS[1], moved > PART_MOVE,
+    add("part_moves_on_the_subject", LEVELS[1], faults["part_moves_on_the_subject"],
         label + "'s part mask sits somewhere else in the subject's box than on the frames around it, on {n} frame(s): "
         "it may be on something that is not the part", threshold_PART_MOVE=PART_MOVE)
     return out
@@ -1198,7 +1286,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,shots=J][,by=RUN][,at=N]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,shots=J][,by=RUN][,at=N][,hold=A-B+C-D]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX]",
                    help="one pass that regenerated a subject; its region is read from the render's review; repeatable")
