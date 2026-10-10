@@ -68,7 +68,9 @@ did not, in which render, who looked. That is how a threshold's provenance goes 
 subject and run, with the flags that were raised on those frames: the first step after a bad render.
 
 **look** answers one question about a whole-subject render, per frame: is this the new subject or a look-alike
-of the original. It reads the mean grey level over the top of the subject's mask and places the render between
+of the original. The routine it is for (2026-10-10, after one window of a long pass came back as the original on
+one seed and not on the next): on any whole-subject pass of more than one window, read the look on window 1's
+saved file while window 2 samples, and stop the run if it reads as the original. It reads the mean grey level over the top of the subject's mask and places the render between
 the source (0) and a render of the same subject that held (1). It tells two subjects apart only where they
 differ in lightness there, and refuses when the held render does not. Its blind side, met the day it was
 written: the area is the ORIGINAL's head, so a new subject who sits lower or smaller in the frame leaves wall
@@ -192,6 +194,10 @@ SEGMENT_PX = 64
 #: A segment a plan relies on with under this share of its pixels inside its subject's own tracked mask is
 #: flagged as possibly somebody else's. Reasoned: more of it outside the subject than inside.
 OWN_SHARE = 0.5
+#: Two subjects' tracked masks with more than this share of the smaller inside the other are one person tracked
+#: twice. Reasoned high, and measured on the stretch it was written for (2026-10-10): the frames where a second
+#: tracker had taken the first one's person read 0.99 to 1.00, and two people touching read under 0.1.
+SAME_PERSON = 0.8
 #: The least a held render must differ from the source over the look's area, in grey levels, for the look
 #: figure to be read. Reasoned: several times the codec's own difference on an untouched pixel.
 LOOK_LIFT = 10.0
@@ -1403,6 +1409,19 @@ def preflight(a: argparse.Namespace) -> None:
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
     flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
+    # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
+    whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
+    for key in sorted({k for r in cross for k in r if k.startswith("masks_overlap_of_smaller__")}):
+        _, one, two = key.split("__")
+        if one not in whos or two not in whos:
+            continue
+        same = [r["source_frame"] for r in cross if (r.get(key) or 0) > SAME_PERSON]
+        if same:
+            flags.append({"rule": "two_tracks_on_one_person", "level": LEVELS[2], "subject": one, "other": two,
+                          "source_frames": frame_spans(same),
+                          "why": f"{one}'s and {two}'s tracked masks are nearly the same mask on {len(same)} frame(s): one of the "
+                                 "two trackers took the other's person there. Correct that tracker's shot before either pass renders",
+                          "figures": {"frames": len(same)}, "threshold": {"SAME_PERSON": SAME_PERSON}})
     hit = [r for r in cross if (r.get("contested_px") or 0) >= SEGMENT_PX]
     if hit:
         worst = max(hit, key=lambda r: r["contested_px"])

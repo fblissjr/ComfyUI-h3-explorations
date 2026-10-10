@@ -115,6 +115,9 @@ def across() -> str:
     assert row["masks_overlap_of_smaller__a__b"] == 0.5, row
     assert row["masks_overlap__a__c"] == 0.0 and row["masks_overlap__b__c"] == 0.0, row
     assert sum(k.startswith("masks_overlap__") for k in row) == 3, sorted(row)
+    twice = cap.cross_rows(100, N, {"a": {"run1": (A, ALL, None)}, "b": {"run1": (A.copy(), ALL, None)}}, {})[0]
+    assert twice["masks_overlap_of_smaller__a__b"] == 1.0 > cap.SAME_PERSON > row["masks_overlap_of_smaller__a__b"], \
+        "one person tracked twice does not read above the line two overlapping people read under"
     return "three subjects, three pairs, each counted"
 
 
