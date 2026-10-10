@@ -1115,6 +1115,10 @@ def who_is_who() -> str:
     assert "which numbered person is lead" in flags[0]["why"] and "shot 2: person 1" not in flags[0]["why"], \
         "a row that suggests nobody showed the tool's own guess as a suggestion"
     assert "second: type `shot 3: person 1`" in flags[1]["why"] and "no signature on any look" in flags[2]["why"], (flags[1]["why"], flags[2]["why"])
+    cause = cap.flag_who({**file, "not_picked": {"second": "hidden by another tracker's take"},
+                          "rows": [{**file["rows"][3], "note": "3 look(s) not read", "looks_used": 1}]}, 1000, 50)
+    assert cause[0]["why"].startswith("FIRST: second picked nobody (hidden by another tracker's take)") and "[3 look(s) not read]" in cause[0]["why"] \
+        and cause[0]["figures"]["looks_used"] == 1, cause[0]
     answered = {**file, "rows": [{**r, "status": "agrees"} for r in file["rows"]]}
     assert cap.flag_who(answered, 1000, 50) == [], "rows that agree were flagged"
     assert cap.flag_who(file, 100, 50) == [], "rows outside the capture's span were flagged"
@@ -1132,7 +1136,7 @@ def gate_by_shot() -> str:
 
     crossing = {"frames_on_another_or_contested": 2, "source_frames_on_another_or_contested": [[108, 109]], "most_px_on_one_frame": 40, "shares": {}}
     record = {"shots": [
-        {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "agrees"},
+        {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "agrees", "looks_used": 1},
          "subjects": {"a": subject("taken", 0.86, 0.48, 10, crossing), "b": subject("absent", None, None, 0)}},
         {"shot": 2, "source_frames": [110, 119], "who_is_who": None,
          "subjects": {"a": subject("absent", 0.7, None, 0), "b": subject("taken", 0.9, 0.2, 10, typed=True)}}]}
@@ -1144,7 +1148,7 @@ def gate_by_shot() -> str:
     one, two = cap.by_shot(record, flags)
     assert one["subjects"]["a"]["blocked_by"] == [] and one["subjects"]["a"]["likeness"] == 0.86 and one["subjects"]["a"]["share_of_the_frame"] == 0.48, one
     assert one["subjects"]["a"]["part_on_another_or_contested"]["source_frames_on_another_or_contested"] == [[108, 109]], one
-    assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "agrees", one
+    assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "agrees" and one["who_is_who_looks"] == 1, one
     assert two["subjects"]["a"]["blocked_by"] == ["absent_with_people_on_screen"] and two["subjects"]["b"]["blocked_by"] == [], two
     assert two["every_subject"] == ["who_is_who_unanswered"] and two["who_is_who"] is None, two
     assert two["subjects"]["b"]["typed"] and not one["subjects"]["a"]["typed"], "a typed state was not told from the tracker's own"

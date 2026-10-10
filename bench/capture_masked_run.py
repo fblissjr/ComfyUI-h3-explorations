@@ -1650,7 +1650,9 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
             row = next((r for r in who.get("rows", []) if r["frames"][0] + at <= a <= r["frames"][1] + at), None)
             one["who_is_who"] = None if row is None else {
                 "status": row["status"], "suggests": bool(row.get("suggests")), "why": row.get("why"), "note": row.get("note"),
-                "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "ask", "correction", "typed_in_this_table")}
+                # an agreement read on one look is weaker than one read on five: the count goes with the status
+                "looks_used": row.get("looks_used"),
+                "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "answered_by", "ask", "correction", "typed_in_this_table")}
                              for label, t in row.get("trackers", {}).items()},
                 "people_seen": row.get("people_seen"), "frames_are_source_frames": who.get("first_source_frame") is not None}
             if row is None:
@@ -1739,7 +1741,8 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
         here = [f for f in blocking if any(x[0] <= b and x[1] >= a for x in f["source_frames"])]
         one = {"shot": shot["shot"], "source_frames": [a, b], "subjects": {},
                "every_subject": sorted({f["rule"] for f in here if f.get("subject") is None}),
-               "who_is_who": None if shot.get("who_is_who") is None else shot["who_is_who"]["status"]}
+               "who_is_who": None if shot.get("who_is_who") is None else shot["who_is_who"]["status"],
+               "who_is_who_looks": None if shot.get("who_is_who") is None else shot["who_is_who"].get("looks_used")}
         for label, e in shot["subjects"].items():
             share = e.get("share_of_the_frame")
             one["subjects"][label] = {"blocked_by": sorted({f["rule"] for f in here if f.get("subject") == label}),
@@ -1769,7 +1772,8 @@ def shots(a: argparse.Namespace) -> None:
           "`clear` says no rule blocks, not that a take is right: read the state, likeness and size beside it")
     for row in rows:
         print(f"shot {row['shot']}, source frames {row['source_frames'][0]}-{row['source_frames'][1]}"
-              + (f"; who-is-who {row['who_is_who']}" if row["who_is_who"] else "")
+              + (f"; who-is-who {row['who_is_who']}" + ("" if row.get("who_is_who_looks") is None else f" on {row['who_is_who_looks']} look(s)")
+                 if row["who_is_who"] else "")
               + (f"; BLOCKED for every subject: {', '.join(row['every_subject'])}" if row["every_subject"] else ""))
         for label, c in row["subjects"].items():
             said = (c["state"] or "no shot table") + (", typed" if c["typed"] else "" if c["likeness"] is None else f" {c['likeness']:.2f}") \
@@ -2570,6 +2574,8 @@ def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
     out when the file says which source frame its load starts on; when it does not, every row is judged and
     the flag's frames are the load's own."""
     out, start = [], corrections.get("first_source_frame")
+    # a tracker that picked nobody is the cause of every unresolved row under it: said first, once per flag
+    unpicked = "; ".join(f"{label} picked nobody ({why})" for label, why in (corrections.get("not_picked") or {}).items())
     for row in corrections.get("rows", []):
         if row.get("status") == "agrees":
             continue
@@ -2582,10 +2588,13 @@ def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
             if text:
                 said.append(text if t.get("ask") else f"{label}: type `{text}`")
         out.append({"rule": "who_is_who_unanswered", "level": LEVELS[2], "subject": None, "source_frames": [[a, b]],
-                    "why": f"shot {row['shot']}: the trackers' calls and the sum over every subject {row['status']}. "
+                    "why": (f"FIRST: {unpicked}. " if unpicked else "")
+                           + f"shot {row['shot']}: the trackers' calls and the sum over every subject {row['status']}. "
                            + ("; ".join(said) if said else row.get("why", "no reason given"))
+                           + (f" [{row['note']}]" if row.get("note") else "")
                            + ("" if start is not None else " (frames are the load's own: the file does not say where the load starts)"),
                     "figures": {"shot": row["shot"], "status": row["status"], "suggests": bool(row.get("suggests")),
+                                "looks_used": row.get("looks_used"),
                                 "lead": row.get("lead"), "frames_are_source_frames": start is not None}})
     return out
 
