@@ -89,7 +89,8 @@ of known place and size into them, and reads the tool's answers back.
     a shot table, says people were detected. It passes, with the shot listed under its reading, when the table
     says so in a `source` line (the words kept), when the people detected are another subject's that is laid
     there, when nobody was detected, and when nothing is known. A `source` line over a shot that has something
-    laid, and one that covers no whole shot, fail. The frames of the first shot where the subject is tracked and
+    laid, and one that covers no whole shot, fail. Consecutive frames that each move over the line are one cut, not
+    a shot a frame. The frames of the first shot where the subject is tracked and
     nothing is laid yet are listed with the longest run. The first locked file passed every proof with a shot of
     29 frames on which nothing was laid for either of its subjects; this is the proof that would have failed it.
 
@@ -914,6 +915,12 @@ with tempfile.TemporaryDirectory() as _tmp:
         # with no capture no subject is named, and the record says that nothing was asked
         code, r, own = go("shots_bare", None)
         assert code == 0 and not own and "no row's subject is known" in r["verdict_line"] and r["shots"]["cuts"] == [cut_at], (code, own, r["verdict_line"])
+        # a blur: three consecutive frames each over the line are one cut at the first, not three shots of a frame
+        moved = {n: 2.0 for n in range(1, 40)}
+        moved.update({20: 60.0, 21: 55.0, 22: 48.0, 31: 70.0})
+        section, problems = tool.shots_of({"rows": {}}, [], None, (0, 39), moved, [])
+        assert [e["frames"] for e in section["shots"]] == [[0, 19], [20, 30], [31, 39]] and not problems \
+            and section["runs_of_frames_over_the_line_read_as_one_cut"] == [[20, 22]], (section["cuts"], section["runs_of_frames_over_the_line_read_as_one_cut"])
         return ("a shot with its subject tracked and nothing laid fails by its frames; so does one called absent with people detected, by the "
                 "capture's flag or a shot table; a `source` line answers it and its words are kept; another subject's person, nobody, and "
                 "nothing known are listed and pass; a `source` line over a laid shot or over part of one fails")

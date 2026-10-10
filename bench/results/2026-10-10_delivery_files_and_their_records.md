@@ -159,3 +159,45 @@ flag reads the source's own frame-to-frame change for it.
   in scratch: no square over the bound, largest 2.27 as before): the 6,695
   class pixels the rule now leaves, on 51 frames, are pixels its face row
   gives back anyway as the other subject's whole.
+- 2026-10-10, the shots proof failed its first real file and the fault was
+  the proof's: two scratch builds of the opening stretch read "tracked,
+  nothing laid" on three shots one frame long (316, 317, 318). The source
+  moves over the cut line on five consecutive frames there, 315-319, a blur
+  inside one shot; the tracker's own shot table for that load has no cut in
+  294-414; and the face part is emptied on those frames on purpose.
+  Consecutive frames over the line are now one cut at the first of them, the
+  run is listed in the record (`runs_of_frames_over_the_line_read_as_one_cut`),
+  and a capture's shot table that covers the frames and puts its cuts
+  elsewhere is reported against this tool's cuts on those frames only. I had
+  predicted "passes, the other shots not known" before reading the records;
+  the difference is what found it.
+- 2026-10-10, a new file: **`fun_0000_0603_b.mp4`**, beside
+  `fun_0000_0603.mp4` and differing from it by two rows, the lead's face on
+  two street shots (294-414 and 438-483), each a per-shot load. Standing: not
+  locked; for the owner to watch. Built two ways to scratch names and
+  compared by the join flag (source pixels given back that sit against a
+  change of over 25 levels), per row:
+
+  | row | given back | px a frame given back (median) | join: frames, median px, total, longest |
+  |---|---|---|---|
+  | 294-414 | the Apparel class | 860 | 81, 52, 8,051, 323 (frame 314) |
+  | 294-414 | Apparel and Hair | 2,046 | 101, 75, 11,780, 323 (frame 314) |
+  | 438-483 | the Apparel class | 1,171 | 36, 76, 4,588, 361 (frame 462) |
+  | 438-483 | Apparel and Hair | 3,163 | 38, 142, 6,860, 520 (frame 462) |
+
+  Placed: Apparel only (the hat's edge is under that class; the hair stays
+  as the render drew it). The lead session's reason, kept here because the
+  capture session's reading (the hair is redrawn inside the region at about
+  ten levels against a floor of three) pointed the other way: a seam along
+  the whole hairline is on every frame, and hair redrawn with the face
+  inside a sixteen-pixel margin is the scene's own hair. The other build is
+  kept in a session scratchpad and is one build away.
+  The placed file's record: passes; six rows each on a share of 1; no square
+  over the bound (largest 2.84, frame 561); 604 frames, 1,085 audio packets
+  of the source's; the lead tracked with nothing laid on 316-319, 350-357,
+  414 and 451-455 (the part emptied on purpose); the across-a-cut flag on 315
+  is the blur above; a known limit in its note: on 366-390 the source's
+  mouth opens wide with no voice and the render's does not follow (0.61 of
+  the source's opening by the capture session's measure). Eight other shots
+  of the span have nothing laid for the lead and read "not known": no
+  capture given covers them. md5 `31edf7f411809c8841906d58fe7ade5d`.
