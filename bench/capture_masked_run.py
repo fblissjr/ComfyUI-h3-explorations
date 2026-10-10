@@ -9,6 +9,7 @@
         --plan pass_a:subject=a,others=b,margin=64          # before anything samples: the region a run WOULD take
     <python> bench/capture_masked_run.py preflight data/<date>_<NAME> [--not-in a:294-414] [--text P.txt --voice-spans V.json]
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
+    <python> bench/capture_masked_run.py shots data/<date>_<NAME>             # the gate per shot and subject: clear or blocked
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
@@ -1665,6 +1666,63 @@ def rules(a: argparse.Namespace) -> None:
     record = rules_input(folder, not_in)
     (folder / "rules_input.json").write_text(json.dumps(record, indent=1) + "\n")
     print(f"wrote {folder / 'rules_input.json'}: {len(record['shots'])} shot(s), {len(record['loads'])} load(s)")
+
+
+def by_shot(record: dict, flags: dict) -> list[dict]:
+    """The gate's answer shot by shot and subject by subject: clear, or the rules that block there.
+
+    `record` is rules_input.json and `flags` is flags.json of the same capture. A flag counts where its frames
+    touch the shot, and only while it blocks (an overridden flag does not). A flag with no subject (one about
+    the shot itself, as an unanswered who-is-who row) is under `every_subject`. Each subject's cell also says
+    what the tracker called, at what likeness, how large the subject is and on how many frames it has a mask:
+    "clear" says no rule blocks, never that the take is right, and those four are what a reader checks it by."""
+    blocking = [f for f in flags["flags"] if f["id"] in set(flags.get("blocking", []))]
+    out = []
+    for shot in record["shots"]:
+        a, b = shot["source_frames"]
+        here = [f for f in blocking if any(x[0] <= b and x[1] >= a for x in f["source_frames"])]
+        one = {"shot": shot["shot"], "source_frames": [a, b], "subjects": {},
+               "every_subject": sorted({f["rule"] for f in here if f.get("subject") is None}),
+               "who_is_who": None if shot.get("who_is_who") is None else shot["who_is_who"]["status"]}
+        for label, e in shot["subjects"].items():
+            share = e.get("share_of_the_frame")
+            one["subjects"][label] = {"blocked_by": sorted({f["rule"] for f in here if f.get("subject") == label}),
+                                      "state": e["on_screen"]["state"], "likeness": e["on_screen"]["likeness"],
+                                      "share_of_the_frame": None if not share else share["median"],
+                                      "frames_with_a_mask": e["frames_with_a_mask"], "frames": e["frames"]}
+            whose = e.get("part_pixels_owned_by")
+            if whose and whose["frames_on_another_or_contested"]:
+                one["subjects"][label]["part_on_another_or_contested"] = {
+                    k: whose[k] for k in ("frames_on_another_or_contested", "source_frames_on_another_or_contested", "most_px_on_one_frame")}
+        out.append(one)
+    return out
+
+
+def shots(a: argparse.Namespace) -> None:
+    folder = Path(a.capture)
+    for name in ("rules_input.json", "flags.json"):
+        if not (folder / name).is_file():
+            raise SystemExit(f"{folder / name} is missing: run `preflight` on the capture first")
+    flags = json.loads((folder / "flags.json").read_text())
+    rows = by_shot(json.loads((folder / "rules_input.json").read_text()), flags)
+    if a.json:
+        print(json.dumps(rows, indent=1))
+        return
+    print(f"{folder.name}: gate {flags['verdict']}, {len(flags.get('blocking', []))} blocking. "
+          "`clear` says no rule blocks, not that a take is right: read the state, likeness and size beside it")
+    for row in rows:
+        print(f"shot {row['shot']}, source frames {row['source_frames'][0]}-{row['source_frames'][1]}"
+              + (f"; who-is-who {row['who_is_who']}" if row["who_is_who"] else "")
+              + (f"; BLOCKED for every subject: {', '.join(row['every_subject'])}" if row["every_subject"] else ""))
+        for label, c in row["subjects"].items():
+            said = (c["state"] or "no shot table") + ("" if c["likeness"] is None else f" {c['likeness']:.2f}") \
+                + ("" if c["share_of_the_frame"] is None else f", {100 * c['share_of_the_frame']:.1f}% of the frame") \
+                + f", mask on {c['frames_with_a_mask']} of {c['frames']}"
+            print(f"    {label}: " + (f"BLOCKED {', '.join(c['blocked_by'])}" if c["blocked_by"] else "clear") + f" ({said})")
+            if "part_on_another_or_contested" in c:
+                w = c["part_on_another_or_contested"]
+                print(f"        its part is on another subject's or contested pixels on {w['frames_on_another_or_contested']} frame(s) "
+                      f"{w['source_frames_on_another_or_contested']}, up to {w['most_px_on_one_frame']} px on one")
 
 
 def flag_key(flag: dict) -> str:
@@ -3751,6 +3809,9 @@ def main() -> None:
     ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")
     ri.add_argument("capture")
     ri.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST")
+    sh = sub.add_parser("shots", help="the gate's answer per shot and subject: clear, or the rules that block there")
+    sh.add_argument("capture")
+    sh.add_argument("--json", action="store_true", help="the rows as json, for a tool")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")
     o.add_argument("flag")
@@ -3795,7 +3856,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
+    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "shots": shots, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":

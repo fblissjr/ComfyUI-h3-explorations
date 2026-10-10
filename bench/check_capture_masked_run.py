@@ -1110,6 +1110,33 @@ def who_is_who() -> str:
             "shown when the file suggests one; rows that agree or lie outside the span are not flagged")
 
 
+def gate_by_shot() -> str:
+    """The gate's answer per shot and subject is built from the capture's own two files, and a clear cell still says what was taken."""
+    def subject(state, likeness, share, masked, whose=None) -> dict:
+        return {"on_screen": {"state": state, "likeness": likeness}, "share_of_the_frame": None if share is None else {"median": share},
+                "frames_with_a_mask": masked, "frames": 10, "part_pixels_owned_by": whose}
+
+    crossing = {"frames_on_another_or_contested": 2, "source_frames_on_another_or_contested": [[108, 109]], "most_px_on_one_frame": 40, "shares": {}}
+    record = {"shots": [
+        {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "agrees"},
+         "subjects": {"a": subject("taken", 0.86, 0.48, 10, crossing), "b": subject("absent", None, None, 0)}},
+        {"shot": 2, "source_frames": [110, 119], "who_is_who": None,
+         "subjects": {"a": subject("absent", 0.7, None, 0), "b": subject("taken", 0.9, 0.2, 10)}}]}
+    flags = {"blocking": ["f001", "f003", "f004"], "flags": [
+        {"id": "f001", "rule": "absent_with_people_on_screen", "subject": "a", "source_frames": [[110, 119]]},
+        {"id": "f002", "rule": "part_empty_on_the_subject", "subject": "a", "source_frames": [[104, 104]]},      # overridden: not in `blocking`
+        {"id": "f003", "rule": "who_is_who_unanswered", "subject": None, "source_frames": [[110, 119]]},
+        {"id": "f004", "rule": "subject_never_found", "subject": "b", "source_frames": [[100, 104]]}]}
+    one, two = cap.by_shot(record, flags)
+    assert one["subjects"]["a"]["blocked_by"] == [] and one["subjects"]["a"]["likeness"] == 0.86 and one["subjects"]["a"]["share_of_the_frame"] == 0.48, one
+    assert one["subjects"]["a"]["part_on_another_or_contested"]["source_frames_on_another_or_contested"] == [[108, 109]], one
+    assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "agrees", one
+    assert two["subjects"]["a"]["blocked_by"] == ["absent_with_people_on_screen"] and two["subjects"]["b"]["blocked_by"] == [], two
+    assert two["every_subject"] == ["who_is_who_unanswered"] and two["who_is_who"] is None, two
+    return ("a flag counts on the shots its frames touch and only while it blocks; a flag with no subject is the shot's; "
+            "a clear cell carries the take's state, likeness and size")
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1144,6 +1171,7 @@ case("a pass read from the node's own plan", planned_regions)
 case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
 case("preflight: a shot the who-is-who sum has not settled", who_is_who)
+case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)
