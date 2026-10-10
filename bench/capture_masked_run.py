@@ -603,6 +603,13 @@ def graph_of(render: str) -> dict | None:
     return json.loads(text) if text else None
 
 
+def window_settings(graph: dict | None) -> dict | None:
+    for node in (graph or {}).values():
+        if node.get("class_type") == "MiniMaxH3AudioFreezeSong" and "window_frames" in node["inputs"]:
+            return {"window_frames": int(node["inputs"]["window_frames"]), "context_frames": int(node["inputs"].get("context_frames", 0))}
+    return None
+
+
 def source_settings(graph: dict | None) -> dict:
     for node in (graph or {}).values():
         if node.get("class_type") == "MiniMaxH3MaskedSource":
@@ -742,6 +749,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             manifest["subjects"].append(entry)
         entry["sightings"].append({"by": by, "track": Path(m["track"]).name, "parts": Path(m["parts"]).name if m.get("parts") else None,
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
+                                   # a shot table counts from its own load's first frame, which need not be the mask video's
+                                   "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()),
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
@@ -807,6 +816,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         captured[name] = entry
         manifest["runs"].append({"name": name, "planned": r["planned"], "render": None if r["planned"] else Path(r["render"]).name,
                                  "subject": label, "others": others, "keep": kept_labels,
+                                 "windows": ({"window_frames": int(r["window"]), "context_frames": int(r.get("context", 0))}
+                                             if r["planned"] and r.get("window") else window_settings(graph)),
                                  "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
                                                 and r.get("carried", "parts") == "parts" else "the track") if r["planned"] else "read from the review",
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
@@ -1253,6 +1264,74 @@ def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def window_plan(frames: int, window: int, context: int) -> list[tuple[int, int, int]]:
+    """(first frame, length, first frame it writes) for each window of a run of `frames` frames, as the song node
+    lays them: each starts `window - context` after the one before and writes from where that one ended; the
+    last is as long as what is left. The node picks the last window's length from its own list, so a run whose
+    remainder is not on that list is planned a little differently there: the run's own report is the authority."""
+    out, start, written = [], 0, 0
+    while written < frames:
+        length = min(window, frames - start)
+        out.append((start, length, written))
+        written = start + length
+        start += window - context
+    return out
+
+
+def straddled_frames(present: np.ndarray, runs: list[int], cuts: list[int]) -> list[int]:
+    """Frames of one window that a latent step carries the subject's region onto across a cut.
+
+    One latent step is a run of frames and the region is one per step, so a step whose run is split by a cut
+    regenerates the other shot's frames too. A frame is named when its run is split by a cut, the subject is on
+    no frame of the run on this frame's side, and is on some frame of another side. `present` is whether the
+    subject's mask is non-empty on each of the window's frames, `runs` the frames under each latent step
+    (`video_mask.run_lengths`), `cuts` the window's frames that start a shot. The same rule as the node's
+    `video_mask.cut_gate`, which leaves these frames unlaid in the composite; every render made before that
+    gate has them laid, so the rule names them for those too."""
+    out, at = [], 0
+    inside = sorted(set(int(c) for c in cuts))
+    for n in runs:
+        edges = [at] + [c for c in inside if at < c < at + n] + [min(at + n, len(present))]
+        sides = [(a, b) for a, b in zip(edges, edges[1:]) if a < b]
+        has = [bool(present[a:b].any()) for a, b in sides]
+        if len(sides) > 1 and any(has):
+            out += [f for (a, b), on in zip(sides, has) if not on for f in range(a, b)]
+        at += n
+    return out
+
+
+def flag_cuts(manifest: dict, folder: Path) -> list[dict]:
+    """A run's region carried across a cut by a latent step, per window. Needs the run's windows (read from a
+    render's graph, or `window=` and `context=` on a plan) and the cuts of its subject's shot table."""
+    vm = _pack("video_mask")
+    first, frames, out = manifest["first_frame"], manifest["frames"], []
+    for run in manifest["runs"]:
+        plan = run.get("windows")
+        seen = next(s for s in manifest["subjects"] if s["label"] == run["subject"])["sightings"][0]
+        table = folder / "subjects" / run["subject"] / f"shots__{seen['by']}.json"
+        if not plan or not table.is_file():
+            continue
+        cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c - first for c in json.loads(table.read_text())["cuts"]]
+        w = manifest["size"][0]
+        present = np.unpackbits(np.load(folder / "runs" / run["name"] / "region.npz")["carried"], axis=-1)[..., :w].any(axis=(1, 2))
+        named = []
+        for start, length, written in window_plan(frames, plan["window_frames"], plan["context_frames"]):
+            runs, total = [], 0
+            while total < length:
+                runs = vm.run_lengths(len(runs) + 1)
+                total = sum(runs)
+            hit = straddled_frames(present[start:start + length], runs, [c - start for c in cuts])
+            named += [start + f for f in hit if start + f >= written]
+        if named:
+            out.append({"rule": "region_carried_across_a_cut", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans([first + f for f in sorted(set(named))]),
+                        "why": f"{'plan' if run.get('planned') else 'run'} {run['name']}: on {len(set(named))} frame(s) beside a cut the "
+                               f"region of {run['subject']} is laid on the other shot, because one latent step covers frames on both "
+                               "sides of the cut. A render made without the node's cut gate repaints them",
+                        "figures": {"frames": len(set(named)), "windows": plan}})
+    return out
+
+
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
     """The sentences of a prompt that say a voice is performed, and those that deny one."""
     import re
@@ -1293,7 +1372,7 @@ def preflight(a: argparse.Namespace) -> None:
     for s in m["subjects"]:
         rows = json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
         for seen in s["sightings"]:
-            by, at = seen["by"], seen["first_source_frame"]
+            by, at = seen["by"], seen.get("shots_first_source_frame", seen["first_source_frame"])
             mine = [r for r in rows if r["seen_by"] == by]
             path = folder / "subjects" / s["label"] / f"shots__{by}.json"
             table = json.loads(path.read_text()) if path.is_file() else None
@@ -1303,7 +1382,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     hit = [r for r in cross if (r.get("contested_px") or 0) >= SEGMENT_PX]
     if hit:
@@ -1411,7 +1490,7 @@ def diagnose(a: argparse.Namespace) -> None:
             print(f"\nSUBJECT {s['label']}, seen by {seen['by']}: {sum(r['covered'] for r in mine)} of {len(mine)} frames covered by its mask video")
             path = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
             if path.is_file():
-                table, at = json.loads(path.read_text()), seen["first_source_frame"]
+                table, at = json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"])
                 for shot in table["shots"]:
                     x, y = at + shot["first_frame"], at + shot["last_frame"]
                     if x <= hi and y >= lo:
@@ -1810,11 +1889,11 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX]",
                    help="one pass that regenerated a subject; its region is read from the render's review; repeatable")
-    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells]",
+    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells][,window=F,context=F]",
                    help="a run that has not rendered: its region is worked out from the masks; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))

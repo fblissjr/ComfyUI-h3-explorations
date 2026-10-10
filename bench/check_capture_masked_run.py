@@ -27,6 +27,10 @@ overlaps and margins can be counted by hand and reads the rows back.
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+12. **A region carried across a cut.** With the node's own frame runs: a cut two frames into a latent step names
+   the step's two frames on the side the subject is not on; a cut on a step's own edge, a subject on both
+   sides, and a frame lost inside a shot name nothing; the same frames as the node's `cut_gate` when the tree
+   has it; and the window plan for three known runs.
 11. **Whose a pixel is.** A pixel one track claims is that subject's; of two claimants it is the one whose class
    map names it; named by both or by neither it is contested and not guessed; and with no class map every
    pixel both claim is contested.
@@ -348,6 +352,32 @@ def owners() -> str:
     return "one claimant owns; of two, the one whose class map names the pixel; named by both or neither is contested, never guessed"
 
 
+def across_a_cut() -> str:
+    vm = cap._pack("video_mask")
+    runs = vm.run_lengths(5)                        # the frames under five latent steps
+    total = sum(runs)
+    cut = runs[0] + runs[1] + 2                     # a cut two frames into the third step
+    present = np.zeros(total, bool)
+    present[cut:] = True                            # the subject is in the shot after the cut only
+    named = cap.straddled_frames(present, runs, [cut])
+    assert named == [runs[0] + runs[1], runs[0] + runs[1] + 1], named
+    assert cap.straddled_frames(present, runs, [runs[0] + runs[1]]) == [], "a cut on a step's own edge was named"
+    assert cap.straddled_frames(np.ones(total, bool), runs, [cut]) == [], "a subject on both sides of the cut was named"
+    lost = np.ones(total, bool)
+    lost[cut - 1] = False
+    assert cap.straddled_frames(lost, runs, []) == [], "a frame lost inside a shot, with no cut, was named"
+    if hasattr(vm, "cut_gate"):                     # the node's own gate, when this tree has it: the same frames
+        import torch
+        mask = torch.zeros(total, 4, 4)
+        mask[cut:] = 1.0
+        gate = vm.cut_gate(mask, 5, [cut])
+        assert [i for i, g in enumerate(gate.tolist()) if g == 0.0] == named, (gate.tolist(), named)
+    plan = cap.window_plan(600, 345, 90)
+    assert plan == [(0, 345, 0), (255, 345, 345)], plan
+    assert cap.window_plan(447, 345, 90) == [(0, 345, 0), (255, 192, 345)] and cap.window_plan(141, 141, 90) == [(0, 141, 0)]
+    return "the frames of a step on the far side of a cut are named; not a cut on a step's edge, a subject on both sides, or a lost frame"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -374,5 +404,6 @@ case("the held part", held_part)
 case("segments and what is inside a region", segments)
 case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
+case("preflight: a region carried across a cut", across_a_cut)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())
