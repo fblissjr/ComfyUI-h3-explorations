@@ -25,8 +25,8 @@ way: it is a file made from the input, not a second input. `masks` is every mask
 the size it has and the source frame its first frame is on, so that a reader need not trust a file's name.
 `fingerprint` is one hash over everything a render reads from the folder (`fingerprint`); it changes when
 any of that changes and for no other reason, and a render carries it in its own keys. The value in the file
-is the one worked out when the manifest was last written; `profile.json` and the cast are hashed into it and
-are written by others, so the file's value can be behind. `read_manifest` therefore returns the fingerprint
+is the one worked out when the manifest was last written; `profile.json` is hashed into it and is written by
+others, so the file's value can be behind. `read_manifest` therefore returns the fingerprint
 as it is NOW, and a reader takes it from there and never from the file.
 
 **One clock.** Every frame number in the folder (a mask's `first_source_frame`, a shot's frames, a load's) is
@@ -163,10 +163,11 @@ def folder_of_file(name: str, data: Path) -> Path:
     finds its video's folder from that file's name alone."""
     held = []
     for path in sorted(Path(data).glob(f"*/{MANIFEST}")):
-        # other tools keep a manifest.json of their own under data/: only a folder of this schema is one of ours
+        # other tools keep a manifest.json of their own under data/, and make and remake their folders while
+        # this runs: one that does not parse, or is gone between the listing and the read, is not ours
         try:
             manifest = json.loads(path.read_text())
-        except ValueError:
+        except (ValueError, OSError):
             continue
         if isinstance(manifest, dict) and manifest.get("schema") == SCHEMA and name in ((manifest.get("source") or {}).get("name"),
                                                          (manifest.get("derived") or {}).get("name")):
@@ -231,19 +232,24 @@ def file_hash(path: Path) -> str:
 
 def fingerprint(folder: Path, manifest: dict) -> str:
     """One hash over everything a render reads from the folder: the source's identity, the mask table (each
-    mask by its own hash), `profile.json` and the cast's folded state, when they exist.
+    mask by its own hash) and `profile.json` when it exists.
 
-    It changes when a mask is made again, a rule sets another value or the cast gains an answer, and for no
-    other reason: a record, a tile or a report written into the folder does not move it. A hand-set file of a
-    job is a person's and is not in it; a reader carries that file's own hash beside this one."""
+    It changes when a mask is made again or a rule sets another value, and for no other reason: a record, a
+    tile or a report written into the folder does not move it. A hand-set file of a job is a person's and is
+    not in it; a reader carries that file's own hash beside this one.
+
+    THE CAST IS NOT IN IT (2026-10-10, after a second session's cold read). Until then this hashed
+    `cast/state.json`, a file nothing writes: the cast as built is `cast/cast.jsonl` (`bench/cast_file.py`), so
+    a cast answer never moved the fingerprint although this docstring said it did. It is left out and not
+    repointed at the real file on purpose: one answer about one shot would then refuse every graph built on
+    the clip, for every subject and shot. Whoever wires the cast in decides its grain first."""
     digest = hashlib.sha256()
     digest.update(json.dumps({"schema": SCHEMA, "version": VERSION, "source": manifest["source"],
                               "derived": manifest.get("derived"),
                               "masks": sorted(manifest.get("masks") or [], key=lambda m: (m["subject"], m["kind"], m["file"]))},
                              sort_keys=True).encode())
-    for name in ("profile.json", "cast/state.json"):
-        path = Path(folder) / name
-        digest.update(f"\n{name}:".encode() + (file_hash(path).encode() if path.is_file() else b"none"))
+    path = Path(folder) / "profile.json"
+    digest.update(b"\nprofile.json:" + (file_hash(path).encode() if path.is_file() else b"none"))
     return digest.hexdigest()
 
 

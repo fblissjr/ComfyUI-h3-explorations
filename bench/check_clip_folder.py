@@ -18,8 +18,8 @@ Claims, i.e. what breaks if a case is deleted:
                         with `frames` a changed frame count; the file it was made from passes; the copy a
                         job renders from finds the folder by its own name and is held to its own identity
   the fingerprint moves with what a render reads, and with nothing else    a mask made again, a changed
-                        profile, a changed cast state each move it; a tile or a record written into the
-                        folder, and the order masks are listed in, do not
+                        profile each move it; a tile or a record written into the folder, the order masks
+                        are listed in, and a cast file (left out on purpose, see `fingerprint`) do not
   a manifest a reader could misread is refused    an unknown mask kind, a mask with no first frame, a mask
                         named by a path, an unknown schema or version
   the hand layer is apart    no file is no layer and the word "none"; a file is its `set` and its own hash;
@@ -181,8 +181,10 @@ def the_fingerprint_moves_with_what_a_render_reads_and_with_nothing_else():
         (folder / "profile.json").write_text('{"loads": {"x": {}}}')
         moved["a changed profile"] = cf.write_manifest(folder, {"source": source, "masks": masks})["fingerprint"]
         (folder / "cast").mkdir()
-        (folder / "cast/state.json").write_text('{"revision": 1}')
-        moved["a cast"] = cf.write_manifest(folder, {"source": source, "masks": masks})["fingerprint"]
+        for name in ("cast.jsonl", "state.json"):
+            (folder / "cast" / name).write_text('{"answer": 1}')
+        assert cf.write_manifest(folder, {"source": source, "masks": masks})["fingerprint"] == moved["a changed profile"], \
+            "a cast file moves the fingerprint: it is left out until its grain is decided"
         moved["another source"] = cf.write_manifest(folder, {"source": dict(source, frames=25), "masks": masks})["fingerprint"]
         same = [why for why, value in moved.items() if value == was]
         assert not same and len(set(moved.values())) == len(moved), f"the fingerprint did not move for: {same or 'two different changes'}"
@@ -224,6 +226,10 @@ def a_manifest_a_reader_could_misread_is_refused():
             (folder.parent / name).mkdir()
             (folder.parent / name / cf.MANIFEST).write_text(body)
         assert cf.folder_of_file("fun.mp4", folder.parent) == folder, "another tool's manifest stops a folder being found"
+        # a folder that is listed and gone before it is read (a capture being remade) stops nothing either
+        (folder.parent / "going").mkdir()
+        (folder.parent / "going" / cf.MANIFEST).symlink_to(folder.parent / "going" / "no_such_file")
+        assert cf.folder_of_file("fun.mp4", folder.parent) == folder, "a manifest that cannot be read stops a folder being found"
 
 
 def the_hand_layer_is_apart():
