@@ -832,6 +832,67 @@ def the_gate() -> str:
             "under any number; a flag that grew blocks again; an outcome is not an override")
 
 
+def planned_regions() -> str:
+    """A pass that has not rendered, read from the plan and the region files the node's preview wrote.
+
+    A 13-frame load in two windows of 9: window 2 starts on frame 4, keeps 5 and writes 4, and its last
+    four frames are held past the load's end. The plan says which window writes a frame; the capture does
+    not work it out."""
+    import tempfile
+    import torch
+    vm = cap._pack("video_mask")
+    settings = {"composite": "whole region", "feather_pixels": 0, "change_threshold": None, "cuts": [], "grow_pixels": 16,
+                "grow_by": "a fixed margin", "replace": "subject", "edge": "latent cells"}
+
+    def window(x0: int) -> tuple[torch.Tensor, torch.Tensor]:
+        mask = torch.zeros(9, H, W)
+        mask[:, 32:64, x0:x0 + 32] = 1.0
+        tokens = torch.zeros(3, H // 32, W // 32)
+        tokens[:, 1, x0 // 32] = 1.0
+        return mask, tokens
+
+    def row(number: int, first: int, trim: int, writes: int, left=()) -> dict:
+        return {"number": number, "first_frame": first, "frames": 9, "trim": trim, "frames_written": writes,
+                "first_written_frame": first + trim, "last_written_frame": first + trim + writes - 1, "text": f"text {number}",
+                "region_file": f"pass_window_{number}_planned_region.npz", "frames_left_as_source": list(left), "regenerating_share": 0.07}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp) / "pass_windows"
+        folder.mkdir()
+        for number, x0, first, trim in ((1, 32, 0, 0), (2, 96, 4, 5)):
+            vm.save_window_region(str(folder / f"pass_window_{number}_planned_region.npz"), *window(x0), settings, 16, first, trim)
+        plan = {"plan": "h3 song plan", "version": 1, "source": {"frames": 13, **settings},
+                "windows": [row(1, 0, 0, 9), row(2, 4, 5, 4, left=(11,))]}
+        (folder / "pass_plan.json").write_text(json.dumps(plan))
+        assert cap.plan_file(str(folder)).name == "pass_plan.json" and cap.plan_file(str(folder / "pass_plan.json")).name == "pass_plan.json"
+        # the load's frame 0 is source frame 100; the span is source frames 98 to 113
+        region, carried, read, how = cap.read_planned_regions(folder / "pass_plan.json", 98, 16, (W, H), at=100)
+        assert read.tolist() == [False] * 2 + [True] * 13 + [False], "frames past the load's end, or before it, were read"
+        assert region[2:11, 2, 2].all() and not region[2:11, 2, 6].any(), "window 1's frames do not carry window 1's region"
+        assert region[11:13, 2, 6].all() and region[14, 2, 6] and not region[11:15, 2, 2].any(), "window 2 writes with its own region"
+        assert not region[13].any() and read[13] and how["left_as_the_source_across_a_cut"] == [111], "the plan's gated frame kept a region"
+        assert carried[11:15, 32:64, 96:128].all() and how["frames_written"] == 13 and how["planned_windows"][1]["writes_source_frames"] == [109, 112], how
+        assert how["source_settings"]["grow_pixels"] == 16 and how["source_settings"]["edge"] == "latent cells"
+        # a window the plan could not plan, a file that is not there, and a gap are each refused with the reason
+        unplanned = {**plan, "windows": [row(1, 0, 0, 9), {**row(2, 4, 5, 4), "region_file": None, "why": "starts past the source's 13 frames"}]}
+        (folder / "pass_plan.json").write_text(json.dumps(unplanned))
+        assert "starts past" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
+        (folder / "pass_plan.json").write_text(json.dumps({**plan, "windows": [row(1, 0, 0, 9), row(2, 6, 5, 2)]}))
+        assert "ended on 9" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
+        (folder / "pass_plan.json").write_text(json.dumps(plan))
+        (folder / "pass_window_2_planned_region.npz").unlink()
+        assert "not beside the plan" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
+        (folder / "other_plan.json").write_text("{}")
+        try:
+            cap.plan_file(str(folder))
+        except SystemExit as stop:
+            assert "2 plan file(s)" in str(stop)
+        else:
+            raise AssertionError("a folder with two plans was read as one")
+    return ("the plan says which window writes a frame and which frame is left as the source; a held tail is not read; an "
+            "unplanned window, a missing file, a gap and two plans in one folder are each refused")
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -862,6 +923,7 @@ case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
+case("a pass read from the node's own plan", planned_regions)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

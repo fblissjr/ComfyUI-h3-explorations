@@ -64,6 +64,13 @@ node's own `grow` and the Masked Source's rule for the others, in whole tokens u
 frame; the sampler's region is shared by the frames of a latent step, so the real one differs a little at
 moving edges (`planned_region` has the figure from one render). It exists so that `preflight` and `video` can be run on a no-sampling preview, before a render is queued.
 
+**A plan read from the node, not estimated.** A preview of the song node writes what each window WILL be
+given (`<name>_plan.json` and a `_planned_region.npz` per window, the file a render saves). `--run
+NAME:preview=<the windows folder or the plan file>,subject=LABEL[,others=..]` reads those: the region per
+latent step, the window that writes each frame, the frames the composite will leave as the source across a
+cut. That is the plan to gate a job on; `--plan` stays for a what-if without the card, and what it works
+out is an estimate (per frame, where the node's region is per latent step).
+
 **A plan can be a load, and a pass a list of loads.** A whole-subject pass is rendered one load per shot the
 subject is in, each from its own first frame, so a plan takes `at=FIRST` and `frames=N` (the load: its
 region exists on those frames only, and its latent steps are counted from its own first frame, which is what
@@ -718,6 +725,71 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
                                    "files_of_another_run_left_unread": [f.name for f in files if f.name not in names]}
 
 
+def plan_file(preview: str) -> Path:
+    """The plan a preview of the song node wrote (`<name>_plan.json`), from its path or its windows folder."""
+    path = Path(preview)
+    if path.is_file():
+        return path
+    found = sorted(path.glob("*_plan.json"))
+    if len(found) != 1:
+        raise SystemExit(f"{preview}: {len(found)} plan file(s) (*_plan.json); a preview's windows folder has one. "
+                         "Give the plan file itself when a folder holds more")
+    return found[0]
+
+
+def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[int, int], at: int | None = None):
+    """A run's region as the node's own preview planned it: what each window WILL be given, nothing estimated.
+
+    The plan (`audio_freeze_song.write_plan`) lists every window with the frames it writes and its region
+    file, the same file a render saves (`<name>_window_N_planned_region.npz`, read by
+    `video_mask.load_window_region`). A frame of the load belongs to the window that writes it, by the plan's
+    own `first_written_frame` and `last_written_frame`, so a held tail past a short load is the plan's to
+    know. The frames the composite will leave as the source across a cut are the plan's
+    `frames_left_as_source` (the gate on the mask the window is given), and have no region here. All of the
+    plan's numbers are the load's; the load's frame 0 is source frame `at`.
+
+    Returns what `read_region` does. Refuses (None) when a window has no region file (the plan says why: it
+    starts past the source's end), when a file the plan names is not there, or when the windows' written
+    frames leave a gap."""
+    vm = _pack("video_mask")
+    plan = json.loads(plan_path.read_text())
+    if plan.get("plan") != "h3 song plan":
+        raise SystemExit(f"{plan_path.name} is not a song node plan (its `plan` is {plan.get('plan')!r})")
+    w, h = size
+    region = np.zeros((frames, h // CELL, w // CELL), bool)
+    carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
+    at = first if at is None else int(at)
+    end, across, windows = 0, [], []
+    for row in plan["windows"]:
+        if not row.get("region_file"):
+            return None, None, None, {"refused": f"window {row['number']} is not planned: {row.get('why', 'no region file')}"}
+        path = plan_path.parent / row["region_file"]
+        if not path.is_file():
+            return None, None, None, {"refused": f"the plan names {row['region_file']} and it is not beside the plan"}
+        if row["first_written_frame"] != end:
+            return None, None, None, {"refused": f"window {row['number']} writes from frame {row['first_written_frame']} of the load and "
+                                                 f"the window before it ended on {end}"}
+        got = vm.load_window_region(str(path))
+        cells = vm.pixel_alpha(got["tokens"], h // CELL, w // CELL, 0) > 0.5
+        mask, left = got["mask"], set(row.get("frames_left_as_source", []))
+        if tuple(mask.shape[1:]) != (h, w):
+            import torch
+            mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        for f in range(row["first_written_frame"], row["last_written_frame"] + 1):
+            k, n = f - row["first_frame"], at + f - first
+            if 0 <= n < frames:
+                region[n], carried[n], read[n] = (cells[k].numpy() if f not in left else False), (mask[k] > 0.5).numpy(), True
+            if f in left:
+                across.append(at + f)
+        end = row["last_written_frame"] + 1
+        windows.append({"window": row["number"], "writes_source_frames": [at + row["first_written_frame"], at + row["last_written_frame"]],
+                        "text": row.get("text"), "regenerating_share": row.get("regenerating_share")})
+    return region, carried, read, {"read_from": "the region the node's preview planned for each window", "plan": plan_path.name,
+                                   "files": [r["region_file"] for r in plan["windows"]], "legend_px": None,
+                                   "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
+                                   "planned_windows": windows, "frames_written": end, "source_settings": plan["source"]}
+
+
 def graph_of(render: str) -> dict | None:
     """The graph a render's picture carries (`<stem>.png`, the `prompt` text chunk), or None."""
     picture = Path(render[:-len(".mp4")] + ".png")
@@ -823,6 +895,9 @@ def files(a: argparse.Namespace) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
     plans += [load for path in a.loads for load in loads_from_file(path)]
+    # a run with a preview's plan and no render has not rendered: its region is the node's own plan, not an estimate
+    plans += [(n, r) for n, r in runs if r.get("preview") and not r.get("render")]
+    runs = [(n, r) for n, r in runs if r.get("render")]
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
@@ -962,7 +1037,16 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             if who not in sightings:
                 raise SystemExit(f"run {name!r} names subject {who!r}, which no --mask gives")
         lead = {who: next(iter(sightings[who].values())) for who in [label] + others + kept_labels}
-        if r["planned"]:
+        if r["planned"] and r.get("preview"):
+            where = plan_file(r["preview"])
+            region, carried, read, how = read_planned_regions(where, first, frames, size, r.get("at"))
+            if region is None:
+                raise SystemExit(f"run {name!r}: {how['refused']} ({where})")
+            graph, settings = None, {k: how["source_settings"].get(k) for k in ("grow_pixels", "grow_by", "edge", "replace", "composite")}
+            r = {**r, "margin": settings.get("grow_pixels") if settings.get("grow_by") in (None, "a fixed margin") else r.get("margin"),
+                 "at": r.get("at", first)}
+            how["load"] = {"first_frame": int(r["at"]), "frames": int(how["frames_written"])}
+        elif r["planned"]:
             if "margin" not in r:
                 raise SystemExit(f"plan {name!r} needs margin=PX: the region is worked out from the masks and it")
             graph, settings = None, {"grow_pixels": int(r["margin"]), "grow_by": "a fixed margin",
@@ -1025,11 +1109,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                  "windows": ({"window_frames": int(r["window"]), "context_frames": int(r.get("context", 0))}
                                              if r["planned"] and r.get("window") else window_settings(graph)),
                                  "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
-                                                and r.get("carried", "parts") == "parts" else "the track") if r["planned"] else "the mask each window saved" if how.get("files") else "read from the review",
+                                                and r.get("carried", "parts") == "parts" else "the track") if r["planned"] and not r.get("preview") else "the mask each window was given" if how.get("files") else "read from the review",
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
-        print(f"{'plan' if r['planned'] else 'run'} {name}: region {'worked out' if r['planned'] else 'read'} on "
+        print(f"{'plan' if r['planned'] else 'run'} {name}: region {'worked out' if r['planned'] and not r.get('preview') else 'read'} on "
               f"{int(read.sum())} of {frames} frames, mean share {float(region[read].mean()) if read.any() else 0.0:.4f}", flush=True)
     voice = read_voice(a.voice) if a.voice else None
     manifest["voice_table"] = Path(a.voice).name if a.voice else None
@@ -2875,9 +2959,11 @@ def main() -> None:
     f.add_argument("--frames", type=int, required=True)
     f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
-    f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
+    f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
-                        "read from the render's review when there is none (or with region=review); repeatable")
+                        "read from the render's review when there is none (or with region=review). With preview= and no "
+                        "render, a pass that has not rendered: its region is the one the song node's preview planned for "
+                        "each window (the plan file or its windows folder); repeatable")
     f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,keep=L+L][,carried=track|held][,edge=cells][,window=F,context=F][,at=FIRST,frames=N][,text=LABEL][,audio=FILE][,still=FILE]",
                    help="a run that has not rendered: its region is worked out from the masks; with at= and frames= it is one "
                         "load, on those frames only; repeatable")
