@@ -7,6 +7,20 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.278.2
+<!-- changelog.d/mrpop-signals-pose-pass-lines.md -->
+
+### Changed
+
+- `docs/wiki/state_signals.md` gains two dated lines under "How a signal
+  reaches the model", from a pose pass over the day's renders: on one
+  stretch the load with no kept frames follows the source's head, chin and
+  hand while every render that carries kept frames does not, by the same
+  amount at either size of the motion video and with either Sol sink; and
+  one short load of a small subject that did not follow its mesh, with the
+  two things that differ from the load that did. The figures are in the
+  records the lines name.
+
 ## 0.278.1
 <!-- changelog.d/mrcorn-class-restore-keeps-to-its-subject.md -->
 

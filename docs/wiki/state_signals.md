@@ -281,6 +281,34 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   this was written; the first marked frames are looked at before a render
   is spent, and a render is read for colour from the marks in the picture
   before it is read for the head.
+- **Added 2026-10-10 (mrpop), from mrdeer's pose pass on the card: the three
+  lines above, as figures.** Records: `data/2026-10-10_fun_pose/kitchen_0950_yaw.json`
+  and `kitchen_0950_motion.json` (every render of the stretch against the
+  source), `kitchen_0936_*` (from the fresh load's first frame),
+  `open_0014_*` (the opening shot). What they hold: the load with no kept
+  frames is within a few degrees of the source's head through the turn and
+  after it, lowers the chin as the source does and brings a wrist to the
+  nose as the source does, and follows the source's motion about as well
+  as the mesh itself does; every render that carries kept frames of her
+  turned away is tens of degrees off, by the same amount whether the mesh
+  was at the canvas's short edge or half of it, and with either Sol sink.
+  So on that stretch the mesh's size changed nothing and the kept frames
+  decided it. On the opening shot the mesh to the text encoder alone
+  follows far less than the mesh in the video model, and the cheaper Sol
+  sink (`exact_kv_and_rows`) is not behind `exact_kv_and_all_rows` on any
+  joint group. One clip; one seed each.
+- **Added 2026-10-10 (mrpop): a load with no kept frames that did NOT
+  follow its mesh.** `data/2026-10-10_fun_pose/shot_1010_*`: a 29-frame
+  load of a subject who is a small share of the frame, behind another
+  person. The mesh has her pose on the first frames (a wrist at the nose,
+  the head turned away) and the render has her facing the camera with her
+  hands down; then the render fades to the source's own picture over its
+  last twenty frames (mrdeer's per-frame figures in the capture
+  `data/2026-10-10_fun_kitchen_shot2_1010`). Two things differ from the
+  load above that followed: her size, and a window that is mostly the
+  source's last frame held with the original in it
+  ([`window_context.md`](window_context.md), the held tail). Which of the
+  two it is has not been separated.
 - **The original's own pixels, degraded (the owner's idea, 2026-10-10):**
   the subject cut out of the source carries facing, hair and hands that a
   grey mesh does not, and brings the original's look with it. A blur and a
