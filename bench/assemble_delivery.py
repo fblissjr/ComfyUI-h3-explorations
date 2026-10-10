@@ -13,7 +13,8 @@ nobody regenerated, the clip's own audio. This writes that file with one encode,
 and proves the parts an eye cannot check: that no frame was dropped, doubled or moved, and that the audio is
 the source's own packets.
 
-**The table.** One row per piece, in SOURCE frame numbers (a render made from a frame-for-frame copy of the
+**The table.** One row per piece (`first-last  piece  the piece's first source frame`, then any of `restore=` and
+`subject=`, described below), in SOURCE frame numbers (a render made from a frame-for-frame copy of the
 source at the lane's rate has the source's numbering):
 
     # first-last   piece             the source frame that is the piece's frame 0
@@ -30,8 +31,17 @@ noise, so where `|piece - fitted original|` is over `CHANGE` the piece changed t
 one row covers is that piece, whole and untouched. A frame several rows cover is the first row's piece, whole,
 with each later row's changed region laid over it, grown a little and feathered. Where two pieces changed the
 SAME pixel, order alone cannot say whose it is: with a capture folder (`--capture`, what
-`bench/capture_masked_run.py` writes) the pixel goes to the piece whose subject's tracked mask it lies in, and
-only a pixel in both masks or neither falls to the later row. Either way the frames are flagged.
+`bench/capture_masked_run.py` writes) the pieces whose subject holds the pixel are the ones it can go to, and
+the latest of those in the table takes it; a pixel no changing piece's subject holds falls to the latest row
+that changed it. So a subject's piece and a patch of it are settled by order between themselves, and neither
+loses to another person's pass on its own subject. A piece whose subject is not known (no run in any capture
+given, and no `subject=` on its row) is never ruled out by a mask it was not asked about: it can take every
+pixel it changed. Either way the frames are flagged.
+
+**`subject=<label>`** on a row says whose a piece is when no capture holds it as a run: a patch of a render, made
+from that render, has no run of its own. The first delivery built with a patch row and captures (2026-10-10)
+gave the patched frames back to the piece they replaced, inside its subject's mask, because the piece's subject
+was known and the patch's was not; every proof passed and the shared-pixel figure was what showed it.
 
 **Whose a pixel is.** Two tracked masks can claim one pixel (an arm reaching across somebody), and then a mask
 alone does not say whose it is. A capture folder made with more than one subject holds `owners.npz`
@@ -105,11 +115,27 @@ feathered at the edge, before the one encode. Provenance: measured 2026-10-10 on
 one clip, where the regenerated region's edges were crisper than the plate's at the canvas's size and a sigma
 of 0.5 to 0.7 matched them; not judged on playback.
 
+**Every row shows where it was meant to** (`rows_shown`, a proof: the build fails on it). A row is meant to show
+on every pixel its piece changed, less what a `restore=` on it gives back, what a later row takes, and what an
+earlier row's subject holds when that is another, known subject and not the row's own. A row that shows on less
+than `SHOWN` of that has an earlier row laid over it, and the build says which row. The frame-for-frame proofs
+below cannot see this: a file can be exactly the frames that were fed and the frames fed can be the wrong
+row's.
+
+**A locked file is never written over.** A folder's `LOCKED.md` lists the files the owner has accepted, one to a
+list line: the name in backticks, then `md5 <sum>`. A build whose `--out` is one of them is refused before anything
+is read, with the names that are free; a later version of the same span is a new file beside it. `--check-only`
+still reads a locked file (it writes the record and nothing else) and fails if the file is no longer the one that
+was locked. The lock is in the tool because a rule that every session has to remember is not a lock.
+
 **The check** (`<out>.check.json`; exit 1 when it fails; it records the table's rows, the captures given, when it ran
 and `--note`). Count and timestamps: as many frames as the span,
 frame n stamped n frames in at the source's rate. Order: the file is decoded and each frame compared with the
-frame fed for its place and the ones fed either side; it must be nearest its own. Frames whose neighbours are
-the same picture cannot be placed by content and are counted apart. Audio: the file's
+frame fed for its place and the ones fed either side; it must be nearest its own, and no `BLOCK`-pixel square of
+it may sit more than `APART` levels from the same square of the frame fed, so a file made from another table or
+by another rule is not passed for being in order: a whole-frame mean passes a file with the wrong row over a
+region of it. Frames whose
+neighbours are the same picture cannot be placed by content and are counted apart. Audio: the file's
 packets are a run of the source's packets, byte for byte, the head is under `HEAD_PACKETS` packets, and the
 decoded samples fit the source's at their own place better than a sample or more either side (`SHIFTS`).
 Colour: the four fields, and the decoded file's planes have no bias against the frames fed (`BIAS`), which is
@@ -137,8 +163,10 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -180,6 +208,13 @@ JOIN = 25.5       # levels of averaged difference that count as a large change b
 JOIN_PX = 16      # pixels of such an edge under which nothing is flagged; reasoned: a few pixels is the codec
 OFF = 12.0        # levels of luma a delivered pixel may sit from the source and still count as the source's, in the
                   # `subjects` table; reasoned: twice the change threshold, the line the 2026-10-10 figures were read at
+BLOCK = 16        # pixels: the side of the squares a decoded frame is compared with the frame fed for it in
+APART = 8.0       # levels a square's mean |difference| in luma may reach; measured 2026-10-10 on one full-size build at
+                  # crf 12: 2.27 the largest of a file's own, 141.7 where a patch of it was laid under the piece it
+                  # replaces (9,731 squares over, all on the patched frames). A whole-frame mean read 0.42 and 0.49
+SHOWN = 0.98      # of the pixels a row was meant to show on, the share it must show on; reasoned: the rule is exact,
+                  # so anything under all of them is a row laid over; the slack is for nothing but a later change
+                  # to how a restore's edge is counted
 HEAD_PACKETS = 2  # audio packets the track may begin before the span; reasoned: the one the decoder needs, and
                   # the one the span's first sample is in
 # What the lane's writer does to piped rgb, and what its files say. Inherited: `loop_output.TO_BT709`,
@@ -244,8 +279,11 @@ def read_table(path) -> list[dict]:
         row = {"first": lo, "last": hi, "piece": piece, "piece_first": int(first), "restore": []}
         for token in more:
             key, _, value = token.partition("=")
+            if key == "subject" and value:
+                row["subject"] = value                   # whose the piece is, when no capture holds it as a run
+                continue
             if key != "restore" or not value:
-                raise SystemExit(f"{path}: `{token}` is not `restore=<subject>` or `restore=<subject>.<Class>[+<Class>...]`")
+                raise SystemExit(f"{path}: `{token}` is not `subject=<label>`, `restore=<subject>` or `restore=<subject>.<Class>[+<Class>...]`")
             label, dot, classes = value.partition(".")
             if not dot:
                 label, colon, how = label.partition(":")
@@ -263,6 +301,15 @@ def read_table(path) -> list[dict]:
             row["restore"].append((label, wanted))
         rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
+
+
+def run_for(row, captures):
+    """(folder, manifest, run) for a row's piece: the capture's run whose render it is, or, for a row that says
+    whose it is (`subject=`), a stand-in with that subject and no folder; None when neither."""
+    found = captures.run_of(row["piece"]) if captures else None
+    if found is None and captures and row.get("subject"):
+        return None, None, {"name": None, "subject": row["subject"], "margin_px": None}
+    return found
 
 
 def restore_text(label, wanted) -> str:
@@ -472,7 +519,12 @@ class Captures:
 
 def owners(hard, subject_masks):
     """Which piece each changed pixel is taken from (-1: none changed it), and how the shared pixels were settled.
-    `hard[i]` is `changed` of piece i; `subject_masks[i]` is its subject's tracked mask or None."""
+    `hard[i]` is `changed` of piece i; `subject_masks[i]` is what its subject holds (its tracked mask, or what an
+    owner map gives it), or None when the piece's subject is not known.
+
+    Among the pieces that changed a pixel, those whose subject holds it can take it, and the latest of them does;
+    a piece with no known subject can take anything it changed. A pixel none of them can take goes to the latest
+    piece that changed it."""
     h, w = hard[0].shape
     owner = np.full((h, w), -1, np.int8)
     for i, m in enumerate(hard):
@@ -480,17 +532,16 @@ def owners(hard, subject_masks):
     shared = np.sum(hard, axis=0) > 1
     by_mask = 0
     if shared.any():
-        claims = np.zeros((h, w), np.int8)
-        whose = np.full((h, w), -1, np.int8)
+        winner = np.full((h, w), -1, np.int8)
+        ruled_out = np.zeros((h, w), bool)
         for i, (m, s) in enumerate(zip(hard, subject_masks)):
-            if s is None:
-                continue
-            mine = m & s & shared
-            claims[mine] += 1
-            whose[mine] = i
-        settled = shared & (claims == 1)               # in exactly one of the changing pieces' subjects
-        owner[settled] = whose[settled]
-        by_mask = int(settled.sum())
+            can = m & shared if s is None else m & shared & s
+            winner[can] = i                            # in table order, so the latest that can take it
+            if s is not None:
+                ruled_out |= m & shared & ~s
+        decided = winner >= 0
+        owner[decided] = winner[decided]
+        by_mask = int((decided & ruled_out).sum())     # a mask kept some piece that changed the pixel from taking it
     return owner, {"px": int(shared.sum()), "box": box_of(shared), "by_mask": by_mask, "by_order": int(shared.sum()) - by_mask}
 
 
@@ -634,7 +685,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             continue
         orig = original_frames(source, first, last, w, h)
         whole = source_frames(source, first, last, *full) if full else iter(lambda: None, 0)
-        runs = [captures.run_of(r["piece"]) if captures else None for r in rows]
+        runs = [run_for(r, captures) for r in rows]
         got = 0
         for k, (obuf, sbuf, *pbufs) in enumerate(zip(orig, whole, *(piece_frames(r, first, last, w, h) for r in rows))):
             n = first + k
@@ -644,7 +695,8 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
-            owner, shared = owners(hard, [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)])
+            holds = [w_ if w_ is not None else m_ for w_, m_ in zip(whose, masks)]
+            owner, shared = owners(hard, holds)
             backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
             held = [b[0] for b in backs]
             if record is not None and before is not None:
@@ -671,6 +723,23 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     record["rows"].setdefault(r["piece"], {})[n] = row
                 if len(rows) > 1:
                     record["shared"][n] = shared
+            if record is not None:
+                subjects = [run[2]["subject"] if run else None for run in runs]
+                for i, r in enumerate(rows):
+                    back = held[i] > 0.5 if held[i] is not None else np.zeros((h, w), bool)
+                    later = np.zeros((h, w), bool)
+                    for j in range(i + 1, len(rows)):
+                        later |= owner == j
+                    other = np.zeros((h, w), bool)         # an earlier row's subject holds it: another, known subject
+                    if holds[i] is not None:
+                        for j in range(i):
+                            if holds[j] is not None and subjects[j] != subjects[i]:
+                                other |= hard[j] & holds[j] & ~holds[i]
+                    meant = hard[i] & ~back & ~later & ~other
+                    tally = record.setdefault("shown", {}).setdefault((r["piece"], r.get("first"), r.get("last")), [0, 0, 0])
+                    tally[0] += int(meant.sum())
+                    tally[1] += int((meant & (owner == i)).sum())
+                    tally[2] += 1
             got += 1
             if full:
                 yield laid_over(planes(sbuf, *full), pieces, owner, box, held)
@@ -781,7 +850,7 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
             continue
         done.add(row["piece"])
         area = record["rows"].get(row["piece"], {})
-        run = captures.run_of(row["piece"]) if captures else None
+        run = run_for(row, captures)
         names = {"piece": os.path.basename(row["piece"]), "run": run[2]["name"] if run else None,
                  "subject": run[2]["subject"] if run else None}
         if run is None:
@@ -914,7 +983,7 @@ def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[s
     for folder, _manifest in captures.folders:
         mine = []
         for row in rows:
-            run = captures.run_of(row["piece"])
+            run = run_for(row, captures)
             if run is None or run[0] != folder:
                 continue
             mine.append(run[2]["name"])
@@ -1119,7 +1188,7 @@ def check(args, segs, canvas, span, src, rows, captures):
     fed = fed_frames(args.source, segs, w, h, record, args.soften, captures, full)
     window = [None, arr(next(fed)), None]            # fed k-1, k, k+1
     placed = static = misplaced = decoded = 0
-    own, worst, bad = [], (0.0, None), []
+    own, worst, bad, local = [], (0.0, None), [], []
     for k in range(many):
         nxt = next(fed, None)
         window[2] = arr(nxt) if nxt is not None else None
@@ -1135,6 +1204,9 @@ def check(args, segs, canvas, span, src, rows, captures):
             tally.add(span[0] + k, delivered, fitted, touched)
         d0 = mad(got, window[1])
         own.append(d0)
+        squares = np.abs(got[:ow * oh] - window[1][:ow * oh]).reshape(oh, ow)[:oh - oh % BLOCK, :ow - ow % BLOCK]
+        squares = squares.reshape(oh // BLOCK, BLOCK, ow // BLOCK, BLOCK).mean(axis=(1, 3))
+        local.append((float(squares.max()), int((squares > APART).sum())))
         bias += [float((got[a:b] - window[1][a:b]).mean()) for a, b in zip(cuts, cuts[1:])]
         if d0 > worst[0]:
             worst = (d0, span[0] + k)
@@ -1153,6 +1225,9 @@ def check(args, segs, canvas, span, src, rows, captures):
                        "first_nearer_a_neighbour": bad[:10],
                        "mean_difference_from_own": round(float(np.mean(own)), 3) if own else None,
                        "largest_difference_from_own": [round(worst[0], 3), worst[1]],
+                       "largest_difference_from_own_in_a_square": (lambda i: [round(local[i][0], 2), span[0] + i])(
+                           int(np.argmax([m for m, _ in local]))) if local else None,
+                       "squares_apart": sum(n for _, n in local),
                        "bias_y_u_v": [round(float(x) / max(decoded, 1), 3) for x in bias]}
     if max(abs(x) for x in result["order"]["bias_y_u_v"]) > BIAS:
         fail(f"the decoded file sits {result['order']['bias_y_u_v']} levels (Y, U, V) from the frames fed: a colour conversion")
@@ -1160,6 +1235,12 @@ def check(args, segs, canvas, span, src, rows, captures):
         fail(f"{decoded + extra} frames decode, {many} expected")
     if misplaced:
         fail(f"{misplaced} frames are nearer a neighbour's picture than their own (first: {bad[:5]})")
+    apart = [span[0] + i for i, (_, n) in enumerate(local) if n]
+    if apart:
+        most = max(range(len(local)), key=lambda i: local[i][1])
+        fail(f"{len(apart)} frames hold a part that is not the frame this table makes (frames {frame_spans(apart)[:6]}; most on "
+             f"{span[0] + most}: {local[most][1]} squares of {BLOCK} px over {APART:g} levels): the file was not built from "
+             f"this table by this tool as it is now")
 
     # audio: the source's packets, and the source's samples
     sound = audio_rate(args.source)
@@ -1220,6 +1301,14 @@ def check(args, segs, canvas, span, src, rows, captures):
             **({"restored_px_per_frame": [v.get("restored_px") for v in area.values()],
                 "restored_beside_a_large_change_px_per_frame": [v.get("join_px") for v in area.values()]}
                if any("restored_px" in v for v in area.values()) else {})}
+    result["rows_shown"] = []
+    for (piece, first_, last_), (meant, shown, n_frames) in record.get("shown", {}).items():
+        share = shown / meant if meant else None
+        result["rows_shown"].append({"row": f"{os.path.basename(piece)} {first_}-{last_}", "frames": n_frames, "meant_px": meant,
+                                     "shown_px": shown, "share": None if share is None else round(share, 4)})
+        if share is not None and share < SHOWN:
+            fail(f"row {os.path.basename(piece)} {first_}-{last_} was meant to show on {meant} px and shows on {shown} "
+                 f"({100 * share:.1f}%): an earlier row is laid over it")
     if tally:
         result["subjects"] = tally.report()
     result["flags"], result["pieces_with_no_capture"] = flags_of(record, rows, captures)
@@ -1230,6 +1319,41 @@ def check(args, segs, canvas, span, src, rows, captures):
         result["written_to_captures"] = write_to_captures(captures, record, rows, result["flags"], args.out, canvas)
     result["verdict"] = "passes" if not result["failures"] else "FAILS"
     return result
+
+
+LOCKS = "LOCKED.md"   # beside the files it names
+LOCK_LINE = re.compile(r"^\s*[-*]\s+`([^`]+)`(?:\s+md5\s+([0-9a-fA-F]{32}))?")
+
+
+def locked(out: str):
+    """(the lock file's path, the md5 it gives or None) when `out` is listed in its folder's `LOCKED.md`, else None."""
+    path = os.path.join(os.path.dirname(os.path.abspath(out)), LOCKS)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            m = LOCK_LINE.match(line)
+            if m and os.path.basename(m.group(1)) == os.path.basename(out):
+                return path, (m.group(2) or "").lower() or None
+    return None
+
+
+def md5_of(path: str) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def free_name(out: str) -> str:
+    """The first `<stem>_<letter><ext>` beside a locked file that does not exist and is not locked itself."""
+    stem, ext = os.path.splitext(out)
+    for letter in "bcdefghijklmnopqrstuvwxyz":
+        name = f"{stem}_{letter}{ext}"
+        if not os.path.exists(name) and not locked(name):
+            return name
+    return f"{stem}_<name>{ext}"
 
 
 def main():
@@ -1252,6 +1376,10 @@ def main():
         return
     if not (args.source and args.table and args.out):
         p.error("--source, --table and --out are needed to build or check a file")
+    lock = locked(args.out)
+    if lock and not args.check_only:
+        raise SystemExit(f"{args.out} is locked ({lock[0]}): an accepted file is never built over. Write the new version "
+                         f"beside it, for one {os.path.basename(free_name(args.out))}, and say in {LOCKS} which stands")
 
     rows = read_table(args.table)
     src = probe(args.source)
@@ -1292,9 +1420,15 @@ def main():
         print("fed", build(args, segs, canvas, span, src, captures), "frames to", args.out, flush=True)
     result = check(args, segs, canvas, span, src, rows, captures)
     result["segments"] = [[a, b, [r["piece"] for r in covering]] for a, b, covering in segs]
+    if lock:
+        result["locked"] = {"by": lock[0], "md5_locked": lock[1], "md5_now": md5_of(args.out)}
+        if lock[1] and lock[1] != result["locked"]["md5_now"]:
+            result["failures"].append(f"the file is locked in {lock[0]} at md5 {lock[1]} and is now {result['locked']['md5_now']}: "
+                                      "it is not the file that was accepted")
+            result["verdict"] = "FAILS"
     with open(args.out + ".check.json", "w") as fh:
         fh.write(json.dumps(result, indent=1) + "\n")
-    shown = {k: result[k] for k in ("video", "order", "audio", "failures", "verdict")}
+    shown = {k: result[k] for k in ("video", "order", "audio", "rows_shown", "locked", "failures", "verdict") if k in result}
     shown["regions"] = {os.path.basename(k): {a: b for a, b in v.items() if not a.endswith("_per_frame")}
                         for k, v in result["regions"]["pieces"].items()}
     shown["flags"] = [{k: f[k] for k in ("id", "rule", "level", "source_frames", "why")} for f in result["flags"]]

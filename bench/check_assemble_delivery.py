@@ -67,7 +67,20 @@ of known place and size into them, and reads the tool's answers back.
     original), repainted in part on a few frames. Given as a later row over those frames, the patch shows wherever
     it differs from the original, which is everything the piece changed there and what the patch redrew; on the
     other frames the piece shows; and the frames are flagged as changed by two pieces, settled by order, since
-    both are the same subject's. That is a redone stretch laid over the render it was cut from, in one table.
+    both are the same subject's. That is a redone stretch laid over the render it was cut from, in one table. The
+    control: the same file read against the table without the patch row fails, naming the hole's frames, though
+    every frame is in order and no other proof fails.
+15. **A patch as a later row, with a capture.** The piece has a run in the capture and so a known subject; its
+    patch has none. The patch still shows on its frames, with nothing said on its row and with `subject=` naming
+    whose it is; where a third piece of ANOTHER subject changed the same pixels and the first subject holds them,
+    the patch shows there and not the piece it replaces nor the other subject's pass; and the record's
+    `rows_shown` reads every row as showing where it was meant to. The first delivery built this way gave the
+    patched frames back to the piece (the rule asked which changing piece's subject held a pixel, and the patch
+    had no subject to answer with) and every proof passed: `rows_shown` is the proof that now fails on it.
+16. **A locked file is not built over.** With the delivery's name in its folder's `LOCKED.md`, the same build is
+    refused before anything is written, the file's bytes are what they were, and the refusal names a free name
+    beside it; `--check-only` still reads it and passes; with the file's bytes changed it fails, saying the file is
+    not the one that was locked; and a name the lock file does not list builds as before.
 
 ## Running it
 
@@ -687,12 +700,96 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, o, (150, 20, 240, 60)) < 1.0, "pixels neither changed are not the original's"
         shared = record["shared"][20]
         assert shared["px"] > 0 and shared["by_mask"] == 0, shared
-        code, r, _ = deliver(TMP, "patch_row", [(10, 39, PIECE_A, 10), (hole[0], hole[1], patch, 10)], "10-39")
+        code, r, out = deliver(TMP, "patch_row", [(10, 39, PIECE_A, 10), (hole[0], hole[1], patch, 10)], "10-39")
         assert code == 0 and r["verdict"] == "passes", r["failures"]
         both = [f for f in r["flags"] if f["rule"] == "two_pieces_change_the_same_pixels"]
         assert both and both[0]["source_frames"] == [[hole[0], hole[1]]], [(f["rule"], f["source_frames"]) for f in r["flags"]]
         assert [seg[:2] + [len(seg[2])] for seg in r["segments"]] == [[10, 17, 1], [18, 24, 2], [25, 39, 1]], r["segments"]
-        return f"on the hole's frames the patch shows over the piece ({shared['px']} px both changed, by order); elsewhere the piece"
+        assert r["order"]["squares_apart"] == 0, r["order"]
+        # the control: the same file read against the table WITHOUT the patch row is the wrong picture over a part of
+        # seven frames, every frame in order, and nothing else in the check says so
+        code, wrong = recheck(TMP, "patch_row_without_the_patch", [(10, 39, PIECE_A, 10)], "10-39", out)
+        said = [f for f in wrong["failures"] if "hold a part" in f]
+        assert code == 1 and said and f"[[{hole[0]}, {hole[1]}]]" in said[0], f"a file with another row over part of it passed: {wrong['failures']}"
+        assert wrong["order"]["nearer_a_neighbour"] == 0 and len(wrong["failures"]) == 1, (wrong["order"], wrong["failures"])
+        return (f"on the hole's frames the patch shows over the piece ({shared['px']} px both changed, by order); elsewhere the piece; "
+                f"read against the table without the patch row the file fails on {wrong['order']['squares_apart']} squares of frames "
+                f"{hole[0]}-{hole[1]}, its frames in order and no other proof failing")
+
+    def a_patch_with_a_capture() -> str:
+        hole = (18, 24)
+        redo = (60, 60, 96, 110)
+        patched = loaded(Path(PIECE_A), 0, 30).clone()
+        x0, y0, x1, y1 = redo
+        a, b = hole[0] - 10, hole[1] - 10 + 1
+        patched[a:b, y0:y1, x0:x1] = (patched[a:b, y0:y1, x0:x1] * 0.3 + 0.05).clamp(0, 1)
+        patch = write("patch_with_capture", patched)
+        # subject a holds the whole of RECT_A; subject c holds RECT_C less its overlap with RECT_A
+        c_mask = mask_of(RECT_C, 30)
+        c_mask[:, RECT_A[1]:RECT_A[3], RECT_A[0]:RECT_A[2]] = False
+        folder = capture(TMP / "cap_patch", 10, 30, {"a": mask_of(RECT_A, 30, grow=4), "c": c_mask},
+                         [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16},
+                          {"name": "run_c", "render": "piece_c.mp4", "subject": "c", "margin_px": 16}])
+        caps = tool.Captures([folder], (W, H))
+        patch_, piece_, c_ = planes_of(patch, 20), planes_of(PIECE_A, 20), planes_of(PIECE_C, 20)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3] - y[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3]).mean())
+        only_redo = (redo[0], redo[1], RECT_C[0], redo[3])                 # redrawn by the patch, not touched by piece C
+        triple = (RECT_C[0], RECT_C[1], redo[2], redo[3])                  # changed by the piece, its patch and piece C; a holds it
+        premise = [round(box_mean(patch_, piece_, only_redo), 1), round(box_mean(patch_, c_, triple), 1), round(box_mean(patch_, piece_, triple), 1)]
+        assert min(premise) > 8, f"the three pieces are not different enough where they meet to tell which shows: {premise}"
+        for said in ({}, {"subject": "a"}):
+            rows = [{"piece": PIECE_A, "piece_first": 10}, {"piece": patch, "piece_first": 10, **said}]
+            got, record = frame_planes(SOURCE, [dict(r) for r in rows], 20, caps)
+            assert box_mean(got, patch_, only_redo) < 1.0, f"with {said or 'nothing said'} on its row the patch does not show over the piece it patches"
+            rows = [{"piece": PIECE_A, "piece_first": 10}, {"piece": patch, "piece_first": 10, **said}, {"piece": PIECE_C, "piece_first": 10}]
+            got, record = frame_planes(SOURCE, [dict(r) for r in rows], 20, caps)
+            if said:
+                assert box_mean(got, patch_, triple) < 1.0, "where a holds a pixel three pieces changed, a's patch does not show"
+        lines = "".join(f"{a_}-{b_} {piece} {first}{more}\n" for a_, b_, piece, first, more in (
+            (10, 39, PIECE_A, 10, ""), (hole[0], hole[1], patch, 10, " subject=a"), (10, 39, PIECE_C, 10, "")))
+        (TMP / "patch_capture.txt").write_text(lines)
+        out = TMP / "patch_capture.mp4"
+        proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(TMP / "patch_capture.txt"),
+                               "--span", "10-39", "--out", str(out), "--capture", str(folder)], capture_output=True, text=True)
+        r = json.loads(Path(str(out) + ".check.json").read_text())
+        assert proc.returncode == 0 and r["verdict"] == "passes", r["failures"]
+        shares = {row["row"]: row["share"] for row in r["rows_shown"]}
+        assert len(shares) == 3 and all(v is not None and v >= tool.SHOWN for v in shares.values()), shares
+        assert r["pieces_with_no_capture"] == [], r["pieces_with_no_capture"]
+        return f"the patch shows with and without `subject=`; where three pieces changed a pixel a holds, a's patch shows; rows shown {sorted(shares.values())}"
+
+    def a_locked_file() -> str:
+        folder = TMP / "locked"
+        folder.mkdir()
+        rows = [(10, 39, PIECE_A, 10)]
+
+        def go(name, *more):
+            out = folder / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(table(folder / f"{name}.txt", rows)),
+                                   "--span", "10-39", "--out", str(out), *more], capture_output=True, text=True)
+            return proc, out
+        proc, out = go("accepted")
+        assert proc.returncode == 0, proc.stderr[-300:]
+        was = out.read_bytes()
+        md5 = tool.md5_of(str(out))
+        (folder / tool.LOCKS).write_text(f"# Locked outputs\n\nSome words.\n\n- `accepted.mp4`  md5 {md5}  locked today (a note, with `backticks` in it).\n"
+                                         "  A second line naming `other.mp4` in passing.\n")
+        proc, _ = go("accepted")
+        said = proc.stderr + proc.stdout
+        assert proc.returncode != 0 and "is locked" in said and "accepted_b.mp4" in said, f"a build over a locked file was not refused: {said[-300:]}"
+        assert out.read_bytes() == was, "the refused build changed the locked file"
+        proc, _ = go("accepted", "--check-only")
+        record = json.loads(Path(str(out) + ".check.json").read_text())
+        assert proc.returncode == 0 and record["locked"]["md5_now"] == md5 and out.read_bytes() == was, (proc.returncode, record.get("locked"))
+        proc, other = go("other")
+        assert proc.returncode == 0 and other.is_file(), "a name only mentioned in the lock file's prose was refused"
+        out.write_bytes(other.read_bytes()[:-7] + b"changed")
+        proc, _ = go("accepted", "--check-only")
+        record = json.loads(Path(str(out) + ".check.json").read_text())
+        assert proc.returncode == 1 and any("not the file that was accepted" in f for f in record["failures"]), record["failures"]
+        return "a build over it is refused and names accepted_b.mp4; a re-read passes and leaves its bytes; changed bytes fail; a name not listed builds"
 
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
@@ -708,4 +805,6 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("whose a pixel is, from the owner map", by_the_owner_map)
     case("what the record says the file did to a subject", the_subjects_table)
     case("a patch as a later row", a_patch_as_a_later_row)
+    case("a patch as a later row, with a capture", a_patch_with_a_capture)
+    case("a locked file is not built over", a_locked_file)
 sys.exit(finish())

@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back.
 
+**`build` is the 2026-10-08 route and is not the one in use: do not build on it.** It rewires a finished render's
+own graph, closes the saved masks outside the hole itself and appends its motion clip as a reference video; it
+knows nothing of the Masked Source's wired `motion_video` or of `others`. Since 2026-10-10 a patch is a load like
+any other: its hole mask is a cut of the subject's track read by a plan capture (`bench/capture_masked_run.py`),
+its graph comes from the job builder, and the frame-group arithmetic `build` prints is the capture's latent-step
+note. `build` has no check for that reason (decided 2026-10-10, sessions mrcorn and mrpop) and goes, with its
+prose, when the tracked job builder lands; its two refusals (a hole not inside its window, a length the planner
+would not render as one window) carry into that builder. **`join` stays**: it is one row of
+`bench/assemble_delivery.py` and `bench/check_patch_render_window.py` holds it.
+
     <python> bench/patch_render_window.py build --render R.mp4 --graph R.json --source SRC24.mov --source-first 100 \\
         --track-mask TRACK.mkv --parts-mask PARTS.mkv --window 290 294 --hole 320 540 --prompt-file P.txt --out DIR
     <python> bench/patch_render_window.py join --render R.mp4 --patch PATCH.mp4 --window 290 --hole 320 540 \\

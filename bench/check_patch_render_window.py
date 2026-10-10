@@ -27,7 +27,8 @@ the patch's frames carry a painted rectangle, the hole's frames a second one. Th
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_patch_render_window.py
 
 Imports the pack's writer, so ComfyUI core must be importable; no card and no server. The `build` half of the
-tool (the one-window graph) is not covered here: it needs a render's own graph and masks.
+tool (the one-window graph) is not covered, on purpose: it is an older route that the job builder replaces, and
+the tool's docstring says so.
 """
 from __future__ import annotations
 

@@ -697,9 +697,17 @@ person), a frame or two just across a cut of the source and no further (a
 pass whose region ran over the cut; found from the source's own
 frame-to-frame change, with no capture), or the same pixels as another
 pass. Cut a render's rows on the source's cuts. Given capture
-folders (`--capture`) it settles shared pixels by whose mask they lie in
-before falling back on the table's order, and writes its table and flags
-into them. Where two tracked masks claim the same pixel (an arm reaching
+folders (`--capture`) it settles shared pixels by whose they are: of the
+rows that changed a pixel, those whose subject holds it can take it and the
+latest of them does, so a render and a patch of it are settled by the
+table's order between themselves and neither loses its own subject to
+another person's pass; a row whose subject is not known is never ruled out
+by a mask. A patch has no run in a capture, so its row says whose it is
+(`subject=<label>`). It writes its table and flags into the capture
+folders. Two of its proofs exist because a file passed without them: every
+row must show on the pixels it was meant to (`rows_shown`), and no small
+square of a decoded frame may sit far from the frame the table makes, which
+is what fails a file built from another table or by an older rule. Where two tracked masks claim the same pixel (an arm reaching
 across somebody) a mask does not say whose it is: the capture's
 `owners.npz` does, from the class maps, and the assembler reads it for the
 shared pixels and for `restore=<subject>`, leaving what it marks contested
