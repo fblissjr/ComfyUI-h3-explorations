@@ -142,7 +142,10 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   does not know it is editing: a text is a plain caption of the finished
   shot (what is seen and heard), never a statement of what stays or is
   kept, and it says nothing about sound, action or expression that is not
-  known from the frames or the track. (Owner, 2026-10-10.)
+  known from the frames or the track. A served text is an input like a
+  stored mask and is trusted as little: know which text a load is getting,
+  read it against that load's frames before it is used, and check after
+  the render that it did what was expected. (Owner, 2026-10-10.)
 - **A rule that depends on the picture takes its value from the input
   video, up front.** A likeness line, a size line, a cut score, a margin:
   the preview measures this clip and the rule is set from that, as
