@@ -1062,6 +1062,35 @@ def face_sizes() -> str:
             "subject no run replaces are not; a part's pieces away from its largest are counted and can be dropped")
 
 
+def who_is_who() -> str:
+    """A shot the who-is-who sum and the trackers disagree on blocks, and says what a person is to be shown."""
+    def tracker(ask="", correction="", would="") -> dict:
+        return {"called": "absent", "called_person": None, "ask": ask, "correction": correction, "would_type": would}
+
+    file = {"first_source_frame": 600, "rows": [
+        {"shot": 1, "frames": [0, 405], "status": "agrees", "trackers": {"lead": tracker(), "second": tracker()}},
+        {"shot": 2, "frames": [406, 434], "status": "differs", "suggests": False, "lead": 0.01, "why": "the sum says otherwise",
+         "trackers": {"lead": tracker(ask="shot 2, lead's tile (frame 406): which numbered person is lead? 1, 2, or none", would="shot 2: person 1"),
+                      "second": tracker()}},
+        {"shot": 3, "frames": [435, 446], "status": "differs", "suggests": True,
+         "trackers": {"lead": tracker(), "second": tracker(correction="shot 3: person 1", would="shot 3: person 1")}},
+        {"shot": 4, "frames": [447, 500], "status": "unresolved", "why": "no signature on any look", "trackers": {"lead": tracker(), "second": tracker()}}]}
+    flags = cap.flag_who(file, 1000, 50)             # the capture holds source frames 1000 to 1049: shots 2 and 3, and the start of 4
+    assert [(f["rule"], f["level"], f["source_frames"]) for f in flags] == [
+        ("who_is_who_unanswered", cap.LEVELS[2], [[1006, 1034]]), ("who_is_who_unanswered", cap.LEVELS[2], [[1035, 1046]]),
+        ("who_is_who_unanswered", cap.LEVELS[2], [[1047, 1100]])], flags
+    assert "which numbered person is lead" in flags[0]["why"] and "shot 2: person 1" not in flags[0]["why"], \
+        "a row that suggests nobody showed the tool's own guess as a suggestion"
+    assert "second: type `shot 3: person 1`" in flags[1]["why"] and "no signature on any look" in flags[2]["why"], (flags[1]["why"], flags[2]["why"])
+    answered = {**file, "rows": [{**r, "status": "agrees"} for r in file["rows"]]}
+    assert cap.flag_who(answered, 1000, 50) == [], "rows that agree were flagged"
+    assert cap.flag_who(file, 100, 50) == [], "rows outside the capture's span were flagged"
+    unplaced = cap.flag_who({**file, "first_source_frame": None}, 1000, 50)
+    assert len(unplaced) == 3 and unplaced[0]["source_frames"] == [[406, 434]] and not unplaced[0]["figures"]["frames_are_source_frames"], unplaced[0]
+    return ("a differing or unresolved shot blocks with the question to ask, never the tool's own guess; a typed correction is "
+            "shown when the file suggests one; rows that agree or lie outside the span are not flagged")
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1095,6 +1124,7 @@ case("a run's region from the files its windows saved", saved_regions)
 case("a pass read from the node's own plan", planned_regions)
 case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
+case("preflight: a shot the who-is-who sum has not settled", who_is_who)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

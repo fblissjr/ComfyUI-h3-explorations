@@ -1515,6 +1515,7 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
         return {"median": round(float(np.median(values)) / scale, digits), "least": round(min(values) / scale, digits),
                 "most": round(max(values) / scale, digits)} if values else None
 
+    who = json.loads((folder / "who_is_who.json").read_text()) if (folder / "who_is_who.json").is_file() else None
     shots = []
     for number, (a, b) in enumerate(shot_edges(first, frames, cuts), 1):
         rows = [r for r in cross if a <= r["source_frame"] <= b]
@@ -1555,6 +1556,18 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
             entry["mouth_open_on_unvoiced_frames"] = mouths[label] if isinstance(mouths[label], str) else \
                 [r for r in mouths[label] if a <= r["source_frames"][0] and r["source_frames"][1] <= b]
             one["subjects"][label] = entry
+        if who is None:
+            one["who_is_who"], one["who_is_who_why"] = None, "no corrections file was given to preflight (--who-is-who)"
+        else:
+            at = who.get("first_source_frame") or 0
+            row = next((r for r in who.get("rows", []) if r["frames"][0] + at <= a <= r["frames"][1] + at), None)
+            one["who_is_who"] = None if row is None else {
+                "status": row["status"], "suggests": bool(row.get("suggests")), "why": row.get("why"),
+                "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "ask", "correction", "typed_in_this_table")}
+                             for label, t in row.get("trackers", {}).items()},
+                "people_seen": row.get("people_seen"), "frames_are_source_frames": who.get("first_source_frame") is not None}
+            if row is None:
+                one["who_is_who_why"] = "the corrections file has no row over this shot's first frame"
         shots.append(one)
 
     loads = []
@@ -1606,7 +1619,8 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                         "head, the_pose_ahead_against_the_kept_frames": "subjects/<label>/pose__<by>.json (pose_state's columns)",
                         "mouth_open_on_unvoiced_frames": "subjects/<label>/classes__<by>.npz and frames.json: voiced",
                         "inside_the_region": "runs/<run>/segments_in_region.json and frames.json: region_on__<run>__<other>",
-                        "windows": "manifest.json: runs[].planned_windows (the node's own plan)"}}
+                        "windows": "manifest.json: runs[].planned_windows (the node's own plan)",
+                        "who_is_who": "who_is_who.json in the capture (bench/who_is_who_across_shots.py corrections, given to preflight)"}}
 
 
 def rules(a: argparse.Namespace) -> None:
@@ -2367,6 +2381,38 @@ def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
+    """A shot on which the trackers' calls and the who-is-who sum do not agree, until a person has answered it.
+
+    `corrections` is what `bench/who_is_who_across_shots.py corrections` writes: it decides each shot for every
+    tracker's subject together. A row whose `status` is not `agrees` is at the top level. The message carries what
+    a person is to be shown: each tracker's `ask` (the question, with that tracker's own numbered people) where
+    there is one, else its `correction` (the text to type), else the row's `why`. It never carries `would_type`:
+    the file keeps that for tools and says not to show it as a suggestion. Once the answer is typed and the
+    preview run again the row agrees, and the flag is gone by itself. Rows outside the capture's span are left
+    out when the file says which source frame its load starts on; when it does not, every row is judged and
+    the flag's frames are the load's own."""
+    out, start = [], corrections.get("first_source_frame")
+    for row in corrections.get("rows", []):
+        if row.get("status") == "agrees":
+            continue
+        a, b = (row["frames"][0] + (start or 0), row["frames"][1] + (start or 0))
+        if start is not None and (b < first or a > first + frames - 1):
+            continue
+        said = []
+        for label, t in row.get("trackers", {}).items():
+            text = t.get("ask") or t.get("correction")
+            if text:
+                said.append(text if t.get("ask") else f"{label}: type `{text}`")
+        out.append({"rule": "who_is_who_unanswered", "level": LEVELS[2], "subject": None, "source_frames": [[a, b]],
+                    "why": f"shot {row['shot']}: the trackers' calls and the sum over every subject {row['status']}. "
+                           + ("; ".join(said) if said else row.get("why", "no reason given"))
+                           + ("" if start is not None else " (frames are the load's own: the file does not say where the load starts)"),
+                    "figures": {"shot": row["shot"], "status": row["status"], "suggests": bool(row.get("suggests")),
+                                "lead": row.get("lead"), "frames_are_source_frames": start is not None}})
+    return out
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2641,6 +2687,11 @@ def preflight(a: argparse.Namespace) -> None:
                                   "subject": s["label"], "seen_by": doubted["seen_by"], "source_frames": frame_spans(hit),
                                   "why": f"on {len(hit)} doubted frame(s) of {s['label']}'s part, {meaning.lower()}",
                                   "figures": {"frames": len(hit), "filled_in_parts_held": sum(x["filled_in_parts_held"] for x in doubted["frames"] if x["mostly"] == kind)}})
+    if a.who_is_who:
+        # kept in the capture, so the rules' input and a later run of the gate read the same answer
+        shutil.copyfile(a.who_is_who, folder / "who_is_who.json")
+    if (folder / "who_is_who.json").is_file():
+        flags += flag_who(json.loads((folder / "who_is_who.json").read_text()), m["first_frame"], m["frames"])
     if a.text and a.voice_spans:
         spans = json.loads(Path(a.voice_spans).read_text())["voiced_spans_inclusive"]
         flags += flag_text(Path(a.text).read_text(), spans, m["first_frame"], m["frames"])
@@ -3632,6 +3683,7 @@ def main() -> None:
                    help="source frames the subject is not in, as the caller knows the clip; repeatable")
     g.add_argument("--text", help="the prompt file of the run this capture is for")
     g.add_argument("--voice-spans", help="voice_spans.json for the clip")
+    g.add_argument("--who-is-who", help="the corrections file of bench/who_is_who_across_shots.py for this load; copied into the capture")
     g.add_argument("--gate", action="store_true", help=f"exit {GATE_BLOCKED} when a flag at the top level stands with no override")
     ri = sub.add_parser("rules", help="every figure a per-clip rule needs, in one file: writes rules_input.json")
     ri.add_argument("capture")
