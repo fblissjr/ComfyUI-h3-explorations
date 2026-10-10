@@ -1,12 +1,13 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; nothing here was run)
+last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk)
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
 line or the command that holds it. Where this page and the code disagree,
 the code is right. **Everything here was read, not run**, unless a line
-names a record. What a run would have to show is under "Not run".
+names a record; one record exists so far, for SAM 3D Body. What a run would
+have to show for the rest is under "Not run".
 
 The two questions this page was written for come from the masked lane
 ([`masked_v2v.md`](masked_v2v.md)):
@@ -25,17 +26,17 @@ The two questions this page was written for come from the masked lane
 | Does PE-AV score lip sync? | **No.** Its audio-to-video outputs are one pooled vector for a whole clip. Nothing in it compares a video frame with an audio frame | "PE-AV" |
 | Can SAM-Audio take "the voice of the person under this mask"? | Yes, it is a designed case, and Meta calls it the weaker prompt. Meta's own code disagrees with itself about which way the mask goes | "SAM-Audio", "The visual prompt" |
 | Does SAM 3D Body follow more than one person? | Meta's pipeline is one image at a time with no identity between frames. Identity is whatever the caller's boxes or track carry | "SAM 3D Body", "More than one person" |
-| What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which is not on disk | "Sapiens2" |
+| What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which nothing here runs yet | "Sapiens2" |
 
 ## Where each was read
 
 | what | checkout | revision | weights here |
 |---|---|---|---|
-| SAM-Audio | `coderef/sam-audio` | `bb4c699` | none on the local disk or in the Hugging Face cache; the owner's account can read the gated repositories |
+| SAM-Audio | `coderef/sam-audio` | `bb4c699` | the large model, one `-tv` variant and the judge, in the owner's model store since 2026-10-10 as Meta's original files; nothing here loads them yet |
 | PE-AV and PE-A-Frame | upstream `facebookresearch/perception_models` at `3e352cc`, not under `coderef/`; a port is in `coderef/transformers/src/transformers/models/pe_audio_video` and in the ComfyUI venv's `transformers` | | none |
 | SAM 3D Body | `coderef/sam-3d-body` | `b5c765a` | both releases, with Meta's originals and the rig file, in the owner's model store; `../../bench/results/2026-10-05_sam3d_body_conversion.md` |
 | core's SAM 3D Body port | the ComfyUI checkout, `comfy_extras/nodes_sam3d_body.py`, `comfy_extras/sam3d_body/`, `comfy/ldm/sam3d_body/` | `0df64eb24` | the converted files above |
-| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model is absent |
+| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model since 2026-10-10, as Meta's original file, which nothing here loads yet |
 
 The papers: SAM Audio is arXiv 2512.18099 and SAM 3D Body is arXiv
 2602.15989, both linked from their READMEs; the PE-AV report is linked from
@@ -183,6 +184,12 @@ run here: one frame through both releases behind core's nodes.
   computes those logits (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1158`) and never reads them; core
   drops the weights at load (`comfy_extras/nodes_sam3d_body.py::SAM3DBody_Loader.execute`).
   An occluded hand is gated by the four tests alone.
+- **Run, on two images** ([the record](../../bench/results/2026-10-10_sam3d_body_core_against_meta.md), "Hands and
+  expression"): a hand whose crop is under the size constant never got the
+  hand decoder on either side; a hand over it was still refused on both
+  sides once; and on one hand core and Meta decided differently, with the
+  crop's sampling the only difference between them. Neither output says
+  which hands were refined.
 - How reliable Meta says hands are: the benchmark row in
   `coderef/sam-3d-body/README.md` ("SAM 3D Body checkpoints") and the
   paper's per-case table, which has rows for crossed fingers, held objects
@@ -211,21 +218,40 @@ run here: one frame through both releases behind core's nodes.
 
 ### Core's port against Meta's inference
 
-What the existing checks hold: the key mapping
+What the checks hold: the key mapping
 (`../../bench/check_sam3d_body_conversion.py`) and the ViT-H backbone's
 forward against Meta's file (`../../bench/check_sam3d_body_vith.py`).
-**Nobody has compared core's whole prediction with Meta's on one frame**, as
-was done for SAM 3 (`../../bench/results/2026-10-07_sam3_core_against_meta.md`).
-The differences found by reading:
+
+**The whole prediction has been run against Meta's on two public images**
+([`2026-10-10_sam3d_body_core_against_meta.md`](../../bench/results/2026-10-10_sam3d_body_core_against_meta.md),
+by `../../bench/compare_sam3d_body_core_against_meta.py`), on the CPU in
+float32. What it found, in words; the record has the tables:
+
+- **Given the same crop, core computes what Meta computes.** With core's
+  one crop-sampling function replaced by OpenCV's call as Meta makes it,
+  core is closer to Meta than Meta's two precisions are to each other, for
+  every box but one that held three people.
+- **As shipped, core is off Meta by a small amount, and all of it is the
+  crop's sampling.** The gap is smallest when the person's crop is about the
+  model's input size in source pixels, and grows when a large crop is shrunk
+  (a whole-frame box on a large frame) and when a small person is enlarged.
+- **A box on the person is the better box on a large frame**, and with more
+  than one person it is the only box that means one person. This pack makes
+  one from a tracked mask: `subject_boxes.py::MiniMaxH3SubjectBoxes`.
+- **The camera is the same on both sides** given the same field of view.
+- Not covered by that run: the card, half precision, a track with its mask,
+  a clip, MoGe's field of view.
+
+The differences found by reading, with what the run says of each:
 
 | stage | Meta | core | measured? |
 |---|---|---|---|
-| camera | the demo estimates the field of view with MoGe-2 by default (`coderef/sam-3d-body/demo.py:148`, `coderef/sam-3d-body/tools/build_fov_estimator.py::run_moge`), and the paper does too; without an estimator the focal length is the image diagonal (`coderef/sam-3d-body/sam_3d_body/data/utils/prepare_batch.py:66`) | `fov` left at its default is Meta's fallback, not Meta's default (`comfy/ldm/sam3d_body/utils.py::prepare_batch`). Core has the node that matches Meta: `comfy_extras/nodes_moge.py`, the one whose docstring names `SAM3DBody_Predict`. The tooltip's angle is the diagonal one, not the vertical one the input takes | no |
+| camera | the demo estimates the field of view with MoGe-2 by default (`coderef/sam-3d-body/demo.py:148`, `coderef/sam-3d-body/tools/build_fov_estimator.py::run_moge`), and the paper does too; without an estimator the focal length is the image diagonal (`coderef/sam-3d-body/sam_3d_body/data/utils/prepare_batch.py:66`) | `fov` left at its default is Meta's fallback, not Meta's default (`comfy/ldm/sam3d_body/utils.py::prepare_batch`). Core has the node that matches Meta: `comfy_extras/nodes_moge.py`, the one whose docstring names `SAM3DBody_Predict`. The tooltip's angle is the diagonal one, not the vertical one the input takes | the same focal length on both sides, with no intrinsics and with one field of view given to both; MoGe's own estimate not run |
 | precision | the backbone in the type the config names, then back to full precision for the decoder (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:163`, `:165`, `:1103`) | half precision through the decoder on this card (`comfy/ldm/sam3d_body/model/model.py::forward_pose_branch`) | on one frame, negligible: `../../bench/results/2026-10-05_sam3d_body_vith.md`, item 1 |
-| the crop | the same box rule (`coderef/sam-3d-body/sam_3d_body/data/transforms/common.py:110`, `:229`), sampled with OpenCV (`:305`) | the same rule, sampled with `grid_sample` at pixel centres, then floored (`comfy/ldm/sam3d_body/utils.py::warp_affine_batched`) | no; a sub-pixel shift by reading |
+| the crop | the same box rule (`coderef/sam-3d-body/sam_3d_body/data/transforms/common.py:110`, `:229`), sampled with OpenCV (`:305`) | the same rule, sampled with `grid_sample` at pixel centres, then floored (`comfy/ldm/sam3d_body/utils.py::warp_affine_batched`) | yes: it is the whole difference between the two |
 | the mask | off unless asked (`coderef/sam-3d-body/demo.py:184`) | on whenever a track is wired, as a confident mask | no |
 | the detector | inside the pipeline | none; the caller wires boxes or a track | not applicable |
-| hands | the four tests above | the same tests and constants (`comfy/ldm/sam3d_body/model/model.py::run_inference`), both hands in one batch | no |
+| hands | the four tests above | the same tests and constants (`comfy/ldm/sam3d_body/model/model.py::run_inference`), both hands in one batch | the same decision on every hand but one, where the crop's sampling flipped it |
 | face, extra face keypoints, smoothing | none of the three | all three are core's. `SAM3DBody_Smooth` filters every parameter in time, hands and expression included, and backs off when the root turns fast (`comfy_extras/nodes_sam3d_body.py::SAM3DBody_Smooth`) | no |
 
 ## Sapiens2
@@ -241,12 +267,57 @@ The Meta model that does read a mouth, two ways:
   `coderef/sapiens2/sapiens/pose/configs/_base_/keypoints308.py`). SAM 3D
   Body takes its keypoints from a mapping of the same size that its comment
   names after Sapiens (`coderef/sam-3d-body/sam_3d_body/models/heads/mhr_head.py::mhr_forward`); whether the two orders
-  match was not checked. Its weights are not on disk and nothing here runs
-  it.
+  match was not checked. Its weights are in the owner's model store and
+  nothing here runs it yet.
 
 Both read the original performer's mouth from the picture, which is the
 signal a face-only swap is missing: the model hears the frozen track and is
 shown nothing of the mouth that made it.
+
+## Candidate preflight flags
+
+Signals a mesh-driven render could be checked on before it samples
+([`masked_v2v.md`](masked_v2v.md), "The rule: data before a render, and the
+same data after"). Each row says which tracked tool the rule belongs in and
+what that tool still lacks to read it; the masking board's card
+`build-mesh-preflight-flags` carries the owners. Core's pose data holds
+everything they need
+(`comfy_extras/sam3d_body/utils.py::run_batched_single_chunk` lists it per
+person per frame); what is missing is a preview that saves it.
+
+| flag | what it predicts | belongs in | still lacks | state |
+|---|---|---|---|---|
+| a hand crop under Meta's size constant: the width of `lhand_bbox` or `rhand_bbox` against `hand_box_size_thresh` (`coderef/sam-3d-body/sam_3d_body/models/meta_arch/sam3d_body.py:1317`; core's copy is in `comfy/ldm/sam3d_body/model/model.py::run_inference`) | the fingers on that frame are the body decoder's, never the hand decoder's; a little over the constant is not safe either | the preflight of `../../bench/capture_masked_run.py` | the two hand boxes per person per frame, saved by the preview beside the mesh video | confirmed on one frame, both sides: the record's "Hands and expression" |
+| a person's `bbox` equal to the whole frame while a track is wired | that person's mask was empty on the frame and core substituted the frame (`comfy_extras/sam3d_body/utils.py::_bbox_from_mask`); a body is drawn from whatever is there | closed for a graph that takes its boxes from `subject_boxes.py::MiniMaxH3SubjectBoxes`, which gives no box on such a frame (`subject_boxes.py::frame_boxes`, held by `../../bench/check_video_mask.py`). For a graph that wires core's SAM 3 track straight into the predict node: the same preflight | the body box per person per frame, saved by the preview | read, not run |
+| one whole-frame box and more than one person in the frame | one crop holds everyone; which person comes out is not defined | the same preflight, which already has the person count per shot | whether the graph's predict node has boxes or a track wired, read from the render's own graph | read; the one such box in the record is also the only one where the control did not reach the floor |
+| a keypoint outside the frame | a joint the model placed where it saw nothing | the same preflight | `pred_keypoints_2d` per person per frame, saved by the preview | read, not run |
+
+**There is no confidence to read.** Neither Meta's code nor core returns a
+score for a detection, a visibility for a joint, or whether a hand was
+refined. Meta's model has hand-presence logits; its inference never reads
+them and core drops their weights. A flag here is geometry, not certainty,
+and the preflight should print that with the flags.
+
+Not a flag yet, because nothing is measured: the size of a face below which
+Sapiens2's lip, teeth and tongue classes stop being reliable. It belongs in
+the part node's own report (`../../sapiens2_parts.py`) and lacks a probe: one
+face at a ladder of sizes, the lip classes' area read at each.
+
+## Where the probes are
+
+Every sentence above rests on a file in `coderef/`, on a tracked tool, or on
+a one-line probe whose command is here. Nothing rests on a session folder.
+
+- Core against Meta: `../../bench/compare_sam3d_body_core_against_meta.py`,
+  whose docstring holds the recipe for the Python that runs Meta's side.
+- What the ComfyUI venv lacks for SAM-Audio: `importlib.util.find_spec` on
+  each name in `coderef/sam-audio/pyproject.toml`, run with the venv's
+  Python.
+- Upstream's two mask lines on a given day: fetch `sam_audio/processor.py`
+  and `eval/dataset/sam_audio_bench.py` from the repository's main branch
+  and search for `eq(0)` and `video_frames * mask`.
+- A Hub file's size, gating and licence: `hf download --dry-run <repo>`.
+- The papers were read as text; a claim from one names its section.
 
 ## Not run
 
@@ -255,7 +326,7 @@ Each line is a claim above that only a run settles.
 - SAM-Audio on any audio of ours: whether it fits the card, how a mask of
   one singer does against the word alone, and which mask direction is right.
 - The shift control that would let PE-AV be tried as a sync score.
-- Core's whole SAM 3D Body prediction against Meta's on the same frames,
-  with core's default camera and with MoGe's.
+- Core's SAM 3D Body prediction with MoGe's field of view against Meta's own
+  MoGe call, and core as the server runs it (the card, half precision).
 - A tracked person leaving the frame in core's predict node.
 - The Sapiens2 keypoint model.

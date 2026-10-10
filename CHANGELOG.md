@@ -7,6 +7,561 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.262.1
+<!-- changelog.d/mrdeer-capture-cut-rule-calls-split-steps.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py`'s cut rule calls `loop_plan.split_steps` in place of its own copy of the latent-step arithmetic (`window_plan` and `straddled_frames` are gone; `cut_frames` turns a mask's presence into the ranges that function takes). It needs no window plan any more: the steps' edges are fixed for a whole load. It names the same frames as before on the three captures it had been run on.
+
+### Added
+
+- A preflight flag, `region_shared_across_a_cut`: the frames of a latent step in which a subject is on both sides of a cut, where each side is given the other side's region too and no gate covers it.
+
+## 0.262.0
+<!-- changelog.d/mrnemo-lay-window-and-saved-region.md -->
+
+### Added
+
+- A masked render saves what each window's composite was run with: `<prefix>_windows/<name>_window_N_region.npz`, beside the window's latent, holds the window's fitted mask (bits), its token region, its margin, where it starts in the source, its trim and the source's composite settings and cuts (`video_mask.save_window_region`, `load_window_region`, `loop_resume.region_path`). With the stored latent and the source's own frames that is everything the composite takes, so a finished render can be laid again off the server, exactly. A render whose tracker ran inside its own graph used to leave its mask nowhere (`data/CAPTURE_GAPS.md`, gap 22). The file is written whole or not at all, a stale one goes with the stale latent, `keep_windows` off removes it, and a failure to write it is a line of the report and never the render's. Its size and write time on a real window's mask are in the commit message.
+
+### Changed
+
+- The song node's composite is one function, `video_mask.lay_window` (the weight under either `composite`, the cut gate, the blend, the report's lines), and the node calls nothing else for it. The arithmetic is unchanged. It exists so that a bench tool can lay a saved window with the code the render ran, not a copy of it.
+
+### Fixed
+
+- The song node's report opened with a frame number where its count of reused windows belongs on any masked run that composited a window: 0.254.0's gate assigned the window's first frame to `first`, the count the report's first line and the joined mask review read. The review's own use only mattered when a window's review file was missing. The lift takes the assignment out.
+
+### Checks
+
+- `bench/check_video_mask.py`, item 20: `lay_window` is the pieces' own answer under both `composite` choices, a frame across a cut is the source bit for bit and no other frame moves, the lines are the report's; the region file reads back as written with one margin and with each frame's own, and a window laid from the file is the window laid from the tensors; the song node lays through `lay_window` alone, saves the region, removes a stale one and assigns `first` once. Seen red with the gate taken out of `lay_window` and with the region read back a step late.
+
+## 0.261.0
+<!-- changelog.d/mrdeer-changelog-build-refuses-beside-a-peer.md -->
+
+### Changed
+
+- `bench/build_changelog.py` refuses to build beside somebody else's uncommitted work and writes nothing when it does. It stops when `pyproject.toml` differs from `HEAD` by anything but its version line, naming the lines: every build writes the version into that file, so it is in every session's pathspec, and a commit takes a file whole. Its existing refusal of an entry in `CHANGELOG.md` made from a fragment that is neither committed nor named now says what to do: wait for that commit and build again. Together they make builds serial without anybody announcing one. Four commits on 2026-10-10 had carried a peer's hunk in a shared file; the last was a `dependencies` block in `pyproject.toml` under a commit about something else. `bench/check_changelog.py` gains a case in a scratch repository for both refusals, and `changelog.d/README.md` says what a STOP means.
+
+## 0.260.1
+<!-- changelog.d/mrcorn-a-patch-as-a-later-row.md -->
+
+### Added
+
+- **`bench/check_assemble_delivery.py`, a fourteenth case: a patch as a
+  later row.** A redone stretch of a render is a file made from that
+  render, not from the original, and the table's rule for rows that share
+  frames was written for passes made from the original. The case pins that
+  it holds for a patch too: given as a later row over its hole's frames,
+  the patch shows wherever it differs from the original, which is what the
+  render changed there and what the patch redrew, the render shows on the
+  other frames, and the shared pixels are flagged as settled by order. So a
+  redo is one more row of a delivery's table, with no join first.
+
+## 0.260.0
+<!-- changelog.d/mrcorn-one-joiner-and-the-step-note.md -->
+
+### Changed
+
+- **`bench/patch_render_window.py join` goes through
+  `bench/assemble_delivery.py`: one joiner.** The join is a table of one row
+  (the hole's frames from the patch, over the render as the source), so a
+  patched render is checked by decode as every delivery is and its colour
+  is right whatever form its inputs were written in. As a plain
+  concatenation the join left the hole's frames two to three levels off in
+  every channel, in a file with no colour tag, whenever the render had been
+  written before the song node converted and tagged its files and the patch
+  after; with both written the same way it was correct. Its report of the
+  hole's two ends is unchanged.
+
+### Added
+
+- **`bench/check_patch_render_window.py`**, the join's first check: every
+  frame in its place, only the hole's frames from the patch, the render's
+  colour and audio, a control (the window given one frame late), and the
+  older render patched by a newer file, which the old join failed.
+- **`bench/assemble_delivery.py`: the across-a-cut flag says whether the
+  cut falls inside a latent step of the piece's load**
+  (`loop_plan.step_span`, counted from the piece's first frame) and whether
+  that step holds the spilled frames. If it does, the spill is the known
+  way a region is carried over a cut; a spill at a cut on a step's edge is
+  something else and the flag says so. On the render that showed the fault
+  it names all four cuts as inside a step.
+- `docs/wiki/masked_v2v.md` points at `bench/region_against_plate.py`.
+
+## 0.259.3
+<!-- changelog.d/mrdeer-capture-kept-threshold.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py`: `KEPT_IN_PART`, the share of a subject's own cells a `keep` may leave as the original's before `kept_pixels_inside_the_part` fires, goes from 3% to 1%. A second render gave it an outcome: the original's hair came back for eighteen frames of which only the middle nine had over 3% kept. The two renders the constant now rests on disagree at 1 to 2%, and the comment beside it says so.
+
+## 0.259.2
+<!-- changelog.d/mrpop-two-stale-statements-from-the-final-stretch.md -->
+
+### Changed
+
+- `docs/h3_references.md`: a dated note beside "Set `force_rate=24` on the loader": that setting puts a reference's time labels right by dropping or repeating frames, which on a 25 fps source is one dropped frame a second (measured 2026-10-08 as camera steps in every render from one such clip); a source the result must stay in step with is loaded as an every-frame 24 fps copy with `force_rate` 0 and the delivery re-stamped. `workflows/h3_config.py`: the comment on `MASKED_SOURCE` no longer says the margin taken from the subject's size has not rendered (it has, and has not been judged as a pair). `docs/wiki/decisions.md` logs what both used to say. Comments and prose only: no value, default or graph changes.
+
+## 0.259.1
+<!-- changelog.d/mrdeer-capture-mask-owned.md -->
+
+### Added
+
+- `bench/capture_masked_run.py mask --classes-owned`: classes taken only where the capture's owner map gives the subject the pixel, joined with `--classes` (taken as labelled). It is the `keep` mask for a pass on another subject: a face and hair as the class map has them, apparel and hands only where they are that subject's. Against a session's hand-built keep mask for the same rule it differs on no pixel in 447 frames.
+
+## 0.259.0
+<!-- changelog.d/mrdeer-frame-sheet-and-voice-spans.md -->
+
+### Added
+
+- `bench/_lib/frames.py`: one reader of frames and masks by frame number for the tools that set a render beside its source (`probe`, `stream`, `read_mask`, `write_mask_video`, and `FIT`, the loader's fit). `bench/capture_masked_run.py` now imports it in place of its own copy.
+- `bench/frame_sheet.py`: a sheet of numbered frames from several videos on one clock, with a fixed crop or one that follows a mask, and masks outlined. Every "as seen in stills" line is written from such a sheet and every session that read a render had written its own tool for it.
+- `bench/voice_spans.py`: where a voice is on a clip's track by video frame, on this machine only (`separate` with torchaudio's Hybrid Demucs from weights already in the torch hub cache, never fetched; `spans`; `cut`, a window's stretch of the vocals stem to load in place of the clip's track). It gives the same spans and the same cut as the session scripts the day's lip-sync and voice findings rested on, and prints its own control.
+- `bench/check_frame_sheet.py` and `bench/check_voice_spans.py`, with their rows in `docs/checks.md`.
+
+## 0.258.0
+<!-- changelog.d/mrnemo-first-frame-against-cuts.md -->
+
+### Added
+
+- `loop_plan.split_steps` and `first_frame_choices`: which cuts of a source fall inside a latent step of a load, and what each does, from the cut list, the shots the subject is on and the load's first frame alone, before anything is queued. A latent step is a run of frames (core's `FRAME_PER_TOKEN`, a cycle of `loop_plan.STEP_CYCLE` frames, the new constant) and every window of a load starts a whole number of cycles after the load's first frame, so the first frame fixes every step's edge. `split_steps` lists each split step with the frames on a side of the cut the subject is on no frame of (`across`: the region is carried onto another shot, and `video_mask.cut_gate` leaves them as the source's) and, where the subject is on more than one side, the frames that are each given the other side's region too (`shared`, which the gate does not cover). `first_frame_choices` runs it for every start from the one asked back to one cycle earlier and orders them, fewest such frames first; the order is reasoned, not measured. For the masked lane's job builder. `step_span` is the step that holds a frame.
+- `bench/check_audio_freeze.py`, item 8: the grid is one per load on every window length and context the planner allows; on the cuts and shots of the render whose fault 0.254.0 fixed, the frames named are the five its delivery's check found and no other, with the same cuts counted from frame zero as the control; on random cuts, shots and starts the frames named are those the node's `cut_gate` leaves unlaid. Seen red with the one-frame step dropped from the grid, with the subject taken to be on every frame, and with the load's first frame ignored.
+
+### Changed
+
+- `docs/wiki/masked_v2v.md`, "A latent step is several frames, and its grid is fixed for a whole load": what the first frame can and cannot clear, with the two functions; and a paragraph read from core's video VAE (`comfy/ldm/minimax/vae.py`), marked as a reading with nothing run: the cycle of step lengths is the VAE's own clip, each clip is encoded by itself and causally, and the decode is a transformer over a clip's steps and the head of the next with the first frames of each clip cross-faded from the window before, so no frame beside a cut is decoded from its own step alone. What is special to a step a cut splits is the latent token holding two shots; whether the subject's own frames in such a step are worse is not measured.
+
+## 0.257.0
+<!-- changelog.d/mrcorn-region-against-plate.md -->
+
+### Added
+
+- **`bench/region_against_plate.py`: how a regenerated region sits in its
+  plate, in numbers.** For a render and the clip it was made from: detail
+  in three bands of the luma with the grain taken out, the texture of flat
+  areas beside the size of edges, grain as the frame-to-frame change where
+  the picture is still, and tone and cast, each for the region, for what
+  stood there before, and for the plate just outside it; the region is read
+  from where the render differs from the fitted original, so no mask is
+  needed. It also reads the region under a few trial blurs, which is how
+  `assemble_delivery.py --soften` gets its sigma. It was a session script
+  until now and a finding rests on it: run on two fixed-camera renders of
+  one clip on 2026-10-10 it refuted the guess that the region was cleaner
+  than its plate (it was crisper at the edges and busier, with tone and
+  cast already matching), and showed that at the source's own size the
+  scale-up alone brings the region to the plate's softness.
+- **`bench/check_region_against_plate.py`**: noise of a known size comes
+  back at that size and not as detail; a blur of a known sigma is read as
+  softer and lands on the tool's own trial row; a lift and a tint are read
+  where they were put; the region counted is the region changed. Three
+  deliberate breaks of the tool each turned it red.
+
+## 0.256.1
+<!-- changelog.d/mrdeer-capture-two-tracks.md -->
+
+### Added
+
+- A preflight rule in `bench/capture_masked_run.py`, `two_tracks_on_one_person`: two subjects whose tracked masks are nearly the same mask on a frame, which is one tracker having taken the other's person. On the stretch it was written from it names the 95 frames a second tracker spent on the first one's person, where the masks' overlap reads 0.99 to 1.00; two people touching read under 0.1. A kept-out or keep mask given as a subject is not compared.
+- The `look` reading's text carries the routine it is for: read the look on window 1's saved file while window 2 samples, and stop the run if it reads as the original.
+
+## 0.256.0
+<!-- changelog.d/mrcorn-assemble-subjects-table.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: the check record says what the file did
+  to each subject, and `--compare` prints two records side by side.** With
+  captures given, the delivered file is read back at the canvas and set
+  against the fitted source on the frames a piece covers: for every subject
+  a capture knows, the pixels of its tracked mask (and of what it owns)
+  more than `OFF` levels from the source, in all and by class of its class
+  map, inside its track and outside it; the pixels more than one track
+  claims, how many an owner map settled and how many it left contested; and
+  the floor, the same share on pixels no track claims and no piece changed.
+  A pass on one person should leave the others at the floor. These were
+  one-off measurements asked for three times in a day ("the other person's
+  pixels off the source, by class, before and after"); the same stretch
+  built with and without a restore, then `--compare`, is that answer.
+- A thirteenth case in `bench/check_assemble_delivery.py`, with the reading
+  pinned on a picture that runs from black to white.
+
+### Fixed
+
+- Found while building it, never committed: read through ffmpeg as `gray`,
+  a tv-range file is widened to full range, bright and dark pixels move by
+  up to sixteen levels, and a quarter of untouched footage read as off the
+  source. A mid-toned test picture did not show it. The file is read as
+  yuv420p (`luma_at_canvas`). Hand measurements of the same day that read
+  both sides as `gray` compared like with like and stand as comparisons;
+  their twelve levels were about ten of the file's own.
+
+## 0.255.0
+<!-- changelog.d/mrdeer-capture-mouth.md -->
+
+### Added
+
+- `bench/capture_masked_run.py mouth`: a render's mouth against the source's, frame by frame. `mouth_openings` reads how open a mouth is from a mouth mask or from a class map's lips, teeth and tongue (the largest piece's two axes over the face's size); `score_mouth` gives the agreement of two series with the render shifted a few frames either way, the same for the source against itself as the control, and with a voice table whether either mouth rests where the voice does. It replaces two session scripts that the lip-sync results of 2026-10-10 rested on and reproduces their figures on the pass it was checked against; from class maps alone, with no separate mouth preview, it reads the same to within 0.02. The first form of the measure and why it was thrown out are in the function's docstring.
+
+## 0.254.0
+<!-- changelog.d/mrpop-composite-lays-nothing-across-a-cut.md -->
+
+### Fixed
+
+- The masked lane's composite laid a subject's region on the first or last frame or two of the NEXT shot wherever a latent step's run of frames straddled a cut: the region is one per latent step (`video_mask.token_mask`), and the composite's weight held it over the whole run. Found by the assembler's own check on a whole-subject pass, which repainted another person for one or two frames at four cuts. `video_mask.cut_gate` now sets the weight to zero on the frames of such a run that lie on a side of the cut the subject is on no frame of; `MiniMaxH3AudioFreezeSong` applies it before it composites and its report names the frames left as the source. A frame the tracker lost inside a shot has no cut beside it and is covered by its run as before. The cuts are the wired shot table's, or with none the Subject Track's own detector on the source's frames (`video_mask.source_cuts`), so a mask loaded from a file has them too; the Masked Source's record carries them as `cuts`. The sampler still regenerates those cells (one latent step is several frames); they are no longer shown. `bench/check_video_mask.py` item 19 holds the gate both ways round a cut, the four cases it must leave alone, the cuts from a table and from the detector, and that the song node gates before it composites; three deliberate breaks of the gate were each caught. No input, default or graph changes.
+
+### Changed
+
+- `docs/wiki/masked_v2v.md`: a section, "A latent step is several frames, and its grid is fixed for a whole load": the frame cycle (`FRAME_PER_TOKEN`), why every window of a load cuts its steps at the same places counted from the load's first frame (`loop_plan.CHAIN_LENGTHS`, `GRID`), that which cuts split a step is therefore known from the cut list and the first frame before anything is queued, and that the first frame is a lever.
+
+## 0.253.0
+<!-- changelog.d/mrdeer-capture-changed.md -->
+
+### Added
+
+- `bench/capture_masked_run.py changed`: what a run redrew, per segment and per subject inside its region, as the mean grey difference from the source against a floor taken outside the region; one segment's difference frame by frame (`--series`); and the change from the frame before inside the region, render beside source. It replaces five session scripts that the first day's findings rested on (the other subject redrawn under a pass's region, a face drawn back toward the original beside kept pixels, a face pass level across a window boundary, no step at a seam) and gives the same figures as they did on the render it was checked against. `frame_changes` is the function; the check holds it on a frame whose differences are known.
+
+### Fixed
+
+- The cut rule took its cuts only from the run's own subject's shot table and said nothing when that subject had none; it now uses any subject's table in the capture, since cuts are the source's.
+
+## 0.252.1
+<!-- changelog.d/mrfrog-mesh-flags-have-a-home.md -->
+
+### Changed
+
+- `docs/wiki/meta_perception_models.md`: each candidate preflight flag for a
+  mesh-driven render names the tracked tool it belongs in and the input that
+  tool still lacks; one of them is closed for a graph that takes its boxes
+  from `MiniMaxH3SubjectBoxes`. A section says where every probe behind the
+  page is, so nothing rests on a session folder.
+- `bench/compare_sam3d_body_core_against_meta.py`'s docstring holds the
+  recipe for the Python that runs Meta's side, and its record
+  (`bench/results/2026-10-10_sam3d_body_core_against_meta.md`) the commands
+  that reproduce it.
+
+## 0.252.0
+<!-- changelog.d/mrcorn-assemble-reads-owners.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py` reads a capture's `owners.npz` for whose a
+  pixel is.** Two tracked masks can claim one pixel, and then neither mask
+  says whose it is. Where a capture given holds an owner map
+  (`bench/capture_masked_run.py::owner_map`) that covers the frame and lists
+  the subject, "the subject's pixels" means the pixels it owns: for a pixel
+  two pieces both changed, and for `restore=<subject>`, which then gives
+  back what that subject owns, the pixels the map settled in its favour
+  included, and nothing the map marks contested. With no owner map the
+  tracked masks are used as before, and the check record's `whose_pixels`
+  says which it was. Measured 2026-10-10 on one whole-person render over the
+  frames where the two tracks claim the most (an arm across the other
+  person): of the pixels both tracks claim, the share left more than twelve
+  levels from the source went from about two thirds under the tracked masks
+  to under a fiftieth under the owner map.
+  `bench/check_assemble_delivery.py` has a twelfth case.
+
+## 0.251.0
+<!-- changelog.d/mrdeer-capture-cut-rule.md -->
+
+### Added
+
+- A preflight rule in `bench/capture_masked_run.py`, `region_carried_across_a_cut`: the frames beside a cut that a latent step carries a subject's region onto, per window, from the masks, the shot table's cuts and the window plan (read from a render's graph, or `window=` and `context=` on a plan). It is the rule of the node's `video_mask.cut_gate`, worked out with no sampling; the check compares the two when the tree has the gate. On the render where the assembler had found the other subject repainted at four cuts, it names those five frames and no others. A `--mask` takes `shots_at=` for a shot table that counts from another first frame than its mask video.
+
+## 0.250.0
+<!-- changelog.d/mrcorn-assemble-across-a-cut.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py` flags a piece that changes pixels just
+  across a cut of the source** (`piece_changes_across_a_cut`). A cut is a
+  frame where the fitted source moves by more than `CUT` levels from the
+  frame before; a run of `SPILL` changed frames or fewer on one side of it,
+  joined to changed frames on the other, is a pass whose region ran over the
+  cut and redrew the next shot for a moment. It needs no capture and no shot
+  table. Measured 2026-10-10: one whole-person render, given as a single
+  row, changed about a fifth of the frame on five frames of other shots at
+  four cuts, every proof passed, and no flag said so; the area flag named
+  four frames that were not them. Rows cut on the source's cuts keep such
+  frames out of a delivery, and the docstring and the masked lane's page
+  say to cut them so.
+
+### Fixed
+
+- A piece given as several rows raised each of its flags once per row.
+  A piece is one piece.
+
+`bench/check_assemble_delivery.py` has an eleventh case, on a second clip
+with a hard cut and no audio, which also covers a delivery with no track.
+
+## 0.249.0
+<!-- changelog.d/mrdeer-capture-owners.md -->
+
+### Added
+
+- `bench/capture_masked_run.py files` writes `owners.npz` when a capture has more than one subject: whose each pixel is (`owner`, an index into `labels`, 255 for nobody, 254 for contested). A pixel one track claims is that subject's; a pixel several claim is the one's whose class map names it something, when exactly one does; named by more than one or by none it is contested and not guessed. `frames.csv` gains the pixels claimed by more than one track and the contested ones per frame, and the preflight raises `contested_by_class_too` on frames with a contested patch. On the two-subject span the rule came from it settles 13,793 of 14,728 pixels both tracks claim, which is the count a session's one-off had found.
+
+## 0.248.1
+<!-- changelog.d/mrdeer-capture-segments-whose.md -->
+
+### Added
+
+- `bench/capture_masked_run.py` says whose a segment is: `subjects/<label>/segments_whose.csv` has, per frame and segment, the pixels inside the subject's own tracked mask, inside another subject's, and in neither. The part node cuts its class map to the subject's mask widened by its margin, so within that margin of the outline a class says what a thing is and not whose; on one measured frame 81% of a "hand" lay in the margin and 57% of it inside the other subject's mask. A preflight rule, `segment_mostly_outside_its_own_track`, names a class a plan relies on (a part's own classes, or a segment inside a region) when under half of it is inside its own track.
+
+## 0.248.0
+<!-- changelog.d/mrcorn-assemble-whole-and-steps.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: `restore=<subject>:whole`.** The piece is
+  laid nowhere inside that subject's tracked mask, with nothing taken out
+  for the piece's own subject: for a pass that has no business inside
+  another person's mask whoever is in front. The plain form still leaves a
+  pixel both masks claim to the piece. Asked for by the session leading the
+  masked lane after looking at the both-claimed pixels on eight frames:
+  which person is in front differs from frame to frame.
+
+### Changed
+
+- **The flag for a render's changed area is a step, not a distance from a
+  median.** `piece_changes_far_more_than_it_usually_does` compared every
+  frame with one median for the whole piece and lit a hundred and ten
+  frames of a render whose framing gets closer partway. It is
+  `changed_area_steps` now: the area before and after a frame, over
+  `STEP_FRAMES` either side, differing by `JUMP`, named at the frame where
+  the area moves most. On that render it names five frames; on the render
+  that redrew the wrong person past a cut it names the cut.
+- **What a restore gave back is not counted as changed away from the
+  subject.** `piece_changes_away_from_its_subject` counted what a piece
+  changed, so it kept lighting frames whose pixels the row had given back.
+  It counts what is laid.
+
+`bench/check_assemble_delivery.py` covers all three.
+
+## 0.247.0
+<!-- changelog.d/mrcorn-assemble-restore-a-subject.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: `restore=<subject>` with no class gives
+  back the whole of another subject.** Wherever that subject's tracked mask
+  is and the piece's own subject's is not (the piece's subject is its run's,
+  read from the capture folder), the piece is not laid and the source's own
+  pixels show. It is for a pass on one person whose region took in part of
+  another: the rule for pixels two pieces both changed only settles those,
+  and what one pass alone changed of the other person stayed in the file.
+  Where both masks claim a pixel the piece keeps it. Measured 2026-10-10 on
+  one whole-person render of one clip, a stretch where the two people are
+  close: the other person's tracked pixels more than twelve levels from the
+  source fell to about a seventh of what they were, and to about a fortieth
+  outside the piece's own subject's mask. Asked for by the session leading
+  the masked lane. `bench/check_assemble_delivery.py` has a tenth case.
+- The check record lists, per frame, the edge pixels beside a restore
+  (`restored_beside_a_large_change_px_per_frame`), so a piece with no run in
+  a capture still says where its joins are longest.
+
+- The check record now holds the table's rows with their restores, the
+  capture folders given, when it ran, and a sentence from `--note`, so a
+  file rebuilt in place says that it was and why.
+
+### Changed
+
+- The flag `restore_has_no_class_map` is `restore_has_no_mask`: it now also
+  covers a subject with no tracked mask on a frame.
+
+## 0.246.0
+<!-- changelog.d/mrfrog-sam3d-body-core-against-meta.md -->
+
+### Added
+
+- `bench/compare_sam3d_body_core_against_meta.py`: ComfyUI core's SAM 3D
+  Body prediction against Meta's own inference code on the same image, boxes
+  and camera. Core's nodes run in process; Meta's code runs in a child
+  process from `coderef/sam-3d-body`, as a one-off numeric reference, with a
+  Python outside this repo. It carries a control (core's model with the crop
+  sampled as Meta samples it), a floor (Meta's two precisions against each
+  other) and a direct reading of whether each hand's decoder was used.
+- `bench/results/2026-10-10_sam3d_body_core_against_meta.md` and its data
+  file: two public samples, on the CPU in float32. Core computes what Meta's
+  code computes once both are given the same crop; as shipped it is off by a
+  small amount that is all the crop's sampling; the camera is the same on
+  both sides; expression is zero on both.
+
+### Changed
+
+- `docs/wiki/meta_perception_models.md`: what the run says of each
+  difference between core's port and Meta's inference, a section of
+  candidate preflight flags for a mesh-driven render, and which weights are
+  now on disk.
+
+## 0.245.1
+<!-- changelog.d/mrdeer-capture-mask-export.md -->
+
+### Added
+
+- `bench/capture_masked_run.py mask`: any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or `others`. Set against a one-off script's file for the same eight classes over 447 frames it differs on no pixel.
+
+### Changed
+
+- The video's panel gives its text more room, shows only the flags of the run on screen, and labels a still under its picture.
+
+## 0.245.0
+<!-- changelog.d/mrcorn-assemble-restore-a-class.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: a row can give a class of a subject back
+  to the source.** `restore=<subject>.<Class>[+<Class>...]` after a row's
+  three fields, the class one of `sapiens2_parts.CLASS_NAMES` or its index,
+  read from a capture folder's class map (`classes__<by>.npz`). Wherever
+  that class is on the source frame, grown by `RESTORE_GROW` and feathered,
+  the piece is not laid, at either size: the source's own pixels show, or an
+  earlier row's. It is for a thing inside a region that should not have been
+  redrawn, given back at assembly because a kept area changes what the
+  sampler draws beside it. The per-frame table gains the pixels given back,
+  and two flags: `restored_pixels_beside_a_large_change` (that edge is a
+  join between two pictures) and `restore_has_no_class_map`. Asked for by
+  the session leading the masked lane, with the measurement behind it.
+
+### Fixed
+
+- **`bench/check_assemble_delivery.py` built a different clip on every
+  run.** ffmpeg's `gradients` source draws its colours and its line at
+  random whatever `seed` is given, so the check's margins moved between runs
+  and one could have gone red on nothing. The picture's colours and line are
+  named now, the clip is the same every time, and the first case prints its
+  margin against the tool's change threshold. A ninth case covers the
+  restore.
+
+## 0.244.1
+<!-- changelog.d/mrdeer-capture-plan-keep.md -->
+
+### Added
+
+- A plan in `bench/capture_masked_run.py` takes `keep=LABEL+LABEL`: the tokens those masks touch are taken out of the planned region after the others, the subject's own included, as the Masked Source does. The `kept_pixels_inside_the_part` rule reads a plan's keep as well as a rendered run's, against the mask the plan carries.
+
+## 0.244.0
+<!-- changelog.d/mrdeer-capture-look-and-keep.md -->
+
+### Added
+
+- `bench/capture_masked_run.py look`: for a whole-subject render, per frame, where it sits between the source (0) and a render of the same subject that held the new one (1), read as the mean grey level over the top of the subject's mask. Written for a fault no mask flag predicts: one window of a long render drew a look-alike of the original and the next the new subject, with identical regions. It reads only the frames the render regenerated, writes `look__<render>.json` in the capture folder, and refuses when the held render is no lighter or darker than the source over that area.
+- A preflight rule, `kept_pixels_inside_the_part`: a run that wires the Masked Source's `keep` and leaves cells of the subject's own part as the original's pixels. Provenance, written beside the rule: one pair of renders in which a `keep` on an earring brought the original's face back.
+- `diagnose` prints the flags `bench/assemble_delivery.py` wrote into the capture folder beside the preflight's own.
+
+## 0.243.2
+<!-- changelog.d/mrpop-keep-note-and-boxes-in-the-wiki.md -->
+
+### Changed
+
+- `docs/wiki/masked_v2v.md`: a dated note under `keep` (do not keep something that lies inside or against the part being replaced: a kept token is whole, so it holds some of the original beside the thing, and the redrawn part moved back toward the original on one window; restore such a thing at assembly instead), and `MiniMaxH3SubjectBoxes` named under `motion_video` as how a body mesh is made of the tracked person. No code changes.
+
+## 0.243.1
+<!-- changelog.d/mrdeer-capture-doubted-and-absent.md -->
+
+### Changed
+
+- `bench/capture_masked_run.py preflight`: a shot the tracker calls absent with somebody on screen is a shot to look at whatever it scored, unless the whole shot lies inside frames the caller gave with `--not-in`. The score could not settle it: on one clip the subject was on screen in two such shots, at 0.052 and 0.133 under the match line, and truly absent in three at 0.20 to 0.37 under. `NEAR_UNDER` now only words the reason.
+- A finished capture folder is not rebuilt in place without `--overwrite`: a queued render may be loading its mask videos.
+
+### Added
+
+- With a class map, each doubted part frame is named by what lies under the shape a fill would put there: the part itself, the subject's own hair, another of their classes, another subject, or nothing labelled. `subjects/<label>/doubted_frames.json` has the shares per frame and whether `parts_held` filled it, and the preflight raises one flag a kind; only "nothing labelled" is a frame a fill is likely right for. Provenance, said beside the constant: sixteen frames of one preview read by eye, fourteen named rightly.
+
+## 0.243.0
+<!-- changelog.d/mrdeer-capture-segments-and-plan.md -->
+
+### Added
+
+- `bench/capture_masked_run.py` reads the part node's class map (`classes=` on a `--mask`, by the node's own `class_indices`, from one colour channel) and what a subject holds (`held=`). A segment is `<label>.<class>`, the same id in every table: `subjects/<label>/segments.csv` has its pixels per frame, and `runs/<run>/segments_in_region.csv` has every segment that lies inside a run's region without being the mask it carries, in pixels and cells, the subject's own and anybody else's. Two preflight rules read them: `part_not_visible` (the classes a part is made of are gone or under half their recent size while the subject is there) and `segment_inside_region` (one flag a segment, with its frames and the most cells it took).
+- `drop=FIRST-LAST+FIRST-LAST` on a `--mask` empties the held part on source frames where it should take nothing, and a plan with `carried=held` works its region out from the held part.
+
+### Fixed
+
+- A plan's region followed the wrong rule for a kept-out mask: it took the others' pixels out and then counted any cell with a pixel left. It now follows `video_mask.window`: a token the others touch is given up unless the subject's own mask, before any margin, has a pixel in it. Set against one render's own region (447 frames, a whole subject, another kept out) the plan agrees at 0.99 intersection over union at the median; the docstring no longer says the real region is never smaller, since the others' tokens are shared across a latent step's frames too.
+
+## 0.242.0
+<!-- changelog.d/mrpop-subject-boxes-node.md -->
+
+### Added
+
+- `MiniMaxH3SubjectBoxes` (`subject_boxes.py`): a tracked subject's mask as one box a frame, in the form core's SAM 3D Body prediction takes (a list for each frame, a box as `x`, `y`, `width`, `height`), widened by `margin` and held inside the frame, with no box on a frame the mask is empty on. Nothing on a stock server turns a mask into those boxes, and without one that prediction takes the whole frame as one person's crop: undefined with two people in the frame, and a body drawn on frames the subject is not in. One node per person. `bench/check_video_mask.py` item 18 holds the boxes, the empty frame, the margin at the frame's edge and that core's own reader reads the list as one box a frame; `bench/node_id_manifest.json` records the node. No existing node, input, default or graph changes.
+
+## 0.241.0
+<!-- changelog.d/mrcorn-assemble-at-source-size.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py --size source`: the delivery at the source's
+  own size.** Every frame is the source's own picture as it decodes, never
+  scaled, and only what a render changed is scaled up from the canvas and
+  laid over it at the place the loader's crop took it from (`crop_of`,
+  `laid_over`); the rows or columns that crop dropped stay the source's.
+  Every row of the table is laid by region in this mode, the first as well,
+  and a render whose change reaches the canvas's edge where the crop cut is
+  flagged (`piece_changes_up_to_the_loader's_crop`), since beyond it only
+  the source's picture exists. `--soften` is refused here: measured
+  2026-10-10 on two fixed-camera renders of one clip, the scale-up alone
+  brought the regenerated region to about the sharpness and frame-to-frame
+  change of the source's own pixels beside it, where at the canvas's size
+  it read crisper. Not judged on playback. The default stays `canvas`.
+- **`bench/check_assemble_delivery.py`, an eighth case** for it: the file is
+  the source's size and passes its check, pixels away from a painted
+  rectangle are the source's own, the rectangle is where the crop and the
+  scale put it, a render that kept every pixel is nearer the source where it
+  is laid than three pixels to any side, and the edge flag is raised by a
+  render painted to the canvas's top and not at the canvas's size.
+  `owners` now settles shared pixels for both sizes.
+
+## 0.240.0
+<!-- changelog.d/mrpop-masked-source-motion-video.md -->
+
+### Added
+
+- `MiniMaxH3MaskedSource` takes a `motion_video`: with `motion_reference` on the new choice `a video I wire`, the frames wired there are what the model is shown as the movement, in place of anything cut from the source (a body mesh of the original, a pose, a map of where a mouth opens). The video runs beside the source frame for frame, and the song node shows each window its own frames of it (`video_mask.wired_motion`), fitted to the canvas and scaled to `motion_short_edge`; a reference video appended to the chain is cut from frame zero for every window, which is why a wired motion video worked on one window only before. The choice with nothing wired, a video wired under another choice, and a video of another length are refused by name. The preview strip shows the wired video beside the plate. The four choices before it keep their place, the input is appended and is not in the kept mask's key; `bench/node_id_manifest.json` records it and `bench/check_video_mask.py` item 17 holds it. No default or graph changes.
+
+## 0.239.0
+<!-- changelog.d/mrcorn-assemble-delivery.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: one delivery file from masked renders and
+  the untouched original.** A table of renders by source frame range becomes
+  one file at the source's own rate, with one encode, the frames no render
+  covers taken from the original through the loader's fit and the writer's
+  conversion (so a cut between the two is not a step in colour), and the
+  source's audio packets copied. Passes over the same frames, each made from
+  the original, are merged by what each changed; where two changed the same
+  pixel, a capture folder's masks say whose it is before the table's order
+  does. It checks its own file by decode (frame count, timestamps, every
+  frame nearest the frame fed for its place, no bias in any plane, all four
+  colour fields, the audio a run of the source's packets and in place to the
+  sample) and exits 1 when that fails. It raises flags from the per-frame
+  table of what each render changed: pixels changed where the subject has no
+  tracked mask, far from the subject's mask, far more than the render's own
+  median, the same pixels as another render, or none at all; with
+  `--capture` the table and the flags are written into the capture folder.
+  `--soften` is an optional luma blur inside what the renders changed.
+  Three things it was built around, each measured 2026-10-10 on one clip: a
+  render's kept pixels equal the fitted original to within its codec noise,
+  which is what lets a threshold stand in for the mask the node does not
+  save (`data/CAPTURE_GAPS.md`); a track cut straight from a source starts
+  at the picture's keyframe before the span and hides up to a third of a
+  second behind an edit list, so the track is copied alone first and cut one
+  packet early; and frames piped to an encode with no matrix label are
+  converted on the way to a BT.709 file, which every proof but a bias test
+  let through.
+- **`bench/check_assemble_delivery.py`**: the tool against a small clip and
+  pieces made with the song node's own writer. A piece that kept every pixel
+  reads no changed pixel, which fails if the tool's copy of the writer's
+  conversion drifts; a painted rectangle is found where it is; three files
+  that must fail its check do (a frame dropped and one doubled, audio
+  encoded again, a track cut straight from the source); a mask outranks the
+  table's order where two pieces share pixels; and each flag sits beside the
+  case that must not raise it. `docs/checks.md` has the row, and
+  `docs/wiki/masked_v2v.md` points at the tool.
+
 ## 0.238.0
 <!-- changelog.d/mrpop-part-node-class-map.md -->
 

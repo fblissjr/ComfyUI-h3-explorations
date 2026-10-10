@@ -82,6 +82,7 @@ with none is a helper the others import.
 
 | module | nodes it defines | what it says it does |
 |---|---|---|
+| [`subject_boxes.py`](subject_boxes.py) | `MiniMaxH3SubjectBoxes` | A tracked subject's mask as one box a frame, for a node that takes boxes and not masks. |
 | [`subject_track.py`](subject_track.py) | `MiniMaxH3SubjectTrack` | One person, followed through a clip with cuts, as one mask per frame. |
 | [`subject_tracks.py`](subject_tracks.py) |  | What can be said about a tracked subject without a model: is a mask a subject at all, does anything still agree with a track, and where in the clip does a correction point. |
 
@@ -145,7 +146,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1306 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1319 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 172 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |

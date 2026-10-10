@@ -48,6 +48,7 @@ from .video_mask import MiniMaxH3MaskedSource
 from .plate_restore import MiniMaxH3RestorePlate
 from .subject_track import MiniMaxH3SubjectTrack
 from .sapiens2_parts import MiniMaxH3Sapiens2Loader, MiniMaxH3SubjectParts
+from .subject_boxes import MiniMaxH3SubjectBoxes
 from .sam3d_body_vith import MiniMaxH3SAM3DBodyViTHLoader
 from .shot_table import MiniMaxH3SaveShotTable
 from .sam31_corrections import MiniMaxH3SAM31Corrections
@@ -378,7 +379,10 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3SAM31Corrections,
                 # appended 2026-10-08, how clean the model is shown its visual references
                 # (reference_noise.py)
-                MiniMaxH3ReferenceNoise]
+                MiniMaxH3ReferenceNoise,
+                # appended 2026-10-10, a tracked mask as the per-frame boxes a body-pose node takes
+                # (subject_boxes.py)
+                MiniMaxH3SubjectBoxes]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

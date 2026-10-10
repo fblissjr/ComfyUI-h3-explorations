@@ -1,0 +1,5 @@
+bump: minor
+
+### Added
+
+- `MiniMaxH3MaskedSource` takes a `motion_video`: with `motion_reference` on the new choice `a video I wire`, the frames wired there are what the model is shown as the movement, in place of anything cut from the source (a body mesh of the original, a pose, a map of where a mouth opens). The video runs beside the source frame for frame, and the song node shows each window its own frames of it (`video_mask.wired_motion`), fitted to the canvas and scaled to `motion_short_edge`; a reference video appended to the chain is cut from frame zero for every window, which is why a wired motion video worked on one window only before. The choice with nothing wired, a video wired under another choice, and a video of another length are refused by name. The preview strip shows the wired video beside the plate. The four choices before it keep their place, the input is appended and is not in the kept mask's key; `bench/node_id_manifest.json` records it and `bench/check_video_mask.py` item 17 holds it. No default or graph changes.

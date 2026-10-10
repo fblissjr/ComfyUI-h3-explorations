@@ -329,7 +329,8 @@
       "keep",
       "grow_by",
       "others",
-      "edge"
+      "edge",
+      "motion_video"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [
@@ -574,6 +575,17 @@
     "node_id": "MiniMaxH3StepX0Observer",
     "outputs": [
       "model"
+    ]
+  },
+  "MiniMaxH3SubjectBoxes": {
+    "inputs": [
+      "mask",
+      "margin"
+    ],
+    "node_id": "MiniMaxH3SubjectBoxes",
+    "outputs": [
+      "boxes",
+      "report"
     ]
   },
   "MiniMaxH3SubjectParts": {

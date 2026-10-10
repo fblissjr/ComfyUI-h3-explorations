@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 (the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -262,8 +262,40 @@ where in core.
   a prop the original holds is otherwise under the noise and comes back as
   whatever the model guesses. Rendered once, 2026-10-07, with a mask from a
   phrase that SAM held for the window's first seconds only; not judged.
+  **Dated note, 2026-10-10: do not `keep` something that lies inside or
+  against the part being replaced.** A `keep` of the lead's jewellery class
+  inside a face-only region held the jewellery and, because a kept token is
+  whole, also held the skin beside it; on the pixels the sampler was free to
+  redraw, the face then moved back toward the original's over the window
+  (one clip, one lead, one window, one seed; the masking board,
+  `find-mrpop-keep-inside-a-face-brings-the-original-back`, names the
+  measure). It is the head-and-hair result again: real pixels of the
+  original next to the hole. Put such a thing back at assembly instead,
+  where the sampler never sees it.
 - **`replace`.** `whole subject`, or `head and hair`, which keeps the body's
   pixels and finds the part with SAM 3 from `part_phrases`.
+- **`motion_video`** (optional, 2026-10-10) with `motion_reference` on
+  `a video I wire` (`video_mask.MOTION_WIRED`): a video that runs beside the
+  source frame for frame and is shown to the model as the movement, in place
+  of anything cut from the source: a body mesh of the original, a pose, a map
+  of where a mouth opens. It says how the subject moves without showing the
+  original and without the text saying it. Each window is shown its own
+  frames of it (`wired_motion`), which a reference video appended to the
+  chain is not: that one is cut from frame zero for every window. With
+  `motion_vae` on, the video model has its own copy at every frame; off, the
+  text encoder sees two frames a second. The prompt has to say what
+  `<Video 1>` is and what is taken from it. A body mesh for it is made from
+  the track with `MiniMaxH3SubjectBoxes` (`subject_boxes.py`): one box a
+  frame round the tracked mask, wired to the body model's box input, so the
+  mesh is of the tracked person and the model's crop is of them and not of
+  the whole frame. Rendered as an appended video on
+  one window before this input existed, with a body mesh from core's SAM 3D
+  Body nodes and the video model's copy: on that one shot and seed the
+  action was drawn with no action words, and things inside the region came
+  back as other things until one sentence named them (the masking board,
+  `route-motion-signal-not-words`). What that body model gives and does not
+  (no mouth; one whole-frame crop when given no box) is in
+  [`meta_perception_models.md`](meta_perception_models.md).
 - **A setting it will refuse is refused when the graph is queued**
   (2026-10-10): a feather wider than the margin, or a softened start with
   `paint_out` (`video_mask.settings_refusal`, called by the node's
@@ -427,6 +459,89 @@ subject, the head and hair, or the parts taken), since on a parts graph the
 mask and the tracked subject are not the same thing. `video_mask.overlay_pieces`
 and `window_layers` own the picture; `bench/check_video_mask.py` item 12 holds it.
 
+## A latent step is several frames, and its grid is fixed for a whole load
+
+The video model does not work in frames. Core's `FRAME_PER_TOKEN`
+(`comfy/ldm/minimax/model.py`) says how many pixel frames each latent step
+covers, and it cycles: `video_mask.run_lengths` is that cycle laid along a
+window. Everything this lane decides per step it decides for every frame
+of the step: the region (`token_mask` takes the maximum over a step's
+frames), what `keep` and `others` hand back, the weight the composite lays
+the render with. A frame cannot be regenerated on its own, and neither can
+a frame be left alone while its neighbours in the step are redrawn.
+
+**The grid does not move from window to window.** A window's length is on
+`loop_plan.CHAIN_LENGTHS` and its context on the three values
+`check_window_settings` allows, so what a window adds is a multiple of
+`loop_plan.GRID`, which is a whole number of cycles. Every window of a load
+therefore cuts its steps at the same places counted from the LOAD's first
+frame: a step starts where the frame's number from the load's start,
+modulo the cycle's length, is one of the cycle's own offsets. Two things
+follow, and both are arithmetic that needs no render:
+
+- **Which cuts of the source split a step is known before anything is
+  queued**, from the cut list and the load's first frame alone. A cut that
+  falls inside a step puts one to three frames of the other shot under the
+  same region. On the first clip this was looked for, the frames the
+  assembler found repainted at four cuts were exactly the frames this
+  arithmetic names, and the three cuts it puts on a step's edge had none
+  (`data/CAPTURE_GAPS.md`, U5; `bench/capture_masked_run.py`'s
+  `region_carried_across_a_cut` is the flag).
+- **The load's first frame is a lever, for a load with few cuts.** Moving
+  it by fewer frames than the cycle is long moves every step's edge with
+  it, so the cut that matters most can be put on an edge.
+  `loop_plan.split_steps` lists the steps a load splits and
+  `loop_plan.first_frame_choices` orders every start one cycle back by how
+  many frames it lays across a cut (`bench/check_audio_freeze.py`, the
+  step grid case). All of a load's cuts cannot be cleared in general: a
+  cut is on an edge for as many starts as the cycle has steps, out of as
+  many as it has frames, so the chance that one start clears several cuts
+  falls with each cut. On the first clip's whole-subject piece no start
+  cleared every cut the subject is beside; the function's output on that
+  check's cuts and shots is the record.
+
+**The cycle is the video VAE's, and the decode is not local to a step.** A
+reading of core's code (`comfy/ldm/minimax/vae.py`: `MiniMaxH3VideoVAE`'s
+`encode_temporal`, `decode_temporal` and `blend`, `ViT3DDecoder.forward`),
+made 2026-10-10, with nothing run:
+
+- The VAE cuts a video into clips of `clip_length` frames and that length
+  is one cycle of `FRAME_PER_TOKEN`: the encoder's `time_down` gives the
+  frames a token holds, and `frame_pre_padding` is why a clip's first
+  token holds one. So a load's first frame fixes the VAE's clip boundaries
+  as well as the step edges. They are one grid.
+- **Encode: each clip by itself.** The clips are encoded in a loop, one at
+  a time, a short last clip padded with copies of its last frame. Inside a
+  clip the convolutions are causal and the norms are per frame. A latent
+  step is therefore shaped by its own frames and by earlier frames of its
+  own clip, by no later frame, and by nothing outside its clip.
+- **Decode: a window of steps at once.** The decoder is a transformer over
+  a clip's tokens and the next clip's first `token_overlap` of them, every
+  token attending to every other inside a spatial tile of `tile_size`
+  pixels. Every decoded frame of a clip is shaped by every step of its
+  clip and the head of the next. The first `frame_overlap` frames of each
+  clip after the first are a linear cross-fade from the previous window's
+  decode of those same frames, and the clip's first frame is taken from
+  the previous window whole.
+
+So no frame beside a cut is decoded from its own step alone, on either
+side, whether or not the cut splits a step. That is how any clip with a
+cut decodes with no mask at all, and is not a fault by itself. What is
+special to a split step is the latent: one token holds frames of two
+shots, and inside the region the sampler has to make that token up.
+Whether the frames on the subject's side of such a token are worse than
+their neighbours is not measured.
+
+What the lane does about a split step today: the composite lays nothing on
+the frames of a step that lie across a cut from every frame the subject is
+on (`video_mask.cut_gate`; the song node's report names them). The sampler
+still regenerates those cells, since it cannot do otherwise, and the case
+where the subject is on both sides of the cut in two different places is
+open. A seam between windows is a different thing from a cut: the frames a
+window shares with the one before are frozen latent steps copied whole
+(`audio_freeze_song.py`), which is why the context is a length that ends
+on a step's edge.
+
 ## Known limits
 
 Each line names where the evidence is. "Seen" means on a render or a tile.
@@ -568,6 +683,52 @@ check; what is still missing is in `data/CAPTURE_GAPS.md`. What the models
 behind the lane's signals do and do not give (a body mesh has no mouth; no
 model here scores lip sync) is in
 [`meta_perception_models.md`](meta_perception_models.md).
+
+**One command for the file that gets watched**: `bench/assemble_delivery.py`
+takes a table of renders by source frame range and writes one file at the
+source's own rate with the source's own audio packets, the frames no render
+covers taken from the original, and passes over the same frames merged by
+what each changed. It proves by decode that no frame was dropped, doubled or
+moved and that the audio is the source's, and it raises its own flags from
+the per-frame table of what each render changed: a pass that redrew
+something on frames its subject has no mask on, far from its subject, with
+an area that steps at some frame (a cut, a change of framing, or another
+person), a frame or two just across a cut of the source and no further (a
+pass whose region ran over the cut; found from the source's own
+frame-to-frame change, with no capture), or the same pixels as another
+pass. Cut a render's rows on the source's cuts. Given capture
+folders (`--capture`) it settles shared pixels by whose mask they lie in
+before falling back on the table's order, and writes its table and flags
+into them. Where two tracked masks claim the same pixel (an arm reaching
+across somebody) a mask does not say whose it is: the capture's
+`owners.npz` does, from the class maps, and the assembler reads it for the
+shared pixels and for `restore=<subject>`, leaving what it marks contested
+to the later row. Its record also says what the file did to every subject a
+capture knows (`subjects`: tracked pixels off the source, in all and by
+class, inside the track and outside it, beside the floor), and
+`--compare A.check.json B.check.json` prints two records side by side: the
+same stretch with and without a restore is the before and after a "by
+class" question asks for. How a region SITS in its plate (its detail, grain,
+tone and cast against the plate just outside it and against what stood
+there before) is `bench/region_against_plate.py`, which needs no mask
+either; run it before tuning a look by eye. With `--size source` the file is at the source's own size: every
+frame is the source's picture, never scaled, and only what a render changed
+is scaled up and put back over it, so nothing outside the regenerated region
+is resampled and the rows the loader's crop dropped are kept. A row can
+give a class of a subject back to the source (`restore=<subject>.<Class>`,
+read from the capture's class map): a thing inside a region that should not
+have been redrawn, an earring inside a face, is put back here and not by
+asking the sampler to keep it, which changes what the sampler draws beside
+it. With no class (`restore=<subject>`) a row gives back the whole of
+another subject: wherever that subject's tracked mask is and the piece's own
+subject's is not, so a pass on one person never shows what it changed of
+another; `restore=<subject>:whole` takes nothing out, for a pass that has no
+business inside the other's mask whoever is in front. Judge a
+render's colour on this file: it is BT.709 and says so,
+as renders are since the song node's writer converts and tags, and a render
+written before that plays off in a player that guesses the matrix from the
+size. Its docstring is the account; `bench/check_assemble_delivery.py` is
+its check.
 
 **What every masked render already wrote beside itself** (the song node,
 `audio_freeze_song.py`):

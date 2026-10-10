@@ -80,7 +80,11 @@ With a `source` wired, each window also gets a **mask review**
 regenerated (`video_mask.overlay_pieces`), kept beside the window's video as
 `..._with_mask.mp4` and joined into `<prefix>_NNNNN_with_mask.mp4` as the
 windows are joined, so the pair plays in step with one track. A reused window
-stored without one is stacked from its stored video.
+stored without one is stacked from its stored video. Each window rendered over
+a source also leaves `..._region.npz` beside its latent (2026-10-10): the
+fitted mask, the token region and the settings its composite was run with
+(`video_mask.save_window_region`), which with the stored latent is what
+`bench/recomposite_window.py` needs to lay the window again.
 A window that does render again, because its seed, the sampler or the
 schedule changed, reuses two things an earlier run in this server session
 made, under the same switch: its source latent and its conditioning
@@ -560,7 +564,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     reports.append(f"[{w.number}] conditioning kept from an earlier run (not encoded)")
                     continue
                 refs_w = references
-                if motion != video_mask.MOTION_NONE:
+                if motion == video_mask.MOTION_WIRED:
+                    # a video the user wired beside the source: this window's own frames of it
+                    ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
+                    refs_w = tuple(references or ()) + (RuntimeVideoReference(
+                        frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+                        use_vae=bool(source.get("motion_vae", False))),)
+                    motion_label = assign_labels(_order_records(refs_w))[-1]
+                    mark("motion reference")
+                elif motion != video_mask.MOTION_NONE:
                     pixels, mask, _held = video_mask.window_frames(
                         source, int(round(w.start * FPS)), w.frames, width, height)
                     # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
@@ -714,18 +726,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     images = images.reshape(-1, *images.shape[-3:])
             mark("decode")
             if src_pixels is not None and src_tokens is not None and not untouched:
-                if source.get("composite") == video_mask.COMPOSITE_CHANGED:
-                    # the render is kept only where it changed the picture or the old subject stood
-                    alpha = video_mask.changed_alpha(images, src_pixels, src_tokens, src_mask,
-                                                     source["feather_pixels"], margin // 2,
-                                                     source["change_threshold"])
-                    whole = float(video_mask.pixel_alpha(src_tokens, height, width, 0).mean())
-                    reports.append(f"[{w.number}] composite keeps only what changed: "
-                                   f"{100.0 * float((alpha > 0.5).float().mean()) / max(whole, 1e-6):.0f}% of the "
-                                   "regenerated pixels, the source restored in the rest")
-                else:
-                    alpha = video_mask.pixel_alpha(src_tokens, height, width, source["feather_pixels"])
-                images = video_mask.composite(images, src_pixels, alpha)
+                # the weight, the cut gate and the blend (`video_mask.lay_window`): one function, which
+                # `bench/recomposite_window.py` runs again on this window's stored latent
+                images, alpha, laid = video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source,
+                                                            margin, int(round(w.start * FPS)))
+                reports.extend(f"[{w.number}] {line}" for line in laid)
                 # under `only what changed` the weight is also what the mask review outlines: it is held
                 # through the window's write for that, and freed after the review, where it used to be
                 # freed here
@@ -743,7 +748,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             # the old latent goes first: a latent on disk must mean its video finished. Its old mask
             # review goes with it: a review on disk must be of the video beside it, and a run with the
             # switch off would otherwise leave the last render's review for a later run to join
-            for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number)):
+            region_path = loop_resume.region_path(work_dir, filename, w.number)
+            for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path):
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(stale)
             written = _write_frames_mp4(video_path, images, crf)
@@ -752,6 +758,15 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 stored_latents.append(loop_resume.save_window(work_dir, filename, w.number, keys[i], samples,
                                                               trim, next_start, written))
             reports.append(f"[{w.number}] wrote {written} frames to {os.path.basename(video_path)}")
+            if src_tokens is not None:
+                # what this window's composite was run with, beside its latent, so the window can be laid
+                # again from its own files; a failure here costs that and not the render
+                try:
+                    video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin,
+                                                  int(round(w.start * FPS)), int(trim))
+                except Exception as exc:  # noqa: BLE001 -- the window's video is already written
+                    reports.append(f"[{w.number}] the window's region was NOT saved; the window's video is "
+                                   f"unaffected: {type(exc).__name__}: {exc}")
             comfy.model_management.soft_empty_cache()
             mark("write")
             if review and src_pixels is not None:
@@ -832,7 +847,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         if table_files:
             reports.append("shot table written beside the video: " + ", ".join(table_files))
         if not keep_windows:
-            for p in files + stored_latents + review_files:
+            regions = [loop_resume.region_path(work_dir, filename, w.number) for w in windows]
+            for p in files + stored_latents + review_files + regions:
                 with contextlib.suppress(FileNotFoundError):
                     os.remove(p)
             try:

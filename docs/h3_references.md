@@ -376,6 +376,17 @@ unaffected either way, which is exactly why testing on one proves nothing.
 `bench/check_ref_prompt_labels.py` fails the build if any loader feeding a
 reference socket drops off 24.
 
+**Dated note, 2026-10-10: `force_rate=24` sets the labels right by dropping
+or repeating frames, and on a source whose every frame matters that is a
+fault of its own.** On a 25 fps source it drops one frame a second: measured
+on 2026-10-08 as a camera step of nearly double on those frames in every
+render made from one such clip, and seen by the owner as jitter. A masked
+source, or any video the result must stay in step with, is given to the
+loader as an every-frame 24 fps copy (the same frames re-stamped, nothing
+resampled) with `force_rate` 0, and the delivery is re-stamped to the
+source's own rate with its own audio (`bench/assemble_delivery.py`). The
+sentence above stands for a reference whose exact frames do not matter.
+
 ---
 
 ## What references cost

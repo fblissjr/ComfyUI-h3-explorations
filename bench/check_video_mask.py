@@ -131,6 +131,58 @@ that could happen.
     the schema allows (core stops testing an input a validation function
     names, so the range is tested there). The control: `execute` still raises
     the same message, for a value that only arrives through a link.
+17. **A wired motion video is cut where the window is cut.** `motion_video`
+    (2026-10-10): with `a video I wire`, a window that starts at source frame
+    k is shown the wired video from frame k, fitted to the canvas and scaled
+    to the short edge asked, and a window that runs past the video's end
+    repeats its last frame. The control: a second window's reference is not
+    the first window's, and equals the wired video's later frames, so the
+    cut is by the window and not from frame zero (which is what a reference
+    video appended to the chain gets). The choice with nothing wired, a video
+    wired under another choice, and a video of another length are each
+    refused by name; the preview strip shows the wired video beside the
+    plate; `motion_video` is the node's last input, optional, and not in the
+    kept mask's key; and the song node takes the wired branch.
+18. **A tracked mask becomes one box a frame, and none where the subject is
+    not.** `subject_boxes.frame_boxes` (2026-10-10), for a node that takes
+    boxes: the box is the mask's own bounds, widened by the margin and held
+    inside the frame; a frame with an empty mask gets an empty list, never the
+    whole frame (the control: core's own fallback for an empty mask is the
+    whole frame, which is the body drawn where nobody is); and the list has
+    the shape core's SAM 3D Body prediction reads, checked through core's own
+    reader when it imports.
+19. **The composite lays nothing across a cut from the subject.** One latent
+    step is a run of frames and the region is one per step, so a run that
+    straddles a cut carries the subject's region onto the other shot's
+    frames (2026-10-10: a whole-subject pass repainted a frame or two of the
+    next shot at four cuts). `cut_gate` is 0 on the frames of such a run
+    that lie on a side of the cut the subject is on no frame of, and 1
+    everywhere else. The controls: a frame the tracker lost with no cut
+    beside it stays 1 (it is covered by its run, as before); a cut with the
+    subject on both sides stays 1; a cut that falls on a run's edge splits
+    nothing; a run the subject is on no frame of is left alone; and the same
+    cut named in the source's frames is found through `first_frame`.
+    `source_cuts` reads the cuts from a wired shot table and otherwise from
+    the Subject Track's own detector, which finds a cut made here and none
+    in a held shot; the source record carries them, and the song node gates
+    the weight before it composites.
+20. **A window is laid by one function, and a render saves what it was laid
+    with.** `lay_window` is the song node's composite (the weight, the cut
+    gate, the blend) and the song node calls nothing else for it: under
+    `only what changed` and under `whole region` its frames are the pieces'
+    own answer, the weight it returns is the weight it laid, a gated frame
+    is the source bit for bit and no frame without a cut beside it moves,
+    and its lines are the report's. `save_window_region` and
+    `load_window_region` (2026-10-10: a render whose tracker ran in its own
+    graph left its mask nowhere, so a composite could not be run again on
+    it): the mask, the token region, the margin (one number, or each
+    frame's own), the window's first frame, its trim and the settings read
+    back as written, and a window laid from the file is the window laid
+    from the tensors, bit for bit; a soft mask is saved as the 0 or 1 every
+    reader makes of it. The song node writes the file beside the window's
+    latent, removes a stale one with the stale latent, and never assigns the
+    count of reused windows again inside its loop (08c3cb12 did, and the
+    report's first line then gave a frame number for it).
 
 No model, no CUDA, no server.
 
@@ -359,9 +411,10 @@ def check_grow_by(problems):
     if int(vm.margins(vm.area_share(clean), px, cap, 6, vm.GROW_SUBJECT).min()) != 6 \
             or int(vm.margins(vm.area_share(clean), px, cap, 0, vm.GROW_SUBJECT).min()) >= 6:
         problems.append("grow_by: the margin's floor is not feather_pixels")
-    # the composite's old-subject margin is half the window's own, read where the window starts
+    # the composite's old-subject margin is half the window's own (`lay_window`, item 20), read where the window starts
     song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if 'source["feather_pixels"], margin // 2,' not in song_text \
+    if "margin, int(round(w.start * FPS)))" not in song_text \
+            or 'source["feather_pixels"], margin // 2,' not in (REPO / "video_mask.py").read_text(encoding="utf-8") \
             or "margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames," not in song_text \
             or "video_mask.start_zero_tokens(source, src_mask, src_tokens, int(round(w.start * FPS)))" not in song_text:
         problems.append("grow_by: the song node does not hand the composite and the late start the window's own margins")
@@ -449,8 +502,10 @@ def check_edge(problems):
         if "edge" not in str(err):
             problems.append(f"an unknown edge was refused without naming it: {err}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    if inputs[-1].id != "edge" or not inputs[-1].optional or inputs[-1].default != vm.EDGE_TOKENS:
-        problems.append("edge: it is not the node's last input, optional, defaulting to whole tokens")
+    # appended inputs keep their place: `motion_video` (2026-10-10) came after it
+    if inputs[-2].id != "edge" or not inputs[-2].optional or inputs[-2].default != vm.EDGE_TOKENS:
+        problems.append("edge: it is not where it was appended (the input before `motion_video`), optional, "
+                        "defaulting to whole tokens")
     if "edge" not in vm.MASK_KEY_SKIP:
         problems.append("`edge` is not in MASK_KEY_SKIP: a change of edge would track the subject again")
 
@@ -491,6 +546,228 @@ def check_queue_time_refusals(problems):
     except ValueError as e:
         if str(e) != wide:
             problems.append(f"execute refuses a feather wider than the margin in other words: {e}")
+
+
+def check_wired_motion(problems):
+    node = vm.MiniMaxH3MaskedSource
+    SHORT = 64                                   # half the canvas's short side, so the scale-down is exercised
+    n = FRAMES
+    frames = torch.rand(n, H, W, 3)
+    mask = torch.zeros(n, H, W)
+    mask[:, 20:40, 30:50] = 1.0
+    # a video whose every frame is one flat level, its own frame number: any slice of it names its frames
+    levels = (torch.arange(n, dtype=torch.float32) + 1.0) / (n + 1.0)
+    video = levels.view(n, 1, 1, 1).expand(n, H // 2, W // 2, 3).contiguous()
+    src = {"frames": frames, "mask": mask, "motion_reference": vm.MOTION_WIRED, "motion_short_edge": SHORT,
+           "motion_frames": video}
+    first, count = 5, 9
+    got = vm.wired_motion(src, first, count, W, H)
+    th, tw = vm._reference_size(H, W, SHORT)
+    if tuple(got.shape) != (count, th, tw, 3):
+        problems.append(f"wired motion: a window's reference is {tuple(got.shape)}, not {(count, th, tw, 3)}")
+        return
+    seen = got.mean(dim=(1, 2, 3))
+    if not torch.allclose(seen, levels[first:first + count], atol=1e-4):
+        problems.append("wired motion: a window starting at frame 5 is not shown the wired video from frame 5")
+    zero = vm.wired_motion(src, 0, count, W, H).mean(dim=(1, 2, 3))
+    if torch.allclose(seen, zero, atol=1e-4):
+        problems.append("control failed: the window at frame 5 and the window at frame 0 are shown the same frames, "
+                        "so the cut is not by the window")
+    tail = vm.wired_motion(src, n - 3, count, W, H).mean(dim=(1, 2, 3))
+    if not torch.allclose(tail[:3], levels[n - 3:], atol=1e-4) or not torch.allclose(tail[3:], levels[-1].expand(count - 3), atol=1e-4):
+        problems.append("wired motion: a window that runs past the video's end does not repeat its last frame")
+    for label, kwargs, word in (
+            ("the choice with nothing wired", dict(motion_reference=vm.MOTION_WIRED), "motion_video"),
+            ("a video under another choice", dict(motion_reference=vm.MOTION_SUBJECT, motion_video=video), "never used in silence"),
+            ("a video of another length", dict(motion_reference=vm.MOTION_WIRED, motion_video=video[:-1]), "one frame per source frame")):
+        try:
+            node.execute(frames, mask, **kwargs)
+            problems.append(f"wired motion: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"wired motion: the refusal of {label} does not say so: {exc}")
+    out = node.execute(frames, mask, motion_reference=vm.MOTION_WIRED, motion_video=video, motion_short_edge=SHORT)
+    record, strip = out.args[0], out.args[2]
+    if record.get("motion_frames") is not video or record.get("motion_reference") != vm.MOTION_WIRED:
+        problems.append("wired motion: the source record does not carry the wired video and its choice")
+    plain = node.execute(frames, mask).args[2]
+    if int(strip.shape[2]) <= int(plain.shape[2]):
+        problems.append("wired motion: the preview strip is no wider than with no motion reference: the wired "
+                        "video is not shown beside the plate")
+    inputs = node.define_schema().inputs
+    if inputs[-1].id != "motion_video" or not inputs[-1].optional:
+        problems.append("motion_video: it is not the node's last input and optional")
+    if "motion_video" not in vm.MASK_KEY_SKIP:
+        problems.append("motion_video: it is shown to the model and does not make the mask, so it must not be in the "
+                        "kept mask's key")
+    song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song:
+        problems.append("wired motion: the song node does not cut the wired video at the window's own start")
+
+
+def check_subject_boxes(problems):
+    spec = importlib.util.spec_from_file_location("_h3pack.subject_boxes", REPO / "subject_boxes.py")
+    sb = importlib.util.module_from_spec(spec)
+    sys.modules["_h3pack.subject_boxes"] = sb
+    spec.loader.exec_module(sb)
+    mask = torch.zeros(4, H, W)
+    mask[0, 20:40, 30:50] = 1.0
+    mask[1, 0:10, 0:12] = 1.0                    # against the frame's corner
+    mask[3, H - 6:H, W - 9:W] = 1.0             # against the far corner; frame 2 is empty
+    plain = sb.frame_boxes(mask)
+    if plain != [[{"x": 30, "y": 20, "width": 20, "height": 20}], [{"x": 0, "y": 0, "width": 12, "height": 10}], [],
+                 [{"x": W - 9, "y": H - 6, "width": 9, "height": 6}]]:
+        problems.append(f"subject boxes: the boxes are not the masks' bounds, or an empty frame has one: {plain}")
+    wide = sb.frame_boxes(mask, 8)
+    if wide[0] != [{"x": 22, "y": 12, "width": 36, "height": 36}] or wide[1] != [{"x": 0, "y": 0, "width": 20, "height": 18}] \
+            or wide[3] != [{"x": W - 17, "y": H - 14, "width": 17, "height": 14}] or wide[2] != []:
+        problems.append(f"subject boxes: a margin does not widen the box and stop at the frame's edge: {wide}")
+    if sb.frame_boxes(mask.unsqueeze(-1)) != plain:
+        problems.append("subject boxes: a mask with a trailing channel is read differently")
+    out = sb.MiniMaxH3SubjectBoxes.execute(mask, 0)
+    if out.args[0] != plain or "3 of 4 frames" not in out.args[1] or "frame 2" not in out.args[1]:
+        problems.append(f"subject boxes: the node's boxes or its report are not the function's: {out.args[1]}")
+    try:
+        from comfy_extras.nodes_sam3d_body import _per_frame_bboxes_from_detections
+        read = _per_frame_bboxes_from_detections(plain, 4)
+        if [tuple(b.shape) for b in read] != [(1, 4), (1, 4), (0, 4), (1, 4)] or read[0].tolist() != [[30.0, 20.0, 50.0, 40.0]]:
+            problems.append("subject boxes: core's own reader does not read the list as one box a frame and none "
+                            "on the empty one")
+        from comfy_extras.sam3d_body.utils import _bbox_from_mask
+        if _bbox_from_mask(mask[2]).tolist() != [0.0, 0.0, float(W), float(H)]:
+            print("note  core's fallback for an empty mask is no longer the whole frame: the control in item 18 "
+                  "has nothing to stand against")
+    except ImportError as exc:
+        print(f"note  core's SAM 3D Body reader did not import ({exc}): the list's shape was not checked against it")
+
+
+def check_cut_gate(problems):
+    runs = vm.run_lengths(LATENT_T)
+    starts = [sum(runs[:k]) for k in range(len(runs))]
+    # the third run, split one frame in: the subject is on its first frame only
+    k = next(i for i, n in enumerate(runs) if i >= 2 and n >= 3)
+    a, n = starts[k], runs[k]
+    cut = a + 1
+
+    def mask_on(frames):
+        m = torch.zeros(FRAMES, H, W)
+        for f in frames:
+            m[f, 40:60, 50:70] = 1.0
+        return m
+
+    before = mask_on(range(0, cut))                     # there up to the cut, gone after it
+    gate = vm.cut_gate(before, LATENT_T, [cut])
+    want = torch.ones(FRAMES)
+    want[cut:a + n] = 0.0
+    if not torch.equal(gate, want):
+        _fail(problems, f"cut gate: a run split at frame {cut} with the subject before it gave {gate.tolist()}; "
+                        f"the frames {cut} to {a + n - 1} after the cut must be 0 and every other frame 1")
+    after = mask_on(range(cut, FRAMES))                 # the other way round: the subject's shot starts at the cut
+    gate = vm.cut_gate(after, LATENT_T, [cut])
+    want = torch.ones(FRAMES)
+    want[a:cut] = 0.0
+    if not torch.equal(gate, want):
+        _fail(problems, f"cut gate: with the subject only after the cut the frames before it in the run must be 0; got {gate.tolist()}")
+    if not bool(vm.cut_gate(before, LATENT_T, []).all()):
+        _fail(problems, "cut gate: with no cut a frame the subject's mask is empty on was left unlaid; a frame the "
+                        "tracker lost inside a shot must stay covered by its run")
+    lost = mask_on([f for f in range(FRAMES) if f != cut])
+    if not bool(vm.cut_gate(lost, LATENT_T, []).all()) or not bool(vm.cut_gate(mask_on(range(FRAMES)), LATENT_T, [cut]).all()):
+        _fail(problems, "cut gate: a lost frame with no cut, or a cut with the subject on both sides, must change nothing")
+    if not bool(vm.cut_gate(before, LATENT_T, [a]).all()):
+        _fail(problems, "cut gate: a cut on a run's first frame splits no run and must change nothing")
+    if not bool(vm.cut_gate(mask_on(range(0, a)), LATENT_T, [cut]).all()):
+        _fail(problems, "cut gate: a run the subject is on no frame of was gated; there is nothing of the subject to hold back")
+    if not torch.equal(vm.cut_gate(before, LATENT_T, [1000 + cut], first_frame=1000), vm.cut_gate(before, LATENT_T, [cut])):
+        _fail(problems, "cut gate: a cut named in the source's frames is not found through the window's first frame")
+    # the cuts themselves: from a shot table when there is one, else the tracker's detector on the frames
+    table = json.dumps({"shots": [{"first_frame": 0, "last_frame": 9}, {"first_frame": 10, "last_frame": 30},
+                                  {"first_frame": 31, "last_frame": 40}]})
+    if vm.source_cuts(torch.zeros(41, 8, 8, 3), table) != [10, 31]:
+        _fail(problems, f"cut gate: the cuts of a three-shot table came back as {vm.source_cuts(torch.zeros(41, 8, 8, 3), table)}")
+    torch.manual_seed(7)
+    one, two = torch.rand(1, 108, 192, 3), torch.rand(1, 108, 192, 3)
+    clip = torch.cat([one.expand(12, -1, -1, -1), two.expand(9, -1, -1, -1)], dim=0)
+    if vm.source_cuts(clip) != [12]:
+        _fail(problems, f"cut gate: two held pictures joined at frame 12 gave the cuts {vm.source_cuts(clip)}")
+    if vm.source_cuts(one.expand(12, -1, -1, -1)):
+        _fail(problems, "cut gate: a held shot was given a cut")
+    # the song node gates through `lay_window` (item 20, which lays a window across a cut); the record carries the cuts
+    if '"cuts": source_cuts(frames, table)' not in (REPO / "video_mask.py").read_text(encoding="utf-8"):
+        _fail(problems, "cut gate: the Masked Source's record does not carry the source's cuts")
+
+
+def check_lay_window(problems):
+    """Item 20. The song node's composite as one function, and the file a window's region is saved in."""
+    import tempfile
+
+    grow_px, feather = 32, 8
+    runs = vm.run_lengths(LATENT_T)
+    starts = [sum(runs[:k]) for k in range(len(runs))]
+    k = next(i for i, n in enumerate(runs) if i >= 2 and n >= 3)
+    cut = starts[k] + 1                                  # one frame into a run: the subject's shot ends here
+    old = torch.zeros(FRAMES, H, W)
+    old[:cut, 48:80, 80:112] = 0.8                       # soft, as a tracker's mask is; gone after the cut
+    tokens = vm.token_mask(vm.grow(old, grow_px), LATENT_T, LAT_H, LAT_W)
+    pixels = torch.full((FRAMES, H, W, 3), 0.5)
+    render = pixels.clone()
+    render[:, 40:72, 96:128] = 0.9                       # the new subject, drawn on every frame of every run
+    across = list(range(cut, starts[k] + runs[k]))
+    first = 1000
+    record = {"composite": vm.COMPOSITE_CHANGED, "feather_pixels": feather, "change_threshold": vm.CHANGE_THRESHOLD,
+              "cuts": [first + cut], "grow_pixels": grow_px, "grow_by": vm.GROW_FIXED, "replace": vm.REPLACE_WHOLE,
+              "edge": vm.EDGE_TOKENS}
+
+    out, alpha, lines = vm.lay_window(render, pixels, tokens, old, record, grow_px, first)
+    plain = vm.changed_alpha(render, pixels, tokens, old, feather, grow_px // 2, vm.CHANGE_THRESHOLD)
+    gate = vm.cut_gate(old, LATENT_T, record["cuts"], first)
+    if not torch.equal(alpha, plain * gate[:, None, None]) or not torch.equal(out, vm.composite(render, pixels, alpha)):
+        _fail(problems, "lay window: under `only what changed` the frames are not the changed weight, gated, blended")
+    if not torch.equal(out[across], pixels[across]) or not bool((plain[across] > 0.5).any()):
+        _fail(problems, f"lay window: frames {across} lie across the cut and must be the source bit for bit, with a "
+                        "weight the gate had something to take off")
+    free, _a, quiet = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": []}, grow_px, first)
+    moved = sorted({int(f) for f in (out != free).flatten(1).any(dim=1).nonzero().flatten()})
+    if moved != across:
+        _fail(problems, f"lay window: with and without the cut the frames that differ are {moved}, not the gated {across}")
+    if len(lines) != 2 or "only what changed" not in lines[0] or not lines[1].endswith(", ".join(str(first + f) for f in across)) \
+            or len(quiet) != 1:
+        _fail(problems, f"lay window: the report's lines are {lines} with the cut and {quiet} without")
+    whole, w_alpha, w_lines = vm.lay_window(render, pixels, tokens, old, {**record, "composite": vm.COMPOSITE_REGION, "cuts": []},
+                                            grow_px, first)
+    if not torch.equal(w_alpha, vm.pixel_alpha(tokens, H, W, feather)) or not torch.equal(whole, vm.composite(render, pixels, w_alpha)) \
+            or w_lines:
+        _fail(problems, "lay window: under `whole region` the weight is not the region's own, or a line was reported")
+
+    # the file: what was written comes back, and a window laid from it is the window laid from the tensors
+    each = torch.full((FRAMES,), grow_px, dtype=torch.long)
+    each[::2] = grow_px // 2
+    with tempfile.TemporaryDirectory() as tmp:
+        for margin in (grow_px, each):
+            path = vm.save_window_region(str(Path(tmp) / "w_region.npz"), old, tokens, record, margin, first, 5)
+            got = vm.load_window_region(path)
+            same_margin = torch.equal(got["margin"], margin) if torch.is_tensor(margin) else got["margin"] == margin
+            if not torch.equal(got["mask"], (old > 0.5).float()) or not torch.equal(got["tokens"], tokens) or not same_margin \
+                    or got["first_frame"] != first or got["trim"] != 5 or got["source"] != {key: record[key] for key in vm.REGION_SETTINGS}:
+                _fail(problems, f"window region: the file does not read back as written (margin {vm.margin_note(margin)})")
+                continue
+            want = vm.lay_window(render, pixels, tokens, old, record, margin, first)[0]
+            again = vm.lay_window(render, pixels, got["tokens"], got["mask"], got["source"], got["margin"], got["first_frame"])[0]
+            if not torch.equal(want, again):
+                _fail(problems, f"window region: a window laid from its file is not the window laid from its tensors "
+                                f"(margin {vm.margin_note(margin)})")
+        if sorted(x.name for x in Path(tmp).iterdir()) != ["w_region.npz"]:
+            _fail(problems, f"window region: the write left {sorted(x.name for x in Path(tmp).iterdir())} behind")
+
+    song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if "video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source," not in song_text \
+            or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(")):
+        _fail(problems, "lay window: the song node must lay a window through `video_mask.lay_window` and through nothing else")
+    if "video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin," not in song_text \
+            or "loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
+        _fail(problems, "window region: the song node does not save a window's region beside its latent, or keeps a stale one")
+    if song_text.count("        first = ") != 1 or "        first = len(reused)" not in song_text:
+        _fail(problems, "lay window: the song node assigns `first` (its count of reused windows) more than once")
 
 
 def check_others(problems):
@@ -572,8 +849,9 @@ def check_others(problems):
             if word not in str(exc):
                 problems.append(f"others: the refusal of {label} does not say so: {exc}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
-    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next)
-    if inputs[-2].id != "others" or not inputs[-2].optional:
+    # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next,
+    # then `motion_video`, 2026-10-10)
+    if inputs[-3].id != "others" or not inputs[-3].optional:
         problems.append("others: it is not where it was appended (the input before `edge`) and optional")
     if "others" not in vm.MASK_KEY_SKIP:
         problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
@@ -1139,8 +1417,9 @@ def check_motion_zoom(problems):
         _fail(problems, "zoom: the preview's plate must carry the box as an outline, and only when zoomed in")
     if "box" not in vm.zoom_note(per_shot, H, W, SHORT) or "whole frame" not in vm.zoom_note(full, H, W, SHORT):
         _fail(problems, "zoom: the report's clause must say the boxes, or that the whole frame is shown")
-    if vm.MOTION_ZOOM not in vm.MOTIONS or len(set(vm.MOTIONS)) != 4:
-        _fail(problems, "zoom: MOTIONS must list the four choices once each")
+    if vm.MOTION_ZOOM not in vm.MOTIONS or len(set(vm.MOTIONS)) != len(vm.MOTIONS) \
+            or vm.MOTIONS[:4] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME):
+        _fail(problems, "zoom: MOTIONS must list each choice once, the first four in the place they shipped in")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
             or 'int(source["motion_short_edge"]), video_mask.motion_widening(source),' not in song:
@@ -1392,7 +1671,7 @@ def check_review_robust(problems, song_text):
     if "why = _review_or_reason(window_review, f\"window {w.number}\")" not in song_text \
             or "why = _review_or_reason(joined_review, \"the run\")" not in song_text:
         problems.append("mask review: a failure in a review would fail the render")
-    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number)):" not in song_text:
+    if "for stale in (latent_path, loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
         problems.append("mask review: a window that renders again keeps its old review for a later run to join")
     at = song_text.find("why = _review_or_reason(joined_review")
     owed = [song_text.find(mark, at) for mark in ("write_metadata_png(os.path.join(full_out", "shot_table.write_beside(source",
@@ -1472,7 +1751,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1481,7 +1760,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject")
     return 1 if problems else 0
 
 

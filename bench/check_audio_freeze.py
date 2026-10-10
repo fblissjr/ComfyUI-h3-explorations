@@ -65,6 +65,21 @@ things here, each a way the freeze could look present and not be:
    files held BT.601 values with no tag, so a player that takes BT.709 for a
    picture this size showed a render off in colour beside its own source.
 
+8. **A load's first frame fixes which cuts split a latent step.**
+   `loop_plan.split_steps`, `first_frame_choices` (2026-10-10). Every window
+   length and context the planner allows adds a whole number of step cycles,
+   and `step_span` agrees with the frame count the window node takes for a
+   latent length, so the grid is one per load. On the cuts and the subject's
+   shots of one render of that day, loaded from source frame 14, the frames
+   named are the five its delivery's own check found repainted (CHANGELOG
+   0.254.0) and no other; **the control**: the same cuts counted from frame
+   zero, as if the load's first frame did not matter, name other frames. On
+   random cuts, shots and starts the frames named are those
+   `video_mask.cut_gate` leaves unlaid, window by window, and a cut with the
+   subject on both sides is `shared` and gated nowhere. Every start a cycle
+   back is tried once, the asked one included, and the first is never worse
+   than the asked one.
+
 The encoder is faked (zeros of the right shape) so this runs with no model,
 no CUDA and no server; the real audio VAE is exercised by
 `bench/audit_audio_freeze_control.py` against the sibling pack's song node.
@@ -1023,6 +1038,84 @@ def check_song_plan(problems):
         _fail(problems, "preview: a song node whose model input is not lazy still passed")
 
 
+def check_step_grid(problems):
+    import importlib
+    import random
+
+    import loop_plan as lp
+    vm = importlib.import_module("_h3pack.video_mask")
+
+    # one grid a load: what any window adds is whole cycles, and the step edges are the window node's own
+    contexts = [c for c in range(1, max(lp.CHAIN_LENGTHS)) if not _raises(lp.check_window_settings, max(lp.CHAIN_LENGTHS), c)]
+    if not contexts:
+        _fail(problems, "step grid: no context passes check_window_settings; the sweep below checked nothing")
+    for n in lp.CHAIN_LENGTHS:
+        for c in contexts:
+            if c < n and (n - c) % lp.STEP_CYCLE:
+                _fail(problems, f"step grid: a {n}-frame window with {c} of context adds {n - c} frames, not a whole "
+                                f"number of {lp.STEP_CYCLE}-frame cycles; the next window's steps fall elsewhere")
+    edges = [af.pixel_frames(t) for t in range(4 * len(af.FRAME_PER_TOKEN) + 1)]
+    for a, b in zip(edges, edges[1:]):
+        if any(lp.step_span(f) != (a, b - a) for f in range(a, b)):
+            _fail(problems, f"step grid: step_span disagrees with pixel_frames on the step over frames {a} to {b - 1}")
+
+    # the measured case: cuts and the shots with the subject, from the render's own shot table, in source frames
+    first, frames = 14, 600
+    cuts = [first + c for c in (154, 172, 264, 280, 401, 424, 470, 502, 590)]
+    present = [(first + a, first + b) for a, b in ((0, 153), (264, 279), (401, 423), (470, 501))]
+    found = [294, 414, 438, 482, 483]          # measured: the delivery's check, 2026-10-10
+    split = lp.split_steps(cuts, first, present, frames)
+    named = sorted(f for s in split for f in s["across"])
+    if named != found or any(s["shared"] for s in split):
+        _fail(problems, f"step grid: the measured render's repainted frames are {found}; split_steps named {named}")
+    blind = sorted(f for s in lp.split_steps(cuts, 0, present, frames) for f in s["across"])
+    if blind == found:
+        _fail(problems, "step grid control: counted from frame zero the same cuts still name the measured frames, so "
+                        "the case does not show that the load's first frame matters")
+    choices = lp.first_frame_choices(cuts, first, present, frames)
+    asked = next((c for c in choices if c["earlier"] == 0), None)
+    if asked is None or asked["split"] != split or sorted(c["earlier"] for c in choices) != list(range(min(lp.STEP_CYCLE, first + 1))):
+        _fail(problems, f"step grid: the choices are not one a start from {first} back a cycle, the asked start among them: "
+                        f"{[c['earlier'] for c in choices]}")
+    elif choices[0]["across"] + choices[0]["shared"] > asked["across"] + asked["shared"]:
+        _fail(problems, "step grid: the first choice lays more frames across a cut than the start that was asked for")
+    if any(c["first_frame"] < 0 for c in lp.first_frame_choices(cuts, 3, present)):
+        _fail(problems, "step grid: a start before the source's first frame was offered")
+
+    # the node's own gate as the second implementation, window by window
+    rng = random.Random(20261010)
+    for _trial in range(200):
+        first = rng.randrange(0, 60)
+        length = rng.choice(lp.CHAIN_LENGTHS)
+        start = first + lp.STEP_CYCLE * rng.randrange(0, 3)      # a window of the load: whole cycles in
+        bounds = sorted(rng.sample(range(start + 1, start + length), rng.randrange(1, 9)))
+        shots = list(zip([start] + bounds, [b - 1 for b in bounds] + [start + length - 1]))
+        on = [s for s in shots if rng.random() < 0.5]
+        mask = torch.zeros(length, 2, 2)
+        for a, b in on:
+            mask[a - start:b - start + 1] = 1.0
+        latent_t = next(t for t in range(1, length + 1) if af.pixel_frames(t) == length)
+        gate = vm.cut_gate(mask, latent_t, bounds, start)
+        want = sorted(start + int(f) for f in (gate < 0.5).nonzero().flatten())
+        split = lp.split_steps(bounds, first, on, start + length - first)
+        got = sorted(f for s in split for f in s["across"] if f >= start)
+        if got != want:
+            _fail(problems, f"step grid: load from {first}, window from {start} of {length}, cuts {bounds}, subject on {on}: "
+                            f"split_steps names {got}, the node's cut_gate leaves {want} unlaid")
+            break
+        if any(float(gate[f - start]) < 0.5 for s in split for f in s["shared"]):
+            _fail(problems, "step grid: a frame split_steps calls shared (the subject on both sides) is one the gate left unlaid")
+            break
+
+
+def _raises(call, *args) -> bool:
+    try:
+        call(*args)
+    except ValueError:
+        return True
+    return False
+
+
 def main() -> int:
     problems: list[str] = []
     check_slice(problems)
@@ -1031,6 +1124,7 @@ def main() -> int:
     check_window_geometry(problems)
     check_resume(problems)
     check_song_plan(problems)
+    check_step_grid(problems)
     check_join(problems)
     check_join_stretches(problems)
     check_writer_colour(problems)
@@ -1046,6 +1140,7 @@ def main() -> int:
     print("  ok    slice on the grid and exact; nested mask survives the sampler's "
           "reshape and a flat one is refused; every freeze graph is wired end to end; "
           "resume keys; the loop plan lines up with its timeline and its refusals and controls bite; "
+          "a load's first frame names the cuts that split a latent step, as the node's gate does; "
           "the join returns every frame its windows hold; a written file is BT.709 and says so")
     return 0
 

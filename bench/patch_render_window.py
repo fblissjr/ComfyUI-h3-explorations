@@ -26,7 +26,12 @@ It also says which frames the hole really covers once the model's frame grouping
 window length the Song node would not render as one window.
 
 **join** writes the finished render with the hole's frames taken from the patch and nothing else, by frame index,
-with the render's own audio copied; then prints, for the frames either side of each end of the hole, the patch against
+with the render's own audio copied. It does not join anything itself: it hands `bench/assemble_delivery.py` a table
+of one row (the hole's frames from the patch, over the render as the source), so there is one joiner, the file is
+checked by decode as every delivery is (`<out>.check.json`), and a render written before the song node tagged its
+files is brought to the patch's colour. A plain concatenation of such a render and a patch written after left the
+hole's frames two to three levels off in every channel, in a file with no tag (measured 2026-10-10;
+`bench/check_patch_render_window.py` holds the case). Then it prints, for the frames either side of each end of the hole, the patch against
 the render inside the region and on the plate, the frame-to-frame change inside the region for both, and the mean
 brightness inside the mask for both. On a shut frame the first number is one more encode and nothing else: that is
 the proof the ends came back as the render's own pixels. A step in the brightness at the hole's first and last frames
@@ -334,17 +339,21 @@ def join(args) -> int:
     pw, ph, patch_rate, patch_total = probe(args.patch)
     if (pw, ph) != (w, h) or not first <= hole_a <= hole_b < first + patch_total:
         raise SystemExit(f"the patch is {pw}x{ph}, {patch_total} frames from {first}; the render is {w}x{h} and the hole {hole_a}-{hole_b}")
-    a, b = hole_a - first, hole_b - first + 1
-    chain = (f"[0:v]trim=end_frame={hole_a},setpts=PTS-STARTPTS[head];"
-             f"[1:v]trim=start_frame={a}:end_frame={b},setpts=PTS-STARTPTS[mid];"
-             f"[0:v]trim=start_frame={hole_b + 1},setpts=PTS-STARTPTS[tail];[head][mid][tail]concat=n=3:v=1:a=0[v]")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", args.render, "-i", args.patch, "-filter_complex", chain, "-map", "[v]",
-                    "-map", "0:a?", "-c:v", "libx264", "-crf", str(args.crf), "-pix_fmt", "yuv420p", "-r", f"{rate:g}",
-                    "-c:a", "copy", args.out], check=True)
+    table = Path(args.out + ".table.txt")
+    table.write_text(f"{hole_a}-{hole_b} {args.patch} {first}\n")
+    try:
+        done = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "assemble_delivery.py"), "--source", args.render,
+                               "--table", str(table), "--span", f"0-{total - 1}", "--crf", str(args.crf), "--out", args.out,
+                               "--note", f"patch_render_window join: render frames {hole_a}-{hole_b} from a patch that starts on frame {first}"],
+                              capture_output=True, text=True)
+    finally:
+        table.unlink(missing_ok=True)
+    if done.returncode != 0:
+        raise SystemExit(f"bench/assemble_delivery.py did not pass the joined file (its record: {args.out}.check.json):\n"
+                         + (done.stdout[-1200:] or done.stderr[-1200:]))
     joined = probe(args.out)[3]
-    print(f"wrote {args.out}: {joined} frames (the render has {total}); frames {hole_a}-{hole_b} from the patch, the rest the render's")
-    if joined != total:
-        raise SystemExit("the joined file does not have the render's frame count")
+    print(f"wrote {args.out}: {joined} frames (the render has {total}); frames {hole_a}-{hole_b} from the patch, the rest the render's; "
+          f"checked by decode, record at {args.out}.check.json")
 
     luma = torch.tensor([0.299, 0.587, 0.114])
     grow = int(args.grow)
