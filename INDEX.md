@@ -96,6 +96,7 @@ with none is a helper the others import.
 | [`body_pose.py`](body_pose.py) | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose`, `MiniMaxH3BodyMeshVideo` | A body mesh from frames and boxes, with the crop sampled the way Meta's SAM 3D Body code samples it. |
 | [`channel_balance.py`](channel_balance.py) | `MiniMaxH3ChannelBalance` | Rebalance q/k channels before INT8 attention on the blocks whose K-norm is lopsided. |
 | [`checkpoint_overlay.py`](checkpoint_overlay.py) |  | Exact overlays of one int8 H3 checkpoint on another, stored per piece. |
+| [`clip_folder.py`](clip_folder.py) |  | The analysis folder of an input video: where it is, whose it is, and whether it is still that video's. |
 | [`conditioning.py`](conditioning.py) | `MiniMaxH3Conditioning` | fl2va conditioning with the geometry seams measured here closed at one node. |
 | [`core_sparse_capture.py`](core_sparse_capture.py) | `MiniMaxH3CoreSparseCapture` | Capture q/k/v on core's sparse producer path, and change nothing. |
 | [`denoise_mask_probe.py`](denoise_mask_probe.py) | `MiniMaxH3DenoiseMaskProbe` | Log the denoise mask each masked sampling step actually uses, and change nothing. |
@@ -148,7 +149,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 1340 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 1341 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 177 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |

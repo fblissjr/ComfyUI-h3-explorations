@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 105 |
+| [`check_*`](#check) | 106 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -36,6 +36,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_changelog.py`](check_changelog.py) | `CHANGELOG.md`'s top is what the fragments in `changelog.d/` make, and the builder cannot lose an entry. |
 | [`check_channel_balance.py`](check_channel_balance.py) | Check `MiniMaxH3ChannelBalance`: the fold is exact, RoPE-safe, off by default, and picks the blocks the shipped checkpoint's weights say it should. |
 | [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
+| [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
