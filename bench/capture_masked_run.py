@@ -1153,6 +1153,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                              if r["planned"] and r.get("window") else window_settings(graph)),
                                  "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
                                                 and r.get("carried", "parts") == "parts" else "the track") if r["planned"] and not r.get("preview") else "the mask each window was given" if how.get("files") else "read from the review",
+                                 # a plain field for a reader that must know it (the delivery assembler lays nothing on a frame
+                                 # the node carried no mask on): the carried mask is the node's own, not read off a review
+                                 "carried_from_the_node": bool(how.get("files")),
                                  "first_source_frame": int(r.get("at", first)), "margin_px": None if margin is None else int(margin),
                                  "masked_source": settings,
                                  "given_back_worked_out": bool(entry["back"]), "frames_read": int(read.sum()), **how})
@@ -2033,6 +2036,44 @@ def flag_mouth(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+#: A face part under this many of the model's tokens tall is small for a face-only pass. A token is 32 px.
+#: UNMEASURED, set between two data points (2026-10-10, the owner's eye on one joined file): a face about 2.9
+#: tokens tall was replaced by a face that did not read as the reference's person, one about 5.1 tokens tall did.
+FACE_TOKENS = 4.0
+TOKEN_PX = 32
+
+
+def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
+    """A run or plan that replaces a face which is only a few of the model's tokens tall.
+
+    Every other reading asks whether the render differs from the source; none asks whether it looks like the
+    reference. A small face can pass all of them and still be nobody in particular. From the saved part of a
+    subject whose part is made of the face class: its height per frame in tokens, the median over the frames
+    that have one. Iffy under `FACE_TOKENS`."""
+    out, w = [], manifest["size"][0]
+    for label in sorted({run["subject"] for run in manifest["runs"]}):
+        seen = next(s for s in manifest["subjects"] if s["label"] == label)["sightings"][0]
+        if "Face_Neck" not in (seen.get("part_is_made_of") or []):
+            continue
+        saved = np.load(folder / "subjects" / label / f"masks__{seen['by']}.npz")
+        parts = np.unpackbits(saved["parts"], axis=-1)[..., :w].astype(bool)
+        tall = [int(np.ptp(np.nonzero(m.any(axis=1))[0])) + 1 for m in parts if m.any()]
+        if not tall:
+            continue
+        tokens = float(np.median(tall)) / TOKEN_PX
+        if tokens < FACE_TOKENS:
+            first = manifest["first_frame"]
+            out.append({"rule": "face_small_in_tokens", "level": LEVELS[1], "subject": label,
+                        "source_frames": [[first, first + manifest["frames"] - 1]],
+                        "why": f"{label}'s face part is {np.median(tall):.0f} px tall at the median, {tokens:.1f} of the model's tokens. A face "
+                               "that small can be replaced by a face that differs from the source and still does not read as the "
+                               "reference's person; no reading here measures likeness to the reference. A tighter canvas on the "
+                               "subject, or a look at the first render before the rest, is the check",
+                        "figures": {"part_height_px_median": float(np.median(tall)), "tokens": round(tokens, 2)},
+                        "threshold": {"FACE_TOKENS": FACE_TOKENS}})
+    return out
+
+
 def flag_keep(manifest: dict, folder: Path) -> list[dict]:
     """Kept pixels of the original inside the subject's own part: expect the original back.
 
@@ -2272,7 +2313,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -2325,6 +2366,12 @@ def preflight(a: argparse.Namespace) -> None:
                            for s in m["subjects"]],
               "shots": shots, "flags": flags,
               "outcomes": "outcomes.json, beside this file: what happened in a render against each flag id, once one exists"}
+    if (folder / "flags.json").is_file() and (folder / "outcomes.json").is_file():
+        # outcomes name flags by the id they had when they were written; a new list renumbers. Keep the list they
+        # were written against (an outcome's own `rule` and `key` say which flag it is in any list)
+        kept = folder / f"flags.before_{datetime.datetime.now().strftime('%Y%m%dT%H%M%S')}.json"
+        shutil.copyfile(folder / "flags.json", kept)
+        print(f"this capture has outcomes: the flag list they were written against is kept as {kept.name}")
     (folder / "flags.json").write_text(json.dumps(record, indent=1) + "\n")
     for f in flags:
         spans_text = ", ".join(f"{x}-{y}" if x != y else str(x) for x, y in f["source_frames"][:8]) + (" ..." if len(f["source_frames"]) > 8 else "")

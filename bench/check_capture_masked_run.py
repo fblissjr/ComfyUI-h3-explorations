@@ -1010,6 +1010,35 @@ def held_tails() -> str:
             "a continuation whose source turns away from its kept frames' pose is named, one that holds its pose is not")
 
 
+def face_sizes() -> str:
+    """A face a few tokens tall is named before a face-only pass; a larger one, or a part that is not a face, is not."""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "subjects" / "a").mkdir(parents=True)
+
+        def manifest(height: int, made=("Face_Neck", "Upper_Lip")) -> dict:
+            parts = rect(40, 8, 80, 8 + height, 6)
+            parts[5] = False                         # a frame with no part does not count
+            np.savez_compressed(folder / "subjects" / "a" / "masks__p.npz", parts=np.packbits(parts, axis=-1), track=np.packbits(parts, axis=-1))
+            return {"size": [W, H], "first_frame": 100, "frames": 6, "runs": [{"name": "r", "subject": "a"}],
+                    "subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": list(made)}]}]}
+
+        token = cap.TOKEN_PX
+        cap.TOKEN_PX = 16                            # this check's canvas is 96 px tall: a token of 16 puts the line at 64 px
+        try:
+            small = cap.flag_face_size(manifest(24), folder)
+            assert [(f["rule"], f["level"], f["figures"]["tokens"]) for f in small] == [("face_small_in_tokens", cap.LEVELS[1], 1.5)], small
+            assert cap.flag_face_size(manifest(int(cap.FACE_TOKENS * 16)), folder) == [], "a face at the line was named"
+            assert cap.flag_face_size(manifest(24, made=("Upper_Clothing",)), folder) == [], "a part that is not a face was sized as one"
+            nobody = manifest(24)
+            nobody["runs"] = []
+            assert cap.flag_face_size(nobody, folder) == [], "a subject no run replaces was sized"
+        finally:
+            cap.TOKEN_PX = token
+    return "a face under the line in tokens is named, with its height; a face at the line, a part that is not a face, and a subject no run replaces are not"
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1042,6 +1071,7 @@ case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
 case("a pass read from the node's own plan", planned_regions)
 case("preflight: the original shown in a held tail", held_tails)
+case("preflight: a face only a few tokens tall", face_sizes)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)
