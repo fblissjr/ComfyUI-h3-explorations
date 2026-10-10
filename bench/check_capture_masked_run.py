@@ -509,11 +509,113 @@ def saved_regions() -> str:
         region, carried, read, how = cap.read_saved_regions(found, 100, 13, (W, H), render_frames=13)
         assert how["left_as_the_source_across_a_cut"] == [111, 112], how
         assert region[9:11, 2, 6].all() and not region[11:13].any() and read[11:13].all(), "a frame across a cut kept its region"
-        # files that do not tile the render are somebody else's
+        # a load shorter than its last window: the window's tail is held frames the render does not write
+        region, carried, read, how = cap.read_saved_regions(found, 100, 13, (W, H), render_frames=11)
+        assert read.tolist() == [True] * 11 + [False] * 2 and not region[11:].any() and how["held_frames_past_the_render"] == 2, how
+        assert how["left_as_the_source_across_a_cut"] == [], "a frame past the render's end was named as across a cut"
+        # a window file after the one that reaches the render's end is an earlier, longer run's
+        vm.save_window_region(str(folder / "pass_window_3_region.npz"), gated_mask, gated_tokens, settings, 8, 40, 5)
+        with_stale = cap.window_region_files(render)
+        region, carried, read, how = cap.read_saved_regions(with_stale, 100, 13, (W, H), render_frames=13)
+        assert read.all() and how["files_of_another_run_left_unread"] == ["pass_window_3_region.npz"], how
+        assert cap.read_saved_regions(with_stale, 100, 13, (W, H))[0] is None, "with no render length, a gap before a stale window was read"
+        # files that do not reach the render's end, or leave a gap, are not this render's
         assert cap.read_saved_regions(found, 100, 13, (W, H), render_frames=21)[0] is None, "a longer render, and its region read"
         assert cap.read_saved_regions(found[1:], 100, 13, (W, H))[0] is None, "a window missing from the front, and its region read"
     return ("two windows tile one run's region, each frame from the window whose video holds it; a frame left as the "
             "source across a cut has none and is named; files that do not fit the render are refused")
+
+
+def graded_holds() -> str:
+    """A fill is taken only where it lies on the part's own classes better than the saved part; neither: emptied."""
+    face = rect(40, 20, 60, 40, 6)                   # the part's class sits here on frames 0 to 3
+    classes = np.where(face, 2, 0).astype(np.uint8)
+    classes[4:] = 0                                  # frames 4 and 5: turned away, no face class at all
+    arm = rect(90, 20, 110, 40, 6)                   # somewhere the class map does not call the part
+    saved = face.copy()
+    saved[1] = arm[1]                                # frame 1: the saved part is off the part (a node's own hold)
+    saved[2] = False                                 # frame 2: the part model lost it
+    saved[4] = arm[4]                                # frame 4: a part on something else, turned away
+    saved[5] = False                                 # frame 5: rightly empty
+    fill = saved.copy()
+    fill[0] = arm[0]                                 # frame 0: the saved part is right and the fill lands on an arm
+    fill[1], fill[2] = face[1], face[2]              # frames 1 and 2: the fill is on the part
+    fill[5] = arm[5]                                 # frame 5: a fill drawn where there is no part
+    out, did = cap.grade_holds(saved, fill, classes, [2])
+    assert (out[0] == saved[0]).all() and did[0]["did"].startswith("saved") and did[0]["fill_on_its_classes"] == 0.0, did[0]
+    assert (out[1] == face[1]).all() and did[1]["did"] == "filled" and did[1]["saved_on_its_classes"] == 0.0, did[1]
+    assert (out[2] == face[2]).all() and did[2] == {"did": "filled", "saved_on_its_classes": None, "fill_on_its_classes": 1.0}, did[2]
+    assert 3 not in did and (out[3] == saved[3]).all(), "a frame nobody doubted was graded"
+    assert not out[4].any() and did[4]["did"] == "emptied", "a saved part on something else was kept"
+    assert not out[5].any() and did[5]["did"] == "emptied" and did[5]["saved_on_its_classes"] is None, did[5]
+    # a fill that is on the part but less so than the saved part does not replace it
+    half = face.copy()
+    half[0, 20:40, 50:70] = True                     # the fill: half on the part, half off, and larger
+    kept, why = cap.grade_holds(face, half, classes, [2])
+    assert (kept[0] == face[0]).all() and why[0]["did"].startswith("saved"), why[0]
+    return ("a fill on an arm is refused where the saved part is right; a fill on the part replaces a saved part that is "
+            "off it or lost; a frame with no part under either is emptied; an undoubted frame is left alone")
+
+
+def verifying() -> str:
+    """The first check of a job: what was written together, at the canvas, over the span, and the two readers."""
+    def video(name: str, at: str, frames: int = 20, size=(W, H)) -> dict:
+        return {"file": name, "written": f"2026-10-10T{at}", "size": list(size), "frames": frames}
+
+    def manifest(inputs: dict, runs: list, at: int = 100, shots: bool = True, classes: bool = True) -> dict:
+        return {"size": [W, H], "first_frame": 100, "frames": 20, "runs": runs, "subjects": [{"label": "a", "sightings": [
+            {"by": "p", "first_source_frame": at, "shots": shots, "classes": "c.mkv" if classes else None, "inputs": inputs}]}]}
+
+    good = {"track": video("t.mkv", "13:44:10"), "parts": video("r.mkv", "13:45:50"), "shots": {"file": "s.json", "written": "2026-10-10T13:44:02"}}
+    agree = {"frames_compared": 20, "cells": 1200, "cells_differing": 0, "frames_differing": [], "carried_overlap_median": 0.994, "carried_overlap_min": 0.99}
+    run = {"name": "r", "planned": False, "subject": "a", "files": ["w1.npz"], "readers": agree}
+    by = lambda checks: {c["check"]: c for c in checks}
+    clean = cap.verify_checks(manifest(good, [run]), [])
+    assert all(c["ok"] for c in clean) and len(clean) == 5, [(c["check"], c["ok"]) for c in clean]
+    # a morning's mask beside an afternoon's: the folder that held two runs under one name
+    mixed = by(cap.verify_checks(manifest({**good, "parts": video("r.mp4", "09:17:00")}, [run]), []))
+    assert mixed["inputs_written_together"]["ok"] is False and "09:17:00" in mixed["inputs_written_together"]["why"], mixed
+    # a pose table from a pass of its own does not make the masks two runs
+    posed = by(cap.verify_checks(manifest({**good, "pose": {"file": "p.json", "written": "2026-10-10T09:00:00"}}, [run]), []))
+    assert posed["inputs_written_together"]["ok"] is True
+    small = by(cap.verify_checks(manifest({**good, "parts": video("r.mkv", "13:45:50", size=(W // 2, H // 2))}, [run]), []))
+    assert small["inputs_at_the_canvas"]["ok"] is False and small["inputs_written_together"]["ok"] is True
+    short = by(cap.verify_checks(manifest({**good, "track": video("t.mkv", "13:44:10", frames=12)}, [run]), []))
+    assert short["inputs_reach_the_span"]["ok"] is False and "111" in short["inputs_reach_the_span"]["why"], short
+    late = by(cap.verify_checks(manifest(good, [run], at=104), []))
+    assert late["inputs_reach_the_span"]["ok"] is False, "masks that start after the span's first frame were let through"
+    old = by(cap.verify_checks(manifest(None, [run]), []))
+    assert old["inputs_written_together"]["ok"] is None, "a capture with no recorded inputs was passed"
+    # the readers: a region that differs, a render with no saved files, files that were refused
+    off = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "cells_differing": 30, "frames_differing": [[3, 4]]}}]), []))
+    assert off["region_saved_against_region_read_back"]["ok"] is False
+    loose = by(cap.verify_checks(manifest(good, [{**run, "readers": {**agree, "carried_overlap_median": 0.9}}]), []))
+    assert loose["region_saved_against_region_read_back"]["ok"] is False
+    none = by(cap.verify_checks(manifest(good, [{"name": "r", "planned": False, "subject": "a"}]), []))
+    assert none["region_saved_against_region_read_back"]["ok"] is None, "a render with no saved files was called verified"
+    refused = by(cap.verify_checks(manifest(good, [{"name": "r", "planned": False, "subject": "a", "saved_regions_refused": "a gap"}]), []))
+    assert refused["region_saved_against_region_read_back"]["ok"] is False
+    # a plan that carries a part needs the class map; a track empty in a taken shot fails; no shot table cannot be checked
+    plan_run = {"name": "pl", "planned": True, "subject": "a", "carried_is": "the part"}
+    assert by(cap.verify_checks(manifest(good, [plan_run], classes=False), []))["class_map_for_a_planned_part"]["ok"] is False
+    assert by(cap.verify_checks(manifest(good, [plan_run]), []))["class_map_for_a_planned_part"]["ok"] is True
+    empty = {"rule": "track_empty_in_a_taken_shot", "subject": "a", "seen_by": "p", "source_frames": [[104, 105]], "why": "no mask"}
+    assert by(cap.verify_checks(manifest(good, [run]), [empty]))["track_where_the_shot_table_says_taken"]["ok"] is False
+    assert by(cap.verify_checks(manifest({k: v for k, v in good.items() if k != "shots"}, [run], shots=False), []))[
+        "track_where_the_shot_table_says_taken"]["ok"] is None
+    # the comparison itself: one cell and a shaved mask
+    region = np.zeros((4, H // 16, W // 16), bool)
+    region[:, 2, 3] = True
+    carried = rect(40, 30, 80, 70)
+    other, shaved = region.copy(), rect(41, 30, 80, 70)
+    other[1, 4, 4] = True
+    read = np.array([True, True, True, False])
+    got = cap.readers_agreement((region, carried, read), (other, shaved, np.ones(4, bool)))
+    assert got["frames_compared"] == 3 and got["cells_differing"] == 1 and got["frames_differing"] == [[1, 1]], got
+    assert 0.97 < got["carried_overlap_median"] < 0.98, got
+    assert cap.VERIFY_FAILED not in (0, 1, 2, cap.GATE_BLOCKED)
+    return ("masks of two runs, another canvas, short of the span or late are each named; a pose table of its own pass is not; "
+            "a region that differs, refused files or no saved files do not pass; a check that cannot be made is not a pass")
 
 
 def _body(subject: str, box: str = "given", left: bool = True, right: bool = True, outside: int = 0) -> dict:
@@ -558,8 +660,26 @@ def pose_tables() -> str:
     assert next(f for f in alone if f["rule"] == "pose_fitted_to_the_whole_frame")["level"] == cap.LEVELS[1], "nobody else in frame, and top level"
     assert not any(f["rule"] == "hand_not_refined" for f in alone), "refinement off, and a hand flagged as not refined"
     assert cap.flag_pose("a", "run", cap.pose_rows(table, "a", 100, 1), masks[:0], {100}, True) == [], "a clean frame was flagged"
+    # what a body is doing, from 3D keypoints: x to the image's right, y down, z away from the camera
+    k = np.zeros((70, 3))
+    k[5], k[6], k[9], k[10] = (0.2, 0.0, 3.0), (-0.2, 0.0, 3.0), (0.15, 0.5, 3.0), (-0.15, 0.5, 3.0)   # shoulders, hips: facing the camera
+    k[3], k[4], k[0] = (0.0, -0.25, 3.08), (0.0, -0.25, 2.92), (0.1, -0.25, 3.0)    # ears and nose: the head turned side-on
+    k[41], k[62] = (0.1, -0.2, 3.0), (0.3, 0.5, 3.0)                               # right wrist by the nose, left wrist at the hip
+    state = cap.pose_state(k)
+    assert abs(state["body_yaw"]) < 0.5 and abs(state["hip_yaw"]) < 0.5, state
+    assert abs(abs(state["head_yaw"]) - 90) < 0.5 and abs(state["head_lift"]) < 0.5, state
+    assert state["right_wrist_to_nose"] < 0.15 and state["left_wrist_to_nose"] > 1.4, state
+    lifted = k.copy()
+    lifted[0] = (0.1, -0.35, 3.0)                    # the nose above the ears' line: the chin up
+    assert cap.pose_state(lifted)["head_lift"] > 30, cap.pose_state(lifted)
+    far = k * 3.0                                    # the same pose three times as far and as large
+    assert cap.pose_state(far) == state, "the same pose at another distance reads differently"
+    with_3d = {**table, "frames": [{"frame": 0, "source_frame": 100, "people": [{**_body("a"), "keypoints_3d": k.tolist()}]}]}
+    assert cap.pose_rows(with_3d, "a", 100, 1)[0]["right_wrist_to_nose"] == state["right_wrist_to_nose"]
+    assert "head_yaw" not in rows[0], "a table with no 3D keypoints grew a facing"
     return ("a subject's bodies by name and frame, under `at` and under one other name; the whole-frame box is top level only "
-            "with another subject in frame; two bodies, no body, an unrefined hand and a body mostly out of frame are named")
+            "with another subject in frame; two bodies, no body, an unrefined hand and a body mostly out of frame are named; "
+            "from 3D keypoints the body's and the head's facing, the chin's lift and a hand at the face, the same at any distance")
 
 
 def loads() -> str:
@@ -694,6 +814,8 @@ case("what lies under a doubted part", under_a_doubted_part)
 case("the look between the original and a render that held", the_look)
 case("preflight: a region carried across a cut", across_a_cut)
 case("a run's region from the files its windows saved", saved_regions)
+case("a fill of a doubted part, graded by the class map", graded_holds)
+case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)
 case("a pass as a list of loads", loads)
 case("preflight: the gate and its override", the_gate)

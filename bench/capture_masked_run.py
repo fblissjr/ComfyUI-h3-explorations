@@ -44,6 +44,9 @@ saves every mask output through `MaskToImage` writes exactly these. What it writ
                              pose_table__<by>.json and pose__<by>.csv / .json, a row a frame: whose box
                              the body was fitted to, which hands the hand decoder refined, how many
                              keypoints fall outside the frame, how many bodies carry this subject's name;
+                             and, from a table with 3D keypoints, what the body is doing (`pose_state`):
+                             which way the body, the hips and the head face, the chin's lift, and each
+                             wrist's distance from the nose in torso units (a hand at the face);
                              with a class map (`classes=`): classes__<by>.npz and segments.csv / .json, the
                              pixels of each segment `<label>.<class>` per frame; segments_whose.csv / .json,
                              how many of them lie inside the subject's own track, another's, or neither
@@ -81,6 +84,17 @@ With a pose table (`pose=` on `--mask`), before its mesh is used as a motion vid
 frame and not to the subject's box, top level when another subject is in the frame; several bodies under one
 name; a frame with a mask and no body; a hand the hand decoder did not refine; a body mostly outside the frame
 (`flag_pose`).
+
+**verify** is the first check of a job, before any plan is trusted: does the capture read what the nodes wrote.
+It reads the capture folder only and writes `verify.json`; exit 0 when every check held, `VERIFY_FAILED` when
+one did not or could not be made (a check that cannot run is not a pass). The checks: every mask video of a
+sighting was written in one run (`WRITTEN_TOGETHER_S`: a folder that holds two previews under one name is
+how a morning's mask gets loaded in the afternoon), is at the capture's canvas and reaches the span; a
+subject's track is not empty on frames its shot table says it was taken in; a plan that carries a part has
+that subject's class map; and for every rendered run, the region the windows SAVED against the region read
+back from the review picture, cell for cell, with the carried mask's agreement (`files` reads both when both
+exist and keeps the comparison). The saved files are what the node gave the sampler; the review reader is
+what every capture of a render without them rests on.
 
 **The gate.** `flags.json` carries a `verdict`: `blocked` while any flag at the top level has not been
 overridden, else `clear`, with the blocking flags' ids in `blocking`. `preflight --gate` exits `GATE_BLOCKED`
@@ -126,7 +140,10 @@ mask, frame 0 the span's first frame), so a render can load exactly what was loo
 the part as the preview saved it; `parts_held__<by>.mkv` is the same with the frames the gate doubts (empty on
 the subject, a jump in size, moved within the subject's box) filled from their undoubted neighbours
 (`held_parts`). A part can be rightly empty, so look first and pass `hold=FIRST-LAST+FIRST-LAST` in the
-`--mask` spec to fill only the source frames you chose; without it every doubted frame in reach is filled.
+`--mask` spec to fill only the source frames you chose; without it every doubted frame in reach is offered a
+fill. With a class map every offer is graded (`grade_holds`, `part_grades.json`): the fill is taken only
+where it lies on the part's own classes better than the saved part does, and a frame where neither does is
+emptied; `grade=off` in the spec leaves the fill ungraded.
 `drop=FIRST-LAST+FIRST-LAST` empties the part on source frames where it should take nothing (it lies on
 something that is not the part and there is nothing to fill it from). A plan with `carried=held` works its
 region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
@@ -362,6 +379,49 @@ def segments_in_region(first: int, region: np.ndarray, carried: np.ndarray, clas
                 row[f"{label}.{names[k]}__cells"] = int((cells_any((cmap[n] == k)[None])[0] & region[n]).sum())
         rows.append(row)
     return rows
+
+
+#: A part mask with under this share of its pixels on the part's own classes is not on the part. Measured on two
+#: shots of a face on a subject who spins (2026-10-10): a part that was on the face read 0.92 to 1.0; a fill,
+#: the node's or this tool's, that lay on a raised arm, a hat or the back of a head read 0.0 to 0.78, and every
+#: one of those over a half had a saved part beside it that read higher. The bar is a half, with "the higher
+#: of the two" doing the rest.
+HOLD_INSIDE = 0.5
+
+
+def grade_holds(parts: np.ndarray, filled: np.ndarray, classes: np.ndarray, made: list[int]) -> tuple[np.ndarray, dict[int, dict]]:
+    """The part to load, frame by frame, from the saved part and a proposed fill, graded by the class map.
+
+    A fill takes a neighbour's shape to a frame the gate doubted. On a fast turn the doubted part was right
+    and the neighbour's shape lands on an arm or the back of a head (`data/CAPTURE_GAPS.md`, 39). So each is
+    scored by the share of its pixels on the part's own classes (`made`) on that frame: the fill is taken
+    only where it scores at least `HOLD_INSIDE` and above the saved part; else the saved part stays where
+    it scores at least `HOLD_INSIDE`; else the frame is emptied, because nothing of the part is under
+    either (turned away, hidden, a blur) and the original there is better than a part drawn on something
+    else. Returns the mask and, for every frame where a fill was offered or the saved part was emptied,
+    what was done and both scores.
+
+    What it cannot see: a frame where the class map itself is wrong. A class map that calls a blurred
+    figure the part's class scores the saved part high; `drop=` is still the caller's."""
+    own = np.isin(classes, made)
+    out, decisions = parts.copy(), {}
+
+    def inside(mask: np.ndarray, f: int) -> float | None:
+        return round(float((mask & own[f]).sum() / mask.sum()), 3) if mask.any() else None
+
+    for f in range(len(parts)):
+        offered = bool((filled[f] != parts[f]).any())
+        saved, fill = inside(parts[f], f), inside(filled[f], f) if offered else None
+        if not offered and (saved is None or saved >= HOLD_INSIDE):
+            continue
+        if offered and fill is not None and fill >= HOLD_INSIDE and fill > (saved or 0.0):
+            out[f], did = filled[f], "filled"
+        elif saved is not None and saved >= HOLD_INSIDE:
+            did = "saved part kept, fill refused"
+        else:
+            out[f], did = False, "emptied"
+        decisions[f] = {"did": did, "saved_on_its_classes": saved, "fill_on_its_classes": fill}
+    return out, decisions
 
 
 def part_classes(parts: np.ndarray, classes: np.ndarray, names: tuple[str, ...]) -> list[int]:
@@ -617,8 +677,10 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
     those were not laid. Under `only what changed` the composite keeps less than this; the review reader
     cannot see that either, and `how` names the composite. The load's frame 0 is source frame `at`.
 
-    Returns what `read_region` does. Refuses (None) when the windows do not tile the render from its first
-    frame to `render_frames`: files left by an earlier, longer run are not this render's."""
+    Returns what `read_region` does. The last window of a load can run past the load's last frame (its tail
+    is held frames, which the render does not write): frames past `render_frames` are dropped, and window
+    files after the one that reaches the render's end are an earlier, longer run's and are left unread and
+    named. Refuses (None) when the windows leave a gap or stop short of the render's end."""
     import torch
     vm = _pack("video_mask")
     w, h = size
@@ -626,7 +688,10 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     at = first if at is None else int(at)
     end, across, names, composite = 0, [], [], None
+    last = None if render_frames is None else int(render_frames)
     for f in files:
+        if last is not None and end >= last:
+            break
         got = vm.load_window_region(str(f))
         start, trim, mask, tokens = got["first_frame"], got["trim"], got["mask"], got["tokens"]
         count = int(mask.shape[0])
@@ -637,7 +702,7 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
         if tuple(mask.shape[1:]) != (h, w):
             mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
-        for k in range(trim, count):
+        for k in range(trim, count if last is None else min(count, last - start)):
             n = at + start + k - first
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy(), (mask[k] > 0.5).numpy(), True
@@ -645,10 +710,12 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
                 across.append(at + start + k)
         end, composite = start + count, got["source"].get("composite")
         names.append(f.name)
-    if render_frames is not None and end != int(render_frames):
+    if last is not None and end < last:
         return None, None, None, {"refused": f"the windows' files cover {end} frames and the render has {render_frames}"}
     return region, carried, read, {"read_from": "the region each window saved beside its latent", "files": names, "legend_px": None,
-                                   "composite": composite, "left_as_the_source_across_a_cut": across}
+                                   "composite": composite, "left_as_the_source_across_a_cut": across,
+                                   "held_frames_past_the_render": 0 if last is None else max(end - last, 0),
+                                   "files_of_another_run_left_unread": [f.name for f in files if f.name not in names]}
 
 
 def graph_of(render: str) -> dict | None:
@@ -814,6 +881,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         held_frames: list[int] = []
         left_frames: list[int] = []
         dropped: list[list[int]] = []
+        refused: list[int] = []
+        emptied_by_grade: list[int] = []
         if parts is not None:
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
@@ -824,6 +893,14 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     names = _pack("sapiens2_parts").CLASS_NAMES
                     every, doubted, _ = held_parts(track, parts, mine)
                     made = [names.index(c) for c in made_of.get(label, [])]
+                    if m.get("grade") != "off":
+                        held, graded = grade_holds(parts, held, class_maps[label], made)
+                        held_frames = [f for f, d in graded.items() if d["did"] == "filled"]
+                        refused = [first + f for f, d in graded.items() if d["did"].startswith("saved")]
+                        emptied_by_grade = [first + f for f, d in graded.items() if d["did"] == "emptied"]
+                        (folder / "part_grades.json").write_text(json.dumps(
+                            {"subject": label, "seen_by": by, "bar": HOLD_INSIDE, "part_is_made_of": made_of.get(label),
+                             "frames": [{"source_frame": first + f, **d} for f, d in sorted(graded.items())]}, indent=1) + "\n")
                     others_now = [t for other, seen in sightings.items() if other != label and other in class_maps
                                   for t in [next(iter(seen.values()))[0]]]
                     what = under_doubted(made, names.index("Hair"), every, doubted, class_maps[label], others_now)
@@ -858,11 +935,14 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
                                    "frames_covered": int(covered.sum()), "pose": posed,
+                                   "inputs": {k: input_facts(m[k]) for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
                                    "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
                                    "parts_doubted_and_left_on_source_frames": frame_spans([first + f for f in left_frames]),
-                                   "parts_emptied_on_source_frames": dropped})
+                                   "parts_emptied_on_source_frames": dropped,
+                                   "parts_fill_refused_by_grade_on_source_frames": frame_spans(refused),
+                                   "parts_emptied_by_grade_on_source_frames": frame_spans(emptied_by_grade)})
         print(f"subject {label} seen by {by}: {int(covered.sum())} of {frames} frames covered, "
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
     for label, seen in sightings.items():
@@ -911,6 +991,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 region, carried, read, how = read_saved_regions(saved, first, frames, size, r.get("at"), probe(r["render"])[2])
                 if region is None:
                     print(f"run {name}: the windows' saved regions are not this render's ({how['refused']}); reading the review")
+                elif Path(r["render"][:-len(".mp4")] + "_with_mask.mp4").is_file():
+                    # both readers on the same frames: what the node saved against what the review picture gives back
+                    back = read_region(r["render"], a.source, first, frames, size, r.get("at"))
+                    how["readers"] = readers_agreement((region, carried, read), back[:3])
             if region is None:
                 refused = (how or {}).get("refused") if saved else None
                 region, carried, read, how = read_region(r["render"], a.source, first, frames, size, r.get("at"))
@@ -1017,6 +1101,128 @@ LEVELS = ("likely fine", "iffy", "likely to fail")
 GATE_BLOCKED = 3
 
 
+#: `verify`'s exit status when a check failed or could not be made. Reasoned: beside GATE_BLOCKED, not 1 or 2.
+VERIFY_FAILED = 4
+#: Mask videos of one sighting written further apart than this are from different runs. Reasoned, not
+#: measured: a no-sampling preview writes all its masks within a few minutes; half an hour is far outside one.
+WRITTEN_TOGETHER_S = 1800
+#: The two readers of a run's region agree when at most this share of cells differs, and the carried mask's
+#: median overlap is at least `READERS_CARRIED`. Measured once, on a two-window render of 154 frames
+#: (2026-10-10): no cell of 473,088 differed and the overlap was 0.994; the bars are set a little under that.
+READERS_CELLS = 0.001
+READERS_CARRIED = 0.98
+
+
+def input_facts(path: str) -> dict:
+    """What `verify` needs to know of one input file: its name, when it was written and, for a video, its size."""
+    p = Path(path)
+    facts = {"file": p.name, "written": datetime.datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds")}
+    if p.suffix.lower() in (".mkv", ".mp4", ".mov", ".webm"):
+        w, h, n = probe(path)
+        facts.update(size=[w, h], frames=n)
+    return facts
+
+
+def readers_agreement(saved: tuple, review: tuple) -> dict:
+    """The region and carried mask a run's windows saved against those read back from its review, on the frames both read."""
+    (region, carried, read), (region2, carried2, read2) = saved, review
+    both = read & read2
+    differ = (region != region2) & both[:, None, None]
+    overlap = [float((a & b).sum() / max((a | b).sum(), 1)) for a, b, ok in zip(carried, carried2, both) if ok and (a.any() or b.any())]
+    return {"frames_compared": int(both.sum()), "cells": int(region[both].size), "cells_differing": int(differ.sum()),
+            "frames_differing": frame_spans(np.nonzero(differ.any(axis=(1, 2)))[0].tolist()),
+            "carried_overlap_median": round(float(np.median(overlap)), 4) if overlap else None,
+            "carried_overlap_min": round(float(min(overlap)), 4) if overlap else None}
+
+
+def verify_checks(manifest: dict, track_flags: list[dict]) -> list[dict]:
+    """Every check `verify` makes, each `{"check", "about", "ok", "why"}`; `ok` is None when it could not be made.
+
+    `track_flags` are `flag_track`'s for every sighting: a track empty inside a shot it was taken in."""
+    out = []
+
+    def add(check: str, about: str, ok: bool | None, why: str, **more) -> None:
+        out.append({"check": check, "about": about, "ok": ok, "why": why, **more})
+
+    size, first, frames = manifest["size"], manifest["first_frame"], manifest["frames"]
+    for s in manifest["subjects"]:
+        for seen in s["sightings"]:
+            about, given = f"{s['label']} by {seen['by']}", seen.get("inputs")
+            if not given:
+                add("inputs_written_together", about, None, "this capture was made before inputs were recorded: run `files` again")
+                continue
+            videos = {k: v for k, v in given.items() if "size" in v}
+            # a pose table may come from a pass of its own; the masks and the shot table are one preview's
+            given = {k: v for k, v in given.items() if k != "pose"}
+            times = sorted(datetime.datetime.fromisoformat(v["written"]) for v in given.values())
+            spread = (times[-1] - times[0]).total_seconds()
+            add("inputs_written_together", about, spread <= WRITTEN_TOGETHER_S,
+                f"written within {int(spread)} s of each other" if spread <= WRITTEN_TOGETHER_S else
+                f"written {int(spread)} s apart: {', '.join(v['file'] + ' at ' + v['written'][11:] for v in given.values())}. "
+                "They are not one run's", seconds=int(spread))
+            wrong = [f"{v['file']} is {v['size'][0]}x{v['size'][1]}" for v in videos.values() if v["size"] != size]
+            add("inputs_at_the_canvas", about, not wrong, "; ".join(wrong) + f"; the capture is {size[0]}x{size[1]} and a mask of "
+                "another size is resized without a word" if wrong else f"every mask video is {size[0]}x{size[1]}")
+            at = seen["first_source_frame"]
+            short = [f"{v['file']} ends on source frame {at + v['frames'] - 1}" for v in videos.values() if at + v["frames"] < first + frames]
+            add("inputs_reach_the_span", about, not short and at <= first, ("; ".join(short) or f"the masks start on source frame {at}")
+                + f"; the span is {first}-{first + frames - 1}" if short or at > first else f"every mask video covers {first}-{first + frames - 1}")
+    for f in track_flags:
+        add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", False, f["why"], source_frames=f["source_frames"])
+    if not track_flags:
+        tables = [s["label"] for s in manifest["subjects"] if any(x.get("shots") for x in s["sightings"])]
+        add("track_where_the_shot_table_says_taken", ", ".join(tables) or "no subject", True if tables else None,
+            "no track is empty inside a shot it was taken in" if tables else "no sighting has a shot table: nothing says where a track should be")
+    classed = {s["label"] for s in manifest["subjects"] if any(x.get("classes") for x in s["sightings"])}
+    for run in manifest["runs"]:
+        if run.get("planned") and run.get("carried_is") in ("the part", "the held part"):
+            add("class_map_for_a_planned_part", run["name"], run["subject"] in classed,
+                f"{run['subject']} has a class map" if run["subject"] in classed else
+                f"plan {run['name']} carries {run['subject']}'s part and {run['subject']} has no class map: what the part is made of, "
+                "and what else lies inside the region, cannot be read")
+        if run.get("planned"):
+            continue
+        got = run.get("readers")
+        if run.get("saved_regions_refused"):
+            add("region_saved_against_region_read_back", run["name"], False, "the windows' saved files are not this render's: " + run["saved_regions_refused"])
+        elif not run.get("files"):
+            add("region_saved_against_region_read_back", run["name"], None,
+                "the render saved no region files (made before the song node wrote them): its region is a reading of the review only")
+        elif not got:
+            add("region_saved_against_region_read_back", run["name"], None, "the render has no review video to read back, or `files` was run before it compared the two")
+        else:
+            share = got["cells_differing"] / max(got["cells"], 1)
+            ok = share <= READERS_CELLS and (got["carried_overlap_median"] or 0) >= READERS_CARRIED
+            add("region_saved_against_region_read_back", run["name"], ok,
+                f"{got['cells_differing']} of {got['cells']} cells differ on {got['frames_compared']} frames; the carried mask overlaps at "
+                f"{got['carried_overlap_median']} (lowest {got['carried_overlap_min']})"
+                + ("" if ok else f"; frames that differ: {got['frames_differing'][:8]}"), **got)
+    return out
+
+
+def verify(a: argparse.Namespace) -> None:
+    folder = Path(a.capture)
+    m = json.loads((folder / "manifest.json").read_text())
+    track_flags = []
+    for s in m["subjects"]:
+        rows = json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
+        for seen in s["sightings"]:
+            path = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
+            if path.is_file():
+                track_flags += flag_track(s["label"], seen["by"], [r for r in rows if r["seen_by"] == seen["by"]],
+                                          json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
+    checks = verify_checks(m, track_flags)
+    failed, unmade = [c for c in checks if c["ok"] is False], [c for c in checks if c["ok"] is None]
+    verdict = "does not read what the nodes wrote" if failed else "not verified: a check could not be made" if unmade else "reads what the nodes wrote"
+    (folder / "verify.json").write_text(json.dumps({"capture": m["name"], "verdict": verdict, "failed": len(failed), "not_made": len(unmade),
+                                                    "written": datetime.datetime.now().isoformat(timespec="seconds"), "checks": checks}, indent=1) + "\n")
+    for c in checks:
+        print(f"{'ok  ' if c['ok'] else 'FAIL' if c['ok'] is False else '??  '}  {c['check']}  [{c['about']}]\n      {c['why']}")
+    print(f"verify: {verdict}; wrote {folder / 'verify.json'}")
+    if failed or unmade:
+        sys.exit(VERIFY_FAILED)
+
+
 def flag_key(flag: dict) -> str:
     """What a flag is about, apart from its number: the rule, the subject or run and other it names, its frames.
 
@@ -1109,6 +1315,27 @@ POSE_SCHEMA = "h3_body_pose_table/1"
 POSE_OUTSIDE = 1 / 3
 
 
+def pose_state(keypoints_3d) -> dict:
+    """What a body is doing on one frame, from its 70 keypoints in the camera's frame: the columns a state is read from.
+
+    The angles are `bench/measure_subject_yaw.py`'s own (`yaw_of`, `head_lift`), one definition: 0 toward the
+    camera, 90 side-on, 180 away, from the shoulders (`body_yaw`), the hips and the ears (`head_yaw`);
+    `head_lift` is the nose above the line between the ears, in degrees. `*_wrist_to_nose` is a wrist's
+    distance from the nose in units of the torso (hips to shoulders), so a hand at the face reads small at
+    any size or distance. Whether the hand's own fingers can be trusted is the row's `*_hand_refined`."""
+    import measure_subject_yaw as facing
+    k, j = np.asarray(keypoints_3d, dtype=np.float64), facing.BODY_JOINTS
+    torso = float(np.linalg.norm((k[j["left_shoulder"]] + k[j["right_shoulder"]]) / 2 - (k[j["left_hip"]] + k[j["right_hip"]]) / 2))
+    head = {name: k[j[name]].tolist() for name in ("left_ear", "right_ear", "nose")}
+    out = {"body_yaw": round(facing.yaw_of(k, j["left_shoulder"], j["right_shoulder"]), 1),
+           "hip_yaw": round(facing.yaw_of(k, j["left_hip"], j["right_hip"]), 1),
+           "head_yaw": round(facing.yaw_of(k, j["left_ear"], j["right_ear"]), 1),
+           "head_lift": facing.head_lift({"in_body": head})}
+    for side in ("left", "right"):
+        out[f"{side}_wrist_to_nose"] = round(float(np.linalg.norm(k[j[f"{side}_wrist"]] - k[j["nose"]])) / max(torso, 1e-6), 3)
+    return out
+
+
 def pose_rows(table: dict, label: str, first: int, frames: int, at: int | None = None) -> list[dict]:
     """A subject's rows of a pose table over a span: one a frame the table has, in the span's numbering.
 
@@ -1136,6 +1363,8 @@ def pose_rows(table: dict, label: str, first: int, frames: int, at: int | None =
             for side in ("left_hand", "right_hand"):
                 row[f"{side}_refined"] = bool(p[side]["decoder_used"])
                 row[f"{side}_crop_px"] = p[side]["crop_side_px"]
+            if p.get("keypoints_3d"):
+                row.update(pose_state(p["keypoints_3d"]))
         if other:
             row["named_in_table"] = other
         rows.append(row)
@@ -2509,7 +2738,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "
@@ -2537,6 +2766,8 @@ def main() -> None:
     v.add_argument("--windows", help="the render frames where each window's new frames start, e.g. 0,345")
     v.add_argument("--all-runs", action="store_true", help="draw every run's region, also when --render is one run's")
     v.add_argument("--out")
+    v = sub.add_parser("verify", help=f"does the capture read what the nodes wrote: writes verify.json, exits {VERIFY_FAILED} when not")
+    v.add_argument("capture")
     g = sub.add_parser("preflight", help="the risks in a capture folder, before a render: writes flags.json")
     g.add_argument("capture")
     g.add_argument("--not-in", action="append", default=[], metavar="LABEL:FIRST-LAST",
@@ -2587,7 +2818,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
+    {"files": files, "video": video, "verify": verify, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":
