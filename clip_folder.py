@@ -24,7 +24,10 @@ the rest (`verify`). `derived` is the every-frame copy at the model's rate that 
 way: it is a file made from the input, not a second input. `masks` is every mask video in the folder with
 the size it has and the source frame its first frame is on, so that a reader need not trust a file's name.
 `fingerprint` is one hash over everything a render reads from the folder (`fingerprint`); it changes when
-any of that changes and for no other reason, and a render carries it in its own keys.
+any of that changes and for no other reason, and a render carries it in its own keys. The value in the file
+is the one worked out when the manifest was last written; `profile.json` and the cast are hashed into it and
+are written by others, so the file's value can be behind. `read_manifest` therefore returns the fingerprint
+as it is NOW, and a reader takes it from there and never from the file.
 
 **One clock.** Every frame number in the folder (a mask's `first_source_frame`, a shot's frames, a load's) is
 a frame of the file the masks were made from: the `derived` copy when the manifest has one, else the source.
@@ -37,6 +40,7 @@ A job renders from that same file, so a job's frame numbers are the folder's.
 """
 from __future__ import annotations
 
+import glob
 import hashlib
 import json
 import os
@@ -105,7 +109,8 @@ def find_source(name: str, input_folder: Path) -> Path:
     direct = Path(input_folder) / name
     if direct.is_file():
         return direct
-    found = sorted(p for p in Path(input_folder).rglob(name) if p.is_file())
+    # the name is a name, not a pattern: a bracket in it must not be read as a character class
+    found = sorted(p for p in Path(input_folder).rglob(glob.escape(name)) if p.is_file())
     if len(found) == 1:
         return found[0]
     if not found:
@@ -120,9 +125,11 @@ def read_manifest(folder: Path) -> dict:
         raise Refused(f"{folder} holds no {MANIFEST}: this video has not been analysed. Run "
                       f"bench/clip_analysis.py on it first.")
     manifest = json.loads(path.read_text())
-    if manifest.get("schema") != SCHEMA or manifest.get("version") != VERSION:
-        raise Refused(f"{path} is {manifest.get('schema')!r} version {manifest.get('version')!r}; this code reads "
-                      f"{SCHEMA!r} version {VERSION}")
+    if not isinstance(manifest, dict) or manifest.get("schema") != SCHEMA or manifest.get("version") != VERSION:
+        said = (manifest.get("schema"), manifest.get("version")) if isinstance(manifest, dict) else ("not a manifest", None)
+        raise Refused(f"{path} is {said[0]!r} version {said[1]!r}; this code reads {SCHEMA!r} version {VERSION}")
+    check_manifest(manifest)
+    manifest["fingerprint"] = fingerprint(folder, manifest)
     return manifest
 
 
@@ -156,8 +163,12 @@ def folder_of_file(name: str, data: Path) -> Path:
     finds its video's folder from that file's name alone."""
     held = []
     for path in sorted(Path(data).glob(f"*/{MANIFEST}")):
-        manifest = json.loads(path.read_text())
-        if manifest.get("schema") == SCHEMA and name in ((manifest.get("source") or {}).get("name"),
+        # other tools keep a manifest.json of their own under data/: only a folder of this schema is one of ours
+        try:
+            manifest = json.loads(path.read_text())
+        except ValueError:
+            continue
+        if isinstance(manifest, dict) and manifest.get("schema") == SCHEMA and name in ((manifest.get("source") or {}).get("name"),
                                                          (manifest.get("derived") or {}).get("name")):
             held.append(path.parent)
     if len(held) == 1:
@@ -191,7 +202,15 @@ def verify(manifest: dict, path: Path, frames: bool = False) -> None:
 
 
 def check_manifest(manifest: dict) -> None:
-    """Refuse a manifest a reader could misread: an unknown mask kind, a mask with no size or first frame."""
+    """Refuse a manifest a reader could misread: a source or a copy lacking a field of its identity, an
+    unknown mask kind, a mask with no size or first frame, a mask named by a path."""
+    for block in ("source", "derived"):
+        about = manifest.get(block)
+        if about is None and block == "derived":
+            continue
+        lacking = [k for k in ("name", "bytes", "frames", "rate", "size", "head_sha256") if not isinstance(about, dict) or k not in about]
+        if lacking:
+            raise Refused(f"the manifest's `{block}` lacks {', '.join(lacking)}")
     for n, mask in enumerate(manifest.get("masks") or []):
         lacking = [k for k in ("subject", "kind", "file", "size", "first_source_frame", "frames", "sha256", "by") if k not in mask]
         if lacking:
@@ -244,6 +263,9 @@ def write_manifest(folder: Path, manifest: dict) -> dict:
 
 def read_hand(folder: Path, job: str, load: str) -> tuple[dict, str]:
     """A load's hand-set layer and the hash a render carries for it: `({}, "none")` when there is no such file."""
+    for what, name in (("job", job), ("load", load)):
+        if not name or name in (".", "..") or any(sep in name for sep in ("/", "\\")):
+            raise Refused(f"the {what} is named {name!r}: a name, with no path in it")
     path = Path(folder) / "jobs" / job / f"{load}.hand.json"
     if not path.is_file():
         return {}, "none"

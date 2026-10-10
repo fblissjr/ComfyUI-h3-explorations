@@ -94,6 +94,10 @@ def a_video_is_found_by_its_name():
         _refused(lambda: cf.find_source("a/deep/song.mov", tmp), "path")
         _refused(lambda: cf.find_source("absent.mp4", tmp), "absent.mp4")
         _refused(lambda: cf.find_source("twice.mp4", tmp), "2 files", "a/twice.mp4", "b/twice.mp4")
+        # a name is a name: brackets in it are not a pattern (found by the node's author reading this cold)
+        (tmp / "a" / "clip [final].mp4").write_bytes(b"x")
+        (tmp / "a" / "clip f.mp4").write_bytes(b"x")
+        assert cf.find_source("clip [final].mp4", tmp) == tmp / "a" / "clip [final].mp4", "a bracketed name below the input folder"
 
 
 def the_folder_is_named_by_the_file_name():
@@ -183,6 +187,12 @@ def the_fingerprint_moves_with_what_a_render_reads_and_with_nothing_else():
         same = [why for why, value in moved.items() if value == was]
         assert not same and len(set(moved.values())) == len(moved), f"the fingerprint did not move for: {same or 'two different changes'}"
         assert cf.read_manifest(folder)["fingerprint"] == moved["another source"], "the manifest on disk does not carry the fingerprint written"
+        # the file's value falls behind when somebody else writes the profile; a reader is given the value as it is now
+        (folder / "profile.json").write_text('{"loads": {"y": {}}}')
+        on_disk = json.loads((folder / cf.MANIFEST).read_text())["fingerprint"]
+        now = cf.read_manifest(folder)["fingerprint"]
+        assert on_disk == moved["another source"] and now != on_disk and now == cf.fingerprint(folder, cf.read_manifest(folder)), \
+            "a reader is handed the fingerprint of the last write, not of what is in the folder"
 
 
 def a_manifest_a_reader_could_misread_is_refused():
@@ -200,6 +210,20 @@ def a_manifest_a_reader_could_misread_is_refused():
         _refused(lambda: cf.read_manifest(folder), "version")
         (folder / cf.MANIFEST).write_text(json.dumps({"schema": "something else", "version": cf.VERSION}))
         _refused(lambda: cf.read_manifest(folder), "something else")
+        # what the writer refuses the reader refuses too: a manifest somebody else wrote is not taken on trust
+        written = cf.write_manifest(folder, {"source": source, "masks": [good]})
+        for label, wrong, word in (("a mask of an unknown kind", {**written, "masks": [dict(good, kind="nonsense")]}, "nonsense"),
+                                   ("a mask named by a path", {**written, "masks": [dict(good, file="../x.mkv")]}, "relative"),
+                                   ("a source with no frame count", {**written, "source": {k: v for k, v in source.items() if k != "frames"}}, "frames"),
+                                   ("a list", [1, 2], "not a manifest")):
+            (folder / cf.MANIFEST).write_text(json.dumps(wrong))
+            _refused(lambda: cf.read_manifest(folder), word)
+        # and another tool's manifest.json under data/, of any shape, is not ours and stops nothing
+        (folder / cf.MANIFEST).write_text(json.dumps(written))
+        for name, body in (("a_capture", '{"name": "x", "frames": 3}'), ("a_list", "[1, 2]"), ("broken", "{")):
+            (folder.parent / name).mkdir()
+            (folder.parent / name / cf.MANIFEST).write_text(body)
+        assert cf.folder_of_file("fun.mp4", folder.parent) == folder, "another tool's manifest stops a folder being found"
 
 
 def the_hand_layer_is_apart():
@@ -215,6 +239,12 @@ def the_hand_layer_is_apart():
         assert hand == {"grow_pixels": {"value": 32, "by": "somebody", "why": "a close shot"}} and key == cf.file_hash(path), (hand, key)
         path.write_text(json.dumps({"schema": cf.HAND_SCHEMA, "version": cf.HAND_VERSION + 1, "set": {}}))
         _refused(lambda: cf.read_hand(folder, "job", "load"), "version")
+        # a job or a load is a name typed into a node: it does not lead out of the folder
+        outside = Path(t) / "outside" / "x.hand.json"
+        outside.parent.mkdir()
+        outside.write_text(json.dumps({"schema": cf.HAND_SCHEMA, "version": cf.HAND_VERSION, "set": {"grow_pixels": {"value": 1}}}))
+        for job, load in (("../../outside", "x"), ("job", "../../../outside/x"), ("", "load"), ("job", ".."), ("a/b", "load")):
+            _refused(lambda: cf.read_hand(folder, job, load), "no path")
 
 
 def main() -> int:
