@@ -34,7 +34,7 @@ separation figures; and the second tracker.
 ## What it shows
 
 - **The lead's tracker.** Six of seven calls right uncorrected, seven of
-  seven corrected. The one that changed is a shot the lead is alone in,
+  seven corrected. The one that changed is a shot in which the lead is the only subject,
   called absent at the line uncorrected and taken just above it corrected.
   The json's `separation` block is the honest reading of that.
 - **The masks.** Where both paths have the lead, the two masks agree almost
@@ -43,7 +43,7 @@ separation figures; and the second tracker.
   shot, the one above.
 - **The second tracker is not fixed by it.** Meant for the second subject,
   it takes the lead on four shots on both paths and has nothing on the shot
-  where the second subject is small at the back. It needs typed
+  where the second subject is small in the frame. It needs typed
   corrections either way; `bench/capture_masked_run.py`'s
   `two_tracks_on_one_person` rule was written from this stretch and names
   those frames on both captures.
@@ -52,6 +52,6 @@ separation figures; and the second tracker.
 
 Whether the corrected path is better on a clip with more people, a crowd,
 or two subjects who look alike; whether a render differs (nothing was
-sampled); whether the kitchen stretch gated earlier the same day would
+sampled); whether the stretch gated earlier the same day would
 track differently (it was not redone: the masks agree where both exist
 here, which is the reason given for leaving it).

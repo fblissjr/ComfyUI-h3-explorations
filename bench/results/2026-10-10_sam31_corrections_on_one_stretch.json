@@ -20,7 +20,7 @@
     0,
     28
    ],
-   "what_is_there_by_eye": "the lead, in front",
+   "what_is_there_by_eye": "both subjects, the lead the larger",
    "uncorrected": {
     "state": "picked",
     "similarity": null,
@@ -42,7 +42,7 @@
     29,
     50
    ],
-   "what_is_there_by_eye": "the second subject alone: the lead is not in the shot",
+   "what_is_there_by_eye": "the second subject only",
    "uncorrected": {
     "state": "absent",
     "similarity": 0.732,
@@ -64,7 +64,7 @@
     51,
     82
    ],
-   "what_is_there_by_eye": "the lead alone",
+   "what_is_there_by_eye": "the lead only",
    "uncorrected": {
     "state": "taken",
     "similarity": 0.835,
@@ -86,7 +86,7 @@
     83,
     123
    ],
-   "what_is_there_by_eye": "the lead alone",
+   "what_is_there_by_eye": "the lead only",
    "uncorrected": {
     "state": "taken",
     "similarity": 0.887,
@@ -108,7 +108,7 @@
     124,
     145
    ],
-   "what_is_there_by_eye": "the lead alone",
+   "what_is_there_by_eye": "the lead only",
    "uncorrected": {
     "state": "taken",
     "similarity": 0.889,
@@ -130,7 +130,7 @@
     146,
     178
    ],
-   "what_is_there_by_eye": "the lead alone",
+   "what_is_there_by_eye": "the lead only",
    "uncorrected": {
     "state": "absent",
     "similarity": 0.8,
@@ -152,7 +152,7 @@
     179,
     211
    ],
-   "what_is_there_by_eye": "an insert with nobody in it",
+   "what_is_there_by_eye": "neither subject",
    "uncorrected": {
     "state": "absent",
     "similarity": null,
@@ -179,7 +179,7 @@
   "intersection_over_union_5th_percentile": 0.955
  },
  "second_tracker": {
-  "note": "the second Subject Track, meant for the second subject, takes the lead on shots 3 to 6 on both paths and has nothing on shot 1, where the second subject is small at the back",
+  "note": "the second Subject Track, meant for the second subject, takes the lead on shots 3 to 6 on both paths and has nothing on shot 1, where the second subject is small in the frame",
   "frames_where_both_tracks_are_one_mask": {
    "uncorrected": 95,
    "corrected": 128

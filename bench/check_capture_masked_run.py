@@ -516,8 +516,8 @@ def saved_regions() -> str:
 
 
 def text_rules() -> str:
-    sings = "She is in a kitchen. She performs the main voice on the track as it plays."
-    denies = "She is in a kitchen. She does not speak or sing at any point."
+    sings = "She is in a room. She performs the main voice on the track as it plays."
+    denies = "She is in a room. She does not speak or sing at any point."
     quiet = cap.flag_text(sings, [[500, 600]], 100, 50)
     assert [f["rule"] for f in quiet] == ["text_names_a_voice_where_there_is_none"], quiet
     assert cap.flag_text(sings, [[120, 130]], 100, 50) == [], "a voice sentence over voiced frames was flagged"

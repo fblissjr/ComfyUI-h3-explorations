@@ -13,7 +13,7 @@
   {
    "shot": "a",
    "frames": 16,
-   "table_box_xyxy": [
+   "box_beside_the_subject_xyxy": [
     404,
     524,
     921,
@@ -26,7 +26,7 @@
      "over_share_of_region": 0.331,
      "over_share_outside_region": 0.0104,
      "off_source_on_subject_mask": 31.8,
-     "off_source_in_table_box": 9.9,
+     "off_source_in_the_box_beside": 9.9,
      "step_in_region_median": 4.21,
      "look_median_min_max": [
       1.21,
@@ -40,7 +40,7 @@
      "over_share_of_region": 0.5312,
      "over_share_outside_region": 0.0103,
      "off_source_on_subject_mask": 42.7,
-     "off_source_in_table_box": 26.4,
+     "off_source_in_the_box_beside": 26.4,
      "step_in_region_median": 3.06,
      "look_median_min_max": [
       0.71,
@@ -54,7 +54,7 @@
   {
    "shot": "b",
    "frames": 23,
-   "table_box_xyxy": [
+   "box_beside_the_subject_xyxy": [
     398,
     523,
     982,
@@ -67,7 +67,7 @@
      "over_share_of_region": 0.3259,
      "over_share_outside_region": 0.0109,
      "off_source_on_subject_mask": 32.2,
-     "off_source_in_table_box": 8.7,
+     "off_source_in_the_box_beside": 8.7,
      "step_in_region_median": 5.03,
      "look_median_min_max": [
       0.85,
@@ -81,7 +81,7 @@
      "over_share_of_region": 0.548,
      "over_share_outside_region": 0.0112,
      "off_source_on_subject_mask": 42.5,
-     "off_source_in_table_box": 24.4,
+     "off_source_in_the_box_beside": 24.4,
      "step_in_region_median": 4.59,
      "look_median_min_max": [
       0.49,
@@ -106,9 +106,7 @@
     "renders": {
      "per_shot": {
       "verdict": "does not follow",
-      "moved_joints": [
-       "right_wrist"
-      ],
+      "moved_joints": 1,
       "followed": 0.116,
       "in_step": 0.499,
       "followed_at_best_shift": [
@@ -124,9 +122,7 @@
      },
      "long_load": {
       "verdict": "does not follow",
-      "moved_joints": [
-       "right_wrist"
-      ],
+      "moved_joints": 1,
       "followed": -0.045,
       "in_step": 0.0,
       "followed_at_best_shift": [
@@ -149,11 +145,7 @@
     "renders": {
      "per_shot": {
       "verdict": "follows",
-      "moved_joints": [
-       "right_elbow",
-       "left_wrist",
-       "right_wrist"
-      ],
+      "moved_joints": 3,
       "followed": 0.607,
       "in_step": 0.914,
       "followed_at_best_shift": [
@@ -169,11 +161,7 @@
      },
      "long_load": {
       "verdict": "follows",
-      "moved_joints": [
-       "right_elbow",
-       "left_wrist",
-       "right_wrist"
-      ],
+      "moved_joints": 3,
       "followed": 0.625,
       "in_step": 0.869,
       "followed_at_best_shift": [
