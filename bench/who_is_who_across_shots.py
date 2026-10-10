@@ -306,6 +306,16 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
         status = UNRESOLVED if cannot else DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
         note = ""
+        # A shot in which no table lists anybody at all (a hand and an object; an empty room): everybody has nobody,
+        # which is an answer and not a failure to compare. It agrees when every tracker called its subject absent.
+        nobody_seen = not any(tables[label]["shots"][n]["people"] or any(look["people"] for look in tables[label]["shots"][n].get("looks", []))
+                              for label in labels)
+        if nobody_seen and not fault:
+            for label, t in trackers.items():
+                t["the_sum_says"] = None
+                t["correction"] = t["would_type"] = "" if t["called_person"] is None else f"shot {first['shots'][n]['shot']}: none"
+            status = DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
+            note = "no table lists anybody in this shot: every subject has nobody"
         # A shot every tracker PICKED its subject in is not decided here: a pick is a person's word (or the pick rule's,
         # which a person set), the pick frames are usually different frames showing different people, and a row that
         # blocks every job on its pick shot teaches people to override (mrdeer, reading the first real file,

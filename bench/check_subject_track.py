@@ -1386,6 +1386,14 @@ def check_settled_from_tables(problems):
     row = tool.settle_tables(holed)["rows"][1]
     if 12 in row["looks_with_signatures"] or row["looks_used"] != len(row["looks_with_signatures"]) or not row["looks_with_signatures"]:
         problems.append(f"settled: a look with a person missing a signature was read: {row['looks_with_signatures']}, used {row['looks_used']}")
+    # a shot in which no table lists anybody (a hand and an object) agrees: everybody has nobody, and nothing is asked
+    empty = json.loads(json.dumps(tables))
+    for table in empty.values():
+        table["shots"][2]["people"], table["shots"][2]["looks"] = [], []
+        table["shots"][2]["subject"] = {"state": "absent", "person": None, "similarity": None, "seed_frame": None, "why": "no detection in this shot"}
+    row = tool.settle_tables(empty)["rows"][2]
+    if row["status"] != "agrees" or "no table lists anybody" not in row["note"] or any(t["the_sum_says"] is not None or t["ask"] or t["correction"] for t in row["trackers"].values()):
+        problems.append(f"settled: a shot with nobody detected should agree with every subject nobody: {row['status']}, {row['note']}, {row['trackers']}")
     # tables of two different loads are refused, and so is a table from before whole-mask signatures
     other_load = json.loads(json.dumps(tables["second"]))
     other_load["cuts"] = [8]
