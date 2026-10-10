@@ -513,5 +513,111 @@
     "kept_px": 0
    }
   ]
+ },
+ "no_mask_rule_on_two_face_passes": {
+  "face_street_0294_c": {
+   "window": "face_street_0294_c_window_1.safetensors",
+   "region": "the file the render saved",
+   "load_first_source_frame": 294,
+   "frames_written": 121,
+   "as_rendered_off_its_own_video_levels": {
+    "frames": 121,
+    "median": 2.679,
+    "most": 3.137
+   },
+   "kept_share_of_regenerated_window": "composite keeps only what changed: 97% of the regenerated pixels, the source restored in the rest",
+   "source_frames_differing_under_the_rule": [
+    358,
+    409
+   ],
+   "of_those_written": [
+    358,
+    409
+   ],
+   "of_those_now_the_source": [
+    358,
+    409
+   ],
+   "not_the_source": [],
+   "on_those_frames": [
+    {
+     "source_frame": 358,
+     "lent_cells": 32,
+     "lent_px_kept_as_rendered": 7789,
+     "laid_off_source_in_lent_cells_as_rendered": 10.131
+    },
+    {
+     "source_frame": 409,
+     "lent_cells": 50,
+     "lent_px_kept_as_rendered": 12410,
+     "laid_off_source_in_lent_cells_as_rendered": 25.187
+    }
+   ]
+  },
+  "face_street_0438": {
+   "window": "face_street_0438_window_1.safetensors",
+   "region": "the file the render saved",
+   "load_first_source_frame": 438,
+   "frames_written": 46,
+   "as_rendered_off_its_own_video_levels": {
+    "frames": 46,
+    "median": 2.441,
+    "most": 2.576
+   },
+   "kept_share_of_regenerated_window": "composite keeps only what changed: 98% of the regenerated pixels, the source restored in the rest",
+   "source_frames_differing_under_the_rule": [
+    450,
+    456,
+    457,
+    458,
+    484
+   ],
+   "of_those_written": [
+    450,
+    456,
+    457,
+    458
+   ],
+   "of_those_now_the_source": [
+    450,
+    456,
+    457,
+    458,
+    484
+   ],
+   "not_the_source": [],
+   "on_those_frames": [
+    {
+     "source_frame": 450,
+     "lent_cells": 57,
+     "lent_px_kept_as_rendered": 13506,
+     "laid_off_source_in_lent_cells_as_rendered": 6.856
+    },
+    {
+     "source_frame": 456,
+     "lent_cells": 33,
+     "lent_px_kept_as_rendered": 7720,
+     "laid_off_source_in_lent_cells_as_rendered": 7.42
+    },
+    {
+     "source_frame": 457,
+     "lent_cells": 33,
+     "lent_px_kept_as_rendered": 7720,
+     "laid_off_source_in_lent_cells_as_rendered": 13.369
+    },
+    {
+     "source_frame": 458,
+     "lent_cells": 33,
+     "lent_px_kept_as_rendered": 7720,
+     "laid_off_source_in_lent_cells_as_rendered": 18.951
+    },
+    {
+     "source_frame": 484,
+     "lent_cells": 58,
+     "lent_px_kept_as_rendered": 14458,
+     "laid_off_source_in_lent_cells_as_rendered": 5.076
+    }
+   ]
+  }
  }
 }

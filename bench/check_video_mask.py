@@ -788,6 +788,7 @@ def check_lay_window(problems):
     grow_px, feather = 32, 8
     runs = vm.run_lengths(LATENT_T)
     starts = [sum(runs[:k]) for k in range(len(runs))]
+    STARTS_OF = starts
     k = next(i for i, n in enumerate(runs) if i >= 2 and n >= 3)
     cut = starts[k] + 1                                  # one frame into a run: the subject's shot ends here
     old = torch.zeros(FRAMES, H, W)
@@ -810,18 +811,48 @@ def check_lay_window(problems):
     if not torch.equal(out[across], pixels[across]) or not bool((plain[across] > 0.5).any()):
         _fail(problems, f"lay window: frames {across} lie across the cut and must be the source bit for bit, with a "
                         "weight the gate had something to take off")
+    # A frame with no mask of its own is never laid (2026-10-10), cut or no cut: with the cuts taken away the
+    # same frames are still the source, and the report says why in its other line. Laid as renders before that
+    # day were (`lay_frames_with_no_mask`, which only the re-lay tool sets), they carry the render again.
     free, _a, quiet = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": []}, grow_px, first)
-    moved = sorted({int(f) for f in (out != free).flatten(1).any(dim=1).nonzero().flatten()})
-    if moved != across:
-        _fail(problems, f"lay window: with and without the cut the frames that differ are {moved}, not the gated {across}")
-    if len(lines) != 2 or "only what changed" not in lines[0] or not lines[1].endswith(", ".join(str(first + f) for f in across)) \
-            or len(quiet) != 1:
-        _fail(problems, f"lay window: the report's lines are {lines} with the cut and {quiet} without")
-    whole, w_alpha, w_lines = vm.lay_window(render, pixels, tokens, old, {**record, "composite": vm.COMPOSITE_REGION, "cuts": []},
-                                            grow_px, first)
-    if not torch.equal(w_alpha, vm.pixel_alpha(tokens, H, W, feather)) or not torch.equal(whole, vm.composite(render, pixels, w_alpha)) \
-            or w_lines:
-        _fail(problems, "lay window: under `whole region` the weight is not the region's own, or a line was reported")
+    if not torch.equal(out, free) or len(quiet) != 2 or "no mask of their own and no cut beside them" not in quiet[1] \
+            or not quiet[1].endswith(", ".join(str(first + f) for f in across)):
+        _fail(problems, f"lay window: with no cut named, the frames with no mask must still be the source and be named: {quiet}")
+    before, _a, said = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": [], "lay_frames_with_no_mask": True},
+                                     grow_px, first)
+    moved = sorted({int(f) for f in (out != before).flatten(1).any(dim=1).nonzero().flatten()})
+    if moved != across or len(said) != 1:
+        _fail(problems, f"lay window: laid as before the rule, the frames that differ are {moved}, not the frames with no mask {across}")
+    if len(lines) != 2 or "only what changed" not in lines[0] or "lie across a cut" not in lines[1] \
+            or not lines[1].endswith(", ".join(str(first + f) for f in across)):
+        _fail(problems, f"lay window: the report's lines are {lines} with the cut")
+    # mid-shot, no cut anywhere: one frame's mask emptied inside a step whose other frames have it. That frame
+    # is the source bit for bit, its neighbours carry the render, and a frame with no mask in a step with no
+    # region at all is not named
+    lost = STARTS_OF[1] + 1
+    holed = old.clone()
+    holed[lost] = 0.0
+    hole_tokens = vm.token_mask(vm.grow(holed, grow_px), LATENT_T, LAT_H, LAT_W)
+    got, _a, told = vm.lay_window(render, pixels, hole_tokens, holed, {**record, "cuts": []}, grow_px, first)
+    names = vm.unlaid_frames(holed, hole_tokens, [], first)
+    if not torch.equal(got[lost], pixels[lost]) or torch.equal(got[lost - 1], pixels[lost - 1]) or torch.equal(got[lost + 1], pixels[lost + 1]):
+        _fail(problems, f"lay window: frame {lost}, whose own mask is empty inside a step that has a region, must be the source, "
+                        "and the frames beside it must carry the render")
+    if names[0] or lost not in names[1] or names[1] != [lost] + across or FRAMES - 1 in names[1] \
+            or f"{first + lost}" not in told[-1].split("frame(s) ")[-1]:
+        _fail(problems, f"lay window: the frames with no mask a region reaches are {names[1]}; they must be frame {lost} and the "
+                        f"split step's {across}, and no frame of a step with no region")
+    plain_region = {**record, "composite": vm.COMPOSITE_REGION, "cuts": []}
+    whole, w_alpha, w_lines = vm.lay_window(render, pixels, tokens, old, {**plain_region, "lay_frames_with_no_mask": True}, grow_px, first)
+    region_alpha = vm.pixel_alpha(tokens, H, W, feather)
+    if not torch.equal(w_alpha, region_alpha) or not torch.equal(whole, vm.composite(render, pixels, w_alpha)) or w_lines:
+        _fail(problems, "lay window: under `whole region`, laid as before the rule, the weight is not the region's own, or a line was reported")
+    _w, n_alpha, n_lines = vm.lay_window(render, pixels, tokens, old, plain_region, grow_px, first)
+    keep_frames = torch.ones(FRAMES)
+    keep_frames[across] = 0.0
+    if not torch.equal(n_alpha, region_alpha * keep_frames[:, None, None]) or len(n_lines) != 1:
+        _fail(problems, "lay window: under `whole region` the weight must be the region's own on every frame with a mask and 0 "
+                        "on a frame with none")
 
     # the file: what was written comes back, and a window laid from it is the window laid from the tensors
     each = torch.full((FRAMES,), grow_px, dtype=torch.long)
@@ -832,7 +863,7 @@ def check_lay_window(problems):
             got = vm.load_window_region(path)
             same_margin = torch.equal(got["margin"], margin) if torch.is_tensor(margin) else got["margin"] == margin
             if not torch.equal(got["mask"], (old > 0.5).float()) or not torch.equal(got["tokens"], tokens) or not same_margin \
-                    or got["first_frame"] != first or got["trim"] != 5 or got["source"] != {key: record[key] for key in vm.REGION_SETTINGS}:
+                    or got["first_frame"] != first or got["trim"] != 5 or got["source"] != {key: record.get(key) for key in vm.REGION_SETTINGS}:
                 _fail(problems, f"window region: the file does not read back as written (margin {vm.margin_note(margin)})")
                 continue
             want = vm.lay_window(render, pixels, tokens, old, record, margin, first)[0]
@@ -840,6 +871,20 @@ def check_lay_window(problems):
             if not torch.equal(want, again):
                 _fail(problems, f"window region: a window laid from its file is not the window laid from its tensors "
                                 f"(margin {vm.margin_note(margin)})")
+        # a file from a render of before the no-mask rule says so when it is read, so laying it again is that render
+        import numpy as np
+        with np.load(path) as z:
+            parts = {k: z[k] for k in z.files}
+        meta = json.loads(str(parts["meta"]))
+        if meta.get("version") != vm.REGION_VERSION or vm.load_window_region(path)["source"].get("lay_frames_with_no_mask"):
+            _fail(problems, "window region: a file written now must carry the current version and lay no frame without a mask")
+        meta["version"] = 1
+        old_path = str(Path(tmp) / "old_region.npz")
+        with open(old_path, "wb") as fh:
+            np.savez_compressed(fh, **{**parts, "meta": np.asarray(json.dumps(meta))})
+        if vm.load_window_region(old_path)["source"].get("lay_frames_with_no_mask") is not True:
+            _fail(problems, "window region: a version 1 file must read back as laid the way its render laid it")
+        Path(old_path).unlink()
         if sorted(x.name for x in Path(tmp).iterdir()) != ["w_region.npz"]:
             _fail(problems, f"window region: the write left {sorted(x.name for x in Path(tmp).iterdir())} behind")
 
@@ -848,7 +893,8 @@ def check_lay_window(problems):
     # frames a render will leave as the source (`write_plan`, above the node's class)
     node_text = song_text[song_text.find("class MiniMaxH3AudioFreezeSong(io.ComfyNode):"):]
     if "video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source," not in node_text \
-            or any(name in node_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(")) \
+            or any(name in node_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(",
+                                                   "video_mask.unlaid_frames(", "lay_frames_with_no_mask")) \
             or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(")):
         _fail(problems, "lay window: the song node must lay a window through `video_mask.lay_window` and through nothing else")
     if "video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin," not in song_text \

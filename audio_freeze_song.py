@@ -237,7 +237,7 @@ def _review_or_reason(make, what: str) -> str | None:
 
 
 #: The plan file's name for itself and its version. Bump the version when a field's meaning changes.
-PLAN_NAME, PLAN_VERSION = "h3 song plan", 1
+PLAN_NAME, PLAN_VERSION = "h3 song plan", 2      # 2: `frames_left_as_source` is every frame with no mask, not the cut's alone
 
 
 def write_plan(source: dict, windows, writes: list[int], context_frames: int, continued: bool, width: int, height: int,
@@ -256,7 +256,8 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
     frame): each window's first frame, length, latent steps, trim, the frames it writes and the share of its
     tokens that regenerate; the source frames held past the source's end; the latent steps a cut of the source
     splits (`loop_plan.split_steps`, over the frames the mask is on) and the frames the composite will leave as
-    the source for it (`video_mask.cut_gate` on the planned mask), the ones this window writes named apart.
+    the source (`video_mask.unlaid_frames` on the planned mask and tokens: every frame with no mask of its own
+    that a region reaches, across a cut or not), the two kinds and the ones this window writes named apart.
 
     The two cut readings are made from two masks: `split_steps` from the source's own mask, before it is fitted
     to the canvas, and the gate from the window's fitted mask. They name the same frames unless the canvas's crop
@@ -296,15 +297,19 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
         margin = video_mask.source_margins(source, start, w.frames, int(width) * int(height))
         path = loop_resume.planned_region_path(work_dir, filename, w.number)
         video_mask.save_window_region(path, mask, tokens, source, margin, start, trim)
-        gate = video_mask.cut_gate(mask, int(tokens.shape[0]), cuts, start)
-        gated = [start + int(f) for f in (gate < 0.5).nonzero().flatten()]
+        across, bare = video_mask.unlaid_frames(mask, tokens, cuts, start)
+        gated = sorted(start + f for f in across + bare)
         written = range(row["first_written_frame"], row["last_written_frame"] + 1)
         rows.append({**row, "latent_steps": int(tokens.shape[0]), "source_frames_held": int(held),
                      "regenerating_share": round(float(tokens.mean()), 4), "margin": video_mask.margin_note(margin),
                      "region_file": os.path.basename(path),
                      "split_steps": [s for s in split if s["step"][1] >= start and s["step"][0] < start + w.frames],
                      "frames_left_as_source": gated,
-                     "frames_left_as_source_and_written": [f for f in gated if f in written]})
+                     "frames_left_as_source_and_written": [f for f in gated if f in written],
+                     # the two kinds apart (`video_mask.unlaid_frames`): across a cut from the subject, and
+                     # with no mask of their own and no cut beside them
+                     "frames_across_a_cut": [start + f for f in across],
+                     "frames_with_no_mask": [start + f for f in bare]})
         del tokens, mask
     made = {r["region_file"] for r in rows}
     for stale in glob.glob(os.path.join(glob.escape(work_dir), glob.escape(filename) + "_window_*_planned_region.npz")):
@@ -325,10 +330,12 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
     if past:
         lines.append(f"window(s) {', '.join(str(n) for n in past)} start past the source's {have} frames and are not "
                      "planned: a render refuses this run until the loader gives more frames or `extent` is shorter")
-    across = sorted({f for r in rows for f in r.get("frames_left_as_source_and_written", [])})
-    if across:
-        lines.append(f"{len(across)} frame(s) lie across a cut from the subject inside one latent step and will be "
-                     "left as the source: frame(s) " + ", ".join(str(f) for f in across))
+    for key, why in (("frames_across_a_cut", "lie across a cut from the subject inside one latent step"),
+                     ("frames_with_no_mask", "have no mask of their own and no cut beside them")):
+        named = sorted({f for r in rows for f in r.get(key, []) if f in r.get("frames_left_as_source_and_written", [])})
+        if named:
+            lines.append(f"{len(named)} frame(s) {why} and will be left as the source: frame(s) "
+                         + ", ".join(str(f) for f in named))
     return lines
 
 

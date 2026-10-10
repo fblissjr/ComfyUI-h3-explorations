@@ -74,6 +74,16 @@ untracked `data/2026-10-10_recomposite_decodes/`.
   (it shares a latent step with the shot's last frames) and the rest are
   the source whole (`held_frames_written`).
 
+- **A frame with no mask of its own, lent a region by its latent step: the
+  rule on its own case.** Two face passes that saved their own regions,
+  laid as rendered and with every frame that has no mask left as the source
+  (`video_mask.unlaid_frames`). The frames that differ are the frames a
+  peer had found with an empty mask and something laid on them, and one
+  held frame past a load's end that is not in its video; each is the source
+  bit for bit under the rule, and no other frame of either window moves
+  (`no_mask_rule_on_two_face_passes`, with what the render had laid in the
+  lent cells of each).
+
 ## What it does not show
 
 Whether any of these frames looks worse: the detail figure is a mean over

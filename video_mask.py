@@ -747,10 +747,20 @@ def cut_gate(mask: torch.Tensor, latent_t: int, cuts, first_frame: int = 0) -> t
     not empty on another side. `cuts` are frames of the source that start a
     shot (`source_cuts`) and `first_frame` the window's first.
 
-    Not a rule about an empty mask: a frame the tracker lost inside a shot
-    has no cut beside it and is laid as before, covered by its run. Found
-    2026-10-10: a whole-subject pass repainted the first or last frame or two
-    of the next shot at four cuts of one clip (the assembler's own check).
+    Found 2026-10-10: a whole-subject pass repainted the first or last frame
+    or two of the next shot at four cuts of one clip (the assembler's own
+    check).
+
+    This is the rule for a cut only, and since later the same day it is no
+    longer the whole of what the composite leaves alone. Until then this
+    docstring said "not a rule about an empty mask: a frame the tracker lost
+    inside a shot has no cut beside it and is laid as before, covered by its
+    run". That was reversed (the lead, 2026-10-10) after two renders laid
+    something on frames whose own mask was empty with no cut near them, one
+    of them a face drawn for a single frame where the source shows none:
+    `unlaid_frames` now leaves EVERY frame with no mask of its own as the
+    source, and this function names the ones among them that lie across a
+    cut, for the report, the plan and the preflight.
     """
     present = (mask > 0.5).flatten(1).any(dim=1)
     gate = torch.ones(int(mask.shape[0]), dtype=torch.float32)
@@ -768,14 +778,46 @@ def cut_gate(mask: torch.Tensor, latent_t: int, cuts, first_frame: int = 0) -> t
     return gate
 
 
+def unlaid_frames(mask: torch.Tensor, tokens: torch.Tensor, cuts, first_frame: int = 0) -> tuple[list[int], list[int]]:
+    """The frames of a window the composite lays nothing on, as two lists of window frames: (across, bare).
+
+    The rule is one line: **a frame whose own fitted mask is empty is never laid.** A latent step's region is
+    the maximum over its frames, so a frame with no mask can still sit under a region lent by its neighbours
+    in the step, and whatever the sampler drew there would be laid on a frame nobody asked to change.
+    `across` are those of them `cut_gate` names, on the far side of a cut from the subject inside one step.
+    `bare` are the rest that a region reaches (their step has a regenerated token): a frame the part node
+    emptied because the subject is turned away, a frame of a held tail, a frame the tracker dropped. Frames
+    with no mask in a step with no region are not listed: nothing was there to lay. The case met first: a
+    subject who ENTERS mid-shot has empty frames before her first masked one, and those that share her first
+    latent step are left as the source, as anyone would want.
+
+    The node cannot tell a frame that is rightly empty from one the tracker lost while the subject is plainly
+    there. On the first this is right. On the second it shows one frame of the ORIGINAL in a run of the new
+    subject, so the rule is only as good as the mask: such a frame is the preflight's to block before a
+    render (`bench/capture_masked_run.py`), until the mask is fixed or someone has written that it is rightly
+    empty. The sampler still regenerates the step either way.
+    """
+    latent_t = int(tokens.shape[0])
+    present = (mask > 0.5).flatten(1).any(dim=1)
+    gated = cut_gate(mask, latent_t, cuts, first_frame) < 0.5
+    reached = (tokens > 0.5).flatten(1).any(dim=1).repeat_interleave(
+        torch.tensor(run_lengths(latent_t), device=tokens.device)).to(present.device)
+    across = [int(f) for f in gated.nonzero().flatten()]
+    bare = [int(f) for f in (~present & reached & ~gated.to(present.device)).nonzero().flatten()]
+    return across, bare
+
+
 def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor, mask: torch.Tensor,
                source: dict, margin, first_frame: int):
     """A decoded window laid over its source, as the song node writes it: the frames, the weight, the report's lines.
 
     `images` is the decode, `pixels`, `tokens` and `mask` what `window` returned for it, `margin` its
     `source_margins` and `first_frame` where the window starts in the source. The weight is the whole
-    region's (`pixel_alpha`) or, under `only what changed`, `changed_alpha`'s; `cut_gate` then takes it off
-    the frames a latent step carries the region onto across a cut; `composite` blends. One function, so
+    region's (`pixel_alpha`) or, under `only what changed`, `changed_alpha`'s; it is then taken off every
+    frame whose own mask is empty (`unlaid_frames`: across a cut from the subject, or with no cut beside it);
+    `composite` blends. A record with `lay_frames_with_no_mask` set lays them as renders made before
+    2026-10-10 did; no node sets it, and it is there for `bench/recomposite_window.py` to lay an old render as
+    it was rendered. One function, so
     that a saved window can be laid again with exactly what the render ran: `bench/recomposite_window.py`
     decodes a window's stored latent and calls this, with the settings the render used or with one changed.
     """
@@ -791,23 +833,35 @@ def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor,
                      "regenerated pixels, the source restored in the rest")
     else:
         alpha = pixel_alpha(tokens, height, width, source["feather_pixels"])
-    # a latent step's region covers its whole run of frames; across a cut from the subject
-    # that is the next shot's picture, and it stays the source's (`cut_gate`)
+    # a latent step's region covers its whole run of frames, so it reaches frames with no mask of their own:
+    # the next shot's across a cut, a frame the part was emptied on, a held frame. Those stay the source's
     first = int(first_frame)
-    gate = cut_gate(mask, int(tokens.shape[0]), source.get("cuts"), first)
-    if not bool(gate.all()):
+    across, bare = unlaid_frames(mask, tokens, source.get("cuts"), first)
+    if source.get("lay_frames_with_no_mask"):
+        bare = []       # as before 2026-10-10: only the cut's frames are left, and those only when cuts are given
+    if across or bare:
+        gate = torch.ones(int(mask.shape[0]), dtype=torch.float32)
+        gate[across + bare] = 0.0
         alpha = alpha * gate[:, None, None].to(alpha)
-        across = [first + int(f) for f in (gate < 0.5).nonzero().flatten()]
+    if across:
         lines.append(f"{len(across)} frame(s) lie across a cut from the subject inside "
                      "one latent step and are left as the source: frame(s) "
-                     + ", ".join(str(f) for f in across))
+                     + ", ".join(str(first + f) for f in across))
+    if bare:
+        lines.append(f"{len(bare)} frame(s) have no mask of their own and no cut beside them, and are left "
+                     "as the source: frame(s) " + ", ".join(str(first + f) for f in bare))
     return composite(images, pixels, alpha), alpha, lines
 
 
 #: What of a source's record a window's composite reads, saved with the window's region (`save_window_region`)
 #: so the window can be laid again without the graph. `lay_window` reads the first four; the rest say how the
 #: region was made.
-REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge")
+REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge",
+                   "lay_frames_with_no_mask")
+#: A region file's version. 2 since 2026-10-10: the render that wrote it left every frame with no mask of its
+#: own as the source (`unlaid_frames`). A file of version 1 is from a render that laid them, and
+#: `load_window_region` says so in the settings it returns, so laying it again reproduces that render.
+REGION_VERSION = 2
 
 
 def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, source: dict, margin,
@@ -821,7 +875,7 @@ def save_window_region(path: str, mask: torch.Tensor, tokens: torch.Tensor, sour
     whose tracker ran inside its own graph used to leave its mask nowhere. Written whole or not at all.
     """
     settings = {k: source.get(k) for k in REGION_SETTINGS}
-    meta = {"version": 1, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
+    meta = {"version": REGION_VERSION, "first_frame": int(first_frame), "trim": int(trim), "frames": int(mask.shape[0]),
             "height": int(mask.shape[1]), "width": int(mask.shape[2]), "source": settings}
     part = path + ".part"
     with open(part, "wb") as f:
@@ -842,7 +896,12 @@ def load_window_region(path: str) -> dict:
         margin = z["margin"]
         out = {"mask": torch.from_numpy(mask).to(torch.float32), "tokens": torch.from_numpy(z["tokens"]).to(torch.float32),
                "margin": int(margin) if margin.ndim == 0 else torch.from_numpy(margin).long()}
-    return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": meta["source"]}
+    settings = dict(meta["source"])
+    if int(meta.get("version", 1)) < 2:
+        # written by a render from before a frame with no mask was left as the source: to lay that window as it
+        # was rendered, such frames are laid (`lay_window`)
+        settings["lay_frames_with_no_mask"] = True
+    return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": settings}
 
 
 @dataclass(frozen=True)

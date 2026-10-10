@@ -40,7 +40,9 @@ does that for one window or several and stops, so the card is held for the decod
 CPU work, is run afterwards.
 
 **`--set` and `--as-rendered`.** Each is `key=value` over the window's own settings: `cuts=none` (no gate),
-`cuts=12,40`, `composite=whole region`, `feather_pixels=4`, `change_threshold=0.08`. `--as-rendered` changes the
+`cuts=12,40`, `composite=whole region`, `feather_pixels=4`, `change_threshold=0.08`, and `no_mask=laid` or
+`no_mask=source` (whether a frame with no mask of its own is laid, as renders before 2026-10-10 laid it, or left
+as the source; a window's own setting is the one it was rendered under, read from its region file's version). `--as-rendered` changes the
 first laying and `--set` the second, each from the window's settings and not from the other: a render made before
 the gate was laid with `--as-rendered cuts=none`, and is then set beside the window's settings as they stand.
 
@@ -104,8 +106,14 @@ def change(settings: dict, edits: list[str]) -> dict:
             out[key] = float(value)
         elif key == "composite":
             out[key] = value
+        elif key == "no_mask":
+            if value not in ("laid", "source"):
+                raise SystemExit("--set no_mask takes `laid` (as renders before 2026-10-10 laid a frame with no mask of "
+                                 "its own) or `source` (the frame is left as the source)")
+            out["lay_frames_with_no_mask"] = True if value == "laid" else None
         else:
-            raise SystemExit(f"--set {key}: not a setting the composite reads; one of cuts, composite, feather_pixels, change_threshold")
+            raise SystemExit(f"--set {key}: not a setting the composite reads; one of cuts, composite, feather_pixels, "
+                             "change_threshold, no_mask")
     return out
 
 
@@ -159,7 +167,9 @@ def rebuilt_region(vm, capture: Path, run_name: str, shots: str, first: int, fra
     cuts = json.loads(Path(shots).read_text())["cuts"] if shots else []
     settings = {"composite": node.get("composite", vm.COMPOSITE_REGION), "feather_pixels": int(node["feather_pixels"]),
                 "change_threshold": float(node.get("change_threshold", vm.CHANGE_THRESHOLD)), "cuts": [int(c) for c in cuts],
-                "grow_pixels": int(node["grow_pixels"]), "grow_by": record["grow_by"], "replace": node.get("replace"), "edge": edge}
+                "grow_pixels": int(node["grow_pixels"]), "grow_by": record["grow_by"], "replace": node.get("replace"), "edge": edge,
+                # a render that saved no region is from before a frame with no mask was left as the source
+                "lay_frames_with_no_mask": True}
     region = {"mask": mask, "tokens": tokens, "margin": margin, "first_frame": first, "source": settings}
     how = {"region": "rebuilt from the capture's read-back of the review", "capture": capture.name, "run": run_name,
            "cells_differing": int((made != seen).sum()), "cells_in_region": int(seen.sum()),

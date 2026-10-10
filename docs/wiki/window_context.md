@@ -196,6 +196,13 @@ them.
   same shot, a large, well-lit face, held until that last step and lost
   only it (a peer's figures), where the small subject lost twenty frames.
 
+- 2026-10-10, the zoomed motion video on the short load that faded (a
+  peer's pose records): no change. The render took neither the pose nor any
+  difference in the fade, zoomed or not, so on that shot the motion video
+  is not being read at all, and the held tail is the one thing left that
+  differs from a load that follows its motion video. The open-tail renders
+  of three loads that all end on the source are on the card.
+
 ## Results, dated
 
 - 2026-10-08, one clip (the postmortem under `docs/research/postmortems/`):
@@ -236,6 +243,42 @@ them.
   hold is in the context's subject rows, which is what this lever reaches.
   THE QUESTION THE NEXT TWO ARMS ANSWER: is there a level below 1.0 that
   turns the head and keeps the seam's step near the source's.
+- 2026-10-10, `context_noise` 1.0, 0.8 and none against a load with no kept
+  frames, measured on that stretch (a peer's pose records,
+  `data/2026-10-10_fun_pose/kitchen_cn_*`; one stretch, one seed each; the
+  figures are that session's to record). Both noised continuations make
+  the turn, the lowered head and the hand at the face; the clean one makes
+  none of them. 0.8 is better than 1.0 on every column (head, chin, wrist,
+  how far the movement follows and how nearly in step) and has almost no
+  seam: its step onto the first new frame is a little over the source's
+  own there, where 1.0's is several times it, and its copy of the frame
+  before the join is as close to the pass's as the source's own step. The
+  load with no kept frames is still the closest to the source. Both noised
+  ones are a little LATE: the movement fits best a few frames behind, more
+  at 1.0 than at 0.8. So at 0.8 the kept frames still tie the first new
+  frame to what came before and no longer pin the pose. 0.5 is on the card
+  and says how far down that holds.
+- 2026-10-10, the lateness, two READINGS and no measurement. It is not the
+  clean share of the context pulling the first frames back, because it is
+  larger with none of that share (1.0) than with some (0.8). What the
+  mechanism does offer: (a) the movement begins a frame after the join,
+  inside the first new latent step, and one token then has to hold the old
+  pose and the start of the turn, so the turn can only begin at the step's
+  grain; (b) at 1.0 the context is redrawn whole, the model follows the
+  motion video through it on its own clock, and nothing ties that clock to
+  the pass's frames at the join, where at 0.8 something does. The test that
+  separates them: the same continuation with its join moved by one latent
+  step. Not run.
+- 2026-10-10, a level that ramps across the kept frames: possible in core's
+  terms, not with today's input. Core takes a mask value per token row, so
+  each of the context's latent steps can carry its own; `context_noise`
+  writes one value on all of them (`audio_freeze.py`, the one line). A ramp
+  is that line writing a vector and a second number on the node. The
+  direction the results point to: clean at the join, where the seam is
+  made (1.0's price was the frame before the join being redrawn), and
+  noisier far from it, where the rows only add to the count showing the old
+  pose. That is a softer form of a shorter context, and the clean
+  short-context arm on the card is its limit. NOT BUILT.
 - 2026-10-10: the same morning's two per-shot loads kept the still's person
   with no frozen context (two shots, one seed;
   `bench/results/2026-10-10_one_load_per_shot_against_one_long_load.md`).

@@ -8,7 +8,8 @@ window is small (a canvas of a few latent cells, seven latent steps) and its "de
 runs: the source clip is lossless, the subject is on the frames before a cut that falls inside a latent step, and
 the stand-in decode is the source a few levels off with a bright block on every frame.
 
-1. **A window with its saved region.** Laid as rendered against laid with `cuts=none`: the frames that differ are
+1. **A window with its saved region.** Laid as rendered against laid as before 2026-10-10 (`cuts=none` and
+   `no_mask=laid`: no gate, and a frame with no mask of its own laid): the frames that differ are
    the frames of the split step across the cut, counted in the clip's own frame numbers through `--source-first`
    and the window's first frame; each is the source bit for bit under the gate; frames before the trim are not
    counted as written; and the first laying is within a level of the window's own video where that video holds
@@ -122,7 +123,7 @@ def handed(calls: list):
 
 def saved_region() -> str:
     calls = []
-    got = rw.run(args("a", set=["cuts=none"]), decode=handed(calls))["summary"]
+    got = rw.run(args("a", set=["cuts=none", "no_mask=laid"]), decode=handed(calls))["summary"]
     want = [LEAD + FIRST + f for f in ACROSS]
     assert got["source_frames_differing"] == want, f"the frames that differ are {got['source_frames_differing']}, not {want}"
     assert got["frames_written"] == FRAMES - TRIM, got["frames_written"]
@@ -149,15 +150,18 @@ def saved_region() -> str:
 
 def the_settings() -> str:
     calls = []
-    turned = rw.run(args("a", as_rendered=["cuts=none"], set=[f"cuts={FIRST + CUT}"]), decode=handed(calls))
+    turned = rw.run(args("a", as_rendered=["cuts=none", "no_mask=laid"], set=[f"cuts={FIRST + CUT}"]), decode=handed(calls))
     want = [LEAD + FIRST + f for f in ACROSS]
     assert turned["summary"]["source_frames_differing"] == want and turned["summary"]["of_those_now_the_source"] == want, turned["summary"]
     assert turned["as_rendered"]["cuts"] == [] and turned["changed"]["cuts"] == [FIRST + CUT]
     # --as-rendered alone: the second laying is the window's own settings, not the first laying's
-    alone = rw.run(args("a", as_rendered=["cuts=none"]), decode=handed(calls))
+    alone = rw.run(args("a", as_rendered=["cuts=none", "no_mask=laid"]), decode=handed(calls))
     assert alone["changed"]["cuts"] == [FIRST + CUT] and alone["summary"]["of_those_now_the_source"] == want,         f"--as-rendered alone left the second laying at {alone['changed']['cuts']} and moved {alone['summary']['source_frames_differing']}"
     whole = rw.run(args("a", set=["composite=" + vm.COMPOSITE_REGION]), decode=handed(calls))["summary"]
     assert len(whole["source_frames_differing"]) > len(ACROSS) and not set(want) & set(whole["source_frames_differing"]),         f"laid with the whole region the frames that differ are {whole['source_frames_differing']}"
+    # `cuts=none` alone moves nothing since 2026-10-10: a frame with no mask is left as the source, cut or not
+    still = rw.run(args("a", set=["cuts=none"]), decode=handed(calls))["summary"]
+    assert still["source_frames_differing"] == [], f"with the cut taken away the frames with no mask moved: {still['source_frames_differing']}"
     try:
         rw.change(MADE["settings"], ["grow_pixels=4"])
     except SystemExit:
@@ -169,9 +173,9 @@ def the_settings() -> str:
 
 def the_decode() -> str:
     calls = []
-    one = rw.run(args("b", set=["cuts=none"]), decode=handed(calls))
+    one = rw.run(args("b", set=["cuts=none", "no_mask=laid"]), decode=handed(calls))
     assert len(calls) == 1 and (WORK / "b" / "decoded_r_window_1.npy").is_file(), f"{len(calls)} decodes for a window with none kept"
-    two = rw.run(args("b", set=["cuts=none"]), decode=handed(calls))
+    two = rw.run(args("b", set=["cuts=none", "no_mask=laid"]), decode=handed(calls))
     assert len(calls) == 1, "a window with its decode kept was decoded again"
     assert one["summary"] == two["summary"] and "read from" in two["inputs"]["decode"], two["inputs"]
     return "decoded once, kept, read the second time; the same rows both times"
@@ -195,7 +199,7 @@ def a_box() -> str:
             f"frame {f} across the cut: the whole region ({region_cells} cells) is lent and the gate lays nothing there, got {rows[f]}"
     assert int(before["lent_cells"]) == 0 and before["lent_off_source"] in ("", None), f"a frame the subject is on lends itself nothing: {before}"
     ungated = {int(r["frame"]): r for r in csv.DictReader(open(WORK / "f" / "r_window_1.csv"))}
-    rw.run(args("g", as_rendered=["cuts=none"]), decode=handed([]))
+    rw.run(args("g", as_rendered=["cuts=none", "no_mask=laid"]), decode=handed([]))
     ungated = {int(r["frame"]): r for r in csv.DictReader(open(WORK / "g" / "r_window_1.csv"))}
     assert all(int(ungated[f]["lent_px_kept"]) > 0 and float(ungated[f]["lent_off_source"]) > 1 for f in ACROSS), \
         "with no gate the render is kept in the lent cells across the cut, and the table must say so"
@@ -233,7 +237,7 @@ def rebuilt() -> str:
     a_capture(WORK / "cap")
     common = dict(window=str(window), run="r", shots=str(WORK / "shots.json"), context=TRIM, set=["cuts=none"])
     got = rw.run(args("c", capture=str(WORK / "cap"), **common), decode=handed(calls))
-    saved = rw.run(args("a", set=["cuts=none"]), decode=handed(calls))
+    saved = rw.run(args("a", set=["cuts=none", "no_mask=laid"]), decode=handed(calls))
     assert got["summary"] == saved["summary"], f"a rebuilt region names {got['summary']}, the saved one {saved['summary']}"
     assert got["window_first_frame"] == FIRST and got["inputs"]["cells_differing"] == 0, got["inputs"]
     a_capture(WORK / "cap_off", shift=1)
