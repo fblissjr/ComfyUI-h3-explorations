@@ -280,3 +280,19 @@ flag reads the source's own frame-to-frame change for it.
 - 2026-10-10, from this line on: commits carry no changelog entry (the
   owner's rule of that day, `changelog.d/README.md`); this record's dated
   lines and the commit messages are the account.
+- 2026-10-10, a new file, asked for by the owner to see how far the job has
+  got: **`fun_0000_1050_a.mp4`**, source frames 0-1050 in one file, built
+  from ONE table through the tool (the rows of `fun_0000_0603_c.mp4`, then
+  the locked file's three rows and its `source` line), not a concatenation.
+  Its record says FAILS and that is true of it: nothing is laid for either
+  subject on 1010-1038, and the second street row ends on the source's own
+  picture on 480-483. Placed with that verdict on the lead session's word,
+  its known faults in the record's note in the order they play. Everything
+  else reads clean: 1,051 frames in order, no square over the bound (largest
+  2.92), nine rows each on a share of 1, 1,888 audio packets of the
+  source's. Measured on the built file at the canvas: against the locked
+  file on 604-1050 no frame has a pixel over 12 levels apart; against
+  `fun_0000_0603_c.mp4` on 0-603 two frames differ, by one and two pixels
+  (frames nothing is laid on). md5 `57787539a7d3ec8e22d6c05745b21610`. The
+  standing files are untouched. Versions that cover 1010-1038 and mend
+  480-483 are to follow beside it as `_b` and `_c`.
