@@ -684,6 +684,36 @@ run is of the zoomed picture, and its legend says so.
 **Checks.** `bench/check_video_mask.py` item 24 and the zoomed case of its
 song loop; `bench/check_recomposite_window.py`'s zoomed window.
 
+**Dated lines.**
+
+- 2026-10-10, the first plan of a zoomed load (the lead's preview of one
+  street shot, a face part, through the job builder; the plan is under
+  that job's output folder): with `largest_zoom` at two and at three the
+  box came to the same size, set by "the box with its room" and not by
+  the cap, well under either setting. The subject crosses the frame
+  during the shot, so the union of her part's boxes over the load, with
+  `ZOOM_ROOM`, is what limits the zoom: on a subject who travels, the
+  setting is a ceiling the load does not reach, and two arms at two
+  settings are one arm. The report's line says which of the two set the
+  box; read it before queueing a second arm.
+- 2026-10-10, NOT BUILT, the lever that would reach the setting on a
+  subject who travels: a box that FOLLOWS the part through the load (a
+  smoothed track, cut at sub-pixel positions) in place of one fixed box.
+  What it changes: the subject stands still in the zoomed picture and the
+  surroundings slide; the files carry a box a frame, so the laying back,
+  the delivery tool's contract (`fixed`) and the capture's mapping each
+  take a box a frame; a continuation takes the stored window's boxes for
+  its kept frames and carries the track on from them. What is not known
+  until a render: what the model draws on a plate that slides, and
+  whether the drawn part holds still against the head when the track is a
+  pixel off. The cheaper things to try first are a smaller `ZOOM_ROOM`
+  and the box round the part where it was round the tracked subject.
+- 2026-10-10: the softness the report names (the node was handed frames
+  already fitted to the canvas, so the whole zoom is enlargement) goes
+  away only when the loader hands the clip's own frames, which is the
+  third step of the analysis-folder loader (the masking board,
+  `build-renders-read-the-analysis-folder`).
+
 ## Known limits
 
 Each line names where the evidence is. "Seen" means on a render or a tile.
