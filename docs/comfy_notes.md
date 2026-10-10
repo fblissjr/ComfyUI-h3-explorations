@@ -159,6 +159,42 @@ on any new or hand-built graph and `bench/check_distill_settings.py` on any
 LoRA row, and give a new bench tool one throwaway run, read end to end,
 before any batch.
 
+## What is cached, and by whom
+
+Two different things hand a render a result it did not compute, and they are
+checked in two different places.
+
+**ComfyUI's own node cache** is outside this pack and always on. A node's
+result is served again when its signature is unchanged: its class, what its
+change test returned, its input values, and the same for every node upstream
+(`comfy_execution/caching.py::CacheKeySetInputSignature.get_node_signature`).
+Which cache holds the results is set by the server's flags; with none of
+`--cache-classic`, `--cache-lru` or `--cache-none` it is the RAM-pressure one
+(`main.py`, where `cache_type` is chosen), which is how `start.sh` runs it.
+It lasts for the server's life and no longer. What that means here:
+
+- Two graphs queued in one session that share a loader, a tracker and a
+  Masked Source share one track and one mask. That is wanted when arms are
+  compared, and it is why the first arm after a restart is the slow one.
+- A node whose result depends on something that is not one of its inputs is
+  served stale. A file is the usual case, and each loader has its own change
+  test: VHS's video loaders hash the path and its modified time, not its
+  bytes (`calculate_file_hash` in VideoHelperSuite's `utils` module), and a model loader
+  has none, so a model file replaced under the same name needs a restart.
+- An identical graph queued twice runs nothing the second time.
+- `bench/record_render_substrate.py` reads `/history` and reports, per
+  prompt, how many nodes were served from it; `/history`'s
+  `execution_cached` message names them. Read it before believing a time.
+
+**This pack's own reuse** is opt-in and off in every shipped graph: a kept
+subject mask (`reuse_mask`), a stored or kept window (`reuse_windows`), kept
+reference encodes (`keep_references`), and the cache nodes that only probe
+graphs wire. `bench/check_mask_store.py` item 9 holds that, with the lists
+(`REUSE_INPUTS`, `CACHE_NODES`). The first two are also disabled in code
+whatever a graph says (`video_mask.MASK_REUSE_ENABLED`,
+`audio_freeze_song.WINDOW_REUSE_ENABLED`). A render's own report says what it
+reused, in the Song node's preview text.
+
 ## Settings not to change without measuring
 
 **Sage runs `mode="auto"`, which resolves to `fp8_cuda++`**

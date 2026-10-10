@@ -37,6 +37,18 @@ could happen, or one way the saving could quietly not happen.
    by an empty one.
 8. **The shipped graphs write `reuse_mask`**, at `h3_config.MASKED_SOURCE`'s
    value.
+9. **No shipped graph hands a render anything kept from another run, and
+   only a graph named as a probe wires a cache** (the owner, 2026-10-09: a
+   cache nobody can vouch for is in no default workflow). Every graph is
+   walked: none sets one of `REUSE_INPUTS` on, and a `CACHE_NODES` class
+   appears only under `PROBE_PREFIX`. The two lists are held to the source,
+   so a new reuse input or cache node cannot ship unlisted. RED CONTROLS: a
+   made-up graph that turns a reuse on, one that wires a cache node without
+   the probe name, and a source line that declares an unlisted switch, are
+   each refused; the same cache node under the probe name passes. ComfyUI's
+   own node cache is outside this: `bench/record_render_substrate.py` reports
+   what it served to each prompt, and `docs/comfy_notes.md` says how it is
+   keyed.
 
 No model, no CUDA, no server; the store is a temporary folder.
 
@@ -50,6 +62,7 @@ import importlib
 import inspect
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -425,6 +438,63 @@ def check_disabled(problems):
         problems.append("the song node's reuse of stored windows is not gated by WINDOW_REUSE_ENABLED")
 
 
+#: Inputs that let a run take a result from an earlier one. Read from the pack's schemas; item 9 holds the list
+#: to the source. `keep_windows` is not one: it writes a window's file and reads nothing.
+REUSE_INPUTS = ("reuse_mask", "reuse_windows", "keep_references")
+#: Node classes that are a cache or exist to feed one: the pack's step cache, its two nodes on the reference
+#: store, and core's `EasyCache`. Listed by reading `workflows/` and the pack's node ids, 2026-10-09.
+CACHE_NODES = ("MiniMaxH3FrozenVideoCache", "MiniMaxH3EncodeReferences", "MiniMaxH3PromptOnReferences", "EasyCache")
+#: A graph that exists to test one says so in its name. Inherited: every such graph was already named this way.
+PROBE_PREFIX = "h3_probe_"
+_SWITCH = re.compile(r'Input\(\s*"(reuse_[a-z_]+|keep_references)"')
+_CACHE_ID = re.compile(r'node_id="([A-Za-z0-9]*(?:Cache|Store)[A-Za-z0-9]*)"')
+
+
+def cache_problems(name: str, graph: dict) -> list[str]:
+    """What item 9 refuses in one graph."""
+    out = []
+    for node in graph.values():
+        if not isinstance(node, dict) or "class_type" not in node:
+            continue
+        for key in REUSE_INPUTS:
+            if node.get("inputs", {}).get(key) is True:
+                out.append(f"{name}: {node['class_type']}.{key} is on; no shipped graph reuses another run's result")
+        if node["class_type"] in CACHE_NODES and not Path(name).name.startswith(PROBE_PREFIX):
+            out.append(f"{name}: wires {node['class_type']}, a cache, and is not named `{PROBE_PREFIX}...`")
+    return out
+
+
+def unlisted_caches(sources: dict) -> list[str]:
+    """Reuse inputs and cache nodes the pack's source declares that the two lists above do not name."""
+    out = []
+    for name, text in sources.items():
+        out += [f"{name}: the input `{m}` is not in REUSE_INPUTS" for m in _SWITCH.findall(text) if m not in REUSE_INPUTS]
+        out += [f"{name}: the node `{m}` is not in CACHE_NODES" for m in _CACHE_ID.findall(text) if m not in CACHE_NODES]
+    return out
+
+
+def check_caches(problems):
+    problems += unlisted_caches({p.name: p.read_text() for p in sorted(REPO.glob("*.py"))})
+    song = {"class_type": "MiniMaxH3AudioFreezeSong", "inputs": {"reuse_windows": True}}
+    cache = {"class_type": CACHE_NODES[0], "inputs": {}}
+    if not cache_problems("h3_made_up_api.json", {"1": song}):
+        problems.append("RED CONTROL failed: a graph with reuse_windows on was accepted")
+    if not cache_problems("h3_made_up_api.json", {"1": cache}):
+        problems.append("RED CONTROL failed: a cache node in a graph not named as a probe was accepted")
+    if cache_problems(f"{PROBE_PREFIX}made_up_api.json", {"1": cache}):
+        problems.append("a cache node in a graph named as a probe was refused")
+    if not unlisted_caches({"made_up.py": 'io.Boolean.Input("reuse_everything", default=True)'}):
+        problems.append("RED CONTROL failed: a reuse input the list does not name was not reported")
+    walked = 0
+    for path in h3_config.graph_paths(WORKFLOWS, include_bench=True):
+        graph = json.loads(Path(path).read_text())
+        if isinstance(graph, dict):
+            walked += 1
+            problems += cache_problems(str(Path(path).relative_to(WORKFLOWS)), graph)
+    if not walked:
+        problems.append("no shipped graph was walked; item 9 checked nothing")
+
+
 def check_graphs(problems):
     seen = 0
     for path in h3_config.graph_paths(WORKFLOWS, include_bench=True):
@@ -454,11 +524,13 @@ def main() -> int:
         finally:
             ms.root = real
     check_graphs(problems)
+    check_caches(problems)
     for p in problems:
         print(f"FAIL  {p}")
     if not problems:
         print("ok    a kept mask is found only when nothing that decides it changed, is the tracked mask's "
-              "bytes, stays inside its budget, and on a hit core is asked for nothing")
+              "bytes, stays inside its budget, and on a hit core is asked for nothing; no shipped graph reuses "
+              "another run's result, and only a graph named as a probe wires a cache")
     return 1 if problems else 0
 
 

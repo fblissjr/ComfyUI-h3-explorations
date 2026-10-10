@@ -114,6 +114,12 @@ subject's mask and the region sit on the source's man on every frame looked
 at, through the turn. What changes at five seconds is who is drawn inside
 the region.
 
+*Refuted the same evening:* the composite did not remove the cap's half, and
+the window is two frames early, not one
+([`2026-10-09_masked_one_window_why.md`](2026-10-09_masked_one_window_why.md)).
+The paragraph below and the frame numbers under "Which frames" are kept as
+they were written.
+
 **The cap: a reading, not shown.** The missing half is inside the
 regenerated region on the mask review, so it is not the region's edge. The
 graph composites `only what changed` at the `change_threshold` the json

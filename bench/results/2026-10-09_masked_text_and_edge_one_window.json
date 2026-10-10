@@ -213,5 +213,6 @@
   "render_brightness_of_kept_cap": 0.093,
   "change_threshold": 0.05,
   "status": "a reading, not shown: the frames before the composite were not kept"
- }
+ },
+ "corrected_by": "bench/results/2026-10-09_masked_one_window_why.md: the window is copy frames 218 to 460 (clip frames 118 to 360), and the cap's missing half is not the composite's doing"
 }
