@@ -30,7 +30,10 @@ Every frame number in it is a frame of the source copy. A subject's `pick`
 is always given: which person a tracker starts from is the one choice no
 default can make. `pick_at` names the source frame the pick is made on;
 without it the tracker chooses. `phrase`, `max_people` and `corrections`
-are the tracker's inputs of those names; `parts` is the list of the part
+are the tracker's inputs of those names; `match` is a number, the likeness
+at or above which a person in another shot is taken as the subject, and
+without it the tracker sets its own line (`TRACKER_MATCH_AT` has why a job
+names one); `parts` is the list of the part
 node's ticks the subject's passes will take, and without it the subject is
 taken whole. `pose: false` leaves a subject's body pose and mesh out of the
 preview, for a subject whose passes will use no motion video.
@@ -91,6 +94,13 @@ SLOT = {
     "MiniMaxH3BodyPose": {"pose_data": 0, "report": 2},
     "MiniMaxH3BodyMeshVideo": {"frames": 0},
 }
+#: The Subject Track's choice for "match at the value I give", whose member holds the value. A job names a
+#: value because the tracker's automatic line comes with a rule of its own: a tracker that finds its subject
+#: alone on its pick frame takes any lone person in a later shot whatever the likeness, and a tracker that
+#: runs after others sees its pick frame with their people set aside, so it can be "alone" beside somebody.
+#: Naming a value turns that rule off. The values a job would name are the node's own two floors,
+#: `subject_track.MATCH_FLOOR` and, for a tracker whose pick frame shows it alone, `subject_track.PLAIN_FLOOR`.
+TRACKER_MATCH_AT = "at a value"
 #: What a job or a subject may be named: the name goes into file names and into the capture's `--mask` spec,
 #: where a comma, a colon or an equals sign is syntax.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_]*\Z")
@@ -151,6 +161,10 @@ def check_job(job: dict) -> None:
         if at is not None and not job["first"] <= at < job["first"] + job["frames"]:
             raise ValueError(f"subject {label!r}: pick_at {at} is outside the span "
                              f"{job['first']}..{job['first'] + job['frames'] - 1}")
+        match = subject.get("match")
+        if match is not None and (isinstance(match, bool) or not isinstance(match, (int, float)) or not 0 < match <= 1):
+            raise ValueError(f"subject {label!r}: match {match!r}; a likeness above 0 and up to 1, or leave it out "
+                             f"for the tracker's own line")
         unknown = set(subject.get("parts") or ()) - set(PART_TICKS)
         if unknown:
             raise ValueError(f"subject {label!r}: unknown parts {sorted(unknown)}; the part node ticks {PART_TICKS}")
@@ -182,11 +196,16 @@ def _tracker_inputs(job: dict, subject: dict) -> dict:
     for theirs, ours in (("subject_phrase", "phrase"), ("max_people", "max_people"), ("corrections", "corrections")):
         if ours in subject:
             inputs[theirs] = subject[ours]
+    members = {}
     if subject.get("pick_at") is not None:
-        # a DynamicCombo: its member is written dotted in the API form, as the song node's `extent` is
+        # a DynamicCombo: its member is written dotted in the API form, as the song node's `extent` is, and
+        # after its parent
         inputs["pick_on"] = "a frame I name"
-        inputs["pick_on.pick_frame"] = subject["pick_at"] - job["first"]
-    return inputs
+        members["pick_on.pick_frame"] = subject["pick_at"] - job["first"]
+    if subject.get("match") is not None:
+        inputs["match"] = TRACKER_MATCH_AT
+        members["match.match_threshold"] = float(subject["match"])
+    return inputs | members
 
 
 def _save(g: dict, nid: int, images: list, prefix: str, how: dict) -> None:

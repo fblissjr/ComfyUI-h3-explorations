@@ -51,7 +51,11 @@ stretches left as the source on purpose. Those make no graph and are written int
 what the running server serves (`build_workflows.validate_api`), posts it, and writes `<stage>.queued.json`;
 with `--wait` it stays until the server is done and writes what was saved. **collect** does that last part for
 a run queued without `--wait`, from the server's history, and posts nothing: the plan and render stages find
-the mesh a preview saved in that record, so a preview is collected before a load is built.
+the mesh a preview saved in that record, so a preview is collected before a load is built. For a preview it
+also exits 1, naming them, when a file the graph was to save is not on disk, and when a subject was not found
+in the load at all (its shot table has no pick, or no frame of the subject on any shot): which trackers come
+first and where each is picked decide who can be found, and a subject an earlier tracker took is otherwise
+only an "absent" on every row of a table nobody opens.
 
 **What it refuses**, each with exit status `REFUSED`:
 
@@ -553,6 +557,24 @@ def found_on_disk(expects: dict, output: Path) -> tuple[dict, list[str]]:
     return found, missing
 
 
+def subjects_not_found(found: dict, output: Path) -> list[str]:
+    """The subjects a preview's trackers never had: a shot table with no pick, or with no frame of the subject
+    on any shot. Everything after a preview assumes each subject was found somewhere (the who-is-who tool
+    needs a look of them, the capture a mask), so this is said by name and is not a success."""
+    out = []
+    for label, things in found.items():
+        for name in things.get("shots") or []:
+            table = json.loads((output / name).read_text())
+            shots = table.get("shots") or []
+            if table.get("pick_frame") is None or not any(shot.get("frames_with_subject") for shot in shots):
+                out.append(f"{label}: " + ("no pick was made" if table.get("pick_frame") is None else
+                                           f"picked on frame {table['pick_frame']}") + f" and the subject is on no "
+                           f"frame of the load's {len(shots)} shot(s). An earlier tracker may hold this person on the "
+                           f"frame they were to be picked on: put this subject earlier in `subjects`, or pick them on "
+                           f"a shot where they are the only person.")
+    return out
+
+
 def capture_from(job: dict, found: dict, output: Path, date: str) -> str:
     """The capture command for a preview that has run, with the files it really saved: nothing left to fill in.
 
@@ -700,11 +722,14 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
         built["output"] = str(Path(built["output_folder"]).parents[len(Path(job["output"]).parts)])
     if built.get("expects"):
         record["found"], record["missing"] = found_on_disk(built["expects"], Path(built["output"]))
+        record["subjects_not_found"] = subjects_not_found(record["found"], Path(built["output"]))
     queued.write_text(json.dumps(record, indent=1) + "\n")
     print(f"{record['status']}" + (f" in {record['seconds']} s" if "seconds" in record else "")
           + f"; {len(record['files'])} files; the record is {queued}")
     if "error" in record:
         print(json.dumps(record["error"], indent=1))
+    if record.get("subjects_not_found"):
+        print("A SUBJECT WAS NOT FOUND IN THIS LOAD:\n  " + "\n  ".join(record["subjects_not_found"]))
     if record.get("missing"):
         print("NOT ON DISK, though the graph was built to save them:\n  " + "\n  ".join(record["missing"]))
     elif record.get("found") and (folder / "job.json").is_file():
@@ -712,7 +737,7 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
         print("the capture, with the files this run saved (give `--folder PATH` in place of --name and --date to "
               "say where it goes; add --voice, and --who-is-who and --not-in at preflight):\n"
               + capture_from(job, record["found"], Path(built["output"]), built["built_at"][:10]))
-    return 0 if record["status"] == "success" and not record.get("missing") else 1
+    return 0 if record["status"] == "success" and not record.get("missing") and not record.get("subjects_not_found") else 1
 
 
 def main() -> int:
@@ -767,6 +792,15 @@ def main() -> int:
             if built["uncommitted_node_code"]:
                 print("  node code not committed (queue will ask for an override): "
                       + ", ".join(built["uncommitted_node_code"]))
+            subjects = json.loads(a.job_file.read_text())["job"]["subjects"]
+            print("  trackers, in this order: " + "; ".join(
+                f"{s['label']} ({s['pick']}" + (f" on source frame {s['pick_at']}" if s.get("pick_at") is not None else ", the tracker's own frame")
+                + (f", match at {s['match']} set by the job" if s.get("match") is not None else ", match by the tracker's own line") + ")"
+                for s in subjects))
+            for s in subjects:
+                if str(s.get("corrections", "")).strip():
+                    print(f"  {s['label']}: corrections typed, read at the tracker's mask version {s['corrections_at']}:\n      "
+                          + str(s["corrections"]).strip().replace("\n", "\n      "))
             print("when it has run, the capture:\n" + capture_command(json.loads(a.job_file.read_text())["job"], a.date))
             return 0
         if a.command == "collect":

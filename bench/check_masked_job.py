@@ -117,7 +117,7 @@ MANIFEST = HERE / "node_id_manifest.json"
 JOB = {"name": "check", "source": "/clips/check_24p.mov", "first": 604, "frames": 447, "canvas": [1024, 768],
        "output": "Video/check",
        "subjects": [{"label": "a", "pick": "largest", "pick_at": 664, "parts": ["hair", "hands"], "phrase": "singer"},
-                    {"label": "b", "pick": "most central", "corrections": "shot 3: person 2", "max_people": 4},
+                    {"label": "b", "pick": "most central", "corrections": "shot 3: person 2", "max_people": 4, "match": 0.9},
                     {"label": "c", "pick": "largest", "pose": False}]}
 #: What stands where a node of another pack is linked, when only this pack's nodes are graded.
 SERVER_GRADES = "<a link to a node the server grades>"
@@ -225,6 +225,12 @@ def every_job_value_lands_on_the_input_it_names():
             assert track["pick_on"] != cfg.SUBJECT_TRACK["pick_on"], f"{who}: a frame is named and pick_on is automatic"
         else:
             assert track["pick_on"] == cfg.SUBJECT_TRACK["pick_on"] and "pick_on.pick_frame" not in track, f"{who}: pick_on"
+        if "match" in subject:
+            assert track["match"] == graphs.TRACKER_MATCH_AT and track["match.match_threshold"] == subject["match"], \
+                f"{who}: match {track['match']!r} at {track.get('match.match_threshold')}"
+            assert list(track).index("match.match_threshold") > list(track).index("match"), f"{who}: the value comes before its choice"
+        else:
+            assert track["match"] == cfg.SUBJECT_TRACK["match"] and "match.match_threshold" not in track, f"{who}: match {track['match']!r}"
         ticked = {k for k in graphs.PART_TICKS if part[k]}
         want = set(subject["parts"]) if subject.get("parts") else {k for k in graphs.PART_TICKS if cfg.SUBJECT_PARTS[k]}
         assert ticked == want, f"{who}: parts {sorted(ticked)}"
@@ -748,6 +754,13 @@ def build_refuses_what_it_must():
         assert "<" not in command and command.count("--mask") == 3 and f"track={out}/Video/check/check/check_b_track_00001.mkv" in command, command
         assert "pose=" not in command.split("--mask c:")[1] and f",at={job['first']}" in command and "held" not in command, command
         _refused(lambda: tool.capture_from(job, {**whole, "b": {**whole["b"], "track": []}}, out, "2026-01-01"), "b", "track")
+        # a subject no tracker ever had: no pick, or a pick and no frame of them on any shot
+        for label, table in (("a", {"pick_frame": 60, "shots": [{"frames_with_subject": 0}, {"frames_with_subject": 12}]}),
+                             ("b", {"pick_frame": None, "shots": [{"frames_with_subject": 0}] * 3}),
+                             ("c", {"pick_frame": 4, "shots": [{"frames_with_subject": 0}] * 2})):
+            (out / whole[label]["shots"][0]).write_text(json.dumps(table))
+        lost = tool.subjects_not_found(whole, out)
+        assert [line.split(":")[0] for line in lost] == ["b", "c"] and "no pick" in lost[0] and "frame 4" in lost[1], lost
         _refused(lambda: tool.capture_from(job, {**whole, "a": {**whole["a"], "parts": ["x", "y"]}}, out, "2026-01-01"), "2 files")
         import shutil as _sh
         _sh.rmtree(out / "Video")
@@ -759,6 +772,10 @@ def build_refuses_what_it_must():
         Path(built["output_folder"]).mkdir(parents=True)
         _refused(lambda: tool.build(_job_file(tmp, job), "preview", **{**where, "date": "2026-01-02"}), "output folder")
         # a subject with no pick; a job with no block
+        for wrong in (0, 1.5, "0.9", True):
+            job3 = dict(_without_corrections(), name="check3")
+            job3["subjects"][0]["match"] = wrong
+            _refused(lambda: tool.build(_job_file(tmp, job3), "preview", **where), "'a'", "match")
         job2 = dict(_without_corrections(), name="check2")
         del job2["subjects"][2]["pick"]
         _refused(lambda: tool.build(_job_file(tmp, job2), "preview", **where), "'c'", "pick")
