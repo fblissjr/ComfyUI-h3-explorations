@@ -18,13 +18,18 @@ overlaps and margins can be counted by hand and reads the rows back.
    reach makes both columns zero.
 5. **The control for the whole table.** One subject's mask moved by a cell changes its own box and the pair's
    overlap and nothing about the third subject.
-6. **A plan's region.** Worked out from the masks: no cell holding the subject is left out, another subject's
-   own cells are, and with whole tokens every regenerated cell shares a token with one the cells rule took.
+6. **A plan's region.** Worked out from the masks by the Masked Source's rule: no cell holding the subject is
+   left out; a token the other subject touches is left out unless the subject's own mask is in it; with
+   nobody kept out the margin reaches them (the control); and a region in whole tokens holds no part token.
 7. **The preflight's rules**, each with the case that must NOT raise it: a shot taken just above the line
    against one well above it; a shot called absent just under the line against one far under; a shot taken in
    frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+9. **Segments.** From a class map: the classes a part mask is made of are read back from the mask; each
+   segment `<label>.<class>` has its pixels per frame; what lies inside a run's region and is not the carried
+   part is counted in pixels and cells, the subject's own and another subject's; and a segment kept out of
+   the margin is no longer inside (the control).
 8. **The held part.** On a subject that moves a pixel a frame, a part emptied on one frame and put at the
    subject's feet on another is filled exactly from its neighbours; every other frame is byte for byte what
    was given; with frames chosen by the caller only those are filled; a part with nothing wrong is not
@@ -161,18 +166,21 @@ def moved() -> str:
 
 
 def plan() -> str:
-    beside = rect(64, 32, 112, 64)
+    beside = rect(64, 32, 112, 64)                      # starts where a ends: in the margin's reach, never in a's cells
     cells = cap.planned_region(A, [beside], MARGIN, _grow(), whole_tokens=False)
     tokens = cap.planned_region(A, [beside], MARGIN, _grow(), whole_tokens=True)
-    assert not (cap.cells_any(A) & ~cells).any(), "a cell holding the subject was left out"
-    assert not (cells & cap.cells_any(beside) & ~cap.cells_any(A))[0].any(), "the other subject's own cells were taken"
+    assert not (cap.cells_any(A) & ~cells).any() and not (cap.cells_any(A) & ~tokens).any(), "a cell holding the subject was left out"
+    assert not (cells & cap.cells_any(beside))[0].any(), "a cell the other subject touches, with none of the subject, was taken"
     alone = cap.planned_region(A, [], MARGIN, _grow(), whole_tokens=False)
     assert (alone & cap.cells_any(beside))[0].any(), "the control: with nobody kept out the margin reaches them"
-    assert (tokens | cells == tokens).all() and tokens.sum() >= cells.sum(), "whole tokens lost a cell"
-    t = cap.TOKEN_CELLS
-    blocks = cells.reshape(N, H // CELL // t, t, W // CELL // t, t).any(axis=(2, 4))
-    assert (tokens == np.repeat(np.repeat(blocks, t, 1), t, 2)).all(), "a token is regenerated that holds no cell of the region"
-    return f"{int(cells[0].sum())} cells, {int(tokens[0].sum())} as whole tokens, the other subject's cells left out"
+    over = rect(56, 32, 112, 64)                        # overlaps a: a token holding both stays the subject's
+    shared = cap.planned_region(A, [over], MARGIN, _grow(), whole_tokens=True)
+    both = cap.whole_tokens_of(cap.cells_any(A)) & cap.whole_tokens_of(cap.cells_any(over))
+    assert both.any() and (shared | ~both).all(), "a token holding the subject and the other was given up"
+    theirs_only = cap.whole_tokens_of(cap.cells_any(over)) & ~cap.whole_tokens_of(cap.cells_any(A))
+    assert not (shared & theirs_only).any(), "a token of the other subject alone was taken"
+    assert (cap.whole_tokens_of(tokens) == tokens).all(), "a region in whole tokens holds part of a token"
+    return f"{int(cells[0].sum())} cells, {int(tokens[0].sum())} in whole tokens; a token with both stays, one of the other alone goes"
 
 
 def _table(*shots) -> dict:
@@ -248,6 +256,27 @@ def held_part() -> str:
     return "an empty frame and a moved one are filled exactly from their neighbours; only the chosen frames when chosen; a long gap is left"
 
 
+def segments() -> str:
+    names = ("Background", "Face", "Hair", "Hand")
+    mine = np.zeros((N, H, W), np.uint8)
+    mine[:, 32:48, 32:64] = 1                       # a face, 16 by 32
+    mine[:, 16:32, 32:64] = 2                       # hair above it
+    theirs = np.zeros((N, H, W), np.uint8)
+    theirs[:, 32:48, 64:80] = 3                     # somebody's hand beside the face
+    part = mine == 1
+    assert cap.part_classes(part, mine, names) == [1], cap.part_classes(part, mine, names)
+    rows = cap.segment_rows("a", "run1", 100, mine, names)
+    assert rows[0] == {"frame": 0, "source_frame": 100, "subject": "a", "seen_by": "run1", "a.Face": 512, "a.Hair": 512}, rows[0]
+    region = cap.planned_region(part, [], MARGIN, _grow(), whole_tokens=False)
+    inside = cap.segments_in_region(100, region, part, {"a": mine, "b": theirs}, names)[0]
+    assert "a.Face__px" not in inside, "the carried part was counted as something else inside the region"
+    assert inside["a.Hair__px"] == 512 and inside["a.Hair__cells"] == 2, inside
+    assert inside["b.Hand__px"] == 256 and inside["b.Hand__cells"] == 1, inside
+    kept = cap.planned_region(part, [theirs > 0], MARGIN, _grow(), whole_tokens=False)
+    assert "b.Hand__px" not in cap.segments_in_region(100, kept, part, {"a": mine, "b": theirs}, names)[0], "kept out, and still inside"
+    return "a part's classes read back from its mask; hair and a neighbour's hand inside the region counted; none once kept out"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -270,5 +299,6 @@ case("a plan's region from the masks", plan)
 case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
 case("the held part", held_part)
+case("segments and what is inside a region", segments)
 case("preflight: the text against the voice", text_rules)
 sys.exit(finish())

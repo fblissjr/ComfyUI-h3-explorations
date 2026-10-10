@@ -32,15 +32,19 @@ saves every mask output through `MaskToImage` writes exactly these. What it writ
     frames.csv / .json       one row a frame, across subjects: each pair's mask overlap, each run's region
                              on each other subject, the margin cells given back, two runs' regions on the
                              same cells, two sightings of one subject against each other, and `voiced`
-    subjects/<label>/        masks__<by>.npz (track, parts), per_frame.csv / .json, shots__<by>.json
+    subjects/<label>/        masks__<by>.npz (track, parts), per_frame.csv / .json, shots__<by>.json;
+                             with a class map (`classes=`): classes__<by>.npz and segments.csv / .json, the
+                             pixels of each segment `<label>.<class>` per frame
     runs/<run>/              region.npz (the region in latent cells, and the mask the review shows as
-                             carried), per_frame.csv / .json, graph.json (read from the render's picture)
+                             carried), per_frame.csv / .json, graph.json (read from the render's picture);
+                             segments_in_region.csv / .json: every segment inside the region that is not
+                             the carried mask, in pixels and cells
     status.json, README.md   how it came to be, and what it does not hold
 
 **A plan** (`--plan`) is a run that has not rendered: its region is worked out from the saved masks with the
-node's own `grow`, the others' pixels taken out, and widened to whole tokens unless `edge=cells`. It is per
-frame; the sampler's region also covers every frame of a latent step's run, so the real one is never smaller.
-It exists so that `preflight` and `video` can be run on a no-sampling preview, before a render is queued.
+node's own `grow` and the Masked Source's rule for the others, in whole tokens unless `edge=cells`. It is per
+frame; the sampler's region is shared by the frames of a latent step, so the real one differs a little at
+moving edges (`planned_region` has the figure from one render). It exists so that `preflight` and `video` can be run on a no-sampling preview, before a render is queued.
 
 **preflight** reads a capture folder and writes `flags.json`: each flag has its rule, the subject's label, the
 source frames and the figure that raised it. A flag is a prompt to look at those frames, never a refusal. The
@@ -63,7 +67,9 @@ the part as the preview saved it; `parts_held__<by>.mkv` is the same with the fr
 the subject, a jump in size, moved within the subject's box) filled from their undoubted neighbours
 (`held_parts`). A part can be rightly empty, so look first and pass `hold=FIRST-LAST+FIRST-LAST` in the
 `--mask` spec to fill only the source frames you chose; without it every doubted frame in reach is filled.
-The manifest lists the frames filled and the doubted frames left. Written only when the mask video covers
+`drop=FIRST-LAST+FIRST-LAST` empties the part on source frames where it should take nothing (it lies on
+something that is not the part and there is nothing to fill it from). A plan with `carried=held` works its
+region out from that mask. The manifest lists the frames filled, the doubted frames left and those emptied. Written only when the mask video covers
 the whole span.
 
 **video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
@@ -149,6 +155,9 @@ HOLD_REACH = 12
 #: A run's region over this share of ANOTHER subject's mask is flagged. Reasoned: under it is the margin's
 #: ordinary brush against a neighbour.
 REGION_ON_OTHER = 0.05
+#: A segment with fewer pixels than this inside a region is its edge and is not flagged. Reasoned: under a
+#: quarter of one latent cell.
+SEGMENT_PX = 64
 #: A region of which more than this share is not the subject's own mask is flagged: that share is background
 #: and props, which the model draws again from the text. Reasoned: more outside the subject than inside.
 NOT_SUBJECT = 0.5
@@ -219,7 +228,59 @@ def read_mask(path: str, size: tuple[int, int], at: int, first: int, frames: int
     return mask, covered
 
 
+def read_classes(path: str, size: tuple[int, int], at: int, first: int, frames: int) -> np.ndarray:
+    """A saved class map as [frames, h, w] of uint8 class indices (`sapiens2_parts.CLASS_NAMES`), 0 off the subject.
+
+    The video's grey level is the index (`sapiens2_parts.class_mask`), read back by the node's own
+    `class_indices` from one colour channel, never through a conversion to grey: a level one off is another
+    class. Nearest-neighbour when the size differs, for the same reason."""
+    import torch
+    sp = _pack("sapiens2_parts")
+    w, h = size
+    out = np.zeros((frames, h, w), np.uint8)
+    skip, lead = max(first - at, 0), max(at - first, 0)
+    for n, frame in enumerate(stream(path, size, skip, max(frames - lead, 0), vf=f"scale={w}:{h}:flags=neighbor", pix="rgb24")):
+        out[lead + n] = sp.class_indices(torch.from_numpy(frame[..., 0].copy()).to(torch.float32) / 255.0).numpy()
+    return out
+
+
 # ------------------------------------------------------------------ the tables (pure: the check drives these)
+
+def segment_rows(label: str, by: str, first: int, classes: np.ndarray, names: tuple[str, ...]) -> list[dict]:
+    """One row a frame: the pixels of every class the part model put on this subject. A segment's id is
+    `<label>.<class name>`, the same in every table, picture and frame; a class that never appears has no column."""
+    counts = np.stack([np.bincount(c.ravel(), minlength=len(names))[:len(names)] for c in classes])
+    present = [k for k in range(1, len(names)) if counts[:, k].any()]
+    return [{"frame": n, "source_frame": first + n, "subject": label, "seen_by": by,
+             **{f"{label}.{names[k]}": int(counts[n, k]) for k in present}} for n in range(len(classes))]
+
+
+def segments_in_region(first: int, region: np.ndarray, carried: np.ndarray, classes: dict, names: tuple[str, ...]) -> list[dict]:
+    """One row a frame for one run: every segment of every subject inside the run's region and outside the mask
+    it carries, as pixels and as the cells that hold any of it. `classes[label]` is that subject's class map.
+    This is what gets drawn again without being the thing replaced: a neighbour's hand, the subject's own
+    hair or earring, something held."""
+    rows = []
+    for n in range(len(region)):
+        open_px = cells_up(region[n]) & ~carried[n]
+        row = {"frame": n, "source_frame": first + n}
+        for label, cmap in classes.items():
+            inside = np.where(open_px, cmap[n], 0)
+            counts = np.bincount(inside.ravel(), minlength=len(names))
+            for k in np.nonzero(counts[1:len(names)])[0] + 1:
+                row[f"{label}.{names[k]}__px"] = int(counts[k])
+                row[f"{label}.{names[k]}__cells"] = int((cells_any((cmap[n] == k)[None])[0] & region[n]).sum())
+        rows.append(row)
+    return rows
+
+
+def part_classes(parts: np.ndarray, classes: np.ndarray, names: tuple[str, ...]) -> list[int]:
+    """Which classes a saved part mask is made of: those with most of their pixels inside it over the clip.
+    The preview saves the mask and not the ticks that made it, so this reads them back."""
+    inside = np.bincount(classes[parts].ravel(), minlength=len(names))[:len(names)]
+    total = np.bincount(classes.ravel(), minlength=len(names))[:len(names)]
+    return [k for k in range(1, len(names)) if total[k] and inside[k] / total[k] > 0.5]
+
 
 def cells_any(mask: np.ndarray, cell: int = CELL) -> np.ndarray:
     """[n, h, w] of bool to [n, h / cell, w / cell]: true where any pixel of the cell is."""
@@ -244,24 +305,32 @@ def write_mask_video(path: Path, mask: np.ndarray) -> None:
         raise RuntimeError(f"ffmpeg could not write {path}")
 
 
-def planned_region(carried: np.ndarray, others: list[np.ndarray], margin: int, grow, whole_tokens: bool = True) -> np.ndarray:
-    """The cells a run would regenerate, [n, h / CELL, w / CELL], from the masks alone.
-
-    The Masked Source's rule: the carried mask grown by the margin, less every pixel of the others that is
-    not the subject's own; then any cell with such a pixel, and with `whole_tokens` any token with such a
-    cell. Per frame: the frames of one latent step share a region in the sampler, which this does not model."""
-    import torch
-    grown = grow(torch.from_numpy(carried).to(torch.float32), int(margin)).numpy() > 0.5
-    for other in others:
-        grown &= ~(other & ~carried)
-    cells = cells_any(grown)
-    if not whole_tokens:
-        return cells
+def whole_tokens_of(cells: np.ndarray) -> np.ndarray:
+    """[n, ch, cw] of cells widened to whole tokens: a token is on when any of its cells is."""
     n, ch, cw = cells.shape
     t = TOKEN_CELLS
     padded = np.pad(cells, ((0, 0), (0, ch % t), (0, cw % t)), mode="edge")
     tokens = padded.reshape(n, padded.shape[1] // t, t, padded.shape[2] // t, t).any(axis=(2, 4))
     return np.repeat(np.repeat(tokens, t, axis=1), t, axis=2)[:, :ch, :cw]
+
+
+def planned_region(carried: np.ndarray, others: list[np.ndarray], margin: int, grow, whole_tokens: bool = True) -> np.ndarray:
+    """The cells a run would regenerate, [n, h / CELL, w / CELL], from the masks alone.
+
+    The Masked Source's rule (`video_mask.window`), a frame at a time: the carried mask grown by the margin,
+    in whole tokens; less every token the others touch, unless the subject's own mask, before any margin, has
+    a pixel in it. With `whole_tokens` off the same in cells. The frames of one latent step share a region in
+    the sampler, for the subject and for the others alike, which this does not model: the real region is a
+    little larger where the subject moves and a little smaller where the others do. Set against one render's
+    own region the day it was written (447 frames, a whole subject, another kept out): intersection over
+    union 0.99 at the median and 0.92 at the fifth percentile."""
+    import torch
+    grown = grow(torch.from_numpy(carried).to(torch.float32), int(margin)).numpy() > 0.5
+    widen = whole_tokens_of if whole_tokens else (lambda cells: cells)
+    region, own = widen(cells_any(grown)), widen(cells_any(carried))
+    for other in others:
+        region &= ~(widen(cells_any(other)) & ~own)
+    return region
 
 
 def overlap(a: np.ndarray, b: np.ndarray) -> float | None:
@@ -488,7 +557,7 @@ def files(a: argparse.Namespace) -> Path:
     out = Path(a.out) / f"{a.date}_{a.name}"
     out.mkdir(parents=True, exist_ok=True)
     masks, runs, plans = [spec(m) for m in a.mask], [spec(r) for r in a.run], [spec(r) for r in a.plan]
-    named = [m[k] for _, m in masks for k in ("track", "parts", "shots") if m.get(k)] + [a.source]
+    named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
     write_status(out, "running", inputs=[Path(x).name for x in named])
@@ -513,6 +582,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     width, height, _ = probe(masks[0][1]["track"])
     size = (width, height)
     sightings: dict = {}
+    class_maps: dict = {}
+    made_of: dict = {}
+    held_masks: dict = {}
     manifest = {"name": a.name, "date": a.date, "clip": Path(a.source).name, "first_frame": first, "frames": frames,
                 "size": [width, height], "fps": FPS, "cell_px": CELL, "subjects": [], "runs": [],
                 "commit": subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
@@ -521,6 +593,17 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         by, at = m.get("by", "preview"), int(m.get("at", first))
         track, covered = read_mask(m["track"], size, at, first, frames)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
+        if m.get("classes"):
+            names = _pack("sapiens2_parts").CLASS_NAMES
+            cmap = read_classes(m["classes"], size, at, first, frames)
+            class_maps[label] = cmap
+            (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(out / "subjects" / label / f"classes__{by}.npz", classes=cmap)
+            write_table(out / "subjects" / label / "segments", segment_rows(label, by, first, cmap, names))
+            made_of[label] = [names[k] for k in part_classes(parts, cmap, names)] if parts is not None else []
+        if m.get("held"):
+            (out / "subjects" / label).mkdir(parents=True, exist_ok=True)
+            write_mask_video(out / "subjects" / label / f"held__{by}.mkv", read_mask(m["held"], size, at, first, frames)[0])
         if by in sightings.setdefault(label, {}):
             raise SystemExit(f"subject {label!r} has two masks by {by!r}; name each sighting's run with by=")
         sightings[label][by] = (track, covered, parts)
@@ -531,12 +614,18 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         write_mask_video(folder / f"track__{by}.mkv", track)
         held_frames: list[int] = []
         left_frames: list[int] = []
+        dropped: list[list[int]] = []
         if parts is not None:
             write_mask_video(folder / f"parts__{by}.mkv", parts)
             mine = [r for r in subject_rows(label, by, first, track, covered, parts)]
             if all(r["covered"] for r in mine):
                 only = [[int(x) for x in (span.split("-") * 2)[:2]] for span in m["hold"].split("+")] if m.get("hold") else None
                 held, held_frames, left_frames = held_parts(track, parts, mine, only, first)
+                for span in (m["drop"].split("+") if m.get("drop") else []):
+                    lo, hi = (int(x) for x in (span.split("-") * 2)[:2])
+                    held[max(lo - first, 0):max(hi - first + 1, 0)] = False
+                    dropped.append([lo, hi])
+                held_masks[label] = held
                 write_mask_video(folder / f"parts_held__{by}.mkv", held)
         if m.get("shots"):
             shutil.copyfile(m["shots"], folder / f"shots__{by}.json")
@@ -550,8 +639,11 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         entry["sightings"].append({"by": by, "track": Path(m["track"]).name, "parts": Path(m["parts"]).name if m.get("parts") else None,
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
                                    "frames_covered": int(covered.sum()),
+                                   "classes": Path(m["classes"]).name if m.get("classes") else None,
+                                   "part_is_made_of": made_of.get(label),
                                    "parts_held_on_source_frames": frame_spans([first + f for f in held_frames]),
-                                   "parts_doubted_and_left_on_source_frames": frame_spans([first + f for f in left_frames])})
+                                   "parts_doubted_and_left_on_source_frames": frame_spans([first + f for f in left_frames]),
+                                   "parts_emptied_on_source_frames": dropped})
         print(f"subject {label} seen by {by}: {int(covered.sum())} of {frames} frames covered, "
               f"mask on {int(track.reshape(frames, -1).any(1).sum())}", flush=True)
     for label, seen in sightings.items():
@@ -571,6 +663,10 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                      "edge": "latent cells" if r.get("edge") == "cells" else "whole tokens"}
             track, covered, parts = lead[label]
             carried = parts if parts is not None and r.get("carried", "parts") == "parts" else track
+            if r.get("carried") == "held":
+                if label not in held_masks:
+                    raise SystemExit(f"plan {name!r} asks for carried=held and {label!r} has no parts_held mask")
+                carried = held_masks[label]
             region = planned_region(carried, [lead[o][0] for o in others], int(r["margin"]), _pack("video_mask").grow,
                                     whole_tokens=r.get("edge") != "cells")
             read, how = covered.copy(), {"read_from": "worked out from the saved masks: a plan, nothing rendered", "legend_px": None}
@@ -592,6 +688,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         write_mask_video(folder / "region.mkv", cells_up(region))
         write_mask_video(folder / "carried.mkv", carried)
         write_table(folder / "per_frame", run_rows(name, label, first, region, carried, read))
+        if class_maps:
+            write_table(folder / "segments_in_region", segments_in_region(first, region, carried, class_maps,
+                                                                           _pack("sapiens2_parts").CLASS_NAMES))
         if graph is not None:
             (folder / "graph.json").write_text(json.dumps(graph, indent=1) + "\n")
         captured[name] = entry
@@ -867,6 +966,63 @@ def flag_runs(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
+def flag_segments(manifest: dict, folder: Path) -> list[dict]:
+    """What the class map adds: a part that is not there to be replaced, and what else is inside a region.
+
+    `part_not_visible`: the classes a part is made of cover under `PART_SIZE` of their own recent area (or
+    nothing) while the subject's mask is there: the face is turned away or something is in front of it. It is
+    the answer to "is this empty part a fault": no, and a fill would paint one in.
+    `segment_inside_region`: a segment that is not the carried part lies inside a run's region, another
+    subject's or the subject's own (hair, an earring, a hand): it is drawn again from the text and the still.
+    One flag a segment, with its frames and the most cells it took."""
+    out = []
+    for s in manifest["subjects"]:
+        seen = s["sightings"][0]
+        path = folder / "subjects" / s["label"] / "segments.json"
+        if not path.is_file() or not seen.get("part_is_made_of"):
+            continue
+        rows = json.loads(path.read_text())["rows"]
+        track = {r["frame"]: r for r in json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
+                 if r["seen_by"] == seen["by"]}
+        px = np.array([sum(r.get(f"{s['label']}.{c}", 0) for c in seen["part_is_made_of"]) for r in rows], float)
+        usual = recent_median(np.where(px > 0, px, np.nan))
+        there = np.array([bool(track[r["frame"]].get("track_share")) for r in rows])
+        gone = there & ((px == 0) | (px < PART_SIZE * usual))
+        if gone.any():
+            src = np.array([r["source_frame"] for r in rows])
+            out.append({"rule": "part_not_visible", "level": LEVELS[1], "subject": s["label"], "seen_by": seen["by"],
+                        "segment": [f"{s['label']}.{c}" for c in seen["part_is_made_of"]],
+                        "source_frames": frame_spans(src[gone].tolist()),
+                        "why": f"{s['label']}'s {', '.join(seen['part_is_made_of'])} is absent or under half its recent size on "
+                               f"{int(gone.sum())} frame(s) while {s['label']} is there: turned away or hidden. There is "
+                               "nothing to replace on them; do not fill the part there",
+                        "figures": {"frames": int(gone.sum()), "absent": int((there & (px == 0)).sum())}, "threshold": {"PART_SIZE": PART_SIZE}})
+    for run in manifest["runs"]:
+        path = folder / "runs" / run["name"] / "segments_in_region.json"
+        if not path.is_file():
+            continue
+        rows = json.loads(path.read_text())["rows"]
+        own = next((s["sightings"][0].get("part_is_made_of") or [] for s in manifest["subjects"] if s["label"] == run["subject"]), [])
+        kind = "plan" if run.get("planned") else "run"
+        for key in sorted({k[:-len("__cells")] for r in rows for k in r if k.endswith("__cells")}):
+            label, cls = key.split(".", 1)
+            if label == run["subject"] and cls in own:
+                continue                               # the carried part's own classes just outside its mask: the edge
+            cells = [(r["source_frame"], r.get(f"{key}__cells", 0), r.get(f"{key}__px", 0)) for r in rows]
+            hit = [(f, c, p) for f, c, p in cells if p >= SEGMENT_PX]
+            if not hit:
+                continue
+            other = label != run["subject"]
+            out.append({"rule": "segment_inside_region", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+                        "segment": key, "source_frames": frame_spans([f for f, _, _ in hit], join=RECENT),
+                        "why": f"{key} lies inside what {kind} {run['name']} regenerates on {len(hit)} frame(s), up to "
+                               f"{max(c for _, c, _ in hit)} cells: it is drawn again without being what is replaced"
+                               + ("; name it in the text or keep it out" if not other else f"; {label}'s own pass must win there, or keep it out"),
+                        "figures": {"frames": len(hit), "most_cells": max(c for _, c, _ in hit), "median_px": int(np.median([p for _, _, p in hit]))},
+                        "threshold": {"SEGMENT_PX": SEGMENT_PX}})
+    return out
+
+
 def voice_sentences(text: str) -> tuple[list[str], list[str]]:
     """The sentences of a prompt that say a voice is performed, and those that deny one."""
     import re
@@ -917,7 +1073,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
-    flags += flag_runs(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder)
     if a.text and a.voice_spans:
         spans = json.loads(Path(a.voice_spans).read_text())["voiced_spans_inclusive"]
         flags += flag_text(Path(a.text).read_text(), spans, m["first_frame"], m["frames"])
@@ -1286,11 +1442,11 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,shots=J][,by=RUN][,at=N][,hold=A-B+C-D]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V,subject=LABEL[,others=L+L][,margin=PX]",
                    help="one pass that regenerated a subject; its region is read from the render's review; repeatable")
-    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,carried=track][,edge=cells]",
+    f.add_argument("--plan", action="append", default=[], metavar="RUN:subject=LABEL,margin=PX[,others=L+L][,carried=track|held][,edge=cells]",
                    help="a run that has not rendered: its region is worked out from the masks; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))
