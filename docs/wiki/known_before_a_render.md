@@ -177,3 +177,22 @@ renders after it.
   built before the cut. Not built: a flag of the gate for a plan that writes
   more frames than its load holds, which would also catch a graph the
   builder did not make.
+- **2026-10-10 (mrdeer): a reader who did not make the masks found what the
+  gate had only as warnings.** Walking every frame of twelve planned loads,
+  it found two face loads whose part was fragments on most frames (on hair,
+  an outline, a wall) and a whole-person load whose neighbour's track was a
+  head alone, so that the region over her was measured against a head. The
+  gate's top-level flags had named only the frames where the part was
+  empty; the fragment frames were in its warnings about a part that changed
+  size or moved, in a list long enough that its own author had stopped
+  reading it. What changed: the grade empties a part under
+  `PART_LEAST_PX` (`bench/capture_masked_run.py::grade_holds`), so such a
+  frame is a frame with no part and is named at the top level; "is the part
+  on its own subject" was tested as the rule and does not separate (the
+  class map calls a fragment the part's own class). What did not become a
+  rule: a track's size against its neighbouring shots, which fires on right
+  takes of a subject small in an inset. The step this earned is the owner's
+  (`AGENTS.md`, "Operative rules"): data is looked at by someone who did
+  not make it before a render, recorded with
+  `bench/capture_masked_run.py looked`; the builder's refusal on it is not
+  built (the masking board, `build-someone-looked-at-every-frame-before-a-render`).
