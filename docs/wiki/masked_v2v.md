@@ -865,7 +865,22 @@ by a mask. A patch has no run in a capture, so its row says whose it is
 folders. Two of its proofs exist because a file passed without them: every
 row must show on the pixels it was meant to (`rows_shown`), and no small
 square of a decoded frame may sit far from the frame the table makes, which
-is what fails a file built from another table or by an older rule. Where two tracked masks claim the same pixel (an arm reaching
+is what fails a file built from another table or by an older rule. Three
+more exist because a delivered file showed the source's own picture where
+it was not meant to and nothing failed (added 2026-10-10). The span is cut
+into shots, by a capture's shot table where one covers the frames, and a
+shot with nothing laid for a subject a row names fails when the subject is
+tracked there or unaccounted people are detected; the table answers it with
+a `source first-last subject=<label> why` line, which is where "left on
+purpose" is written. A row lays nothing on a frame the mask its run carried
+is empty on (a latent step lends such a frame a region). And a row whose
+last or first frame in a shot is the source's own picture under the mask
+its run carried fails by its frames, the last net behind the capture's gate
+and an open tail. A file listed in its folder's `LOCKED.md` is never built
+over. What each of these proves and does not, the files built with the tool
+and every change to it by date:
+[`bench/results/2026-10-10_delivery_files_and_their_records.md`](../../bench/results/2026-10-10_delivery_files_and_their_records.md).
+Where two tracked masks claim the same pixel (an arm reaching
 across somebody) a mask does not say whose it is: the capture's
 `owners.npz` does, from the class maps, and the assembler reads it for the
 shared pixels and for `restore=<subject>`, leaving what it marks contested
