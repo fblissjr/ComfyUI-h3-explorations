@@ -238,6 +238,13 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   small share of the frame is a few of the video model's tokens across in
   the mesh (her box per frame is `track_box` in a capture's
   `subjects/<label>/per_frame.csv`).
+- **Added later on 2026-10-10 (mrwolf): it has one now.** Since f7e5de99
+  `motion_reference` has a choice for a wired video shown in the subject's
+  box (`video_mask.MOTIONS`). Not rendered when this was written. Its
+  first use should be a load with no frames kept from an earlier window,
+  where a subject who is small in the frame did not follow her mesh
+  (`bench/results/2026-10-10_kept_frames_against_the_mesh.md`, the short
+  load): there the zoom is the one field changed.
 - **The size of the motion video is not the lever by itself,
   2026-10-10 (mrpop):** the plain mesh at the canvas's short edge, as a
   continuation behind kept frames, did not turn the head on the kitchen

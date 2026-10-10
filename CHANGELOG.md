@@ -7,12 +7,47 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
-## 0.279.2
+## 0.280.1
 <!-- changelog.d/mrwolf-state-signals-wired-zoom-exists.md -->
 
 ### Changed
 
 - `docs/wiki/state_signals.md`: a dated line under the line that said a wired motion video has no zoom. It has one since f7e5de99, not yet rendered; the line says where its first use belongs (the short load that did not follow its mesh with no kept frames in the way, the zoom as the one field changed).
+
+## 0.280.0
+<!-- changelog.d/mrcorn-no-mask-no-lay.md -->
+
+### Added
+
+- **`bench/assemble_delivery.py`: a row lays nothing on a frame its run
+  carried no mask on.** A masked render regenerates by latent step, and a
+  step is several frames: where a subject's part is emptied on one frame of
+  a step and present on another, the sampler still draws a region on the
+  emptied frame, and a delivery carried six such frames (a face under a
+  hat's brim for one frame where the source has none). A run's capture holds
+  the mask each window carried (`runs/<run>/region.npz`); where the manifest
+  says it is the one each window saved, a row whose carried mask is empty on
+  a frame leaves that frame as the source's, at both sizes, and the flag
+  `piece_changed_where_its_run_carried_no_mask` names the frames and the
+  pixels. A carried mask that was only read off a review picture drops
+  nothing and the same flag says so. It covers renders that exist; the cause
+  is in the node's composite.
+- `bench/check_assemble_delivery.py`: case 18.
+- `bench/results/2026-10-10_delivery_files_and_their_records.md`: the dated
+  lines, and the file built under the rule measured against the one before.
+
+## 0.279.2
+<!-- changelog.d/mrpop-known-before-a-render.md -->
+
+### Added
+
+- `docs/wiki/known_before_a_render.md`, routed from the wiki index: every
+  fault of a masked job found after a render on 2026-10-10, each against
+  the data that existed before the render (the trackers' shot tables, the
+  plan's arithmetic, the class maps, a pose pass and the voice table on the
+  source), whether we had it, and the preflight rule that raises it now or
+  the words "not built". A row is not finished until a rule raises it
+  before sampling.
 
 ## 0.279.1
 <!-- changelog.d/mrcorn-class-rule-narrowed.md -->
