@@ -286,6 +286,33 @@ weak point is the case most wanted: on a person a few tokens tall the
 part map is itself unreliable, and the whole person is used. It needs the
 part model on every person of a look, which is a new pass.
 
+*2026-10-10, the owner, on segments as features: a white top a person
+wears is a feature even though they will not always wear it; segment it,
+follow it, and it counts while it is there. The same for the shape of
+their hair, and for other parts. That is this paragraph said better, and
+it changes two things in it.*
+
+- *A segment is a feature with a lifetime. A person in the cast is then a
+  short list of segments for each appearance (this top, this hair, this
+  hat), each with what was measured of it: its colour, its outline, the
+  features under it. A segment that is not there is no evidence either
+  way. One that is there and matches counts; one that is there and
+  plainly differs inside one scene counts against. Adding a kind of
+  segment adds a feature and rebuilds nothing.*
+- *Its first use is free, and is a check, not a search. The part model
+  already runs on every frame of a tracked subject, and the capture
+  already saves each segment a frame (`bench/capture_masked_run.py`, the
+  files a class map adds). So once the two votes have named a person and
+  the tracker has followed them, their segments can be compared with the
+  segments of that subject's confirmed look in the same scene, with no
+  new pass: a dark jacket where the confirmed look has a white top is a
+  wrong take, or a change of clothes, and either way a question. Only
+  the search over every candidate on a look needs the new pass, and that
+  stays where section 7 puts it.*
+- *Not known: how often tonight's wrong takes were of a person dressed
+  differently from the subject in that scene. The test bed can say, from
+  files that exist.*
+
 **Body build.** The one clue that should not change with an outfit. The
 body model estimates it afresh on every frame and completes what it
 cannot see, so it is read only on frames where most of the body is in the
@@ -319,7 +346,9 @@ default.
 2. **Agree or ask**, both votes, over the test bed. This is the first
    number that says whether two votes beat one.
 3. **The round trip and several looks**, if step 2 leaves wrong takes
-   that both votes agreed on.
+   that both votes agreed on. *And, since the owner's point on segments:
+   the free check of the taken person's segments against the confirmed
+   look's, scored the same way, since it needs no new pass.*
 4. **The piles**, from what the tables already hold: which features
    separate this clip's people at all. No model.
 5. **The part pass**, if appearance is still the weak vote. Stops if the
