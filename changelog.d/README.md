@@ -34,6 +34,22 @@ To revise an entry before it is committed, edit your fragment and run step
 fragment it came from, which is how the build knows an entry is yours to
 rewrite.
 
+## When the build says STOP
+
+It refuses to build beside somebody else's uncommitted work, and writes
+nothing when it does:
+
+- **an entry in `CHANGELOG.md` made from a fragment that is not yours and not
+  committed**: another session has built and not committed yet. Wait for
+  that commit, then build again;
+- **`pyproject.toml` differs from `HEAD` by more than its version line**: the
+  other lines are somebody's, and the version this build writes would put
+  the file in your commit with them. Wait for that commit, or ask its author.
+
+Before you commit, read `git diff --numstat -- CHANGELOG.md pyproject.toml`
+in a step of its own: `pyproject.toml` is one line out and one in, and
+`CHANGELOG.md` has no line removed.
+
 ## What not to do
 
 - **Do not edit `CHANGELOG.md` above the marker line.** The build stops

@@ -37,6 +37,15 @@ cases here; the last case is the tree itself.
                                  peer's uncommitted fragment is not built
                                  in; a hand edit stops the build with the
                                  file left as it was.
+  a_foreign_pyproject_change_stops_the_build
+                                 in a scratch repository: a build writes
+                                 the version into `pyproject.toml` and may
+                                 be run again; with one more line changed
+                                 in that file by somebody else it stops,
+                                 names the line and leaves both files as
+                                 they were; and a second session's build
+                                 beside a first one's uncommitted entry
+                                 stops and says to wait for that commit.
   the_tree                       `build_changelog.py --check` on this
                                  checkout.
 """
@@ -213,6 +222,51 @@ def the_order_is_the_commits():
         assert tool("--check").returncode == 0, tool("--check").stdout
 
 
+def a_foreign_pyproject_change_stops_the_build():
+    """A build never writes the version into a `pyproject.toml` that holds somebody else's uncommitted lines."""
+    head = '[project]\nname = "x"\nversion = "0.9.4"\n'
+    assert B.pyproject_foreign(head, head.replace("0.9.4", "0.9.5")) == [], "a version line alone was called foreign"
+    theirs = head.replace("0.9.4", "0.9.5") + 'dependencies = ["y"]\n'
+    assert B.pyproject_foreign(head, theirs) == ['+dependencies = ["y"]'], B.pyproject_foreign(head, theirs)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "bench").mkdir()
+        (root / "changelog.d").mkdir()
+        shutil.copy(B.__file__, root / "bench" / "build_changelog.py")
+        (root / "CHANGELOG.md").write_text(TEXT)
+        (root / "pyproject.toml").write_text(head)
+
+        def git(*args):
+            done = subprocess.run(["git", "-c", "user.name=check", "-c", "user.email=check@example.invalid",
+                                   "-c", "commit.gpgsign=false", *args], cwd=tmp, capture_output=True, text=True)
+            assert done.returncode == 0, f"git {' '.join(args)}: {done.stderr.strip()[-200:]}"
+
+        def tool(*args):
+            return subprocess.run([sys.executable, "bench/build_changelog.py", *args], cwd=tmp, capture_output=True, text=True)
+
+        git("init", "-q")
+        git("add", "CHANGELOG.md", "bench", "pyproject.toml")
+        git("commit", "-q", "-m", "base")
+        (root / "changelog.d" / "mine.md").write_text(frag("patch", "mine"))
+        first = tool("--with", "changelog.d/mine.md")
+        assert first.returncode == 0 and 'version = "0.9.5"' in (root / "pyproject.toml").read_text(), first.stdout
+        assert tool("--with", "changelog.d/mine.md").returncode == 0, "my own build could not be run again"
+        # somebody else's line arrives in pyproject.toml, uncommitted
+        git("checkout", "-q", "--", "CHANGELOG.md", "pyproject.toml")
+        (root / "pyproject.toml").write_text(head + 'dependencies = ["y"]\n')
+        before = ((root / "CHANGELOG.md").read_text(), (root / "pyproject.toml").read_text())
+        stopped = tool("--with", "changelog.d/mine.md")
+        assert stopped.returncode == 3 and "STOP" in stopped.stdout and "dependencies" in stopped.stdout, stopped.stdout
+        assert ((root / "CHANGELOG.md").read_text(), (root / "pyproject.toml").read_text()) == before, "a refused build wrote a file"
+        # a first session's build is in the tree, uncommitted; a second session builds beside it
+        git("checkout", "-q", "--", "pyproject.toml")
+        assert tool("--with", "changelog.d/mine.md").returncode == 0
+        (root / "changelog.d" / "second.md").write_text(frag("patch", "a second session's"))
+        waits = tool("--with", "changelog.d/second.md")
+        assert waits.returncode == 3 and "wait for that commit" in waits.stdout and "mine.md" in waits.stdout, waits.stdout
+        assert "a second session's" not in (root / "CHANGELOG.md").read_text()
+
+
 def the_tree():
     problems = B.check(B.CHANGELOG.read_text(), B.committed(), {p: (B.REPO / p).read_text() for p in B.uncommitted()})
     assert not problems, "; ".join(problems)
@@ -220,7 +274,8 @@ def the_tree():
 
 def main() -> int:
     for fn in (numbers_follow_the_order, a_rebuild_changes_nothing, a_hand_edit_is_not_overwritten, a_stale_file_is_red,
-               an_uncommitted_fragment_may_ride_or_not, a_bad_fragment_is_refused, the_order_is_the_commits, the_tree):
+               an_uncommitted_fragment_may_ride_or_not, a_bad_fragment_is_refused, the_order_is_the_commits,
+               a_foreign_pyproject_change_stops_the_build, the_tree):
         case(fn.__name__, fn)
     return finish()
 

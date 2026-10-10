@@ -47,6 +47,17 @@ cases it stops and names the heading, because rebuilding would delete the
 entry. An entry that names your fragment is rebuilt from the file as it is
 now, so an entry can be revised before it is committed.
 
+**It refuses to build beside somebody else's uncommitted work** (2026-10-10,
+after four commits in one day carried a peer's hunk). Every build writes
+`pyproject.toml`'s version, so that file is in every session's pathspec, and
+a pathspec commit takes a file whole. So a build stops, writing nothing,
+when `pyproject.toml` differs from `HEAD` by anything but its version line:
+the other lines are somebody's, and a commit that carries the version would
+carry them. It names the lines. With the refusal above (an entry in
+`CHANGELOG.md` made from a fragment that is neither committed nor named),
+this makes builds serial without anybody announcing one: the second session
+waits for the first one's commit and builds again.
+
 **`--check`** (run by `bench/check_changelog.py` in the sweep) passes when
 the region is exactly what `HEAD`'s fragments make, with any fragments
 that are in the working tree and not yet committed on top of them. So it
@@ -249,14 +260,39 @@ def build(text: str, head: list[tuple[str, str]], mine: list[tuple[str, str]]) -
                           "Rebuilding would delete it; move it into a file in changelog.d/ and build with --with.")
         if source not in known:
             raise Refused(f"entry {shown} above the marker was made from {source}, which is not in HEAD and was not "
-                          "given with --with. If it is yours, name it; if it is a peer's, it is theirs to publish "
-                          "and somebody built it in: rebuilding would delete it.")
+                          "given with --with. If it is yours, name it; if it is a peer's, their build is in the tree "
+                          "and not committed yet: wait for that commit and build again. Rebuilding now would delete "
+                          "their entry. Nothing was written.")
     generated, versions = render(base_version(below), fragments)
     return preamble + generated + below, [(name, ".".join(map(str, v))) for (name, _p), v in zip(fragments, versions)]
 
 
 PYPROJECT = REPO / "pyproject.toml"
 PYPROJECT_VERSION = re.compile(r'^(version\s*=\s*")([0-9]+\.[0-9]+\.[0-9]+)(")', re.M)
+
+
+def pyproject_foreign(head: str, now: str) -> list[str]:
+    """The lines by which `pyproject.toml` differs from `HEAD`'s, its version line apart: `-` for a line HEAD
+    has and the tree does not, `+` for the reverse. Empty when the version is the only difference."""
+    import difflib
+    blank = lambda text: PYPROJECT_VERSION.sub(r"\g<1>x.y.z\g<3>", text).splitlines()     # noqa: E731
+    return [line for line in difflib.unified_diff(blank(head), blank(now), lineterm="", n=0)
+            if line[:1] in "+-" and not line.startswith(("+++", "---"))]
+
+
+def refuse_beside_foreign_pyproject() -> None:
+    """Stop when `pyproject.toml` holds somebody's uncommitted change: this build would put it in my commit."""
+    if not PYPROJECT.exists():
+        return                  # a scratch tree with no pack
+    done = subprocess.run(["git", "show", f"HEAD:{PYPROJECT.name}"], cwd=str(REPO), capture_output=True, text=True)
+    if done.returncode != 0:
+        return                  # not in HEAD yet: nothing to compare with
+    foreign = pyproject_foreign(done.stdout, PYPROJECT.read_text())
+    if foreign:
+        shown = "; ".join(line.strip() for line in foreign[:4]) + (" ..." if len(foreign) > 4 else "")
+        raise Refused(f"{PYPROJECT.name} differs from HEAD by more than its version line ({shown}). That is somebody's "
+                      "uncommitted work, and this build writes the version into the same file, so a commit carrying the "
+                      "version would carry it too. Wait for that commit (or ask its author) and build again. Nothing was written.")
 
 
 def sync_pyproject(version: str) -> bool:
@@ -321,6 +357,7 @@ def main() -> int:
         in_head = {name for name, _body in head}
         mine = [(name, body) for name, body in mine if name not in in_head]
         new, versions = build(text, head, mine)
+        refuse_beside_foreign_pyproject()
         if new != text:
             CHANGELOG.write_text(new)
         sync_pyproject(versions[-1][1] if versions else ".".join(map(str, base_version(split(new)[2]))))
