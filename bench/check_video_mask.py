@@ -151,6 +151,21 @@ that could happen.
     whole frame, which is the body drawn where nobody is); and the list has
     the shape core's SAM 3D Body prediction reads, checked through core's own
     reader when it imports.
+19. **The composite lays nothing across a cut from the subject.** One latent
+    step is a run of frames and the region is one per step, so a run that
+    straddles a cut carries the subject's region onto the other shot's
+    frames (2026-10-10: a whole-subject pass repainted a frame or two of the
+    next shot at four cuts). `cut_gate` is 0 on the frames of such a run
+    that lie on a side of the cut the subject is on no frame of, and 1
+    everywhere else. The controls: a frame the tracker lost with no cut
+    beside it stays 1 (it is covered by its run, as before); a cut with the
+    subject on both sides stays 1; a cut that falls on a run's edge splits
+    nothing; a run the subject is on no frame of is left alone; and the same
+    cut named in the source's frames is found through `first_frame`.
+    `source_cuts` reads the cuts from a wired shot table and otherwise from
+    the Subject Track's own detector, which finds a cut made here and none
+    in a held shot; the source record carries them, and the song node gates
+    the weight before it composites.
 
 No model, no CUDA, no server.
 
@@ -606,6 +621,65 @@ def check_subject_boxes(problems):
                   "has nothing to stand against")
     except ImportError as exc:
         print(f"note  core's SAM 3D Body reader did not import ({exc}): the list's shape was not checked against it")
+
+
+def check_cut_gate(problems):
+    runs = vm.run_lengths(LATENT_T)
+    starts = [sum(runs[:k]) for k in range(len(runs))]
+    # the third run, split one frame in: the subject is on its first frame only
+    k = next(i for i, n in enumerate(runs) if i >= 2 and n >= 3)
+    a, n = starts[k], runs[k]
+    cut = a + 1
+
+    def mask_on(frames):
+        m = torch.zeros(FRAMES, H, W)
+        for f in frames:
+            m[f, 40:60, 50:70] = 1.0
+        return m
+
+    before = mask_on(range(0, cut))                     # there up to the cut, gone after it
+    gate = vm.cut_gate(before, LATENT_T, [cut])
+    want = torch.ones(FRAMES)
+    want[cut:a + n] = 0.0
+    if not torch.equal(gate, want):
+        _fail(problems, f"cut gate: a run split at frame {cut} with the subject before it gave {gate.tolist()}; "
+                        f"the frames {cut} to {a + n - 1} after the cut must be 0 and every other frame 1")
+    after = mask_on(range(cut, FRAMES))                 # the other way round: the subject's shot starts at the cut
+    gate = vm.cut_gate(after, LATENT_T, [cut])
+    want = torch.ones(FRAMES)
+    want[a:cut] = 0.0
+    if not torch.equal(gate, want):
+        _fail(problems, f"cut gate: with the subject only after the cut the frames before it in the run must be 0; got {gate.tolist()}")
+    if not bool(vm.cut_gate(before, LATENT_T, []).all()):
+        _fail(problems, "cut gate: with no cut a frame the subject's mask is empty on was left unlaid; a frame the "
+                        "tracker lost inside a shot must stay covered by its run")
+    lost = mask_on([f for f in range(FRAMES) if f != cut])
+    if not bool(vm.cut_gate(lost, LATENT_T, []).all()) or not bool(vm.cut_gate(mask_on(range(FRAMES)), LATENT_T, [cut]).all()):
+        _fail(problems, "cut gate: a lost frame with no cut, or a cut with the subject on both sides, must change nothing")
+    if not bool(vm.cut_gate(before, LATENT_T, [a]).all()):
+        _fail(problems, "cut gate: a cut on a run's first frame splits no run and must change nothing")
+    if not bool(vm.cut_gate(mask_on(range(0, a)), LATENT_T, [cut]).all()):
+        _fail(problems, "cut gate: a run the subject is on no frame of was gated; there is nothing of the subject to hold back")
+    if not torch.equal(vm.cut_gate(before, LATENT_T, [1000 + cut], first_frame=1000), vm.cut_gate(before, LATENT_T, [cut])):
+        _fail(problems, "cut gate: a cut named in the source's frames is not found through the window's first frame")
+    # the cuts themselves: from a shot table when there is one, else the tracker's detector on the frames
+    table = json.dumps({"shots": [{"first_frame": 0, "last_frame": 9}, {"first_frame": 10, "last_frame": 30},
+                                  {"first_frame": 31, "last_frame": 40}]})
+    if vm.source_cuts(torch.zeros(41, 8, 8, 3), table) != [10, 31]:
+        _fail(problems, f"cut gate: the cuts of a three-shot table came back as {vm.source_cuts(torch.zeros(41, 8, 8, 3), table)}")
+    torch.manual_seed(7)
+    one, two = torch.rand(1, 108, 192, 3), torch.rand(1, 108, 192, 3)
+    clip = torch.cat([one.expand(12, -1, -1, -1), two.expand(9, -1, -1, -1)], dim=0)
+    if vm.source_cuts(clip) != [12]:
+        _fail(problems, f"cut gate: two held pictures joined at frame 12 gave the cuts {vm.source_cuts(clip)}")
+    if vm.source_cuts(one.expand(12, -1, -1, -1)):
+        _fail(problems, "cut gate: a held shot was given a cut")
+    song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    at_gate, at_lay = song_text.find("video_mask.cut_gate(src_mask,"), song_text.find("images = video_mask.composite(images, src_pixels, alpha)")
+    if at_gate < 0 or at_lay < 0 or at_gate > at_lay or 'source.get("cuts")' not in song_text:
+        _fail(problems, "cut gate: the song node must gate the weight with the source's cuts before it composites")
+    if '"cuts": source_cuts(frames, table)' not in (REPO / "video_mask.py").read_text(encoding="utf-8"):
+        _fail(problems, "cut gate: the Masked Source's record does not carry the source's cuts")
 
 
 def check_others(problems):
@@ -1589,7 +1663,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")
@@ -1598,7 +1672,7 @@ def main() -> int:
               "after the grow in whole tokens and only then, feathers off the "
               "subject, composites exactly, holds a short source, crops the mask as the frames, paints out only "
               "inside the regenerated tokens, takes a part only from the subject, restores the margin under "
-              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not")
+              "`only what changed`, builds a motion reference on grey or whole at the short edge asked, softens only the subject and empties only its body's tokens for a late start, is wired whole in every graph, its loader loads the frames the plan reads, the mask review shows what regenerates, and a margin taken from the subject's size holds the region under its bound where a fixed one does not, and the margin stays off the people round the subject without costing the subject a token, and a setting it will refuse is refused at queue time in the same words, and a wired motion video is cut where the window is cut, and a tracked mask becomes one box a frame with none where the subject is not, and nothing is laid across a cut from the subject")
     return 1 if problems else 0
 
 

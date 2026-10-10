@@ -733,6 +733,16 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                    "regenerated pixels, the source restored in the rest")
                 else:
                     alpha = video_mask.pixel_alpha(src_tokens, height, width, source["feather_pixels"])
+                # a latent step's region covers its whole run of frames; across a cut from the subject
+                # that is the next shot's picture, and it stays the source's (`video_mask.cut_gate`)
+                first = int(round(w.start * FPS))
+                gate = video_mask.cut_gate(src_mask, int(src_tokens.shape[0]), source.get("cuts"), first)
+                if not bool(gate.all()):
+                    alpha = alpha * gate[:, None, None].to(alpha)
+                    across = [first + int(f) for f in (gate < 0.5).nonzero().flatten()]
+                    reports.append(f"[{w.number}] {len(across)} frame(s) lie across a cut from the subject inside "
+                                   "one latent step and are left as the source: frame(s) "
+                                   + ", ".join(str(f) for f in across))
                 images = video_mask.composite(images, src_pixels, alpha)
                 # under `only what changed` the weight is also what the mask review outlines: it is held
                 # through the window's write for that, and freed after the review, where it used to be

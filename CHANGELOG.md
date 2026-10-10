@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.254.0
+<!-- changelog.d/mrpop-composite-lays-nothing-across-a-cut.md -->
+
+### Fixed
+
+- The masked lane's composite laid a subject's region on the first or last frame or two of the NEXT shot wherever a latent step's run of frames straddled a cut: the region is one per latent step (`video_mask.token_mask`), and the composite's weight held it over the whole run. Found by the assembler's own check on a whole-subject pass, which repainted another person for one or two frames at four cuts. `video_mask.cut_gate` now sets the weight to zero on the frames of such a run that lie on a side of the cut the subject is on no frame of; `MiniMaxH3AudioFreezeSong` applies it before it composites and its report names the frames left as the source. A frame the tracker lost inside a shot has no cut beside it and is covered by its run as before. The cuts are the wired shot table's, or with none the Subject Track's own detector on the source's frames (`video_mask.source_cuts`), so a mask loaded from a file has them too; the Masked Source's record carries them as `cuts`. The sampler still regenerates those cells (one latent step is several frames); they are no longer shown. `bench/check_video_mask.py` item 19 holds the gate both ways round a cut, the four cases it must leave alone, the cuts from a table and from the detector, and that the song node gates before it composites; three deliberate breaks of the gate were each caught. No input, default or graph changes.
+
+### Changed
+
+- `docs/wiki/masked_v2v.md`: a section, "A latent step is several frames, and its grid is fixed for a whole load": the frame cycle (`FRAME_PER_TOKEN`), why every window of a load cuts its steps at the same places counted from the load's first frame (`loop_plan.CHAIN_LENGTHS`, `GRID`), that which cuts split a step is therefore known from the cut list and the first frame before anything is queued, and that the first frame is a lever.
+
 ## 0.253.0
 <!-- changelog.d/mrdeer-capture-changed.md -->
 

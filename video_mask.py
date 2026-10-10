@@ -658,6 +658,57 @@ def composite(images: torch.Tensor, source: torch.Tensor, alpha: torch.Tensor) -
     return out
 
 
+def source_cuts(frames: torch.Tensor, table: str = "") -> list[int]:
+    """The frames of a source that start a new shot, in order.
+
+    From the Subject Track's shot table when one is wired, so they are the
+    cuts the mask was tracked with. Otherwise from the tracker's own detector
+    on these frames (`subject_track.cut_scores`, `auto_cuts`), so a mask that
+    was loaded from a file, or made by another node, still has them.
+    """
+    ranges = shot_ranges({"shot_table": table})
+    if ranges:
+        return sorted({int(a) for a, _b in ranges if int(a) > 0})
+    from . import subject_track   # here, not at the top: the tracker's module is not needed to import this one
+    scores = subject_track.cut_scores(frames)
+    if not int(scores.numel()):
+        return []
+    return subject_track.find_cuts(scores, subject_track.auto_cuts(scores))
+
+
+def cut_gate(mask: torch.Tensor, latent_t: int, cuts, first_frame: int = 0) -> torch.Tensor:
+    """Which frames of a window the composite may lay anything on: [F] of 1 or 0.
+
+    One latent step is a run of pixel frames (`run_lengths`), and the region
+    is one per step (`token_mask`), so a step whose run straddles a cut
+    carries the subject's region onto the frames of the other shot. The
+    sampler cannot leave those cells alone; the composite can leave them
+    unlaid. A frame is 0 when its run is split by a cut, the subject's mask
+    is empty on every frame of the run on this frame's side of it, and it is
+    not empty on another side. `cuts` are frames of the source that start a
+    shot (`source_cuts`) and `first_frame` the window's first.
+
+    Not a rule about an empty mask: a frame the tracker lost inside a shot
+    has no cut beside it and is laid as before, covered by its run. Found
+    2026-10-10: a whole-subject pass repainted the first or last frame or two
+    of the next shot at four cuts of one clip (the assembler's own check).
+    """
+    present = (mask > 0.5).flatten(1).any(dim=1)
+    gate = torch.ones(int(mask.shape[0]), dtype=torch.float32)
+    inside = sorted({int(c) - int(first_frame) for c in (cuts or [])})
+    at = 0
+    for n in run_lengths(latent_t):
+        edges = [at] + [c for c in inside if at < c < at + n] + [at + n]
+        sides = list(zip(edges, edges[1:]))
+        has = [bool(present[a:b].any()) for a, b in sides]
+        if len(sides) > 1 and any(has):
+            for (a, b), on in zip(sides, has):
+                if not on:
+                    gate[a:b] = 0.0
+        at += n
+    return gate
+
+
 @dataclass(frozen=True)
 class OverlayLayer:
     """One thing the mask view draws over the source, and one entry of its legend.
@@ -1812,7 +1863,10 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # row of -1 where the subject is absent: the TRACKED subject, whatever is replaced
                               "subject_boxes": boxes,
                               # read by the prompt node (`masked_prompt.py`), which describes what is replaced
-                              "shot_table": table, "replace": replace},
+                              "shot_table": table, "replace": replace,
+                              # the frames that start a shot: the composite lays nothing across one of them
+                              # from the subject (`cut_gate`)
+                              "cuts": source_cuts(frames, table)},
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,

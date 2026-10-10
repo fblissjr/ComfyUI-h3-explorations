@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 (a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -457,6 +457,48 @@ names the mask for what the Masked Source's `replace` makes it (the tracked
 subject, the head and hair, or the parts taken), since on a parts graph the
 mask and the tracked subject are not the same thing. `video_mask.overlay_pieces`
 and `window_layers` own the picture; `bench/check_video_mask.py` item 12 holds it.
+
+## A latent step is several frames, and its grid is fixed for a whole load
+
+The video model does not work in frames. Core's `FRAME_PER_TOKEN`
+(`comfy/ldm/minimax/model.py`) says how many pixel frames each latent step
+covers, and it cycles: `video_mask.run_lengths` is that cycle laid along a
+window. Everything this lane decides per step it decides for every frame
+of the step: the region (`token_mask` takes the maximum over a step's
+frames), what `keep` and `others` hand back, the weight the composite lays
+the render with. A frame cannot be regenerated on its own, and neither can
+a frame be left alone while its neighbours in the step are redrawn.
+
+**The grid does not move from window to window.** A window's length is on
+`loop_plan.CHAIN_LENGTHS` and its context on the three values
+`check_window_settings` allows, so what a window adds is a multiple of
+`loop_plan.GRID`, which is a whole number of cycles. Every window of a load
+therefore cuts its steps at the same places counted from the LOAD's first
+frame: a step starts where the frame's number from the load's start,
+modulo the cycle's length, is one of the cycle's own offsets. Two things
+follow, and both are arithmetic that needs no render:
+
+- **Which cuts of the source split a step is known before anything is
+  queued**, from the cut list and the load's first frame alone. A cut that
+  falls inside a step puts one to three frames of the other shot under the
+  same region. On the first clip this was looked for, the frames the
+  assembler found repainted at four cuts were exactly the frames this
+  arithmetic names, and the three cuts it puts on a step's edge had none
+  (`data/CAPTURE_GAPS.md`, U5; `bench/capture_masked_run.py`'s
+  `region_carried_across_a_cut` is the flag).
+- **The load's first frame is a lever.** Moving it by fewer frames than the
+  cycle is long moves every step's edge with it, so the cut that matters
+  most can be put on an edge. All of a load's cuts cannot be, in general.
+
+What the lane does about a split step today: the composite lays nothing on
+the frames of a step that lie across a cut from every frame the subject is
+on (`video_mask.cut_gate`; the song node's report names them). The sampler
+still regenerates those cells, since it cannot do otherwise, and the case
+where the subject is on both sides of the cut in two different places is
+open. A seam between windows is a different thing from a cut: the frames a
+window shares with the one before are frozen latent steps copied whole
+(`audio_freeze_song.py`), which is why the context is a length that ends
+on a step's edge.
 
 ## Known limits
 
