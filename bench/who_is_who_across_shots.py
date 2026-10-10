@@ -444,6 +444,12 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
         cannot = cannot and (bool(fault) or any(isinstance(t["the_sum_says"], str) for t in open_.values()) or (answer["takes"] is None and bool(open_)))
         status = UNRESOLVED if cannot else DIFFERS if differs else AGREES
         note = ""
+        if status == UNRESOLVED and not fault:
+            # the reason a row is unresolved is what a person reads when it has no question to show (mrdeer, reading the
+            # first real files: every row's `why` was the verdict's sentence about the lead, unresolved rows included)
+            said = [f"{label}: {t['the_sum_says']}" for label, t in open_.items() if isinstance(t["the_sum_says"], str)]
+            why = ("; ".join(said) if said and answer["takes"] is not None else
+                   "no look on which every person can be compared with every subject")
         answered = {label: t["answered_by"] for label, t in trackers.items() if t["answered_by"]}
         if answered and not fault:
             note = ("answered, and not decided here: " + ", ".join(f"{label} ({how})" for label, how in answered.items())

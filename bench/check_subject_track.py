@@ -1449,6 +1449,8 @@ def check_settled_from_tables(problems):
                         f"read {row['looks_with_signatures']}, unread {row['looks_not_read_as_incomplete']}, lead {row['trackers']['lead']['the_sum_says']}")
     if not str(row["trackers"]["third"]["the_sum_says"]).startswith("cannot say") and row["trackers"]["third"]["the_sum_says"] is not None:
         problems.append(f"settled: a tracker whose own tile frame is not a complete look gets no number: {row['trackers']['third']}")
+    if row["status"] == "unresolved" and "third: cannot say: this tracker's tile frame is not among the looks read" not in row["why"]:
+        problems.append(f"settled: an unresolved row's `why` must be the reason it is unresolved, by tracker, not the verdict's sentence: {row['why']!r}")
     if "not read, because another tracker's people had been removed" not in row["note"] and row["status"] != "agrees":
         problems.append(f"settled: the row does not say which looks it left unread and why: {row['note']!r}")
     # A SHOT A PERSON HAS ANSWERED IS NOT ASKED AGAIN: a typed correction and a seed are words, as a pick is
