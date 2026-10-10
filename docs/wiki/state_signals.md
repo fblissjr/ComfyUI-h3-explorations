@@ -68,6 +68,17 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   to it.** In the same record `clips.mesh_pass.curve[].head_yaw` moves
   toward the source's over the stretch and ends well short of it. Read the
   curve before calling a render one that "ignores" a signal.
+- **Added 2026-10-10 (mrfrog): what the dense 2D pose model has by name.**
+  Its keypoint list
+  (`coderef/sapiens2/sapiens/pose/configs/_base_/keypoints308.py`) names
+  the inner and outer lips point by point, both eyelids, the iris and
+  pupil of each eye, the nose tip and bridge, each ear's outline, and each
+  finger's joints. So a mouth opening, a blink, a gaze and a finger pose
+  exist on paper as distances between named points, and facing could be
+  read from many face points and not two ears. The weights are in the
+  owner's model store; nothing here loads them, and no frame has been run.
+  Unknown until one is: whether those points hold on a face a few dozen
+  pixels across, which is the size that matters in this lane.
 
 ## Whether the face shows
 
@@ -121,6 +132,18 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   which is what mrdeer's test above would show. The three-person order
   above still has no record: it gets a case in `bench/check_body_pose.py`
   when depth goes into the pose table.
+- **Added 2026-10-10 (mrfrog): the three-person order, probed again, still
+  no record.** On the public frame the check already uses
+  (`bench/fixtures/sam3d_body_meta_reference.json`, the `office_frame60`
+  image, three typed boxes) this pack's pose node on the CPU put the three
+  people nearest to farthest in the order the picture shows them. The
+  figures were printed in a session and are not kept; they become a case in
+  `bench/check_body_pose.py` with the depth field. Two things the probe
+  showed that the field must respect: every person on a frame is given the
+  same camera, so their distances can be compared; and a box that is the
+  whole frame, on a frame of several people, comes back as one body at
+  about the nearest person's distance, so depth is read only from a box on
+  one person.
 - **Added 2026-10-10 (mrpop), later the same day:** the owner is
   downloading the Sapiens2 pointmap model, the largest size, into their
   model store. Nothing here loads it yet; the pack's Sapiens2 loader
@@ -138,6 +161,19 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   flat colour). In mrfrog's tree, uncommitted at the time of writing; not
   rendered. A text using it must name the colours, and the node is the
   place that knows them.
+- **Added 2026-10-10 (mrfrog): the `marked` style is committed,
+  86febba3.** The node's second output, `legend`, is the one sentence that
+  names the four colours (`body_pose.py::legend`); a graph wires it, nobody
+  retypes it. Which vertex is which part is in `body_marks.json`, read only
+  when the style is drawn, so a pose pass and its table are untouched. One
+  change from the first design, after looking at a drawing: the rig's own
+  face is nearly the whole head, so the face side is the part of the head
+  in front of the ears (`body_pose.py::FACE_FROM`). How much of the head is
+  face side when it faces the camera, faces away and is side-on is printed
+  on every run by `bench/check_body_pose.py`, case
+  `marked_is_the_mesh_with_parts_painted`, on one public sample turned
+  about the vertical; the first two are held, the side-on one is printed
+  only. Not drawn on the card and not rendered when this was written.
 - **A sentence by rule:** the head angle at a load's first and last frame,
   each put in one of four bins (facing the camera, three-quarters away,
   profile, from behind), the start always written and the end only when the
@@ -212,6 +248,19 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   sentence stays queued as a continuation, because it asks the one thing
   still open here: whether anything moves a subject off frames kept as
   turned.
+- **Added later on 2026-10-10 (mrwolf), correcting the line above:** "say
+  nothing new" was too strong. The fresh load shows the plain mesh can be
+  read; the continuation shows kept frames outweigh it. Whether a mesh
+  that is easier to read outweighs the same kept frames is its own
+  question, and the `marked` style behind those kept frames is the render
+  that asks it (mrpop's design; one field against `cont_ctx90_mesh768`).
+  If it turns her, how legible the signal is counts against the kept
+  frames; if it does not, only the kept frames' own levers do. The marked
+  style on a load of its own, for the hands, stands as a second arm. The
+  style is committed (86febba3) and had not been drawn on the card when
+  this was written; the first marked frames are looked at before a render
+  is spent, and a render is read for colour from the marks in the picture
+  before it is read for the head.
 - **The original's own pixels, degraded (the owner's idea, 2026-10-10):**
   the subject cut out of the source carries facing, hair and hands that a
   grey mesh does not, and brings the original's look with it. A blur and a
