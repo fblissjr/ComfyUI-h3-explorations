@@ -313,6 +313,21 @@ it changes two things in it.*
   differently from the subject in that scene. The test bed can say, from
   files that exist.*
 
+*2026-10-10, the owner, a second use of the same segments: a segment is
+also something to replace. A top can be swapped for a designed one given
+as a reference picture, and likewise any other part. So one segment does
+two jobs from one record: it is evidence of who a person is while it is
+there, and it is a region a job may redraw. Which is which stays where
+[`who_is_who.md`](who_is_who.md) section 4 puts it: the cast says what
+segments a subject has in the source; a job says which of them it
+replaces and with what picture. Two things follow for recognition.
+Recognition always reads the source, never a render, since a render may
+have had the segment swapped. And replacing a part by its classes is
+built and has rendered ([`masked_v2v.md`](masked_v2v.md), the parts
+graphs; `workflows/h3_config.py::MASKED_UPPER_PARTS`), while a garment
+swapped for a reference picture has not been rendered: the masking
+board's card `use-part-menu-garment` has what it still needs.*
+
 **Body build.** The one clue that should not change with an outfit. The
 body model estimates it afresh on every frame and completes what it
 cannot see, so it is read only on frames where most of the body is in the
