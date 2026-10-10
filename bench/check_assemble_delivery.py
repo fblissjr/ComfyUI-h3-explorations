@@ -666,6 +666,17 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, o, only_other) < 1.0 and box_mean(got, o, b_half) < 1.0, "what the other subject owns was not given back"
         assert box_mean(got, a, disputed) < 1.0 and box_mean(got, a, only_own) < 1.0, "a contested pixel, or the piece's own, was given back"
         assert caps.used_owner_map, "the owner map was not read"
+        # two captures cover the frame: a long load that calls both subjects absent there, listed FIRST, and the one
+        # that sees them. A row with no run of its own (`subject=`) must read the one that sees them, or its restore
+        # gives nothing back
+        absent = capture(TMP / "cap_owners_absent", 10, 30, {"a": np.zeros((30, H, W), bool), "b": np.zeros((30, H, W), bool)},
+                         [{"name": "run_long", "render": "some_long_render.mp4", "subject": "a", "margin_px": 16}])
+        np.savez_compressed(absent / "owners.npz", owner=np.full((30, H, W), 255, np.uint8), labels=np.array(["a", "b"]), nobody=255, contested=254)
+        both = tool.Captures([absent, folder], (W, H))
+        got, _ = frame_planes(SOURCE, [{"piece": write("piece_a_again", loaded(Path(PIECE_A), 0, 30)), "piece_first": 10, "subject": "a", "restore": [("b", None)]}], 20, both)
+        assert box_mean(got, o, only_other) < 1.0 and box_mean(got, a, only_own) < 1.5, \
+            "a row with no run read the first capture covering the frame, which calls both subjects absent, and gave nothing back"
+        assert both.mask("a", 20).any() and both.owned("b", 20).any() and not both.mask("a", 20, prefer=absent).any(), "the fallback, or a run's own capture's word"
         # a class restore of ANOTHER subject's class keeps off what the map gives the row's own subject: b's class map
         # calls the whole rectangle its apparel, a's side included, as a class map cut to a track and its margin does
         # beside another person, and the row is a's

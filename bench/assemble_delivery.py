@@ -640,7 +640,13 @@ class Captures:
 
     def owned(self, label, frame, prefer=None):
         """The pixels a subject OWNS on a source frame by a capture's `owners.npz`, or None where no capture given
-        holds an owner map that lists the subject and covers the frame."""
+        holds an owner map that lists the subject and covers the frame.
+
+        The capture of the row's own run (`prefer`) has the word on its frames. With none, or where that one does
+        not cover the frame, it is the first capture whose map gives the subject ANY pixel there: two captures can
+        cover a frame, a long load that calls the subject absent on a shot and a load made for that shot, and the
+        first in the list is not the one that knows."""
+        fallback = None
         for folder, m in sorted(self.folders, key=lambda fm: fm[0] != prefer):
             k = frame - m["first_frame"]
             if not 0 <= k < m["frames"] or not (folder / "owners.npz").is_file():
@@ -651,8 +657,14 @@ class Captures:
                 self.masks[key] = (z["owner"], [str(x) for x in z["labels"]], int(z["nobody"]))
             owner, labels, _nobody = self.masks[key]
             if label in labels:
-                self.used_owner_map.add(str(folder))
-                return owner[k] == labels.index(label)
+                got = owner[k] == labels.index(label)
+                if folder == prefer or got.any():
+                    self.used_owner_map.add(str(folder))
+                    return got
+                fallback = fallback if fallback is not None else (str(folder), got)
+        if fallback is not None:
+            self.used_owner_map.add(fallback[0])
+            return fallback[1]
         return None
 
     def classes(self, label, frame, prefer=None):
@@ -672,7 +684,10 @@ class Captures:
         return None
 
     def mask(self, label, frame, prefer=None):
-        """The subject's tracked mask on a source frame, or None where no capture covers it."""
+        """The subject's tracked mask on a source frame, or None where no capture covers it. As `owned`: the row's
+        own capture has the word on its frames; otherwise the first capture that sees the subject there, and an
+        empty mask only when every capture covering the frame calls them absent."""
+        fallback = None
         order = sorted(self.folders, key=lambda fm: fm[0] != prefer)
         for folder, m in order:
             k = frame - m["first_frame"]
@@ -687,8 +702,11 @@ class Captures:
                     self.masks[key] = (z["track"], z["covered"])
                 track, covered = self.masks[key]
                 if covered[k]:
-                    return np.unpackbits(track[k], axis=-1)[:, :m["size"][0]].astype(bool)
-        return None
+                    got = np.unpackbits(track[k], axis=-1)[:, :m["size"][0]].astype(bool)
+                    if folder == prefer or got.any():
+                        return got
+                    fallback = fallback if fallback is not None else got
+        return fallback
 
 
 def owners(hard, subject_masks):
