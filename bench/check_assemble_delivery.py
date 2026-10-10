@@ -32,6 +32,12 @@ of known place and size into them, and reads the tool's answers back.
    where the crop and the scale put it, within `SLACK`; a piece that kept every pixel, scaled up, is nearer the
    source's picture where it is laid than three pixels to any side; and a piece painted up to the canvas's top edge raises
    the flag that says the source's rows above it were left as they were.
+9. **A class given back to the source** (`restore=<subject>.<Class>` on a row). A small box of one class inside
+   the painted rectangle: there the file is the original and round it the piece, at both sizes; the pixels given
+   back are counted, and the join flag is raised because they sit in the middle of a large change. The same box
+   where the piece changed nothing gives nothing back and raises nothing. A class by its index means the same
+   as by its name, a class the part model does not have is refused, and a restore whose subject has no class
+   map on some frames says which.
 
 ## Running it
 
@@ -65,6 +71,9 @@ FRAMES = 72
 RATE = "24000/1001"
 SLACK = 6                  # pixels a found box may sit from the painted one: the averaging in `changed`, the 4:2:0
                            # chroma and the codec's ringing each move an edge by a pixel or two
+# The picture's colours and line, all named: left to the filter they are drawn at random on every run, seed or
+# no seed (measured 2026-10-10: three runs, three pictures), and a check whose clip changes cannot hold a margin.
+PICTURE = "nb_colors=5:c0=0x905030:c1=0x2a5fa0:c2=0xc8b450:c3=0x3c6432:c4=0xa04682:x0=40:y0=30:x1=360:y1=270:seed=7"
 RECT_A = (40, 40, 104, 120)      # x0, y0, x1, y1
 RECT_B = (160, 60, 220, 150)     # apart from A
 RECT_C = (80, 80, 150, 150)      # overlaps A in x 80-104, y 80-120
@@ -92,7 +101,7 @@ def make_source(path: Path) -> None:
     a straight cut has a long head. Soft and slow on purpose: on a hard test pattern that moves fast (`testsrc2`)
     the writer's own codec noise reaches twice `CHANGE` and a piece that kept every pixel reads as changed
     (measured 2026-10-10); `CHANGE` was measured on footage, and that is the picture it holds for."""
-    run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:nb_colors=5:seed=7",
+    run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{PICTURE}",
          "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100", "-frames:v", str(FRAMES), "-shortest",
          "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv", "-c:v", "libx264", "-crf", "12",
          "-g", "250", "-pix_fmt", "yuv420p", *tool.BT709_TAGS, "-c:a", "aac", "-ac", "2", "-b:a", "96k", str(path)])
@@ -137,8 +146,9 @@ def recheck(tmp: Path, name: str, rows, span: str, out: Path) -> tuple[int, dict
     return proc.returncode, json.loads(Path(str(out) + ".check.json").read_text())
 
 
-def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list) -> Path:
-    """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads."""
+def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list, classes: dict | None = None) -> Path:
+    """A capture folder as `bench/capture_masked_run.py` lays one out, holding only what the assembler reads.
+    `classes[label]` is a class map [frames, H, W] of class indices."""
     folder.mkdir(parents=True)
     manifest = {"name": folder.name, "first_frame": first, "frames": frames, "size": [W, H],
                 "subjects": [{"label": k, "sightings": [{"by": "made"}]} for k in subjects], "runs": runs}
@@ -147,6 +157,8 @@ def capture(folder: Path, first: int, frames: int, subjects: dict, runs: list) -
         (folder / "subjects" / label).mkdir(parents=True)
         np.savez_compressed(folder / "subjects" / label / "masks__made.npz", track=np.packbits(mask, axis=-1),
                             covered=np.ones(frames, bool))
+        if classes and label in classes:
+            np.savez_compressed(folder / "subjects" / label / "classes__made.npz", classes=classes[label])
     return folder
 
 
@@ -197,9 +209,10 @@ with tempfile.TemporaryDirectory() as _tmp:
         return tool.planes(next(tool.original_frames(SOURCE, frame, frame, W, H)), W, H)
 
     def nothing_changed() -> str:
-        worst = 0
+        worst, top = 0, 0.0
         for f in (10, 25, 39):
-            worst = max(worst, int(tool.changed(planes_of(KEPT, f), original(f)).sum()))
+            diff = tool.difference(planes_of(KEPT, f), original(f))
+            worst, top = max(worst, int(tool.changed(planes_of(KEPT, f), original(f), diff).sum())), max(top, float(diff.max()))
         assert worst == 0, f"a piece that kept every pixel reads {worst} changed pixels against the tool's original"
         old = str(TMP / "kept_older_form.mp4")
         frames = (WHOLE[10:40].clamp(0, 1) * 255.0).round().to(torch.uint8).numpy().tobytes()
@@ -210,7 +223,7 @@ with tempfile.TemporaryDirectory() as _tmp:
         for f in (10, 39):
             px = int(tool.changed(planes_of(old, f), original(f)).sum())
             assert px == 0, f"a piece in the writer's older form reads {px} changed pixels"
-        return "as the writer writes today, and in its older untagged form"
+        return f"as the writer writes today (largest difference {top:.1f} levels against a line of {tool.CHANGE:g}), and in its older untagged form"
 
     def rectangle_found() -> str:
         for f in (10, 39):
@@ -372,6 +385,75 @@ with tempfile.TemporaryDirectory() as _tmp:
         return (f"the rectangle within {SLACK} px of where the crop and scale put it; {away:.2f} levels from the source elsewhere; "
                 f"a kept piece scaled up {here:.2f} from the source in place, {beside:.2f} three pixels aside")
 
+    def a_class_given_back() -> str:
+        names = tool.class_names()
+        apparel = names.index("Apparel")
+        thing = (60, 60, 76, 80)                          # inside RECT_A: a small thing the piece painted over
+        aside = (180, 20, 196, 40)                        # where the piece changed nothing
+        run_a = [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}]
+
+        def class_map(rect, frames=30):
+            c = np.zeros((frames, H, W), np.uint8)
+            c[:, rect[1]:rect[3], rect[0]:rect[2]] = apparel
+            return c
+
+        on = capture(TMP / "cap_restore_on", 10, 30, {"a": mask_of(RECT_A, 30, grow=4)}, run_a, {"a": class_map(thing)})
+        off = capture(TMP / "cap_restore_off", 10, 30, {"a": mask_of(RECT_A, 30, grow=4)}, run_a, {"a": class_map(aside)})
+        short = capture(TMP / "cap_restore_short", 10, 15, {"a": mask_of(RECT_A, 15, grow=4)}, run_a, {"a": class_map(thing, 15)})
+        def tabled(name, text, *more):
+            path = TMP / f"{name}.txt"
+            path.write_text(text)
+            out = TMP / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(SOURCE), "--table", str(path),
+                                   "--span", "10-39", "--out", str(out), *more], capture_output=True, text=True)
+            report = Path(str(out) + ".check.json")
+            return proc, (json.loads(report.read_text()) if report.is_file() else None), out
+
+        line = f"10-39 {PIECE_A} 10 restore=a.Apparel\n"
+        proc, r, out = tabled("restore_on", line, "--capture", str(on))
+        assert proc.returncode == 0 and r is not None, proc.stderr[-300:]
+        piece = r["regions"]["pieces"][PIECE_A]
+        area = (thing[2] - thing[0]) * (thing[3] - thing[1])
+        grown = (thing[2] - thing[0] + 2 * tool.RESTORE_GROW + 2) * (thing[3] - thing[1] + 2 * tool.RESTORE_GROW + 2)
+        assert all(area <= px <= grown for px in piece["restored_px_per_frame"]), (area, piece["restored_px_per_frame"][:4])
+        assert [f["rule"] for f in r["flags"]] == ["restored_pixels_beside_a_large_change"], [f["rule"] for f in r["flags"]]
+        assert r["flags"][0]["source_frames"] == [[10, 39]], r["flags"][0]["source_frames"]
+        table_file = on / "runs" / "run_a" / f"changed__{out.stem}.csv"
+        assert "restored_px" in table_file.read_text().splitlines()[0], "the capture's table has no restored column"
+        row = {"piece": PIECE_A, "piece_first": 10, "restore": [("a", [apparel])]}
+        got, _ = frame_planes(SOURCE, [row], 20, tool.Captures([on], (W, H)))
+        o, a = original(20), planes_of(PIECE_A, 20)
+        core = (thing[0] + 2, thing[1] + 2, thing[2] - 2, thing[3] - 2)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1]:rect[3], rect[0]:rect[2]] - y[0][rect[1]:rect[3], rect[0]:rect[2]]).mean())
+        assert box_mean(got, o, core) < 1.0, f"inside the restored box the frame is {box_mean(got, o, core):.2f} levels from the original"
+        rest = (RECT_A[0] + SLACK, 90, RECT_A[2] - SLACK, RECT_A[3] - SLACK)
+        assert box_mean(got, a, rest) < 1.0, "away from the restored box the piece's own pixels are gone"
+        proc, r, out = tabled("restore_on_full", line, "--capture", str(on), "--size", "source")
+        assert proc.returncode == 0 and r is not None, proc.stderr[-300:]
+        cw, ch, x0, y0 = tool.crop_of(SW, SH, W, H)
+
+        def luma(path, frame):
+            raw = run([tool.FFMPEG, "-v", "error", "-i", str(path), "-vf", f"select='eq(n\\,{frame})'", "-fps_mode", "passthrough",
+                       "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"])
+            return np.frombuffer(raw, np.uint8).reshape(SH, SW).astype(np.float32)
+        ours, theirs = luma(out, 10), luma(SOURCE, 20)
+        big = [int(x0 + core[0] * cw / W) + 2, int(y0 + core[1] * ch / H) + 2, int(x0 + core[2] * cw / W) - 2, int(y0 + core[3] * ch / H) - 2]
+        back = float(np.abs(ours - theirs)[big[1]:big[3], big[0]:big[2]].mean())
+        assert back < 1.5, f"at the source's size the restored box is {back:.2f} levels from the source"
+        proc, r, _ = tabled("restore_off", line, "--capture", str(off))
+        piece = r["regions"]["pieces"][PIECE_A]
+        assert proc.returncode == 0 and set(piece["restored_px_per_frame"]) == {0} and r["flags"] == [], (piece["restored_px_per_frame"][:3], r["flags"])
+        proc, r, _ = tabled("restore_index", f"10-39 {PIECE_A} 10 restore=a.{apparel}\n", "--capture", str(on))
+        assert proc.returncode == 0 and [f["rule"] for f in r["flags"]] == ["restored_pixels_beside_a_large_change"], "a class by its index is not the class by its name"
+        proc, r, _ = tabled("restore_unknown", f"10-39 {PIECE_A} 10 restore=a.Earring\n", "--capture", str(on))
+        assert proc.returncode != 0 and "not a class of the part model" in proc.stderr, proc.stderr[-200:]
+        proc, r, _ = tabled("restore_short", line, "--capture", str(short))
+        blind = [f for f in r["flags"] if f["rule"] == "restore_has_no_class_map"]
+        assert blind and blind[0]["source_frames"] == [[25, 39]], [f["rule"] for f in r["flags"]]
+        return f"{area} to {grown} px given back a frame; the original inside the box at both sizes; nothing where the piece changed nothing"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -380,4 +462,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("two pieces on the same frames", two_pieces)
     case("the flags", flags)
     case("at the source's size", at_the_sources_size)
+    case("a class given back to the source", a_class_given_back)
 sys.exit(finish())

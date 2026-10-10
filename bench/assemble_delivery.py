@@ -31,6 +31,16 @@ SAME pixel, order alone cannot say whose it is: with a capture folder (`--captur
 `bench/capture_masked_run.py` writes) the pixel goes to the piece whose subject's tracked mask it lies in, and
 only a pixel in both masks or neither falls to the later row. Either way the frames are flagged.
 
+**`restore=`** on a row gives a class of a subject back to the source: `restore=<subject>.<Class>[+<Class>...]`
+after the row's three fields, the class one of the part model's (`sapiens2_parts.CLASS_NAMES`) or its index,
+the subject a capture's label whose class map the capture holds (`classes__<by>.npz`). Wherever that class is
+on the source frame, grown by `RESTORE_GROW` and feathered, the piece is not laid: the source's own pixels
+show there, or an earlier row's. It is for a thing that sits inside a region and should not have been redrawn
+(an earring inside a face), given back here because asking the sampler to keep it changes what the sampler
+draws beside it (measured 2026-10-10 on one render, by another session: the redrawn face went back toward the
+original's). The table reports per frame how many changed pixels were given back, and a frame where the
+restored pixels sit beside a large change is flagged: that edge is a join between two pictures.
+
 **`--size source`** writes the file at the SOURCE's size and not the canvas's. Every frame is the source's own
 picture, never scaled, and only what a piece changed is put back over it, scaled up from the canvas to the
 place the loader's crop took it from; the rows or columns that crop dropped stay the source's. Every row is
@@ -46,7 +56,8 @@ a token (the new subject reaching further than the old one stood, or something e
 where); a piece whose changed area jumps against its own median (`JUMP`), which needs no capture and is what
 catches a tracker that followed the wrong person, since the mask it left then says the subject is there; two
 pieces changing the same pixels, with the box and how many were settled by a mask and how many by
-order; a piece that changes nothing on frames a row gives it; and, at the source's size, a piece whose change reaches
+order; a piece that changes nothing on frames a row gives it; restored pixels beside a large change, and a restore with
+no class map on some frames; and, at the source's size, a piece whose change reaches
 the edge the loader's crop cut at, beyond which only the source's picture exists. The first two need a capture; without one they
 are not checked and the json says so.
 
@@ -116,6 +127,11 @@ JUMP = 2.5        # times a piece's own median changed area that is flagged as a
 TOKEN = 32        # pixels; inherited: a token is two latent cells of 16 a side (`bench/capture_masked_run.py::CELL`),
                   # and a region widened to whole tokens reaches that far past its margin
 MARGIN = 64       # pixels, when a capture's run names no margin; inherited: the Masked Source's default grow
+RESTORE_GROW = 2  # pixels a restored class is grown by; reasoned: a class map's edge is a pixel or two inside the thing
+RESTORE_FEATHER = 1.0   # sigma of that edge's blur; reasoned: the thing is small, a wide feather would thin it
+JOIN = 25.5       # levels of averaged difference that count as a large change beside restored pixels; inherited:
+                  # twice the node's own line for a kept change (`video_mask.CHANGE_THRESHOLD` of full scale)
+JOIN_PX = 16      # pixels of such an edge under which nothing is flagged; reasoned: a few pixels is the codec
 HEAD_PACKETS = 2  # audio packets the track may begin before the span; reasoned: the one the decoder needs, and
                   # the one the span's first sample is in
 # What the lane's writer does to piped rgb, and what its files say. Inherited: `loop_output.TO_BT709`,
@@ -158,15 +174,39 @@ def audio_rate(path) -> int | None:
     return int(out.decode().strip().split(",")[0]) if out.strip() else None
 
 
+def class_names() -> tuple[str, ...]:
+    """The part model's class names, read from `sapiens2_parts.py` beside this folder without importing it (it
+    imports the models' libraries); a class's index in a class map is its place in this table."""
+    import ast
+    tree = ast.parse((Path(__file__).resolve().parents[1] / "sapiens2_parts.py").read_text())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "CLASS_NAMES" for t in node.targets):
+            return tuple(ast.literal_eval(node.value))
+    raise SystemExit("sapiens2_parts.py has no CLASS_NAMES")
+
+
 def read_table(path) -> list[dict]:
     rows = []
     for line in open(path):
         line = line.split("#")[0].strip()
         if not line:
             continue
-        span, piece, first = line.split()
+        span, piece, first, *more = line.split()
         lo, hi = (int(v) for v in span.split("-"))
-        rows.append({"first": lo, "last": hi, "piece": piece, "piece_first": int(first)})
+        row = {"first": lo, "last": hi, "piece": piece, "piece_first": int(first), "restore": []}
+        for token in more:
+            key, _, value = token.partition("=")
+            if key != "restore" or "." not in value:
+                raise SystemExit(f"{path}: `{token}` is not `restore=<subject>.<Class>[+<Class>...]`")
+            label, _, classes = value.partition(".")
+            names = class_names()
+            wanted = []
+            for c in classes.split("+"):
+                if c not in names and not (c.isdigit() and int(c) < len(names)):
+                    raise SystemExit(f"{path}: `{c}` is not a class of the part model ({', '.join(names)})")
+                wanted.append(int(c) if c.isdigit() else names.index(c))
+            row["restore"].append((label, wanted))
+        rows.append(row)
     return rows                      # in the file's order: where rows share frames, order is the last resort
 
 
@@ -273,12 +313,17 @@ def planes(buf, w, h):
     return [a[:w * h].reshape(h, w), a[w * h:w * h * 5 // 4].reshape(h // 2, w // 2), a[w * h * 5 // 4:].reshape(h // 2, w // 2)]
 
 
-def changed(piece, orig):
-    """Where a piece is not the original: a bool mask at the canvas's size."""
+def difference(piece, orig):
+    """How far a piece is from the original at each pixel of the canvas: the largest of Y, U and V, averaged."""
     h, w = piece[0].shape
     chroma = np.maximum(np.abs(piece[1] - orig[1]), np.abs(piece[2] - orig[2]))
     diff = np.maximum(np.abs(piece[0] - orig[0]), cv2.resize(chroma, (w, h), interpolation=cv2.INTER_NEAREST))
-    hard = (cv2.blur(diff, (CHANGE_MEAN, CHANGE_MEAN)) > CHANGE).astype(np.uint8)
+    return cv2.blur(diff, (CHANGE_MEAN, CHANGE_MEAN))
+
+
+def changed(piece, orig, diff=None):
+    """Where a piece is not the original: a bool mask at the canvas's size."""
+    hard = ((difference(piece, orig) if diff is None else diff) > CHANGE).astype(np.uint8)
     return cv2.morphologyEx(hard, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)    # a lone speck is noise
 
 
@@ -309,6 +354,22 @@ class Captures:
             for run in m["runs"]:
                 if run.get("render") and os.path.basename(run["render"]) == os.path.basename(piece):
                     return folder, m, run
+        return None
+
+    def classes(self, label, frame, prefer=None):
+        """The part model's class map of a subject on a source frame (class indices, 0 off the subject), or None."""
+        for folder, m in sorted(self.folders, key=lambda fm: fm[0] != prefer):
+            k = frame - m["first_frame"]
+            if not 0 <= k < m["frames"]:
+                continue
+            for s in m["subjects"]:
+                path = folder / "subjects" / label / f"classes__{s['sightings'][0]['by']}.npz"
+                if s["label"] != label or not path.is_file():
+                    continue
+                key = (folder, label, "classes")
+                if key not in self.masks:
+                    self.masks[key] = np.load(path)["classes"]
+                return self.masks[key][k]
         return None
 
     def mask(self, label, frame, prefer=None):
@@ -365,15 +426,36 @@ def to_bytes(planes_):
     return b"".join(np.clip(np.round(x), 0, 255).astype(np.uint8).tobytes() for x in planes_)
 
 
-def merged(pieces, owner):
-    """At the canvas's size: the first piece whole, each later piece's changed region over it."""
+def restore_weight(row, captures, run, frame, shape):
+    """(weight in 0..1 over the canvas where the row's piece is not to be laid, the hard mask of the classes), or
+    (None, None) when the row asks for nothing; the mask is None on a frame no class map covers."""
+    if not row.get("restore"):
+        return None, None
+    hard = np.zeros(shape, bool)
+    for label, wanted in row["restore"]:
+        cmap = captures.classes(label, frame, prefer=run[0] if run else None) if captures else None
+        if cmap is None:
+            return np.zeros(shape, np.float32), None
+        hard |= np.isin(cmap, wanted)
+    grown = cv2.dilate(hard.astype(np.uint8), disc(RESTORE_GROW)).astype(np.float32)
+    return cv2.GaussianBlur(grown, (0, 0), RESTORE_FEATHER), hard
+
+
+def merged(pieces, owner, held, orig):
+    """At the canvas's size: the first piece whole, each later piece's changed region over it. `held[i]` is the
+    weight where piece i is not to be laid (a restore), or None."""
     h, w = owner.shape
     out = [p.copy() for p in pieces[0]]
-    for i in range(1, len(pieces)):
-        weight = weight_of(owner, i)
+    for i in range(len(pieces)):
+        if i == 0 and held[0] is None:
+            continue
+        # the first piece is the base, whole; what it must not show is the original's. A later piece is its own
+        # region, less what it must not show, and under that is whatever was laid before it
+        weight = held[0] if i == 0 else weight_of(owner, i) * (1.0 - (held[i] if held[i] is not None else 0.0))
         half = cv2.resize(weight, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+        over = orig if i == 0 else pieces[i]
         for k, wgt in enumerate((weight, half, half)):
-            out[k] += (pieces[i][k] - out[k]) * wgt
+            out[k] += (over[k] - out[k]) * wgt
     return to_bytes(out)
 
 
@@ -386,14 +468,16 @@ def crop_of(sw, sh, w, h):
     return cw, ch, ((sw - cw) // 2) & ~1, ((sh - ch) // 2) & ~1
 
 
-def laid_over(base, pieces, owner, box):
-    """At the source's size: the source's own planes with every piece's changed region scaled up and laid over."""
+def laid_over(base, pieces, owner, box, held=None):
+    """At the source's size: the source's own planes with every piece's changed region scaled up and laid over,
+    less what `held[i]` says piece i is not to be laid on."""
     cw, ch, x0, y0 = box
     out = [p.copy() for p in base]
     for i, piece in enumerate(pieces):
         if not (owner == i).any():
             continue
-        weight = cv2.resize(weight_of(owner, i), (cw, ch), interpolation=cv2.INTER_LINEAR)
+        small = weight_of(owner, i) * (1.0 - (held[i] if held is not None and held[i] is not None else 0.0))
+        weight = cv2.resize(small, (cw, ch), interpolation=cv2.INTER_LINEAR)
         half = cv2.resize(weight, (cw // 2, ch // 2), interpolation=cv2.INTER_AREA)
         for k, (wgt, (pw, ph, px, py)) in enumerate(((weight, (cw, ch, x0, y0)), (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)),
                                                      (half, (cw // 2, ch // 2, x0 // 2, y0 // 2)))):
@@ -416,10 +500,13 @@ def source_frames(source, first, last, sw, sh):
         raise SystemExit(f"the source gave {got} of {many} frames for {first}-{last}")
 
 
-def softened(frame, hard, sigma, w, h):
-    """`frame` (yuv420p bytes) with its luma blurred where any of the `hard` masks is set."""
+def softened(frame, hard, sigma, w, h, held=()):
+    """`frame` (yuv420p bytes) with its luma blurred where any of the `hard` masks is set and nothing was given back."""
     y = np.frombuffer(frame, np.uint8, w * h).reshape(h, w).astype(np.float32)
     weight = cv2.GaussianBlur(np.any(hard, axis=0).astype(np.float32), (0, 0), FEATHER)
+    for back in held:
+        if back is not None:
+            weight = weight * (1.0 - back)
     y += (cv2.GaussianBlur(y, (0, 0), sigma) - y) * weight
     return np.clip(np.round(y), 0, 255).astype(np.uint8).tobytes() + frame[w * h:]
 
@@ -440,13 +527,23 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             n = first + k
             o = planes(obuf, w, h)
             pieces = [planes(b, w, h) for b in pbufs]
-            hard = [changed(p, o) for p in pieces]
+            diffs = [difference(p, o) for p in pieces]
+            hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             owner, shared = owners(hard, masks)
+            backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
+            held = [b[0] for b in backs]
             if record is not None:
-                for r, m, run, s in zip(rows, hard, runs, masks):
+                for r, m, run, s, d, (back, classes) in zip(rows, hard, runs, masks, diffs, backs):
                     row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
                            "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
+                    if r.get("restore"):
+                        row.update({"restored_px": None, "class_px": None, "join_px": None, "join_box": None})
+                        if classes is not None:
+                            given = back > 0.5
+                            ring = cv2.dilate(given.astype(np.uint8), disc(3)).astype(bool) & ~given & (d > JOIN)
+                            row.update({"restored_px": int((given & m).sum()), "class_px": int(classes.sum()),
+                                        "join_px": int(ring.sum()), "join_box": box_of(ring)})
                     if s is not None and run is not None:
                         reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
                         far = m & ~cv2.dilate(s.astype(np.uint8), disc(reach)).astype(bool)
@@ -456,10 +553,11 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                     record["shared"][n] = shared
             got += 1
             if full:
-                yield laid_over(planes(sbuf, *full), pieces, owner, box)
+                yield laid_over(planes(sbuf, *full), pieces, owner, box, held)
                 continue
-            frame = pbufs[0] if len(rows) == 1 else merged(pieces, owner)
-            yield softened(frame, hard, soften, w, h) if soften else frame
+            untouched = len(rows) == 1 and held[0] is None
+            frame = pbufs[0] if untouched else merged(pieces, owner, held, o)
+            yield softened(frame, hard, soften, w, h, held) if soften else frame
         if got != last - first + 1:
             raise SystemExit(f"{got} of {last - first + 1} frames for {first}-{last}")
 
@@ -573,6 +671,22 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                f"{len(jump)} frame(s): a different shot, a different person, or a region that grew",
                         "figures": {"frames": len(jump), "worst_px": max(jump.values()), "usual_px": int(usual)},
                         "threshold": {"JUMP": JUMP}})
+        join = {n: v for n, v in area.items() if (v.get("join_px") or 0) > JOIN_PX}
+        if join:
+            boxes = np.array([v["join_box"] for v in join.values()])
+            out.append({"rule": "restored_pixels_beside_a_large_change", "level": LEVELS[1], **names, "source_frames": frame_spans(join),
+                        "why": f"what {names['piece']} gave back to the source sits beside pixels it changed by over {JOIN:g} levels on "
+                               f"{len(join)} frame(s), up to {max(v['join_px'] for v in join.values())} px of edge: a join between two pictures",
+                        "figures": {"frames": len(join), "worst_px": max(v["join_px"] for v in join.values()),
+                                    "box": [int(boxes[:, 0].min()), int(boxes[:, 1].min()), int(boxes[:, 2].max()), int(boxes[:, 3].max())],
+                                    "restored_px_most": max(v["restored_px"] for v in area.values() if v.get("restored_px") is not None)},
+                        "threshold": {"JOIN": JOIN, "JOIN_PX": JOIN_PX}})
+        blind = [n for n, v in area.items() if "restored_px" in v and v["restored_px"] is None]
+        if blind:
+            out.append({"rule": "restore_has_no_class_map", "level": LEVELS[2], **names, "source_frames": frame_spans(blind),
+                        "why": f"{names['piece']} was to give a class back to the source and no capture given holds the subject's "
+                               f"class map on {len(blind)} frame(s): nothing was restored there",
+                        "figures": {"frames": len(blind)}, "threshold": {}})
         edge = [n for n, v in area.items() if v.get("at_the_crop")]
         if edge:
             out.append({"rule": "piece_changes_up_to_the_loader's_crop", "level": LEVELS[1], **names, "source_frames": frame_spans(edge),
@@ -618,12 +732,14 @@ def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[s
             with open(path, "w", newline="") as fh:
                 wr = csv.writer(fh)
                 wr.writerow(["frame", "source_frame", "run", "subject", "changed_px", "changed_share", "changed_box",
-                             "away_from_subject_px", "shared_px", "shared_settled_by_mask_px"])
+                             "away_from_subject_px", "shared_px", "shared_settled_by_mask_px", "restored_px", "restored_class_px",
+                             "restored_beside_a_large_change_px"])
                 for n, v in sorted(record["rows"].get(row["piece"], {}).items()):
                     shared = record["shared"].get(n, {})
                     wr.writerow([n - row["piece_first"], n, run[2]["name"], run[2]["subject"], v["px"], round(v["px"] / pixels, 5),
                                  json.dumps(v["box"]) if v["box"] else "", "" if v["away"] is None else v["away"],
-                                 shared.get("px", ""), shared.get("by_mask", "")])
+                                 shared.get("px", ""), shared.get("by_mask", ""),
+                                 *("" if v.get(k) is None else v[k] for k in ("restored_px", "class_px", "join_px"))])
             written.append(str(path))
         if mine:
             path = folder / f"delivery__{stem}.json"
@@ -777,7 +893,8 @@ def check(args, segs, canvas, span, src, rows, captures):
         result["regions"]["pieces"][piece] = {
             "frames": [min(area), max(area)], "share_of_frame_mean": round(float(np.mean(share)), 4),
             "share_of_frame_least": round(min(share), 4), "share_of_frame_most": round(max(share), 4),
-            "changed_px_per_frame": [v["px"] for v in area.values()]}
+            "changed_px_per_frame": [v["px"] for v in area.values()],
+            **({"restored_px_per_frame": [v.get("restored_px") for v in area.values()]} if any("restored_px" in v for v in area.values()) else {})}
     result["flags"], result["pieces_with_no_capture"] = flags_of(record, rows, captures)
     if captures:
         result["written_to_captures"] = write_to_captures(captures, record, rows, result["flags"], args.out, canvas)
@@ -824,11 +941,15 @@ def main():
             raise SystemExit("--soften is for a file at the canvas's size; at the source's the scale-up softens the region")
         if src["matrix"] != "bt709":
             raise SystemExit(f"{args.source} is tagged {src['matrix']}; a file at the source's size needs a BT.709 source, as the pieces are")
+    if any(r["restore"] for r in rows) and not args.capture:
+        raise SystemExit("a row asks for a restore and no --capture was given: the class map comes from a capture folder")
     captures = Captures(args.capture, canvas) if args.capture else None
     segs = segments(rows, span)
     for first, last, covering in segs:
         print(f"{first:5d}-{last:<5d} {last - first + 1:5d} frames  " + (" + ".join(
-            f"{os.path.basename(r['piece'])}[{first - r['piece_first']}-{last - r['piece_first']}]" for r in covering) or "original"),
+            f"{os.path.basename(r['piece'])}[{first - r['piece_first']}-{last - r['piece_first']}]"
+            + "".join(f" less {label}.{'+'.join(class_names()[c] for c in wanted)}" for label, wanted in r["restore"])
+            for r in covering) or "original"),
             flush=True)
     if not args.check_only:
         print("fed", build(args, segs, canvas, span, src, captures), "frames to", args.out, flush=True)

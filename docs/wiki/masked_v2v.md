@@ -614,7 +614,12 @@ before falling back on the table's order, and writes its table and flags
 into them. With `--size source` the file is at the source's own size: every
 frame is the source's picture, never scaled, and only what a render changed
 is scaled up and put back over it, so nothing outside the regenerated region
-is resampled and the rows the loader's crop dropped are kept. Judge a
+is resampled and the rows the loader's crop dropped are kept. A row can
+give a class of a subject back to the source (`restore=<subject>.<Class>`,
+read from the capture's class map): a thing inside a region that should not
+have been redrawn, an earring inside a face, is put back here and not by
+asking the sampler to keep it, which changes what the sampler draws beside
+it. Judge a
 render's colour on this file: it is BT.709 and says so,
 as renders are since the song node's writer converts and tags, and a render
 written before that plays off in a player that guesses the matrix from the
