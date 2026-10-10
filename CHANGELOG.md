@@ -7,6 +7,16 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.268.0
+<!-- changelog.d/mrnemo-recomposite-window.md -->
+
+### Added
+
+- `bench/recomposite_window.py`: lay a saved window of a masked render again, with the song node's own composite (`video_mask.lay_window`), and say what a change moves. A window's stored latent is decoded once (the video VAE; `--decode-only` does that for several windows in one go, so a card is held for the decodes alone) and kept as half floats under an untracked `data/` folder; the window is then laid twice, as rendered and with one setting changed (`--as-rendered`, `--set`: `cuts`, `composite`, `feather_pixels`, `change_threshold`), and the table has a row a frame: what each laying keeps of the render, the pixels that differ, whether the changed one is the source bit for bit, how far the first is from the window's own video, the latent step that holds the frame and whether a cut splits it, the fine detail of the decode and the source inside what is kept and how far each is from its frame before, and with `--box` a place in the picture before the composite and after it. It reads the region the render saved beside the window (0.262.0); for a render from before that it rebuilds one from a capture's read-back of the review and prints, every time, how many cells of the rebuilt token region differ from the region the review shows. A load capped inside the window (one load per shot) is read with `--source-frames`, the last frame held as the node holds it. It queues nothing.
+- `bench/check_recomposite_window.py`: the tool on a window made for the purpose, its decode handed in so no model runs. Five cases; the controls are a window video read one frame off, and a capture one cell off a frame.
+
+- `bench/results/2026-10-10_saved_windows_laid_again.md` and its json, the tool's first use, on windows of renders already made: the gate of 0.254.0 against no gate differs on the frames one render's delivery check had found, each the source bit for bit after it, and on no other frame; things beside the subject that came out as the source's in a load made for one shot and redrawn in a long load were already so in the decode, before any composite, so it is the sampler's doing; and on the subject's own frames of a latent step a cut splits, `only what changed` keeps more of the render than on the neighbouring step, because `changed_alpha` holds its maximum over the step's frames and the gate takes the far frames out of the blend but not out of that maximum. Not judged on playback.
+
 ## 0.267.1
 <!-- changelog.d/mrnemo-song-loop-runs-in-a-check.md -->
 

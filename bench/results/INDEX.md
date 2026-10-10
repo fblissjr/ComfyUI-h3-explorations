@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-10 | masked video to video | [Saved windows of masked renders, decoded and laid again (2026-10-10)](2026-10-10_saved_windows_laid_again.md) | not judged. Figures read from decoded latents and tables; nobody watched a clip for this. One clip, one subject, one seed a render. |
 | 2026-10-10 | sam3d | [ComfyUI core's SAM 3D Body against Meta's own inference code, on the same image, boxes and camera (2026-10-10)](2026-10-10_sam3d_body_core_against_meta.md) | on two public samples, on the CPU in float32: core's port computes what Meta's code computes once both are given the same crop, to under the difference between Meta's own two precisions for five boxes of six; as shipped core is off Meta by millimetres, all of it from how core samples the crop, smallest when the person's crop is about the model's input size and larger when it is shrunk or enlarged; one hand moved by centimetres where the two sides disagreed on using the hand decoder; the camera is the same on both sides; expression is zero on both |
 | 2026-10-10 | masked video to video | [The Subject Track with and without the pack's SAM 3.1 corrections, on one stretch of one clip (2026-10-10)](2026-10-10_sam31_corrections_on_one_stretch.md) | one clip, one stretch of seven shots, one no-sampling preview each way. On it the corrected path made one wrong call right, made none worse, and left the masks the same where both paths had the subject. A default rests on this; it is a first read and says so. |
 | 2026-10-10 | masked video to video | [One load per subject shot against one long load, for a whole-subject masked pass (2026-10-10)](2026-10-10_one_load_per_shot_against_one_long_load.md) | not judged. Two shots of one clip, one seed, one render each way, read from tables and from stills; nobody has watched either. With the same region to the cell, the load made for one shot changed about a third of the region and left the things in front of the subject as the source's; the long load over several shots changed over half of it and redrew them. |
@@ -86,7 +87,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | 2026-10-01 | lora | [Where a LoRA at the call spends its time (2026-10-01)](2026-10-01_lora_branch_profile.md) |  |
 | 2026-10-01 | kitchen | [comfy-kitchen: h3-frontier merged to upstream main, 2026-10-01](2026-10-01_kitchen_merge_aade8d5.md) |  |
 
-Data files dated this month and not listed: 99.
+Data files dated this month and not listed: 100.
 
 ## 2026-09
 
