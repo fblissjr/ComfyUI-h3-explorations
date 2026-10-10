@@ -985,6 +985,9 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
         by, at = m.get("by", "preview"), int(m.get("at", first))
         track, covered = read_mask(m["track"], size, at, first, frames)
         parts = read_mask(m["parts"], size, at, first, frames)[0] if m.get("parts") else None
+        if parts is not None and m.get("pieces") == "largest":
+            # the caller looked and the part's other pieces are not the part (`flag_pieces`)
+            parts = largest_piece(parts)[0]
         if m.get("classes"):
             names = _pack("sapiens2_parts").CLASS_NAMES
             cmap = read_classes(m["classes"], size, at, first, frames)
@@ -1060,7 +1063,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                                    "shots": bool(m.get("shots")), "first_source_frame": at,
                                    # a shot table counts from its own load's first frame, which need not be the mask video's
                                    "shots_first_source_frame": int(m.get("shots_at", at)),
-                                   "frames_covered": int(covered.sum()), "pose": posed,
+                                   "frames_covered": int(covered.sum()), "pose": posed, "parts_pieces": m.get("pieces"),
                                    "inputs": {k: input_facts(m[k]) for k in ("track", "parts", "classes", "held", "shots", "pose") if m.get(k)},
                                    "classes": Path(m["classes"]).name if m.get("classes") else None,
                                    "part_is_made_of": made_of.get(label),
@@ -2048,10 +2051,53 @@ def flag_mouth(manifest: dict, folder: Path) -> list[dict]:
 
 
 #: A face part under this many of the model's tokens tall is small for a face-only pass. A token is 32 px.
-#: UNMEASURED, set between two data points (2026-10-10, the owner's eye on one joined file): a face about 2.9
-#: tokens tall was replaced by a face that did not read as the reference's person, one about 5.1 tokens tall did.
+#: UNMEASURED, and weaker than two data points: on 2026-10-10 the owner's eye called a face about 2.9 tokens tall
+#: "not replaced" in one joined file and "correctly swapped" in the next, the SAME render both times with other
+#: things around it changed; a face about 5.1 tokens tall read as replaced both times. So this warns that
+#: nothing here measures likeness on a small face; it does not say a small face fails.
 FACE_TOKENS = 4.0
 TOKEN_PX = 32
+
+
+def largest_piece(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Each frame's largest connected piece of a mask, and how many pixels of the frame lie in its other pieces."""
+    import cv2
+    out, stray = np.zeros_like(mask), np.zeros(len(mask), np.int64)
+    for f in range(len(mask)):
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(mask[f].astype(np.uint8), connectivity=8)
+        if count > 1:
+            big = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+            out[f] = labels == big
+            stray[f] = int(mask[f].sum()) - int(stats[big, cv2.CC_STAT_AREA])
+    return out, stray
+
+
+def flag_pieces(manifest: dict, folder: Path) -> list[dict]:
+    """A part with pieces away from its largest piece: the part model labelled something else as the part.
+
+    Found 2026-10-10 on a hair-and-face part: on most frames of a shot a sliver along a forearm or beside a
+    dish on the table carried the part's class. They pass the graded fill (they ARE on the part's classes; it
+    is the class map that is wrong there), and a margin grows round each of them, so a region appears on an arm
+    and on the table. Iffy, with the frames and the most pixels: a part can rightly be in two pieces (a face
+    behind a raised arm), so look, and give `pieces=largest` on `--mask` to keep each frame's largest piece."""
+    out, w, first = [], manifest["size"][0], manifest["first_frame"]
+    for s in manifest["subjects"]:
+        seen = s["sightings"][0]
+        path = folder / "subjects" / s["label"] / f"parts_held__{seen['by']}.mkv"
+        if not path.is_file() or seen.get("parts_pieces") == "largest":
+            continue
+        held = read_mask(str(path), tuple(manifest["size"]), first, first, manifest["frames"])[0]
+        _, stray = largest_piece(held)
+        hit = np.nonzero(stray >= SEGMENT_PX)[0]
+        if len(hit):
+            out.append({"rule": "part_in_pieces", "level": LEVELS[1], "subject": s["label"], "seen_by": seen["by"],
+                        "source_frames": frame_spans([int(first + f) for f in hit]),
+                        "why": f"{s['label']}'s part has pixels away from its largest piece on {len(hit)} frame(s), up to {int(stray.max())} px: "
+                               "something else carries the part's class there, and a margin grows round it. Look at one of the "
+                               "frames; `pieces=largest` on --mask keeps each frame's largest piece",
+                        "figures": {"frames": int(len(hit)), "stray_px_most": int(stray.max()), "stray_px_median": int(np.median(stray[hit]))},
+                        "threshold": {"SEGMENT_PX": SEGMENT_PX}})
+    return out
 
 
 def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
@@ -2324,7 +2370,7 @@ def preflight(a: argparse.Namespace) -> None:
                              if r.get("track_share")}
                 flags += flag_pose(s["label"], by, json.loads(path.read_text())["rows"], mine, others_on,
                                    bool((seen.get("pose") or {}).get("hand_refinement")))
-    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder)
+    flags += flag_runs(m, folder) + flag_segments(m, folder) + flag_keep(m, folder) + flag_cuts(m, folder) + flag_loads(m, folder, not_in) + flag_lent(m, folder) + flag_held_tail(m, folder) + flag_kept(m, folder) + flag_mouth(m, folder) + flag_face_size(m, folder) + flag_pieces(m, folder)
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     # a kept-out or keep mask given as a subject is a union of things, not somebody: it has no class map
     whos = {x["label"] for x in m["subjects"] if x["sightings"][0].get("classes")} or {x["label"] for x in m["subjects"]}
@@ -3309,7 +3355,7 @@ def main() -> None:
     f.add_argument("--source", required=True, help="the clip every run was loaded from")
     f.add_argument("--first", type=int, required=True, help="the source frame that is the span's frame 0")
     f.add_argument("--frames", type=int, required=True)
-    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off]",
+    f.add_argument("--mask", action="append", default=[], metavar="LABEL:track=V[,parts=V][,classes=V][,held=V][,shots=J][,shots_at=N][,pose=J][,pose_at=N][,by=RUN][,at=N][,hold=A-B+C-D][,drop=A-B+C-D][,grade=off][,pieces=largest]",
                    help="one sighting of a subject: its saved mask videos; repeatable")
     f.add_argument("--run", action="append", default=[], metavar="RUN:render=V|preview=DIR,subject=LABEL[,others=L+L][,margin=PX][,at=N][,region=review]",
                    help="one pass that regenerated a subject; its region is the one each window saved beside its latent, or is "

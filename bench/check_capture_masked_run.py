@@ -1044,7 +1044,15 @@ def face_sizes() -> str:
             assert cap.flag_face_size(nobody, folder) == [], "a subject no run replaces was sized"
         finally:
             cap.TOKEN_PX = token
-    return "a face under the line in tokens is named, with its height; a face at the line, a part that is not a face, and a subject no run replaces are not"
+    # a part in pieces: the head, and a sliver somewhere else that carries the part's class
+    head = rect(40, 8, 80, 56, 4)
+    sliver = rect(120, 70, 140, 76, 4)
+    sliver[3] = False
+    piece, stray = cap.largest_piece(head | sliver)
+    assert (piece == head).all() and stray.tolist() == [120, 120, 120, 0], stray.tolist()
+    assert cap.largest_piece(np.zeros((2, H, W), bool))[1].tolist() == [0, 0]
+    return ("a face under the line in tokens is named, with its height; a face at the line, a part that is not a face, and a "
+            "subject no run replaces are not; a part's pieces away from its largest are counted and can be dropped")
 
 
 def text_rules() -> str:
