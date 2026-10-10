@@ -565,8 +565,11 @@ def loads_from_a_capture():
     over = [(frames, rate, nudge) for frames in range(1, WINDOWS[-1] + 1) for rate in (44100, 48000) for nudge in (-1, 0, 1)
             if planner.frames_kept(10 ** 6, (round(round((frames - graphs.AUDIO_SHORT_BY) / cfg.FPS, 6) * rate) + nudge) / rate) != frames]
     assert not over, f"audio cut for a load writes another number of frames than the load has, e.g. {over[:3]}"
-    exact = [frames for frames in range(1, WINDOWS[-1] + 1) if planner.frames_kept(10 ** 6, (round(frames / cfg.FPS * 48000) + 1) / 48000) != frames]
-    assert len(exact) == WINDOWS[-1], "audio one sample past a load no longer writes a frame more: the cut may not be needed"
+    # the other side: audio a quarter of a frame past a load does write a frame more, at every length, so
+    # the cut is doing something. (Until e79cc219 one sample past was enough; the planner now forgives a
+    # track within its own slack of a whole frame count, and this control moved outside that slack.)
+    past = [frames for frames in range(1, WINDOWS[-1] + 1) if planner.frames_kept(10 ** 6, (frames + 0.25) / cfg.FPS) != frames + 1]
+    assert not past, f"audio a quarter of a frame past a load no longer writes a frame more, e.g. at {past[:3]}: the cut may not be needed"
 
     def planner_takes(window: int, context: int) -> bool:
         try:

@@ -310,6 +310,12 @@ MASK_FILES, AUDIO_FILE, AUDIO_CUT = 150, "145", "146"
 #: end. Half a frame short rounds up to the load's own length whatever the sample rate and however a cut
 #: rounds; **reasoned**, and held to the planner's own arithmetic by `bench/check_masked_job.py` for every
 #: length up to the longest window at two sample rates.
+#: Dated note, 2026-10-10, later the same day: the sentence above about a single sample is true of the song
+#: node as the server ran it when this was written. Since e79cc219 the planner itself takes a track within
+#: `loop_plan.TRACK_SLACK_SECONDS` past a whole frame count as that count, so on a server that serves it one
+#: sample long writes nothing more and this cut is a second guard: it still matters for audio that is longer
+#: by more than that slack, which an audio file given whole would be. Once that commit is served everywhere a
+#: job runs, the cut can be the load's exact length and the trim node after the loader can go.
 AUDIO_SHORT_BY = 0.5
 
 
