@@ -247,9 +247,15 @@ has two people (`duplicates_joined`: one on the shown frame, the kept mask
 enough apart for the automatic line to be put between them
 (`match_moved_by_gap` is null and the line is the floor). `others` left
 nobody out on any frame looked at, so it is not the cause. What moved the
-scores themselves is not in a table: the morning's preview and this one
-differ in more than the tracker's code, the SAM corrections among them. A
-take by fifteen thousandths is the same thin margin as the refusal was.
+scores themselves is not in a table; the lead session confirmed it from
+the graphs: the morning's previews of this load wired no SAM corrections
+node and this one wires it, so the model's input changed. Three causes,
+then, for one changed call: the scores moved with the model's input, the
+join made her tile two people, and the line fell back to the floor because
+her two shots came out closer together. And she is taken by fifteen
+thousandths, the same thin margin the refusal had. Two previews of one
+load, one frame apart in nothing but settings, gave opposite answers from
+a line; the joint decision's answer for her was the same both times.
 
 **The tool's three rows.**
 
