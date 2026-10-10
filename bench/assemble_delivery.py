@@ -139,6 +139,31 @@ mask was only read back off a review picture, nothing is dropped on its word and
 `left_as_the_source` false. Found on the first street file: six such frames, one of them a face under a hat's
 brim where the source has none. This covers renders that already exist; the cause is in the node's composite.
 
+**A row that ends, or begins, on the source's own picture under its subject** (`ends` in the record; a proof,
+and the LAST net). A short load can end with the sampler drawing the original back: the region is open, the
+composite keeps everything, the row lays pixels on every frame, and they are the source's pixels again. Every
+other proof here passes such a row, `rows_shown` included. This class of fault is meant to be identified before a
+render (the capture blocks a plan whose held tail shows the original) and mitigated by default (an open tail); a
+file that trips this proof means both of those failed. For every row and every shot it covers, under the mask its
+run carried (or its subject's tracked mask when the capture holds none; the record says which, and less whatever
+a restore gave back), each frame has two figures: how far the piece is from the source there, in levels, and the
+share of the mask the piece changed. Against the middle half of the row's frames in that shot:
+
+- *on the source*: the outermost frame (the last, or the first) is under `END_LAST` of the middle's level.
+  **Fails**, with the run of frames from that end that stay under `END_RUN` of it: "ends on the source's own
+  picture under its subject: frames A-B". The two lines are the capture tool's own for the same question asked of
+  the render (`runs/<run>/changed.json`, `ends`), whose answer is written beside this one in the record; where the
+  capture says a render ends on the source on frames this row lays, that fails too, so either reading stops the file.
+- the mean of the last (and first) `TAIL` frames over the middle's is written for every row, for a slide too slow
+  to bring its last frame under the line. It fails nothing: one pair of renders is not enough to draw that line.
+
+Both figures are in the record for every row and shot whether or not they fail, with the source's own brightness
+under the mask at the end against the middle, so a source that itself fades to black can be told from a render
+that does. A row that changes little under its mask throughout (a face row read under a whole track) is not
+read, and says so. When an end like that is meant, the row is cut short of the frames and a `source` line says
+why. WHAT THE START READING CATCHES: a row that begins as the source's picture. NOT a continued load that
+begins in the wrong pose: that is a picture nobody here can judge.
+
 **Shots where a named subject is the source's own** (`shots` in the record; a proof). A file can pass every
 proof above and still show a person untouched for a whole shot: no row laid a pixel there, so there was nothing
 for a proof to be wrong about. The first locked file did, for both its subjects, on a shot both trackers had
@@ -550,26 +575,36 @@ class Captures:
                     return folder, m, run
         return None
 
-    def carried_nothing(self, run, frame):
-        """Whether the mask a run carried is empty on a source frame: True or False, or None when the run's capture
-        holds no carried mask that was read on that frame. `run` is (folder, manifest, run) as `run_of` gives it."""
-        folder, m, entry = run
+    def _carried(self, run):
+        folder, _m, entry = run
         if folder is None:
             return None
         key = (folder, entry["name"], "carried")
         if key not in self.masks:
             path = folder / "runs" / str(entry["name"]) / "region.npz"
+            self.masks[key] = None
             if path.is_file():
                 z = np.load(path)
-                held = "carried" in z.files and "read" in z.files
-                self.masks[key] = (z["carried"].reshape(z["carried"].shape[0], -1).any(axis=1), z["read"].astype(bool)) if held else None
-            else:
-                self.masks[key] = None
-        if self.masks[key] is None:
+                if "carried" in z.files and "read" in z.files:
+                    self.masks[key] = (z["carried"], z["carried"].reshape(z["carried"].shape[0], -1).any(axis=1), z["read"].astype(bool))
+        return self.masks[key]
+
+    def carried_nothing(self, run, frame):
+        """Whether the mask a run carried is empty on a source frame: True or False, or None when the run's capture
+        holds no carried mask that was read on that frame. `run` is (folder, manifest, run) as `run_of` gives it."""
+        held = self._carried(run)
+        if held is None:
             return None
-        some, read = self.masks[key]
-        k = frame - m["first_frame"]
+        _bits, some, read = held
+        k = frame - run[1]["first_frame"]
         return None if not 0 <= k < len(some) or not read[k] else not bool(some[k])
+
+    def carried(self, run, frame):
+        """The mask a run carried on a source frame, at the canvas, or None (no capture of it, not read, or empty)."""
+        if self.carried_nothing(run, frame) is not False:
+            return None
+        bits = self._carried(run)[0]
+        return np.unpackbits(bits[frame - run[1]["first_frame"]], axis=-1)[:, :run[1]["size"][0]].astype(bool)
 
     def said_absent_with_people(self) -> list[dict]:
         """Every capture's own flag that a subject was called absent while people were detected, in source frames."""
@@ -846,7 +881,8 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             hard = [changed(p, o, d) for p, d in zip(pieces, diffs)]
             # a frame its run carried no mask on is the source's for that row, when the carried mask is the node's own
             bare = [captures.carried_nothing(run, n) if captures and run else None for run in runs]
-            unmasked = [(int(m.sum()), run[2].get("carried_is") == CARRIED_SAVED) if e else None for m, e, run in zip(hard, bare, runs)]
+            unmasked = [(int(m.sum()), run[2].get("carried_is") == CARRIED_SAVED, run[2].get("carried_is")) if e else None
+                        for m, e, run in zip(hard, bare, runs)]
             hard = [np.zeros_like(m) if u and u[1] else m for m, u in zip(hard, unmasked)]
             masks = [captures.mask(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
             whose = [captures.owned(run[2]["subject"], n, prefer=run[0]) if captures and run else None for run in runs]
@@ -865,7 +901,7 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             if record is not None:
                 for r, m, run, s, d, (back, classes), u in zip(rows, hard, runs, masks, diffs, backs, unmasked):
                     row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
-                           "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1]},
+                           "no_mask": None if u is None else {"px": u[0], "left_as_the_source": u[1], "carried_is": u[2]},
                            "at_the_crop": bool(box and ((box[3] and (m[0].any() or m[-1].any())) or (box[2] and (m[:, 0].any() or m[:, -1].any()))))}
                     if r.get("restore"):
                         row.update({"restored_px": None, "class_px": None, "join_px": None, "join_box": None})
@@ -874,6 +910,16 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
                             ring = cv2.dilate(given.astype(np.uint8), disc(3)).astype(bool) & ~given & (d > JOIN)
                             row.update({"restored_px": int((given & m).sum()), "class_px": int(classes.sum()),
                                         "join_px": int(ring.sum()), "join_box": box_of(ring)})
+                    # under the mask the run carried, when its capture holds one for the frame (an empty one means the
+                    # frame is not read at all: the part was emptied there); the subject's track only when it holds none
+                    bare_here = captures.carried_nothing(run, n) if captures and run else None
+                    worn = captures.carried(run, n) if bare_here is False else None
+                    under, by = (worn, "the mask its run carried") if bare_here is not None else (s, "its subject's tracked mask")
+                    if under is not None and back is not None:
+                        under = under & ~(back > 0.5)
+                    if under is not None and under.any():
+                        row["under"] = {"off": float(d[under].mean()), "share": float((m & under).sum()) / int(under.sum()),
+                                        "luma": float(o[0][under].mean()), "by": by}
                     if s is not None and run is not None:
                         reach = int(run[2].get("margin_px") or MARGIN) + TOKEN
                         laid = m & ~(back > 0.5) if back is not None else m          # what a restore gave back is not laid
@@ -1122,8 +1168,10 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                             "source_frames": frame_spans(sorted(bare)),
                             "why": (f"{names['piece']} changed up to {max(bare.values())} px on {len(bare)} frame(s) where the mask its run "
                                     "carried is empty: a region regenerated there because another frame of its latent step had one. "
-                                    + ("Those frames are left as the source's for this row"
-                                       if left else "Nothing was dropped: that mask was read back off a review picture, not saved by the node")),
+                                    + ("Those frames are left as the source's for this row" if left else
+                                       "Nothing was dropped: the capture calls that mask `"
+                                       + str(next(v["no_mask"]["carried_is"] for v in area.values() if v.get("no_mask") and not v["no_mask"]["left_as_the_source"]))
+                                       + f"`, and only `{CARRIED_SAVED}` is acted on")),
                             "figures": {"frames": len(bare), "worst_px": max(bare.values()), "left_as_the_source": left},
                             "threshold": {"SPECK": SPECK}})
         idle = [n for n, v in area.items() if not v["px"] and not (v.get("no_mask") and v["no_mask"]["left_as_the_source"] and v["no_mask"]["px"] > SPECK)]
@@ -1282,6 +1330,68 @@ def shots_of(record, rows, captures, span, moved, intents) -> tuple[dict, list[s
     return ({"cut_over_levels": CUT, "cuts": cuts, "runs_of_frames_over_the_line_read_as_one_cut": blurs,
              "cuts_a_capture_puts_elsewhere": apart, "shots": out,
              "where_a_named_subject_is_the_source's_own": own, "missing": missing}, problems)
+
+
+def ends_of(record, shots, rows=(), captures=None) -> tuple[dict, list[str]]:
+    """The record's `ends` section and its failures: per piece and shot, the piece against the source under its mask
+    at each end, set against the middle. `shots` is the list of [first, last] the shots proof cut."""
+    out, problems = [], []
+    for piece, area in record["rows"].items():
+        name = os.path.basename(piece)
+        for a, b in shots:
+            seen = [(n, area[n]["under"]) for n in sorted(area) if a <= n <= b and area[n].get("under")]
+            if not seen:
+                continue
+            entry = {"piece": name, "shot": [a, b], "frames_read": len(seen), "frames": [seen[0][0], seen[-1][0]], "under": seen[0][1]["by"]}
+            off, share, luma = (np.array([u[k] for _n, u in seen]) for k in ("off", "share", "luma"))
+            k = len(seen)
+            middle = slice(k // 4, k - k // 4)
+            level, changed_ = float(np.median(off[middle])), float(np.median(share[middle]))
+            entry.update({"middle_levels": round(level, 2), "middle_share_changed": round(changed_, 3)})
+            if k < READ_LEAST:
+                entry["not_read"] = f"{k} frame(s): too few to have a middle"
+            elif level < CHANGE or changed_ <= 0:
+                entry["not_read"] = (f"the piece is {level:.1f} levels from the source under this mask in its middle, under the line a "
+                                     f"change is counted from ({CHANGE:g}): a part row read under a whole track, or a row that does nothing")
+            else:
+                tail = min(TAIL, k // 2)
+                for end, order in (("end", list(range(k - 1, -1, -1))), ("start", list(range(k)))):
+                    near = order[:tail]
+                    run = []
+                    if off[order[0]] < END_LAST * level:
+                        for i in order:
+                            if off[i] >= END_RUN * level:
+                                break
+                            run.append(seen[i][0])
+                    entry[end] = {"outermost_frame_over_middle": round(float(off[order[0]]) / level, 3),
+                                  "on_the_source": [min(run), max(run)] if run else None,
+                                  "tail_frames": len(near), "tail_levels_over_middle": round(float(off[near].mean()) / level, 3),
+                                  "share_changed_on_the_outermost_frame": round(float(share[order[0]]), 3),
+                                  "source_luma_tail_over_middle": round(float(luma[near].mean()) / max(float(np.median(luma[middle])), 1e-6), 3)}
+                    if run:
+                        problems.append(f"row {name} {'ends' if end == 'end' else 'begins'} on the source's own picture under its subject: "
+                                        f"frames {min(run)}-{max(run)} of shot {a}-{b} (its outermost frame is {off[order[0]]:.1f} levels from the "
+                                        f"source under {seen[0][1]['by']}, {off[order[0]] / level:.2f} of its middle's {level:.1f})")
+            out.append(entry)
+    # the capture's own reading of each render's ends, beside this one; and a failure where it names frames a row lays
+    said = []
+    for row in rows:
+        run = run_for(row, captures) if captures else None
+        path = run[0] / "runs" / str(run[2]["name"]) / "changed.json" if run and run[0] else None
+        if path is None or not path.is_file() or any(x["piece"] == os.path.basename(row["piece"]) for x in said):
+            continue
+        ends = json.loads(path.read_text()).get("ends") or {}
+        said.append({"piece": os.path.basename(row["piece"]), "capture": run[0].name, **ends})
+        for key, verb in (("ends_on_the_source", "ends"), ("starts_on_the_source", "begins")):
+            frames = (ends.get(key) or {}).get("source_frames")
+            laid = [n for n in range(frames[0], frames[1] + 1) if record["rows"].get(row["piece"], {}).get(n, {}).get("laid")] if frames else []
+            if laid and not any(os.path.basename(row["piece"]) in line and verb in line for line in problems):
+                problems.append(f"row {os.path.basename(row['piece'])} {verb} on the source's own picture by its capture's reading of the render "
+                                f"({run[0].name}: frames {frames[0]}-{frames[1]}), and this file lays it on {min(laid)}-{max(laid)}")
+    return ({"what": "the last net: a row whose end or start is the source's own picture under its subject. A file that fails here "
+                     "was not caught before its render and not mitigated by its load",
+             "end_last": round(END_LAST, 4), "end_run": round(END_RUN, 4), "tail_frames": TAIL, "rows": out,
+             "the_captures_read": said}, problems)
 
 
 def write_to_captures(captures, record, rows, flags, out_path, canvas) -> list[str]:
@@ -1624,6 +1734,9 @@ def check(args, segs, canvas, span, src, rows, captures):
                                        read_intents(args.table))
     for line in unlaid:
         fail(line)
+    result["ends"], slid = ends_of(record, [e["frames"] for e in result["shots"]["shots"]], rows, captures)
+    for line in slid:
+        fail(line)
     result["flags"], result["pieces_with_no_capture"] = flags_of(record, rows, captures)
     result["whose_pixels"] = ("no capture given: the table's order" if not captures else
                               "owners.npz of " + ", ".join(sorted(os.path.basename(f) for f in captures.used_owner_map))
@@ -1645,11 +1758,21 @@ def check(args, segs, canvas, span, src, rows, captures):
         + ", ".join(f"{n} {kind}" for kind, n in sorted(kinds.items())) + ")" if own
         else "; every named subject has something laid on every shot" if any(e["subjects"] for e in result["shots"]["shots"])
         else "; no row's subject is known, so no shot is asked about")
-    if unlaid:
-        result["verdict_line"] += ": " + "; ".join(line.split(". Lay a row")[0] for line in unlaid)
+    if unlaid or slid:
+        result["verdict_line"] += ": " + "; ".join([line.split(". Lay a row")[0] for line in unlaid] + [line.split(" (its outermost")[0] for line in slid])
     return result
 
 
+# The lines of the `ends` proof. `END_LAST` and `END_RUN` are the capture tool's own for the same reading on the render
+# (`bench/capture_masked_run.py`, `source_at_the_ends`), taken over so the two agree on what an end is; the reading
+# here is made separately, on the row as it is laid. Checked on this reading, 2026-10-10: three short loads that
+# slid back to the original read 0.09, 0.07 and 0.25 of their middle on their outermost frame, with runs of six,
+# three and four frames; a long render that held read 0.99 and 0.95. A first pair of lines of my own (a quarter of
+# the share of the mask changed; the last twelve frames' mean under eight tenths) missed the third of those.
+END_LAST = 1 / 3   # of the middle's level: the outermost frame under it, and the row ends (or begins) on the source
+END_RUN = 2 / 3    # of the middle's level: the frames from that end that stay under it are the run that is named
+TAIL = 12          # frames at an end whose mean is written beside the middle's, for a slide too slow to trip END_LAST
+READ_LEAST = 12    # frames of a row in a shot under which an end is not read; the capture tool's own (`END_LEAST`)
 CARRIED_SAVED = "the mask each window saved"   # a run's `carried_is` in a capture's manifest when its carried mask is the node's own
 PEOPLE_FLAG = "absent_with_people_on_screen"   # the capture's rule name (`bench/capture_masked_run.py`), read from its flags.json
 LOCKS = "LOCKED.md"   # beside the files it names

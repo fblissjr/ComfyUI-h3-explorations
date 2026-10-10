@@ -99,6 +99,14 @@ of known place and size into them, and reads the tool's answers back.
     others the piece's; the record's flag names the five and says they were left; the shots proof does not count
     them as laid. With the same mask said to be read off a review, nothing is dropped and the flag says that. With
     no carried mask in the capture the piece is laid on every frame, as before.
+19. **A row that ends, or begins, on the source's own picture.** A piece painted on every frame of a row whose
+    paint thins to nothing over its last five frames, its subject tracked throughout: the build fails and names
+    those frames; the same thinning at the start fails as "begins"; a piece that holds to both ends passes with
+    its two ends near the middle's level in the record. Cut short of the thinned frames the row passes (and the
+    frames are then listed as tracked with nothing laid). And where this reading passes but the capture's own
+    reading of the render (`runs/<run>/changed.json`) says the render ends on the source on frames the row lays,
+    the build fails on the capture's word. Three real short loads ended this way and every other proof passed
+    them.
 
 ## Running it
 
@@ -867,13 +875,17 @@ with tempfile.TemporaryDirectory() as _tmp:
         clip = a_clip_with_a_cut(cut_at, frames)
         whole = loaded(clip, 0, frames)
 
-        def painted_on(name, rect, first, last):
+        def painted_on(name, rect, first, last, gap=()):
             out = whole.clone()
             x0, y0, x1, y1 = rect
-            out[first:last + 1, y0:y1, x0:x1] = (out[first:last + 1, y0:y1, x0:x1] + 0.5) % 1.0
+            for f in range(first, last + 1):
+                if f not in gap:
+                    out[f, y0:y1, x0:x1] = (out[f, y0:y1, x0:x1] + 0.5) % 1.0
             return write(name, out)
-        piece_a = painted_on("shots_a", RECT_A, 5, cut_at - 1)          # its subject on the first shot only
-        piece_b = painted_on("shots_b", RECT_B, 5, frames - 1)          # another subject, on both shots
+        # its subject on the first shot only, from that shot's first frame to its last (a piece that began or ended
+        # as the original there would be the ends proof's business), with four frames left alone in the middle
+        piece_a = painted_on("shots_a", RECT_A, 0, cut_at - 1, gap=(8, 9, 10, 11))
+        piece_b = painted_on("shots_b", RECT_B, 0, frames - 1)          # another subject, on both shots
         on_both, first_only = mask_of(RECT_A, frames, grow=4), mask_of(RECT_A, frames, grow=4)
         first_only[cut_at:] = False
         other = mask_of(RECT_B, frames, grow=4)
@@ -901,7 +913,7 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert code == 1 and said and f"{cut_at}-{frames - 1}" in said[0] and own[second]["reading"] == "tracked, nothing laid", (code, r["failures"], own)
         assert f"{cut_at}-{frames - 1}" in r["verdict_line"] and r["verdict_line"].startswith("FAILS"), r["verdict_line"]
         first = r["shots"]["shots"][0]["subjects"]["a"]
-        assert first["reading"] == "laid" and first["tracked_with_nothing_laid"]["runs"] == [[0, 4]] and first["tracked_with_nothing_laid"]["longest"] == 5, first
+        assert first["reading"] == "laid" and first["tracked_with_nothing_laid"]["runs"] == [[8, 11]] and first["tracked_with_nothing_laid"]["longest"] == 4, first
         # the same, answered in the table
         code, r, own = go("shots_intent", tracked, f"source {cut_at}-{frames - 1} subject=a not in the brief for this shot")
         assert code == 0 and own[second]["reading"] == "by intent" and own[second]["would_have_read"] == "tracked, nothing laid" \
@@ -981,6 +993,57 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert code == 0 and to_piece < 1.5 and not flag, "with no carried mask in the capture a frame was dropped or flagged"
         return "five frames the node's own carried mask is empty on are the original and are named; a review's reading drops nothing and says so; no carried mask, nothing changes"
 
+    def ends_on_the_source() -> str:
+        base = WHOLE[10:40]
+        on = mask_of(RECT_A, 30, grow=4)
+        x0, y0, x1, y1 = RECT_A
+
+        def thinning(name, strength):
+            """A piece whose paint in the rectangle has `strength[k]` of its full step on frame k of thirty."""
+            out = base.clone()
+            for k, v in enumerate(strength):
+                out[k, y0:y1, x0:x1] = (out[k, y0:y1, x0:x1] + 0.35 * v).clamp(0, 1)
+            return write(name, out)
+        full = [1.0] * 30
+        fades_out = thinning("ends_out", full[:25] + [0.6, 0.45, 0.3, 0.15, 0.0])
+        fades_in = thinning("ends_in", [0.0, 0.15, 0.3, 0.45, 0.6] + full[5:])
+        holds = thinning("ends_hold", full)
+
+        def go(name, piece, last=39, changed_json=None):
+            run = {"name": "run_a", "render": Path(piece).name, "subject": "a", "margin_px": 16}
+            folder = capture(TMP / f"cap_{name}", 10, 30, {"a": on}, [run])
+            if changed_json is not None:
+                (folder / "runs" / "run_a").mkdir(parents=True, exist_ok=True)
+                (folder / "runs" / "run_a" / "changed.json").write_text(json.dumps({"ends": changed_json}))
+            code, r, _ = deliver(TMP, name, [(10, last, piece, 10)], "10-39", "--capture", str(folder))
+            return code, r, r["ends"]["rows"][0]
+        code, r, row = go("ends_out", fades_out)
+        said = [f for f in r["failures"] if "ends on the source's own picture" in f]
+        # the run is every frame from the end under two thirds of the middle: the five thinned ones (0.6 of full and less)
+        assert code == 1 and said and row["end"]["on_the_source"] == [35, 39] and row["start"]["on_the_source"] is None, (code, r["failures"], row)
+        assert "39" in r["verdict_line"] and r["verdict_line"].startswith("FAILS"), r["verdict_line"]
+        code, r, row = go("ends_in", fades_in)
+        assert code == 1 and any("begins on the source's own picture" in f for f in r["failures"]) and row["start"]["on_the_source"][0] == 10 \
+            and row["end"]["on_the_source"] is None, (code, r["failures"], row)
+        code, r, row = go("ends_hold", holds)
+        assert code == 0 and row["end"]["on_the_source"] is None and row["start"]["on_the_source"] is None \
+            and 0.85 < row["end"]["tail_levels_over_middle"] < 1.15 and 0.85 < row["end"]["outermost_frame_over_middle"] < 1.15, (code, r["failures"], row)
+        held_to = row["end"]["outermost_frame_over_middle"]
+        # the row cut short of the thinned frames passes; what is left of the shot is said, not failed
+        code, r, row = go("ends_cut", fades_out, last=35)
+        assert code == 0 and row["end"]["on_the_source"] is None, (code, r["failures"], row)
+        assert r["shots"]["shots"][0]["subjects"]["a"]["tracked_with_nothing_laid"]["runs"] == [[36, 39]], r["shots"]["shots"][0]["subjects"]["a"]
+        # this reading passes, and the capture's own reading of the render says it ends on the source on frames the row lays
+        theirs = {"level": 30.0, "starts_on_the_source": None, "ends_on_the_source": {"source_frames": [37, 39], "frames": 3}}
+        code, r, row = go("ends_by_capture", holds, changed_json=theirs)
+        assert code == 1 and any("by its capture's reading" in f and "37-39" in f for f in r["failures"]) and r["ends"]["the_captures_read"][0]["ends_on_the_source"]["frames"] == 3, \
+            (code, r["failures"])
+        code, r, row = go("ends_by_capture_cut", holds, last=36, changed_json=theirs)
+        assert code == 0, f"a row cut short of the frames its capture names was failed on them: {r['failures']}"
+        return (f"paint thinning to nothing over a row's last five frames fails by its frames, and at its start as 'begins'; a row that holds reads "
+                f"{held_to:.2f} of its middle on its last frame and passes; cut short of the thinned frames it passes; the capture's own reading "
+                "of the render fails a row that lays the frames it names")
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -999,4 +1062,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a locked file is not built over", a_locked_file)
     case("a shot where a named subject is the source's own", shots_left_as_the_source)
     case("a frame its run carried no mask on", no_mask_no_lay)
+    case("a row that ends or begins on the source's own picture", ends_on_the_source)
 sys.exit(finish())

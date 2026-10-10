@@ -238,3 +238,45 @@ flag reads the source's own frame-to-frame change for it.
   stands as read before the rule; read again now it would say that its six
   frames are not what the table makes, which is the difference between the
   two files and not a new fault.
+- 2026-10-10, a third thing every proof had passed: **a row that ends on the
+  source's own picture.** Three short loads (a load shorter than its window,
+  the source's last frame held past it and shown to the model) end with the
+  sampler drawing the original back: the region is open, the row lays pixels
+  on every frame, and they are the source's pixels again. Read here on the
+  rows as laid, under the mask each run carried, as the piece's distance
+  from the source over its middle-half median:
+
+  | render | middle, levels | outermost frame | ends on the source | last 12 frames |
+  |---|---|---|---|---|
+  | the second subject, whole, shot 1010-1038 | 40.8 | 0.09 | 1033-1038 | 0.64 |
+  | the lead's face, the same shot | 12.8 | 0.16 | 1036-1038 | 0.85 |
+  | the lead's face, street shot 438-483 | 23.1 | 0.23 | 480-483 | 0.69 |
+  | the lead's face, street shot 315-414 (holds) | 15.2 | 0.43 | no | 0.79 |
+  | the lead's face, street shot 294-314 (holds) | 16.3 | 1.48 | no | 1.29 |
+
+  The capture session's reading of the same three renders gives the same
+  frames (1033-1038, 1036-1038, 480-483) by its own measure.
+- 2026-10-10, **the proof for it** (`ends` in the record; the LAST net: this
+  class of fault is meant to be blocked before a render and mitigated by an
+  open tail, and a file that trips this means both failed). A row fails when
+  its outermost frame in a shot, at either end, is under a third of its
+  middle's level; the run named is the frames from that end under two
+  thirds. Those two lines are the capture tool's own for the same question
+  asked of the render; its answer (`runs/<run>/changed.json`) is written
+  beside this one, and where it names frames the row lays the build fails on
+  its word as well. A first pair of lines of my own (a quarter of the mask's
+  changed share; the last twelve frames under eight tenths) caught the two
+  kitchen renders and MISSED the street one, and the figure I gave the lead
+  session for one of them before measuring ("about half") was 0.64. An end
+  that is meant is answered by cutting the row short and a `source` line.
+  The start reading catches a row that begins as the source's picture, not
+  a continued load that begins in the wrong pose.
+- 2026-10-10, **known wrong with `fun_0000_0603_c.mp4` (and `_b`)**: the
+  second street row ends on the source's own picture on 480-483, the four
+  frames before the cut at 484. `_c`'s record, read again under the proof
+  (md5 unchanged), says FAILS on those frames, by both readings. Not rebuilt:
+  the load is to be rendered again with its tail open and the next build
+  beside these takes that piece.
+- 2026-10-10, from this line on: commits carry no changelog entry (the
+  owner's rule of that day, `changelog.d/README.md`); this record's dated
+  lines and the commit messages are the account.
