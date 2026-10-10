@@ -1415,7 +1415,8 @@ def frame_changes(diff: np.ndarray, region: np.ndarray, maps: dict[str, np.ndarr
 
     `region` is the run's region on this frame in pixels, `maps` each subject's class map and `tracks` each
     subject's mask, all for this frame. Returns the floor (labelled or tracked pixels outside the region: the
-    codec and the VAE, nothing regenerated), each segment's pixels and mean difference INSIDE the region, and
+    codec and the VAE, nothing regenerated; every pixel outside the region when a subject lies wholly inside
+    it), each segment's pixels and mean difference INSIDE the region, and
     each subject's inside and outside it. A figure well above the floor is a thing drawn again."""
     labelled = np.zeros(region.shape, bool)
     for cm in maps.values():
@@ -1423,6 +1424,8 @@ def frame_changes(diff: np.ndarray, region: np.ndarray, maps: dict[str, np.ndarr
     for t in tracks.values():
         labelled |= t
     rest = labelled & ~region
+    if rest.sum() < 500 and labelled.any():
+        rest = ~region          # a subject wholly inside its region leaves no labelled pixel outside: take the picture's
     out = {"floor": float(diff[rest].mean()) if rest.sum() >= 500 else None, "segments": {}, "subjects": {}}
     for label, cm in maps.items():
         inside = np.where(region, cm, 0)
@@ -1601,6 +1604,26 @@ def score_mouth(reference: np.ndarray, ref_centre: np.ndarray, arm: np.ndarray, 
             "level_difference_quartiles": [round(float(x), 3) for x in np.percentile(diff, [25, 75])] if ok.any() else None}
 
 
+def with_the_voice(level: np.ndarray, series: np.ndarray) -> dict:
+    """Does a mouth open and shut with the voice's level: a singer's does, a listener's should not.
+
+    `level` is the vocal stem's level per frame and `series` the mouth's opening; the agreement is
+    `shifted_agreement`'s, at no shift and at the shift that fits best (positive when the mouth is late).
+    """
+    by = {k: v for k, v in shifted_agreement(level, series).items() if v is not None}
+    best = max(by, key=by.get) if by else None
+    return {"with_the_vocal_level_at_no_shift": by.get(0),
+            "with_the_vocal_level_best": [best, by[best]] if best is not None else None}
+
+
+def frames_inside(spec: str | None, first: int, frames: int) -> np.ndarray:
+    """Which of a span's frames a FIRST-LAST of source frames names; all of them when none is given."""
+    if not spec:
+        return np.ones(frames, bool)
+    lo, hi = (int(x) for x in spec.split("-"))
+    return np.array([lo <= first + n <= hi for n in range(frames)])
+
+
 def mouth(a: argparse.Namespace) -> None:
     """Does a render's mouth do what the source's mouth does, frame by frame.
 
@@ -1634,9 +1657,12 @@ def mouth(a: argparse.Namespace) -> None:
     else:
         ref_mask = class_mask_of(np.load(folder / "subjects" / a.subject / f"classes__{seen['by']}.npz")["classes"], list(MOUTH_CLASSES), names)
     reference, ref_centre = mouth_openings(ref_mask, face)
+    scored = frames_inside(a.frames, first, frames)
+    reference = np.where(scored, reference, np.nan)
     control = {k: v for k, v in shifted_agreement(reference, reference, 24).items() if k in (1, 2, 3, 6, 12, 24)}
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
+    level = np.array([np.nan if r.get("vocals_stem_dbfs") in (None, "") else float(r["vocals_stem_dbfs"]) for r in cross])
     record = {"subject": a.subject, "reference": a.reference or "the subject's class map", "frames_seen": int((~np.isnan(reference)).sum()),
               "control_reference_against_itself_shifted": control, "arms": {}}
     print(f"reference mouth seen on {record['frames_seen']} of {frames} frames; against itself shifted by frames: {control}")
@@ -1656,7 +1682,8 @@ def mouth(a: argparse.Namespace) -> None:
                 gaps.append({"source_frames": [first + lo, first + hi], "in_the_gap": round(float(np.nanmedian(inside)), 3),
                              "either_side": round(float(np.nanmedian(near)), 3)})
         return {"voiced_median": round(float(np.nanmedian(on)), 3) if (~np.isnan(on)).any() else None,
-                "unvoiced_median": round(float(np.nanmedian(off)), 3) if (~np.isnan(off)).any() else None, "gaps": gaps}
+                "unvoiced_median": round(float(np.nanmedian(off)), 3) if (~np.isnan(off)).any() else None,
+                **with_the_voice(level, series), "gaps": gaps}
 
     record["reference_and_the_voice"] = rests(reference)
     if record["reference_and_the_voice"]:
@@ -1664,7 +1691,9 @@ def mouth(a: argparse.Namespace) -> None:
     for item in a.arm:
         name, _, spec = item.partition("=")
         series, centre = mouth_openings(read(spec), face)
+        series = np.where(scored, series, np.nan)
         score = score_mouth(reference, ref_centre, series, centre)
+        score["frames_seen"] = int((~np.isnan(series)).sum())
         score["and_the_voice"] = rests(series)
         record["arms"][name] = score
         print(f"  {name.ljust(22)} same mouth {score['frames_same_mouth']} of {score['of']} | at no shift {score['agreement_at_no_shift']} | "
@@ -2205,6 +2234,7 @@ def main() -> None:
     u.add_argument("--reference", metavar="MASK[@FIRST][:classes]", help="the source's mouth mask (or a class map of it); the "
                    "subject's own class map in the capture when not given")
     u.add_argument("--arm", action="append", default=[], metavar="NAME=MASK[@FIRST][:classes]", help="a render's mouth mask; repeatable")
+    u.add_argument("--frames", metavar="FIRST-LAST", help="source frames to score; the whole span when not given")
     x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
     x.add_argument("capture")
     x.add_argument("--subject", required=True)

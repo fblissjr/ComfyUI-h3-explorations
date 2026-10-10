@@ -33,7 +33,8 @@ overlaps and margins can be counted by hand and reads the rows back.
    not scored as the same mouth.
 13. **What a run changed.** On a frame whose difference from the source is known by construction: a face drawn
    again, a hairline left alone and the half of a neighbour's hand inside the region each read at their own
-   figure; a subject's pixels inside and outside the region are told apart; and under 500 pixels set no floor.
+   figure; a subject's pixels inside and outside the region are told apart; with nothing labelled outside the
+   region the floor is the picture's own outside it, and a region over the whole frame has none.
 12. **A region carried across a cut.** Through `loop_plan.split_steps`, which owns the arithmetic: a cut two
    frames into a latent step names the step's two frames on the side the subject is not on; a subject on
    both sides makes the whole step shared and nothing across; a cut on a step's own edge and a frame lost
@@ -403,7 +404,9 @@ def what_changed() -> str:
     diff[32:48, 32:64] = 20.0                       # the face was drawn again
     diff[32:48, 64:80] = 9.0                        # and the half of the hand inside the region; the hair was not
     one = cap.frame_changes(diff, region, {"a": mine, "b": theirs}, {"a": mine > 0, "b": theirs > 0}, names)
-    assert one["floor"] is None, "a floor from under 500 pixels"
+    assert one["floor"] == 2.0, "with nothing labelled outside the region the floor is not the picture's own outside it"
+    everywhere = cap.frame_changes(diff, np.ones((H, W), bool), {"a": mine}, {}, names)
+    assert everywhere["floor"] is None, "a region over the whole frame, and a floor"
     assert one["segments"] == {"a.Face": (512, 20.0), "a.Hair": (512, 2.0), "b.Hand": (256, 9.0)}, one["segments"]
     assert one["subjects"]["b"] == {"inside_px": 256, "inside": 9.0, "outside": 2.0}, one["subjects"]
     assert one["subjects"]["a"]["outside"] is None, "a subject wholly inside the region has no outside"
@@ -446,7 +449,16 @@ def mouths() -> str:
     assert score["best_shift_arm_late_positive"] == 2 and score["level_difference_median"] is not None, score
     elsewhere = cap.score_mouth(series, where, series, where + 100.0)
     assert elsewhere["frames_same_mouth"] == 0, "a mouth found somewhere else was scored as the same mouth"
-    return "open reads above shut, the same tilted or with a stray label; a mouth two frames late is placed two frames late"
+    sung = cap.with_the_voice(series, late)          # a mouth that follows the voice's level, two frames late
+    assert sung["with_the_vocal_level_best"][0] == 2 and sung["with_the_vocal_level_best"][1] > 0.99, sung
+    assert sung["with_the_vocal_level_at_no_shift"] < sung["with_the_vocal_level_best"][1], sung
+    idle = cap.with_the_voice(series, np.sin(t * 2.9 + 1.0))    # a mouth that moves on its own
+    assert abs(idle["with_the_vocal_level_at_no_shift"]) < 0.2, idle
+    assert cap.with_the_voice(np.full(120, np.nan), series)["with_the_vocal_level_best"] is None, "no voice level, and an agreement"
+    named = cap.frames_inside("103-105", 100, 8)
+    assert named.tolist() == [False, False, False, True, True, True, False, False] and cap.frames_inside(None, 100, 8).all()
+    return ("open reads above shut, the same tilted or with a stray label; a mouth two frames late is placed two frames late, "
+            "against another mouth and against the voice's level; a stretch of source frames scores only its own frames")
 
 
 def text_rules() -> str:
