@@ -169,6 +169,15 @@ def label_points(masks: torch.Tensor) -> list[tuple[int, float, float]]:
 # ------------------------------------------------------------------ the table
 
 def _why(shot, state: str, match: float, pick: str, phrase: str, named_frame: bool) -> str:
+    seeded = getattr(shot, "seeded", None)
+    if seeded:
+        # A seed, like a correction, outranks every automatic reason.
+        if seeded["box"] is None:
+            return f"seeded: nobody (frame {seeded['frame']})"
+        if seeded["refused"]:
+            return (f"seed refused on frame {seeded['frame']}: no detection agrees with the box given"
+                    + ("" if seeded["overlap"] is None else f" (the nearest overlaps it by {seeded['overlap']:.2f})"))
+        return f"seeded: the detection the box names on frame {seeded['frame']} (overlap {seeded['overlap']:.2f})"
     corrected = str(getattr(shot, "corrected", "") or "")
     if corrected:
         # A person's word outranks every automatic reason: the similarity the
@@ -303,13 +312,17 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                 "state": word,
                 "person": candidate if taken else None,
                 "seed_frame": int(shot.seed) if taken else None,
-                "similarity": None if shot.picked or shot.best < 0 else round(float(shot.best), 3),
+                # not written for a seeded shot: the automatic pass's best there is somebody the seed may not have named
+                "similarity": None if shot.picked or shot.best < 0 or getattr(shot, "seeded", None) else round(float(shot.best), 3),
                 "why": _why(shot, word, float(found.match), pick, phrase, named_frame),
             },
             "closest_person": None if taken else candidate,
             # mrorange's corrections set this on the tracker's `Shot`; a
             # tracker without them has no such field and the row says so.
             "corrected": str(getattr(shot, "corrected", "") or ""),
+            # what a seed said of this shot (the tracker's `seeds`), or null: its frame, the box given, the person it
+            # matched on that frame, the overlap, whether it was refused, and the nearest detection's box
+            "seeded": getattr(shot, "seeded", None),
             "on_screen": with_subject > 0,
             "frames_with_subject": with_subject,
             "frames_without_subject": without,
@@ -355,6 +368,9 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
         "pick_frame_named": bool(named_frame),
         "match": round(float(found.match), 3),
         "match_named": bool(named_value),
+        # a seed on the picked shot: "is the pick" (the person it names is who every other shot was judged against),
+        # "took nobody" (the pick rule's person stayed the reference), or empty
+        "pick_seed": str(getattr(found, "pick_seed", "") or ""),
         # the floor an automatic line starts from, and the two shots' scores it was put between when it stands above it
         "match_floor": round(float(getattr(found, "floor", 0.0)), 3),
         "match_moved_by_gap": None if gap is None else [round(float(gap[0]), 3), round(float(gap[1]), 3)],

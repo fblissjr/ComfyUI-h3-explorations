@@ -685,7 +685,8 @@
       "head_phrase",
       "corrections",
       "subject_from",
-      "others"
+      "others",
+      "seeds"
     ],
     "node_id": "MiniMaxH3SubjectTrack",
     "outputs": [

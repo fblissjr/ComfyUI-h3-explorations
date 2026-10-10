@@ -620,6 +620,22 @@ with a label somebody types. So the subtraction from source frames is
 done in one place, the per-video analysis's builder, and the tracker's
 report echoes every seed it used so a wrong offset shows on a tile.*
 
+*2026-10-10, built (mrfrog; the commit that adds this line): the seed.*
+`MiniMaxH3SubjectTrack` has a `seeds` input, one line a shot: a frame of
+the LOAD and a box (left, top, width, height, the form a shot table
+writes), or `none` (`subject_track.py::parse_seeds`, `seed_names`). The
+detection on that frame the box names is taken at or over
+`subject_track.py::SEED_AGREES`, a starting value; under it the shot is
+left empty as "absent (seed refused)" with the nearest detection's box
+and overlap, never the tracker's own guess. Two things the build added to
+what this section asked for, both from the cold read: a seed on the
+PICKED shot that names a person is the pick, so every other shot is
+judged against the person it names and one mask cannot follow two people;
+and a seed takes a box and not a mask. Not built: a load whose every shot
+is seeded still runs the pick rule first; and on a load where the rule
+finds nobody, seeded shots are tracked but a track that lets go is not
+looked at again.
+
 **Stage two is one tracker for every name**, reading the cast and writing
 one mask a subject, with the decision made where the detections are. It
 replaces `subject_from` and the `others` wiring. It is built only if stage

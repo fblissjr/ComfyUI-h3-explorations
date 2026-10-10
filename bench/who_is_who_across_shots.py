@@ -98,14 +98,14 @@ VIEWS = ("top third", "head", "whole")
 CROP_MARGIN = 1.2
 
 
-def read_tables(pairs: list[str]) -> dict[str, dict]:
+def read_tables(pairs: list[str], need_gallery: bool = True) -> dict[str, dict]:
     out = {}
     for pair in pairs:
         label, _, path = pair.partition("=")
         if not label or not path:
             raise SystemExit(f"--table wants LABEL=PATH; got {pair!r}")
         out[label] = json.loads(Path(path).read_text())
-        if not (out[label].get("gallery") or {}).get("signatures"):
+        if need_gallery and not (out[label].get("gallery") or {}).get("signatures"):
             raise SystemExit(f"{path}: this shot table carries no gallery")
     return out
 
@@ -234,16 +234,31 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                              "must be given the same frames")
         if "whole" not in (t.get("gallery") or {}):
             raise SystemExit(f"{label}: this shot table was written before the tracker kept whole-mask signatures; run the preview again")
+    # A TRACKER THAT PICKED NOBODY IS A FINDING, NOT A REASON TO STOP (the first three-tracker run, 2026-10-10: an
+    # earlier tracker had wrongly taken a later subject on that subject's own pick frame, so `others` hid her from
+    # her own tracker and she was picked nowhere; refusing the table hid exactly that). Such a subject has no
+    # gallery, so nobody can be compared with it: the others are decided without it, and every row in which a
+    # person is handed to somebody is unresolved, because that person could be the subject nobody picked.
+    not_picked = {}
+    for label, t in tables.items():
         if not [v for v in t["gallery"]["signatures"] if v and v[0] is not None] or not [v for v in t["gallery"]["whole"] if v is not None]:
-            raise SystemExit(f"{label}: this shot table carries no gallery of its subject (nobody was picked, or the picked shot was "
-                             "settled by hand), so nobody can be compared with that subject")
-    top = {label: [v[0] for v in t["gallery"]["signatures"] if v and v[0] is not None] for label, t in tables.items()}
-    whole = {label: [v for v in t["gallery"]["whole"] if v is not None] for label, t in tables.items()}
+            aside = sum(int((shot.get("others_left_out") or {}).get("on_frames_looked_at", 0)) for shot in t["shots"])
+            not_picked[label] = (f"{label} has no gallery: its tracker picked nobody"
+                                 + (f" (pick frame {t['pick_frame']})" if t.get("pick_frame") is not None else "")
+                                 + (f"; {aside} detection(s) on the frames it looked at were set aside as another tracker's people, so its "
+                                    "subject may be held by a tracker that runs before it" if aside else
+                                    "; or its picked shot was settled by hand, which leaves no gallery"))
+    labels = [label for label in tables if label not in not_picked]
+    if not labels:
+        raise SystemExit("no table here carries a gallery: no tracker picked anybody, so there is nobody to compare with. " + " ".join(not_picked.values()))
+    everyone = list(tables)
+    top = {label: [v[0] for v in tables[label]["gallery"]["signatures"] if v and v[0] is not None] for label in labels}
+    whole = {label: [v for v in tables[label]["gallery"]["whole"] if v is not None] for label in labels}
     least = S.TOGETHER_LEAD if least_lead is None else least_lead
     rows = []
     for n in range(len(first["shots"])):
         by_frame: dict[int, list] = {}
-        for label in labels:
+        for label in everyone:
             shot = tables[label]["shots"][n]
             for frame, people in [(shot["shown_frame"], shot["people"])] + [(look["frame"], look["people"]) for look in shot.get("looks", [])]:
                 signed = [p for p in people if (p.get("signatures") or [None])[0] is not None and p.get("whole_signature") is not None]
@@ -304,12 +319,23 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             for t in trackers.values():
                 t["correction"] = t["would_type"] = ""
             cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
+        for label in not_picked:
+            shot = tables[label]["shots"][n]
+            trackers[label] = {"called": shot["subject"]["state"], "called_person": shot["subject"]["person"],
+                               "the_sum_says": "cannot say: this subject was never picked", "correction": "", "would_type": "", "candidates": [],
+                               "typed_in_this_table": str(shot.get("corrected", "") or ""), "tile_frame": int(shot["shown_frame"])}
         status = UNRESOLVED if cannot else DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
         note = ""
+        if not_picked and not fault and answer["takes"] is not None and any(p is not None for p in answer["takes"].values()):
+            status = UNRESOLVED
+            why = (f"{', '.join(not_picked)} was never picked, so a person handed out in this shot could be them. "
+                   "What the sum says of the others is kept for a reader, and nothing is suggested")
+            for t in trackers.values():
+                t["correction"] = ""
         # A shot in which no table lists anybody at all (a hand and an object; an empty room): everybody has nobody,
         # which is an answer and not a failure to compare. It agrees when every tracker called its subject absent.
         nobody_seen = not any(tables[label]["shots"][n]["people"] or any(look["people"] for look in tables[label]["shots"][n].get("looks", []))
-                              for label in labels)
+                              for label in everyone)
         if nobody_seen and not fault:
             for label, t in trackers.items():
                 t["the_sum_says"] = None
@@ -367,11 +393,12 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
             "suggest_is": "a differing row whose lead is under `suggest_lead` (or every differing row, when it is null: no clip has measured "
                           "one) writes no correction: `suggests` is false, each tracker has `candidates` and an `ask` to show a person. "
                           "`would_type` is what the top way would have written, for tools; do not show it as a suggestion",
-            "tables": labels, "least_lead": least, "unsure": unsure, "rows": rows}
+            "not_picked": not_picked,
+            "tables": everyone, "least_lead": least, "unsure": unsure, "rows": rows}
 
 
 def cmd_corrections(a):
-    tables = read_tables(a.table)
+    tables = read_tables(a.table, need_gallery=False)
     out = settle_tables(tables, unsure=a.unsure, first_source_frame=a.first_frame, suggest_lead=a.suggest_lead)
     out["files"] = {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)}
     Path(a.out).write_text(json.dumps(out, indent=1))
@@ -380,6 +407,8 @@ def cmd_corrections(a):
 
 def render_corrections(out: dict):
     labels = out["tables"]
+    for label, why in (out.get("not_picked") or {}).items():
+        print(f"NOT PICKED: {why}. The other subjects are decided without it, and no row that hands a person out is resolved.\n")
     print(f"{out['what']}\n{out['status_is']}\nleast lead to take without a person: {out['least_lead']}; unsure rows: {out['unsure']}; {out['frames_are']}\n")
     print("| shot | frames | status | looks used | people | lead | " + " | ".join(f"{label}: called, the sum says" for label in labels) + " | without a person | to type |")
     print("|---|---|---|---|---|---|" + "---|" * len(labels) + "---|---|")

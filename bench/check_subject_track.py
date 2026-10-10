@@ -1365,16 +1365,31 @@ def check_settled_from_tables(problems):
     row = tool.settle_tables({"lead": off_tile, "second": table("second")})["rows"][0]
     if not str(row["trackers"]["lead"]["the_sum_says"]).startswith("cannot say") or row["trackers"]["lead"]["correction"] or row["status"] != "unresolved":
         problems.append(f"settled: a tile frame that was not read should give no number and an unresolved row: {row['trackers']['lead']}, {row['status']}")
-    # a table with no gallery is refused by name, before any row
+    # A tracker that picked nobody is a finding, not a refusal (the first three-tracker run, 2026-10-10: an earlier
+    # tracker had taken a later subject on her own pick frame, so she was picked nowhere, and the tool would not run).
+    # It is named first, the others are decided without it, and every row that hands a person out is unresolved.
     bare = table("lead")
     bare["gallery"] = {"signatures": [], "whole": []}
+    bare["shots"][0]["others_left_out"] = {"on_shown_frame": 1, "on_frames_looked_at": 1}
+    found = tool.settle_tables({"lead": bare, "second": table("second")}, suggest_lead=0.0)
+    row = found["rows"][0]
+    if list(found["not_picked"]) != ["lead"] or "picked nobody" not in found["not_picked"]["lead"] or "set aside as another tracker's" not in found["not_picked"]["lead"]:
+        problems.append(f"settled: a table with no gallery should be named as a subject nobody picked, with what its table says of why: {found['not_picked']}")
+    if row["status"] != "unresolved" or "lead was never picked" not in row["why"] or any(t["correction"] or t["ask"] for t in row["trackers"].values()) \
+            or not str(row["trackers"]["lead"]["the_sum_says"]).startswith("cannot say") or row["trackers"]["second"]["the_sum_says"] is None:
+        problems.append(f"settled: with a subject never picked, a row that hands a person out is unresolved and suggests nothing, and still "
+                        f"says what the sum makes of the others: {row['status']}, {row['why']}, {row['trackers']}")
+    if found["tables"] != ["lead", "second"]:
+        problems.append("settled: a subject nobody picked is still listed among the tables")
+    both_bare = table("second")
+    both_bare["gallery"] = {"signatures": [], "whole": []}
     try:
-        tool.settle_tables({"lead": bare, "second": table("second")})
+        tool.settle_tables({"lead": bare, "second": both_bare})
     except SystemExit as exc:
-        if "no gallery" not in str(exc):
-            problems.append(f"settled: a table with no gallery is refused without saying so: {exc}")
+        if "no tracker picked anybody" not in str(exc):
+            problems.append(f"settled: tables in which nobody was picked at all are refused without saying so: {exc}")
     else:
-        problems.append("settled: a table with no gallery was read")
+        problems.append("settled: tables in which no tracker picked anybody were read")
     # a look whose people do not all carry their signatures is not read, whichever table it is in
     holed = json.loads(json.dumps(tables))
     for table in holed.values():
@@ -1411,6 +1426,142 @@ def check_settled_from_tables(problems):
     if [s.seed for s in plain.shots] != [s.seed for s in got_lead.shots] or [s.best for s in plain.shots] != [s.best for s in got_lead.shots] \
             or plain.gallery_whole != [] or not torch.equal(st.assemble(24, H, W, plain.pieces), mask_lead):
         problems.append("settled: keeping the whole-mask signature changed what the tracker decided")
+
+
+def check_seeds(problems):
+    """A seed is a correction a tool can write: a frame of the load and a box, not a number off a tile (2026-10-10)."""
+    boxes, detect, sign, track, calls = _world()
+    cuts = [8, 16, 24]
+    shots = st.shot_ranges(32, cuts)
+    as_box = lambda p: ", ".join(str(v) for v in st.shot_table._box(boxes[p]))   # noqa: E731
+    # parsing: the frame picks the shot; none; and every refusal says which line
+    got = st.parse_seeds(f"frame 13: {as_box(2)}\nframe 26: none; frame 2: {as_box(1)}", shots)
+    if got != {2: (13, tuple(float(v) for v in st.shot_table._box(boxes[2]))), 4: (26, None), 1: (2, tuple(float(v) for v in st.shot_table._box(boxes[1])))}:
+        problems.append(f"seeds: three lines should be three shots' seeds, each on its own frame: {got}")
+    for name, text in (("not a seed", "shot 2: person 1"), ("a frame the load does not have", "frame 32: none"), ("a box with no area", "frame 3: 4, 4, 0, 9"),
+                       ("two seeds in one shot", "frame 9: none\nframe 10: none"), ("three numbers", "frame 3: 1, 2, 3")):
+        try:
+            st.parse_seeds(text, shots)
+        except ValueError as exc:
+            if "seeds:" not in str(exc):
+                problems.append(f"seeds: {name} is refused without saying it is a seed's line: {exc}")
+        else:
+            problems.append(f"seeds: {name} was read")
+    if st.parse_seeds("", shots) != {} or st.parse_seeds("  \n ; ", shots) != {}:
+        problems.append("seeds: an empty text is not no seeds")
+    # the control: with no seeds the tracker does what it did (person 0, the largest, through the shots they are in)
+    plain = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1)
+    none = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds={})
+    if [(s.seed, s.shown, s.index, st._state(s)) for s in plain.shots] != [(s.seed, s.shown, s.index, st._state(s)) for s in none.shots] \
+            or any(s.seeded is not None for s in none.shots) or not torch.equal(st.assemble(32, H, W, plain.pieces), st.assemble(32, H, W, none.pieces)):
+        problems.append("seeds: with no seeds the tracker's seeds, tiles, states or masks are not what they were")
+    # shot 2 (frames 8-15) holds people 1 and 2 and not the subject. A seed on frame 13 naming person 2's box takes
+    # person 2 there, whatever frame the tracker's own pass showed; a seed of none empties the last shot
+    calls["track"].clear()
+    seeds = st.parse_seeds(f"frame 13: {as_box(2)}\nframe 26: none", shots)
+    got = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds)
+    two, four = got.shots[1], got.shots[3]
+    if (8, 16, 13, 2) not in calls["track"] or two.seed != 13 or two.shown != 13 or st._state(two) != "taken (seeded)" \
+            or two.seeded["person"] != 2 or two.seeded["overlap"] < 0.999 or two.seeded["refused"]:
+        problems.append(f"seeds: a seed on frame 13 naming person 2's box should track person 2 through shot 2 from frame 13: {calls['track']}, {two.seeded}")
+    if four.seed is not None or st._state(four) != "absent (seeded)" or four.start in got.pieces or four.shown != 26:
+        problems.append(f"seeds: `none` should leave the shot empty and say it was seeded so: {st._state(four)}")
+    if [st._state(s) for s in (got.shots[0], got.shots[2])] != [st._state(s) for s in (plain.shots[0], plain.shots[2])]:
+        problems.append("seeds: a seed changed a shot it does not name")
+    text = st.report(got, cuts, st.PICK_LARGEST, "person", True, True, 1.0)
+    for need in ("[2] frames 8-15: seeded on load frame 13: took person 2 of the 2 detection(s) there", "[4] frames 24-31: seeded on load frame 26: nobody"):
+        if need not in text:
+            problems.append(f"seeds: the report lacks {need!r}: {text!r}")
+    table = st.shot_table.build(got, detect, st.assemble(32, H, W, got.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=cuts)
+    row = table["shots"][1]
+    if row["seeded"]["frame"] != 13 or row["seeded"]["person"] != 2 or row["subject"]["state"] != "taken (seeded)" or row["subject"]["person"] != 2 \
+            or row["shown_frame"] != 13 or "seeded" not in row["subject"]["why"] or table["shots"][0]["seeded"] is not None \
+            or table["shots"][3]["seeded"]["box"] is not None or table["shots"][3]["subject"]["state"] != "absent (seeded)":
+        problems.append(f"seeds: the table's rows do not say what was seeded: {row['seeded']}, {row['subject']}")
+    # a box no detection agrees with: the shot is left EMPTY, never the tracker's own guess, and the report gives the
+    # nearest detection's box and overlap so the writer can tell a tighter mask from another person
+    calls["track"].clear()
+    x, y, w, h = st.shot_table._box(boxes[0])
+    off = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
+                    seeds=st.parse_seeds(f"frame 28: {x + w // 2}, {y}, {w}, {h}", shots))
+    last = off.shots[3]
+    if st._state(last) != "absent (seed refused)" or last.seed is not None or last.start in off.pieces or any(c[0] == 24 for c in calls["track"] if c[2] == 28):
+        problems.append(f"seeds: a box half off the person must be refused and the shot left empty (plain took it): {st._state(last)}, {calls['track']}")
+    if not (0.2 < last.seeded["overlap"] < st.SEED_AGREES) or last.seeded["nearest_box"] != [x, y, w, h]:
+        problems.append(f"seeds: a refused seed keeps the nearest detection's box and its overlap: {last.seeded}")
+    said = st.report(off, cuts, st.PICK_LARGEST, "person", True, True, 1.0)
+    for need in ("SEED REFUSED on load frame 28", f"box {[x, y, w, h]}", "The shot is left empty", "the line is 0.90"):
+        if need not in said:
+            problems.append(f"seeds: the refusal's report lacks {need!r}: {said!r}")
+    # the line itself: a box that agrees at the line is taken, one just under it is refused
+    if abs(st.SEED_AGREES - 0.9) > 1e-9:
+        problems.append("seeds: SEED_AGREES moved; read its provenance before changing this check")
+    for shift, taken in ((2, True), (3, False)):       # 40 columns wide: 2 off is 38/42 = 0.905, 3 off is 37/43 = 0.860
+        near = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
+                         seeds=st.parse_seeds(f"frame 28: {x + shift}, {y}, {w}, {h}", shots))
+        if (near.shots[3].seed is not None) != taken:
+            problems.append(f"seeds: a box {shift} columns off a {w}-wide person should be {'taken' if taken else 'refused'}: {near.shots[3].seeded}")
+    # a seed on a person another tracker holds is refused: that person is not among the detections
+    held = torch.zeros((32, H, W))
+    held[13] = boxes[2]
+    theirs = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, st.without_others(detect, held, {}), sign, track, stride=4, offset=1, seeds=seeds)
+    if st._state(theirs.shots[1]) != "absent (seed refused)":
+        problems.append(f"seeds: a seed naming a person `others` holds must be refused: {st._state(theirs.shots[1])}")
+    # a seed and a typed correction on one shot are two words for it: an error naming both
+    try:
+        st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds, corrections={2: 1})
+    except ValueError as exc:
+        if "both a seed" not in str(exc):
+            problems.append(f"seeds: a seed and a correction on one shot are refused without saying so: {exc}")
+    else:
+        problems.append("seeds: a seed and a correction on one shot were both taken")
+    # with nothing picked at all (no detection on the pick frame's rule), seeds still apply: a seeded load needs no pick
+    empty_then = lambda f: detect(f) if f >= 8 else (torch.zeros((0, H, W)), [])   # noqa: E731
+    unpicked = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, empty_then, sign, track, stride=4, offset=1, seeds=seeds)
+    if unpicked.pick_frame is not None or st._state(unpicked.shots[1]) != "taken (seeded)":
+        problems.append(f"seeds: with nobody picked a seeded shot should still be taken: {st._state(unpicked.shots[1])}")
+    # mrcorn's cold read: A SEED ON THE PICKED SHOT IS THE PICK. The rule picks person 0 (the largest on frame 3); a
+    # seed there naming person 1 makes person 1 the subject of the WHOLE load: shot 2, which holds 1 and 2, is taken
+    # on person 1, and shots 3 and 4, which hold person 0 and never person 1, are left alone. Before this the seed
+    # changed shot 1 only and the mask followed person 1 there and person 0 after, with nothing said.
+    calls["track"].clear()
+    first = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1,
+                      seeds=st.parse_seeds(f"frame 5: {as_box(1)}", shots), sign_whole=lambda f, m: sign(f, m))
+    who = sorted({c[3] for c in calls["track"]})
+    if st._state(first.shots[0]) != "taken (seeded)" or first.pick_seed != "is the pick" or first.pick_frame != 5 or first.rule_pick != (3, 1) \
+            or who != [1] or [s.seed is not None for s in first.shots] != [True, True, False, False]:
+        problems.append(f"seeds: a seed on the picked shot naming person 1 must make person 1 the subject everywhere: tracked {calls['track']}, "
+                        f"states {[st._state(s) for s in first.shots]}, pick {first.pick_frame}, rule's {first.rule_pick}")
+    if len(first.gallery) == 0 or len(first.gallery) != len(first.gallery_frames) or len(first.gallery_whole) != len(first.gallery) \
+            or any(float((g[0] * sign(0, boxes[1])).sum()) < 0.999 for g in first.gallery):
+        problems.append("seeds: when a seed is the pick the gallery is made from the seeded track, of the person the seed names")
+    said = st.report(first, cuts, st.PICK_LARGEST, "person", True, True, 1.0)
+    for need in ("subject: the `person` a seed names on frame 5; every other shot is judged against them", "frame 3) was somebody else or another frame and is not used"):
+        if need not in said:
+            problems.append(f"seeds: the report of a seeded pick lacks {need!r}: {said!r}")
+    # a seed on the picked shot naming the SAME person as the rule, on the rule's own frame, changes no other shot
+    same = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=st.parse_seeds(f"frame 3: {as_box(0)}", shots))
+    if same.rule_pick is not None or [s.seed is not None for s in same.shots] != [s.seed is not None for s in plain.shots] \
+            or not torch.equal(st.assemble(32, H, W, same.pieces), st.assemble(32, H, W, plain.pieces)):
+        problems.append("seeds: seeding the picked shot with the rule's own person on the rule's own frame changed the masks")
+    # a seed on the picked shot that takes nobody cannot be a reference: the rule's pick stays one, and the report says so
+    for text in ("frame 5: none", f"frame 5: {x + w // 2}, {y}, {w}, {h}"):
+        nobody = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=st.parse_seeds(text, shots))
+        if nobody.pick_seed != "took nobody" or nobody.shots[0].seed is not None or nobody.pick_frame != 3 \
+                or "THE PICKED SHOT'S SEED TOOK NOBODY" not in st.report(nobody, cuts, st.PICK_LARGEST, "person", True, True, 1.0):
+            problems.append(f"seeds: `{text}` on the picked shot must leave it empty, keep the rule's pick as the reference and say so: {nobody.pick_seed}")
+    # the tile of a seeded shot prints no likeness of the automatic pass; a seed's own figure is its box's overlap
+    labels = [st.tile_label(n, s) for n, s in enumerate(off.shots, 1)] + [st.tile_label(2, got.shots[1]), st.tile_label(4, got.shots[3])]
+    if not labels[3].endswith("box 0.33  absent (seed refused)") or not labels[4].endswith("box 1.00  taken (seeded)") \
+            or not labels[5].endswith("frames 24-31  absent (seeded)"):
+        problems.append(f"seeds: a seeded tile's header carries the automatic pass's score, or not the seed's own overlap: {labels[3:]}")
+    row = st.shot_table.build(off, detect, st.assemble(32, H, W, off.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                              named_frame=True, named_value=True, cuts=cuts)
+    if row["shots"][3]["subject"]["similarity"] is not None or row["pick_seed"] != "" \
+            or st.shot_table.build(first, detect, st.assemble(32, H, W, first.pieces), state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                   named_frame=True, named_value=True, cuts=cuts)["pick_seed"] != "is the pick":
+        problems.append("seeds: the table writes a seeded shot's automatic similarity, or does not say that a seed was the pick")
 
 
 def check_others(problems):
@@ -1666,15 +1817,21 @@ def check_schema(problems):
                         "would reach the tiles, the shot table and every node after it")
     if not isinstance(getattr(st.MiniMaxH3SubjectTrack, "MASK_VERSION", None), int):
         problems.append("the node declares no integer MASK_VERSION, so a kept mask would survive a change to how it is made")
-    fix, handed, last = schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
+    fix, handed, last, seeds = schema.inputs[-4], schema.inputs[-3], schema.inputs[-2], schema.inputs[-1]
+    if seeds.id != "seeds" or getattr(seeds, "default", None) != "" or not getattr(seeds, "multiline", False) \
+            or not getattr(seeds, "optional", False) or "frame 410: 543, 253, 157, 186" not in (seeds.tooltip or ""):
+        problems.append("`seeds` is not the node's last input, an optional multi-line text that is empty by default, with the format in its tooltip")
     if fix.id != "corrections" or getattr(fix, "default", None) != "" or not fix.tooltip or not getattr(fix, "multiline", False):
-        problems.append("`corrections` is not the node's third input from the end, a multi-line text that is empty by default, with a tooltip")
+        problems.append("`corrections` is not the node's fourth input from the end, a multi-line text that is empty by default, with a tooltip")
     # each appended after the one before, so a graph saved before it keeps every widget where it was
     if handed.id != "subject_from" or getattr(handed, "default", None) != "" or not handed.tooltip or not getattr(handed, "optional", False):
-        problems.append("`subject_from` is not the node's last input but one, an optional text that is empty by default, with a tooltip")
+        problems.append("`subject_from` is not the node's third input from the end, an optional text that is empty by default, with a tooltip")
     if last.id != "others" or last.io_type != "MASK" or not last.tooltip or not getattr(last, "optional", False):
-        problems.append("`others` is not the node's last input, an optional mask with a tooltip")
+        problems.append("`others` is not the node's last input but one, an optional mask with a tooltip")
     import inspect
+    if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["seeds"].default != "" \
+            or "seeded = parse_seeds(seeds, shot_ranges(n, found_cuts))" not in source or "seeds=seeded)" not in source:
+        problems.append("`seeds` left empty must be the empty text in execute, parsed against the load's shots and handed to `follow`")
     if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["others"].default is not None:
         problems.append("`others` left unwired must be None in execute: nobody is held by another tracker")
     for need in ("detect = without_others(detect, others, left_out)", "track_scores=track_scores)",
@@ -1689,7 +1846,7 @@ def check_schema(problems):
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
-                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_settled_from_tables, check_others,
+                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_settled_from_tables, check_seeds, check_others,
                   check_track_score, check_schema):
         check(problems)
     for p in problems:
