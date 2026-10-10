@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **A rule that depends on the picture takes its value from the input
+  video, up front** (owner: "we need to determine some rules by video input
+  upfront not hardcoded rules for all", said as a standing rule they
+  believed was already written; it was not). Now in `AGENTS.md`, operative
+  rules. What it replaces in practice: gate and tracker lines held as
+  constants measured on one clip (a likeness line, a face's size in tokens,
+  a turn in degrees). Those stay as starting values marked unmeasured or
+  one-clip; a tool that can measure the clip in its preview sets the line
+  from the clip and says when the two disagree. Said while test clips for
+  the who-is-who design were being chosen: two of them are sharp modern
+  video and the job's own clip is soft film.
 - **The changelog is written once a day, from the commits** (owner). Until
   now every commit wrote a fragment under `changelog.d/`, built
   `CHANGELOG.md` and bumped `pyproject.toml`, and `AGENTS.md` told a default

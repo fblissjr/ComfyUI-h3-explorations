@@ -111,6 +111,13 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   detail of what happened and why belongs in a postmortem.
 - **Prompt timing, shot counts and dialogue length fit each scene, never a
   template.** `docs/prompting.md` section 5.10.
+- **A rule that depends on the picture takes its value from the input
+  video, up front.** A likeness line, a size line, a cut score, a margin:
+  the preview measures this clip and the rule is set from that, as
+  `subject_track.auto_cuts` and `auto_match` do. A constant measured on
+  another clip is a starting value, marked as one, and the tool says when
+  this clip's own figures disagree with it. Sharp modern video and soft old
+  film do not share thresholds.
 
 ## Reference implementations
 
