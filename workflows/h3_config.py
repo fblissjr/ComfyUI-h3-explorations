@@ -1346,6 +1346,70 @@ MASKED_UPPER_SOURCE = dict(MASKED_MOTION_SOURCE, replace="the wired parts")
 MASKED_UPPER_PROMPT = dict(subject="person", voice="the main voice on the track",
                            picture_gives="the head and upper body", add_to_shot="")
 
+# ---- A masked job: several subjects, a preview first -------------------------
+# What `workflows/masked_job_graph.py` writes into a job's graphs where the
+# value is the job's and not the shipped masked row's. A job is one clip with
+# any number of subjects, run as a no-sampling preview, then one load per
+# subject per shot (the masking board, `guide-order-of-operations-masked-job`).
+# `bench/check_masked_job.py` holds each dict that says it equals a node's
+# defaults to that node's schema.
+#: The loader that reads a file by its path. A job's source is the every-frame
+#: 24 fps copy of the clip, which lives outside ComfyUI's input folder, and
+#: its saved masks live under `data/`. **Inherited** from
+#: `bench/patch_render_window.py` (`LOADER`), 2026-10-08.
+MASKED_JOB_LOADER = "VHS_LoadVideoFFmpegPath"
+#: The loader's rate for a job: the file's own. The copy is already at the
+#: model's rate with no frame dropped, and a forced rate drops or repeats
+#: frames of a file that is not. **Measured** on one clip, 2026-10-08
+#: (`docs/h3_references.md`, the note dated 2026-10-10 under the loader's
+#: rate table).
+MASKED_JOB_FORCE_RATE = 0.0
+#: How far before a frame, in frames, a loader is asked to start so that the
+#: frame is the first it yields. **Inherited** from
+#: `bench/patch_render_window.py` (`SEEK_BACK`), which gives it as reasoned (a
+#: time between two frames cannot land one off) and measured once on
+#: 2026-10-08. `masked_job_graph.seek` is the one place it is used.
+MASKED_JOB_SEEK_BACK = 0.4
+#: `MiniMaxH3SAM31Corrections`, both on, equal to the node's defaults, between
+#: the SAM loader and everything that takes the segmenter. **Measured** on one
+#: stretch of one clip, a first read
+#: (`bench/results/2026-10-10_sam31_corrections_on_one_stretch.md`).
+MASKED_JOB_SAM_CORRECTIONS = dict(correct_image_range=True, correct_text_activation=True)
+#: The part node in a job's preview: `SUBJECT_PARTS` with the node's own fill
+#: of a doubted frame off. **Reasoned**: the capture offers that fill itself
+#: and grades it against the class map (`bench/capture_masked_run.py`,
+#: `grade_holds`), and a part filled before the capture reads it cannot be
+#: graded. The ticks are a subject's own when the job names them.
+MASKED_JOB_PARTS = dict(SUBJECT_PARTS, hold_missing=False)
+#: The body model a job's pose pass loads, from `models/detection/`: the
+#: release the pose check runs against Meta's reference
+#: (`bench/check_body_pose.py`).
+MASKED_JOB_BODY_MODEL = "sam_3d_body_dinov3.safetensors"
+#: `MiniMaxH3SubjectBoxes` in a job. `margin` is **inherited** from the
+#: session builder every render of 2026-10-10 came from; nothing has judged it
+#: against the node's own default. `smallest_mask` equals the node's default
+#: (`subject_boxes.SMALLEST_MASK_PX`, which has its provenance).
+MASKED_JOB_BOXES = dict(margin=16, smallest_mask=2048)
+#: `MiniMaxH3BodyPose` in a job, equal to the node's defaults. `subject`,
+#: `first_source_frame` and `table_prefix` come from the job file.
+MASKED_JOB_BODY_POSE = dict(hand_refinement=True, camera="image diagonal", fov_degrees=55.0, batch_size=64)
+#: The mesh a job's preview draws for each subject: the plain lit body, at the
+#: canvas's width and height, which the graph adds. `marked` is committed and
+#: had not been rendered when this was written (`docs/wiki/state_signals.md`,
+#: "How a signal reaches the model").
+MASKED_JOB_MESH = dict(style="mesh", size="width and height")
+#: How a job's preview saves a mask or a class map: lossless, no chroma step,
+#: so a class index survives as a grey level. **Inherited** from the session
+#: builder of 2026-10-10; `bench/capture_masked_run.py files` reads exactly
+#: these files.
+MASKED_JOB_LOSSLESS = dict(format="video/ffv1-mkv", level="3", coder="1", context="1", gop_size=1,
+                           slices="16", slicecrc="1", pix_fmt="bgra", loop_count=0, save_metadata=False,
+                           pingpong=False, save_output=True)
+#: How a job's preview saves a picture meant for a person to look at (the
+#: mesh). **Inherited** from the same builder.
+MASKED_JOB_PICTURE = dict(format="video/h264-mp4", pix_fmt="yuv420p", crf=14, loop_count=0,
+                          save_metadata=False, trim_to_audio=False, pingpong=False, save_output=True)
+
 # ---- FastH3 8-step V2 ------------------------------------------------------------
 #: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates
 #: `templates/video_fastvideo_fasth3_t2v.json` (read 2026-09-25): 8 `simple`
