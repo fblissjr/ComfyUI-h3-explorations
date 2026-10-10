@@ -1,0 +1,392 @@
+# Who is who: which evidence, why, and how it is weighed
+
+last updated: 2026-10-10 (first written, at the owner's ask: a plan; nothing here is built or measured unless a line names a record)
+
+Written by hand. A plan that goes with [`who_is_who.md`](who_is_who.md).
+That page says how a named person is remembered and how a shot is decided.
+This one says what the decision may look at: which features of which
+models, why those and not others, how they are weighed, and how cuts are
+found. Two of the owner's rules shape it. The first is in `AGENTS.md`, "A
+rule that depends on the picture takes its value from the input video, up
+front": applied to evidence, a feature counts on a video only for what
+that video shows it can do. The second was said for this page on
+2026-10-10: simple and elegant over anything else, because the more parts
+a thing has, the more of it fails. It carries no measurement; a figure is
+cited by its record. Where this page and the code disagree the code is
+right. Results are added as dated lines; nothing is rewritten.
+
+## The first screen: the plan in plain words
+
+**Where we are.** One model decides who is who, and it was not built to:
+SAM 3.1's image features, averaged under a person's mask. It became the
+only judge because those features were already computed on every frame
+looked at, and they worked on the first clips. On soft film with two or
+three people it has almost no margin, and the first run with three named
+people made a wrong take in most of its shots
+([`../../bench/results/2026-10-10_who_is_who_across_shots.md`](../../bench/results/2026-10-10_who_is_who_across_shots.md);
+`data/2026-10-10_fun_rest_who_is_where_truth.json`, untracked).
+
+**The simplest thing that could work, and it goes first.** Two votes, and
+they must agree.
+
+1. **The likeness we have**, decided for everybody together as it is now
+   built.
+2. **SAM's own memory, started from a picture where we already know who
+   it is.** The owner's idea. SAM's tracker looks back at earlier frames;
+   put a confirmed picture in front of a shot, and it looks back at that.
+
+Agree: that is the answer. Disagree, or either cannot tell: a person is
+asked, on a picture. No weights, no new model, no new pass over the video.
+
+**Everything else on this page waits behind that**, in order of how
+little it adds: comparing a person part by part, body build, a small
+classifier for one video. Each is tried only if the step before it still
+gets known shots wrong, and each has a rule written in advance for when
+to stop.
+
+**What it will not do.** It will not fix a stranger who resembles a named
+person in everything that is measured. Nothing in it fine-tunes a large
+model. And nothing is added because it is available: only because it
+removed a wrong answer on a shot where the answer was known.
+
+## 1. Why not one judge
+
+No reason was ever written down for SAM 3.1 being the only judge. It was
+the cheapest choice and it held on the first clip it met
+(`subject_track.py`, "How far the matching can be trusted"). Against it,
+from the record of 2026-10-10, in words: a line cannot name a person; a
+large clear person is everybody's best match; the margin between two
+people in one room is thin; and the same frames scored differently enough
+in two previews to flip a call ([`who_is_who.md`](who_is_who.md), section
+1 and premortem 12). In the three-subject run, read off its tiles by the
+lead session with no corrections typed, trackers took other named
+subjects and a person nobody named for their own; the file above has each
+shot and its `count`.
+
+A second judge of the same kind would repeat the mistake: another
+appearance model sees the same pixels. What helps is a vote that can be
+wrong for a different reason.
+
+## 2. The simple plan: two votes that agree, or a question
+
+**Vote one: the likeness, as built.** Every way of handing a shot's
+people to the names is totalled over several looks, with "nobody" a valid
+answer (`subject_tracks.py::hand_out`; `who_is_who.md`, section 6).
+
+**Vote two: the seeded tracker (the owner's idea, 2026-10-10).**
+ComfyUI's tracker looks back at three things: the last few frames
+(`comfy/ldm/sam3/tracker.py`, `num_maskmem`), a longer run of small
+per-object tokens (`max_obj_ptrs_in_encoder`), and the frame that came
+with a mask, which `collect_memory_tokens` always includes and which
+never ages out. Today that frame is inside the shot being tracked, and
+the person on it is chosen by vote one. The idea is to use a frame where
+the person is already known:
+
+- put one confirmed look in front of the shot's frames, at the same
+  canvas;
+- give its mask as the tracker's seed and track forward;
+- drop the first frame's output, and read which detected person the mask
+  landed on, and the tracker's own score that anybody was there
+  (`subject_track.py::ScoreTap`).
+
+One call for each confirmed look. It compares patch by patch where the
+likeness compares one average, and it is the part of SAM that was trained
+to find the same object again.
+
+What is not known, and why it is a vote and not the answer: Meta's code
+has nothing for a cut and its training video had none
+([`../research/masking/2026-10-06_mrsun.md`](../research/masking/2026-10-06_mrsun.md),
+"At a cut"); nobody here has measured a track across one
+([`../../bench/results/2026-10-06_meta_sam3_card_run.md`](../../bench/results/2026-10-06_meta_sam3_card_run.md),
+its verdict line); a look from another shot is "one frame back" only
+because we put it there; and this tracker has moved a mask onto a
+neighbour with no empty frame between
+([`../../bench/results/2026-10-07_subject_regain_looks.md`](../../bench/results/2026-10-07_subject_regain_looks.md)).
+To try it takes no node: it is a measurement with ComfyUI's own track
+node. To use it, the Subject Track would need its per-shot seed (built by
+the tracker's owner, in its sweep when this was written) and a way to
+carry a foreign frame in front of a shot.
+
+**The rule.** Both votes name the same person for a name: that is the
+answer. They differ, or one of them cannot tell: ask. A vote "cannot
+tell" when the likeness has no lead, or the seeded calls from different
+confirmed looks land on different people, or the tracker's score says
+nobody is there.
+
+**Why this is the place to start.** It adds one idea and nothing else: no
+model that is not already loaded, no pass that does not already run, no
+number to tune. And its two votes fail for different reasons. The
+likeness is fooled by whoever is large and clear. The tracker is fooled
+by whoever stands where it last looked.
+
+## 3. Other tricks with what is already loaded
+
+Each is one idea, needs no new model, and is tried only when section 2
+has a result. In the order I would reach for them.
+
+| trick | what it is | what it buys | what could make it worthless |
+|---|---|---|---|
+| **the round trip** | take the person the seeded tracker found in the new shot, use THAT as the seed, and put the confirmed look after it. If it lands back on the confirmed person, the match holds both ways | a check that costs one more call and needs no second opinion from anywhere else | two people alike to SAM pass it in both directions |
+| **several confirmed looks, and they vote** | one seeded call for each look of a person in that scene | a wrong landing from one look is outvoted, and the split is itself the confidence | all looks from one shot are one look |
+| **show the confirmed look again** | on a schedule, or when the tracker's own score falls, and not only at a cut that was found | a cut the finder missed stops mattering (section 8) | none known; it costs calls |
+| **seed the bystanders too** | a known bystander gets a seeded call of their own | a person the bystander's call claims is not a candidate for a name | a bystander who was never confirmed |
+| **the tracker's score as "nobody"** | when every seeded call for a name says the object is not there, the name has nobody | "nobody named is in this shot" from the model itself, not from a line of ours | the score has not been read against a known absence yet (`subject_track.py`, "The tracker's own score") |
+| **grow from what a person confirmed** | decide first the shots nearest a confirmed look, in the same scene | the freshest seed is the same outfit a few seconds away | only a look a person confirmed may seed; a guessed shot used as a seed is how one mistake becomes ten (`who_is_who.md`, premortem 3) |
+
+Tried already and set aside: signing every person from a crop at one size.
+It raised every likeness, right and wrong together, and widened no lead
+that mattered (the record, "One scale: every person signed from a crop").
+
+## 4. Every source of evidence, what it costs, and whether it is used
+
+Three kinds, because votes are independent only when they look at
+different things.
+
+| kind | what it looks at | what it is blind to |
+|---|---|---|
+| **appearance** | what the pixels of a person look like | a change of outfit, a hat, the light; a person of a few pixels |
+| **continuity** | where SAM's own memory of a known person lands | two people alike to SAM; a jump it was never trained on |
+| **geometry** | how the body is built and how large beside others | whatever the camera hides: a close-up, a person cut by the frame |
+
+Everything named is in the owner's model store unless the row says so.
+"Runs already" is whether the pass that makes it runs in today's preview.
+Nothing here has been timed.
+
+| feature | kind | runs already? | what it costs a look | used |
+|---|---|---|---|---|
+| SAM 3.1's trunk features under the mask (the likeness) | appearance | yes, on every frame looked at | nothing more | **yes: vote one** |
+| SAM 3.1's tracker seeded from a confirmed look | continuity | the tracker runs; these calls do not | one tracker call a confirmed look, over a few frames | **yes: vote two** |
+| the same trunk features, pooled part by part | appearance | the part model runs on the tracked subject only | one part-model forward for every other person of a look | later: section 6 |
+| Sapiens2's own backbone features | appearance | no: the forward runs, nothing reads its features | the same forward as the row above, and a tap that does not exist | later, with the row above |
+| colour of hair and clothing under the part classes | appearance | no | arithmetic on the part maps | later, inside one scene only |
+| body shape and scale from SAM 3D Body | geometry | the pose pass runs on the tracked subject; it keeps these values and does not write them (`body_pose.py::predict`) | two fields; a pose forward for every other person of a look | later: section 6 |
+| height beside the others, in one camera | geometry | as above | as above | shown to a person only |
+| the DINOv3 backbone inside the body model | appearance | it runs inside the pose pass; nothing reads its features | a tap | only if Sapiens2's features disappoint |
+| the tracker's per-object tokens, compared directly | continuity | computed inside the tracker | a tap inside the tracker | no: the seeded tracker uses them as they were trained to be used |
+
+**Left out, and why.**
+
+- *Sapiens2's pointmap and matting models:* a surface and an outline.
+  Neither says who.
+- *SAM Audio:* it can say who is singing, not who is on screen.
+- *A face-recognition or person re-identification model:* not in the
+  owner's model store, so a download and the owner's call. Said plainly:
+  for a face that shows, a model trained on identity is the most direct
+  tool there is, and nothing here replaces it. This page is what can be
+  done without one.
+- *Fine-tuning SAM 3.1 on each video:* the labels are a handful of
+  confirmed looks. It would memorise them, could damage the finding and
+  following that work, and breaks every comparison with Meta's reference.
+
+Two cautions that hold for every row. A different model is not a
+different vote: SAM's features and Sapiens2's see the same pixels and
+fail together on a small, half-hidden person. And "one scale" is not the
+advantage it looked like: for the trunk it flattened the comparison (the
+record's section named above), so it is not assumed for Sapiens2 either.
+
+## 5. How the evidence is weighed
+
+**The rule this plan starts with has no weights: agree, or ask**
+(section 2). A vote names a person, or names nobody, or says it cannot
+tell. Nothing is multiplied by anything.
+
+**What the video decides is who may vote.** Once a sheet is answered
+(`who_is_who.md`, section 5) the clip has two piles for every feature:
+
+- the **same** pile: how alike two confirmed looks of one person score,
+  from different shots;
+- the **different** pile: how alike two different people score. It is
+  free and large, since any two people on one frame are certainly
+  different and nobody has to say so.
+
+A feature whose two piles stand apart on this video may vote on it. One
+whose piles overlap has nothing to say here and is left out, for this
+video, without anybody deciding so. That is the owner's rule applied: the
+video sets it, and the tool prints which features voted and which were
+silent.
+
+**A third vote joins the same way.** When a later feature earns a place
+(section 6), the rule stays "all who voted agree, and at least two
+voted". A feature that cannot tell abstains; a missing face or a body
+cut by the frame is an abstention, not a no.
+
+**Only if agreement asks too often: evidence with a zero.** The next
+step up, kept in reserve. Each score is turned into how much likelier it
+is to have come from the same pile than the different one; over the
+middle counts for an answer, under it counts against, missing counts
+zero; one feature a kind, summed across kinds. That is the evidence total
+of `who_is_who.md` section 6 with its zero given a rule. It is more
+machinery, it needs enough confirmed looks to draw the piles well, and it
+can be confidently wrong in a way a plain disagreement cannot. So it
+waits for a count of questions that says the simple rule is not enough.
+
+*2026-10-10, the same evening: a first form of it was run on one real
+load (reported by the tracker's owner, who built it; its figures are to
+be in the record's section on the first run with three subjects). With
+the levels taken from that load's own galleries, it was right that two
+named subjects were not in five shots, where the built total had handed
+them a person nobody named. And on the same five shots it lost the one
+subject who was there, small in an inset: under her own level on some,
+and beaten by the clear unnamed person on others, where the built total
+had her right on all. So the two totals failed in opposite directions on
+the same shots, and required to agree they ask on every one. Nothing here
+says the evidence total is the better of the two. What it suggests, from
+one load: a level has to come from looks at the size a person will be
+compared at.*
+
+**Never:** a weight somebody typed.
+
+## 6. What comes later, each only if the step before still fails
+
+**Part to part.** Today a person is one average. The part model labels
+every pixel of a person (`sapiens2_parts.py`, its class list), so
+features can be pooled under the face, the hair, the upper clothing and
+the lower clothing, and compared like with like. Two things it buys: a
+missing part becomes no evidence where today a person with no head found
+is no match at all; and what survives a change of outfit (the face, hair
+as cut) separates from what does not (clothes, a hat) part by part. Its
+weak point is the case most wanted: on a person a few tokens tall the
+part map is itself unreliable, and the whole person is used. It needs the
+part model on every person of a look, which is a new pass.
+
+**Body build.** The one clue that should not change with an outfit. The
+body model estimates it afresh on every frame and completes what it
+cannot see, so it is read only on frames where most of the body is in the
+picture ([`meta_perception_models.md`](meta_perception_models.md)).
+
+**A small classifier for one video.** The last resort, and the most
+machinery here. What it is: a linear model, a weight for each feature and
+name, trained in seconds on the CPU from that video's confirmed looks.
+
+- *Its labels:* a person confirms a handful of looks; the tracker carries
+  each through its shot, so one yes becomes every frame of that shot, and
+  everybody else on those frames is a certain "not them".
+- *Its check:* a whole shot is left out and predicted, never a frame,
+  since the frames of one shot are nearly one picture.
+- *Its "none of them":* train it without one person and see how their
+  frames score as the others.
+- *What goes wrong:* it learns the hat unless it is trained a scene at a
+  time; a track that slid onto a neighbour poisons hundreds of its labels;
+  a scene with one confirmed shot for a name has nothing to hold out; and
+  two people alike in every feature are alike to it.
+- *What it is not:* fine-tuning SAM, or a face recogniser.
+
+It is built only if the piles of section 5 show several features each
+carrying something the others do not.
+
+## 7. The order, and what would stop each step
+
+Every step is scored on shots where the answer is known, and renders
+nothing. **The test bed:** the two loads of the three-subject run
+(`data/2026-10-10_fun_rest_who_is_where_truth.json`, read by the lead
+session off the tiles, untracked) and the kitchen load before them, on
+the soft clip; then the matching-tops clip of `who_is_who.md` section 10.
+
+**The score** of an idea is two counts on the test bed: the wrong takes
+it would have avoided, and the right calls it would have broken, with
+the shots that would ask counted beside them. The reading for every step,
+written before any is run: it stays if it avoids more than it breaks on
+both loads and asks about fewer shots than there are; otherwise it is set
+aside with a dated line saying why. One clip earns a second clip, not a
+default.
+
+1. **The seeded tracker, on the known wrong takes.** Stops if the mask
+   lands on whoever stands where the confirmed person stood, whoever they
+   are: that is place, which the design already has.
+2. **Agree or ask**, both votes, over the test bed. This is the first
+   number that says whether two votes beat one.
+3. **The round trip and several looks**, if step 2 leaves wrong takes
+   that both votes agreed on.
+4. **The piles**, from what the tables already hold: which features
+   separate this clip's people at all. No model.
+5. **The part pass**, if appearance is still the weak vote. Stops if the
+   part maps are wrong on most of the people that matter.
+6. **Body build**, if two people alike in appearance are still confused.
+   Stops if one person's values scatter over a shot as widely as two
+   people's differ.
+7. **The second clip.** Sharp video, matching tops, the named people at
+   the back.
+8. **Evidence with a zero, then the classifier**, only on a count of
+   questions that says the simple rule asks too much.
+
+## 8. Cuts: finding them, and making a missed one harmless
+
+**What finds a cut today.** A delta between neighbouring frames, of one
+kind: each frame is reduced to a small map of where its edges are, and a
+cut is a frame whose map does not match the one before
+(`subject_track.py::cut_scores`). A change of light moves no edges, so it
+is not taken for a cut. The line is set from the clip's own scores, in
+their widest gap (`auto_cuts`), and flat bars at a frame's edges are left
+out (`flat_borders`).
+
+**How it has done.** It finds a hard cut between two different pictures.
+On record it has missed a jump cut inside a cutaway, a cut between two
+angles of one room, and two camera changes inside one scene, and it has
+called every frame of a black opening a cut
+([`../research/masking/2026-10-04_mrhf.md`](../research/masking/2026-10-04_mrhf.md);
+[`../../bench/results/2026-10-06_subject_track_defaults.md`](../../bench/results/2026-10-06_subject_track_defaults.md);
+`data/CAPTURE_GAPS.md`, entry 13, untracked). A clip that opens on a
+dissolve has no single frame to find.
+
+**Three small changes, simplest first.**
+
+1. **A cut is a spike, not a level.** Today every frame over the line is
+   a cut. A real cut is one frame that stands far above the frame before
+   and the frame after. A run of high scores is something else: black
+   frames, a flash, fast movement. One comparison with the two
+   neighbours, and a frame with no edges at all is skipped.
+2. **A second delta of a different kind, only for the doubtful ones.** A
+   cut inside one room keeps the room's edges, so the edge map barely
+   moves. What does move is the people: the tracked mask jumps
+   (`subject_tracks.py::unbroken` already measures a mask that has left
+   the figure it was on), the tracker's own score falls, the number of
+   people changes. These exist already and are read today only after a
+   loss. Here they would mark a possible cut.
+3. **Look a little further for a dissolve.** A frame compared with the
+   one half a second on, where neighbours never differ enough.
+
+**And the better answer: do not need it to be perfect.** A missed cut
+costs something today because the tracker carries a mask across it onto
+whoever is there. With the confirmed look shown again on a schedule or
+when the tracker's score falls (section 3), a missed cut is caught by the
+next showing, and an invented cut costs one decision that was not needed.
+The finder then has to be good, not perfect.
+
+**If rules are not enough,** a small model trained only to find shot
+changes exists as a kind of thing. None is in the owner's model store, so
+it is a download and the owner's call, and it is one more model to load.
+It is named here so that nobody builds a fourth rule before asking.
+
+**How it is checked.** Against cuts a person has already listed for clips
+in the records (the notes and record above list them by frame), counting
+cuts missed and cuts invented, before and after each change.
+
+## 9. What could go wrong with this plan
+
+Each as if it were three weeks on. **Signal** is what would show it
+before anything is built on it.
+
+- **The two votes were fooled by the same person.** The likeness took the
+  large clear neighbour and the seeded mask slid onto them too.
+  *Signal:* on the test bed, the wrong takes on which both votes agree.
+  *Held by:* the round trip, several looks. *Left:* two people alike to
+  SAM are alike to both votes, since both are SAM.
+- **The seeded tracker followed place, not person.** *Signal:* where the
+  mask lands on shots where the person is known to have moved across the
+  frame. *Held by:* step 1's stop rule.
+- **Agreement asked about nearly everything.** *Signal:* the count of
+  shots that ask on the test bed, before anything is built on the rule.
+  *Held by:* that count is part of every step's score. *Left:* if two
+  votes rarely agree, the simple rule is safe and useless, and section
+  5's reserve is the next thing, with its own risks.
+- **A later feature was added because it was there.** *Signal:* a step
+  with no count of wrong takes avoided. *Held by:* section 7's reading.
+- **The piles were drawn from too little.** A subject confirmed in one
+  shot has no "same" pile. *Signal:* the count behind each pile, printed
+  with it. *Held by:* a feature with too few behind it does not vote.
+- **The spike rule dropped a real cut** that came beside a flash or a
+  second cut. *Signal:* cuts missed on the listed clips, before and
+  after. *Held by:* a missed cut is made cheap by showing the look again.
+- **Everything was measured on one soft clip.** *Signal:* none; it is
+  true today. *Held by:* what may vote is set on each video, and step 7
+  is a sharp one.
