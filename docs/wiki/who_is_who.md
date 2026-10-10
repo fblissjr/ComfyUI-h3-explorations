@@ -500,6 +500,20 @@ and suggests nobody, because a yes to a weak suggestion is a guess with a
 person's name on it. Until a clip has a floor for the lead, every row is
 under it; that is intended.
 
+*2026-10-10, built (mrfrog, d35ecb7c): the weak row, in the file the
+decision writes.* `bench/who_is_who_across_shots.py corrections` fills in
+a differing row's correction only at or over `--suggest-lead`, which is
+unset, so every differing row is weak today: `suggests` is false,
+`correction` is empty, and each tracker that would change carries `ask`
+(the question for a person) and `candidates`, the people of its own tile.
+One difference from the paragraph above, on purpose: the candidates are
+written in TILE order with each one's total beside them, not in the
+total's order, because an ordered list is a suggestion in another form. A
+reader that wants the order has the totals. The four things the paragraph
+adds to a row (which test failed, the stable clues, the nearest cast
+looks, what the answer is worth) are not built: there is no cast yet. The
+row is a file's row; no tile is drawn from it.
+
 *2026-10-10: built, d35ecb7c. In the file
 `bench/who_is_who_across_shots.py corrections` writes, a differing row is
 filled in only at or over `--suggest-lead`, which is unset until a clip
