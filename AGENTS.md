@@ -102,6 +102,11 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
 - **Prose carries pointers; records carry numbers.** `docs/prose_measurements.md`
   is the rule and the migration plan; `bench/list_prose_measurements.py` is
   the worklist.
+- **A record under `bench/results/` is its `.md`; data goes under `data/`.**
+  The record holds the tables a reader needs. The file of figures it was
+  made from lives under the untracked `data/`, and the record points at it.
+  The one exception is a small file a tracked check or tool reads, named in
+  that check. (Owner, 2026-10-10.)
 - **Checks**: `docs/checks.md` is the standard and the index; add one only
   when something escapes the existing ones.
 - **This checkout is shared with other agents, one of them not Claude.**

@@ -17,6 +17,17 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **No more data files under `bench/results/`** (owner, to the lead: the
+  folder had been taking files that serve the same purpose as `data/`).
+  Until this line a dated record was a `.md` with a `.json` of the same
+  name beside it, both tracked; `git ls-files bench/results` and `du` say
+  what that had come to. Now a record is its `.md` with its tables in it,
+  the data it was made from lives under the untracked `data/` with the
+  record pointing at it, and only a small file a tracked check or tool
+  reads stays tracked. The rule is in `AGENTS.md`, "Operative rules". The
+  day's own `.json` files move in each session's tidy-up; the older ones
+  are not moved by this line, since checks read some of them.
+
 - **Preprocessing data is verified the moment it is made, by code and by
   eyes, and a second session reads it** (owner, to the lead, while the first
   renders through the tracked builder were on the card). Until this line the
