@@ -55,8 +55,9 @@ of known place and size into them, and reads the tool's answers back.
 12. **Whose a pixel is, from the capture's owner map.** Two tracks that both claim a strip, and an `owners.npz`
     that gives half the strip to the other subject and marks the rest contested. `restore=<subject>` gives back
     what that subject owns, the half of the strip included, and not the contested half, which the plain tracked
-    masks would have left to the piece whole; and two pieces that both changed the strip each show on the half
-    their subject owns. The record says an owner map was used. A class restore naming another subject than the
+    masks would have left to the piece whole; `restore=<subject>:contested` gives back the contested half too,
+    counts it, leaves what the map gives the row's own subject, and does not give back a dispute outside that
+    subject's track; and two pieces that both changed the strip each show on the half their subject owns. The record says an owner map was used. A class restore naming another subject than the
     row's own keeps off what the map gives the row's own subject, its rim included, and still gives back its own
     pixels and the contested ones; the row's own subject's class is given back wherever its class map has it, the
     other subject's pixels included; with no owner map nothing is kept off.
@@ -693,6 +694,24 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert box_mean(got, o, only_other) < 1.0 and box_mean(got, o, b_half) < 1.0, "what the other subject owns was not given back"
         assert box_mean(got, a, disputed) < 1.0 and box_mean(got, a, only_own) < 1.0, "a contested pixel, or the piece's own, was given back"
         assert caps.used_owner_map, "the owner map was not read"
+        # `restore=b:contested`: what the map gives b, and what it leaves in dispute inside b's track; what it gives
+        # the row's own subject stays the piece's
+        row = tool.read_table(table(TMP / "contested_row.txt", [(10, 39, PIECE_A, "10 restore=b:contested")]))[0]
+        assert row["restore"] == [("b", "contested")] and tool.restore_text("b", "contested") == "b:contested", row["restore"]
+        got, _ = frame_planes(SOURCE, [dict(row)], 20, caps)
+        assert box_mean(got, o, disputed) < 1.0 and box_mean(got, o, b_half) < 1.0 and box_mean(got, o, only_other) < 1.0, \
+            f"with `:contested` a pixel in dispute inside the other's track is still the piece's ({box_mean(got, o, disputed):.2f} from the original)"
+        assert box_mean(got, a, only_own) < 1.0, "`:contested` gave back what the map gives the row's own subject"
+        strip = (80 - 64) * (120 - 80)
+        assert caps.contested_given[(PIECE_A, "b", 20)] == strip, (caps.contested_given.get((PIECE_A, "b", 20)), strip)
+        # a dispute OUTSIDE b's track (between other subjects) is not b's to be given
+        far = owner.copy()
+        far[:, 44:60, 44:60] = 254
+        elsewhere = capture(TMP / "cap_owners_far", 10, 30, {"a": mask_of(own, 30), "b": mask_of(other, 30)},
+                            [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}])
+        np.savez_compressed(elsewhere / "owners.npz", owner=far, labels=np.array(["a", "b"]), nobody=255, contested=254)
+        got, _ = frame_planes(SOURCE, [dict(row)], 20, tool.Captures([elsewhere], (W, H)))
+        assert box_mean(got, a, (47, 47, 57, 57)) < 1.0, "a dispute outside the other subject's track was given back to the source"
         # two captures cover the frame: a long load that calls both subjects absent there, listed FIRST, and the one
         # that sees them. A row with no run of its own (`subject=`) must read the one that sees them, or its restore
         # gives nothing back

@@ -429,3 +429,20 @@ flag reads the source's own frame-to-frame change for it.
   table's names where the command says so, and the record lists which
   (`labels_read_as`). Found reading the new captures' manifests before the
   first row from them was laid.
+- 2026-10-10, `restore=<subject>:contested`. Asked by the lead session
+  before the third subject's rows were built on. What `restore=<subject>`
+  did, and still does, where an owner map covers the frame: it gives back
+  what the map gives that subject and NOT what the map calls contested, so
+  a pixel in dispute stays as the row's pass drew it. That is right when
+  the other subject has a row of their own (the dispute falls to the later
+  row) and wrong beside a subject nobody is rendering. The capture
+  session's count on the two captures of 1039-1919 (their `owners.npz`):
+  on source frames 1403-1418, where the lead has no load and the third's
+  whole-person load runs on, 185,379 of the 420,757 px of the lead's track
+  inside the third's planned region are contested, 46,285 of 58,841 on the
+  worst frame (1417); on every other place the two jobs put one subject's
+  load over another's track the contested count is under a thousand px in
+  all (13, 26 and 854). The new form gives back, per row, the map's share
+  and the dispute inside that subject's track, and the record counts it
+  (`contested_px_given_back`). The table uses it on the rows where the
+  other subject has no row; nothing else changes.
