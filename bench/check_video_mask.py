@@ -200,7 +200,14 @@ that could happen.
     subject is on carries the bright cells. Each window leaves a region
     file that reads back as `window` makes the window's mask and tokens,
     with its first frame and trim; a stale one from an earlier run is
-    replaced; and with `keep_windows` off the folder is gone. With
+    replaced; and with `keep_windows` off the folder is gone. A preview
+    of the same graph samples nothing, asks for the source alone, and
+    writes a planned region for each window that is the region the render
+    saved, and a plan file whose written frames, trims, split steps and
+    frames left as the source are the render's; it removes an earlier
+    plan's file and touches none of the render's; on a continued run
+    (`continue_from`) the plan's trim is the context, as the render's is,
+    for the first window too. With
     `context_noise` the mask the second window's sampler is handed carries
     the value on the context's region cells, 0 on the context's plate, and
     is the default run's everywhere else.
@@ -788,8 +795,12 @@ def check_lay_window(problems):
             _fail(problems, f"window region: the write left {sorted(x.name for x in Path(tmp).iterdir())} behind")
 
     song_text = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if "video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source," not in song_text \
-            or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(")):
+    # the one `cut_gate` the song node's file may hold is the plan writer's, which lays nothing: it names the
+    # frames a render will leave as the source (`write_plan`, above the node's class)
+    node_text = song_text[song_text.find("class MiniMaxH3AudioFreezeSong(io.ComfyNode):"):]
+    if "video_mask.lay_window(images, src_pixels, src_tokens, src_mask, source," not in node_text \
+            or any(name in node_text for name in ("video_mask.composite(", "video_mask.changed_alpha(", "video_mask.cut_gate(")) \
+            or any(name in song_text for name in ("video_mask.composite(", "video_mask.changed_alpha(")):
         _fail(problems, "lay window: the song node must lay a window through `video_mask.lay_window` and through nothing else")
     if "video_mask.save_window_region(region_path, src_mask, src_tokens, source, margin," not in song_text \
             or "loop_resume.review_path(work_dir, filename, w.number), region_path):" not in song_text:
@@ -896,7 +907,7 @@ def check_song_loop(problems):
 
     track = {"waveform": torch.zeros(1, 2, total * 32000 // 24), "sample_rate": 32000}
 
-    def run(out_dir: str, prefix: str, record=None, **more):
+    def run(out_dir: str, prefix: str, record=None, preview=False, **more):
         real = (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
                 song.comfy.sample.fix_empty_latent_channels, song.latent_preview.prepare_callback)
         song.Guider_Basic, song.MiniMaxH3Conditioning = Sampler, Conditioning
@@ -904,9 +915,11 @@ def check_song_loop(problems):
         song.comfy.sample.fix_empty_latent_channels = lambda model, latent, *a, **k: latent
         song.latent_preview.prepare_callback = lambda *a, **k: None
         try:
+            # a preview is handed None for every lazy input but the source, as core hands it
+            models = (None,) * 4 if preview else (object(), Encoder(), VideoVAE(), AudioVAE())
             got = song.MiniMaxH3AudioFreezeSong.execute(
-                object(), Encoder(), VideoVAE(), AudioVAE(), track, object(), torch.linspace(1.0, 0.0, 5), "a prompt", "",
-                False, width, height, window, context, "whole", 7, 0.0, "clip_guard", prefix, 4,
+                *models, track, None if preview else object(), None if preview else torch.linspace(1.0, 0.0, 5), "a prompt", "",
+                preview, width, height, window, context, "whole", 7, 0.0, "clip_guard", prefix, 4,
                 save_metadata_png=False, source=source if record is None else record, **more)
         finally:
             (song.Guider_Basic, song.MiniMaxH3Conditioning, folder_paths.get_output_directory,
@@ -991,6 +1004,71 @@ def check_song_loop(problems):
                                 "0 on the context's plate and unchanged on its new steps, and all 0 on the context at the default")
         if "shown at noise 0.5" not in noisy_report:
             _fail(problems, "song loop: the report does not say the context was shown with noise")
+        # a preview's plan (2026-10-10): the same prefix as the render above, nothing sampled, and what it writes
+        # is what that render wrote
+        ask = song.MiniMaxH3AudioFreezeSong.check_lazy_status
+        if ask(preview=True, source=None, model=None, vae=None, clip=None) != ["source"] or ask(preview=True, model=None) != [] \
+                or "source" not in ask(preview=False, source=None, model=None):
+            _fail(problems, "song loop: a preview must ask for the source when it is wired, and for nothing else")
+        rendered = {n: (folder / f"run_window_{n}_region.npz").read_bytes() for n in (1, 2)}
+        (folder / "run_window_9_planned_region.npz").write_bytes(b"left by an earlier plan")
+        Sampler.masks.clear()
+        try:
+            said = run(tmp, "t/run", preview=True)[1]
+        except Exception as exc:  # noqa: BLE001 -- a preview raising at all is the finding
+            _fail(problems, f"song loop: a preview with a source raised: {type(exc).__name__}: {exc}")
+            return
+        if Sampler.masks or "plan written with nothing sampled: 2 planned region file(s)" not in said:
+            _fail(problems, f"song loop: a preview sampled, or does not say what it wrote: {said.splitlines()[-2:]}")
+        if (folder / "run_window_9_planned_region.npz").exists() or any(
+                (folder / f"run_window_{n}_region.npz").read_bytes() != rendered[n] for n in (1, 2)):
+            _fail(problems, "song loop: a preview left an earlier plan's file in place, or touched a render's region file")
+        for n in (1, 2):
+            try:
+                planned = vm.load_window_region(str(folder / f"run_window_{n}_planned_region.npz"))
+            except Exception as exc:  # noqa: BLE001
+                _fail(problems, f"song loop: window {n}'s planned region does not read: {type(exc).__name__}: {exc}")
+                continue
+            real = vm.load_window_region(str(folder / f"run_window_{n}_region.npz"))
+            if not torch.equal(planned["tokens"], real["tokens"]) or not torch.equal(planned["mask"], real["mask"]) \
+                    or any(planned[k] != real[k] for k in ("margin", "first_frame", "trim", "source")):
+                _fail(problems, f"song loop: window {n}'s planned region is not the region the render of the same graph saved")
+        try:
+            plan_file = json.loads((folder / "run_plan.json").read_text())
+        except Exception as exc:  # noqa: BLE001
+            _fail(problems, f"song loop: the plan file does not read: {type(exc).__name__}: {exc}")
+            return
+        rows = plan_file["windows"]
+        left = sorted(f for r in rows for f in r["frames_left_as_source_and_written"])
+        wrote = [(r["first_written_frame"], r["last_written_frame"]) for r in rows]
+        if left != across or wrote != [(0, window - 1), (window, total - 1)] or [r["trim"] for r in rows] != [0, context] \
+                or sorted({tuple(s["step"]) for r in rows for s in r["split_steps"]}) != sorted(tuple(s["step"]) for s in split) \
+                or plan_file["source"]["cuts"] != cuts or plan_file["plan"] != song.PLAN_NAME:
+            _fail(problems, f"song loop: the plan names frames {left} as left to the source and windows writing {wrote}; the "
+                            f"render left {across} and wrote two windows from 0 and from {window}")
+        # a CONTINUED run, where a plan is used most: its first window takes its context from a stored window, so
+        # its trim is the context and not 0. The plan re-derives that trim; the render takes it from the window node.
+        resume = importlib.import_module("_h3pack.loop_resume")
+        audio_steps = int(round(window * 5 / 3))
+        stored = resume.save_window(str(Path(tmp)), "before", 1, "a key", comfy.nested_tensor.NestedTensor(
+            (torch.zeros(1, 24, steps, height // 16, width // 16), torch.zeros(1, 32, 2, audio_steps))), 0, 0.0, window)
+        try:
+            run(tmp, "c/run", continue_from=stored)
+            run(tmp, "c/run", preview=True, continue_from=stored)
+        except Exception as exc:  # noqa: BLE001
+            _fail(problems, f"song loop: a continued run, or its preview, raised: {type(exc).__name__}: {exc}")
+            return
+        there = Path(tmp) / "c" / "run_windows"
+        plan_c = json.loads((there / "run_plan.json").read_text())
+        for n, row in enumerate(plan_c["windows"], start=1):
+            planned, real = (vm.load_window_region(str(there / f"run_window_{n}{kind}.npz")) for kind in ("_planned_region", "_region"))
+            if planned["trim"] != real["trim"] or real["trim"] != context or row["trim"] != context \
+                    or planned["first_frame"] != real["first_frame"] or not torch.equal(planned["tokens"], real["tokens"]):
+                _fail(problems, f"song loop: on a continued run window {n}'s plan has trim {planned['trim']} and the render "
+                                f"{real['trim']}; both must be the context, {context}, and the regions the same")
+        if plan_c["windows"][0]["first_written_frame"] != context or plan_c["continue_from"] != Path(stored).name:
+            _fail(problems, f"song loop: a continued run's plan says its first window writes from frame "
+                            f"{plan_c['windows'][0]['first_written_frame']}; it writes from {context}, after the context it was handed")
         gone = run(tmp, "u/run", keep_windows=False)
         if os.path.isdir(Path(tmp) / "u" / "run_windows") or not os.path.isfile(gone[0]):
             _fail(problems, f"song loop: with keep_windows off the windows folder still holds "

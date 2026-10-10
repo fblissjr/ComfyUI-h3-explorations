@@ -593,6 +593,9 @@ shown part noised and redrawn by that share. With a source wired the
 plate's rows stay at 0 (the song node takes the minimum with the region),
 so only the region's share of the context loosens. Its default is the mask
 every render so far was made with; any other value is untested.
+[`window_context.md`](window_context.md) is the ledger for this question:
+the mechanism, every lever with its kind and status, and each result as a
+dated line.
 
 ## Known limits
 
@@ -722,6 +725,22 @@ wider set, with what each would buy and what is known about it.
 Written 2026-10-10, after a session had to be told this tooling existed. It
 is in four places and none of them is one command. Read this before writing
 a probe.
+
+**What a render will be given, before it renders, and what it was given,
+after.** The song node writes both itself, into `<prefix>_windows/`
+(2026-10-10). A render leaves `<name>_window_N_region.npz` beside each
+window's latent: the fitted mask, the token region per latent step, the
+margin, the window's first frame, its trim and the composite's settings and
+cuts (`video_mask.save_window_region`, read with `load_window_region`). A
+PREVIEW of the same graph (`preview` on, a source wired) samples nothing and
+writes `<name>_window_N_planned_region.npz`, the same file made by the same
+calls, and `<name>_plan.json`: each window's frames, what it writes, the
+latent steps a cut splits and the frames the composite will leave as the
+source (`audio_freeze_song.write_plan`). Neither is read by a node. A plan
+is replaced by the next preview and left alone by a render, so the two sit
+side by side. What a plan cannot hold is what `only what changed` will
+keep; that needs the decode, and `bench/recomposite_window.py` lays a saved
+window again from its stored latent and its region.
 
 **One command for the masks of a run, any number of people**:
 `bench/capture_masked_run.py files` reads the mask videos a preview saved and

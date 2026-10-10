@@ -150,7 +150,7 @@ with none is a helper the others import.
 | `assets/` | 1 | [below](#assets) |
 | `bench/` | 1330 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
-| `docs/` | 174 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 175 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
 | `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |

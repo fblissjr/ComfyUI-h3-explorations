@@ -137,6 +137,19 @@ def region_path(work_dir: str, filename: str, number: int) -> str:
     return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_region.npz"
 
 
+def planned_region_path(work_dir: str, filename: str, number: int) -> str:
+    """Window `number`'s PLANNED region, written by a preview of the song node and by nothing else: the file a
+    render of the same graph would write as `region_path`, made with nothing sampled. Its own name, so a preview
+    never replaces a render's file and the two can be set side by side."""
+    return window_paths(work_dir, filename, number)[0][:-len(".mp4")] + "_planned_region.npz"
+
+
+def plan_path(work_dir: str, filename: str) -> str:
+    """The plan a preview of the song node writes beside its planned regions: every window's frames, what it
+    writes, and what a cut inside a latent step does to it."""
+    return os.path.join(work_dir, f"{filename}_plan.json")
+
+
 def save_window(work_dir: str, filename: str, number: int, key: str, samples, trim: int,
                 next_start: float, written: int) -> str:
     """Store a rendered window's sampled latent and what the next window needs from it.

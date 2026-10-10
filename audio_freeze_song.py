@@ -104,6 +104,8 @@ that; its first run is a throwaway.
 from __future__ import annotations
 
 import contextlib
+import glob
+import json
 import logging
 import math
 import os
@@ -146,6 +148,10 @@ WINDOW_REUSE_ENABLED = False
 
 #: The inputs a preview does not ask for: every one runs a loader or a model.
 LAZY = ("model", "clip", "vae", "audio_vae", "sampler", "sigmas", "references", "source")
+#: The one lazy input a preview does ask for, since 2026-10-10: the source, so the plan can be written from the
+#: mask a render will be given. What that costs is whatever is wired into the Masked Source: nothing for masks
+#: loaded from files, a tracker pass for a tracker wired live (which a render of the same graph then reuses).
+PREVIEW_ASKS = ("source",)
 
 
 def _write_pieces_mp4(path: str, pieces, width: int, height: int, crf: int, under: str | None = None) -> int:
@@ -230,6 +236,102 @@ def _review_or_reason(make, what: str) -> str | None:
 
 
 
+#: The plan file's name for itself and its version. Bump the version when a field's meaning changes.
+PLAN_NAME, PLAN_VERSION = "h3 song plan", 1
+
+
+def write_plan(source: dict, windows, writes: list[int], context_frames: int, continued: bool, width: int, height: int,
+               work_dir: str, filename: str, settings: dict) -> list[str]:
+    """What a render of this graph will be given, written with nothing sampled: each planned window's region file
+    and one plan file. Returns the lines for the preview's report.
+
+    A window's region is made by the calls the render makes for it (`video_mask.window`,
+    `video_mask.source_margins`, `video_mask.save_window_region`), so the planned file IS the file the render
+    writes as its `_region.npz`, when the source and the settings are the same: the fitted mask, the token
+    region per latent step with `keep`, `others`, the margin and the edge in, the trim, the composite's
+    settings and the cuts. It is written under its own name (`loop_resume.planned_region_path`), which no node
+    reads and no render replaces, so a plan and the render made from it can be set side by side.
+
+    The plan file (`loop_resume.plan_path`) says, in the load's own frame numbers (0 is the source's first
+    frame): each window's first frame, length, latent steps, trim, the frames it writes and the share of its
+    tokens that regenerate; the source frames held past the source's end; the latent steps a cut of the source
+    splits (`loop_plan.split_steps`, over the frames the mask is on) and the frames the composite will leave as
+    the source for it (`video_mask.cut_gate` on the planned mask), the ones this window writes named apart.
+
+    The two cut readings are made from two masks: `split_steps` from the source's own mask, before it is fitted
+    to the canvas, and the gate from the window's fitted mask. They name the same frames unless the canvas's crop
+    takes the subject off a frame. Where they differ, trust `frames_left_as_source`: it is the composite's own
+    rule on the mask the composite will be given.
+
+    What it cannot hold: what `only what changed` will keep, which needs the decode. The planned region is the
+    most a window can lay. A window that starts past the source's end is not planned and says so; a render
+    refuses the run for it. A failure in here raises the preview: the plan is what a job checks first, and a
+    preview that reported without it would read as one that had it.
+    """
+    os.makedirs(work_dir, exist_ok=True)
+    have = int(source["frames"].shape[0])
+    cuts = [int(c) for c in source.get("cuts") or []]
+    on = (source["mask"] > 0.5).flatten(1).any(dim=1).tolist()
+    present, at = [], None
+    for f, there in enumerate(on + [False]):
+        if there and at is None:
+            at = f
+        elif not there and at is not None:
+            present.append((at, f - 1))
+            at = None
+    split = loop_plan.split_steps(cuts, 0, present, have)
+    rows, lines, past = [], [], []
+    for i, w in enumerate(windows):
+        start = int(round(w.start * FPS))
+        trim = int(context_frames) if (i or continued) else 0
+        row = {"number": w.number, "first_frame": start, "frames": w.frames, "trim": trim, "frames_written": int(writes[i]),
+               "first_written_frame": start + trim, "last_written_frame": start + trim + int(writes[i]) - 1, "text": w.text}
+        if start >= have:
+            past.append(w.number)
+            rows.append({**row, "region_file": None, "why": f"starts past the source's {have} frames"})
+            continue
+        shape = _empty_av_latent(width, height, w.frames)[0]["samples"].unbind()[0].shape[2:]
+        _pixels, _encode, tokens, mask, held = video_mask.window(source, start, w.frames, width, height, *shape)
+        del _pixels, _encode
+        margin = video_mask.source_margins(source, start, w.frames, int(width) * int(height))
+        path = loop_resume.planned_region_path(work_dir, filename, w.number)
+        video_mask.save_window_region(path, mask, tokens, source, margin, start, trim)
+        gate = video_mask.cut_gate(mask, int(tokens.shape[0]), cuts, start)
+        gated = [start + int(f) for f in (gate < 0.5).nonzero().flatten()]
+        written = range(row["first_written_frame"], row["last_written_frame"] + 1)
+        rows.append({**row, "latent_steps": int(tokens.shape[0]), "source_frames_held": int(held),
+                     "regenerating_share": round(float(tokens.mean()), 4), "margin": video_mask.margin_note(margin),
+                     "region_file": os.path.basename(path),
+                     "split_steps": [s for s in split if s["step"][1] >= start and s["step"][0] < start + w.frames],
+                     "frames_left_as_source": gated,
+                     "frames_left_as_source_and_written": [f for f in gated if f in written]})
+        del tokens, mask
+    made = {r["region_file"] for r in rows}
+    for stale in glob.glob(os.path.join(glob.escape(work_dir), glob.escape(filename) + "_window_*_planned_region.npz")):
+        if os.path.basename(stale) not in made:
+            os.remove(stale)        # an earlier plan's window that this plan does not have
+    plan = {"plan": PLAN_NAME, "version": PLAN_VERSION, "frames_count_from": "the source's first frame (the load's)",
+            "width": int(width), "height": int(height), "context_frames": int(context_frames), **settings,
+            "source": {"frames": have, **{k: source.get(k) for k in video_mask.REGION_SETTINGS}},
+            "frames_with_the_mask": [list(r) for r in present], "windows": rows}
+    part = loop_resume.plan_path(work_dir, filename) + ".part"
+    with open(part, "w", encoding="utf-8") as fh:
+        json.dump(plan, fh, indent=1)
+        fh.write("\n")
+    os.replace(part, loop_resume.plan_path(work_dir, filename))
+    lines.append(f"plan written with nothing sampled: {len(windows) - len(past)} planned region file(s) and "
+                 f"{os.path.basename(loop_resume.plan_path(work_dir, filename))} in {os.path.basename(work_dir)}/. "
+                 "The source was built for this preview: whatever is wired into it ran, a live tracker included")
+    if past:
+        lines.append(f"window(s) {', '.join(str(n) for n in past)} start past the source's {have} frames and are not "
+                     "planned: a render refuses this run until the loader gives more frames or `extent` is shorter")
+    across = sorted({f for r in rows for f in r.get("frames_left_as_source_and_written", [])})
+    if across:
+        lines.append(f"{len(across)} frame(s) lie across a cut from the subject inside one latent step and will be "
+                     "left as the source: frame(s) " + ", ".join(str(f) for f in across))
+    return lines
+
+
 class MiniMaxH3AudioFreezeSong(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -245,7 +347,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 "frozen in each, writes each window's new frames to <prefix>_windows/ as it goes, "
                 "and joins the files with the full track, reusing unchanged windows from the last "
                 "run. An optional timeline lines the windows up with sections of the track, one "
-                "prompt block per label; preview reports the plan without loading a model. "
+                "prompt block per label; preview reports the plan without loading a model, and with "
+                "a source wired writes each planned window's region and a plan file. "
                 "docs/h3_audio_freeze.md."
             ),
             # The order was reset on 2026-09-14, when prompt_mode and window_mode
@@ -267,7 +370,11 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                          "Windows line up with each time, and lists move on once per line.")),
                 io.Boolean.Input("preview", default=False,
                                  tooltip=("Report every window's time range, timeline entry, filled prompt and "
-                                          "whether it would be reused, then stop: no model loads, nothing renders.")),
+                                          "whether it would be reused, then stop: no model loads, nothing renders. "
+                                          "With a source wired it also writes, in the _windows folder, each planned "
+                                          "window's region as a render would save it and a plan file: what each "
+                                          "window regenerates and writes, and what a cut does to it. The source is "
+                                          "built for that, so a tracker wired live runs.")),
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32),
                 io.Int.Input("height", default=768, min=32, max=16384, step=32),
                 io.Int.Input("window_frames", default=345, min=141, max=345, step=51,
@@ -369,9 +476,10 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
     @classmethod
     def check_lazy_status(cls, preview=False, **kwargs):
         # None is a connected input core has not run yet; an unconnected
-        # optional input is absent. A preview asks for nothing.
+        # optional input is absent. A preview asks for the source alone, for its plan
+        # (`write_plan`): no loader of a model and no model is behind that name here.
         if preview:
-            return []
+            return [name for name in PREVIEW_ASKS if name in kwargs and kwargs[name] is None]
         return [name for name in LAZY if name in kwargs and kwargs[name] is None]
 
     @classmethod
@@ -489,10 +597,16 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 lines.append("    " + w.text.replace("\n", "\n    "))
         lines += list(list_lines)
 
-        # In a preview every lazy input arrives as None: nothing above this
-        # line may read model, clip, vae, audio_vae, sampler, sigmas or
+        # In a preview every lazy input but the source arrives as None: nothing above
+        # this line may read model, clip, vae, audio_vae, sampler, sigmas or
         # references, or a preview raises instead of reporting.
         if preview:
+            if source is not None:
+                lines += write_plan(source, windows, writes, context_frames, bool(continue_from), width, height,
+                                    work_dir, filename,
+                                    {"window_frames": int(window_frames), "frames_covered": int(total),
+                                     "frames_written": int(kept_frames - head), "continue_from": os.path.basename(continue_from),
+                                     "seed": int(seed), "context_noise": float(context_noise)})
             report = "preview, nothing rendered: " + "\n".join(lines)
             logger.info("[h3] MiniMaxH3AudioFreezeSong: %s", report.splitlines()[0])
             return io.NodeOutput("", report, (True, []), ui=ui.PreviewText(report))

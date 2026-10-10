@@ -1078,6 +1078,10 @@ def check_song_plan(problems):
         _fail(problems, f"preview: the control lost its anchor {anchor!r}")
     elif not lazy_problems(source.replace(anchor, 'io.Model.Input("model")')):
         _fail(problems, "preview: a song node whose model input is not lazy still passed")
+    # a preview asks for the source alone (its plan, 2026-10-10): never for a model or a model's loader
+    if 'PREVIEW_ASKS = ("source",)' not in source \
+            or "return [name for name in PREVIEW_ASKS if name in kwargs and kwargs[name] is None]" not in source:
+        _fail(problems, "preview: what a preview asks for is no longer the source alone; a model behind it would load in a preview")
 
 
 def check_step_grid(problems):
