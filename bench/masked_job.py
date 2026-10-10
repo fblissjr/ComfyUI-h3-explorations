@@ -506,6 +506,16 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
     return written
 
 
+def plan_line(built: dict) -> str:
+    """The `--run` spec the capture reads a load's own plan with, once the plan has run.
+
+    `at=` is the load's first source frame: a node's plan counts from its load's frame 0, and without it the
+    capture would place the load on the capture's first frame."""
+    one = built["load"]
+    return (f"--run {one['name']}:preview={built['windows_folder']},subject={one['subject']}"
+            + (f",others={'+'.join(one['others'])}" if one.get("others") else "") + f",at={one['first']}")
+
+
 def run_verify(capture: Path) -> int:
     """`bench/capture_masked_run.py verify` on a capture: its exit status."""
     return subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "capture_masked_run.py"),
@@ -818,9 +828,7 @@ def main() -> int:
                           f"(middle of {m['subject']['frames_read']} frames), {m['subject']['frames_with_no_mask']} frames with no "
                           f"mask; cuts inside the load: {m.get('cuts_inside_this_load')}")
                 if a.stage == "plan":
-                    print(f"  when it has run, the capture reads it: --run {built['load']['name']}:preview="
-                          f"{built['windows_folder']},subject={built['load']['subject']}"
-                          + (f",others={'+'.join(built['load']['others'])}" if built["load"].get("others") else ""))
+                    print("  when it has run, the capture reads it: " + plan_line(built))
             return 0
         if a.command == "build":
             folder = build(a.job_file, a.stage, date=a.date, data=REPO / "data", output=h3_config.output_dir())

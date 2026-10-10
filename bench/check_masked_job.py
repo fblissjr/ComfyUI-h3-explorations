@@ -399,7 +399,9 @@ def a_load_lands_on_the_inputs_it_names():
     audio = g[run["audio"][0]]
     assert audio["class_type"] == "VHS_LoadAudio" and audio["inputs"]["audio_file"] == WHOLE["audio"], "the audio file"
     assert abs(audio["inputs"]["seek_seconds"] * cfg.FPS - (WHOLE["first"] - WHOLE["audio_first"])) < 1e-3, "the audio does not start on the load's first frame"
-    assert abs(audio["inputs"]["duration"] * cfg.FPS - WHOLE["frames"]) < 1e-3, "the audio is not cut to the load"
+    short = WHOLE["frames"] - audio["inputs"]["duration"] * cfg.FPS
+    assert 0 < short < 1, f"the audio file is cut {short:.3f} frames short of the load: over the load it writes a frame more, a frame under it loses one"
+    assert not any(n["class_type"] == "TrimAudioDuration" for n in g.values()), "a load with an audio file also cuts the source's track"
     assert g[graphs._the(g, "LoadImage")]["inputs"]["image"] == WHOLE["still"], "the still"
     view = {k: v for k, v in g[graphs._the(g, graphs.STILL)]["inputs"].items() if k.startswith("qwen_view")}
     assert view == {"qwen_view": cfg.MASKED_JOB_STILL_VIEW}, f"the text encoder's view of the still: {view}"
@@ -415,7 +417,11 @@ def a_load_lands_on_the_inputs_it_names():
         "a part pass that asked for no motion video has one"
     assert run["window_frames"] == PART["frames"] and "held_tail" not in src, "a load that fills its window is given a held tail"
     assert run["continue_from"] == PART["continue_from"] and run["context_noise"] == cfg.MASKED_JOB_CONTEXT_NOISE, "a continuation's kept frames"
-    assert run["audio"] == [src["frames"][0], 2], "with no audio file the model hears something other than the source's own track"
+    cut = g[run["audio"][0]]
+    assert cut["class_type"] == "TrimAudioDuration" and cut["inputs"]["audio"] == [src["frames"][0], 2] and cut["inputs"]["start_index"] == 0, \
+        "with no audio file the model hears something other than the source's own track, cut from its start"
+    short = PART["frames"] - cut["inputs"]["duration"] * cfg.FPS
+    assert 0 < short < 1, f"the source's track is cut {short:.3f} frames short of the load"
     assert run["seed"] == BASE[graphs._the(BASE, graphs.SONG)]["inputs"]["seed"], "a load with no seed does not take the row's"
     plate = _a_load({**WHOLE, "held_tail": "plate", "motion_edge": 512})
     assert "held_tail" not in plate[graphs._the(plate, graphs.SOURCE)]["inputs"], "a load that asks for the plate is given an open tail"
@@ -554,6 +560,13 @@ def loads_from_a_capture():
     import importlib
     planner = importlib.import_module(f"{REPO.name}.loop_plan")
     assert WINDOWS == planner.CHAIN_LENGTHS, "the windows read from the source are not the planner's"
+    # the audio a load is given writes exactly the load's frames by the planner's own count, at any length up
+    # to the longest window, for two sample rates and for a cut that rounds a sample either way
+    over = [(frames, rate, nudge) for frames in range(1, WINDOWS[-1] + 1) for rate in (44100, 48000) for nudge in (-1, 0, 1)
+            if planner.frames_kept(10 ** 6, (round(round((frames - graphs.AUDIO_SHORT_BY) / cfg.FPS, 6) * rate) + nudge) / rate) != frames]
+    assert not over, f"audio cut for a load writes another number of frames than the load has, e.g. {over[:3]}"
+    exact = [frames for frames in range(1, WINDOWS[-1] + 1) if planner.frames_kept(10 ** 6, (round(frames / cfg.FPS * 48000) + 1) / 48000) != frames]
+    assert len(exact) == WINDOWS[-1], "audio one sample past a load no longer writes a frame more: the cut may not be needed"
 
     def planner_takes(window: int, context: int) -> bool:
         try:
@@ -695,6 +708,9 @@ def the_gate_before_a_render():
         found = tool.gate(built, folder, ok)
         assert found == {"verify": 0, "verdict": "clear", "overridden": ["f003"], "plan_read": "b_0700_plan.json"}, found
         _refused(lambda: tool.stem_of("render"), "--load")
+        line = tool.plan_line({"load": {"name": "b_0700", "first": 700, "subject": "b", "others": ["a", "c"]}, "windows_folder": "/out/b_0700_windows"})
+        assert line == "--run b_0700:preview=/out/b_0700_windows,subject=b,others=a+c,at=700", line
+        assert tool.plan_line({"load": {"name": "x", "first": 5, "subject": "a"}, "windows_folder": "/w"}).endswith("subject=a,at=5")
         # what a finished run left in the server's history, as the record keeps it
         read = tool.read_history({"status": {"status_str": "success", "messages": [
             ["execution_start", {"timestamp": 1000}], ["execution_success", {"timestamp": 63000}]]},

@@ -302,7 +302,15 @@ TAILS = ("open", "plate")
 CARRIED = ("track", "held")
 SONG, SOURCE, STILL = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", "MiniMaxH3AppendRefImage"
 #: Ids a load adds to the shipped graph, where it uses none: the mask and motion loaders, the audio.
-MASK_FILES, AUDIO_FILE = 150, "145"
+MASK_FILES, AUDIO_FILE, AUDIO_CUT = 150, "145", "146"
+#: How much shorter than its load, in frames, a load's audio is cut. The song node writes as many frames as
+#: its audio is long, rounded up (`loop_plan.frames_kept`), so audio a single sample past the load's last
+#: frame writes one frame more: the first frame of the next shot, or a held one. **Measured** 2026-10-10: of
+#: twelve planned loads given the loader's own audio for exactly their frames, one planned a frame past its
+#: end. Half a frame short rounds up to the load's own length whatever the sample rate and however a cut
+#: rounds; **reasoned**, and held to the planner's own arithmetic by `bench/check_masked_job.py` for every
+#: length up to the longest window at two sample rates.
+AUDIO_SHORT_BY = 0.5
 
 
 def _the(g: dict, class_type: str) -> str:
@@ -505,8 +513,13 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         run.pop(key, None)
     run.update(prompt=text, width=canvas[0], height=canvas[1], window_frames=window,
                context_frames=one.get("context", MASKED_JOB_CONTEXT), filename_prefix=run_prefix(job, one, plan),
-               crf=MASKED_JOB_CRF, timeline="", preview=bool(plan), keep_windows=True, reuse_windows=False,
-               audio=[frames_from, 2])
+               crf=MASKED_JOB_CRF, timeline="", preview=bool(plan), keep_windows=True, reuse_windows=False)
+    # the model hears the source's own track, cut to the load (`AUDIO_SHORT_BY` has why it is cut again
+    # after the loader has cut it)
+    heard = round((frames - AUDIO_SHORT_BY) / FPS, 6)
+    g[AUDIO_CUT] = {"class_type": "TrimAudioDuration",
+                    "inputs": {"audio": [frames_from, 2], "start_index": 0.0, "duration": heard}}
+    run["audio"] = [AUDIO_CUT, 0]
     if "seed" in one:
         run["seed"] = one["seed"]
     # a DynamicCombo: the member after its parent
@@ -516,12 +529,13 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         run["continue_from"] = one["continue_from"]
         run["context_noise"] = one.get("context_noise", MASKED_JOB_CONTEXT_NOISE)
     if one.get("audio"):
-        # what the model hears while it samples, cut to the load: a file left to run past the load's last
-        # frame makes the song node hold frames to fill it
+        # a file in place of the source's track, cut the same way: left to run past the load's last frame it
+        # makes the song node write frames to fill it
+        g.pop(AUDIO_CUT)
         g[AUDIO_FILE] = {"class_type": "VHS_LoadAudio",
                          "inputs": {"audio_file": one["audio"],
                                     "seek_seconds": round((first - one.get("audio_first", job["first"])) / FPS, 6),
-                                    "duration": round(frames / FPS, 6)}}
+                                    "duration": heard}}
         if first < one.get("audio_first", job["first"]):
             raise ValueError(f"load {one['name']!r} starts before its audio file does")
         run["audio"] = [AUDIO_FILE, 0]
