@@ -1185,6 +1185,25 @@ def gate_by_shot() -> str:
             "a clear cell carries the take's state, likeness and size")
 
 
+def a_look() -> str:
+    """A look is one line by somebody who did not make the capture, about loads the capture has."""
+    status = {"state": "done", "written": "2026-10-10T17:00:00", "made_by": "maker"}
+    entry = cap.look_entry(status, ["a_1", "b_1"], "reader", "a_1+b_1", "every frame of both, on the strip", "2026-10-10T18:00:00")
+    assert entry == {"by": "reader", "at": "2026-10-10T18:00:00", "loads": ["a_1", "b_1"], "note": "every frame of both, on the strip",
+                     "capture_written": "2026-10-10T17:00:00", "maker": "maker"}, entry
+    assert cap.look_entry({"written": "t"}, ["a_1"], "reader", None, "all of it", "now")["loads"] == "all"
+    assert cap.look_entry({"written": "t"}, ["a_1"], "reader", None, "all of it", "now")["maker"] == "not recorded"
+    for bad, why in (((status, ["a_1"], "maker", None, "looked", "now"), "the maker's own look was taken"),
+                     ((status, ["a_1"], "reader", "c_9", "looked", "now"), "a look at a load the capture does not have was taken"),
+                     ((status, ["a_1"], "reader", None, " ", "now"), "a look with no note was taken")):
+        try:
+            cap.look_entry(*bad)
+        except SystemExit:
+            continue
+        raise AssertionError(why)
+    return "a look records who, when, which loads and a note; the maker's own, a load the capture lacks and an empty note are refused"
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1220,6 +1239,7 @@ case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
 case("preflight: a shot the who-is-who sum has not settled", who_is_who)
 case("shots: the gate's answer per shot and subject", gate_by_shot)
+case("looked: one line by somebody who did not make the capture", a_look)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
 case("a pose table as an input", pose_tables)

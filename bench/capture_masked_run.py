@@ -11,6 +11,7 @@
     <python> bench/capture_masked_run.py preflight data/<date>_<NAME> [--not-in a:294-414] [--text P.txt --voice-spans V.json]
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
     <python> bench/capture_masked_run.py shots data/<date>_<NAME> [--loads]   # the gate per shot and subject, or per load
+    <python> bench/capture_masked_run.py looked data/<date>_<NAME> --by WHO --note "every frame of each load, as the strip shows it"
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
@@ -1000,7 +1001,8 @@ def read_voice(path: str) -> dict:
 
 
 def write_status(out: Path, state: str, **more) -> None:
-    """How the folder came to be. Written first as `running`, so a folder that stops there says so."""
+    """How the folder came to be. Written first as `running`, so a folder that stops there says so.
+    `made_by` (from `files --made-by`) is who built it: a look at the capture is somebody else's."""
     (out / "status.json").write_text(json.dumps({"state": state, "written": datetime.datetime.now().isoformat(timespec="seconds"),
                                                  "by": "bench/capture_masked_run.py files", **more}, indent=1) + "\n")
 
@@ -1025,7 +1027,8 @@ def files(a: argparse.Namespace) -> Path:
     named = [m[k] for _, m in masks for k in ("track", "parts", "shots", "classes", "held", "pose") if m.get(k)] + [a.source]
     named += [x for _, r in runs for x in (r["render"], r["render"][:-len(".mp4")] + "_with_mask.mp4")]
     missing = [x for x in named if not Path(x).is_file()]
-    write_status(out, "running", inputs=[Path(x).name for x in named])
+    who = {"made_by": a.made_by} if getattr(a, "made_by", "") else {}
+    write_status(out, "running", inputs=[Path(x).name for x in named], **who)
     if missing or not masks:
         why = "no --mask given: a capture needs at least one subject's saved mask video" if not masks else \
             "inputs named and not found: " + ", ".join(Path(x).name for x in missing)
@@ -1036,7 +1039,7 @@ def files(a: argparse.Namespace) -> Path:
     except BaseException as exc:
         write_status(out, "failed", message=f"{type(exc).__name__}: {exc}", inputs_missing=[])
         raise
-    write_status(out, "done", inputs=[Path(x).name for x in named], outputs=sorted(
+    write_status(out, "done", **who, inputs=[Path(x).name for x in named], outputs=sorted(
         str(q.relative_to(out)) for q in out.rglob("*") if q.is_file() and q.name != "status.json"))
     print("wrote", out)
     return out
@@ -3003,6 +3006,38 @@ def preflight(a: argparse.Namespace) -> None:
         sys.exit(GATE_BLOCKED)
 
 
+def look_entry(status: dict, loads_known: list[str], by: str, loads: str | None, note: str, now: str) -> dict:
+    """One line of `looks.json`: who went through a capture's frames with their own eyes, when, which loads, and
+    what they say. A passing check says no rule failed, never that the masks are on the right person (owner,
+    2026-10-10), so a capture is looked at by somebody who did not make it before a plan or a render is built on
+    it. Kept as simple as it can be: no hash of the files. The builder compares the look's time with the
+    capture's own (`status.json`, `written`): a capture rebuilt after the look is to be looked at again, also
+    when the rebuild changed nothing."""
+    if not by.strip() or not note.strip():
+        raise SystemExit("a look is a person's word: give --by and a --note that says what was looked at and what was seen")
+    if status.get("made_by") and status["made_by"] == by:
+        raise SystemExit(f"{by} made this capture: the look is somebody else's")
+    names = "all" if not loads or loads == "all" else loads.split("+")
+    unknown = [] if names == "all" else [n for n in names if n not in loads_known]
+    if unknown:
+        raise SystemExit(f"no load named {', '.join(unknown)} in this capture; it has {', '.join(loads_known) or 'none'}")
+    return {"by": by, "at": now, "loads": names, "note": note.strip(), "capture_written": status.get("written"),
+            "maker": status.get("made_by") or "not recorded"}
+
+
+def looked(a: argparse.Namespace) -> None:
+    folder = Path(a.capture)
+    status = json.loads((folder / "status.json").read_text())
+    m = json.loads((folder / "manifest.json").read_text())
+    kept = folder / "looks.json"
+    looks = json.loads(kept.read_text())["looks"] if kept.is_file() else []
+    looks.append(look_entry(status, [r["name"] for r in m["runs"]], a.by, a.loads, a.note, datetime.datetime.now().isoformat(timespec="seconds")))
+    kept.write_text(json.dumps({"what": "who looked through this capture's frames, appended and never rewritten; a look older than the "
+                                        "capture's status.json `written` is of an earlier build", "looks": looks}, indent=1) + "\n")
+    print(f"recorded: {a.by} looked at {'every load' if looks[-1]['loads'] == 'all' else ', '.join(looks[-1]['loads'])} of {folder.name}; "
+          f"{len(looks)} look(s) in {kept}")
+
+
 def outcome(a: argparse.Namespace) -> None:
     """Record what a render did against one flag, so a threshold's provenance can go from reasoned to measured."""
     folder = Path(a.capture)
@@ -3931,6 +3966,7 @@ def main() -> None:
                         "each load is a plan; repeatable")
     f.add_argument("--voice", help="a per-frame voice table (frame, voiced, vocals_stem_dbfs) on the clip's frames")
     f.add_argument("--out", default=str(REPO / "data"))
+    f.add_argument("--made-by", default="", help="who builds this capture, kept in status.json: a look at it (`looked`) is somebody else's")
     f.add_argument("--overwrite", action="store_true", help="rebuild a finished capture folder in place; only when "
                    "no queued render loads its mask videos")
     v = sub.add_parser("video", help="the stacked, frame-numbered video from a capture folder")
@@ -3967,6 +4003,11 @@ def main() -> None:
     sh.add_argument("capture")
     sh.add_argument("--json", action="store_true", help="the rows as json, for a tool")
     sh.add_argument("--loads", action="store_true", help="per load in place of per shot: what blocks it, its warnings, kept and held frames, who else is inside")
+    lk = sub.add_parser("looked", help="record that somebody who did not make the capture looked through its frames: one line in looks.json")
+    lk.add_argument("capture")
+    lk.add_argument("--by", required=True, help="who looked")
+    lk.add_argument("--loads", metavar="A+B", help="the loads looked at, joined by +; every load when not given")
+    lk.add_argument("--note", required=True, help="what was looked at (every frame? which picture?) and what was seen")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")
     o.add_argument("flag")
@@ -4011,7 +4052,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "shots": shots, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
+    {"files": files, "video": video, "verify": verify, "preflight": preflight, "rules": rules, "shots": shots, "looked": looked, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":
