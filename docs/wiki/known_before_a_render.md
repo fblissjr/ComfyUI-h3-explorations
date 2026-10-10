@@ -57,3 +57,40 @@ have no predictor known.
 So the missing thing was seldom data. It was a rule that blocks, and running
 the cheap passes on the source before the first render and not on the
 renders after it.
+
+## Dated lines
+
+- **2026-10-10 (mrdeer): the short load that fades to the original has its
+  rule.** `original_shown_in_the_held_tail`, top level, 0.281.0
+  (`bench/capture_masked_run.py::flag_held_tail`), from the node's plan:
+  the frames held past the load's end that reach the model clean, when the
+  subject's mask is on the load's last frame. Read back through it, the two
+  loads of the day raise it and it names the latent step that went first.
+  It can only be checked on the node's own plan (`--run NAME:preview=`); a
+  what-if `--plan` has no windows and the gate says so
+  (`held_tail_not_checked`).
+- **2026-10-10 (mrdeer): that fault was on a third render nobody had seen.**
+  `changed` now reads a render's two ends against the source every time it
+  runs (`ends_on_the_source`, 0.281.0). Run on the day's renders it named
+  the two known loads and a third, a short face load whose last frames fall
+  toward the source, which I had called clean (the frames are in that
+  render's `changed.json`). The reading is the outcome
+  that grades the rule, not a way to find the fault: by the time it reads,
+  the render exists.
+- **2026-10-10 (mrdeer): the head turn behind kept frames has its rule.**
+  `kept_frames_far_from_the_pose_ahead`, iffy, 0.282.0 (`flag_kept`): the
+  source's head over a continuation's new frames against the last kept
+  frame, from the node's plan and a pose table with 3D keypoints, with
+  `kept_frames_not_checked` when there is no such table. Not yet run on a
+  real continuation's plan: the one case it is built from was measured
+  after the renders (`bench/results/2026-10-10_kept_frames_against_the_mesh.md`).
+- **2026-10-10 (mrdeer): the open mouth with no voice is a flag of the
+  gate.** `mouth_open_with_no_voice`, iffy, 0.282.0 (`flag_mouth`), when the
+  capture has the subject's class map and the voice table.
+- **2026-10-10 (mrdeer): one cell of the table says more than happened.**
+  "The flag fired and the lead overrode it", of the kept pixels: there was
+  no gate and no override on that render. The flag was in the list, the
+  render was queued with it standing, the original's hair came back on the
+  frames it named, and the outcome was recorded afterwards
+  (`KEPT_IN_PART` was lowered from that measurement, 96f204f6). The
+  override exists since 0.266.0.

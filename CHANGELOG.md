@@ -7,6 +7,18 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.282.1
+<!-- changelog.d/mrdeer-known-before-dated-lines.md -->
+
+### Changed
+
+- `docs/wiki/known_before_a_render.md` gains dated lines under its table:
+  three rows that said "being built" or "not a flag" now name their rule
+  (`original_shown_in_the_held_tail`, `kept_frames_far_from_the_pose_ahead`,
+  `mouth_open_with_no_voice`), a third render that ended on the source is
+  recorded, and one cell is corrected (a flag left standing is not an
+  override).
+
 ## 0.282.0
 <!-- changelog.d/mrdeer-kept-frames-and-open-mouth-flags.md -->
 
