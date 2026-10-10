@@ -1,0 +1,1388 @@
+{
+ "environment": {
+  "torch": "2.14.1+cu132",
+  "core_commit": "0df64eb24",
+  "tf32": {
+   "matmul": false,
+   "cudnn": true
+  }
+ },
+ "device": "cpu",
+ "sam": "as ComfyUI ships it",
+ "frames": {
+  "clip": "fun_0000_1919_24p.mov",
+  "first_frame": 604,
+  "count": 447,
+  "size": [
+   1024,
+   768
+  ]
+ },
+ "settings": {
+  "subject_phrase": "person",
+  "pick": "most central",
+  "pick_on": "automatic",
+  "match": "automatic",
+  "cuts": "automatic",
+  "detection_threshold": 0.5,
+  "max_people": 16,
+  "head_phrase": "head",
+  "corrections": ""
+ },
+ "same_person": 0.8,
+ "margin": 0.03,
+ "tables": {
+  "lead": "pick_face_kitchen_0604_pick_00001_shots.json",
+  "second": "pick_kitchen_0604_pick_00001_shots.json"
+ },
+ "truth": [
+  "frames 406-434: the lead is the large person in front, the second subject the small person behind her (the trackers' corrected run)",
+  "frames 435-446: the one person is the second subject; the lead is away"
+ ],
+ "controls": [
+  {
+   "table": "lead",
+   "shot": 1,
+   "frame": 60,
+   "table_people": 2,
+   "here": 2,
+   "largest_box_difference_px": 2,
+   "largest_score_difference": 0.0040000000000000036
+  },
+  {
+   "table": "lead",
+   "shot": 2,
+   "frame": 406,
+   "table_people": 2,
+   "here": 2,
+   "largest_box_difference_px": 1,
+   "largest_score_difference": 0.03500000000000003
+  },
+  {
+   "table": "lead",
+   "shot": 3,
+   "frame": 435,
+   "table_people": 1,
+   "here": 1,
+   "largest_box_difference_px": 1,
+   "largest_score_difference": 0.0
+  },
+  {
+   "table": "second",
+   "shot": 1,
+   "frame": 4,
+   "table_people": 2,
+   "here": 2,
+   "largest_box_difference_px": 1,
+   "largest_score_difference": 0.027000000000000024
+  },
+  {
+   "table": "second",
+   "shot": 2,
+   "frame": 410,
+   "table_people": 4,
+   "here": 3,
+   "largest_box_difference_px": null,
+   "largest_score_difference": null
+  },
+  {
+   "table": "second",
+   "shot": 3,
+   "frame": 439,
+   "table_people": 1,
+   "here": 1,
+   "largest_box_difference_px": 1,
+   "largest_score_difference": 0.0
+  }
+ ],
+ "whole_gallery": {
+  "lead": [
+   {
+    "frame": 2,
+    "top_third_likeness_to_the_gallery_entry": 0.201
+   },
+   {
+    "frame": 114,
+    "top_third_likeness_to_the_gallery_entry": 1.0
+   },
+   {
+    "frame": 226,
+    "top_third_likeness_to_the_gallery_entry": 0.9999
+   },
+   {
+    "frame": 364,
+    "top_third_likeness_to_the_gallery_entry": 1.0
+   }
+  ],
+  "second": [
+   {
+    "frame": 0,
+    "top_third_likeness_to_the_gallery_entry": 0.9999
+   },
+   {
+    "frame": 116,
+    "top_third_likeness_to_the_gallery_entry": 1.0
+   },
+   {
+    "frame": 231,
+    "top_third_likeness_to_the_gallery_entry": 1.0
+   },
+   {
+    "frame": 347,
+    "top_third_likeness_to_the_gallery_entry": 0.9999
+   }
+  ]
+ },
+ "looks": [
+  {
+   "frame": 406,
+   "detections": 2,
+   "after_merging": 2,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      86,
+      9,
+      624,
+      759
+     ],
+     "area": 257858,
+     "detector_score": 0.963,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.9137529864283788,
+       "head": 0.9115961615306463,
+       "rule": 0.9115961615306463,
+       "whole": 0.932833511369572,
+       "rule and whole": 0.9115961615306463
+      },
+      "second": {
+       "top third": 0.8650327147086777,
+       "head": 0.8732654669751398,
+       "rule": 0.8650327147086777,
+       "whole": 0.8581472780325602,
+       "rule and whole": 0.8581472780325602
+      }
+     }
+    },
+    {
+     "detection": 1,
+     "person": 2,
+     "stands_for_people": [
+      2
+     ],
+     "box": [
+      520,
+      241,
+      161,
+      249
+     ],
+     "area": 8999,
+     "detector_score": 0.741,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.7442317493868714,
+       "head": 0.7470050587447199,
+       "rule": 0.7442317493868714,
+       "whole": 0.7725168547287173,
+       "rule and whole": 0.7442317493868714
+      },
+      "second": {
+       "top third": 0.6996217848255456,
+       "head": 0.7365803259064594,
+       "rule": 0.6996217848255456,
+       "whole": 0.7659310534373545,
+       "rule and whole": 0.6996217848255456
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9137529864283788,
+      "lead": 0.04872027171970106,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8650327147086777,
+      "lead": -0.04872027171970106,
+      "why": "its best is more like another subject"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9115961615306463,
+      "lead": 0.03833069455550642,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8732654669751398,
+      "lead": -0.03833069455550642,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9115961615306463,
+      "lead": 0.04656344682196856,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8650327147086777,
+      "lead": -0.04656344682196856,
+      "why": "its best is more like another subject"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.932833511369572,
+      "lead": 0.07468623333701185,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8581472780325602,
+      "lead": -0.07468623333701185,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9115961615306463,
+      "lead": 0.053448883498086075,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8581472780325602,
+      "lead": -0.053448883498086075,
+      "why": "its best is more like another subject"
+     }
+    }
+   }
+  },
+  {
+   "frame": 410,
+   "detections": 3,
+   "after_merging": 2,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      104,
+      195,
+      653,
+      573
+     ],
+     "area": 195772,
+     "detector_score": 0.968,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8942435688884296,
+       "head": 0.8969743216473581,
+       "rule": 0.8942435688884296,
+       "whole": 0.9370730505122473,
+       "rule and whole": 0.8942435688884296
+      },
+      "second": {
+       "top third": 0.8462128429785529,
+       "head": 0.8706757219222867,
+       "rule": 0.8462128429785529,
+       "whole": 0.8860176023659511,
+       "rule and whole": 0.8462128429785529
+      }
+     }
+    },
+    {
+     "detection": 1,
+     "person": 3,
+     "stands_for_people": [
+      2,
+      3
+     ],
+     "box": [
+      544,
+      254,
+      155,
+      185
+     ],
+     "area": 17398,
+     "detector_score": 0.776,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8045402720346289,
+       "head": 0.8393880626938703,
+       "rule": 0.8045402720346289,
+       "whole": 0.8343713909348032,
+       "rule and whole": 0.8045402720346289
+      },
+      "second": {
+       "top third": 0.8546992490578835,
+       "head": 0.866697220535328,
+       "rule": 0.8546992490578835,
+       "whole": 0.8490124748715404,
+       "rule and whole": 0.8490124748715404
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8942435688884296,
+      "lead": 0.04803072590987667,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": 1,
+      "best": 1,
+      "score": 0.8546992490578835,
+      "lead": 0.05015897702325467,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8969743216473581,
+      "lead": 0.026298599725071425,
+      "why": "its lead over another subject is under the margin"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8706757219222867,
+      "lead": -0.026298599725071425,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8942435688884296,
+      "lead": 0.04803072590987667,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": 1,
+      "best": 1,
+      "score": 0.8546992490578835,
+      "lead": 0.05015897702325467,
+      "why": "its best, and it leads"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9370730505122473,
+      "lead": 0.051055448146296256,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8860176023659511,
+      "lead": -0.051055448146296256,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8942435688884296,
+      "lead": 0.04803072590987667,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": 1,
+      "best": 1,
+      "score": 0.8490124748715404,
+      "lead": 0.044472202836911556,
+      "why": "its best, and it leads"
+     }
+    }
+   }
+  },
+  {
+   "frame": 418,
+   "detections": 2,
+   "after_merging": 2,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      113,
+      0,
+      817,
+      768
+     ],
+     "area": 211525,
+     "detector_score": 0.941,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8629821973348633,
+       "head": 0.8867963446874019,
+       "rule": 0.8629821973348633,
+       "whole": 0.9296631559575435,
+       "rule and whole": 0.8629821973348633
+      },
+      "second": {
+       "top third": 0.801911049792357,
+       "head": 0.8361562865468768,
+       "rule": 0.801911049792357,
+       "whole": 0.8707091881200304,
+       "rule and whole": 0.801911049792357
+      }
+     }
+    },
+    {
+     "detection": 1,
+     "person": 2,
+     "stands_for_people": [
+      2
+     ],
+     "box": [
+      555,
+      283,
+      169,
+      194
+     ],
+     "area": 11700,
+     "detector_score": 0.813,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.7564765100644507,
+       "head": 0.7770910378507979,
+       "rule": 0.7564765100644507,
+       "whole": 0.7946424404244977,
+       "rule and whole": 0.7564765100644507
+      },
+      "second": {
+       "top third": 0.8050554067286809,
+       "head": 0.7977939712856059,
+       "rule": 0.7977939712856059,
+       "whole": 0.7701930336358287,
+       "rule and whole": 0.7701930336358287
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8629821973348633,
+      "lead": 0.06107114754250631,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": 1,
+      "best": 1,
+      "score": 0.8050554067286809,
+      "lead": 0.04857889666423021,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8867963446874019,
+      "lead": 0.05064005814052508,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8361562865468768,
+      "lead": -0.05064005814052508,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8629821973348633,
+      "lead": 0.06107114754250631,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.801911049792357,
+      "lead": -0.06107114754250631,
+      "why": "its best is more like another subject"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9296631559575435,
+      "lead": 0.058953967837513055,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8707091881200304,
+      "lead": -0.058953967837513055,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8629821973348633,
+      "lead": 0.06107114754250631,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.801911049792357,
+      "lead": -0.06107114754250631,
+      "why": "its best is more like another subject"
+     }
+    }
+   }
+  },
+  {
+   "frame": 426,
+   "detections": 2,
+   "after_merging": 2,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      161,
+      0,
+      815,
+      768
+     ],
+     "area": 213147,
+     "detector_score": 0.977,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8376941049116213,
+       "head": 0.6013423390697619,
+       "rule": 0.6013423390697619,
+       "whole": 0.9249869292002946,
+       "rule and whole": 0.6013423390697619
+      },
+      "second": {
+       "top third": 0.7707619779681507,
+       "head": 0.5750600649095766,
+       "rule": 0.5750600649095766,
+       "whole": 0.8830980842169485,
+       "rule and whole": 0.5750600649095766
+      }
+     }
+    },
+    {
+     "detection": 1,
+     "person": 2,
+     "stands_for_people": [
+      2
+     ],
+     "box": [
+      626,
+      310,
+      113,
+      147
+     ],
+     "area": 12401,
+     "detector_score": 0.688,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.707831305513728,
+       "head": 0.7283863823455954,
+       "rule": 0.707831305513728,
+       "whole": 0.7686708047958644,
+       "rule and whole": 0.707831305513728
+      },
+      "second": {
+       "top third": 0.7229938093442441,
+       "head": 0.7115219805906352,
+       "rule": 0.7115219805906352,
+       "whole": 0.7288382604480338,
+       "rule and whole": 0.7115219805906352
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.8376941049116213,
+      "lead": 0.06693212694347062,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.7707619779681507,
+      "lead": -0.06693212694347062,
+      "why": "its best is more like another subject"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 1,
+      "score": 0.7283863823455954,
+      "lead": 0.01686440175496018,
+      "why": "its lead over another subject is under the margin"
+     },
+     "second": {
+      "takes": null,
+      "best": 1,
+      "score": 0.7115219805906352,
+      "lead": -0.01686440175496018,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": null,
+      "best": 1,
+      "score": 0.707831305513728,
+      "lead": -0.003690675076907235,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": null,
+      "best": 1,
+      "score": 0.7115219805906352,
+      "lead": 0.003690675076907235,
+      "why": "its lead over another subject is under the margin"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9249869292002946,
+      "lead": 0.04188884498334611,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8830980842169485,
+      "lead": -0.04188884498334611,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": null,
+      "best": 1,
+      "score": 0.707831305513728,
+      "lead": -0.003690675076907235,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": null,
+      "best": 1,
+      "score": 0.7115219805906352,
+      "lead": 0.003690675076907235,
+      "why": "its lead over another subject is under the margin"
+     }
+    }
+   }
+  },
+  {
+   "frame": 434,
+   "detections": 2,
+   "after_merging": 2,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      89,
+      128,
+      634,
+      640
+     ],
+     "area": 208909,
+     "detector_score": 0.97,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.9480728667677876,
+       "head": 0.9560948998302967,
+       "rule": 0.9480728667677876,
+       "whole": 0.9384998076951443,
+       "rule and whole": 0.9384998076951443
+      },
+      "second": {
+       "top third": 0.8914694992845829,
+       "head": 0.9041876790959685,
+       "rule": 0.8914694992845829,
+       "whole": 0.9010438917139841,
+       "rule and whole": 0.8914694992845829
+      }
+     }
+    },
+    {
+     "detection": 1,
+     "person": 2,
+     "stands_for_people": [
+      2
+     ],
+     "box": [
+      640,
+      267,
+      97,
+      191
+     ],
+     "area": 9531,
+     "detector_score": 0.678,
+     "has_head": false,
+     "likeness": {
+      "lead": {
+       "top third": 0.5446100383291264,
+       "head": null,
+       "rule": null,
+       "whole": 0.6933777864810595,
+       "rule and whole": null
+      },
+      "second": {
+       "top third": 0.5107087951871023,
+       "head": null,
+       "rule": null,
+       "whole": 0.6880817329516219,
+       "rule and whole": null
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9480728667677876,
+      "lead": 0.056603367483204714,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8914694992845829,
+      "lead": -0.056603367483204714,
+      "why": "its best is more like another subject"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9560948998302967,
+      "lead": 0.051907220734328186,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9041876790959685,
+      "lead": -0.051907220734328186,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9480728667677876,
+      "lead": 0.056603367483204714,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8914694992845829,
+      "lead": -0.056603367483204714,
+      "why": "its best is more like another subject"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9384998076951443,
+      "lead": 0.03745591598116016,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9010438917139841,
+      "lead": -0.03745591598116016,
+      "why": "its best is more like another subject"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9384998076951443,
+      "lead": 0.04703030841056144,
+      "why": "its best, and it leads"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8914694992845829,
+      "lead": -0.04703030841056144,
+      "why": "its best is more like another subject"
+     }
+    }
+   }
+  },
+  {
+   "frame": 435,
+   "detections": 1,
+   "after_merging": 1,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      380,
+      218,
+      345,
+      328
+     ],
+     "area": 60891,
+     "detector_score": 0.977,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8461542792548159,
+       "head": 0.8891591455713642,
+       "rule": 0.8461542792548159,
+       "whole": 0.8890543517000354,
+       "rule and whole": 0.8461542792548159
+      },
+      "second": {
+       "top third": 0.9389680073223906,
+       "head": 0.9445116952472573,
+       "rule": 0.9389680073223906,
+       "whole": 0.9422035888441601,
+       "rule and whole": 0.9389680073223906
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8461542792548159,
+      "lead": -0.09281372806757471,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9389680073223906,
+      "lead": 0.09281372806757471,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8891591455713642,
+      "lead": -0.05535254967589309,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9445116952472573,
+      "lead": 0.05535254967589309,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8461542792548159,
+      "lead": -0.09281372806757471,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9389680073223906,
+      "lead": 0.09281372806757471,
+      "why": "its best, and it leads"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8890543517000354,
+      "lead": -0.05314923714412467,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9422035888441601,
+      "lead": 0.05314923714412467,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8461542792548159,
+      "lead": -0.09281372806757471,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9389680073223906,
+      "lead": 0.09281372806757471,
+      "why": "its best, and it leads"
+     }
+    }
+   }
+  },
+  {
+   "frame": 439,
+   "detections": 1,
+   "after_merging": 1,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      381,
+      201,
+      345,
+      347
+     ],
+     "area": 62024,
+     "detector_score": 0.98,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8647905876342727,
+       "head": 0.9060865717188227,
+       "rule": 0.8647905876342727,
+       "whole": 0.8917803918216809,
+       "rule and whole": 0.8647905876342727
+      },
+      "second": {
+       "top third": 0.9439234484945527,
+       "head": 0.9521791994342023,
+       "rule": 0.9439234484945527,
+       "whole": 0.9476503802728786,
+       "rule and whole": 0.9439234484945527
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8647905876342727,
+      "lead": -0.07913286086027993,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9439234484945527,
+      "lead": 0.07913286086027993,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9060865717188227,
+      "lead": -0.046092627715379586,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9521791994342023,
+      "lead": 0.046092627715379586,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8647905876342727,
+      "lead": -0.07913286086027993,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9439234484945527,
+      "lead": 0.07913286086027993,
+      "why": "its best, and it leads"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8917803918216809,
+      "lead": -0.05586998845119773,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9476503802728786,
+      "lead": 0.05586998845119773,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8647905876342727,
+      "lead": -0.07913286086027993,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9439234484945527,
+      "lead": 0.07913286086027993,
+      "why": "its best, and it leads"
+     }
+    }
+   }
+  },
+  {
+   "frame": 443,
+   "detections": 1,
+   "after_merging": 1,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      377,
+      187,
+      346,
+      356
+     ],
+     "area": 62865,
+     "detector_score": 0.978,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8908656532955137,
+       "head": 0.9177436050548118,
+       "rule": 0.8908656532955137,
+       "whole": 0.8974725828070924,
+       "rule and whole": 0.8908656532955137
+      },
+      "second": {
+       "top third": 0.9431029229959764,
+       "head": 0.9447347024111514,
+       "rule": 0.9431029229959764,
+       "whole": 0.9505145109429249,
+       "rule and whole": 0.9431029229959764
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8908656532955137,
+      "lead": -0.05223726970046272,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9431029229959764,
+      "lead": 0.05223726970046272,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9177436050548118,
+      "lead": -0.026991097356339644,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9447347024111514,
+      "lead": 0.026991097356339644,
+      "why": "its lead over another subject is under the margin"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8908656532955137,
+      "lead": -0.05223726970046272,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9431029229959764,
+      "lead": 0.05223726970046272,
+      "why": "its best, and it leads"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8974725828070924,
+      "lead": -0.05304192813583253,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9505145109429249,
+      "lead": 0.05304192813583253,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8908656532955137,
+      "lead": -0.05223726970046272,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9431029229959764,
+      "lead": 0.05223726970046272,
+      "why": "its best, and it leads"
+     }
+    }
+   }
+  },
+  {
+   "frame": 446,
+   "detections": 1,
+   "after_merging": 1,
+   "people": [
+    {
+     "detection": 0,
+     "person": 1,
+     "stands_for_people": [
+      1
+     ],
+     "box": [
+      377,
+      178,
+      347,
+      365
+     ],
+     "area": 64890,
+     "detector_score": 0.977,
+     "has_head": true,
+     "likeness": {
+      "lead": {
+       "top third": 0.8868363030684787,
+       "head": 0.9079859496256009,
+       "rule": 0.8868363030684787,
+       "whole": 0.8865604895327452,
+       "rule and whole": 0.8865604895327452
+      },
+      "second": {
+       "top third": 0.9358100203450099,
+       "head": 0.9375757637265574,
+       "rule": 0.9358100203450099,
+       "whole": 0.9446648837089053,
+       "rule and whole": 0.9358100203450099
+      }
+     }
+    }
+   ],
+   "settled": {
+    "top third": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8868363030684787,
+      "lead": -0.048973717276531215,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9358100203450099,
+      "lead": 0.048973717276531215,
+      "why": "its best, and it leads"
+     }
+    },
+    "head": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9079859496256009,
+      "lead": -0.029589814100956513,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": null,
+      "best": 0,
+      "score": 0.9375757637265574,
+      "lead": 0.029589814100956513,
+      "why": "its lead over another subject is under the margin"
+     }
+    },
+    "rule": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8868363030684787,
+      "lead": -0.048973717276531215,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9358100203450099,
+      "lead": 0.048973717276531215,
+      "why": "its best, and it leads"
+     }
+    },
+    "whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8865604895327452,
+      "lead": -0.05810439417616009,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9446648837089053,
+      "lead": 0.05810439417616009,
+      "why": "its best, and it leads"
+     }
+    },
+    "rule and whole": {
+     "lead": {
+      "takes": null,
+      "best": 0,
+      "score": 0.8865604895327452,
+      "lead": -0.049249530812264686,
+      "why": "its best is more like another subject"
+     },
+     "second": {
+      "takes": 0,
+      "best": 0,
+      "score": 0.9358100203450099,
+      "lead": 0.049249530812264686,
+      "why": "its best, and it leads"
+     }
+    }
+   }
+  }
+ ]
+}

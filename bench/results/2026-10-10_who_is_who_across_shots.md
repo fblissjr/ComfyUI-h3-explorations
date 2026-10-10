@@ -1,7 +1,7 @@
 # Who is who after a cut: two trackers' shot tables read together (2026-10-10)
 
 lane: masked video to video
-verdict: one load of one clip, two named subjects, read from the trackers' own shot tables. On that load the likeness the Subject Track uses cannot name a person against a line (a frame of one subject scores over the regain line against the OTHER subject's gallery on 6 of 14 frames) and does say which of the two a person is more like (14 of 14, by as little as 0.023). The shot both trackers left empty was not refused for the reason first reported: one subject fell under an automatic line placed between her own two shots, and what was read as a mislabel was one person returned as three nested detections.
+verdict: one load of one clip, two named subjects, read from the trackers' own shot tables and one CPU run. Handing the frame's people to all the named subjects at once, by the highest total likeness, gave the known answer on nine looks of nine across the cut, by no margin on the first frame after the cut and by a real one four frames later; asking each subject for its own best person failed, and a gallery read against a line would have put one subject's mask on the other. On that load the likeness the Subject Track uses cannot name a person against a line (a frame of one subject scores over the regain line against the OTHER subject's gallery on 6 of 14 frames) and does say which of the two a person is more like (14 of 14, by as little as 0.023). The shot both trackers left empty was not refused for the reason first reported: one subject fell under an automatic line placed between her own two shots, and what was read as a mislabel was one person returned as three nested detections.
 
 **Read this first.** One load, one clip, two people. Nothing here says the
 same holds in a crowd, and the load has no shot with a stranger in it and a
@@ -102,14 +102,111 @@ from the first shot.
   tracker's subject (`shot_table.py::LOOKS_ARE`, `SIGNATURES_ARE`).
 - The report says when the automatic line stands above its floor and which
   two scores it was put between (`subject_track.py::moved_by_a_gap`).
-- Deciding a shot for all subjects together is the next step, and the
-  measurement below is what it waits for.
+- Deciding a shot for all subjects together is the next step. The
+  measurement below says what form it cannot take (each subject's best
+  person) and what form held on this load (the sum, over more than one
+  look).
 
 ## Across the cut, on the model
 
-Not written yet: the run is `bench/who_is_who_across_shots.py looks`, on
-the CPU, and its tables are added here when it ends. Its reading was
-written before the run, in the tool's docstring.
+One run, on the CPU, SAM 3.1 as ComfyUI ships it, the node's own detector
+and signatures (`subject_track.py::_sam_callables`). Five frames of the
+middle shot and four of the last; every person on each is compared with
+BOTH galleries by the gallery rule, in each place a person is compared.
+
+    <python> bench/who_is_who_across_shots.py looks --cpu --clip <the copy> --first-frame 604 --frames 447 \
+             --width 1024 --height 768 --table lead=<shots.json> --table second=<shots.json> \
+             --look 406,410,418,426,434,435,439,443,446 --json J
+
+Data: [`2026-10-10_who_is_who_across_shots_looks.json`](2026-10-10_who_is_who_across_shots_looks.json);
+`render --json` prints every table.
+
+**Controls.** The detections made here on each table's shown frame are the
+table's people to within 2 pixels and 0.035 of the detector's score on
+five frames of six. On the sixth, frame 410, this run has three detections
+where the card's table has four: the loosest of the three nested masks,
+scored 0.52 on the card, is at the detection threshold and is absent on
+the CPU. Joined, both are two people. (The card's count after joining is
+not measured: a table keeps boxes, not masks.) The top third signed by the
+tool is the node's own, to four places, on every person.
+
+**The middle shot, both subjects there** (by the rule, the lower of the two
+places; "lead / second" is the person's score against each gallery):
+
+| frame | the large person in front | the small person behind |
+|---|---|---|
+| 406 | 0.912 / 0.865 | 0.744 / 0.700 |
+| 410 | 0.894 / 0.846 | 0.805 / 0.855 |
+| 418 | 0.863 / 0.802 | 0.756 / 0.798 |
+| 426 | 0.601 / 0.575 (top third 0.838 / 0.771) | 0.708 / 0.712 |
+| 434 | 0.948 / 0.891 | no head found (top third 0.545 / 0.511) |
+
+**The last shot, the second subject alone:** 0.846 / 0.939, 0.865 / 0.944,
+0.891 / 0.943, 0.887 / 0.936 on frames 435, 439, 443 and 446.
+
+What those rows say:
+
+- **The large, clear person is the best match of BOTH galleries.** By the
+  top third, the lead's person scores 0.77 to 0.89 as the second subject;
+  the second subject's own person, small and half hidden, scores 0.51 to
+  0.86 as herself. A rule that gives each subject its best person hands them both
+  the same one.
+- **A gallery against a line takes the wrong person.** In the last shot
+  the second subject scores 0.891 and 0.887 against the LEAD's gallery,
+  over the regain line (0.88), with nobody else on the frame to lead. A
+  gallery carried across shots and read against a line would have laid the
+  lead's mask on her there. It would also have taken the lead correctly in
+  the middle shot (over the line on three looks of five), which is why it
+  looks like a fix.
+- **Which named subject a person is MORE like is right for the clear
+  person and unreliable for the small one.** The large person is more like
+  the lead on five looks of five (by 0.026 at the least). The small person
+  is more like the second subject on three looks of four that have a head
+  (by 0.050, 0.042 and 0.004) and more like the LEAD on the first frame
+  after the cut (by 0.044).
+
+**The rule written before the run failed.** The tool's `settle` asks each
+subject for its best person and then for a lead over the other subject. On
+the middle shot it gave the second subject nobody on four looks of five,
+for the reason in the first bullet. By the reading written before the run,
+that is not a rule to build.
+
+**All subjects at once, by the sum** (`together`, added to the tool AFTER
+the run and so not tested by it): every way of handing the frame's people
+to the subjects, one each at most, gets the sum of the scores it uses; the
+highest total is the answer and its lead over the next way says how sure.
+
+| frame | the answer | top third | the rule | whole mask | top third and whole mask, summed |
+|---|---|---|---|---|---|
+| 406 | right | 0.004 | 0.002 | 0.068 | 0.072 |
+| 410 | right | 0.098 | 0.098 | 0.066 | 0.164 |
+| 418 | right | 0.110 | 0.102 | 0.035 | 0.144 |
+| 426 | right | 0.082 | 0.030 | 0.002 | 0.084 |
+| 434 | right | 0.023 | no head | 0.032 | 0.055 |
+| 435 | right: the lead has nobody | 0.093 | 0.093 | 0.053 | 0.146 |
+| 439 | right: the lead has nobody | 0.079 | 0.079 | 0.056 | 0.135 |
+| 443 | right: the lead has nobody | 0.052 | 0.052 | 0.053 | 0.105 |
+| 446 | right: the lead has nobody | 0.049 | 0.049 | 0.058 | 0.107 |
+
+It gives the known answer on nine looks of nine in every place it can be
+made, and on the first frame after the cut by two to four thousandths,
+which is no margin. So:
+
+- **One frame is not enough.** Frame 406 is the frame the lead's tracker
+  shows for that shot; four frames later the same decision has a lead of
+  0.098. A decision for a shot has to add up its looks, following each
+  person from look to look, or take the look with the widest lead.
+- **The whole mask does not beat the top third, and the two fail on
+  different frames** (406 for the top third, 426 for the whole mask).
+  Summed, the smallest lead is 0.055, which as a mean of two scores is
+  0.028 against 0.004 and 0.002 for either alone. By the reading written
+  before the run the whole mask earns a place only if it widens the
+  smallest lead: alone it does not; beside the top third it does. One
+  shot.
+- **The last shot is decided by the count, not by a score.** With one
+  person and two subjects, the second subject takes her (by 0.05 to 0.09)
+  and the lead is left with nobody. Nothing here says what happens when a
+  stranger stands in that frame.
 
 ## Not done
 

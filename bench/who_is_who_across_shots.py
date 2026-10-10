@@ -33,6 +33,13 @@ is s's when s and c are each other's best (no other candidate scores higher for 
 c) and s leads every other subject on c by `--margin`. A subject with no such candidate has nobody on that frame.
 Nothing is compared with a line.
 
+ALL SUBJECTS AT ONCE, BY THE SUM (`together`), ADDED AFTER THE FIRST RUN and so not tested by it. `settle` asks each
+subject for its best person, and a large, clear person is the best person of EVERY gallery (the first run: the lead's
+person scored higher against the second subject's gallery than the second subject's own person did). `together`
+gives every way of handing the frame's people to the subjects, one person to a subject at most, a total: the sum of
+the scores it uses. The way with the highest total is the answer, and its lead over the next way is how sure it is.
+With fewer people than subjects, a subject is left with nobody. `render` prints it per look and summed over a shot.
+
 THE READING, WRITTEN BEFORE THE FIRST RUN (2026-10-10). Deciding all subjects together is worth building only if, on
 every look of the two shots after the cut, `settle` gives the known answer (the shot where both are there: each
 subject its own person; the shot where one is: that subject takes the person and the other gets NOBODY), with the
@@ -193,6 +200,32 @@ def settle(scores: dict[str, list[float | None]], margin: float) -> dict[str, di
     return out
 
 
+def together(scores: dict[str, list[float | None]]) -> dict | None:
+    """Every subject at once: the handing-out of people to subjects with the highest total score, and its lead.
+
+    `scores[subject][candidate]`. A subject may be left with nobody only when there are fewer people than subjects.
+    None when some subject cannot be compared with a person it would have to take.
+    """
+    import itertools
+    subjects = list(scores)
+    n = len(next(iter(scores.values()), []))
+    if not subjects or not n:
+        return None
+    slots = list(range(n)) + [None] * max(len(subjects) - n, 0)
+    ways = {}
+    for way in set(itertools.permutations(slots, len(subjects))):
+        got = [scores[s][c] for s, c in zip(subjects, way) if c is not None]
+        if any(v is None for v in got):
+            continue
+        ways[way] = float(sum(got))
+    if not ways:
+        return None
+    order = sorted(ways, key=lambda w: -ways[w])
+    return {"takes": dict(zip(subjects, order[0])), "total": ways[order[0]],
+            "lead": None if len(order) < 2 else ways[order[0]] - ways[order[1]],
+            "next": None if len(order) < 2 else dict(zip(subjects, order[1]))}
+
+
 def cmd_looks(a):
     torch = boot(float32=False, cpu=a.cpu)
     import server
@@ -338,6 +371,26 @@ def render_looks(R: dict):
                 extra = "" if "score" not in g else f" ({_f(g['score'])}, {_f(g.get('lead'))})"
                 cells.append(f"{who}{extra}" + ("" if g["takes"] is not None else f": {g['why']}"))
             print(f"| {look['frame']} | {name} | " + " | ".join(cells) + " |")
+    print("\nall subjects at once, by the sum (`together`; added after the first run):\n")
+    names = ("top third", "head", "rule", "whole", "top third + whole")
+    print("| frame | " + " | ".join(f"{name}: who takes whom, lead over the next way" for name in names) + " |")
+    print("|---|" + "---|" * len(names))
+    for look in R["looks"]:
+        person = {i: p["person"] for i, p in enumerate(look["people"])}
+        cells = []
+        for name in names:
+            def score(p, label, name=name):
+                like = p["likeness"][label]
+                if name == "top third + whole":
+                    return None if like["top third"] is None or like["whole"] is None else like["top third"] + like["whole"]
+                return like[name]
+            got = together({label: [score(p, label) for p in look["people"]] for label in labels})
+            if got is None:
+                cells.append("cannot be compared")
+            else:
+                who = ", ".join(f"{label} " + ("nobody" if c is None else f"person {person[c]}") for label, c in got["takes"].items())
+                cells.append(f"{who}; {_f(got['lead'])}")
+        print(f"| {look['frame']} | " + " | ".join(cells) + " |")
     if R.get("truth"):
         print("\nthe known answers, as given on the command line: " + "; ".join(R["truth"]))
 
