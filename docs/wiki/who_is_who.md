@@ -500,6 +500,14 @@ and suggests nobody, because a yes to a weak suggestion is a guess with a
 person's name on it. Until a clip has a floor for the lead, every row is
 under it; that is intended.
 
+*2026-10-10: built, d35ecb7c. In the file
+`bench/who_is_who_across_shots.py corrections` writes, a differing row is
+filled in only at or over `--suggest-lead`, which is unset until a clip
+measures its own. Under it the row's `correction` is empty and each
+tracker that would change carries `candidates`, the numbered people of
+its own tile, and `ask`. A check holds it. The tile itself, and the
+evidence total the lead should be read on, are not built.*
+
 **Stop or guess: one switch, `unsure`, in the job file; the default is
 stop.** The owner has not chosen. With `stop` an ask blocks the gate until
 it is answered, as an absence with people on screen does now
@@ -574,6 +582,15 @@ shows, and the tracker's own pass chooses that frame; so a subject who is
 not on it cannot be named in that shot, and a tool that has not seen that
 load's tiles cannot write one at all. Typed numbers stay as they are for a
 person.
+
+*2026-10-10, agreed with the tracker's owner, not built: the seed is one
+line a shot, a frame with a box, or `none`, and the tracker seeds from
+the detection the box names or refuses. The frame is in the LOAD's
+numbers. The node cannot know its load's first source frame: frames
+reach it as pictures with no numbers, the same gap the pose node covers
+with a label somebody types. So the subtraction from source frames is
+done in one place, the per-video analysis's builder, and the tracker's
+report echoes every seed it used so a wrong offset shows on a tile.*
 
 **Stage two is one tracker for every name**, reading the cast and writing
 one mask a subject, with the decision made where the detections are. It
@@ -838,9 +855,18 @@ original back more than once
 thing's mask on every frame. A held thing has one already. A thing found
 by a noun or a box gets one from a Subject Track of its own on that noun,
 seeded shot by shot from the relation table with the seed of section 8,
-since a thing has no head and the tracker matches nobody across a cut
-without one. For a thing that goes with the subject, the builder does
+because the tracker's match across a cut means nothing for a thing. For a thing that goes with the subject, the builder does
 nothing to the region and the job's text has to account for it.
+
+*2026-10-10, corrected the same day by the tracker's owner. This scope
+first said the tracker matches nobody across a cut without a head. It
+does match: the places compared are the ones the subject has on its pick
+frame (`subject_track.py::follow`, `use`), so a subject with no head
+there is matched by the top third of its mask alone. For a bowl that is
+the top third of a bowl: it runs, and there is no reason to believe it.
+The conclusion stands for that reason. What a headless subject does lose
+is the automatic pick's vote, the take of the one person on a frame, and
+any candidate lacking a view the subject has.*
 
 *Accepted when* the gate, run on the kitchen stretch of the job of
 2026-10-10 before any render, from the census and one typed list of
