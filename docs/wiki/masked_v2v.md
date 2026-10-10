@@ -129,6 +129,14 @@ session starting a job needs to know:
   each window will be given), which the capture reads; `render` a load,
   which is refused unless the capture passes `verify` again, its gate is
   clear, and the gate read the node's own plan for that load.
+- **Nothing an earlier run made reaches a load by a key** (AGENTS.md, the
+  operative rule of that name; added 2026-10-10). A load's masks are files
+  of the capture the job file names, read by path; its mesh is the file its
+  own job's preview record lists, or the one the load names (`motion_file`);
+  the graph it builds has the kept-mask store and stored-window reuse off
+  (`reuse_mask`, `reuse_windows`, as the shipped graph it starts from has
+  them). The analysis folder is found from a file's name and then held to
+  that file's size and head hash: an identity, not a store.
 - **A load made again is a new job name on the same capture.** The tool
   never reuses a name, and a capture can serve any number of jobs: the run
   names inside it are the loads' and are new each time. Added 2026-10-10,
