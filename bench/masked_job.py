@@ -328,7 +328,11 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
 
 
 def preview_mesh(folder: Path, job: dict, output: Path):
-    """A finder for the mesh a job's preview saved for a subject, from the record `queue --wait` wrote."""
+    """A finder for the mesh a job's preview saved for a subject, from the record `collect` wrote.
+
+    The mesh is the file in that record whose name starts with this job's own prefix for the subject. That is
+    one file and no other run's: a job's name is never reused, so nothing else was ever saved under the
+    prefix, and the record lists only what this job's preview saved."""
     record = folder / "preview.queued.json"
     saved = json.loads(record.read_text()).get("files", []) if record.is_file() else []
 
