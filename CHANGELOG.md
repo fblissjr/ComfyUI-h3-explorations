@@ -7,6 +7,16 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.265.1
+<!-- changelog.d/mrfrog-boxes-name-our-pose-node.md -->
+
+### Changed
+
+- `MiniMaxH3SubjectBoxes`' description names `MiniMax H3 Body Pose` as the
+  node its boxes go into, where it named ComfyUI's own.
+- `bench/check_body_pose.py --card` runs the four weights cases on the card,
+  in the precision the server's loader picks there. A sweep never passes it.
+
 ## 0.265.0
 <!-- changelog.d/mrfrog-body-pose-nodes.md -->
 

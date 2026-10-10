@@ -56,6 +56,16 @@ cases are skipped and say so: the comparison would be of two different
 pictures.
 
     CUDA_VISIBLE_DEVICES="" <comfy venv python> bench/check_body_pose.py
+
+**`--card`** runs the four weights cases on the card instead, in the precision
+the server's loader picks there, with ComfyUI's dynamic memory layer set up
+as `main.py` sets it (`_lib.server_memory_mode`). The cases and the bounds are
+the same: the claim is that the server's path is also inside Meta's own floor.
+It is a second process holding memory beside the server, so ask whoever holds
+the card first (`AGENTS.md`, "The server process is the resource"); a sweep
+never passes it.
+
+    <comfy venv python> bench/check_body_pose.py --card
 """
 
 from __future__ import annotations
@@ -74,9 +84,15 @@ import torch
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from _lib import COMFY, REPO, bootstrap, case, finish, skip  # noqa: E402
+from _lib import COMFY, REPO, bootstrap, card_visible, case, finish, in_sweep, needs, server_memory_mode, skip  # noqa: E402
 
-bootstrap(cpu=True)
+ON_CARD = "--card" in sys.argv[1:]
+if ON_CARD:
+    needs("to be run by hand: --card holds memory on the card beside the server", not in_sweep())
+    needs("a CUDA device for --card", card_visible())
+bootstrap(cpu=not ON_CARD)
+if ON_CARD:
+    server_memory_mode()
 
 FIXTURE = HERE / "fixtures" / "sam3d_body_meta_reference.json"
 SAMPLES = {"dancing": REPO / "coderef" / "sam-3d-body" / "notebook" / "images" / "dancing.jpg",
@@ -416,14 +432,20 @@ def mesh_is_where_the_camera_puts_it():
     return "share of vertices on the silhouette, per box: " + ", ".join(notes)
 
 
+def where_it_ran():
+    import comfy.model_management as mm
+    return f"device {mm.get_torch_device()}, backbone {patcher().model.backbone_dtype}"
+
+
 def main() -> int:
-    print("bench/check_body_pose.py -- CPU\n")
+    print(f"bench/check_body_pose.py -- {'the card' if ON_CARD else 'CPU'}\n")
     torch.set_grad_enabled(False)
-    for fn in (crop_is_metas_bit_for_bit, boxes_are_read_as_written, camera_is_one_of_two,
+    without = (crop_is_metas_bit_for_bit, boxes_are_read_as_written, camera_is_one_of_two,
                table_says_what_was_predicted, threshold_is_the_models, drawing_scales_with_the_size,
-               no_comfy_sam_node_is_called, opencv_missing_is_said,
-               bodies_are_metas_within_floor, hands_decide_as_metas, nobody_is_nobody,
-               mesh_is_where_the_camera_puts_it):
+               no_comfy_sam_node_is_called, opencv_missing_is_said)
+    with_weights = (bodies_are_metas_within_floor, hands_decide_as_metas, nobody_is_nobody,
+                    mesh_is_where_the_camera_puts_it)
+    for fn in ((where_it_ran,) + with_weights) if ON_CARD else (without + with_weights):
         case(fn.__name__, fn)
     return finish()
 

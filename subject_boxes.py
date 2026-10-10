@@ -1,9 +1,11 @@
 """A tracked subject's mask as one box a frame, for a node that takes boxes and not masks.
 
-`MiniMaxH3SubjectTrack` hands back a mask. Core's SAM 3D Body prediction (`SAM3DBody_Predict`) takes boxes: a
-list for each frame, each box a dict of `x`, `y`, `width` and `height`, and an empty list for a frame with nobody
-in it (`comfy_extras/nodes_sam3d_body.py::_per_frame_bboxes_from_detections`). Nothing on a stock server makes
-one from the other. `MiniMaxH3SubjectBoxes` does: the box of the mask on each frame, widened by `margin`, and
+`MiniMaxH3SubjectTrack` hands back a mask. A body-pose node takes boxes: a list for each frame, each box a dict
+of `x`, `y`, `width` and `height`, and an empty list for a frame with nobody in it. This pack's own is
+`MiniMaxH3BodyPose` (`body_pose.py::frame_box_rows`), which is the one our graphs wire since 2026-10-10; the
+form is also what ComfyUI's SAM 3D Body prediction reads
+(`comfy_extras/nodes_sam3d_body.py::_per_frame_bboxes_from_detections`). Nothing on a stock server makes one
+from the other. `MiniMaxH3SubjectBoxes` does: the box of the mask on each frame, widened by `margin`, and
 no box on a frame the mask is empty on.
 
 Why it matters, from a read of Meta's code and a comparison of core's port with it on Meta's own sample
@@ -61,7 +63,7 @@ class MiniMaxH3SubjectBoxes(io.ComfyNode):
             category="model/latent/minimax",
             description=("Turns a subject's mask into the per-frame boxes a body-pose node takes: one box on "
                          "each frame the subject is in, none on a frame they are not. Wire the Subject Track's "
-                         "mask in and the boxes into Run SAM3D Body Prediction, one of these per person."),
+                         "mask in and the boxes into MiniMax H3 Body Pose, one of these per person."),
             inputs=[
                 io.Mask.Input("mask", tooltip=("One mask per frame, 1 on the subject: the Subject Track's `mask`. "
                                                "A frame where it is empty gets no box.")),
