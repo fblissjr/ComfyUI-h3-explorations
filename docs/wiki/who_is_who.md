@@ -411,8 +411,8 @@ the one-scale run may make size stop mattering.
 - *The built total* (`subject_tracks.py::hand_out`): the scores summed.
   Every likeness is positive, so handing a subject anybody adds to it and
   a subject is left with nobody only by the count. It says who is most
-  like whom and nothing about whether anybody is. Here it orders the
-  candidates on a tile.
+  like whom and nothing about whether anybody is. Here it says which
+  WAY is on top, and only that: see the dated line under "An ask row".
 - *The evidence total*: each person's score for a taker, less that
   taker's **impostor level** in the scene, which is the highest score any
   look known not to be that taker (another subject's, a bystander's)
@@ -495,9 +495,9 @@ which test failed; the stable clues at any grade; the ids of the nearest
 cast looks; and what the answer is worth, as the shot's frames and the
 subject's size. Where the evidence total's lead is at or over
 `ASK_SUGGEST_LEAD` the tile outlines the suggested person and asks yes or
-no. Under it the tile numbers the candidates, in the built total's order,
-and suggests nobody, because a yes to a weak suggestion is a guess with a
-person's name on it. Until a clip has a floor for the lead, every row is
+no. Under it the tile numbers the candidates in the order they stand on
+the tile and suggests nobody, because a yes to a weak suggestion is a
+guess with a person's name on it. Until a clip has a floor for the lead, every row is
 under it; that is intended.
 
 *2026-10-10, built (mrfrog, d35ecb7c): the weak row, in the file the
@@ -521,6 +521,20 @@ measures its own. Under it the row's `correction` is empty and each
 tracker that would change carries `candidates`, the numbered people of
 its own tile, and `ask`. A check holds it. The tile itself, and the
 evidence total the lead should be read on, are not built.*
+
+*2026-10-10, a correction from the first real file (the record, "The
+joint decision on real tables", 2901cd00). This paragraph said the
+candidates are shown "in the built total's order". A subject's own total
+on a person, read alone, points at the wrong person: on the kitchen's
+middle shot the second subject's total is higher on the lead's person
+than on her own, and the decision is still right because it totals a
+whole way. It is the finding that ruled out "each subject's best person"
+(section 1), met again on a card table with the corrections on. So a
+candidate is never ordered or marked by the subject's own total on them.
+If a figure is shown beside one, it is the best total of any way in which
+the subject takes that person, less the best way overall, which orders
+candidates as the decision does. Not built; the file lists them in tile
+order.*
 
 **Stop or guess: one switch, `unsure`, in the job file; the default is
 stop.** The owner has not chosen. With `stop` an ask blocks the gate until
@@ -632,6 +646,18 @@ built today the first of those two will likely read as unresolved and not
 as agreeing, since the two trackers' pick frames are apart and show
 different sets of people, so no look holds everybody; the casting pass's
 own looks remove that.
+
+*2026-10-10: the built decision read real tables of that load the same
+evening (the record, "The joint decision on real tables"), and gave the
+three rows said beforehand: the middle shot differs and asks, about the
+lead alone, with nothing filled in, and the way on top is the correction
+a session had typed by hand from the same tile; the last shot leaves the
+lead with nobody. It asks about the lead alone because the second
+subject's own tracker took her this time, by as thin a margin as it had
+refused her by in the morning (Part two, 12). The shot the subjects are
+picked on read as unresolved and blocked the gate; since 2901cd00 a shot
+every tracker picked agrees. In this design the naming tile is the pick,
+so that shot is never a question and is not in any count here.*
 
 **What to expect, said in advance.** A subject whose look has changed
 since their last typed look is asked about, once for each such change
@@ -894,7 +920,8 @@ anything else here.
 Each step waits on the one before it.
 
 1. The two runs already under way: the one-scale crop, and the built
-   together-decision on real tables.
+   together-decision on real tables. *2026-10-10: the second is done
+   (2901cd00; section 9's dated line).*
 2. More kept at preview, all small: the plate vector a look, the build
    values in the pose table, every person's clues on every look.
 3. The cast file with no model: the log, the fold, the audit, remove, the
@@ -1200,6 +1227,16 @@ from its stored frame and mask on the card, or the row asks.
 
 **Left.** A difference the fingerprint does not name. What moves a
 signature has been checked for one pair of conditions on one run.
+
+*2026-10-10, seen once the day this was written. Two previews of one load,
+hours apart, gave the second subject scores a couple of hundredths apart
+on the same shots, and her tracker's call on the middle shot flipped from
+absent to taken (the record, "The joint decision on real tables", "The
+trackers alone, on these tables"). The joining of duplicate detections
+and where the automatic line fell both changed between them; what moved
+the scores themselves is in no table, the SAM corrections being one
+difference among several. A call that turns on a hundredth between two
+runs of the same frames is this failure, before any cast exists.*
 
 ### 13. A session answers for the owner and is wrong
 
