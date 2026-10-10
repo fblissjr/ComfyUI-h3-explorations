@@ -29,6 +29,13 @@ own below the rule.
 - Open with the owner: whether the rule the text pairs point at goes into
   `../prompting.md`; a repair for the one held frame.
 
+**Owed first, as the next node change in the masked lane (owner, 2026-10-10):
+the removals and the one addition listed in `decisions.md`, 2026-10-10, "What
+the owner cut from the masked lane's nodes".** One change, idle card, one
+sweep, a rebuild of `workflows/`, a cold read, then the job builder's commit
+that follows the new schema. Until it lands, every removed input is still on
+the nodes and every store is still switched off in code or by default.
+
 **Masked video to video (owner, 2026-10-04): version one shipped; movement from the source is answered on ref2va (2026-10-05) and open on fl2va.**
 - **The 2026-10-08 crowd render, looked back on (2026-10-10):**
   `../research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`.

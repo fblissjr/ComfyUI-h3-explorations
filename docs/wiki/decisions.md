@@ -31,6 +31,67 @@ Older history lives elsewhere and is not copied here:
   `continue_from`) are not stores and stay. The rule is in `AGENTS.md`,
   "Operative rules".
 
+- **What the owner cut from the masked lane's nodes, and how far the cut
+  has got** (owner, relayed by the lead the same evening, on a
+  keep-simplify-remove list the latent-step session drew up). NOTHING OF IT
+  IS IN THE TREE when this line is written: it lands as one change, on an
+  idle card, with one sweep and a rebuild of `workflows/`, cold-read, and a
+  half-landed removal was ruled worse than none. The list, so the session
+  that lands it starts here and not from a conversation:
+  - REMOVE, with code, checks and prose (never rendered, or no difference
+    on the one render): `motion_blur_share`, `motion_blur_pixels`,
+    `motion_grey` on the Masked Source and everything only they use
+    (`blur_frames`, `grey_frames`, `blur_sigmas`, the look notes); the
+    motion choice `a video I wire, zoomed in` (`wired_ground`); `motion_box`
+    as an input, replaced by a rule with no input (a part pass frames the
+    part, a whole pass the person).
+  - REMOVE `loop_plan.first_frame_choices` (moot under one load per shot)
+    and the switch that reproduced renders from before the no-mask rule
+    (`lay_frames_with_no_mask`, the version switch in
+    `video_mask.load_window_region`, the re-lay tool's `no_mask=`). The
+    capture's readers of both went first (bc9f58bf).
+  - `held_tail`: the open tail is the only behaviour and the input goes, as
+    a change of its own. The gate's plate-tail rule goes after it is served.
+  - THE ZOOMED RENDER, simplified until the owner rules on its one render:
+    `render_region` keeps two choices (the whole frame, zoomed in on what is
+    replaced); `largest_zoom` becomes a constant; a zoomed run continues
+    nothing and is not continued (a whole-frame run on a zoomed window is
+    still refused, by `video_mask.stored_zoom`); a zoomed run with a wired
+    motion video is refused; the zoomed pictures are not kept between runs.
+    The zoomed file and its json STAY, because the delivery tool's lay-in
+    reads them (0e7f69fb: run, fixed, canvas, source_size, frames, box,
+    zoom, region_cut_at_box_sides). The report says "enlarged", not
+    "softer".
+  - THE STORES, under the rule above: `reuse_mask` with `mask_store.py`,
+    `bench/check_mask_store.py` and the Masked Source's kept-mask branch
+    (its lazy inputs stay lazy by `replace` alone); `reuse_windows` with
+    the keys in `loop_resume.py` (the graph signature, the track hash, the
+    window and stored keys, the reuse of a stored window) and the song
+    node's `first`, `reused` and restacked-review paths, a window's latent
+    then being saved on every run; `window_keep.py` whole, with its check
+    (it was switched by `reuse_windows` and NOT by the code switch, so it
+    was live in any graph that set the input); the reference store in
+    `reference_encode.py` (`_Store`, `STORE`) with `keep_references` on the
+    reference conditioning node and `bench/measure_keep_references.py`,
+    while the two nodes that encode references once and WIRE the result
+    stay. In shipped graphs `reuse_mask` is false in twelve and
+    `reuse_windows` false in sixteen: the generator stops writing both and
+    the rebuild drops them. `MASK_VERSION` on the trackers stays (the job
+    builder reads it); only its sentence about a kept mask's key goes.
+  - ADD, the one thing: a text input `analysis` on the song node,
+    `<file name>|<fingerprint>`, checked against the video's analysis
+    folder (`clip_folder.folder_of_file`, `read_manifest`), refusing a
+    missing or changed folder, and written into each window's region file
+    and the plan. No loader node, no settings record.
+  - KNOWN AND ACCEPTED: a graph saved from the canvas addresses widgets by
+    position and will not survive inputs removed from the middle (owner:
+    not a concern); a render from before 2026-10-10 laid again differs on
+    its frames with no mask.
+  - DONE IN A SCRATCH COPY ONLY, as a patch that applied to c77a244a with
+    its checks green there: `first_frame_choices` and the old-render
+    switch. Everything else is not started. The session's scratch copy is
+    not a place anything rests on; this list is.
+
 - **No more data files under `bench/results/`** (owner, to the lead: the
   folder had been taking files that serve the same purpose as `data/`).
   Until this line a dated record was a `.md` with a `.json` of the same
