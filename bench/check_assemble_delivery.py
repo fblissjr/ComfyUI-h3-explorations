@@ -44,6 +44,10 @@ of known place and size into them, and reads the tool's answers back.
     original; where both are, and where only the piece's own is, it is the piece. Without a run for the piece
     in the capture nothing is taken out of the other's mask, so the overlap goes back too; and with
     `restore=<subject>:whole` it goes back whether or not there is a run.
+11. **A piece that spills over a cut.** A second clip with a hard cut in it and no audio. A piece painted up to
+    one frame past the cut raises the flag on that frame; painted up to the cut, or on well past it (a subject who
+    is in both shots), it raises nothing; and a piece given as several rows raises each of its flags once. The
+    delivery of a clip with no audio passes and says none was written.
 
 ## Running it
 
@@ -490,6 +494,55 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert tool.read_table(table(TMP / "whole_row.txt", [(10, 39, PIECE_A, "10 restore=b:whole")]))[0]["restore"] == [("b", "whole")]
         return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's, and goes back with `:whole`"
 
+    def spill_over_a_cut() -> str:
+        cut_at, frames = 20, 40
+        clip = TMP / "with_a_cut.mp4"
+        other = PICTURE.replace("c0=0x905030", "c0=0x203c8c").replace("c2=0xc8b450", "c2=0x50a0c8").replace("x0=40:y0=30", "x0=300:y0=40")
+        run([tool.FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{PICTURE}",
+             "-f", "lavfi", "-i", f"gradients=size={SW}x{SH}:rate={RATE}:speed=0.03:{other},eq=brightness=-0.35", "-filter_complex",
+             f"[0:v]trim=end_frame={cut_at},setpts=PTS-STARTPTS[a];[1:v]trim=end_frame={frames - cut_at},setpts=PTS-STARTPTS[b];"
+             "[a][b]concat=n=2:v=1,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv[v]",
+             "-map", "[v]", "-frames:v", str(frames), "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p", *tool.BT709_TAGS, str(clip)])
+        whole = loaded(clip, 0, frames)
+        luma = whole.mean(dim=-1) * 255.0
+        moved = float((luma[cut_at] - luma[cut_at - 1]).abs().mean())
+        assert moved > 1.5 * tool.CUT, f"the clip's cut moves the picture {moved:.0f} levels, too near the tool's line of {tool.CUT:g} to test it"
+
+        def piece(name, last_painted):
+            out = whole.clone()
+            x0, y0, x1, y1 = RECT_A
+            out[5:last_painted + 1, y0:y1, x0:x1] = (out[5:last_painted + 1, y0:y1, x0:x1] + 0.5) % 1.0
+            return write(name, out)
+
+        def flags_of(name, last_painted):
+            path = TMP / f"{name}.txt"
+            path.write_text(f"0-{frames - 1} {piece(name + '_piece', last_painted)} 0\n")
+            out = TMP / f"{name}.mp4"
+            proc = subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(clip), "--table", str(path),
+                                   "--span", f"0-{frames - 1}", "--out", str(out)], capture_output=True, text=True)
+            r = json.loads(Path(str(out) + ".check.json").read_text())
+            assert proc.returncode == 0 and r["verdict"] == "passes", r["failures"]
+            return r
+        def flags_of_rows(name, last_painted):
+            """The same piece given as two rows that meet inside the first shot: its flags must not double."""
+            path = TMP / f"{name}.txt"
+            made = piece(name + "_piece", last_painted)
+            path.write_text(f"0-9 {made} 0\n10-{frames - 1} {made} 0\n")
+            out = TMP / f"{name}.mp4"
+            subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(clip), "--table", str(path),
+                            "--span", f"0-{frames - 1}", "--out", str(out)], capture_output=True, text=True)
+            return json.loads(Path(str(out) + ".check.json").read_text())["flags"]
+        r = flags_of("spill_one", cut_at)
+        spill = [f for f in r["flags"] if f["rule"] == "piece_changes_across_a_cut"]
+        assert spill and spill[0]["source_frames"] == [[cut_at, cut_at]], [(f["rule"], f["source_frames"]) for f in r["flags"]]
+        assert isinstance(r["audio"], str) and "no audio" in r["audio"], r["audio"]
+        for name, last in (("spill_none", cut_at - 1), ("spill_follows", cut_at + 12)):
+            r = flags_of(name, last)
+            assert not [f for f in r["flags"] if f["rule"] == "piece_changes_across_a_cut"], f"{name}: a piece that {('ends at the cut' if last < cut_at else 'goes on past it')} was flagged"
+        again = flags_of_rows("spill_rows", cut_at)
+        assert [f["rule"] for f in again].count("piece_changes_across_a_cut") == 1, "a piece on two rows raised its flag twice"
+        return "one frame past the cut is flagged, once; ending at the cut, or going on well past it, is not"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -500,4 +553,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("at the source's size", at_the_sources_size)
     case("a class given back to the source", a_class_given_back)
     case("another subject given back whole", a_subject_given_back)
+    case("a piece that spills over a cut", spill_over_a_cut)
 sys.exit(finish())

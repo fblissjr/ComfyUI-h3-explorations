@@ -64,7 +64,11 @@ a token (the new subject reaching further than the old one stood, or something e
 where); a piece whose changed area steps up or down between one frame and the next against the frames either
 side (`JUMP` over `STEP_FRAMES`), which needs no capture and is what catches a tracker that followed the wrong
 person past a cut, since the mask it left then says the subject is there; it names the frame of the step, and a
-change of framing steps too; two pieces changing the same pixels, with the box and how many were settled by a mask and how many by
+change of framing steps too; a piece that changes a frame or two just across a cut of the source and no further
+(`CUT`, `SPILL`), which is a pass whose region ran over the cut and redrew the next shot for a moment, found from
+the source's own frame-to-frame change with no capture and no shot table (measured 2026-10-10: one whole-person
+render changed a fifth of the frame on five such frames, and nothing else here said so); two pieces changing the
+same pixels, with the box and how many were settled by a mask and how many by
 order; a piece that changes nothing on frames a row gives it; restored pixels beside a large change, and a restore with
 no mask or class map on some frames; and, at the source's size, a piece whose change reaches
 the edge the loader's crop cut at, beyond which only the source's picture exists. The first two need a capture; without one they
@@ -138,6 +142,11 @@ JUMP = 2.5        # times the changed area must step by, between the frames befo
                   # framing gets closer partway, so it is a step between neighbours now
 STEP_FRAMES = 12  # frames either side the step is read over; reasoned: half a second, longer than a blink of the
                   # region and shorter than the shortest shot met so far
+CUT = 40.0        # levels the fitted source must move from one frame to the next to be taken for a cut; measured
+                  # 2026-10-10 on one clip: 61 to 69 at the cuts read, 2 to 18 inside shots
+SPILL = 3         # frames: a run of changed frames this short on one side of a cut, joined to changed frames on the
+                  # other, is a spill; reasoned: the spills seen were one and two frames, and a piece that goes on
+                  # for longer past a cut is following its subject into the next shot
 TOKEN = 32        # pixels; inherited: a token is two latent cells of 16 a side (`bench/capture_masked_run.py::CELL`),
                   # and a region widened to whole tokens reaches that far past its margin
 MARGIN = 64       # pixels, when a capture's run names no margin; inherited: the Masked Source's default grow
@@ -557,8 +566,10 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
     """Every frame of the span as yuv420p bytes. `record`, when given, is filled with what each piece changed.
     `full` is (source width, source height) for a file at the source's size, None for one at the canvas's."""
     box = crop_of(*full, w, h) if full else None
+    before = None                                    # the fitted source's luma on the frame before, within a run of rows
     for first, last, rows in segs:
         if not rows:
+            before = None
             yield from (source_frames(source, first, last, *full) if full else original_frames(source, first, last, w, h))
             continue
         orig = original_frames(source, first, last, w, h)
@@ -575,6 +586,9 @@ def fed_frames(source, segs, w, h, record=None, soften=0.0, captures=None, full=
             owner, shared = owners(hard, masks)
             backs = [restore_weight(r, captures, run, n, (h, w)) for r, run in zip(rows, runs)]
             held = [b[0] for b in backs]
+            if record is not None and before is not None:
+                record.setdefault("source_moved", {})[n] = float(np.abs(o[0] - before).mean())
+            before = o[0]
             if record is not None:
                 for r, m, run, s, d, (back, classes) in zip(rows, hard, runs, masks, diffs, backs):
                     row = {"px": int(m.sum()), "box": box_of(m), "away": None, "away_box": None, "subject_px": None,
@@ -675,8 +689,11 @@ def build(args, segs, canvas, span, src, captures):
 
 def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
     """What the build's own record says should be looked at, in the capture tool's shape for a flag."""
-    out, unchecked = [], []
+    out, unchecked, done = [], [], set()
     for row in rows:
+        if row["piece"] in done:                 # a piece cut into several rows is one piece: its flags once
+            continue
+        done.add(row["piece"])
         area = record["rows"].get(row["piece"], {})
         run = captures.run_of(row["piece"]) if captures else None
         names = {"piece": os.path.basename(row["piece"]), "run": run[2]["name"] if run else None,
@@ -705,6 +722,30 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                     "box": [int(boxes[:, 0].min()), int(boxes[:, 1].min()), int(boxes[:, 2].max()), int(boxes[:, 3].max())],
                                     "frames_with_a_mask": len(seen)},
                         "threshold": {"SPECK": SPECK, "reach_px": reach}})
+        moved = record.get("source_moved", {})
+        spilled = {}
+        for cut in sorted(n for n in area if moved.get(n, 0.0) > CUT):
+
+            def changed_at(n):
+                return n in area and area[n]["px"] > SPECK
+            if not (changed_at(cut) and changed_at(cut - 1)):
+                continue
+            for step in (1, -1):                         # the frames after the cut, then the frames before it
+                run, n = [], cut if step == 1 else cut - 1
+                while changed_at(n) and len(run) <= SPILL:
+                    run.append(n)
+                    n += step
+                if len(run) <= SPILL:
+                    spilled.update({k: area[k]["px"] for k in run})
+        if spilled:
+            out.append({"rule": "piece_changes_across_a_cut", "level": LEVELS[2], **names, "source_frames": frame_spans(spilled),
+                        "why": f"{names['piece']} changes up to {max(spilled.values())} px on {len(spilled)} frame(s) just across a cut "
+                               f"of the source and no further: its region ran over the cut and it redrew the next shot for a moment. "
+                               f"End the row at the cut",
+                        "figures": {"frames": len(spilled), "worst_px": max(spilled.values()),
+                                    "the_source_moves_at_those_cuts": sorted({round(v, 1) for n, v in moved.items() if v > CUT
+                                                                             and any(abs(n - k) <= SPILL for k in spilled)})},
+                        "threshold": {"CUT": CUT, "SPILL": SPILL, "SPECK": SPECK}})
         frames_, px = sorted(area), np.array([area[n]["px"] for n in sorted(area)], np.float64)
         steps = []
         for i in range(4, len(px) - 4):

@@ -609,7 +609,10 @@ moved and that the audio is the source's, and it raises its own flags from
 the per-frame table of what each render changed: a pass that redrew
 something on frames its subject has no mask on, far from its subject, with
 an area that steps at some frame (a cut, a change of framing, or another
-person), or the same pixels as another pass. Given capture
+person), a frame or two just across a cut of the source and no further (a
+pass whose region ran over the cut; found from the source's own
+frame-to-frame change, with no capture), or the same pixels as another
+pass. Cut a render's rows on the source's cuts. Given capture
 folders (`--capture`) it settles shared pixels by whose mask they lie in
 before falling back on the table's order, and writes its table and flags
 into them. With `--size source` the file is at the source's own size: every
