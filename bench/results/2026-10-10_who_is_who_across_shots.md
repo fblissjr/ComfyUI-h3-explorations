@@ -509,6 +509,80 @@ head alone for the whole shot, because the detection the correction
 seeded from was a head behind another person. A face pass can use it; a
 whole-person pass could not.
 
+## A second vote of another kind: SAM's own memory, seeded on a confirmed frame (the same night)
+
+**What it would buy.** Everything above compares one measurement with itself: the tracker's likeness, the sum
+and the evidence total are the same signature under the same mask, arranged three ways. The owner's idea is a
+clue of a different kind. Put a CONFIRMED frame of a named person in front of a shot's frames as one load, seed
+the tracker on that frame, tell the cut finder to find none, and SAM's own video memory either carries the
+person across the join or lets go. No signature of ours is compared with anything.
+
+**Who did what.** The graphs, the case list and what a useful vote would do in each case were written by the
+tracker's session before any run (`data/2026-10-10_fun_seeded_memory/cases.json`, `written_before_any_run`; the
+throwaway script that built the graphs is beside it; both untracked). The lead confirmed the seed frames from
+the corrected previews' tiles, queued the eighteen graphs, laid every saved track over the seed frame and five
+frames of its shot, and wrote the reading: `data/2026-10-10_fun_seeded_memory/reading_by_mrpop.json`
+(untracked). The session that built the test did not grade it. What follows is that reading, with the tables'
+own figures beside it.
+
+**The cases.** Eighteen, on one clip: the eleven wrong takes and the one miss of the two uncorrected previews
+above, and six takes the truth file marks right, as controls. Each seed is one frame of that subject from
+another shot (never the shot under test), with the box of the person a corrected preview picked. In every case
+the table says `pick_seed` "is the pick".
+
+**How a track is read.** The node's own re-find (`regain`) runs on a seeded shot and seeds the track again by
+likeness. So the memory's vote is the mask from the join up to the first entry of the shot's `regained`; the
+table's `lost_from_frame` is where the memory let go.
+
+| what was true | cases | the memory |
+|---|---|---|
+| the subject is NOT in the shot | 6 | let go at the join in 4; HELD SOMEBODY in 2 (an unnamed person for ten frames, then let go; another subject, small in an inset, for the whole shot) |
+| the subject IS in the shot | 12 | landed on them in 9; let go at the join in 3 |
+
+Among the nine it landed on are all five cases of the lead small in an inset, which is the case the likeness
+got wrong most (it took the large unnamed person in three of them and nobody in a fourth), and the third
+subject in the swap shot. The three it let go of are all the lead, seeded from one frame of the first load,
+into three later shots of that load; in two other shots of that load the same seed carried.
+
+**Under "two votes must agree, or a person is asked"** (the tracker as it ran, and the memory):
+
+| | of | outcome |
+|---|---|---|
+| the tracker's wrong takes and its miss | 12 | 11 STOPPED (the votes differ, so a person is asked); 1 NOT: both votes on the same wrong person |
+| the tracker's right takes (controls) | 6 | 4 pass with no question; 2 become a question nobody needed (the memory let go though the subject is there) |
+
+The one case not stopped: the second subject in a shot she is not in. The tracker took the inset lead as the
+only person left, and the memory, seeded from the second subject's one confirmed frame, held the inset lead for
+every frame. Both cases in which the memory held a wrong person were seeded from that same frame; the seeds of
+the other two subjects never held a wrong person.
+
+**What the tables say, and do not.** Read from each case's own saved table by the tracker's session: in four of
+the eighteen the likeness's re-find fired after the memory let go (three where the subject is not in the shot,
+one of them after the memory's ten wrong frames, and one control), and in three of those four the table then
+counts EVERY frame as holding the subject. A reader of `frames_with_subject` alone cannot tell the memory from the likeness; only
+`regained` does. The lead also saw that a re-find tracks BACKWARD, so the saved track shows the likeness's
+person on frames the memory had let go of.
+
+**What the lead saw that no table says.** The first frame or two after the join is often wrong before the mask
+settles: the seed's own shape hanging where the person was, an unnamed person, an arm at the frame's edge. A
+vote must not be read on the first frames.
+
+**Against what was written first.** Where the subject is not in the shot, "ends at the join and stays empty"
+held in 4 of 6. Where the subject is in the shot, "lands on them and on nobody else" held in 9 of 12.
+
+**The scope, which is narrow.** One clip, three named people, one confirmed look a person, one run each, six
+frames a case read by eye. The cases are the tracker's FAILURES plus six of its right takes, so "11 of 12
+stopped" is not a rate for a whole clip: it does not say how often the two votes agree on a wrong person across
+every shot, and the two needless questions are two of six sampled right takes, not of all of them. No case is
+a shot in which a tracker rightly said absent. No take leans on any of this.
+
+**What it asks for, and nothing is built.** The recorder's call is that the second vote exists on this clip.
+Using it needs two small things in the tracker, scoped before building: no re-find on a seeded shot (or the
+likeness writes over the memory's answer), and the vote read after the first frames, not on them. And one
+question a second clip has to answer before any take is let through on two votes: whether a seed from one
+confirmed look carries when the person is seen very differently in the shot under test, which is what the three
+let-go cases and the two wrong holds have in common as a guess, not as a measurement.
+
 ## A cast file: remembering each named subject across shots, loads and sessions (a scope; nothing is built)
 
 The owner's question, the same day: why not look across cuts, how far back
