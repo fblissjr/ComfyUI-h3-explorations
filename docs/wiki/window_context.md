@@ -235,6 +235,15 @@ them.
   settled. A render zoomed in on a small subject (`render_region`, built
   the same day, not served when this was written) is to be judged against
   the open-tail render that was accepted, not against a failure.
+- 2026-10-10, the short load that had ignored its motion video, with ONE
+  change, the reference still (the lead's relay of a peer's pose reading;
+  one seed; the figures are that session's to record): the render took the
+  pose the motion video has, head and hand, where every earlier render of
+  that load had not, zoomed motion video or plain. So on that load what
+  held the pose was the still, not the motion video's size and not the
+  tail: a reference still that shows another pose is a pull of the same
+  kind as a kept frame, and it is not among the levers above. Not built
+  on; one load.
 
 ## Results, dated
 
@@ -291,6 +300,12 @@ them.
   at 1.0 than at 0.8. So at 0.8 the kept frames still tie the first new
   frame to what came before and no longer pin the pose. 0.5 is on the card
   and says how far down that holds.
+- 2026-10-10, `context_noise` 0.5 on the same continuation (the lead's
+  relay of a peer's reading; one stretch, one seed): it did not make the
+  turn. So on this stretch the level that loosens the pose lies between
+  0.5 and 0.8, and 0.8 is the lowest tried that works. It is a starting
+  value from one stretch of one clip (`h3_config.MASKED_JOB_CONTEXT_NOISE`),
+  not a default measured for another clip.
 - 2026-10-10, the lateness, two READINGS and no measurement. It is not the
   clean share of the context pulling the first frames back, because it is
   larger with none of that share (1.0) than with some (0.8). What the
