@@ -1270,7 +1270,9 @@ SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="auto
 #: masking board's route 1, rendered as an arm before any default moves.
 #: `grow_by` (2026-10-08) is the margin as it was, `grow_pixels` on every
 #: frame: the node's other choice, a margin taken from the subject's size, is
-#: **reasoned** and has not rendered, so no graph ships it.
+#: **reasoned**. It rendered once, in a hand-edited graph on 2026-10-08 (the
+#: masking board's mhi-07), and it did not decide whether the subject held, so
+#: no graph ships it.
 MASKED_SOURCE = dict(grow_pixels=64, grow_by="a fixed margin", feather_pixels=8, replace="whole subject", paint_out=False,
                      part_phrases="hair, head", part_threshold=0.5, part_margin=8,
                      composite="only what changed", change_threshold=0.05, reuse_mask=False,

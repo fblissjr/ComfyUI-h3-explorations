@@ -211,7 +211,8 @@ docstring is the authority and lists the steps; `follow` is the function.
   only detection; `REGAIN_SAME` and `REGAIN_MARGIN` in `subject_track.py`
   carry their provenance. Frames that stay empty are in the report and in
   the shot table's `frames_without_subject`. A shot corrected by hand is
-  not searched.
+  searched the same way, with the corrected track's own frames as the
+  gallery (since 2026-10-07, the item above).
 - **The same person as an earlier run.** The shot table carries the picked
   shot's gallery. `subject_from` on the Subject Track takes an earlier
   run's `shot_table` output, or the path of the `..._shots.json` it saved,

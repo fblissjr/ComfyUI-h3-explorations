@@ -17,6 +17,15 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **Two passages of prose that lost to the code, found by the
+  lotsofpeopledance postmortem**
+  (`docs/research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`).
+  `masked_v2v.md` used to claim that "a shot corrected by hand is not
+  searched". 0408a1f1 changed that on 2026-10-07, and the item above it on
+  the same page already said so. The `MASKED_SOURCE` comment in
+  `workflows/h3_config.py` used to claim that the subject-sized margin "has
+  not rendered". It rendered in the all35 and texts35 graphs on 2026-10-08
+  (the masking board's mhi-07). No code or default changed.
 - **A hand-written masked text says the least first and gains a sentence
   only when a render asks for it** (the owner: "let the model guide and
   infer until you need to get more specific", "just like progressive

@@ -30,6 +30,10 @@ own below the rule.
   `../prompting.md`; a repair for the one held frame.
 
 **Masked video to video (owner, 2026-10-04): version one shipped; movement from the source is answered on ref2va (2026-10-05) and open on fl2va.**
+- **The 2026-10-08 crowd render, looked back on (2026-10-10):**
+  `../research/postmortems/2026-10-04_feature_lotsofpeopledance-end-to-end.md`.
+  Written without the session transcripts. Its nine "next time" items are
+  checkable, and a session that holds a transcript annotates it.
 - A shot that needs the original's movement renders on
   `workflows/h3_video_to_video_masked_song_ref2va_motion_api.json`; why, and
   at what cost: `../../bench/results/2026-10-05_masked_v2v_motion_arms.md`
