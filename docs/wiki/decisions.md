@@ -17,6 +17,27 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **A scene's text is data served by what plans the shots, never verbatim
+  in code or a workflow; and it is a caption, not an instruction** (owner,
+  to the lead, the evening a face render's mouth stayed shut through a
+  whole window). What it replaces: the pack's masked text ends every prompt
+  with two constants (`masked_prompt_text.py`, `SOUNDSCAPE` and `MUSIC`)
+  that say the scene is quiet and has no music, whatever the track holds;
+  the job files of that day mapped one text to several shots, so a shot in
+  which a hat goes on was drawn from a text with no hat; and a sentence the
+  lead added to one load's text to protect a telephone ("the handset ...
+  stay as they are") was the one difference between a piece whose mouth
+  followed the song and a piece whose mouth stayed shut. The owner's
+  reading: the model has no idea anything is being replaced; it generates
+  in places while it hears the track, so edit-talk is read as a
+  description of the picture, and the vendor's captions were written for
+  audio the model generates or for labelled audio references, not for
+  frozen audio. The rule is in `AGENTS.md`, "Operative rules". Not built:
+  a text kept with the frames it was written from, the builder refusing a
+  load whose frames its text does not cover, and the sound lines taken
+  from per-video data. A second session's audit of every prompt sentence
+  held in code is a dated record under `bench/results/`.
+
 - **Nothing an earlier run made is reused by a key** (owner, to the lead,
   on the list of stores a session drew up that evening). Until this line
   the pack had a kept-mask store (`reuse_mask`), stored-window reuse

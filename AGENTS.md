@@ -133,6 +133,16 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   detail of what happened and why belongs in a postmortem.
 - **Prompt timing, shot counts and dialogue length fit each scene, never a
   template.** `docs/prompting.md` section 5.10.
+- **A scene's text is data, served by whatever plans the shots; it is never
+  stored verbatim in code or in a workflow.** A text is written from the
+  frames of one window and is true of that window only: kept in a constant
+  or a graph it gets used again after the window has changed, and nobody
+  remembers it was there. It lives with the job's data beside the frames it
+  was written from, and a load takes the text of its own frames. The model
+  does not know it is editing: a text is a plain caption of the finished
+  shot (what is seen and heard), never a statement of what stays or is
+  kept, and it says nothing about sound, action or expression that is not
+  known from the frames or the track. (Owner, 2026-10-10.)
 - **A rule that depends on the picture takes its value from the input
   video, up front.** A likeness line, a size line, a cut score, a margin:
   the preview measures this clip and the rule is set from that, as
