@@ -460,3 +460,28 @@ flag reads the source's own frame-to-frame change for it.
   tool already had: the third's row runs through with the plain restore
   and is looked at, or it stops at 1402 and those frames are the source.
   The capture session's counts above stay as the measurement they are.
+
+## What refuses when a step is skipped (2026-10-10, end of day)
+
+Asked of every tool at the end of the day: for each step, what stops a
+session that skips it. Read from `bench/assemble_delivery.py` as it stands.
+
+| step | what stops a session that skips it |
+|---|---|
+| a delivery is built with this tool at all | nothing. A file made another way and put beside the others has no `.check.json`, and no tool walks the folder for one. A session has to remember |
+| the captures are given (`--capture`) | nothing. The build runs, shared pixels go by the table's order, the shots proof says in `missing` that it could read nothing and fails nothing. A session has to remember |
+| a subject is named by the table | nothing. The shots proof covers the subjects some row names; a person no row names is not counted anywhere. A session has to remember |
+| a named subject has something laid on every shot | the tool: the build fails unless a `source` line gives the reason |
+| captures of one job use one set of labels | the tool, loudly and not exactly: with two sets, each label has "nothing laid" on the other's shots and the build fails |
+| a piece's zoomed pair fits the piece | the tool: refused before anything is read. A pair whose json is missing is an ordinary piece, silently |
+| the build goes to a scratch name first | only for a name listed in the folder's `LOCKED.md`. Any other name is written over. A session has to remember |
+| the placed file is re-checked (`--check-only`) | nothing. A session has to remember |
+| a failing record stops the file going out | nothing. The exit code is 1 and the verdict says FAILS, and the file is written all the same: two failing files are on the share by decision. A session has to read |
+| every flag has an outcome | nothing. A session has to remember |
+| the check runs before the tool is committed | nothing but the sweep (`bench/run_checks.py`); there is no hook. A session has to remember |
+| a changed proof gets a dated line here | nothing. A session has to remember |
+
+Eight of twelve are "a session has to remember". The two that would close
+most of them are not built: a walk of a delivery folder that fails on a
+file with no passing record or an unanswered flag, and the job's own
+record naming its captures so the build cannot be run without them.
