@@ -2414,6 +2414,18 @@ def flag_held_tail(manifest: dict, folder: Path) -> list[dict]:
         shares = [r["track_share"] for r in rows if r["seen_by"] == seen and r.get("track_share")]
         size = float(np.median(shares)) if shares else None
         for win in run["planned_windows"]:
+            # the last source frame the window really holds; what it writes after that is a copy of that frame
+            real_last = None if win.get("first_frame") is None else win["first_frame"] + win["frames"] - win["held_frames"] - 1
+            if real_last is not None and win.get("held_frames") and win["writes_source_frames"][1] > real_last:
+                past = win["writes_source_frames"][1] - real_last
+                out.append({"rule": "plan_writes_past_the_load", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                            "source_frames": [[real_last + 1, real_last + past]],
+                            "why": f"plan {run['name']} window {win['window']} writes {past} frame(s) past the load's last frame (source frame "
+                                   f"{real_last}): each is that frame held, written into the render where the next source frames belong. "
+                                   "The node counts frames by the audio it is given (found 2026-10-10: a track a fraction of a frame long "
+                                   "wrote one frame into the next shot). Remedy: cut the audio to the load, or drop those frames when the "
+                                   "piece is laid",
+                            "figures": {"window": win["window"], "frames_past_the_load": past, "last_frame_of_the_load": real_last}})
             clean = win.get("held_frames_shown_clean", 0)
             if not clean or not win.get("subject_on_the_last_real_frame"):
                 continue

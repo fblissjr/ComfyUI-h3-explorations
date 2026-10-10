@@ -1021,6 +1021,10 @@ def held_tails() -> str:
         assert [(f["rule"], f["level"]) for f in raised] == [("original_shown_in_the_held_tail", cap.LEVELS[2])], raised
         assert raised[0]["figures"]["subject_share_of_frame_median"] == 0.015 and "held_tail" in raised[0]["why"] and "1.50%" in raised[0]["why"], raised[0]
         assert cap.flag_held_tail(manifest(opened), folder) == [], "the remedy set, and the flag raised"
+        # a window that writes more frames than its load holds: the frame past the end is a held copy laid on the next source frame
+        long = cap.flag_held_tail(manifest({**opened, "first_frame": 100, "writes_source_frames": [100, 105]}), folder)
+        assert [(f["rule"], f["level"], f["source_frames"]) for f in long] == [("plan_writes_past_the_load", cap.LEVELS[2], [[105, 105]])], long
+        assert cap.flag_held_tail(manifest({**opened, "first_frame": 100}), folder) == [], "a plan that writes exactly its load was flagged"
         assert cap.flag_held_tail(manifest(gone), folder) == [], "the subject is not on the held frame, and the flag raised"
         blind = cap.flag_held_tail(manifest(), folder)
         assert [(f["rule"], f["level"]) for f in blind] == [("held_tail_not_checked", cap.LEVELS[1])], "an estimate with no windows was passed in silence"
