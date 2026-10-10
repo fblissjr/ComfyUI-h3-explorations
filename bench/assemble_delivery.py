@@ -156,6 +156,24 @@ change under `CHANGE` further than `GROW` from stronger change is lost to a late
 (`data/CAPTURE_GAPS.md`). `CHANGE` was measured on footage: on a hard test pattern that moves fast the writer's
 own codec noise reached twice it, so on such a picture a kept pixel can read as changed and a flag can be noise. `bench/check_assemble_delivery.py` holds the cases.
 
+**Which proof reads what, and what to read before a file is handed over.** Two kinds of proof are here and they
+are not the same thing. `rows_shown`, the flags and the regions are read from the frames this tool MAKES from the
+table: they say the rule did what the table asked. The count, the order, the squares (`squares_apart`), the colour
+and the audio are read from the FILE: they say the file is those frames. A wrong rule passes the second kind and
+a file built another way passes the first, so a file goes to the owner only when the record shows all of: the
+verdict passes; every row of `rows_shown` at a share of 1; `squares_apart` 0; `pieces_with_no_capture` empty, or
+`subject=` on each such row. Then the flags are read and each given an outcome, and the shared-pixel counts
+(`settled_by_a_mask_px`, `settled_by_order_px`) are set against what was expected of the table BEFORE the build:
+a count nobody predicted is how the first wrong file was caught, with every proof passing. Build to a name the
+owner has not been given, read the record, then copy and run `--check-only` on the placed file.
+
+**What the lock is not.** It binds this tool: a copy, a move or an encoder writes over a locked name unhindered.
+It is per folder and by file name, and only a list line of `LOCKED.md` with the name in backticks counts. The
+tool never writes `LOCKED.md`; whoever has the owner's word does.
+
+The files built with this tool, their figures and what changed in it since, by date:
+`bench/results/2026-10-10_delivery_files_and_their_records.md`. A change to a proof is a dated line added there.
+
 Nothing here describes what a clip shows: a clip is a file name and a subject is a capture's label.
 """
 from __future__ import annotations
