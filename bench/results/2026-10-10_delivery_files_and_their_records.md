@@ -485,3 +485,72 @@ Eight of twelve are "a session has to remember". The two that would close
 most of them are not built: a walk of a delivery folder that fails on a
 file with no passing record or an unanswered flag, and the job's own
 record naming its captures so the build cannot be run without them.
+
+## What of the tool is kept, simplified and removed (decided 2026-10-10)
+
+The owner asked every session to judge what it added that day: what each
+thing does, whether it earns its place beyond that day's clip, and whether
+a simpler thing that accepts an edge would do. `bench/assemble_delivery.py`
+was written that day from nothing. Read from the eleven delivery records
+on the share before judging: every delivery is at the source's size;
+`--soften` was used in none; the class rule in line 14 acted in none. The
+list below is the author's, approved by the owner as written through the
+lead session ("Yes. You make the calls but yes."). **Nothing in it is
+done yet.** The order: the whole-clip file is built with the tool as it
+is; then the current joined file is rebuilt both ways and compared, and
+that comparison is the record for line 7; then the cuts are made, each a
+dated line under "Changes, by date".
+
+**Keep.**
+
+1. The table and the lay: rows of source frames, piece and the piece's
+   first frame, laid over the untouched original at its size and rate
+   with its audio copied.
+2. The proofs read from the file: count, order, colour, audio, and that
+   each 16-pixel square of the file is the square the table meant.
+3. `rows_shown`: each row's picture is what shows where it was meant to.
+4. Every subject the table names has something laid on every shot, or a
+   `source` line says why not.
+5. The lock.
+6. `restore=<subject>`, and `restore=<subject>.<Class>` for the row's own
+   subject.
+
+**Simplify.**
+
+7. Whose a pixel is when two rows both changed it: by the capture's owner
+   map, then tracks, then order. To: the later row in the table wins, and
+   `restore=` says the exceptions. Per-pixel bookkeeping on two trackers'
+   guesses, and its first version is what laid a patch under its render.
+   Edge accepted: where two rendered people overlap, the later row's pass
+   shows.
+8. `restore=<subject>:whole` beside the plain form. To: one form, the
+   simpler behaviour (nothing of the pass inside that person's track).
+   With 7.
+9. The shots proof's seven readings. To three: laid; not laid and a line
+   says why; not laid and nothing says why, which fails.
+10. Where the cuts are: an own finder, the captures' shot tables, and a
+    rule for which has the word. To: the cuts come from the job's
+    analysis and nowhere else; with no table there is no shots proof, and
+    the record says so loudly.
+11. A row that fades back to the original at its end, measured here and
+    also read from the capture. To: one reader of the capture's reading.
+12. Ten flag rules. To the three ever acted on: a piece that changes
+    across a cut, a piece that changes nothing, a frame its run carried
+    no mask on.
+13. Reading several captures that cover one frame. To: one analysis
+    folder a clip. Waits for that folder.
+
+**Remove.**
+
+14. A class restore naming another subject, kept off what the owner map
+    gives the row's own subject, and its counts.
+15. `--soften`. The reading tool `bench/region_against_plate.py` stays.
+16. `--alias`, when the last file of the clip it bridges is built.
+17. The file at the canvas's size, with the older patch route
+    (`bench/patch_render_window.py build`) that is its only user.
+18. The per-frame csv written into each capture folder, unless the
+    capture session says it is read.
+
+**Not yet earned.** The zoomed lay-in (`0e7f69fb`): measured on one pair,
+seen in no delivery. It stays until the first zoomed delivery is read,
+and goes if the gain cannot be seen or measured there.
