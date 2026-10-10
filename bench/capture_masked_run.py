@@ -1711,6 +1711,16 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
             level = LEVELS[2]
             flags.append({"rule": "taken_where_not_expected", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
                           "why": f"{label} is {state} in a shot the caller says they are not in", "figures": {"similarity": sim, "line": line}})
+        elif state == "taken" and not typed and sim is not None and sim < line:
+            # the tracker took somebody UNDER its own match line (its rule for the only person in a shot). Found
+            # 2026-10-10 on a load with three subjects: a take at 0.59 against a line of 0.8, of a figure a hundredth
+            # of the frame. Under the line the tracker itself does not vouch for it, so a person has to
+            level = LEVELS[2]
+            flags.append({"rule": "taken_under_its_own_line", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
+                          "why": f"{label} was taken at {sim:.3f}, UNDER the tracker's own line of {line:.3f} ({shot['subject']['state']}): the "
+                                 "tracker took the only candidate it had, and does not vouch for it. Look at the tile and answer in "
+                                 "writing: `shot N: person K` if it is them, `shot N: none` if not",
+                          "figures": {"similarity": sim, "line": line, "people": people}})
         elif state == "taken" and not typed and sim is not None and sim - line < NEAR_LINE:      # a typed take is not a guess
             level = LEVELS[1]
             flags.append({"rule": "taken_near_the_line", "level": level, "subject": label, "seen_by": by, "source_frames": [[a, b]],
@@ -1846,6 +1856,25 @@ def flag_pose(label: str, by: str, pose: list[dict], masks: list[dict], others_o
         f"over a third of {label}'s keypoints fall outside the frame on {{n}} frame(s): those joints are a guess",
         threshold_share=round(POSE_OUTSIDE, 3))
     return out
+
+
+def flag_never(label: str, by: str, rows: list[dict], table: dict | None, first: int) -> list[dict]:
+    """A named subject with no mask on any frame of the capture: the load was planned for somebody it never found.
+
+    Shot by shot an absence with nobody detected is not a question, so a subject whose pick found nobody reads
+    "clear" on every such shot (2026-10-10: a tracker given another's mask on `others`, where that other tracker
+    had already taken her). Over a whole load it is the first thing to know. Top level; answered by fixing the
+    pick or the order of the trackers, or by an override that says the subject is not in this load."""
+    if not rows or any(r.get("track_share") for r in rows):
+        return []
+    picked = table is not None and any(shot_state(s)[0] == "picked" for s in table["shots"])
+    return [{"rule": "subject_never_found", "level": LEVELS[2], "subject": label, "seen_by": by,
+             "source_frames": [[first, first + len(rows) - 1]],
+             "why": f"{label} has no mask on any of the {len(rows)} frames of this load"
+                    + ("" if table is None else ": no shot of its table is a pick" if not picked else ": its table has a pick and the track is empty all the same")
+                    + ". Nothing can be planned for them. If another tracker runs before this one with its mask on `others`, it may "
+                      "have taken this subject first: look at that tracker's takes, change the order or type the pick",
+             "figures": {"frames": len(rows), "a_shot_is_picked": bool(picked)}}]
 
 
 def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: int) -> list[dict]:
@@ -2645,6 +2674,7 @@ def preflight(a: argparse.Namespace) -> None:
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
             flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
+            flags += flag_never(s["label"], by, mine, table, m["first_frame"])
             path = folder / "subjects" / s["label"] / f"pose__{by}.json"
             if path.is_file():
                 others_on = {r["source_frame"] for o in m["subjects"] if o["label"] != s["label"]
