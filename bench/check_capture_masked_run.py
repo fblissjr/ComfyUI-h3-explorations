@@ -27,6 +27,10 @@ overlaps and margins can be counted by hand and reads the rows back.
    taken in frames the caller bars; a part that is empty, spilled, a third of its size or moved for a few frames against
    the same part held steady, which raises nothing; and a text with a voice sentence over unvoiced frames
    against the same text over voiced ones, and a denial that is not read as a voice.
+14. **A mouth and its timing.** On drawn mouths: open reads well above shut; a tilted head and a stray label
+   elsewhere change nothing; no mouth gives no reading; a smaller face makes the same mouth read larger. On a
+   series: the same mouth two frames late is placed two frames late; a mouth found elsewhere in the frame is
+   not scored as the same mouth.
 13. **What a run changed.** On a frame whose difference from the source is known by construction: a face drawn
    again, a hairline left alone and the half of a neighbour's hand inside the region each read at their own
    figure; a subject's pixels inside and outside the region are told apart; and under 500 pixels set no floor.
@@ -404,6 +408,42 @@ def what_changed() -> str:
     return "a redrawn face, an untouched hairline and half of a neighbour's hand each read at their own difference"
 
 
+def _ellipse(cx: int, cy: int, long: int, short: int, angle: float = 0.0) -> np.ndarray:
+    import cv2
+    img = np.zeros((H, W), np.uint8)
+    cv2.ellipse(img, (cx, cy), (long, short), angle, 0, 360, 1, -1)
+    return img.astype(bool)
+
+
+def mouths() -> str:
+    face = np.zeros((6, H, W), bool)
+    face[:, 8:88, 40:120] = True
+    shut, wide = _ellipse(80, 60, 14, 3), _ellipse(80, 60, 14, 10)
+    tilted = _ellipse(80, 60, 14, 10, 40.0)
+    speck = wide.copy()
+    speck[4:7, 4:7] = True                           # a stray label far from the mouth
+    opening, centre = cap.mouth_openings(np.stack([shut, wide, tilted, speck, np.zeros((H, W), bool), wide]), face)
+    assert opening[1] > 1.6 * opening[0], (opening[0], opening[1])
+    assert abs(opening[2] - opening[1]) < 0.05 * opening[1], "a tilted head changed how open the mouth reads"
+    assert abs(opening[3] - opening[1]) < 0.02 * opening[1] and abs(centre[3][0] - 80) < 1, "a stray label moved the reading"
+    assert np.isnan(opening[4]) and np.isnan(centre[4]).all(), "no mouth, and a reading"
+    small = cap.mouth_openings(np.stack([wide]), np.stack([face[0]]))[0][0]
+    half = np.zeros((1, H, W), bool)
+    half[:, 8:88, 40:80] = True
+    assert cap.mouth_openings(np.stack([wide]), half)[0][0] > 1.3 * small, "a smaller face did not make the same mouth read larger"
+    t = np.arange(120, dtype=float)
+    series = np.sin(t / 5.0) + 0.3 * np.sin(t / 1.7)
+    late = np.r_[np.full(2, np.nan), series[:-2]]   # the same mouth two frames late
+    by = cap.shifted_agreement(series, late)
+    assert max((v, k) for k, v in by.items() if v is not None)[1] == 2 and by[2] > 0.99, by
+    where = np.tile([80.0, 60.0], (120, 1))
+    score = cap.score_mouth(series, where, late, where)
+    assert score["best_shift_arm_late_positive"] == 2 and score["level_difference_median"] is not None, score
+    elsewhere = cap.score_mouth(series, where, series, where + 100.0)
+    assert elsewhere["frames_same_mouth"] == 0, "a mouth found somewhere else was scored as the same mouth"
+    return "open reads above shut, the same tilted or with a stray label; a mouth two frames late is placed two frames late"
+
+
 def text_rules() -> str:
     sings = "She is in a kitchen. She performs the main voice on the track as it plays."
     denies = "She is in a kitchen. She does not speak or sing at any point."
@@ -426,6 +466,7 @@ case("a plan's region from the masks", plan)
 case("preflight: shots and tracks", shot_rules)
 case("preflight: a part that leaves its subject", part_rules)
 case("what a run changed", what_changed)
+case("a mouth and its timing", mouths)
 case("whose a pixel is", owners)
 case("the held part", held_part)
 case("segments and what is inside a region", segments)

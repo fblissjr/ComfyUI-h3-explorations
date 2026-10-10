@@ -13,6 +13,7 @@
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
     <python> bench/capture_masked_run.py changed data/<date>_<NAME> --run pass_a --source CLIP --render A.mp4 --series a.Face_Neck
+    <python> bench/capture_masked_run.py mouth data/<date>_<NAME> --subject a --arm pass_a=A_MOUTH.mkv
     <python> bench/capture_masked_run.py mask data/<date>_<NAME> --subject b --classes Face_Neck+Hair --out keep_b.mkv
 
 **What it buys.** One folder per captured span, `data/<date>_<name>/` (untracked), that says for every frame
@@ -79,6 +80,10 @@ from the source against the floor (pixels outside the region), a segment's diffe
 (`--series`), and the change from the frame before inside the region for render and source. It is the
 after-the-render half of `segment_inside_region`: that rule says what a region will take, this says what was
 taken.
+
+**mouth** scores a render's mouth against the source's: how open it is per frame (`mouth_openings`), the
+agreement of the two series with the render shifted a few frames either way, and the same for the source
+against itself as the control. With a voice table it also says whether either mouth rests where the voice does.
 
 **mask** writes any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or
 `others`: the same file form as every other mask here.
@@ -1573,6 +1578,155 @@ def changed(a: argparse.Namespace) -> None:
     print("wrote", folder / "runs" / a.run / "changed.json")
 
 
+#: The part model's classes that make a mouth. Inherited: `sapiens2_parts._MOUTH`.
+MOUTH_CLASSES = ("Lower_Lip", "Upper_Lip", "Lower_Teeth", "Upper_Teeth", "Tongue")
+#: A mouth mask's largest piece under this many pixels is not read. Reasoned: a few pixels have no shape.
+MOUTH_PX = 12
+#: Two mouths further apart than this, in pixels, are not the same mouth (the part model found one elsewhere).
+#: Reasoned: under a face's width at the sizes this lane renders; measured apart at a median of 6 on one pass.
+MOUTH_APART = 40
+MOUTH_SHIFTS = 6               # frames either way an arm is tried against the reference; reasoned: a quarter second
+
+
+def mouth_openings(mouth: np.ndarray, face: np.ndarray | None) -> tuple[np.ndarray, np.ndarray]:
+    """Per frame, how open a mouth is, and where it is: [n] and [n, 2] (NaN where it is not seen).
+
+    On the mask's LARGEST piece (the part model also puts lip labels on other things in the frame): the
+    geometric mean of the two axes of the ellipse with its second moments, which is the size of lips, teeth
+    and tongue together whichever way the head is tilted or turned; over the face's size, the square root of
+    the face mask's area as the median over `RECENT` frames either side, because a face mask collapses on
+    single frames. With no face mask the figure is in pixels.
+
+    Tried first and thrown out, 2026-10-10: the mask's box, height over width. Wrong in profile (the width
+    shrinks and a shut mouth reads open) and wherever a stray label makes the box hundreds of pixels tall.
+    This form ranked an open frame above a shut one 91 times in 100 on 19 frames of one stretch read by eye
+    (the short axis alone 89, the area 85, short over long 73); it was chosen on those frames, so that
+    flatters it. Where it is wrong: a shut mouth in a wide smile reads large, an open one in profile small."""
+    import cv2
+    n = len(mouth)
+    opening, centre = np.full(n, np.nan), np.full((n, 2), np.nan)
+    area = None if face is None else np.sqrt(face.reshape(n, -1).sum(axis=1).astype(np.float64))
+    for f in range(n):
+        count, labels, stats, cents = cv2.connectedComponentsWithStats(mouth[f].astype(np.uint8), connectivity=8)
+        if count < 2:
+            continue
+        k = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        scale = 1.0 if area is None else float(np.median(area[max(f - RECENT, 0):f + RECENT + 1]))
+        if stats[k, cv2.CC_STAT_AREA] < MOUTH_PX or scale < 8:
+            continue
+        ys, xs = np.nonzero(labels == k)
+        lam = np.linalg.eigvalsh(np.cov(np.stack([xs, ys]).astype(np.float64)))
+        opening[f] = 4.0 * float(np.sqrt(np.sqrt(max(lam[0], 0.0)) * np.sqrt(lam[1]))) / scale
+        centre[f] = cents[k]
+    return opening, centre
+
+
+def shifted_agreement(reference: np.ndarray, arm: np.ndarray, shifts: int = MOUTH_SHIFTS) -> dict[int, float | None]:
+    """Rank correlation of an arm's series with the reference's, the arm taken `k` frames LATE for positive k.
+    A peak at 0 is a mouth in time with the reference; a peak elsewhere is one early or late."""
+    from scipy.stats import spearmanr
+    out = {}
+    for k in range(-shifts, shifts + 1):
+        a = reference[max(-k, 0):len(reference) - max(k, 0)]
+        b = arm[max(k, 0):len(arm) - max(-k, 0)]
+        ok = ~np.isnan(a) & ~np.isnan(b)
+        out[k] = round(float(spearmanr(a[ok], b[ok]).statistic), 3) if ok.sum() > 20 else None
+    return out
+
+
+def score_mouth(reference: np.ndarray, ref_centre: np.ndarray, arm: np.ndarray, arm_centre: np.ndarray) -> dict:
+    """An arm's mouth against the reference's, on the frames both are seen and are the same mouth."""
+    apart = np.hypot(*(ref_centre - arm_centre).T)
+    arm = np.where(apart < MOUTH_APART, arm, np.nan)
+    ok = ~np.isnan(reference) & ~np.isnan(arm)
+    by_shift = shifted_agreement(reference, arm)
+    known = {k: v for k, v in by_shift.items() if v is not None}
+    best = max(known, key=known.get) if known else None
+    median = float(np.nanmedian(reference))
+    diff = arm[ok] - reference[ok]
+    return {"frames_same_mouth": int(ok.sum()), "of": int(len(reference)), "agreement_at_no_shift": by_shift.get(0),
+            "best_shift_arm_late_positive": best, "agreement_at_best_shift": known.get(best) if best is not None else None,
+            "by_shift": by_shift,
+            "same_side_of_the_reference_median": round(float(((reference[ok] > median) == (arm[ok] > median)).mean()), 3) if ok.any() else None,
+            "level_difference_median": round(float(np.median(diff)), 3) if ok.any() else None,
+            "level_difference_quartiles": [round(float(x), 3) for x in np.percentile(diff, [25, 75])] if ok.any() else None}
+
+
+def mouth(a: argparse.Namespace) -> None:
+    """Does a render's mouth do what the source's mouth does, frame by frame.
+
+    The reference is the source's mouth: a mask video (`--reference`), or the subject's own class map in the
+    capture. Each `--arm` is a mouth mask of a render (a no-sampling preview with the part node on `mouth`,
+    loader on the render), or a class map of it (`:classes`). Printed first, the control: the reference against
+    ITSELF shifted by 1, 2, 3, 6 and 12 frames, which is what the agreement reads for a mouth that is right but
+    that many frames out; an arm at the 12-frame figure ignores the reference's timing. Then each arm. With a
+    voice table in the capture, the opening on voiced against unvoiced frames, and in each gap of the voice
+    against the frames either side: a source that holds its mouth open through a breath is no rest for a render
+    to follow (measured: the first gap of the pass this was written on). Writes `mouth__<subject>.json`."""
+    folder = Path(a.capture)
+    m = json.loads((folder / "manifest.json").read_text())
+    w, h = m["size"]
+    first, frames = m["first_frame"], m["frames"]
+    names = _pack("sapiens2_parts").CLASS_NAMES
+    seen = next(s for s in m["subjects"] if s["label"] == a.subject)["sightings"][0]
+    saved = np.load(folder / "subjects" / a.subject / f"masks__{seen['by']}.npz")
+    face = np.unpackbits(saved["parts" if "parts" in saved.files else "track"], axis=-1)[..., :w].astype(bool)
+
+    def read(spec: str) -> np.ndarray:
+        as_classes = spec.endswith(":classes")
+        path, _, at = (spec[:-len(":classes")] if as_classes else spec).partition("@")
+        at = int(at) if at else first
+        if as_classes:
+            return class_mask_of(read_classes(path, (w, h), at, first, frames), list(MOUTH_CLASSES), names)
+        return read_mask(path, (w, h), at, first, frames)[0]
+
+    if a.reference:
+        ref_mask = read(a.reference)
+    else:
+        ref_mask = class_mask_of(np.load(folder / "subjects" / a.subject / f"classes__{seen['by']}.npz")["classes"], list(MOUTH_CLASSES), names)
+    reference, ref_centre = mouth_openings(ref_mask, face)
+    control = {k: v for k, v in shifted_agreement(reference, reference, 24).items() if k in (1, 2, 3, 6, 12, 24)}
+    cross = json.loads((folder / "frames.json").read_text())["rows"]
+    voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
+    record = {"subject": a.subject, "reference": a.reference or "the subject's class map", "frames_seen": int((~np.isnan(reference)).sum()),
+              "control_reference_against_itself_shifted": control, "arms": {}}
+    print(f"reference mouth seen on {record['frames_seen']} of {frames} frames; against itself shifted by frames: {control}")
+
+    def rests(series: np.ndarray) -> dict | None:
+        if np.isnan(voiced).all():
+            return None
+        on, off = series[voiced == 1], series[voiced == 0]
+        gaps = []
+        quiet = frame_spans(np.nonzero(voiced == 0)[0].tolist(), join=1)
+        for lo, hi in quiet:
+            if lo == 0 or hi >= frames - 1:
+                continue
+            inside = series[lo:hi + 1]
+            near = np.r_[series[max(lo - RECENT, 0):lo], series[hi + 1:hi + 1 + RECENT]]
+            if (~np.isnan(inside)).any() and (~np.isnan(near)).any():
+                gaps.append({"source_frames": [first + lo, first + hi], "in_the_gap": round(float(np.nanmedian(inside)), 3),
+                             "either_side": round(float(np.nanmedian(near)), 3)})
+        return {"voiced_median": round(float(np.nanmedian(on)), 3) if (~np.isnan(on)).any() else None,
+                "unvoiced_median": round(float(np.nanmedian(off)), 3) if (~np.isnan(off)).any() else None, "gaps": gaps}
+
+    record["reference_and_the_voice"] = rests(reference)
+    if record["reference_and_the_voice"]:
+        print("  the reference and the voice:", record["reference_and_the_voice"])
+    for item in a.arm:
+        name, _, spec = item.partition("=")
+        series, centre = mouth_openings(read(spec), face)
+        score = score_mouth(reference, ref_centre, series, centre)
+        score["and_the_voice"] = rests(series)
+        record["arms"][name] = score
+        print(f"  {name.ljust(22)} same mouth {score['frames_same_mouth']} of {score['of']} | at no shift {score['agreement_at_no_shift']} | "
+              f"best {score['agreement_at_best_shift']} at {score['best_shift_arm_late_positive']} | same side "
+              f"{score['same_side_of_the_reference_median']} | level {score['level_difference_median']} {score['level_difference_quartiles']}"
+              + (f" | voice {score['and_the_voice']}" if score["and_the_voice"] else ""))
+    out = folder / f"mouth__{a.subject}.json"
+    out.write_text(json.dumps(record, indent=1) + "\n")
+    print("wrote", out)
+
+
 def class_mask_of(classes: np.ndarray, wanted: list[str], names: tuple[str, ...]) -> np.ndarray:
     """[n, h, w] of bool: the pixels of a class map that are any of the classes named. An unknown name is refused."""
     unknown = [c for c in wanted if c not in names]
@@ -2075,6 +2229,12 @@ def main() -> None:
     c.add_argument("--series", metavar="LABEL.Class", help="print this segment's difference from the source frame by frame")
     c.add_argument("--bin", type=int, default=24, help="frames a bin of the series")
     c.add_argument("--around", type=int, action="append", help="a source frame to print the step and the series round; repeatable")
+    u = sub.add_parser("mouth", help="a render's mouth against the source's, frame by frame")
+    u.add_argument("capture")
+    u.add_argument("--subject", required=True)
+    u.add_argument("--reference", metavar="MASK[@FIRST][:classes]", help="the source's mouth mask (or a class map of it); the "
+                   "subject's own class map in the capture when not given")
+    u.add_argument("--arm", action="append", default=[], metavar="NAME=MASK[@FIRST][:classes]", help="a render's mouth mask; repeatable")
     x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
     x.add_argument("capture")
     x.add_argument("--subject", required=True)
@@ -2084,7 +2244,7 @@ def main() -> None:
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed}[a.mode](a)
+    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask, "changed": changed, "mouth": mouth}[a.mode](a)
 
 
 if __name__ == "__main__":
