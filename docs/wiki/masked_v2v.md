@@ -568,6 +568,23 @@ behind the lane's signals do and do not give (a body mesh has no mouth; no
 model here scores lip sync) is in
 [`meta_perception_models.md`](meta_perception_models.md).
 
+**One command for the file that gets watched**: `bench/assemble_delivery.py`
+takes a table of renders by source frame range and writes one file at the
+source's own rate with the source's own audio packets, the frames no render
+covers taken from the original, and passes over the same frames merged by
+what each changed. It proves by decode that no frame was dropped, doubled or
+moved and that the audio is the source's, and it raises its own flags from
+the per-frame table of what each render changed: a pass that redrew
+something on frames its subject has no mask on, far from its subject, far
+more than it usually does, or the same pixels as another pass. Given capture
+folders (`--capture`) it settles shared pixels by whose mask they lie in
+before falling back on the table's order, and writes its table and flags
+into them. Judge a render's colour on this file: it is BT.709 and says so,
+as renders are since the song node's writer converts and tags, and a render
+written before that plays off in a player that guesses the matrix from the
+size. Its docstring is the account; `bench/check_assemble_delivery.py` is
+its check.
+
 **What every masked render already wrote beside itself** (the song node,
 `audio_freeze_song.py`):
 
