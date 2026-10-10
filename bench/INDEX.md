@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 106 |
+| [`check_*`](#check) | 107 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 138 |
+| [the rest](#the-rest) | 139 |
 
 ## check
 
@@ -36,6 +36,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_changelog.py`](check_changelog.py) | `CHANGELOG.md`'s top is what the fragments in `changelog.d/` make, and the builder cannot lose an entry. |
 | [`check_channel_balance.py`](check_channel_balance.py) | Check `MiniMaxH3ChannelBalance`: the fold is exact, RoPE-safe, off by default, and picks the blocks the shipped checkpoint's weights say it should. |
 | [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
+| [`check_clip_analysis.py`](check_clip_analysis.py) | Check the tool that makes an input video's analysis folder. |
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
@@ -315,6 +316,7 @@ this file is only a way to find a script by what it says it does.
 | [`capture_masked_run.py`](capture_masked_run.py) | Capture what the tracker and the masks did on a masked run, for any number of subjects, and show it. |
 | [`checkpoint_delta_map.py`](checkpoint_delta_map.py) | Where each distill changes H3, from full-precision weights. CPU only. |
 | [`classify_kijai_pdd_banks.py`](classify_kijai_pdd_banks.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md section 1. Network (HTTP range requests to Hugging Face) and CPU; no GPU. |
+| [`clip_analysis.py`](clip_analysis.py) | Make and fill an input video's analysis folder: the workflow that runs before any job on that video. |
 | [`clip_recipe_coverage.py`](clip_recipe_coverage.py) | Which rendered recipes have a graph in this repo, and which have none. |
 | [`compile_marker_corpus.py`](compile_marker_corpus.py) | CLOSED RECORD since 2026-09-18. This compiler stamps every shot after the first with a cut time, and its compiled corpus is pinned by hash (August 2026 marker grading). Kept byte for byte because dated records were produced by it; do not ... |
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
