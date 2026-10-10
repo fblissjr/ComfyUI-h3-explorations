@@ -78,8 +78,11 @@ person past a cut, since the mask it left then says the subject is there; it nam
 change of framing steps too; a piece that changes a frame or two just across a cut of the source and no further
 (`CUT`, `SPILL`), which is a pass whose region ran over the cut and redrew the next shot for a moment, found from
 the source's own frame-to-frame change with no capture and no shot table (measured 2026-10-10: one whole-person
-render changed a fifth of the frame on five such frames, and nothing else here said so); two pieces changing the
-same pixels, with the box and how many were settled by a mask and how many by
+render changed a fifth of the frame on five such frames, and nothing else here said so). For each such cut the
+flag says whether the cut falls inside a latent step of the piece's load (`loop_plan.step_span`, counted from the
+piece's first frame) and whether that step holds the spilled frames: if it does, it is the known way a region is
+carried over a cut; a spill at a cut on a step's edge is something else; two pieces changing the same
+pixels, with the box and how many were settled by a mask and how many by
 order; a piece that changes nothing on frames a row gives it; restored pixels beside a large change, and a restore with
 no mask or class map on some frames; and, at the source's size, a piece whose change reaches
 the edge the loader's crop cut at, beyond which only the source's picture exists. The first two need a capture; without one they
@@ -747,6 +750,29 @@ def build(args, segs, canvas, span, src, captures):
     return fed
 
 
+def latent_step(frame_in_load):
+    """(first frame, length) of the latent step holding a frame counted from a load's first frame, from the pack's
+    `loop_plan.step_span`; or a string saying why it could not be asked. Imported only when a flag needs it: the
+    pack's module imports ComfyUI core."""
+    try:
+        import importlib
+        import types
+        lp = sys.modules.get("_h3pack.loop_plan")
+        if lp is None:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from _lib import REPO, bootstrap
+            if "comfy.model_management" not in sys.modules:
+                bootstrap(cpu=True)
+            if "_h3pack" not in sys.modules:
+                pkg = types.ModuleType("_h3pack")
+                pkg.__path__ = [str(REPO)]
+                sys.modules["_h3pack"] = pkg
+            lp = importlib.import_module("_h3pack.loop_plan")
+        return lp.step_span(frame_in_load)
+    except Exception as exc:  # noqa: BLE001 - the flag stands without the note
+        return f"loop_plan.step_span could not be asked: {type(exc).__name__}: {exc}"
+
+
 def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
     """What the build's own record says should be looked at, in the capture tool's shape for a flag."""
     out, unchecked, done = [], [], set()
@@ -783,7 +809,7 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                                     "frames_with_a_mask": len(seen)},
                         "threshold": {"SPECK": SPECK, "reach_px": reach}})
         moved = record.get("source_moved", {})
-        spilled = {}
+        spilled, at_cuts = {}, []
         for cut in sorted(n for n in area if moved.get(n, 0.0) > CUT):
 
             def changed_at(n):
@@ -797,12 +823,25 @@ def flags_of(record, rows, captures) -> tuple[list[dict], list[str]]:
                     n += step
                 if len(run) <= SPILL:
                     spilled.update({k: area[k]["px"] for k in run})
+                    step = latent_step(cut - row["piece_first"])
+                    if isinstance(step, str):
+                        at_cuts.append({"cut": cut, "spilled": sorted(run), "latent_step": step})
+                    else:
+                        a, b = row["piece_first"] + step[0], row["piece_first"] + step[0] + step[1] - 1
+                        at_cuts.append({"cut": cut, "spilled": sorted(run), "latent_step": [a, b], "the_cut_splits_it": a != cut,
+                                        "it_holds_the_spill": a != cut and all(a <= k <= b for k in run)})
         if spilled:
+            known = [c for c in at_cuts if c.get("it_holds_the_spill")]
+            other = [c for c in at_cuts if c.get("it_holds_the_spill") is False]
             out.append({"rule": "piece_changes_across_a_cut", "level": LEVELS[2], **names, "source_frames": frame_spans(spilled),
                         "why": f"{names['piece']} changes up to {max(spilled.values())} px on {len(spilled)} frame(s) just across a cut "
                                f"of the source and no further: its region ran over the cut and it redrew the next shot for a moment. "
-                               f"End the row at the cut",
-                        "figures": {"frames": len(spilled), "worst_px": max(spilled.values()),
+                               f"End the row at the cut."
+                               + (" At " + ", ".join(str(c["cut"]) for c in known) + " the cut falls inside a latent step of the piece's "
+                                  "load that holds the spilled frames: the known way a region is carried over a cut." if known else "")
+                               + (" At " + ", ".join(str(c["cut"]) for c in other) + " it does not: the cut is on a step's edge or the "
+                                  "spill runs past the step, so this is not that mechanism." if other else ""),
+                        "figures": {"frames": len(spilled), "worst_px": max(spilled.values()), "at_each_cut": at_cuts,
                                     "the_source_moves_at_those_cuts": sorted({round(v, 1) for n, v in moved.items() if v > CUT
                                                                              and any(abs(n - k) <= SPILL for k in spilled)})},
                         "threshold": {"CUT": CUT, "SPILL": SPILL, "SPECK": SPECK}})

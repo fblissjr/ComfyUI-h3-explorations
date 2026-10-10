@@ -8,7 +8,7 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 101 |
+| [`check_*`](#check) | 102 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
@@ -70,6 +70,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
 | [`check_override_routing.py`](check_override_routing.py) | Check which calls the attention override sends to sage, and which it declines. |
+| [`check_patch_render_window.py`](check_patch_render_window.py) | `bench/patch_render_window.py join` against a render and a patch whose answers are known by construction. |
 | [`check_pdd_bank_encoding.py`](check_pdd_bank_encoding.py) | The converter refuses a delta-encoded head stack, and takes a verbatim one. |
 | [`check_pdd_head_selection.py`](check_pdd_head_selection.py) | The PDD node's runtime guards do what they claim, on real artifacts. |
 | [`check_pdd_sidecar_contract.py`](check_pdd_sidecar_contract.py) | The PDD sidecar's bake contract: exact pairing and the fixed population. |

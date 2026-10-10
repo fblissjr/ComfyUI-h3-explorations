@@ -707,7 +707,10 @@ capture knows (`subjects`: tracked pixels off the source, in all and by
 class, inside the track and outside it, beside the floor), and
 `--compare A.check.json B.check.json` prints two records side by side: the
 same stretch with and without a restore is the before and after a "by
-class" question asks for. With `--size source` the file is at the source's own size: every
+class" question asks for. How a region SITS in its plate (its detail, grain,
+tone and cast against the plate just outside it and against what stood
+there before) is `bench/region_against_plate.py`, which needs no mask
+either; run it before tuning a look by eye. With `--size source` the file is at the source's own size: every
 frame is the source's picture, never scaled, and only what a render changed
 is scaled up and put back over it, so nothing outside the regenerated region
 is resampled and the rows the loader's crop dropped are kept. A row can

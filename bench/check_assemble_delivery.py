@@ -47,7 +47,9 @@ of known place and size into them, and reads the tool's answers back.
 11. **A piece that spills over a cut.** A second clip with a hard cut in it and no audio. A piece painted up to
     one frame past the cut raises the flag on that frame; painted up to the cut, or on well past it (a subject who
     is in both shots), it raises nothing; and a piece given as several rows raises each of its flags once. The
-    delivery of a clip with no audio passes and says none was written.
+    flag says whether the cut falls inside a latent step of the piece's load (`loop_plan.step_span`): it does for
+    a load starting at frame 0 and does not for the same pictures loaded from frame 2, where the cut is on a step's
+    edge. The delivery of a clip with no audio passes and says none was written.
 12. **Whose a pixel is, from the capture's owner map.** Two tracks that both claim a strip, and an `owners.npz`
     that gives half the strip to the other subject and marks the rest contested. `restore=<subject>` gives back
     what that subject owns, the half of the strip included, and not the contested half, which the plain tracked
@@ -552,9 +554,28 @@ with tempfile.TemporaryDirectory() as _tmp:
         for name, last in (("spill_none", cut_at - 1), ("spill_follows", cut_at + 12)):
             r = flags_of(name, last)
             assert not [f for f in r["flags"] if f["rule"] == "piece_changes_across_a_cut"], f"{name}: a piece that {('ends at the cut' if last < cut_at else 'goes on past it')} was flagged"
+        # what the flag says about the latent step: the piece's load starts at source frame 0, so the cut at 20 falls
+        # inside a step; the same pictures as a load starting at frame 2 put the cut on a step's edge
+        lp = importlib.import_module("_h3pack.loop_plan")
+        assert lp.step_span(cut_at)[0] != cut_at and lp.step_span(cut_at - 2)[0] == cut_at - 2, \
+            f"core's step cycle {lp.FRAME_PER_TOKEN} no longer puts frame {cut_at} inside a step and {cut_at - 2} on an edge: the case needs new frames"
+        note = spill[0]["figures"]["at_each_cut"][0]
+        a, n = lp.step_span(cut_at)
+        assert note["latent_step"] == [a, a + n - 1] and note["the_cut_splits_it"] and note["it_holds_the_spill"], note
+        late = whole[2:].clone()
+        x0, y0, x1, y1 = RECT_A
+        late[3:cut_at - 2 + 1, y0:y1, x0:x1] = (late[3:cut_at - 2 + 1, y0:y1, x0:x1] + 0.5) % 1.0
+        path = TMP / "spill_edge.txt"
+        path.write_text(f"2-{frames - 1} {write('spill_edge_piece', late)} 2\n")
+        out = TMP / "spill_edge.mp4"
+        subprocess.run([sys.executable, str(Path(tool.__file__)), "--source", str(clip), "--table", str(path), "--span", f"0-{frames - 1}",
+                        "--out", str(out)], capture_output=True, text=True)
+        edge = [f for f in json.loads(Path(str(out) + ".check.json").read_text())["flags"] if f["rule"] == "piece_changes_across_a_cut"]
+        assert edge and edge[0]["figures"]["at_each_cut"][0]["the_cut_splits_it"] is False and "not that mechanism" in edge[0]["why"], edge
         again = flags_of_rows("spill_rows", cut_at)
         assert [f["rule"] for f in again].count("piece_changes_across_a_cut") == 1, "a piece on two rows raised its flag twice"
-        return "one frame past the cut is flagged, once; ending at the cut, or going on well past it, is not"
+        return ("one frame past the cut is flagged, once, and said to be inside a latent step; the same spill from a load whose step ends "
+                "at the cut is said not to be; ending at the cut, or going on well past it, is not flagged")
 
     def by_the_owner_map() -> str:
         # RECT_A is x 40-104, y 40-120. Subject a's track holds x 40-80, b's x 64-104: both claim x 64-80.
