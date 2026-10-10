@@ -38,6 +38,10 @@ of known place and size into them, and reads the tool's answers back.
    where the piece changed nothing gives nothing back and raises nothing. A class by its index means the same
    as by its name, a class the part model does not have is refused, and a restore whose subject has no class
    map on some frames says which.
+10. **Another subject given back whole** (`restore=<subject>` with no class). Two tracked masks over the painted
+    rectangle, the piece's own subject and another, overlapping: where only the other's mask is, the file is the
+    original; where both are, and where only the piece's own is, it is the piece. Without a run for the piece
+    in the capture nothing is taken out of the other's mask, so the overlap goes back too.
 
 ## Running it
 
@@ -450,9 +454,34 @@ with tempfile.TemporaryDirectory() as _tmp:
         proc, r, _ = tabled("restore_unknown", f"10-39 {PIECE_A} 10 restore=a.Earring\n", "--capture", str(on))
         assert proc.returncode != 0 and "not a class of the part model" in proc.stderr, proc.stderr[-200:]
         proc, r, _ = tabled("restore_short", line, "--capture", str(short))
-        blind = [f for f in r["flags"] if f["rule"] == "restore_has_no_class_map"]
+        blind = [f for f in r["flags"] if f["rule"] == "restore_has_no_mask"]
         assert blind and blind[0]["source_frames"] == [[25, 39]], [f["rule"] for f in r["flags"]]
         return f"{area} to {grown} px given back a frame; the original inside the box at both sizes; nothing where the piece changed nothing"
+
+    def a_subject_given_back() -> str:
+        # RECT_A is x 40-104, y 40-120. The piece's own subject holds its left part, another subject its right part,
+        # and they overlap in the middle
+        own, other = (40, 40, 80, 120), (64, 40, 104, 120)
+        only_other, both, only_own = (86, 50, 100, 110), (68, 50, 76, 110), (46, 50, 58, 110)
+        masks = {"a": mask_of(own, 30), "b": mask_of(other, 30)}
+        with_run = capture(TMP / "cap_subject", 10, 30, masks, [{"name": "run_a", "render": "piece_a.mp4", "subject": "a", "margin_px": 16}])
+        no_run = capture(TMP / "cap_subject_no_run", 10, 30, masks, [])
+        o, a = original(20), planes_of(PIECE_A, 20)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1]:rect[3], rect[0]:rect[2]] - y[0][rect[1]:rect[3], rect[0]:rect[2]]).mean())
+        row = {"piece": PIECE_A, "piece_first": 10, "restore": [("b", None)]}
+        got, record = frame_planes(SOURCE, [dict(row)], 20, tool.Captures([with_run], (W, H)))
+        assert box_mean(got, o, only_other) < 1.0, f"where only the other subject is, the frame is {box_mean(got, o, only_other):.2f} from the original"
+        assert box_mean(got, a, both) < 1.0, "where both masks are, the piece did not keep its pixels"
+        assert box_mean(got, a, only_own) < 1.0, "where only the piece's own subject is, the piece's pixels are gone"
+        given = record["rows"][PIECE_A][20]["restored_px"]
+        area = (other[2] - own[2]) * (other[3] - other[1])                       # the other's mask outside the piece's own
+        assert area <= given <= area + 2 * tool.RESTORE_GROW * (other[3] - other[1] + 40), (area, given)
+        got, _ = frame_planes(SOURCE, [dict(row)], 20, tool.Captures([no_run], (W, H)))
+        assert box_mean(got, o, both) < 1.0 and box_mean(got, o, only_other) < 1.0, "with no run for the piece the other's whole mask was not given back"
+        assert tool.read_table(table(TMP / "subject_row.txt", [(10, 39, PIECE_A, "10 restore=b")]))[0]["restore"] == [("b", None)]
+        return f"{given} px given back on the frame read ({area} in the other's mask alone); the overlap stays the piece's"
 
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
@@ -463,4 +492,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("the flags", flags)
     case("at the source's size", at_the_sources_size)
     case("a class given back to the source", a_class_given_back)
+    case("another subject given back whole", a_subject_given_back)
 sys.exit(finish())

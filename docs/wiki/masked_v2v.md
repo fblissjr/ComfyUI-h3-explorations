@@ -619,7 +619,10 @@ give a class of a subject back to the source (`restore=<subject>.<Class>`,
 read from the capture's class map): a thing inside a region that should not
 have been redrawn, an earring inside a face, is put back here and not by
 asking the sampler to keep it, which changes what the sampler draws beside
-it. Judge a
+it. With no class (`restore=<subject>`) a row gives back the whole of
+another subject: wherever that subject's tracked mask is and the piece's own
+subject's is not, so a pass on one person never shows what it changed of
+another. Judge a
 render's colour on this file: it is BT.709 and says so,
 as renders are since the song node's writer converts and tags, and a render
 written before that plays off in a player that guesses the matrix from the
