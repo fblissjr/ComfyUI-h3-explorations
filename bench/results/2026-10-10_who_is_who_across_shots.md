@@ -215,6 +215,124 @@ which is no margin. So:
   and the lead is left with nobody. Nothing here says what happens when a
   stranger stands in that frame.
 
+## A cast file: remembering each named subject across shots, loads and sessions (a scope; nothing is built)
+
+The owner's question, the same day: why not look across cuts, how far back
+is looked, and can what is tracked be stored so a subject who does not
+appear again until much later is still known.
+
+**What is remembered today, read from the code.** A tracker call cannot
+cross a cut, so each shot is seeded afresh. Across a cut a person is
+compared with ONE look, the pick frame, however long ago: nothing decays,
+there is simply nothing else (`subject_track.py::follow`). Inside a shot a
+subject the track let go is looked for against up to
+`subject_track.py::GALLERY_MOST` looks of that shot's own track. And one
+memory is already on disk: a shot table carries the picked shot's gallery,
+and a later run can be handed it (`shot_table.py::gallery_from`, the
+node's `subject_from`). That hand-over picks its subject by the gallery
+AGAINST A LINE (`subject_track.py::clear_best`), the form the measurement
+above found unsafe: on a frame that holds only another named subject there
+is no next person to lead, and she scored 0.89 against the lead's gallery.
+Not seen to happen; it follows from the code and that figure.
+
+**The file.** One per job, beside its captures: every NAMED subject, and
+under each the looks of every shot in which they were confirmed.
+
+- **A look** is a person on one frame: the source frame, the load and the
+  shot it came from, the box and its share of the frame, the three
+  signatures the tables now carry (top third, head, whole mask), and how it
+  was confirmed: by the tracker's own rule with its score and line, or by a
+  person, with the correction that was typed. Each look has an id.
+- **What goes in.** Only a shot a tracker took by its own rule, or one a
+  person settled by typing a correction. A row the joint decision is unsure
+  of is NOT a confirmation until it has been typed and the preview run
+  again, at which point the table itself says so.
+- **Who writes it.** A bench tool, with no model: it reads the trackers'
+  shot tables of a preview and adds the confirmed shots' shown-frame people
+  and the picked shot's gallery. The tables are the raw material and stay
+  as they are.
+- **Who reads it.** The joint decision
+  (`bench/who_is_who_across_shots.py::settle_tables`): each subject's
+  gallery becomes its cast looks, from every earlier shot and load, in
+  place of one table's gallery, and the shot is handed out for all named
+  subjects together (`subject_tracks.py::hand_out`). Never one subject's
+  looks against a line. No node changes for this step.
+- **A subject away for many shots.** Nothing decays and nothing should:
+  the score is already the best over the looks, so the nearest look in
+  size and angle decides. What the tables suggest and do not show: scores
+  fall with a change of size (the 2026-10-06 record) and this load's two
+  hard cases were a much larger and a much smaller person than their
+  galleries held, each with something else changed as well. Whether more
+  looks WIDEN the lead is not known: the other subject's best over a
+  bigger gallery rises too. That is the first thing to measure, on a load
+  with several confirmed shots a subject, leaving one shot out at a time.
+- **Getting a wrong look out.** A confirmed mistake would be compared with
+  every later shot. So every decision the file feeds names the look that
+  gave each person's best score, and removing a look, or everything from
+  one shot, is one command and leaves a line saying who removed it and
+  why. Nothing is ever edited in place.
+- **How it reaches a tracker.** Not at first: the trackers keep deciding
+  alone and the cast is used where shots are settled together, which
+  writes corrections a person types. Later, and only if that holds on a
+  second clip: one tracker for all named subjects that reads the cast,
+  which is also what would replace the hand-over above.
+- **Things, not only people.** The same file can hold a named thing with
+  its looks: for a thing there is no head and no top third, so its
+  signature is the whole mask alone. Whether the tracker can follow a bowl
+  or a hat in a hand by phrase or by box, and whether a whole-mask
+  signature tells one held thing from another, has not been tried here.
+- **What it does not fix.** A stranger on the frame while a named subject
+  is away; two people who look alike; and the first shot, which a person
+  still picks.
+
+**Three additions, from the owner's follow-up** (more than one pick frame;
+what raises the odds for a person who is distant, close, side-on or moving).
+Measured and guessed are kept apart.
+
+- **Looks that differ on purpose, stored up front. Worth building; cheap;
+  no model.** Before any shot is settled the file is seeded with a few
+  confirmed looks per named person that differ: large and small in the
+  frame, facing and turned, and whatever changes their outline in the clip.
+  The tool proposes which to confirm, so a person answers a few questions
+  at the start and not one a shot: for each shot, the person the joint
+  decision hands to a subject is scored against what the file already
+  holds of that subject (the best likeness over its looks, top third and
+  whole mask), and the shots are ranked by the LOWEST such score among
+  those where the hand-out still leads. MEASURED: nothing; the signatures
+  to rank by are in the tables since today. A GUESS that it helps, with
+  one reason for care: a low score is also what the wrong person looks
+  like, so the ranking finds the looks most worth a person's eye and can
+  never confirm one itself.
+- **Compare at one scale. Not known; one CPU run would say.** A signature
+  is the image trunk's features averaged under a mask at the FRAME's
+  scale, so a distant person is a handful of feature cells. MEASURED: a
+  subject found again at a quarter of her gallery's size scored lower than
+  at a like size (the 2026-10-06 record), and on this load the small,
+  half-hidden subject is the one a single frame could not place. NOT
+  MEASURED: whether taking each person's signature from a crop of their
+  box, resized to one size, makes a distant look and a close one
+  comparable. It costs one more trunk pass a person a look, only on the
+  frames looked at. The run that decides it before anything is built: the
+  middle shot's five looks, both people, both galleries, signed from
+  crops, read for whether the small subject's own-against-other lead
+  widens on the frames where it was nothing.
+- **Looks chosen where the picture is steady, not by a fixed stride. Half
+  free; untested.** The tracker already has, for every frame, how much it
+  differs from the frame before (`subject_track.py::cut_scores`, the
+  number it finds cuts with): a frame in a run of small differences can be
+  preferred at no cost. That is movement of the whole frame, not sharpness
+  of the person; a sharpness figure under the person's box is cheap and is
+  not computed today. MEASURED: only that the first frame after the cut
+  was the worst look of the shot for one subject, and that on one other
+  frame the head view alone collapsed. Whether either was blur was not
+  looked at.
+
+Order: the joint decision read on real tables first; then the one-scale
+run, since it could change what a look IS before any are stored; then the
+file, its seeding, add and remove, and the decision reading it, all
+without a model; then the leave-one-shot-out measurement on a second clip;
+only then a tracker that reads it.
+
 ## Not done
 
 - A second clip, and a crowd.
