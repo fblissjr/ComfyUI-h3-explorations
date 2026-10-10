@@ -129,7 +129,9 @@ nobody is there.
 (`data/2026-10-10_fun_seeded_memory/`, untracked: `cases.json` is the
 eighteen cases and what a useful vote would do in each, written by the
 tracker's session before any run; `reading_by_mrpop.json` is the reading,
-by the lead session, which built none of it, and holds every count). The
+by the lead session, which built none of it, and holds every count; the
+tracked account is the record's section "A second vote of another kind:
+SAM's own memory, seeded on a confirmed frame", ff1568c9). The
 cases are the wrong takes and the one miss of the two uncorrected
 three-subject previews, with six right takes as controls; each subject
 was seeded from one frame a person had confirmed in another shot.*
@@ -554,6 +556,20 @@ column is the list the next job most needs.
 | no classifier for each video; recognition reads the source, never a render | | a session, from [`decisions.md`](decisions.md) and this page |
 | a thing inside a region is answered for before a render | for a tracked subject's own parts, the gate's `segment_inside_region`, which warns and does not block | for an object: a session adds a tracker by hand, or nothing knows it is there |
 | a cut is a spike, not a level; the confirmed look is shown again | | not built: `subject_track.py::find_cuts` takes every frame over the line |
+
+*2026-10-10, later the same night: one row of the right column moved.
+The cast file exists in its least form, `bench/cast_file.py` with
+`bench/check_cast_file.py` (35e45d29 to 68347328, the tracker owner's). It
+keeps what a person answered about a frame: for each named subject, that
+person's box on the frame, or the words "none of the outlined people". It
+asks about the people outlined, shows nothing a tracker concluded, stores
+a tile whole or not at all under a lock, never rewrites a line, and can
+write a load's seeds from the answers. It holds no likeness, no scene and
+no appearance, and it decides nothing, which is the owner's simple form
+of section 4 of [`who_is_who.md`](who_is_who.md) and not all of it. What
+is still a session remembering: nothing calls it yet, so a job's answers
+reach it only if somebody runs it; and one confirmation a subject a scene
+is still a rule on a page.*
 
 **What the table says.** What is enforced is what was built this day
 around the trackers as they are: the folder, the gate, the decision that
