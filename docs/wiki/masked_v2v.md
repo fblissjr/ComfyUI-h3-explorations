@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 (the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-10 (a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -261,6 +261,16 @@ where in core.
   a prop the original holds is otherwise under the noise and comes back as
   whatever the model guesses. Rendered once, 2026-10-07, with a mask from a
   phrase that SAM held for the window's first seconds only; not judged.
+  **Dated note, 2026-10-10: do not `keep` something that lies inside or
+  against the part being replaced.** A `keep` of the lead's jewellery class
+  inside a face-only region held the jewellery and, because a kept token is
+  whole, also held the skin beside it; on the pixels the sampler was free to
+  redraw, the face then moved back toward the original's over the window
+  (one clip, one lead, one window, one seed; the masking board,
+  `find-mrpop-keep-inside-a-face-brings-the-original-back`, names the
+  measure). It is the head-and-hair result again: real pixels of the
+  original next to the hole. Put such a thing back at assembly instead,
+  where the sampler never sees it.
 - **`replace`.** `whole subject`, or `head and hair`, which keeps the body's
   pixels and finds the part with SAM 3 from `part_phrases`.
 - **`motion_video`** (optional, 2026-10-10) with `motion_reference` on
@@ -273,7 +283,11 @@ where in core.
   chain is not: that one is cut from frame zero for every window. With
   `motion_vae` on, the video model has its own copy at every frame; off, the
   text encoder sees two frames a second. The prompt has to say what
-  `<Video 1>` is and what is taken from it. Rendered as an appended video on
+  `<Video 1>` is and what is taken from it. A body mesh for it is made from
+  the track with `MiniMaxH3SubjectBoxes` (`subject_boxes.py`): one box a
+  frame round the tracked mask, wired to the body model's box input, so the
+  mesh is of the tracked person and the model's crop is of them and not of
+  the whole frame. Rendered as an appended video on
   one window before this input existed, with a body mesh from core's SAM 3D
   Body nodes and the video model's copy: on that one shot and seed the
   action was drawn with no action words, and things inside the region came
