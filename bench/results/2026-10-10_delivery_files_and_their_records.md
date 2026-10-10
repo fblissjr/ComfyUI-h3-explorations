@@ -296,3 +296,19 @@ flag reads the source's own frame-to-frame change for it.
   (frames nothing is laid on). md5 `57787539a7d3ec8e22d6c05745b21610`. The
   standing files are untouched. Versions that cover 1010-1038 and mend
   480-483 are to follow beside it as `_b` and `_c`.
+- 2026-10-10, **found on playback by the owner in `fun_0000_1050_a.mp4`**,
+  beyond the faults its note lists. None of these is something a proof here
+  reads; they are what watching found:
+  1. On the street shots the lead's face does not read as replaced. It is a
+     different face on every frame, and too small to read as the reference's
+     person: about 94 px tall at the canvas, three of the model's tokens,
+     where the kitchen's accepted face is about 164 (the lead session's
+     figures).
+  2. The second subject's whole-person pass: a hand does not reach the bowl
+     in the kitchen, her face is awkward, and a bag strap from the reference
+     photo is drawn on her (about 42 s in).
+  3. Decided by the owner on that: the second subject is FACE AND HAIR ONLY
+     from here; everything else of her stays the source's. Her whole-person
+     rows are to be replaced by face-and-hair rows shot by shot as they
+     render. The locked file and the standing files stay as they are; the
+     joined file's next versions are built from the new pieces.
