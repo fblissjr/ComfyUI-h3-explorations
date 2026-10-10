@@ -65,7 +65,10 @@ Claims, i.e. what breaks if a case is deleted:
                         and which were the builder's defaults, and what the
                         capture measured on this clip for the load, with a
                         figure the capture lacks said to be absent
-  the gate before a render    `verify` again, the capture's verdict, and the
+  the gate before a render    (and, in the same case, what `collect` reads out
+                        of a finished run's history: its files, its words,
+                        its time, its error)
+                        `verify` again, the capture's verdict, and the
                         node's own plan read for that load, each refused apart
 
 **What it does not show**, each found by breaking the thing on purpose and
@@ -596,6 +599,20 @@ def loads_from_a_capture():
         absent = part["what_this_clips_preview_measured"]
         assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
             f"a figure the capture does not hold is not said to be absent: {absent}"
+        # a subject's still stands for its loads; a load's own wins; a stretch left out on purpose is carried
+        no_still = {k: v for k, v in WHOLE.items() if k != "still"}
+        subjects = [dict(s, still="a.png") if s["label"] == "b" else s for s in LOAD_JOB["subjects"]]
+        gaps = [{"subject": "c", "first": 800, "frames": 40, "why": "small in an inset; waits for the zoomed render"}]
+        both = tool.build_loads(_loads_file(tmp, capture, loads=({**no_still, "name": "b_subjects_still"}, {**WHOLE, "name": "b_own_still"}),
+                                            subjects=subjects, left_out=gaps), "plan", [], **where)
+        for path, still in zip(both, ("a.png", "b.png")):
+            graph, record = json.loads(path.read_text()), json.loads(path.with_suffix(".built.json").read_text())
+            assert graph[graphs._the(graph, "LoadImage")]["inputs"]["image"] == still, f"{path.name} loads {graph[graphs._the(graph, 'LoadImage')]['inputs']['image']}"
+            assert record["left_out_on_purpose"] == gaps, record["left_out_on_purpose"]
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_gap"},), left_out=[{"subject": "c", "first": 800, "frames": 40}]),
+                                          "plan", [], **where), "left_out", "why")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_gap"},), left_out=[{**gaps[0], "subject": "z"}]),
+                                          "plan", [], **where), "'z'")
         # the same load again; then the render, which is another stage and another folder
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture), "plan", ["b_0700"], **where), "b_0700.plan.json", "new `name`")
         rendered = tool.build_loads(_loads_file(tmp, capture), "render", ["b_0700"], **where)
@@ -652,6 +669,17 @@ def the_gate_before_a_render():
         found = tool.gate(built, folder, ok)
         assert found == {"verify": 0, "verdict": "clear", "overridden": ["f003"], "plan_read": "b_0700_plan.json"}, found
         _refused(lambda: tool.stem_of("render"), "--load")
+        # what a finished run left in the server's history, as the record keeps it
+        read = tool.read_history({"status": {"status_str": "success", "messages": [
+            ["execution_start", {"timestamp": 1000}], ["execution_success", {"timestamp": 63000}]]},
+            "outputs": {"7": {"gifs": [{"filename": "b_mesh_00001.mp4", "subfolder": "Video/check/check", "type": "output"}],
+                              "text": ["said by seven"]},
+                        "3": {"images": [{"filename": "a.png", "subfolder": "", "type": "output"}]}}})
+        assert read == {"status": "success", "seconds": 62, "files": ["Video/check/check/b_mesh_00001.mp4", "a.png"],
+                        "said": {"7": ["said by seven"]}}, read
+        failed = tool.read_history({"status": {"status_str": "error", "messages": [
+            ["execution_error", {"node_type": "X", "exception_type": "E", "exception_message": "why"}]]}, "outputs": {}})
+        assert failed["status"] == "error" and failed["error"]["exception_message"] == "why" and failed["files"] == [], failed
         assert (tool.stem_of("preview"), tool.stem_of("render", "b_0700")) == ("preview", "b_0700.render")
 
 
@@ -695,7 +723,22 @@ def build_refuses_what_it_must():
         folder = tool.build(_job_file(tmp, job), "preview", **where)
         assert json.loads((folder / "preview.json").read_text()) == graphs.preview(job), "the graph written is not the graph built"
         built = json.loads((folder / "preview.built.json").read_text())
-        assert built["tracker_mask_version"] == version and set(built["saves"]) == {"a", "b", "c"}, built
+        assert built["tracker_mask_version"] == version and set(built["expects"]) == {"a", "b", "c"}, built
+        assert set(built["expects"]["c"]) == set(tool.SAVED_AS) - {"mesh", "pose"} and set(built["expects"]["a"]) == set(tool.SAVED_AS), \
+            "what the preview must leave on disk does not follow who has a pose pass"
+        # every save of the graph is one of the things looked for afterwards, and the other way round
+        saved = {v for n in graphs.preview(job).values() for k, v in n["inputs"].items() if k in ("filename_prefix", "table_prefix")}
+        looked_for = {p[:-len(tool.SAVED_AS[k])] for things in built["expects"].values() for k, p in things.items()}
+        assert looked_for == saved, f"saved and not looked for: {sorted(saved - looked_for)}; looked for and not saved: {sorted(looked_for - saved)}"
+        out = tmp / "output"
+        for name in ("check_a_track_00001.mkv", "check_a_track_00001.png", "check_a_shots_00001_shots.json", "check_a_pose_table.json"):
+            (out / "Video/check/check").mkdir(parents=True, exist_ok=True)
+            (out / "Video/check/check" / name).write_bytes(b"")
+        found, missing = tool.found_on_disk({"a": built["expects"]["a"]}, out)
+        assert found["a"]["track"] == ["Video/check/check/check_a_track_00001.mkv"] and found["a"]["shots"] and found["a"]["pose"], found
+        assert sorted(m.split(" ")[1] for m in missing) == ["classes", "held_things", "mesh", "parts"], f"said to be missing: {missing}"
+        import shutil as _sh
+        _sh.rmtree(out / "Video")
         assert built["builder_not_committed"] == tool.builder_not_committed(), "the record does not say what state the builder was in"
         assert json.loads((folder / "job.json").read_text())["job"] == job, "the job file was not kept as given"
         # the same name again: the job folder is there
@@ -757,6 +800,7 @@ def queue_refuses_what_it_must():
             f"an override was not recorded with what it overrode: {record}"
         # the output folder appeared since the build; then: queued before
         made = Path(json.loads((folder / "preview.built.json").read_text())["output_folder"])
+        assert not made.exists(), "the case's own output folder is already there"
         made.mkdir(parents=True)
         _refused(lambda: tool.before_queue(folder, "preview", oi, repo=repo, override="check: this case"), "output folder")
         made.rmdir()

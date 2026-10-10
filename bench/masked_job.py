@@ -3,6 +3,7 @@
 
     <python> bench/masked_job.py build preview JOB.json          # writes data/<date>_<name>_job/, touches no server
     <python> bench/masked_job.py queue data/<date>_<name>_job preview [--wait]
+    <python> bench/masked_job.py collect data/<date>_<name>_job preview      # a run queued without --wait: record what it saved
     <python> bench/masked_job.py build plan JOB.json [--load NAME ...]      # what the node says each load will be given
     <python> bench/masked_job.py queue data/<date>_<name>_job plan --load NAME [--wait]
     <python> bench/masked_job.py build render JOB.json [--load NAME ...]
@@ -41,9 +42,16 @@ beside its graph: `settings`, each value used and whether the job file or the bu
 subject's share of the frame and its box over the load's frames, the part's share, the load against its window.
 A figure the capture does not hold is said to be absent, in words.
 
+Two keys of the job block for a job of several subjects: a subject's `still` is the still of every load of that
+subject unless a load names its own; and `left_out`, a list of `{subject, first, frames, why}`, names the
+stretches left as the source on purpose. Those make no graph and are written into every load's record
+(`left_out_on_purpose`), so a shot with no load reads as a decision and not as something the builder lost.
+
 **queue** is the only step that uses the card, so it runs on the lead's word. It validates the graph against
 what the running server serves (`build_workflows.validate_api`), posts it, and writes `<stage>.queued.json`;
-with `--wait` it stays until the server is done and writes what was saved.
+with `--wait` it stays until the server is done and writes what was saved. **collect** does that last part for
+a run queued without `--wait`, from the server's history, and posts nothing: the plan and render stages find
+the mesh a preview saved in that record, so a preview is collected before a load is built.
 
 **What it refuses**, each with exit status `REFUSED`:
 
@@ -190,6 +198,22 @@ def loads_of(given: dict) -> list[dict]:
     return out
 
 
+def left_out(job: dict) -> list[dict]:
+    """The stretches a job leaves as the source ON PURPOSE (`left_out` in the job block): a subject, its frames
+    and why. They make no graph; they are carried into every record of the job, so that a stretch with no load
+    reads as a decision somebody wrote down and not as one the builder lost."""
+    out = []
+    for n, entry in enumerate(job.get("left_out") or []):
+        lacking = [k for k in ("subject", "first", "frames", "why") if not entry.get(k) and entry.get(k) != 0]
+        if lacking:
+            raise Refused(f"left_out entry {n} lacks {', '.join(lacking)}: a stretch left out on purpose says whose, "
+                          f"which frames and why")
+        if entry["subject"] not in [s["label"] for s in job["subjects"]]:
+            raise Refused(f"left_out entry {n} names {entry['subject']!r}, who is not one of the job's subjects")
+        out.append(dict(entry))
+    return out
+
+
 def text_of(job: dict, one: dict, beside: Path) -> tuple[str, str]:
     """A load's text and the file it came from. The builder writes no text and guesses none."""
     label = one.get("text")
@@ -250,7 +274,7 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
         path = one.get("motion_file") or mesh_of(one["subject"])
         if not path or not Path(path).is_file():
             raise Refused(f"load {one['name']!r} takes motion `{motion}` and no saved mesh of {one['subject']!r} was "
-                          f"found: queue the preview with a pose pass for that subject and `--wait`, name a "
+                          f"found: queue the preview with a pose pass for that subject and `collect` it, name a "
                           f"`motion_file`, or give the load `motion: none`")
         files["motion"] = (str(path), one.get("motion_first", job["first"]))
     return files
@@ -391,6 +415,11 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
     if "job" not in given:
         raise Refused(f"{job_file} has no `job` block")
     job, every = given["job"], loads_of(given)
+    stills = {s["label"]: s["still"] for s in job.get("subjects", []) if s.get("still")}
+    for one in every:
+        # a subject's still, given once in the job block, is every load's of that subject unless a load names its own
+        if "still" not in one and one["subject"] in stills:
+            one["still"] = stills[one["subject"]]
     chosen = [one for one in every if not names or one["name"] in names]
     unknown = set(names) - {one["name"] for one in every}
     if unknown or not chosen:
@@ -399,6 +428,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         raise Refused("the job block names no `capture`: a load is built from a checked capture's files")
     capture = Path(job["capture"]) if Path(job["capture"]).is_absolute() else repo / job["capture"]
     folder = job_folder(job, date, data)
+    on_purpose = left_out(job)
     base = json.loads((repo / "workflows" / h3_config.MASKED_JOB_BASE_GRAPH).read_text())
     windows, written, todo = chain_lengths(repo), [], []
     for one in chosen:
@@ -427,7 +457,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "uncommitted_node_code": uncommitted_node_code(repo), "job_file": str(job_file),
                   "capture": str(capture), "files": files, "text_file": text_file, "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
-                  "shown": says, "settings": settings_of(one, graph),
+                  "shown": says, "settings": settings_of(one, graph), "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": measured(job, one, capture, graph)}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")
         written.append(graph_file)
@@ -490,9 +520,37 @@ def build(job_file: Path, stage: str, *, date: str, data: Path, output: Path, re
               "commit": head(repo), "builder_not_committed": builder_not_committed(repo),
               "uncommitted_node_code": uncommitted_node_code(repo),
               "tracker_mask_version": version, "job_file": str(job_file), "output_folder": str(saves_to),
-              "saves": {s["label"]: graphs.prefixes(job, s["label"]) for s in job["subjects"]}}
+              "output": str(output), "expects": expected_files(job)}
     (folder / f"{stage}.built.json").write_text(json.dumps(record, indent=1) + "\n")
     return folder
+
+
+#: The file each thing a preview saves ends up as, after its prefix: a save node numbers its file, the shot
+#: table and the pose table name theirs. A history lists only some of these, so they are looked for on disk.
+SAVED_AS = {"track": "_*.mkv", "parts": "_*.mkv", "classes": "_*.mkv", "held_things": "_*.mkv", "shots": "_*_shots.json",
+            "mesh": "_*.mp4", "pose": "_pose_table.json"}
+
+
+def expected_files(job: dict) -> dict:
+    """What a job's preview must leave on disk, as patterns under the output folder: per subject, per thing."""
+    out = {}
+    for subject in job["subjects"]:
+        prefix = graphs.prefixes(job, subject["label"])
+        wanted = [k for k in SAVED_AS if subject.get("pose", True) or k not in ("mesh", "pose")]
+        out[subject["label"]] = {k: prefix[k] + SAVED_AS[k] for k in wanted}
+    return out
+
+
+def found_on_disk(expects: dict, output: Path) -> tuple[dict, list[str]]:
+    """The files that are there for each thing a run was to save, and the things with none."""
+    found, missing = {}, []
+    for label, things in expects.items():
+        found[label] = {}
+        for thing, pattern in things.items():
+            found[label][thing] = sorted(str(p.relative_to(output)) for p in output.glob(pattern))
+            if not found[label][thing]:
+                missing.append(f"{label}: {thing} ({pattern})")
+    return found, missing
 
 
 def capture_command(job: dict, date: str) -> str:
@@ -569,30 +627,61 @@ def queue(folder: Path, stage: str, *, host: str, load: str = "", override: str 
     print(f"queued {record['prompt_id']}  ({queued})")
     if not wait or not record["prompt_id"]:
         return 0
-    started = time.time()
-    while True:
-        history = call(host, f"/history/{record['prompt_id']}")
-        if record["prompt_id"] in history:
-            break
+    while record["prompt_id"] not in call(host, f"/history/{record['prompt_id']}"):
         time.sleep(3)
-    entry = history[record["prompt_id"]]
+    return collect(folder, stage, host=host, load=load)
+
+
+def read_history(entry: dict) -> dict:
+    """What a finished run left in the server's history, as the record keeps it: its status, how long the
+    server says it took, every file it saved under the output folder, and what each text preview said."""
     status = entry.get("status", {})
-    record |= {"seconds": round(time.time() - started), "status": status.get("status_str"), "files": [], "said": {}}
+    out = {"status": status.get("status_str"), "files": [], "said": {}}
+    times = [detail.get("timestamp") for kind, detail in status.get("messages", [])
+             if kind in ("execution_start", "execution_success", "execution_error", "execution_interrupted")]
+    if len(times) > 1 and all(isinstance(t, (int, float)) for t in times):
+        out["seconds"] = round((times[-1] - times[0]) / 1000)
     for kind, detail in status.get("messages", []):
         if kind in ("execution_error", "execution_interrupted"):
-            record["error"] = {k: str(detail.get(k))[:3000] for k in ("node_type", "exception_type", "exception_message")}
-    for nid, out in entry.get("outputs", {}).items():
-        for value in out.values():
+            out["error"] = {k: str(detail.get(k))[:3000] for k in ("node_type", "exception_type", "exception_message")}
+    for nid, saved in entry.get("outputs", {}).items():
+        for value in saved.values():
             for item in value if isinstance(value, list) else [value]:
                 if isinstance(item, dict) and "filename" in item:
-                    record["files"].append(f"{item.get('subfolder', '')}/{item['filename']}")
+                    out["files"].append(f"{item.get('subfolder', '')}/{item['filename']}".lstrip("/"))
                 elif isinstance(item, str):
-                    record["said"].setdefault(nid, []).append(item)
+                    out["said"].setdefault(nid, []).append(item)
+    out["files"].sort()
+    return out
+
+
+def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
+    """Fill a queued run's record from the server's history: for a run queued without `--wait`, or by a peer.
+
+    It posts nothing. A run that is not in the history yet is refused, not recorded as empty: a record with
+    no files would read as a run that saved none. For a preview it then looks on disk for every file the
+    graph was built to save (a history does not list a shot table's json or a pose table) and exits 1 when
+    one is not there, whatever the server's status says."""
+    queued = folder / f"{stem_of(stage, load)}.queued.json"
+    if not queued.is_file():
+        raise Refused(f"{queued.name} is not in {folder}: nothing was queued under that name")
+    record = json.loads(queued.read_text())
+    history = call(host, f"/history/{record['prompt_id']}")
+    if record["prompt_id"] not in history:
+        raise Refused(f"the server's history does not hold {record['prompt_id']}: the run has not finished, or the "
+                      f"server was restarted since and no longer remembers it")
+    record |= read_history(history[record["prompt_id"]])
+    built = json.loads((folder / f"{stem_of(stage, load)}.built.json").read_text())
+    if built.get("expects"):
+        record["found"], record["missing"] = found_on_disk(built["expects"], Path(built["output"]))
     queued.write_text(json.dumps(record, indent=1) + "\n")
-    print(f"{record['status']} in {record['seconds']} s; {len(record['files'])} files; the record is {queued}")
+    print(f"{record['status']}" + (f" in {record['seconds']} s" if "seconds" in record else "")
+          + f"; {len(record['files'])} files; the record is {queued}")
     if "error" in record:
         print(json.dumps(record["error"], indent=1))
-    return 0 if record["status"] == "success" else 1
+    if record.get("missing"):
+        print("NOT ON DISK, though the graph was built to save them:\n  " + "\n  ".join(record["missing"]))
+    return 0 if record["status"] == "success" and not record.get("missing") else 1
 
 
 def main() -> int:
@@ -611,6 +700,11 @@ def main() -> int:
     q.add_argument("--wait", action="store_true", help="stay until the server is done and record what it saved")
     q.add_argument("--override", default="", metavar='"WHO: WHY"',
                    help="queue beside uncommitted node code; written into the record")
+    c = sub.add_parser("collect", help="record what a queued run saved, from the server's history; posts nothing")
+    c.add_argument("folder", type=Path)
+    c.add_argument("stage", choices=STAGES)
+    c.add_argument("--load", default="", metavar="NAME", help="plan or render: the load")
+    c.add_argument("--host", default=HOST)
     a = p.parse_args()
     try:
         if a.command == "build" and a.stage != "preview":
@@ -644,6 +738,8 @@ def main() -> int:
                       + ", ".join(built["uncommitted_node_code"]))
             print("when it has run, the capture:\n" + capture_command(json.loads(a.job_file.read_text())["job"], a.date))
             return 0
+        if a.command == "collect":
+            return collect(a.folder, a.stage, host=a.host, load=a.load)
         return queue(a.folder, a.stage, host=a.host, load=a.load, override=a.override, wait=a.wait)
     except Refused as e:
         print(f"REFUSED: {e}", file=sys.stderr)
