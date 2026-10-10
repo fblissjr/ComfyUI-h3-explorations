@@ -1562,7 +1562,7 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
             at = who.get("first_source_frame") or 0
             row = next((r for r in who.get("rows", []) if r["frames"][0] + at <= a <= r["frames"][1] + at), None)
             one["who_is_who"] = None if row is None else {
-                "status": row["status"], "suggests": bool(row.get("suggests")), "why": row.get("why"),
+                "status": row["status"], "suggests": bool(row.get("suggests")), "why": row.get("why"), "note": row.get("note"),
                 "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "ask", "correction", "typed_in_this_table")}
                              for label, t in row.get("trackers", {}).items()},
                 "people_seen": row.get("people_seen"), "frames_are_source_frames": who.get("first_source_frame") is not None}
