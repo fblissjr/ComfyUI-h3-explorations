@@ -136,3 +136,23 @@ renders after it.
   faces the back half of the load rose as well as its last frames: the held
   frames had been pulling for longer than the fall at the end showed. One
   seed each.
+- **2026-10-10 (mrdeer): three people, fifteen shots, no corrections typed:
+  what the gate named and what it could not.** Two no-sampling previews of
+  the stretch not yet rendered, read against a person's answers shot by
+  shot. Three rules were added from them, all at the top level
+  (`bench/capture_masked_run.py`): `subject_never_found` (a named subject
+  with no mask on any frame of a load; an earlier tracker had taken her and
+  handed her on as `others`), `taken_under_its_own_line` (a take the tracker
+  made because it had one candidate, under its own line) and
+  `who_is_who_unanswered` (a shot the joint decision of
+  `bench/who_is_who_across_shots.py` leaves open, shown as the question to
+  ask). **Not named by anything: a take of the wrong person over the
+  tracker's line**, of another subject or of a person the job does not
+  name. It reads "clear". Size was measured as a way to see it and does not
+  separate right takes from wrong; likeness does on that stretch for a
+  reason that does not carry
+  ([`bench/results/2026-10-10_take_size_and_likeness_against_known_answers.md`](../../bench/results/2026-10-10_take_size_and_likeness_against_known_answers.md)).
+  What stands in for a rule: `shots` prints the state, likeness and size
+  beside every "clear", and a stretch a person knows about is left out in
+  the job with its why. The gate does not read the job's `left_out` yet; a
+  flag there is answered by an override with the reason.
