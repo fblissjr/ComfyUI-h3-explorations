@@ -21,6 +21,11 @@ line. This tool asks what the trackers' own data says when it is read for all su
                 writes a correction as TEXT IN THAT FILE (`shot 2: person 4`, in the numbers of that tracker's
                 own tile), never into a job. Everything is `ask` until a lead is measured
                 (`subject_tracks.TOGETHER_LEAD`); `--unsure take` is the one switch that takes the top way anyway.
+                A WEAK ROW SUGGESTS NOBODY (docs/wiki/who_is_who.md, section 6 and premortem 2: a yes to a weak
+                suggestion is a guess with a person's name on it, and a typed answer is what later shots lean on).
+                Under `--suggest-lead`, which is unset until a clip has measured its own, a differing row writes
+                no correction: each tracker gets the numbered people of its own tile as `candidates` and an `ask`
+                to show a person, who picks one or none. What the sum says stays in the file for tools.
     render      prints the tables of a `looks`, `galleries` or `corrections` JSON.
 
     <python> bench/who_is_who_across_shots.py galleries --table L=<shots.json> --table S=<shots.json> [--json J]
@@ -32,6 +37,15 @@ line. This tool asks what the trackers' own data says when it is read for all su
 THREE VIEWS. The node signs a person in two places, the top third of the mask and the head. `looks` adds the WHOLE
 mask. A table's gallery has no whole-mask signature, so for that view the gallery is made here: on the gallery's own
 frames the detection most like the gallery entry is taken as the subject, and its whole mask is signed.
+
+ONE SCALE (`--crops`, added 2026-10-10 after the first run). A signature is the trunk's features averaged under a mask
+at the FRAME's scale, so a distant person is a handful of cells and a close one hundreds. With `--crops` every person
+is also signed from a SQUARE CROP around their box (`CROP_MARGIN` wider than its longer side, black where it leaves
+the frame), resized to the trunk's own input size, top third and whole mask; the galleries are made the same way on
+their own frames. THE READING, WRITTEN BEFORE THAT RUN: signing from a crop is worth a place only if, on the middle
+shot's looks, the small subject's lead over the other subject (and the lead of the right way of handing both out)
+is wider than at the frame's scale on the frames where it was nothing, and no wider lead elsewhere is lost. One
+shot of one clip; a wider lead here is a reason to try a second clip, not a default.
 
 DUPLICATES. The detector can return one person several times, as nested masks. `merged` joins two detections when
 most of the smaller mask lies inside the larger one (`SAME_PERSON`), and keeps the one the detector scored highest.
@@ -79,6 +93,9 @@ SAME_PERSON = 0.8
 #: lead's builder for this load.
 SEEK_BACK = 0.4
 VIEWS = ("top third", "head", "whole")
+#: The side of the square crop a person is signed from with `--crops`, as a multiple of their box's longer side.
+#: Reasoned: room for hair and shoulders the mask's box cuts close, and little of anybody else.
+CROP_MARGIN = 1.2
 
 
 def read_tables(pairs: list[str]) -> dict[str, dict]:
@@ -183,7 +200,8 @@ def _best(sig, held: list) -> float | None:
 AGREES, DIFFERS, UNRESOLVED = "agrees", "differs", "unresolved"
 
 
-def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsure: str = "ask", first_source_frame: int | None = None) -> dict:
+def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsure: str = "ask", first_source_frame: int | None = None,
+                  suggest_lead: float | None = None) -> dict:
     """Every shot of one load decided for all its trackers' subjects at once. See the module docstring, `corrections`.
 
     A person's score for a subject is their top third's best likeness over that subject's gallery plus their whole
@@ -200,6 +218,12 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
     text to type into that tracker) or `unresolved` (it cannot say). A row made from tables in which the correction
     is already typed agrees, so a second run after correcting clears itself. `verdict` is whether a differing row
     may be taken without a person (`subject_tracks.sure`), which today is always `ask`.
+
+    `suggest_lead` is the lead at or over which a differing row is written with its correction filled in. None,
+    the default, is "no clip has measured one": every differing row is then weak, `suggests` is False, `correction`
+    is empty, and each tracker carries `candidates` (the people on its own tile, in tile order, each with this
+    subject's total on them over the looks used) and `ask`, the question to put to a person. `would_type` keeps
+    what the top way would have written, for a tool and for the status; it is not shown as a suggestion.
     """
     import subject_tracks as S
     labels = list(tables)
@@ -261,16 +285,36 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                         given.append((label, tile, on_frame[tile][name]))
                     else:
                         says = "cannot say: that person is not numbered on this tracker's tile"
+            # this subject's total, over the looks used, on each person of ITS OWN tile: what a person choosing is shown
+            candidates = []
+            if tile in on_frame:
+                for p in shot["people"]:
+                    overlap, name_there = max(((S.box_overlap(_xyxy(p["box"]), box), nm) for nm, box in on_frame[tile].items()), default=(0.0, None))
+                    total = None
+                    if overlap >= 0.9:
+                        got = [look[label].get(name_there) for look in looks if label in look and look[label].get(name_there) is not None]
+                        total = round(float(sum(got)), 3) if got else None
+                    candidates.append({"person": p["person"], "box": p["box"], "total": total, "looks": 0 if total is None else len(got)})
             trackers[label] = {"called": called["state"], "called_person": called["person"], "the_sum_says": says,
-                               "correction": correction, "typed_in_this_table": str(shot.get("corrected", "") or ""),
-                               "tile_frame": tile}
+                               "correction": correction, "would_type": correction, "candidates": candidates,
+                               "typed_in_this_table": str(shot.get("corrected", "") or ""), "tile_frame": tile}
         fault = [(a[0], b[0]) for i, a in enumerate(given) for b in given[i + 1:] if a[1] == b[1] and S.box_overlap(a[2], b[2]) >= 0.9]
         cannot = answer["takes"] is None or any(isinstance(t["the_sum_says"], str) for t in trackers.values())
         if fault:
             for t in trackers.values():
-                t["correction"] = ""
+                t["correction"] = t["would_type"] = ""
             cannot, why = True, f"A FAULT OF THIS TOOL: {fault[0][0]} and {fault[0][1]} were handed one person on one tile frame; nothing is written to type"
-        status = UNRESOLVED if cannot else DIFFERS if any(t["correction"] for t in trackers.values()) else AGREES
+        status = UNRESOLVED if cannot else DIFFERS if any(t["would_type"] for t in trackers.values()) else AGREES
+        # a weak row suggests nobody: no text is filled in, and each tracker that would change gets a question
+        suggests = status == DIFFERS and (verdict == S.TAKE or (suggest_lead is not None and answer["lead"] is not None and answer["lead"] >= suggest_lead))
+        for label, t in trackers.items():
+            t["ask"] = ""
+            if status == DIFFERS and not suggests:
+                if t["would_type"]:
+                    numbers = ", ".join(str(c["person"]) for c in t["candidates"]) or "nobody is numbered"
+                    t["ask"] = (f"shot {first['shots'][n]['shot']}, {label}'s tile (frame {t['tile_frame']}): which numbered person is {label}? "
+                                f"{numbers}, or none. Type `shot {first['shots'][n]['shot']}: person K` or `shot {first['shots'][n]['shot']}: none` into {label}'s tracker")
+                t["correction"] = ""
         # everybody seen in the shot, for a reader that must tell a person from a thing that never moves
         seen = {}
         for f, row in zip(frames, names):
@@ -284,7 +328,7 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                         "handed_to": next((label for label in labels if answer["takes"] is not None and answer["takes"][label] == name), None)}
                        for name, v in sorted(seen.items())]
         rows.append({"shot": first["shots"][n]["shot"], "frames": [first["shots"][n]["first_frame"], first["shots"][n]["last_frame"]],
-                     "status": status, "verdict": verdict, "why": why,
+                     "status": status, "suggests": bool(suggests), "verdict": verdict, "why": why,
                      "looks_with_signatures": frames, "looks_used": answer["looks_used"], "people": answer["people"],
                      "lead": answer["lead"], "trackers": trackers, "people_seen": people_seen})
     return {"what": "every shot of one load decided for all its trackers' subjects at once; a file for the gate, not a job",
@@ -292,12 +336,16 @@ def settle_tables(tables: dict[str, dict], least_lead: float | None = None, unsu
                          f"tracker. {UNRESOLVED}: it cannot say. A row agrees once its correction is typed and the preview run again",
             "frames_are": "the load's own frame numbers" + ("" if first_source_frame is None else f"; the load's first frame is the source's {int(first_source_frame)}, as given"),
             "first_source_frame": first_source_frame,
+            "suggest_lead": suggest_lead,
+            "suggest_is": "a differing row whose lead is under `suggest_lead` (or every differing row, when it is null: no clip has measured "
+                          "one) writes no correction: `suggests` is false, each tracker has `candidates` and an `ask` to show a person. "
+                          "`would_type` is what the top way would have written, for tools; do not show it as a suggestion",
             "tables": labels, "least_lead": least, "unsure": unsure, "rows": rows}
 
 
 def cmd_corrections(a):
     tables = read_tables(a.table)
-    out = settle_tables(tables, unsure=a.unsure, first_source_frame=a.first_frame)
+    out = settle_tables(tables, unsure=a.unsure, first_source_frame=a.first_frame, suggest_lead=a.suggest_lead)
     out["files"] = {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)}
     Path(a.out).write_text(json.dumps(out, indent=1))
     render_corrections(out)
@@ -315,7 +363,9 @@ def render_corrections(out: dict):
             called = t["called"] + ("" if t["called_person"] is None else f" (person {t['called_person']})")
             says = "nobody" if t["the_sum_says"] is None else (f"person {t['the_sum_says']}" if isinstance(t["the_sum_says"], int) else t["the_sum_says"])
             cells.append(f"{called}; {says}")
-        typed = "; ".join(f"{label}: `{row['trackers'][label]['correction']}`" for label in labels if row["trackers"][label]["correction"]) or "nothing"
+        typed = "; ".join(f"{label}: `{row['trackers'][label]['correction']}`" for label in labels if row["trackers"][label]["correction"])
+        asked = "; ".join(row["trackers"][label].get("ask", "") for label in labels if row["trackers"][label].get("ask"))
+        typed = typed or (f"NOT SUGGESTED. {asked}" if asked else "nothing")
         print(f"| {row['shot']} | {row['frames'][0]}-{row['frames'][1]} | {row['status']} | {row['looks_used']} | {row['people']} | {_f(row['lead'])} | "
               + " | ".join(cells) + f" | {row['verdict']}: {row['why']} | {typed} |")
 
@@ -434,6 +484,28 @@ def cmd_looks(a):
             features[f] = trunk[0].to(torch.float32).cpu()
         return st.signature(features[f], mask), st.signature(features[f], st.top_third(mask))
 
+    def cropped(f: int, mask):
+        """A person signed from a square crop around their box at the trunk's own size: (whole mask, top third), or (None, None)."""
+        box = shot_table._box(mask)
+        if box is None:
+            return None, None
+        x, y, w, h = box
+        side = int(round(max(w, h) * CROP_MARGIN))
+        left, top = int(round(x + w / 2 - side / 2)), int(round(y + h / 2 - side / 2))
+        height, width = int(video.shape[1]), int(video.shape[2])
+        canvas = torch.zeros((side, side, 3), dtype=video.dtype)
+        held = torch.zeros((side, side), dtype=torch.float32)
+        x0, y0, x1, y1 = max(left, 0), max(top, 0), min(left + side, width), min(top + side, height)
+        canvas[y0 - top:y1 - top, x0 - left:x1 - left] = video[f, y0:y1, x0:x1, :3]
+        held[y0 - top:y1 - top, x0 - left:x1 - left] = (mask[y0:y1, x0:x1] > 0.5).to(torch.float32)
+        mm.load_model_gpu(model)
+        pixels = comfy.utils.common_upscale(canvas[None].movedim(-1, 1), st.TRUNK_SIDE, st.TRUNK_SIDE, "bilinear",
+                                            crop="disabled").to(device=mm.get_torch_device(), dtype=model.model.get_dtype())
+        trunk = model.model.diffusion_model.detector.backbone["vision_backbone"].trunk(pixels)
+        trunk = (trunk[-1] if isinstance(trunk, (list, tuple)) else trunk)[0].to(torch.float32).cpu()
+        full, third = st.signature(trunk, held), st.signature(trunk, st.top_third(held))
+        return (None if full is None else full.double().numpy()), (None if third is None else third.double().numpy())
+
     def signed(f: int, mask) -> list:
         top, head = st._views(sign(f, mask))
         full, top_again = whole(f, mask)
@@ -446,7 +518,7 @@ def cmd_looks(a):
          "frames": {"clip": Path(a.clip).name, "first_frame": a.first_frame, "count": int(a.frames), "size": [a.width, a.height]},
          "settings": {**SUBJECT_TRACK, "max_people": max_people}, "same_person": SAME_PERSON, "margin": a.margin,
          "tables": {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)},
-         "truth": a.truth, "controls": [], "whole_gallery": {}, "looks": []}
+         "truth": a.truth, "controls": [], "whole_gallery": {}, "looks": [], "crops": bool(a.crops), "crop_margin": CROP_MARGIN}
 
     # control: the detections on each table's shown frames are that table's people
     for label, t in tables.items():
@@ -475,7 +547,7 @@ def cmd_looks(a):
             like, i = max(able)
             found.append({"frame": f, "top_third_likeness_to_the_gallery_entry": round(like, 4)})
             if like >= a.gallery_same:
-                entries.append(views[i])
+                entries.append(views[i] + (list(cropped(f, masks[i])) if a.crops else [None, None]))
             print(f"whole gallery {label} frame {f}: the nearest detection is {like:.3f} like the gallery's entry", flush=True)
         whole_held[label] = entries
         R["whole_gallery"][label] = found
@@ -487,6 +559,7 @@ def cmd_looks(a):
         people = []
         for i in kept:
             views = signed(f, masks[i])
+            crop_whole, crop_top = cropped(f, masks[i]) if a.crops else (None, None)
             row = {"detection": i, "person": order.index(i) + 1, "stands_for_people": sorted(order.index(j) + 1 for j in stands[i]),
                    "box": list(shot_table._box(masks[i])), "area": int((masks[i] > 0.5).sum()), "detector_score": round(float(scores[i]), 3),
                    "has_head": views[1] is not None, "likeness": {}}
@@ -496,6 +569,10 @@ def cmd_looks(a):
                                           "whole": rule([views[2]], [[v[2]] for v in whole_held[label]], (0,)) if whole_held[label] else None}
                 row["likeness"][label]["rule and whole"] = (None if row["likeness"][label]["rule"] is None or row["likeness"][label]["whole"] is None
                                                             else min(row["likeness"][label]["rule"], row["likeness"][label]["whole"]))
+                if a.crops:
+                    held_crops = [v for v in whole_held[label] if len(v) > 4 and v[3] is not None and v[4] is not None]
+                    row["likeness"][label]["crop whole"] = rule([crop_whole], [[v[3]] for v in held_crops], (0,)) if held_crops else None
+                    row["likeness"][label]["crop top third"] = rule([crop_top], [[v[4]] for v in held_crops], (0,)) if held_crops else None
             people.append(row)
         entry = {"frame": f, "detections": int(masks.shape[0]), "after_merging": len(kept), "people": people, "settled": {}}
         for name in ("top third", "head", "rule", "whole", "rule and whole"):
@@ -533,8 +610,18 @@ def render_looks(R: dict):
                 extra = "" if "score" not in g else f" ({_f(g['score'])}, {_f(g.get('lead'))})"
                 cells.append(f"{who}{extra}" + ("" if g["takes"] is not None else f": {g['why']}"))
             print(f"| {look['frame']} | {name} | " + " | ".join(cells) + " |")
+    if R.get("crops"):
+        print("\nsigned from a crop at one scale: each person's likeness to each gallery (" + " / ".join(labels) + "), frame scale beside crop\n")
+        print("| frame | person | box | top third | crop top third | whole | crop whole |")
+        print("|---|---|---|---|---|---|---|")
+        for look in R["looks"]:
+            for p in look["people"]:
+                cells = [" / ".join(_f(p["likeness"][label].get(name)) for label in labels) for name in ("top third", "crop top third", "whole", "crop whole")]
+                print(f"| {look['frame']} | {p['person']} | {p['box']} | " + " | ".join(cells) + " |")
     print("\nall subjects at once, by the sum (`together`; added after the first run):\n")
     names = ("top third", "head", "rule", "whole", "top third + whole")
+    if R.get("crops"):
+        names = ("top third", "whole", "top third + whole", "crop top third", "crop whole", "crop top third + crop whole")
     print("| frame | " + " | ".join(f"{name}: who takes whom, lead over the next way" for name in names) + " |")
     print("|---|" + "---|" * len(names))
     for look in R["looks"]:
@@ -543,9 +630,10 @@ def render_looks(R: dict):
         for name in names:
             def score(p, label, name=name):
                 like = p["likeness"][label]
-                if name == "top third + whole":
-                    return None if like["top third"] is None or like["whole"] is None else like["top third"] + like["whole"]
-                return like[name]
+                if " + " in name:
+                    one, two = name.split(" + ")
+                    return None if like.get(one) is None or like.get(two) is None else like[one] + like[two]
+                return like.get(name)
             got = together({label: [score(p, label) for p in look["people"]] for label in labels})
             if got is None:
                 cells.append("cannot be compared")
@@ -584,6 +672,7 @@ def main():
     k.add_argument("--gallery-same", type=float, default=0.95, help="a detection is the gallery frame's subject at this top-third likeness to its entry")
     k.add_argument("--max-people", type=int, default=0)
     k.add_argument("--corrected", action="store_true")
+    k.add_argument("--crops", action="store_true", help="also sign every person from a square crop at one scale")
     k.add_argument("--cpu", action="store_true")
     k.add_argument("--json", required=True)
     k.set_defaults(fn=cmd_looks)
@@ -591,6 +680,8 @@ def main():
     c.add_argument("--table", action="append", required=True, help="LABEL=PATH of a shot table; one per tracker of the preview")
     c.add_argument("--out", required=True, help="the file for the gate")
     c.add_argument("--unsure", choices=("ask", "take"), default="ask", help="what an unsure row becomes; `take` takes the top way anyway")
+    c.add_argument("--suggest-lead", type=float, default=None,
+                   help="the lead at or over which a differing row is written with its correction filled in; unset, every such row asks with candidates")
     c.add_argument("--first-frame", type=int, default=None, help="the source's frame that is the load's frame 0; written into the file as given")
     c.set_defaults(fn=cmd_corrections)
     r = sub.add_parser("render")

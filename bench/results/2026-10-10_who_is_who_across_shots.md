@@ -327,6 +327,23 @@ Measured and guessed are kept apart.
   frame the head view alone collapsed. Whether either was blur was not
   looked at.
 
+**Lines taken from this clip, not from another** (the owner's standing
+rule of the same day: a rule that depends on the picture takes its value
+from the clip, measured in the no-sampling preview; a constant measured on
+another clip is a starting value). The confirmed shots in a cast file are
+what would set them, because they are the only labelled data a job has:
+
+| the line today | what it rests on | what the job's own confirmed looks give |
+|---|---|---|
+| `subject_tracks.py::TOGETHER_LEAD`, unset | nothing yet | the right hand-out's lead on every confirmed shot, look by look: the smallest is this clip's floor |
+| `subject_track.py::REGAIN_SAME` and `REGAIN_MARGIN` | one clip, one shot | each subject's looks against their OWN others and against every OTHER subject's: whether any line separates them on this clip, and by how much. On this load there is a hundredth between the lowest own score and the highest other, so the honest per-clip answer can be "no line" |
+| `subject_track.py::MATCH_FLOOR` and `PLAIN_FLOOR` | one clip each | the confirmed person's likeness to the pick against everybody else's on the same looks, which the tables now keep |
+| `subject_tracks.py::SAME_THING` and `subject_track.py::A_PART_UNDER` | one frame; reasoned | how far inside each other this clip's detections lie, pair by pair, and how much of the largest the best scored is: the tracker has the masks while it runs and could write the two figures per join |
+
+None of this is built, and none of it can come from a clip's first shot:
+there is nothing confirmed yet, so the first shot runs on the starting
+values and says so.
+
 Order: the joint decision read on real tables first; then the one-scale
 run, since it could change what a look IS before any are stored; then the
 file, its seeding, add and remove, and the decision reading it, all

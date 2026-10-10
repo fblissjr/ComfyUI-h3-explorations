@@ -1258,12 +1258,29 @@ def check_settled_from_tables(problems):
     taken = tables["second"]["shots"][2]
     if any("signatures" in p for look in taken["looks"] for p in look["people"]) or taken["people"][0].get("whole_signature") is None:
         problems.append("settled: a shot the tracker took carries signatures on its shown frame's people only, not on its looks")
-    out = tool.settle_tables(tables)
+    # a weak row suggests nobody (docs/wiki/who_is_who.md, premortem 2): with no lead measured for suggesting, the file
+    # fills in no answer; each tracker gets the people of its own tile and a question, and the status still says it differs
+    weak = tool.settle_tables(tables)["rows"][1]
+    if weak["status"] != "differs" or weak["suggests"] or any(t["correction"] for t in weak["trackers"].values()):
+        problems.append(f"settled: with no lead to suggest at, a differing row must fill in nothing: {weak['suggests']}, {weak['trackers']}")
+    for label in ("lead", "second"):
+        t = weak["trackers"][label]
+        if [c["person"] for c in t["candidates"]] != [1, 2] or any(c["total"] is None or c["looks"] != 3 for c in t["candidates"]) \
+                or "which numbered person is " + label not in t["ask"] or "1, 2, or none" not in t["ask"] or not t["would_type"]:
+            problems.append(f"settled: {label}'s weak row should offer its tile's two people, in tile order with their totals, and a question: {t}")
+        best = max(t["candidates"], key=lambda c: c["total"])["person"]
+        if f"person {best}" not in t["would_type"]:
+            problems.append(f"settled: {label}'s candidate with the highest total is not the person the top way would type: {t}")
+    if any(t["ask"] or t["correction"] for row in tool.settle_tables(tables)["rows"][::2] for t in row["trackers"].values()):
+        problems.append("settled: a row that agrees asks nothing and suggests nothing")
+    out = tool.settle_tables(tables, suggest_lead=0.5)
     one, two, three = out["rows"]
+    if not two["suggests"] or tool.settle_tables(tables, suggest_lead=99.0)["rows"][1]["suggests"]:
+        problems.append("settled: a row at or over the lead to suggest at is filled in, and a row under it is not")
     want = {"lead": ("absent", None, 2, "shot 2: person 2"), "second": ("absent", None, 1, "shot 2: person 1")}
     for label, (state, person, says, typed) in want.items():
         t = two["trackers"][label]
-        if (t["called"], t["called_person"], t["the_sum_says"], t["correction"]) != (state, person, says, typed):
+        if (t["called"], t["called_person"], t["the_sum_says"], t["correction"]) != (state, person, says, typed) or t["ask"]:
             problems.append(f"settled: shot 2, {label}: expected called {state}, the sum says person {says}, to type {typed!r}; got {t}")
     if two["looks_used"] != 3 or two["people"] != 2 or two["status"] != "differs" or two["lead"] is None or two["lead"] < 1.0:
         problems.append(f"settled: shot 2 is read over its three looks with two people and a wide lead: {two['looks_used']}, {two['people']}, {two['lead']}")
@@ -1277,6 +1294,8 @@ def check_settled_from_tables(problems):
     switched = tool.settle_tables(tables, unsure="take")
     if any(row["verdict"] != "take" or "UNSURE AND TAKEN BY THE SWITCH" not in row["why"] for row in switched["rows"]):
         problems.append("settled: the one switch does not turn an unsure row into a take that says it was unsure")
+    if not switched["rows"][1]["suggests"] or switched["rows"][1]["trackers"]["lead"]["correction"] != "shot 2: person 2":
+        problems.append("settled: a row taken by the switch carries the text it takes")
     if tool.settle_tables(tables, least_lead=0.5)["rows"][1]["verdict"] != "take" or tool.settle_tables(tables, least_lead=99.0)["rows"][1]["verdict"] != "ask":
         problems.append("settled: with a lead named, a row over it is taken and a row under it is asked")
     # the text it writes is what the tracker's `corrections` takes, in the numbers of that tracker's own tile
@@ -1293,6 +1312,10 @@ def check_settled_from_tables(problems):
     row = again["rows"][1]
     if row["status"] != "agrees" or row["trackers"]["lead"]["typed_in_this_table"] != "person 2" or any(t["correction"] for t in row["trackers"].values()):
         problems.append(f"settled: with both corrections typed, shot 2 should agree and say what was typed: {row['status']}, {row['trackers']}")
+    # one tracker corrected and the other not: the weak row asks about the one that would change, and only that one
+    half = tool.settle_tables({"lead": tables["lead"], "second": json.loads(st.shot_table.as_json(fixed_second))})["rows"][1]
+    if half["status"] != "differs" or not half["trackers"]["lead"]["ask"] or half["trackers"]["second"]["ask"] or half["trackers"]["second"]["would_type"]:
+        problems.append(f"settled: with the second tracker already corrected, only the lead's is asked about: {half['trackers']}")
     if set(out) < {"status_is", "frames_are", "first_source_frame"} or tool.settle_tables(tables, first_source_frame=604)["first_source_frame"] != 604:
         problems.append("settled: the file does not say what its statuses and frame numbers are")
     seen = {p["handed_to"]: p for p in two["people_seen"]}
@@ -1314,7 +1337,7 @@ def check_settled_from_tables(problems):
         return {"frames": 80, "cuts": [], "size": [1000, 500], "gallery": {"signatures": [[sig, sig]], "whole": [sig]},
                 "shots": [{"shot": 1, "first_frame": 0, "last_frame": 79, "shown_frame": 0, "people": walk[0]["people"], "looks": walk,
                            "subject": {"state": "absent", "person": None}, "corrected": ""}]}
-    walked = tool.settle_tables({"lead": table("lead"), "second": table("second")})["rows"][0]
+    walked = tool.settle_tables({"lead": table("lead"), "second": table("second")}, suggest_lead=0.0)["rows"][0]
     got = {label: (t["the_sum_says"], t["correction"]) for label, t in walked["trackers"].items()}
     if got != {"lead": (1, "shot 1: person 1"), "second": (2, "shot 1: person 2")} or walked["status"] != "differs" or walked["looks_used"] != 8:
         problems.append(f"settled: a subject who walks across the shot must be written by her number on the tile's own frame: {got}")
