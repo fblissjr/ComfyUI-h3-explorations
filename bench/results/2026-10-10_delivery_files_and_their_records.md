@@ -312,3 +312,19 @@ flag reads the source's own frame-to-frame change for it.
      rows are to be replaced by face-and-hair rows shot by shot as they
      render. The locked file and the standing files stay as they are; the
      joined file's next versions are built from the new pieces.
+- 2026-10-10, later: **the decision in line 3 above is softened by the
+  owner, and line 3 no longer stands as written.** The second subject's
+  awkward face and the strap are accepted as what the reference image and an
+  uninstructed prompt give, and the hand was not expected to land first go.
+  Her whole-person rows are NOT withdrawn. A face-and-hair version of the
+  opening shot is to be rendered as a comparison for the owner to choose
+  from. Relayed by the lead session about an hour after line 3.
+- 2026-10-10, the same message: the small-face fix is being scoped inside
+  the render pipeline itself (the node crops, renders and lays the zoomed
+  region back, and this tool receives an ordinary full-frame piece). A row
+  whose piece is a picture of a box of the source, scoped here the same
+  day, is the fallback and is not built. Two things carry over whichever
+  form is taken: the first zoomed render's plate is measured for whether
+  the change line still separates kept from changed pixels, and the first
+  zoomed delivery's region is read against its plate for grain
+  (`bench/region_against_plate.py`).
