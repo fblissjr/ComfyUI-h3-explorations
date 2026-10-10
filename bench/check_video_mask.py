@@ -531,7 +531,7 @@ def check_edge(problems):
             problems.append(f"an unknown edge was refused without naming it: {err}")
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
     # appended inputs keep their place: `motion_video` (2026-10-10) came after it
-    if inputs[-2].id != "edge" or not inputs[-2].optional or inputs[-2].default != vm.EDGE_TOKENS:
+    if inputs[-7].id != "edge" or not inputs[-7].optional or inputs[-7].default != vm.EDGE_TOKENS:
         problems.append("edge: it is not where it was appended (the input before `motion_video`), optional, "
                         "defaulting to whole tokens")
     if "edge" not in vm.MASK_KEY_SKIP:
@@ -671,7 +671,7 @@ def check_wired_motion(problems):
     if vm.MOTIONS[-1] != vm.MOTION_WIRED_ZOOM or vm.MOTIONS[:5] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME, vm.MOTION_WIRED):
         problems.append(f"motion_reference: the zoomed wired choice must be appended, the choices before it in place: {vm.MOTIONS}")
     inputs = node.define_schema().inputs
-    if inputs[-1].id != "motion_video" or not inputs[-1].optional:
+    if inputs[-6].id != "motion_video" or not inputs[-6].optional:
         problems.append("motion_video: it is not the node's last input and optional")
     if "motion_video" not in vm.MASK_KEY_SKIP:
         problems.append("motion_video: it is shown to the model and does not make the mask, so it must not be in the "
@@ -1125,6 +1125,219 @@ def check_song_loop(problems):
                             ", or the joined video is missing")
 
 
+def check_motion_look(problems):
+    """Item 22. A motion reference's blur and grey, and which box a zoom and a blur's share read."""
+    node = vm.MiniMaxH3MaskedSource
+    SHORT = 64
+    n = FRAMES
+    torch.manual_seed(20261010)
+    frames = torch.rand(n, H, W, 3)
+    person = torch.zeros(n, H, W)
+    person[:, 16:112, 40:104] = 1.0                 # the tracked subject: tall
+    face = torch.zeros(n, H, W)
+    face[:, 24:48, 60:84] = 1.0                     # the part that is replaced: small, inside the subject
+    face[3] = 0.0                                   # and missing on one frame, as a turned-away frame is emptied
+
+    # --- the helpers
+    flat = torch.full((2, 16, 16, 3), 0.3)
+    if vm.blur_frames(frames, 0.0) is not frames or not torch.allclose(vm.blur_frames(flat, 5.0), flat, atol=1e-6) \
+            or not torch.allclose(vm.blur_frames(flat, 40.0), flat, atol=1e-6):
+        problems.append("motion look: a blur of 0 must return the frames themselves, and a flat picture must stay flat at any width")
+    spot = torch.zeros(1, 41, 41, 3)
+    spot[0, 20, 20] = 1.0
+    spread = vm.blur_frames(spot, 3.0)[0, ..., 0]
+    xs = torch.arange(41.0) - 20
+    wide = float(((spread.sum(0) * xs * xs).sum() / spread.sum()).sqrt())
+    if abs(wide - 3.0) > 0.1 or abs(float(spread.sum()) - 1.0) > 1e-3:
+        problems.append(f"motion look: a spot blurred by 3 px has a width of {wide:.2f} px and a sum of {float(spread.sum()):.3f}")
+    # a wide blur is made on a reduced picture: it must be the picture the direct blur makes, within a level,
+    # and a wide spot must still be as wide as asked
+    # (compared a kernel's reach in from the border: the two replicate an edge differently, a pixel against a
+    # block, and on noise that is the whole of what they differ by)
+    busy = torch.rand(2, 256, 256, 3)
+    wide_sigma = 4.0 * vm.BLUR_DIRECT
+    inset = int(vm.BLUR_REACH * wide_sigma)
+    real = vm.BLUR_DIRECT
+    try:
+        fast = vm.blur_frames(busy, wide_sigma)
+        vm.BLUR_DIRECT = 1e9                         # never reduce: the direct kernel
+        direct = vm.blur_frames(busy, wide_sigma)
+    finally:
+        vm.BLUR_DIRECT = real
+    apart = float((fast - direct)[:, inset:-inset, inset:-inset].abs().max()) * 255.0
+    if torch.equal(fast, direct) or apart > 1.0:
+        problems.append(f"motion look: a blur of {wide_sigma:g} px made on a reduced picture is {apart:.2f} levels from the direct "
+                        "one at its furthest inside the border (it must be within a level), or the reduction was not used")
+    big = torch.zeros(1, 161, 161, 3)
+    big[0, 80, 80] = 1.0
+    far = vm.blur_frames(big, wide_sigma)[0, ..., 0]
+    xb = torch.arange(161.0) - 80
+    got = float(((far.sum(0) * xb * xb).sum() / far.sum()).sqrt())
+    if abs(got - wide_sigma) > 0.1 * wide_sigma:
+        problems.append(f"motion look: a spot blurred by {wide_sigma:g} px on a reduced picture is {got:.2f} px wide")
+    grey = vm.grey_frames(frames)
+    if not torch.equal(grey[..., 0], grey[..., 2]) or not torch.allclose(
+            grey[..., 0], (frames * torch.tensor(vm.LUMA)).sum(-1), atol=1e-6):
+        problems.append("motion look: grey is not the picture's luma on all three channels")
+
+    # --- off is today's, bit for bit, on every choice
+    boxes = vm.shot_boxes(vm._tracked_boxes(person), [], W, H)
+    for mode in (vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME):
+        plain = vm.motion_reference(frames, person, mode, SHORT, 4, boxes)
+        if not torch.equal(plain, vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 0, False)):
+            problems.append(f"motion look: with the blur and the grey off `{mode}` is not the reference it was")
+        soft = vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 3, False)
+        if tuple(soft.shape) != tuple(plain.shape) or not float(soft.std()) < 0.8 * float(plain.std()):
+            problems.append(f"motion look: a blur of 3 px did not soften `{mode}` at the same size")
+        mono = vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 0, True)
+        if not torch.equal(mono[..., 0], mono[..., 1]) or torch.equal(mono, plain):
+            problems.append(f"motion look: grey did not take the colour out of `{mode}`")
+
+    # --- a share is of the box AS SHOWN: the same share on a subject twice as wide is twice the sigma, and
+    #     a frame of a shot with no box is not blurred
+    two = json.dumps({"shots": [{"first_frame": 0, "last_frame": 3}, {"first_frame": 4, "last_frame": n - 1}]})
+    rows = vm._tracked_boxes(person)
+    rows[4:] = -1
+    per_shot = vm.shot_boxes(rows, vm.shot_ranges({"shot_table": two}), W, H)
+    sig = vm.blur_sigmas(per_shot, n, H, W, SHORT, False, 0.1, 0)
+    shown_w = (int(per_shot[0, 2]) - int(per_shot[0, 0])) * vm._reference_size(H, W, SHORT)[1] / W
+    if any(abs(v - 0.1 * shown_w) > 1e-6 for v in sig[:4]) or any(v != 0.0 for v in sig[4:]):
+        problems.append(f"motion look: a share of 0.1 of a box shown {shown_w:.1f} px wide gave sigmas {sig[:5]}")
+    small = vm.shot_boxes(vm._tracked_boxes(face), [], W, H)        # a box the zoom has room to enlarge
+    zsig, fsig = vm.blur_sigmas(small, n, H, W, SHORT, True, 0.1, 0), vm.blur_sigmas(small, n, H, W, SHORT, False, 0.1, 0)
+    plan = vm.zoom_plan(small, H, W, SHORT)
+    if plan is None or abs(zsig[0] - 0.1 * plan[2][0][4][1]) > 1e-6 or zsig[0] <= fsig[0]:
+        problems.append(f"motion look: zoomed in, the share must be of the box's width in the zoomed picture, which is wider "
+                        f"than in the whole frame: {zsig[0]:.2f} against {fsig[0]:.2f} px")
+    # zoomed, a two-shot window whose second shot has no subject: the plan has no run for it, so a share blurs
+    # nothing there, and the reference's frames of that shot are the ground, untouched
+    one_shot = vm.shot_boxes(vm._tracked_boxes(face), [], W, H).clone()
+    one_shot[4:] = -1
+    zs = vm.blur_sigmas(one_shot, n, H, W, SHORT, True, 0.1, 0)
+    if not all(v > 0.0 for v in zs[:4]) or any(v != 0.0 for v in zs[4:]):
+        problems.append(f"motion look: zoomed, a shot with no box must take no blur from a share: sigmas {zs[:6]}")
+    zref = vm.motion_reference(frames, face, vm.MOTION_ZOOM, SHORT, 0, one_shot, None, 0.1, 0, False)
+    if not bool(((zref[4:] - 0.5).abs() < 1e-6).all()) or bool(((zref[:3] - 0.5).abs() < 1e-6).all()):
+        problems.append("motion look: zoomed with a share, the frames of a shot with no subject are not the plain ground")
+    for bad, word in (((per_shot, n, H, W, SHORT, False, 0.1, 3), "one or the other"), ((None, n, H, W, SHORT, False, 0.1, 0), "no box")):
+        try:
+            vm.blur_sigmas(*bad)
+            problems.append(f"motion look: {word}: accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"motion look: the refusal does not say `{word}`: {exc}")
+    said = vm.look_note(sig, True, 100)
+    if "frames 100-103" not in said or "luma only" not in said or vm.look_note([0.0] * n, False):
+        problems.append(f"motion look: the note does not say the sigma by stretch and the grey, or says something with both off: {said!r}")
+
+    # --- the node: the record, the refusals, where the inputs sit, what the box choice frames
+    out = node.execute(frames, person, replace=vm.REPLACE_PARTS, parts=face, part_margin=0, reuse_mask=False,
+                       motion_reference=vm.MOTION_ZOOM, motion_short_edge=SHORT, motion_box=vm.BOX_REPLACED,
+                       motion_blur_share=0.0625, motion_grey=True, shot_table=two)
+    record = out.args[0]
+    if (record.get("motion_box"), record.get("motion_blur_share"), record.get("motion_blur_pixels"), record.get("motion_grey")) \
+            != (vm.BOX_REPLACED, 0.0625, 0, True) or record.get("region_boxes") is None:
+        problems.append("motion look: the source record does not carry the box choice, the blur, the grey and the mask's own boxes")
+        return
+    on_part = vm.window_boxes(record, 0, n, W, H)
+    on_subject = vm.window_boxes(dict(record, motion_box=vm.BOX_SUBJECT), 0, n, W, H)
+    area = lambda b: int((b[0, 2] - b[0, 0]) * (b[0, 3] - b[0, 1]))
+    if not area(on_part) < area(on_subject) or not torch.equal(on_part[3], on_part[2]) or int(on_part[3, 0]) < 0:
+        problems.append("motion box: `what is replaced` must frame the part, smaller than the subject's box, and a frame where "
+                        "the part is missing must keep its shot's box")
+    ref = vm.motion_reference(*vm.window_frames(record, 0, n, W, H)[:2], vm.MOTION_ZOOM, SHORT, 4, on_part)
+    whole = vm.motion_reference(*vm.window_frames(record, 0, n, W, H)[:2], vm.MOTION_ZOOM, SHORT, 4, on_subject)
+    if tuple(ref[3].shape) != tuple(ref[2].shape) or not bool(((ref[3] - 0.5).abs() < 1e-6).all()):
+        problems.append("motion box: on the frame where the part is missing the reference must be the ground, at the same size")
+    shown = lambda r: float(((r[0] - 0.5).abs() > 1e-6).any(dim=-1).float().mean())
+    if not shown(ref) > 1.3 * shown(whole):
+        problems.append(f"motion box: the part fills {shown(ref):.3f} of the reference framed on it and {shown(whole):.3f} "
+                        "framed on the subject; framed on itself it must fill more of the picture")
+    for label, kwargs, word in (
+            ("both blurs", dict(motion_reference=vm.MOTION_SUBJECT, motion_blur_share=0.1, motion_blur_pixels=4), "one or the other"),
+            ("a look with no reference", dict(motion_grey=True), "never dropped in silence"),
+            ("a box choice nothing reads", dict(motion_reference=vm.MOTION_SUBJECT, motion_box=vm.BOX_REPLACED), "nothing reads a box"),
+            ("an unknown box", dict(motion_reference=vm.MOTION_ZOOM, motion_box="the frame"), "unknown motion_box")):
+        try:
+            node.execute(frames, person, **kwargs)
+            problems.append(f"motion look: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"motion look: the refusal of {label} does not say so: {exc}")
+    inputs = node.define_schema().inputs
+    tail = [(i.id, i.optional, getattr(i, "default", None)) for i in inputs[-5:-1]]
+    if tail != [("motion_box", True, vm.BOX_SUBJECT), ("motion_blur_share", True, 0.0), ("motion_blur_pixels", True, 0), ("motion_grey", True, False)]:
+        problems.append(f"motion look: the four inputs are not appended last, optional and off: {tail}")
+    if any(name not in vm.MASK_KEY_SKIP for name in ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey")):
+        problems.append("motion look: an input that changes only what the model is shown is in the kept mask's key")
+
+    # --- the look never reaches the plate or the encode frames: a window of the source is the same with it on
+    off = dict(record, motion_blur_share=0.0, motion_grey=False)
+    shape = (LATENT_T, LAT_H, LAT_W)
+    a, b = vm.window(record, 0, FRAMES, W, H, *shape), vm.window(off, 0, FRAMES, W, H, *shape)
+    if not all(torch.equal(x, y) for x, y in zip(a[:4], b[:4])):
+        problems.append("motion look: the blur or the grey changed a window's frames, its encode frames, its tokens or its mask")
+    song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if song.count("**video_mask.motion_look(source))") != 1 or song.count("video_mask.window_look_note(source,") != 2 \
+            or "video_mask.look_boxes(source," not in song:
+        problems.append("motion look: the song node does not hand the reference its look, its boxes for a share, or report it")
+
+
+def check_held_tail(problems):
+    """Item 23. What a window is given past the source's last frame: plate, or the last frame's region held open."""
+    node = vm.MiniMaxH3MaskedSource
+    have = sum(vm.run_lengths(3)) + 2                 # the source ends two frames into the window's fourth latent step
+    frames = torch.rand(have, H, W, 3)
+    mask = torch.zeros(have, H, W)
+    mask[:, 32:64, 48:80] = 1.0
+    mask[-1] = 0.0
+    mask[-1, 64:96, 80:112] = 1.0                     # the last frame's subject is somewhere else: the tail must be THIS one
+    keep = torch.zeros(have, H, W)
+    keep[-1, 70:74, 90:94] = 1.0
+    shape = (LATENT_T, LAT_H, LAT_W)
+    plate = node.execute(frames, mask, grow_pixels=8, keep=keep).args[0]
+    opened = node.execute(frames, mask, grow_pixels=8, keep=keep, held_tail=vm.TAIL_OPEN).args[0]
+    if plate.get("held_tail") != vm.TAIL_PLATE or opened.get("held_tail") != vm.TAIL_OPEN:
+        problems.append("held tail: the record does not carry the choice, or its default is not the plate")
+        return
+    a, b = vm.window(plate, 0, FRAMES, W, H, *shape), vm.window(opened, 0, FRAMES, W, H, *shape)
+    if a[4] != FRAMES - have or b[4] != a[4] or not torch.equal(a[0], b[0]) or not torch.equal(a[1], b[1]):
+        problems.append("held tail: the choice changed the frames, the encode frames or how many are held; it must change the mask alone")
+    if bool(a[3][have:].any()) or bool(a[2][4:].any()):
+        problems.append("held tail: by default the frames past the source's end must be unmasked and their steps kept, as before")
+    last = vm.fit_mask(mask[-1:], W, H)[0]
+    if not all(torch.equal(b[3][f], last) for f in range(have, FRAMES)):
+        problems.append("held tail: with its region open the held frames must carry the LAST frame's mask")
+    alone = vm.token_mask(vm.grow(last[None], 8), 1, LAT_H, LAT_W)[0]
+    held_keep = vm.token_mask(vm.fit_mask(keep[-1:], W, H), 1, LAT_H, LAT_W)[0]
+    want = alone * (1.0 - held_keep)
+    if not bool(want.any()) or not bool(held_keep.any()) or not all(torch.equal(b[2][k], want) for k in range(4, LATENT_T)):
+        problems.append("held tail: on the steps wholly past the source's end the region must be the last frame's own, with what "
+                        "`keep` held on that frame still kept")
+    if torch.equal(a[2][:3], b[2][:3]) is False:
+        problems.append("held tail: the choice changed the region on steps that hold only real frames")
+    each = dict(opened, grow_by=vm.GROW_SUBJECT, subject_area=vm.area_share(mask), feather_pixels=2)
+    m_open = vm.source_margins(each, 0, FRAMES, W * H)
+    m_plate = vm.source_margins(dict(each, held_tail=vm.TAIL_PLATE), 0, FRAMES, W * H)
+    if not torch.is_tensor(m_open) or int(m_open[-1]) != int(m_open[have - 1]) or int(m_plate[-1]) != int(each["grow_pixels"]):
+        problems.append("held tail: under the subject's size the held frames must take the last frame's margin when the region "
+                        "is open, and the cap when it is not")
+    try:
+        node.execute(frames, mask, held_tail="open")
+        problems.append("held tail: an unknown choice was accepted")
+    except ValueError as exc:
+        if "unknown held_tail" not in str(exc):
+            problems.append(f"held tail: the refusal does not name the choices: {exc}")
+    inputs = node.define_schema().inputs
+    if inputs[-1].id != "held_tail" or not inputs[-1].optional or inputs[-1].default != vm.TAIL_PLATE or "held_tail" not in vm.MASK_KEY_SKIP:
+        problems.append("held tail: it is not the node's last input, optional, defaulting to the plate, and out of the kept mask's key")
+    song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    if '"with its region open" if source.get("held_tail") == video_mask.TAIL_OPEN else "unmasked"' not in song \
+            or "held frame(s) are INSIDE the track and are written" not in song:
+        problems.append("held tail: the song node's report does not say which way the held frames were given, or that some "
+                        "of them are inside the track and written")
+
+
 def check_others(problems):
     """Item 14. A subject with a neighbour standing against them: the margin stays off the neighbour and the
     subject loses no token. The control: the same mask on `keep`, which gives the subject holes."""
@@ -1206,7 +1419,7 @@ def check_others(problems):
     inputs = vm.MiniMaxH3MaskedSource.define_schema().inputs
     # appended inputs keep their place: a later one goes after, never between (`edge`, 2026-10-09, is the next,
     # then `motion_video`, 2026-10-10)
-    if inputs[-3].id != "others" or not inputs[-3].optional:
+    if inputs[-8].id != "others" or not inputs[-8].optional:
         problems.append("others: it is not where it was appended (the input before `edge`) and optional")
     if "others" not in vm.MASK_KEY_SKIP:
         problems.append("others: it acts after the mask is final and must not be in the kept mask's key")
@@ -2106,7 +2319,7 @@ def check_graphs(problems):
 
 def main() -> int:
     problems: list[str] = []
-    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_mask_review, check_graphs):
+    for check in (check_temporal, check_token_grid, check_feather, check_composite, check_window, check_keep, check_edge, check_fit, check_paint_out, check_part, check_changed_alpha, check_motion_reference, check_motion_zoom, check_late_start, check_grow_by, check_others, check_queue_time_refusals, check_wired_motion, check_subject_boxes, check_cut_gate, check_lay_window, check_song_loop, check_motion_look, check_held_tail, check_mask_review, check_graphs):
         check(problems)
     for p in problems:
         print(f"FAIL  {p}")

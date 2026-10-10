@@ -697,6 +697,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                         reports.append(f"[{w.number}] motion reference zoomed in: " + video_mask.zoom_note(
                             video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height),
                             height, width, int(source["motion_short_edge"])))
+                    looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
+                    if looked:
+                        reports.append(f"[{w.number}] motion reference {looked}")
                     refs_w = tuple(references or ()) + (RuntimeVideoReference(
                         frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
                         use_vae=bool(source.get("motion_vae", False))),)
@@ -706,16 +709,21 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     pixels, mask, _held = video_mask.window_frames(
                         source, int(round(w.start * FPS)), w.frames, width, height)
                     # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
+                    # also for a blur given as a share of the box, which any choice may carry (`look_boxes`)
                     boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
-                             if motion == video_mask.MOTION_ZOOM else None)
+                             if motion == video_mask.MOTION_ZOOM
+                             else video_mask.look_boxes(source, int(round(w.start * FPS)), w.frames, width, height))
                     # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
                     # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
                     ref_frames = video_mask.motion_reference(
                         pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source),
-                        boxes)
-                    if boxes is not None:
+                        boxes, **video_mask.motion_look(source))
+                    if motion == video_mask.MOTION_ZOOM:
                         reports.append(f"[{w.number}] motion reference zoomed in: "
                                        + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
+                    looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
+                    if looked:
+                        reports.append(f"[{w.number}] motion reference {looked}")
                     del pixels, mask, boxes
                     refs_w = tuple(references or ()) + (RuntimeVideoReference(
                         frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
@@ -773,8 +781,12 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     # of the frames the source cannot give, those past the track are sampled on and dropped
                     past = min(int(held), w.frames - (context_frames if i or head else 0) - writes[i])
                     reports.append(f"[{w.number}] the source ends {held} frames before this window does; "
-                                   "its last frame is held, unmasked"
-                                   + (f" ({past} of them are past the track's end and are not written)" if past else ""))
+                                   "its last frame is held, "
+                                   + ("with its region open" if source.get("held_tail") == video_mask.TAIL_OPEN else "unmasked")
+                                   + (f" ({past} of them are past the track's end and are not written)" if past else "")
+                                   + (f"; {int(held) - past} held frame(s) are INSIDE the track and are written: the "
+                                      "track is longer than the source (was the audio cut to the load?)"
+                                      if int(held) > past else ""))
                 # The plate's encode does not depend on the seed or the schedule: under `reuse_windows`
                 # an earlier run's is reused (`window_keep.py`). Kept as the VAE returned it, before the
                 # late start's multiply below; the window node copies the video before it writes context in.

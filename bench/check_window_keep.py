@@ -354,6 +354,29 @@ def main() -> int:
         assert not hits(one, two), "the wired video whole and zoomed share a key"
     case("a wired motion video is in the conditioning key itself, and zoomed in so are the boxes and the shot table", cond_key_wired)
 
+    def cond_key_look():
+        clip, vae, still = Clip(), Vae(), Thing()
+        boxes = torch.tensor([[2, 1, 6, 7]] * 6)
+        part = torch.tensor([[3, 2, 5, 4]] * 6)
+        table = '{"shots": [{"first_frame": 0, "last_frame": 5}]}'
+        args = lambda s: (clip, "a prompt", 6, 64, 32, (still,), vae, None, s, 0)
+        src = source(motion_reference="subject only", subject_boxes=boxes, region_boxes=part, shot_table=table)
+        base = wk.cond_key(*args(src))
+        for change in (dict(motion_blur_share=0.0625), dict(motion_blur_pixels=8), dict(motion_grey=True),
+                       dict(held_tail="the last frame, with its region open")):
+            assert not hits(base, wk.cond_key(*args(dict(src, **change)))), f"{change} still hit the unblurred, coloured reference"
+        shared = dict(src, motion_blur_share=0.0625)
+        moved = part.clone(); moved[2, 2] = 6
+        assert not hits(wk.cond_key(*args(shared)), wk.cond_key(*args(dict(shared, motion_box=wk.BOX_REPLACED)))), \
+            "a share of the part's box and a share of the subject's share a key"
+        on_part = dict(shared, motion_box=wk.BOX_REPLACED)
+        assert not hits(wk.cond_key(*args(on_part)), wk.cond_key(*args(dict(on_part, region_boxes=moved)))), \
+            "a blur's share of a box that moved still hit"
+        assert hits(wk.cond_key(*args(on_part)), wk.cond_key(*args(dict(on_part, subject_boxes=moved)))), \
+            "the subject's boxes moved a key that reads the part's"
+        assert hits(base, wk.cond_key(*args(dict(src, subject_boxes=moved)))), "boxes moved a key with no share and no zoom"
+    case("the motion reference's blur, grey and box choice are in the conditioning key, and a share reads the box it is of", cond_key_look)
+
     def cond_key_no_source():
         # a song graph with no Masked Source, and one with no references either
         clip, vae = Clip(), Vae()
@@ -370,6 +393,7 @@ def main() -> int:
         vm = load("video_mask")
         assert wk.START_NOISE == vm.START_NOISE and wk.MOTION_NONE == vm.MOTION_NONE and wk.MOTION_ZOOM == vm.MOTION_ZOOM
         assert wk.ZOOMED == vm.ZOOMED and wk.WIRED == vm.WIRED, (wk.ZOOMED, vm.ZOOMED, wk.WIRED, vm.WIRED)
+        assert wk.BOX_REPLACED == vm.BOX_REPLACED, (wk.BOX_REPLACED, vm.BOX_REPLACED)
         assert wk.GROW_FIXED == vm.GROW_FIXED and wk.GROW_SUBJECT == vm.GROW_SUBJECT
         return f"{wk.START_NOISE!r}, {wk.MOTION_NONE!r}, {wk.MOTION_ZOOM!r}"
     case("START_NOISE, MOTION_NONE and MOTION_ZOOM are video_mask.py's", constants)

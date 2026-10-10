@@ -55,7 +55,8 @@ the frame: the cells of its region that the frame's own mask, grown by the margi
 frame across a cut; a rim where the subject moves fast inside a step), the pixels of the render the first laying
 keeps there, and how far the laid frame is from the source there. `--box x0,x1,y0,y1` adds, for a place in the
 picture (a prop, a hand), how far the decode is from the source there and how far the laid frame is, so a thing
-that came out as the source's can be put down to the sampler or to the composite.
+that came out as the source's can be put down to the sampler or to the composite. The same pair is always
+given on the subject's own mask (`mask_decode_off_source`, `mask_laid_off_source`, `mask_share_kept`).
 
 It queues nothing and looks at nothing: whether a frame is better is a look at the clip.
 """
@@ -283,7 +284,7 @@ def step_rows(vm, latent_t: int, cuts: list[int], first: int) -> list[dict]:
 
 
 def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alpha, b, b_alpha, file, steps=None,
-            images=None, box=None, lent=None) -> list[dict]:
+            images=None, box=None, lent=None, mask=None) -> list[dict]:
     """A row a frame of the window: what each laying keeps, what differs between them, and the first against the file.
 
     With `steps` (`step_rows`) each row says which latent step holds the frame and whether a cut splits it. With
@@ -294,7 +295,9 @@ def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alph
     the box, in levels, and the share of the box the laying keeps of the render: the same place before the
     composite and after it, which is what tells the sampler's doing from the composite's. With `lent`
     (`lent_cells`) it carries how many cells the frame's step lends it, how many pixels the first laying keeps
-    of the render inside them, and how far the laid frame is from the source there, in levels."""
+    of the render inside them, and how far the laid frame is from the source there, in levels. With `mask`
+    (the window's own fitted mask) it carries the same pair as the box, on the subject: how far the decode and
+    the laid frame each are from the source under the mask, and the share of the mask the laying keeps."""
     import torch
     out = []
     lent_px = None
@@ -316,6 +319,15 @@ def rows_of(first_source: int, trim: int, written: int | None, pixels, a, a_alph
             row["as_rendered_off_file"] = round(float((a[f] - file[f - trim]).abs().mean()) * 255.0, 3)
         if steps is not None:
             row.update(steps[f])
+        if mask is not None and images is not None:
+            on = mask[f] > 0.5
+            if bool(on.any()):
+                row["mask_px"] = int(on.sum())
+                row["mask_decode_off_source"] = round(float((images[f] - pixels[f]).abs().mean(dim=-1)[on].mean()) * 255.0, 3)
+                row["mask_laid_off_source"] = round(float((a[f] - pixels[f]).abs().mean(dim=-1)[on].mean()) * 255.0, 3)
+                row["mask_share_kept"] = round(float((a_alpha[f] > 0.5)[on].float().mean()), 4)
+            else:
+                row.update(mask_px=0, mask_decode_off_source=None, mask_laid_off_source=None, mask_share_kept=None)
         if lent_px is not None:
             here = lent_px[f]
             count = int(here.sum())
@@ -408,7 +420,7 @@ def run(a: argparse.Namespace, decode=decode_window) -> dict:
     file = written_frames(str(window.with_suffix(".mp4")), size, stored["written"] or frames)
     rows = rows_of(a.source_first + first, stored["trim"], stored["written"], pixels, laid_a, alpha_a, laid_b, alpha_b, file,
                    step_rows(vm, latent[2], region["source"].get("cuts"), first), images,
-                   [int(x) for x in a.box.split(",")] if a.box else None, lent_cells(vm, region, latent))
+                   [int(x) for x in a.box.split(",")] if a.box else None, lent_cells(vm, region, latent), region["mask"])
     with open(out / f"{window.stem}.csv", "w", newline="") as fh:
         table = csv.DictWriter(fh, fieldnames=list(rows[0]))
         table.writeheader()

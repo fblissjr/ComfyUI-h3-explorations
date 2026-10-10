@@ -48,7 +48,7 @@ pack). None needs core patched.
 |---|---|---|---|
 | fewer context frames | `context_frames` on the song node; `loop_plan.check_window_settings` lists the values, `audio_freeze.window_geometry` refuses fewer | INPUT | on the card 2026-10-10 |
 | no context | a load of its own; `continue_from` unwired | INPUT | 2026-10-10: see results |
-| the context shown part noised | `context_noise` on the song node and the window node (0.271.0); core runs a mask value between 0 and 1 as that row's own strength | INPUT since 0.271.0 | untested; first arms after the next restart |
+| the context shown part noised | `context_noise` on the song node and the window node (0.271.0); core runs a mask value between 0 and 1 as that row's own strength | INPUT since 0.271.0 | 2026-10-10: at 1.0 it turned the head and broke the seam (results below); the levels between are on the card |
 | the context dropped for part of the schedule | the model patcher's `denoise_mask_function` for the value and a diffusion-model wrapper for the label, both together | CODE | not built; only if the noised context helps |
 | the motion video over the context's own frames | a prepared video on `motion_video` | INPUT | not run |
 | a larger motion video | `motion_short_edge`, `motion_vae` | INPUT | on the card 2026-10-10 |
@@ -97,6 +97,105 @@ them.
   last frames, for the subject's look drifting toward the original as the
   held frames approach.
 
+- 2026-10-10, later the same day, one render, one seed, read from stills
+  and not on playback (the lead): a 29-frame load capped at its shot's end
+  drew the still's person on its first frames and the ORIGINAL on its last,
+  with the region open on every latent step of the shot (the render's own
+  saved region) and a held tail four times the shot's length. Two readings
+  the stills cannot tell apart: the sampler drew the original toward the
+  held frames, or it drew something else and `only what changed` gave the
+  source back. The window's stored latent, decoded and laid again
+  (`bench/recomposite_window.py`), separates them; pending a decode.
+- 2026-10-10: BUILT, not committed and not on a server: `held_tail` on the
+  Masked Source, `the last frame, with its region open`
+  (`video_mask.held_mask`). The default is the plate, as before.
+- 2026-10-10, read from code: a shorter window is possible in core's
+  terms. Core's lengths are one clip of the VAE plus a remainder
+  (`comfy/sd.py`, the video VAE's ratios), and the lengths on both the
+  video and the audio clock start below the planner's shortest
+  (`loop_plan.CHAIN_LENGTHS`; the two shorter ones are the values
+  `check_window_settings` allows as a context). What refuses them as a
+  window is this pack's planner and the song node's own minimum, not core.
+  Whether the model renders a window that short well is not known here: no
+  render of one exists. Not built.
+
+- 2026-10-10, the reading asked for before any patch, and it changes the
+  line above from "possible" to "possible and outside what the model is
+  documented to make". The vendor's README gives the output duration as a
+  range whose lower end is four seconds (`coderef/MiniMax-H3/README.md`,
+  the capabilities table, "Output duration"). Core's own node says where
+  the trained range of frame counts starts and ends
+  (`comfy_extras/nodes_minimax_h3.py`, the `length` input's tooltip;
+  `docs/h3_geometry_and_nodes.md` restates it). The planner's shortest
+  window is the shortest length on both clocks that is inside both
+  statements, which is why `loop_plan.CHAIN_LENGTHS` starts where it does
+  (`docs/h3_audio_freeze.md`, "short windows sit inside the trained
+  range"). Of the two shorter lengths on both clocks, one is a little under
+  the vendor's lower end and the other far under it. And the one that is
+  nearly inside would still leave a load as short as the one above with a
+  held tail about twice its own length. So a shorter window is not scoped
+  as a patch: it buys little where it is nearly allowed and is unsupported
+  where it would buy much. The open tail is the lever for a short load.
+
+- 2026-10-10, the same short load measured (a peer's capture,
+  `data/2026-10-10_fun_kitchen_shot2_1010`; the tracked figures are that
+  session's to write): it is a FADE, not a flip. On the subject's hair,
+  where the still and the original differ most in tone, the render holds
+  the still's tone on the shot's first frames, moves toward the source's
+  on every frame after, is about half way before the shot's last third, and
+  is the source's on its last frames; the last frame of the shot is the
+  source's to within the plate's own floor. So the tail's reach is long:
+  more than two cycles of latent steps back from the first held frame.
+- 2026-10-10, OPEN QUESTION: the tail's pull against the subject's share of
+  the frame. The morning's two short loads, each with a longer tail in
+  proportion, did not fade by the same session's look figure, and in those
+  the subject was large in the frame; in the load that faded she is small
+  and partly hidden. Not separated: one load of each kind.
+
+- 2026-10-10, NOT BUILT, the next thing if the open tail leaves a doubt:
+  fill the tail with the shot played back, the frames, the mask and the
+  motion video mirrored in time past the last frame, with the region open.
+  The reasoning: an open tail over a held frame still asks the model to draw
+  the subject standing still for most of the window, with only a held plate
+  and one held frame of the motion video to say so, and where that frame
+  shows little of the subject the signal is weak. Played back, the window
+  asks one thing from its first frame to its last, the subject moving as the
+  motion video moves, and holds no frozen picture. It would be a third
+  `held_tail` choice. Reasoned only.
+- 2026-10-10, the order agreed with the lead: the open tail is the arm that
+  tests the fade (the same load, window, seed, motion video and text, the
+  one choice changed); the zoomed motion video on the same shot is read for
+  the pose on the shot's first frames only, where the tail has not reached.
+
+- 2026-10-10, the same short load's stored latent decoded and laid from the
+  region the render saved: the fade is the SAMPLER's. The composite kept
+  all of the render under the subject's mask on every frame, and the
+  decode itself moves toward the source on every latent step as the held
+  frames approach (`bench/results/2026-10-10_saved_windows_laid_again.md`,
+  the short load). The other reading, the composite giving the source back,
+  is ruled out for this render.
+- 2026-10-10, the same load's pose (a peer's records,
+  `data/2026-10-10_fun_pose/`, and `docs/wiki/state_signals.md`): on its
+  first frames, where the render still shows the still's person, the motion
+  video held the source's pose and the render did not take it. A load of
+  its own that did NOT follow its motion video. What differs from the load
+  that did, on the other stretch: the subject is a far smaller share of the
+  frame, and most of the window is held tail. The open tail and the zoomed
+  motion video are the two arms that separate those.
+
+- 2026-10-10, the grid of a short load's last step, confirmed from
+  `loop_plan.step_span`: a load that starts on a cut ends on a latent
+  step's last frame only when its length, counted in cycles of
+  `loop_plan.STEP_CYCLE`, leaves a remainder that is one of the cycle's own
+  step starts. A shot's length is the shot's, so most short loads end
+  inside a step, and that step then holds real frames and held ones: with
+  the tail as plate it is part plate by construction, before any pull from
+  the frames after it. The load that faded ends three real frames into a
+  four-frame step. Under the open tail the held frame in that step carries
+  the last frame's mask, so the one arm tests both. A second render of the
+  same shot, a large, well-lit face, held until that last step and lost
+  only it (a peer's figures), where the small subject lost twenty frames.
+
 ## Results, dated
 
 - 2026-10-08, one clip (the postmortem under `docs/research/postmortems/`):
@@ -113,6 +212,30 @@ them.
   video carried the movement and the kept frames outweighed it. The load of
   its own is not a fix there: the source has no cut at that frame, and the
   load drew the subject's clothing differently from the pass it would join.
+- 2026-10-10, the same stretch measured (a peer's pose records under
+  `data/2026-10-10_fun_pose/`; `docs/wiki/state_signals.md` has the
+  figures): the load of its own is within a few degrees of the source's
+  head through the turn and after it, and its chin and wrist read as the
+  source's; every render that carries kept frames reads tens of degrees
+  off, with the chin up and the hand away, and reads the same to a degree
+  whether the motion video was shown at the larger or the smaller short
+  edge and under either attention sink. So on that stretch the motion
+  video's size changed nothing, and the kept frames decide it.
+- 2026-10-10, `context_noise` 1.0 on that continuation, its own load, seed
+  and attention sink, one render, read from stills and not on playback (the
+  lead) with the seam measured off the card (a peer): the head turns to the
+  camera, the chin lifts and the hand comes to the face, as the source and
+  the motion video do, where the clean-context twin stays turned away
+  throughout; the subject is still the pass's person in the pass's
+  clothing. The price is at the seam: the first new frame steps away from
+  the last frame the pass wrote about four times as far as the source
+  itself moves there, and the window's own copy of the frame before the
+  seam is as far again from the pass's, where the clean-context
+  continuations keep both at the source's own step (the figures are that
+  peer's to record). After the seam it moves as the source does. So the
+  hold is in the context's subject rows, which is what this lever reaches.
+  THE QUESTION THE NEXT TWO ARMS ANSWER: is there a level below 1.0 that
+  turns the head and keeps the seam's step near the source's.
 - 2026-10-10: the same morning's two per-shot loads kept the still's person
   with no frozen context (two shots, one seed;
   `bench/results/2026-10-10_one_load_per_shot_against_one_long_load.md`).

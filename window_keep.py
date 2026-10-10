@@ -223,6 +223,7 @@ MOTION_WIRED = "a video I wire"
 MOTION_WIRED_ZOOM = "a video I wire, zoomed in"
 ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
 WIRED = (MOTION_WIRED, MOTION_WIRED_ZOOM)
+BOX_REPLACED = "what is replaced"
 GROW_FIXED = "a fixed margin"
 GROW_SUBJECT = "the subject's size"
 
@@ -244,7 +245,10 @@ def latent_key(source: dict, vae, first_frame: int, frames: int, width: int, hei
     """
     late = source.get("start_from", START_NOISE) != START_NOISE
     masked = bool(source.get("paint_out")) or late
+    # `held_tail` changes the mask on the frames past the source's end, which reaches the encode only where
+    # the mask does (`masked`); it is in the key there and nowhere else
     static = ("latent", int(first_frame), int(frames), int(width), int(height), _vae_dtypes(vae),
+              source.get("held_tail") if masked else None,
               bool(source.get("paint_out")), source.get("start_from", START_NOISE) if late else None,
               int(source["start_blur"]) if late else None,
               # what the hole is widened by: the cap, the rule, and under the subject's size the feather,
@@ -271,15 +275,18 @@ def cond_key(clip, text: str, frames: int, width: int, height: int, references, 
     moving, with_source = None, ()
     if source is not None and source.get("motion_reference", MOTION_NONE) != MOTION_NONE:
         framed = None
-        if source["motion_reference"] in ZOOMED:
-            rows = source.get("subject_boxes")
+        # what the reference looks like beyond its choice: the blur, the grey, and which box they and a zoom read
+        look = (float(source.get("motion_blur_share", 0.0)), int(source.get("motion_blur_pixels", 0)),
+                bool(source.get("motion_grey", False)), source.get("motion_box"), source.get("held_tail"))
+        if source["motion_reference"] in ZOOMED or look[0] > 0.0:
+            rows = source.get("region_boxes") if look[3] == BOX_REPLACED else source.get("subject_boxes")
             framed = (None if rows is None
                       else tuple(rows[int(first_frame):int(first_frame) + int(frames)].flatten().tolist()),
                       str(source.get("shot_table") or ""))
         # the widening is half of `grow_pixels` under either `grow_by` (`video_mask.motion_widening`), so the
         # choice is not in this key; it is in the latent's above, where the region's margin is
         moving = (source["motion_reference"], int(source["motion_short_edge"]), int(source["grow_pixels"]) // 2,
-                  bool(source.get("motion_vae", False)), int(first_frame), framed)
+                  bool(source.get("motion_vae", False)), int(first_frame), framed, look)
         with_source = (source["frames"], source["mask"])
         if source["motion_reference"] in WIRED and source.get("motion_frames") is not None:
             # the wired video is what the reference is cut from: another video on the same source is another

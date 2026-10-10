@@ -375,7 +375,12 @@
       "grow_by",
       "others",
       "edge",
-      "motion_video"
+      "motion_video",
+      "motion_box",
+      "motion_blur_share",
+      "motion_blur_pixels",
+      "motion_grey",
+      "held_tail"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

@@ -61,6 +61,19 @@ untracked `data/2026-10-10_recomposite_decodes/`.
   somewhat lower at the two where it begins. Whether that is the split step
   or a shot's first frames cannot be told from one render.
 
+- **A short load that faded back to the original: the sampler drew it.**
+  Added the same afternoon. One load capped at its shot's end, laid from
+  the region file the render itself saved (the first use of one), drew the
+  still's person on its first frames and the original on its last. Under
+  the subject's mask the composite kept all of the render on every frame of
+  the shot, so it gave nothing back; and the decode's own distance from the
+  source under that mask falls frame by frame toward the held frames, to
+  near the plate's floor on the shot's last frame
+  (`short_load_fade_mom_shot_1010`). So the fade is in the latent. Of the
+  held frames the track made the render write, the first carries the render
+  (it shares a latent step with the shot's last frames) and the rest are
+  the source whole (`held_frames_written`).
+
 ## What it does not show
 
 Whether any of these frames looks worse: the detail figure is a mean over
