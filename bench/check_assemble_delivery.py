@@ -63,6 +63,11 @@ of known place and size into them, and reads the tool's answers back.
     white, where a file's luma at the canvas must be its own fitted original at the dark and bright ends too (read
     as `gray`, ffmpeg widened the range and a quarter of untouched footage read as off the source); and `--compare`
     of the two records prints both figures on one line.
+14. **A patch as a later row.** A piece, and a patch of it: a second file made FROM THE PIECE (not from the
+    original), repainted in part on a few frames. Given as a later row over those frames, the patch shows wherever
+    it differs from the original, which is everything the piece changed there and what the patch redrew; on the
+    other frames the piece shows; and the frames are flagged as changed by two pieces, settled by order, since
+    both are the same subject's. That is a redone stretch laid over the render it was cut from, in one table.
 
 ## Running it
 
@@ -660,6 +665,35 @@ with tempfile.TemporaryDirectory() as _tmp:
         assert 40 <= before <= 60 and after < 2, line
         return f"b's tracked mask {got['table_plain']['subjects']['b']['tracked_off_pct']:.1f}% off the source, {back['tracked_off_pct']:.1f}% with the restore; the floor {got['table_plain']['floor_off_pct']}%"
 
+    def a_patch_as_a_later_row() -> str:
+        hole = (18, 24)
+        redo = (60, 60, 96, 110)                           # inside RECT_A: what the patch draws again
+        base = loaded(Path(PIECE_A), 0, 30)                # the piece's own frames, as a loader hands them over
+        patched = base.clone()
+        x0, y0, x1, y1 = redo
+        a, b = hole[0] - 10, hole[1] - 10 + 1
+        patched[a:b, y0:y1, x0:x1] = (patched[a:b, y0:y1, x0:x1] * 0.3 + 0.05).clamp(0, 1)
+        patch = write("patch_of_a", patched)
+        rows = [{"piece": PIECE_A, "piece_first": 10}, {"piece": patch, "piece_first": 10}]
+        o, piece_, patch_ = original(20), planes_of(PIECE_A, 20), planes_of(patch, 20)
+
+        def box_mean(x, y, rect):
+            return float(np.abs(x[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3] - y[0][rect[1] + 3:rect[3] - 3, rect[0] + 3:rect[2] - 3]).mean())
+        assert box_mean(patch_, piece_, redo) > 20 and box_mean(patch_, o, redo) > 20, "the patch's redo is not different enough to tell"
+        got, record = frame_planes(SOURCE, [dict(r) for r in rows], 20)
+        rest_of_a = (RECT_A[0], RECT_A[1], redo[0], RECT_A[3])       # the part of the piece's rectangle the patch left alone
+        assert box_mean(got, patch_, redo) < 1.0, "on a hole frame the redone part is not the patch's"
+        assert box_mean(got, patch_, rest_of_a) < 1.0 and box_mean(got, piece_, rest_of_a) < 1.5, "on a hole frame the rest of the piece's change is gone"
+        assert box_mean(got, o, (150, 20, 240, 60)) < 1.0, "pixels neither changed are not the original's"
+        shared = record["shared"][20]
+        assert shared["px"] > 0 and shared["by_mask"] == 0, shared
+        code, r, _ = deliver(TMP, "patch_row", [(10, 39, PIECE_A, 10), (hole[0], hole[1], patch, 10)], "10-39")
+        assert code == 0 and r["verdict"] == "passes", r["failures"]
+        both = [f for f in r["flags"] if f["rule"] == "two_pieces_change_the_same_pixels"]
+        assert both and both[0]["source_frames"] == [[hole[0], hole[1]]], [(f["rule"], f["source_frames"]) for f in r["flags"]]
+        assert [seg[:2] + [len(seg[2])] for seg in r["segments"]] == [[10, 17, 1], [18, 24, 2], [25, 39, 1]], r["segments"]
+        return f"on the hole's frames the patch shows over the piece ({shared['px']} px both changed, by order); elsewhere the piece"
+
     case("a piece that changed nothing is the original", nothing_changed)
     case("a painted rectangle is found where it is", rectangle_found)
     case("a delivery of pieces and original ranges passes its own check", delivery_passes)
@@ -673,4 +707,5 @@ with tempfile.TemporaryDirectory() as _tmp:
     case("a piece that spills over a cut", spill_over_a_cut)
     case("whose a pixel is, from the owner map", by_the_owner_map)
     case("what the record says the file did to a subject", the_subjects_table)
+    case("a patch as a later row", a_patch_as_a_later_row)
 sys.exit(finish())
