@@ -11,6 +11,12 @@ the code disagree the code is right. The tracker's owner builds from it and
 adds a dated line under a section when a part is built, measured or
 dropped; nothing is rewritten.
 
+*2026-10-10: what the decision may look at, why, how it is weighed and how
+cuts are found has a page of its own, written at the owner's ask:
+[`who_is_who_evidence.md`](who_is_who_evidence.md). It starts from the
+simplest thing (two votes that agree, or a question) and it is where a
+clue not in section 2's table is added.*
+
 ## The first screen: what this is, in plain words
 
 **The problem.** On 2026-10-10 a shot reached a viewer with nobody
@@ -123,6 +129,19 @@ owner's model store. **Reach** is the column the owner's constraint adds: a
 A voice is not on the list. Isolating one by a mask needs an environment of
 its own and is the prompt its authors call the weaker one
 (`meta_perception_models.md`, "SAM-Audio").
+
+*2026-10-10: the one-scale row has its result (the record, "One scale:
+every person signed from a crop", 06d87101). By the reading written before
+the run it is not worth a place, and a look stays what it is. A crop
+raised every likeness, the small subject's against her own looks and
+against the other subject's alike: the looks that were wrong at the
+frame's scale came to about nothing, and the looks that were right by a
+real margin lost much of it. The two views summed kept the same weakest
+lead and lost the strong ones. One shot of soft film; a crop for the
+person against a gallery kept at the frame's scale was not tried. For
+`SIGN_CELLS_LEAST` it gives less than hoped: a crop does not rescue a
+small person, so the limit has to come from where the frame-scale lead
+stops having the right sign, and that record has it for one person.*
 
 **The worked example: the lead, a hat on and off.** In the record's first
 table the lead in the middle shot, her hat off and her hair thrown about,
@@ -441,6 +460,28 @@ explains the person, so a person is asked, and the answer is a new look or
 a new appearance that later shots are measured against. It is safe, and
 it is most of the count of questions (section 9).
 
+*2026-10-10, built in a first form and run on real tables (mrfrog; the
+commit that adds this line).* `bench/who_is_who_across_shots.py
+corrections` computes the evidence total with levels from what a load's
+own tables hold: for each subject, the highest score any look KNOWN NOT to
+be it reaches against its gallery (another subject's gallery look, or a
+person beside it on its own pick frame). Not from typed looks, of which
+there are none yet. A row agrees only when the tracker, the built total
+and the evidence all say the same; the levels are written in the file. On
+the first load with three subjects and a person nobody named, graded
+against a person's reading of every shot: the evidence had the two
+subjects who were AWAY right on every shot, where the built total handed
+the unnamed person to one of them; and it had the subject who WAS there,
+small in an inset, wrong on every shot, where the built total had her
+right (the record, "The first run with three subjects"). So the two totals
+fail in opposite directions, and nothing measured yet says the evidence
+total is the better one or that a level from galleries is a usable
+refusal for a subject who is on screen small. Two things that load
+suggests and does not show: the level wants looks of the subject at the
+size she is compared at, and the evidence used only to veto a take, with
+the built total saying who, would have been right on every shot of that
+load.
+
 **A take needs all of these, or the row asks.**
 
 1. *The evidence leads.* The top way of the evidence total leads the next
@@ -453,6 +494,22 @@ it is most of the count of questions (section 9).
 3. *Look by look.* The share of the looks whose own top way is the summed
    top way is at least `DECISION_LOOKS_AGREE`, and no clue graded `veto`
    disagrees.
+
+*2026-10-10, the evidence total's first real run, in a first form the
+tracker's owner built with the levels taken from a load's own galleries
+(reported by its builder; the figures are to be in the record's section on
+the first run with three subjects). On five shots that held a person
+nobody named, it was right that two named subjects were not there, where
+the built total had handed them that person. On the same shots it lost
+the one subject who was there, small in an inset: under her own level on
+some and beaten by the clear unnamed person on others, where the built
+total had her right on all. The two totals failed in opposite directions
+on the same shots, and since a take needs them to agree, every one of
+those rows asks. So this section does not say the evidence total is the
+better of the two, and a level from galleries is not yet a refusal to
+rely on for a subject who is on screen and small. What one load
+suggests: a level has to come from looks at the size a person will be
+compared at.*
 
 *2026-10-10, a correction the same day, from the tracker owner's read of
 this page. As first written this section had "nobody" as a choice under
@@ -937,7 +994,8 @@ Each step waits on the one before it.
 
 1. The two runs already under way: the one-scale crop, and the built
    together-decision on real tables. *2026-10-10: the second is done
-   (2901cd00; section 9's dated line).*
+   (2901cd00; section 9's dated line), and so is the first (06d87101;
+   the dated line under section 2's table).*
 2. More kept at preview, all small: the plate vector a look, the build
    values in the pose table, every person's clues on every look.
 3. The cast file with no model: the log, the fold, the audit, remove, the
@@ -988,6 +1046,30 @@ the cast log and its audit, the decision file, the pose table, the class
 maps. **Left** is what the design does not cover. The order is likelihood
 times cost, each scored one to three. Both scores are guesses, printed so
 they can be argued with.
+
+*2026-10-10, the first run with three named subjects, the evening this
+was written: two no-sampling previews of the stretch not yet rendered,
+no corrections typed, and who is really in each shot read off the tiles
+by the lead session (`data/2026-10-10_fun_rest_who_is_where_truth.json`,
+untracked; its `count` has the totals, and the record's section on that
+run is to carry them). What it showed of the list below, each tracker
+still deciding alone:*
+
+- *Premortem 1, as written. Five shots hold a large person the job does
+  not name, with the lead small in an inset. Trackers took the unnamed
+  person for the lead and for the third subject on most of them. The
+  trackers had no way to answer "nobody named is in this shot".*
+- *Premortem 5. On those shots the lead is the small one, and she was
+  missed once and passed over for the clear person otherwise.*
+- *Premortem 9, and section 11. Pictures on a wall, a framed portrait,
+  and a hand with an object came back from the detector as people.*
+- *Two faults of deciding one name at a time, which section 6 exists
+  for: a tracker's rule that takes whoever is the only person left took
+  another named subject more than once; and in one shot two trackers
+  each took the other's subject.*
+- *Not shown: premortem 4. The lead changes clothes inside the first
+  load, by its job's note, and no row of the file ties a wrong take to
+  it.*
 
 | # | what failed | likely | cost | the signal before a render | the mitigation, in a line |
 |---|---|---|---|---|---|
