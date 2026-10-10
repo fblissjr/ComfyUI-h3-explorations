@@ -506,7 +506,8 @@ def mouths() -> str:
     one = found["runs"][0]["renders"]
     assert one["shut"]["share_of_the_source"] < 0.2 and one["follows"]["share_of_the_source"] == 1.0, one
     assert cap.open_runs(opening, np.ones(60), {}, 100)["runs"] == [], "an open mouth on voiced frames was called open with no voice"
-    assert "no voice table" in cap.open_runs(opening, np.full(60, np.nan), {}, 100)["why_none"], "an unknown voice was read as silence"
+    assert "does not cover" in cap.open_runs(opening, np.full(60, np.nan), {}, 100)["why_none"], "an unknown voice was read as silence"
+    assert cap.open_runs(opening, np.ones(60), {}, 100)["why_none"] == "every frame is voiced"
     brief = np.full(60, 0.05)
     brief[20:28] = 0.3
     assert cap.open_runs(brief, spoken, {}, 100)["runs"] == [], "eight frames were called a run"

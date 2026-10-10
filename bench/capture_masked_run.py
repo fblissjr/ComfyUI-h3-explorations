@@ -694,7 +694,7 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     at = first if at is None else int(at)
-    end, across, names, composite = 0, [], [], None
+    end, across, bare, names, composite = 0, [], [], [], None
     last = None if render_frames is None else int(render_frames)
     for f in files:
         if last is not None and end >= last:
@@ -709,11 +709,18 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         gate = vm.cut_gate(mask, int(tokens.shape[0]), got["source"].get("cuts"), start) > 0.5
         if tuple(mask.shape[1:]) != (h, w):
             mask = torch.nn.functional.interpolate(mask[:, None], size=(h, w), mode="nearest")[:, 0]
+        # a render made since the composite leaves every frame with no mask of its own as the source says so in its
+        # file (`lay_frames_with_no_mask` false); an older one laid such frames with their step's region
+        laid_bare = bool(got["source"].get("lay_frames_with_no_mask", True))
         for k in range(trim, count if last is None else min(count, last - start)):
             n = at + start + k - first
+            empty = not bool((mask[k] > 0.5).any())
+            unlaid = empty and not laid_bare and bool(cells[k].any())
             if 0 <= n < frames:
-                region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy(), (mask[k] > 0.5).numpy(), True
-            if not bool(gate[k]):
+                region[n], carried[n], read[n] = (cells[k] & gate[k]).numpy() & (not unlaid), (mask[k] > 0.5).numpy(), True
+            if unlaid:
+                bare.append(at + start + k)
+            elif not bool(gate[k]):
                 across.append(at + start + k)
         end, composite = start + count, got["source"].get("composite")
         names.append(f.name)
@@ -721,6 +728,7 @@ def read_saved_regions(files: list[Path], first: int, frames: int, size: tuple[i
         return None, None, None, {"refused": f"the windows' files cover {end} frames and the render has {render_frames}"}
     return region, carried, read, {"read_from": "the region each window saved beside its latent", "files": names, "legend_px": None,
                                    "composite": composite, "left_as_the_source_across_a_cut": across,
+                                   "left_as_the_source_with_no_mask": bare,
                                    "held_frames_past_the_render": 0 if last is None else max(end - last, 0),
                                    "files_of_another_run_left_unread": [f.name for f in files if f.name not in names]}
 
@@ -790,7 +798,7 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     at = first if at is None else int(at)
-    end, across, windows = 0, [], []
+    end, across, bare, windows = 0, [], [], []
     for row in plan["windows"]:
         if not row.get("region_file"):
             return None, None, None, {"refused": f"window {row['number']} is not planned: {row.get('why', 'no region file')}"}
@@ -811,7 +819,8 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
             if 0 <= n < frames:
                 region[n], carried[n], read[n] = (cells[k].numpy() if f not in left else False), (mask[k] > 0.5).numpy(), True
             if f in left:
-                across.append(at + f)
+                # a plan of version 2 says which kind; an older one has only the cut gate's
+                (bare if f in set(row.get("frames_with_no_mask", [])) else across).append(at + f)
         end = row["last_written_frame"] + 1
         windows.append({"window": row["number"], "writes_source_frames": [at + row["first_written_frame"], at + row["last_written_frame"]],
                         "text": row.get("text"), "regenerating_share": row.get("regenerating_share"), "kept_frames": int(row.get("trim", 0)),
@@ -820,6 +829,7 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     return region, carried, read, {"read_from": "the region the node's preview planned for each window", "plan": plan_path.name,
                                    "files": [r["region_file"] for r in plan["windows"]], "legend_px": None,
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
+                                   "left_as_the_source_with_no_mask": bare, "plan_version": plan.get("version"),
                                    "planned_windows": windows, "frames_written": end, "source_settings": plan["source"]}
 
 
@@ -1848,25 +1858,37 @@ def lent_frames(carried: np.ndarray, region: np.ndarray, read: np.ndarray) -> li
 
 
 def flag_lent(manifest: dict, folder: Path) -> list[dict]:
-    """A run or a plan read from the node's files that regenerates on frames with no mask of their own.
+    """A run, or a plan read from the node's files, with frames that have no mask of their own inside a latent
+    step that has a region.
 
-    Measured 2026-10-10 on two face-only renders: six such frames, each beside a turn; the render was 7 to 25
-    grey levels from the source inside the lent region against a floor of 2 to 3, and on one of them a face
-    was drawn under a hat brim where the source shows none. A plan worked out from the masks (`--plan`)
+    What happens on such a frame depends on the node that made the files. Until 2026-10-10 the composite laid
+    the step's region on it: measured on two face-only renders, six such frames beside turns were 7 to 25 grey
+    levels from the source inside the lent region against a floor of 2 to 3, and on one a face was drawn under
+    a hat brim where the source shows none. Since then the composite leaves the frame as the source, so the
+    original shows for that frame. That is right where the mask was emptied on purpose (turned away, hidden)
+    and wrong where a tracker or the part model dropped a subject who is plainly there: one frame of the
+    original in a run of the new subject. So it is at the top level either way, until the mask is fixed or an
+    override says in writing why the frame is rightly empty. A plan worked out from the masks (`--plan`)
     cannot show it: its region is per frame."""
     first, w, out = manifest["first_frame"], manifest["size"][0], []
     for run in manifest["runs"]:
         saved = np.load(folder / "runs" / run["name"] / "region.npz")
-        lent = lent_frames(np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool), saved["region"], saved["read"])
-        if lent:
+        lent = [first + f for f in lent_frames(np.unpackbits(saved["carried"], axis=-1)[..., :w].astype(bool), saved["region"], saved["read"])]
+        unlaid = [f for f in run.get("left_as_the_source_with_no_mask") or [] if first <= f < first + manifest["frames"]]
+        if lent or unlaid:
             kind = "plan" if run.get("planned") else "run"
-            out.append({"rule": "region_on_a_frame_with_no_mask", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
-                        "source_frames": frame_spans([first + f for f in lent]),
-                        "why": f"{kind} {run['name']}: {len(lent)} frame(s) have no mask of {run['subject']}'s and are regenerated all the "
-                               "same, because their latent step holds frames that do have one. If the mask was emptied there on "
-                               "purpose (turned away, hidden), the render can draw the part where the source shows none: look at "
-                               "these frames, or empty the step's other frames too",
-                        "figures": {"frames": len(lent)}})
+            what = []
+            if lent:
+                what.append(f"{len(lent)} frame(s) are regenerated all the same, with their latent step's region: the render can draw the "
+                            "part where the source shows none")
+            if unlaid:
+                what.append(f"{len(unlaid)} frame(s) are left as the source by the composite: the original shows on them")
+            out.append({"rule": "region_on_a_frame_with_no_mask", "level": LEVELS[2], "subject": run["subject"], "run": run["name"],
+                        "source_frames": frame_spans(sorted(set(lent) | set(unlaid))),
+                        "why": f"{kind} {run['name']}: {len(set(lent) | set(unlaid))} frame(s) have no mask of {run['subject']}'s inside a latent "
+                               "step that has one. " + "; ".join(what) + ". If the mask is rightly empty there (turned away, hidden), "
+                               "override this flag with a note that says so; if the subject is plainly there, the mask was dropped: fix it",
+                        "figures": {"regenerated": len(lent), "left_as_the_source": len(unlaid)}})
     return out
 
 
@@ -2627,7 +2649,9 @@ def open_runs(reference: np.ndarray, voiced: np.ndarray, arms: dict[str, np.ndar
     if not len(seen):
         return {"bar": None, "runs": [], "why_none": "the source's mouth is not seen on any frame"}
     if not (voiced == 0).any():
-        return {"bar": None, "runs": [], "why_none": "no frame is known to be unvoiced: the capture has no voice table on these frames (--voice)"}
+        why = "every frame is voiced" if (voiced == 1).any() and not np.isnan(voiced).any() else \
+            "no frame is known to be unvoiced: the voice table does not cover these frames (--voice)"
+        return {"bar": None, "runs": [], "why_none": why}
     bar = float(np.quantile(seen, 1.0 - OPEN_SHARE))
     # above the shot's own median too: on a mouth that hardly moves the top quarter is the same value as the rest
     hit = np.nonzero((reference >= bar) & (reference > float(np.median(seen))) & (voiced == 0))[0].tolist()
