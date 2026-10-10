@@ -17,6 +17,20 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **Preprocessing data is verified the moment it is made, by code and by
+  eyes, and a second session reads it** (owner, to the lead, while the first
+  renders through the tracked builder were on the card). Until this line the
+  order was a capture, `verify`, the gate, then a render; `verify` and the
+  gate say that no rule failed, and that day's previews had held wrong
+  takes that no rule named (counted in the untracked
+  `data/2026-10-10_fun_rest_who_is_where_truth.json`). Now the
+  step straight after a preview is captured is the tool's check AND a look
+  at what was made by someone who did not make it, recorded, with what eyes
+  found that no code checks written down as a gap. The rule is in
+  `AGENTS.md`, "Operative rules"; the first such reading is a dated record
+  under `bench/results/`, written by the session that reads it; the tool
+  that makes the look a refusing step is not built.
+
 - **Who is who starts from two votes that must agree, recorded by a
   neutral party or the lead; no classifier for each video; a cut finder
   need not be perfect** (owner, to the session that wrote the plan). The

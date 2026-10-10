@@ -81,6 +81,15 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   before a render, and the same data after"; the tool is
   `bench/capture_masked_run.py`, and captured data lives under the untracked
   `data/`.
+- **Preprocessing data is verified the moment it is made, by code and by
+  eyes.** Straight after a preview's data is captured, and before anything
+  is planned or rendered from it: the tool's `verify`, and a look at what
+  was made (the mask on the right subject on every frame, the part, the
+  motion video, each file's frame offset) by someone who did not make it,
+  recorded with who looked. A passing check says no rule failed, never that
+  the data is right. What eyes found that no code checks is written down
+  as a gap in the code, and what the code found that eyes missed as a gap
+  in the look. (Owner, 2026-10-10.)
 - **A rendered clip cannot A/B a numerical change.** The trajectory diverges
   at frame zero under any sampler. Grade on captured activations
   (`bench/grade_sage_on_capture.py`).
