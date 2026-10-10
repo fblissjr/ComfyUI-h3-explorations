@@ -868,6 +868,7 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     w, h = size
     region = np.zeros((frames, h // CELL, w // CELL), bool)
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
+    placed = at is not None
     at = first if at is None else int(at)
     end, across, bare, windows = 0, [], [], []
     for row in plan["windows"]:
@@ -897,6 +898,12 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                         "text": row.get("text"), "regenerating_share": row.get("regenerating_share"), "kept_frames": int(row.get("trim", 0)),
                         "first_frame": at + row["first_frame"],
                         **held_tail_facts(got["mask"], got["tokens"], int(row.get("source_frames_held", 0)), at + row["first_frame"], vm.run_lengths)})
+    if not placed and end != frames:
+        # a plan does not know which source frame its load starts on. Placed at the span's first frame by default,
+        # ten loads of one capture were each read as starting on the capture's first frame (2026-10-10), and every
+        # flag about them named the wrong frames and the wrong people
+        return None, None, None, {"refused": f"the plan writes {end} frame(s) and the capture holds {frames}: say which source frame the load "
+                                             "starts on (`at=N` on its --run). It is not assumed to start on the capture's first frame"}
     return region, carried, read, {"read_from": "the region the node's preview planned for each window", "plan": plan_path.name,
                                    "files": [r["region_file"] for r in plan["windows"]], "legend_px": None,
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,

@@ -944,6 +944,9 @@ def planned_regions() -> str:
         assert not region[13].any() and read[13] and how["left_as_the_source_across_a_cut"] == [111], "the plan's gated frame kept a region"
         assert carried[11:15, 32:64, 96:128].all() and how["frames_written"] == 13 and how["planned_windows"][1]["writes_source_frames"] == [109, 112], how
         assert how["source_settings"]["grow_pixels"] == 16 and how["source_settings"]["edge"] == "latent cells"
+        # a load shorter than the span, with nothing saying where it starts, is refused: it is not put at the span's first frame
+        assert "say which source frame the load starts on" in cap.read_planned_regions(folder / "pass_plan.json", 98, 16, (W, H))[3]["refused"]
+        assert cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[1] is not None, "a load as long as the span needs no `at`"
         # a window the plan could not plan, a file that is not there, and a gap are each refused with the reason
         unplanned = {**plan, "windows": [row(1, 0, 0, 9), {**row(2, 4, 5, 4), "region_file": None, "why": "starts past the source's 13 frames"}]}
         (folder / "pass_plan.json").write_text(json.dumps(unplanned))
