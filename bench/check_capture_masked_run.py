@@ -280,6 +280,8 @@ def segments() -> str:
     assert "a.Face__px" not in inside, "the carried part was counted as something else inside the region"
     assert inside["a.Hair__px"] == 512 and inside["a.Hair__cells"] == 2, inside
     assert inside["b.Hand__px"] == 256 and inside["b.Hand__cells"] == 1, inside
+    picked = cap.class_mask_of(mine, ["Hair"], names)
+    assert picked.sum() == N * 512 and not (picked & part).any(), "the class mask of Hair is not the hair"
     kept = cap.planned_region(part, [theirs > 0], MARGIN, _grow(), whole_tokens=False)
     assert "b.Hand__px" not in cap.segments_in_region(100, kept, part, {"a": mine, "b": theirs}, names)[0], "kept out, and still inside"
     return "a part's classes read back from its mask; hair and a neighbour's hand inside the region counted; none once kept out"

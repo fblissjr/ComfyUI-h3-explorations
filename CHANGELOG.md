@@ -7,6 +7,17 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.245.1
+<!-- changelog.d/mrdeer-capture-mask-export.md -->
+
+### Added
+
+- `bench/capture_masked_run.py mask`: any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or `others`. Set against a one-off script's file for the same eight classes over 447 frames it differs on no pixel.
+
+### Changed
+
+- The video's panel gives its text more room, shows only the flags of the run on screen, and labels a still under its picture.
+
 ## 0.245.0
 <!-- changelog.d/mrcorn-assemble-restore-a-class.md -->
 

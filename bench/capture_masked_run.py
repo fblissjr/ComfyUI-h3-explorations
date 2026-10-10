@@ -12,6 +12,7 @@
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
+    <python> bench/capture_masked_run.py mask data/<date>_<NAME> --subject b --classes Face_Neck+Hair --out keep_b.mkv
 
 **What it buys.** One folder per captured span, `data/<date>_<name>/` (untracked), that says for every frame
 and every subject where the tracker's mask was, what part of it was taken, what the sampler regenerated and
@@ -64,6 +65,9 @@ subject and run, with the flags that were raised on those frames: the first step
 of the original. It reads the mean grey level over the top of the subject's mask and places the render between
 the source (0) and a render of the same subject that held (1). It tells two subjects apart only where they
 differ in lightness there, and refuses when the held render does not.
+
+**mask** writes any of a subject's classes from its class map as a lossless mask video, for a graph's `keep` or
+`others`: the same file form as every other mask here.
 
 **status.json** says how the folder came to be: `running`, `done` or `failed`, with the message and the inputs
 that were missing. A folder without it was never finished. A finished folder is not rebuilt in place unless
@@ -187,6 +191,7 @@ WHITE, DIM, AMBER, GREEN = (255, 255, 255), (150, 150, 150), (255, 170, 60), (90
 SOLID, LIGHT = 0.55, 0.28      # the two fills' strengths; reasoned: both readable over a dimmed picture
 HEADER, ZOOM_MIN = 44, 192     # the strip above each row, and the smallest zoom box, in pixels; reasoned
 PANEL = 392                    # the band of numbers under the rows, in pixels; reasoned: fits a 4:3 tile and ten lines
+PANEL_TEXT = 1150              # where the panel's lines of text end and the motion tile begins; reasoned: the longest line
 LEVEL_COLOURS = {"likely fine": (150, 150, 150), "iffy": (255, 190, 60), "likely to fail": (255, 90, 90)}
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 MONO = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
@@ -1243,6 +1248,31 @@ def outcome(a: argparse.Namespace) -> None:
     print("recorded", a.flag, a.happened, "in", path)
 
 
+def class_mask_of(classes: np.ndarray, wanted: list[str], names: tuple[str, ...]) -> np.ndarray:
+    """[n, h, w] of bool: the pixels of a class map that are any of the classes named. An unknown name is refused."""
+    unknown = [c for c in wanted if c not in names]
+    if unknown:
+        raise SystemExit(f"no class named {unknown}; the part model's are {', '.join(names[1:])}")
+    return np.isin(classes, [names.index(c) for c in wanted])
+
+
+def mask(a: argparse.Namespace) -> None:
+    """Write some of a subject's classes as a lossless mask video a graph can load (for `keep`, `others`, a region)."""
+    folder = Path(a.capture)
+    m = json.loads((folder / "manifest.json").read_text())
+    subject = next((s for s in m["subjects"] if s["label"] == a.subject), None)
+    if subject is None:
+        raise SystemExit(f"no subject {a.subject!r} in this capture; it has {[s['label'] for s in m['subjects']]}")
+    path = folder / "subjects" / a.subject / f"classes__{subject['sightings'][0]['by']}.npz"
+    if not path.is_file():
+        raise SystemExit(f"{a.subject} has no class map in this capture (give classes= on its --mask when capturing)")
+    names = _pack("sapiens2_parts").CLASS_NAMES
+    out = class_mask_of(np.load(path)["classes"], a.classes.split("+"), names)
+    write_mask_video(Path(a.out), out)
+    print(f"wrote {a.out}: {a.subject}'s {a.classes.replace('+', ', ')}, {len(out)} frames from source frame {m['first_frame']}, "
+          f"on {int(out.reshape(len(out), -1).any(1).sum())} of them")
+
+
 def diagnose(a: argparse.Namespace) -> None:
     """Everything the capture says about a stretch somebody marked as wrong: the first step after a bad render.
 
@@ -1601,7 +1631,7 @@ def video(a: argparse.Namespace) -> None:
                 own = table[r_["subject"]][n].get("track_share") or 0
                 d.text((tx, ty), f"{'plan' if r_.get('planned') else 'run'} {r_['name']}: region {100 * r['region_share']:.1f}% of the frame"
                        + (f", {r['region_share'] / own:.1f}x {r_['subject']}'s mask" if own else "")
-                       + f"; {100 * r['margin_share'] / r['region_share']:.0f}% of it is not the mask taken", font=line, fill=WHITE)
+                       + f"; {100 * r['margin_share'] / r['region_share']:.0f}% of it margin", font=line, fill=WHITE)
             else:
                 d.text((tx, ty), f"{r_['name']}: nothing regenerates on this frame", font=line, fill=AMBER)
             ty += 25
@@ -1619,16 +1649,18 @@ def video(a: argparse.Namespace) -> None:
         if flags is None:
             d.text((tx, ty + 4), "no preflight was run on this capture", font=small, fill=DIM)
         else:
-            live = [f for f in flags if any(x <= first + n <= y for x, y in f["source_frames"]) and f["level"] != LEVELS[0]]
+            shown = {r_["name"] for r_ in runs}
+            live = [f for f in flags if any(x <= first + n <= y for x, y in f["source_frames"]) and f["level"] != LEVELS[0]
+                    and f.get("run") in (None, *shown)]
             if not live:
                 d.text((tx, ty + 4), "no flag on this frame", font=small, fill=DIM)
             for f in live[:max(1, (py + PANEL - ty - 8) // 23)]:
                 words = f"{f['id']} {f['level'].upper()}: {f['why']}"
-                while d.textlength(words, font=small) > 1000 - tx and len(words) > 20:
+                while d.textlength(words, font=small) > PANEL_TEXT - tx and len(words) > 20:
                     words = words[:-8] + "..."
                 d.text((tx, ty + 4), words, font=small, fill=LEVEL_COLOURS[f["level"]])
                 ty += 23
-        mx = 1010
+        mx = PANEL_TEXT + 12
         d.text((mx, py + 8), "movement, as the model was shown it", font=small, fill=AMBER)
         if motions is not None:
             shown = next(motions, None)
@@ -1636,13 +1668,14 @@ def video(a: argparse.Namespace) -> None:
                 img.paste(Image.fromarray(shown), (mx, py + 34))
         else:
             d.text((mx, py + 150), "none: this run has no motion video" if not a.motion_note else a.motion_note, font=line, fill=DIM)
-        sx = 1484
+        sx = mx + 456 + 14
         d.text((sx, py + 8), "taken from" if stills else "", font=small, fill=AMBER)
         sy = py + 34
         for label, pic in stills:
             img.paste(pic, (sx, sy))
-            d.text((sx + pic.width + 8, sy + 4), label, font=small, fill=WHITE)
-            sy += 158
+            d.rectangle([sx, sy + 150, sx + pic.width - 1, sy + 172], fill=(0, 0, 0))
+            d.text((sx + 2, sy + 151), label, font=small, fill=WHITE)
+            sy += 180
         enc.stdin.write(np.asarray(img).tobytes())
         done = n + 1
         if n % 100 == 0:
@@ -1708,11 +1741,16 @@ def main() -> None:
     k.add_argument("--frames", metavar="A-B+C-D", help="source frames to read; when not given and the render is one of the "
                    "capture's runs, the frames its region is not empty on")
     k.add_argument("--top", type=float, default=0.45, help="the share of the subject's mask, from its top, the figure is read over")
+    x = sub.add_parser("mask", help="some of a subject's classes as a lossless mask video")
+    x.add_argument("capture")
+    x.add_argument("--subject", required=True)
+    x.add_argument("--classes", required=True, metavar="Class+Class", help="names from the part model's class list, joined by +")
+    x.add_argument("--out", required=True, help="the .mkv to write: ffv1, grey, white on the mask, frame 0 the span's first frame")
     d = sub.add_parser("diagnose", help="everything the capture says about a stretch marked as wrong")
     d.add_argument("capture")
     d.add_argument("--frames", required=True, metavar="FIRST-LAST", help="source frames")
     a = p.parse_args()
-    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look}[a.mode](a)
+    {"files": files, "video": video, "preflight": preflight, "outcome": outcome, "diagnose": diagnose, "look": look, "mask": mask}[a.mode](a)
 
 
 if __name__ == "__main__":
