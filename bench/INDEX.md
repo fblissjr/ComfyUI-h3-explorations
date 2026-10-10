@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 104 |
+| [`check_*`](#check) | 105 |
 | [`measure_*`](#measure) | 38 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 137 |
+| [the rest](#the-rest) | 138 |
 
 ## check
 
@@ -61,6 +61,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_marker_corpus.py`](check_marker_corpus.py) | Hold the compiled marker corpus to the assertions its brief names. |
 | [`check_mask_store.py`](check_mask_store.py) | A kept subject mask is found when nothing that decides it has changed, and never otherwise. |
+| [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
 | [`check_meta_sam3_copy.py`](check_meta_sam3_copy.py) | `meta_sam3/` differs from Meta's code by the rule and the declared edits, and by nothing else. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
@@ -353,6 +354,7 @@ this file is only a way to find a script by what it says it does.
 | [`map_cube_schedule.py`](map_cube_schedule.py) | Map sglang's cube-sparse keep-ratio schedule onto the sigma grid our graphs sample. |
 | [`map_partition_delta.py`](map_partition_delta.py) | What differs between the release's FL2VA and Ref2VA weights, tensor by tensor. |
 | [`map_sol_error_on_capture.py`](map_sol_error_on_capture.py) | Where in the clip does Sol-Attn's error sit? Per-token error on a capture, by latent frame and in a named region. |
+| [`masked_job.py`](masked_job.py) | Build the graphs of a masked job from its job file, and queue them. |
 | [`masked_render_against_source.py`](masked_render_against_source.py) | Measure a masked render against the clip it was made from: flicker at the seam, and when a late region takes effect. |
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |

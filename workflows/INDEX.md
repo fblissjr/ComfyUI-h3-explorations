@@ -17,6 +17,7 @@ checkpoint and LoRAs, and which of this pack's nodes it wires (the
 | [`build_workflows.py`](build_workflows.py) | Generate the MiniMax H3 test workflows, in API format. |
 | [`distill_experiments/README.md`](distill_experiments/README.md) | distill_experiments: the distill research graphs |
 | [`h3_config.py`](h3_config.py) | Single source of truth for the H3 node chain and its settings. |
+| [`masked_job_graph.py`](masked_job_graph.py) | The graphs of a masked job, as functions that return them. |
 | [`prompts.py`](prompts.py) | The prompt bank as the ONE place prompt text lives, and the lookup that stamps a render's prompt into its records. |
 
 ## workflows/ (the shipped graphs)

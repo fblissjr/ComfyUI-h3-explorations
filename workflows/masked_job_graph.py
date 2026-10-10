@@ -40,14 +40,33 @@ each tracker after the first is given every earlier tracker's mask on
 `others`, so it cannot take a person an earlier one holds. Put the subject
 most likely to be confused with another first.
 
-Only the preview is built so far. The loads and the patch follow.
+**A load** is one entry of the file's `loads`, with the file's `defaults` under it: one subject on one
+stretch of frames, as a rule one shot. It is written in the capture's words, since the capture reads the same
+entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carried`, `text`, `audio`,
+`still`), and the builder reads a few more that the capture carries without using: `seed`, `window`,
+`context`, `feather`, `motion` (`mesh`, `mesh zoomed` or `none`; without it a whole-subject pass of a subject
+with a pose pass takes the mesh and any other load takes none), `continue_from`, `context_noise`,
+`audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
+place of the capture's own), `motion_edge` (the motion video's short edge) and `held_tail` (`open` or `plate`,
+for a load shorter than its window). A default that was measured on one clip is a starting value for
+another: every one of them can be set in a load or in the file's `defaults`, and the build record says
+which were (`SETTINGS`). `carried` says what a pass takes: `track` is the whole subject, `held` the
+part as the capture filled and graded it. One job file makes a whole-person pass or a part pass of the same
+subject by changing that key alone.
+
+`load` makes one graph for a load, from the shipped masked graph (`h3_config.MASKED_JOB_BASE_GRAPH`) and the
+files of a checked capture: nothing is tracked again. With `plan` it is the same graph with the song node on
+`preview`, which samples nothing and writes what each window will be given. The patch follows.
 """
 from __future__ import annotations
 
+import copy
 import re
 
 from h3_config import (
-    FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2,
+    FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
+    MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_PART_BOX,
+    MASKED_JOB_HELD_TAIL, MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
     MASKED_JOB_LOSSLESS, MASKED_JOB_PICTURE,
@@ -241,3 +260,231 @@ def preview(job: dict) -> dict:
                                 "width": canvas[0], "height": canvas[1]}}
         _save(g, block + 45, _out(g, at(44), "frames"), save["mesh"], MASKED_JOB_PICTURE)
     return g
+
+
+# ---- a load: one subject on one stretch, from a checked capture ----------------
+
+#: What a load's `motion` may say, and the Masked Source's choice for each.
+MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"],
+           "mesh zoomed": MASKED_JOB_MOTION["zoomed"]}
+#: The settings of a load a job file may set in place of the builder's default; a build record says, for
+#: each, the value used and whether the job set it.
+SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
+            "held_tail", "seed")
+#: What a load's `held_tail` may say.
+TAILS = ("open", "plate")
+#: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
+CARRIED = ("track", "held")
+SONG, SOURCE, STILL = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", "MiniMaxH3AppendRefImage"
+#: Ids a load adds to the shipped graph, where it uses none: the mask and motion loaders, the audio.
+MASK_FILES, AUDIO_FILE = 150, "145"
+
+
+def _the(g: dict, class_type: str) -> str:
+    """The id of the one node of a class; a shipped graph that has none or two is not the graph this was written for."""
+    found = [nid for nid, n in g.items() if n["class_type"] == class_type]
+    if len(found) != 1:
+        raise ValueError(f"the base graph holds {len(found)} `{class_type}` nodes; a load is built on exactly one")
+    return found[0]
+
+
+def _reached(g: dict, roots: list[str]) -> dict:
+    """The nodes a run of `roots` executes: the roots and everything they are linked to."""
+    keep, todo = set(), list(roots)
+    while todo:
+        nid = todo.pop()
+        if nid in keep:
+            continue
+        keep.add(nid)
+        todo += [v[0] for v in g[nid]["inputs"].values() if isinstance(v, list) and len(v) == 2 and v[0] in g]
+    return {nid: n for nid, n in g.items() if nid in keep}
+
+
+def motion_of(job: dict, one: dict) -> str:
+    """A load's motion video: what it says, else the mesh for a whole-subject pass of a subject the preview
+    made a mesh of, else none. A part pass takes none unless it asks: a face pass with a body mesh beside it
+    has not been rendered."""
+    if "motion" in one:
+        return one["motion"]
+    subject = next((s for s in job["subjects"] if s["label"] == one.get("subject")), {})
+    return "mesh" if one.get("carried", "track") == "track" and subject.get("pose", True) else "none"
+
+
+def window_for(frames: int, windows: tuple[int, ...]) -> int:
+    """The window a load is rendered in: the shortest the planner has that holds it whole, else the longest.
+
+    A load capped at its shot is one window whenever a window can hold it; a shot shorter than the shortest
+    window is still one window, its last frame held (`h3_config.MASKED_JOB_HELD_TAIL`). `windows` is
+    `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI."""
+    return next((w for w in sorted(windows) if w >= frames), max(windows))
+
+
+def contexts_for(window: int, windows: tuple[int, ...]) -> tuple[int, ...]:
+    """The contexts the planner takes in a window: the lengths on the windows' own grid that are shorter than it.
+
+    Worked out from `loop_plan.CHAIN_LENGTHS` alone, since that module needs ComfyUI: a window and a context
+    are on both clocks when they sit the same step apart as the windows do. `bench/check_masked_job.py` holds
+    this to `loop_plan.check_window_settings` for every window."""
+    step = windows[1] - windows[0]
+    return tuple(c for c in range(windows[0] % step, window, step) if c > 0)
+
+
+def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
+    """Refuse a load a graph cannot be built from, in words that name the key."""
+    name = str(one.get("name", ""))
+    if not NAME.match(name):
+        raise ValueError(f"load name {name!r}: letters, digits and underscores only")
+    labels = [s["label"] for s in job["subjects"]]
+    if one.get("subject") not in labels:
+        raise ValueError(f"load {name!r}: its subject {one.get('subject')!r} is not one of the job's, {labels}")
+    if one["subject"] in (one.get("others") or ()):
+        raise ValueError(f"load {name!r}: its subject is also among its `others`")
+    first, frames = one["first"], one["frames"]
+    if frames < 1 or first < job["first"] or first + frames > job["first"] + job["frames"]:
+        raise ValueError(f"load {name!r}: frames {first}..{first + frames - 1} are not inside the job's span "
+                         f"{job['first']}..{job['first'] + job['frames'] - 1}")
+    if one.get("carried", "track") not in CARRIED:
+        raise ValueError(f"load {name!r}: carried {one['carried']!r}; one of {CARRIED}")
+    if motion_of(job, one) not in MOTIONS:
+        raise ValueError(f"load {name!r}: motion {one['motion']!r}; one of {tuple(MOTIONS)}")
+    if one.get("edge", "tokens") not in MASKED_JOB_EDGE:
+        raise ValueError(f"load {name!r}: edge {one['edge']!r}; one of {tuple(MASKED_JOB_EDGE)}")
+    if one.get("held_tail", "open") not in TAILS:
+        raise ValueError(f"load {name!r}: held_tail {one['held_tail']!r}; one of {TAILS}")
+    if "window" in one and one["window"] not in windows:
+        raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}")
+    window, context = one.get("window", window_for(frames, windows)), one.get("context", MASKED_JOB_CONTEXT)
+    if context not in contexts_for(window, windows):
+        raise ValueError(f"load {name!r}: context {context} in a window of {window}; the planner takes one of "
+                         f"{contexts_for(window, windows)}")
+    margin, feather = one.get("margin", MASKED_SOURCE["grow_pixels"]), one.get("feather", MASKED_SOURCE["feather_pixels"])
+    if feather > margin:
+        raise ValueError(f"load {name!r}: a feather of {feather} px is wider than its margin of {margin} px, so "
+                         f"the blend would reach past the region that was regenerated")
+    if one.get("context_noise") is not None and not one.get("continue_from"):
+        raise ValueError(f"load {name!r}: context_noise with no continue_from; a load of its own keeps no frames")
+
+
+def run_prefix(job: dict, one: dict, plan: bool) -> str:
+    """Where a load's run saves, as the song node's prefix: a folder of its own, and another for its plan."""
+    folder = one["name"] + ("_plan" if plan else "")
+    return f"{job['output']}/{job['name']}/{folder}/{one['name']}"
+
+
+def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: tuple[int, ...],
+         plan: bool = False) -> dict:
+    """One load's graph, from the shipped masked graph: the render, or with `plan` what the node says it will do.
+
+    `files` is what the tool found for this load, each a `(path, the source frame its frame 0 is on)`: `track`,
+    the subject's mask from the capture; `parts`, the part to take, or None for the whole subject; `others`,
+    the masks of the people kept out of the margin; `motion`, the saved motion video, or None. `text` is the
+    load's own text: the builder writes none.
+
+    What it changes in the base, and nothing else: the loader (the source by path, on the load's frames); the
+    tracker and the part node, which go, their masks read from files; the Masked Source's region, margin,
+    edge, others, motion video and held tail; the song node's text, canvas, window, context, seed, extent,
+    prefix and audio; the still and the text encoder's view of it; Sol's sink. The model, the sampler, the
+    steps and the shift stay the row's."""
+    check_job(job)
+    check_load(job, one, windows)
+    canvas = tuple(job["canvas"])
+    first, frames = one["first"], one["frames"]
+    g = copy.deepcopy(base)
+    song, source = _the(g, SONG), _the(g, SOURCE)
+    frames_from = g[source]["inputs"]["frames"][0]
+    g[frames_from] = loader(job["source"], first, frames, canvas)
+    counter = iter(range(MASK_FILES, MASK_FILES + 1000, 10))
+
+    def from_file(path: str, at: int, as_mask: bool = True) -> list:
+        nid = next(counter)
+        g[str(nid)] = loader(path, first, frames, canvas, at=at)
+        if not as_mask:
+            return [str(nid), 0]
+        g[str(nid + 1)] = {"class_type": "ImageToMask", "inputs": {"image": [str(nid), 0], "channel": "red"}}
+        return [str(nid + 1), 0]
+
+    src = g[source]["inputs"]
+    for gone in ("segmenter", "segmenter_clip", "shot_table", "parts", "others", "keep", "motion_video"):
+        src.pop(gone, None)
+    part = one.get("carried", "track") == "held"
+    if part and not files.get("parts"):
+        raise ValueError(f"load {one['name']!r} takes a part (`carried` is `held`) and no part mask was found for it")
+    src.update(frames=[frames_from, 0], mask=from_file(*files["track"]),
+               replace=(MASKED_PARTS_SOURCE if part else MASKED_SOURCE)["replace"],
+               grow_pixels=one.get("margin", MASKED_SOURCE["grow_pixels"]),
+               feather_pixels=one.get("feather", MASKED_SOURCE["feather_pixels"]))
+    if part:
+        src["parts"] = from_file(*files["parts"])
+    if "edge" in one:
+        src["edge"] = MASKED_JOB_EDGE[one["edge"]]
+    joined = None
+    for path, at in files.get("others") or ():
+        mask = from_file(path, at)
+        if joined is None:
+            joined = mask
+        else:
+            nid = str(next(counter))
+            g[nid] = {"class_type": "MaskComposite",
+                      "inputs": {"destination": joined, "source": mask, "x": 0, "y": 0, "operation": "add"}}
+            joined = [nid, 0]
+    if joined is not None:
+        src["others"] = joined
+    motion = motion_of(job, one)
+    for theirs in ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey"):
+        src.pop(theirs, None)
+    src.update(motion_reference=MOTIONS[motion], motion_vae=motion != "none")
+    if motion != "none":
+        if not files.get("motion"):
+            raise ValueError(f"load {one['name']!r} asks for motion `{motion}` and no motion video was found for it")
+        # at the canvas's short edge (`h3_config.MASKED_JOB_MOTION` has why), and to the video model as well
+        # as the text encoder: the encoder reads one picture of it a second
+        src.update(motion_video=from_file(*files["motion"], as_mask=False),
+                   motion_short_edge=one.get("motion_edge", min(canvas)))
+        if part and motion == "mesh zoomed":
+            src["motion_box"] = MASKED_JOB_PART_BOX
+    window = one.get("window", window_for(frames, windows))
+    src.pop("held_tail", None)
+    if frames < window and one.get("held_tail", "open") == "open":
+        src["held_tail"] = MASKED_JOB_HELD_TAIL
+
+    still = _the(g, "LoadImage")
+    if not plan and not one.get("still"):
+        raise ValueError(f"load {one['name']!r} names no `still`: a render needs its reference picture")
+    if one.get("still"):
+        g[still]["inputs"]["image"] = one["still"]
+    view = g[_the(g, STILL)]["inputs"]
+    for key in [k for k in view if k.startswith("qwen_view")]:
+        view.pop(key)
+    view["qwen_view"] = MASKED_JOB_STILL_VIEW
+    sink = [nid for nid, n in g.items() if "sink_conditioning" in n["inputs"]]
+    if len(sink) != 1:
+        raise ValueError(f"the base graph holds {len(sink)} nodes with a `sink_conditioning`; a load sets exactly one")
+    g[sink[0]]["inputs"]["sink_conditioning"] = MASKED_JOB_SOL_SINK
+
+    run = g[song]["inputs"]
+    for key in [k for k in run if k.startswith("extent")] + ["continue_from", "context_noise"]:
+        run.pop(key, None)
+    run.update(prompt=text, width=canvas[0], height=canvas[1], window_frames=window,
+               context_frames=one.get("context", MASKED_JOB_CONTEXT), filename_prefix=run_prefix(job, one, plan),
+               crf=MASKED_JOB_CRF, timeline="", preview=bool(plan), keep_windows=True, reuse_windows=False,
+               audio=[frames_from, 2])
+    if "seed" in one:
+        run["seed"] = one["seed"]
+    # a DynamicCombo: the member after its parent
+    run["extent"] = "first_seconds"
+    run["extent.seconds"] = frames / FPS
+    if one.get("continue_from"):
+        run["continue_from"] = one["continue_from"]
+        run["context_noise"] = one.get("context_noise", MASKED_JOB_CONTEXT_NOISE)
+    if one.get("audio"):
+        # what the model hears while it samples, cut to the load: a file left to run past the load's last
+        # frame makes the song node hold frames to fill it
+        g[AUDIO_FILE] = {"class_type": "VHS_LoadAudio",
+                         "inputs": {"audio_file": one["audio"],
+                                    "seek_seconds": round((first - one.get("audio_first", job["first"])) / FPS, 6),
+                                    "duration": round(frames / FPS, 6)}}
+        if first < one.get("audio_first", job["first"]):
+            raise ValueError(f"load {one['name']!r} starts before its audio file does")
+        run["audio"] = [AUDIO_FILE, 0]
+    roots = [nid for nid, n in g.items() if n["class_type"] == "PreviewAny" and n["inputs"]["source"][0] == song]
+    return _reached(g, [song] + roots)

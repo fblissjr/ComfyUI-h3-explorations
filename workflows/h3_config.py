@@ -1409,6 +1409,55 @@ MASKED_JOB_LOSSLESS = dict(format="video/ffv1-mkv", level="3", coder="1", contex
 #: mesh). **Inherited** from the same builder.
 MASKED_JOB_PICTURE = dict(format="video/h264-mp4", pix_fmt="yuv420p", crf=14, loop_count=0,
                           save_metadata=False, trim_to_audio=False, pingpong=False, save_output=True)
+#: The shipped graph a job's loads start from, under `workflows/`: the generator's own output for the masked
+#: upper-body row on ref2va. A load takes its model, sampler, steps, shift, attention and reference still from
+#: that file as it stands, so a default moved in the generator moves a job's loads at the next rebuild.
+#: **Measured** 2026-10-10: the graph every render of that day and the 2026-10-08 final were patched from
+#: differs from this file in seven inputs and no node, and each of the seven is a value below or a value of
+#: the job file.
+MASKED_JOB_BASE_GRAPH = "h3_video_to_video_masked_upper_song_ref2va_motion_api.json"
+#: The frames a later window keeps from the one before, in a job. **Inherited** from the 2026-10-08 final and
+#: every render of 2026-10-10; the shipped row keeps fewer. What the kept frames do to a window is argued in
+#: `docs/wiki/window_context.md`.
+MASKED_JOB_CONTEXT = 90
+#: How clean a load that continues another is shown the frames it keeps (the song node's `context_noise`),
+#: set only when a load has a `continue_from`. **Measured** on one stretch of one clip, one seed
+#: (`docs/wiki/window_context.md`, "Results, dated"; the records are `data/2026-10-10_fun_pose/kitchen_cn_*`):
+#: at this level a continuation followed its motion video through a head turn that the same continuation
+#: with clean kept frames did not make. A lower level was still to be read when this was written and may
+#: move it. One clip: a starting value for another, which a load's own `context_noise` replaces.
+MASKED_JOB_CONTEXT_NOISE = 0.8
+#: Sol-Attn's sink in this lane. **Decided** by the owner, 2026-10-10, for the masked lane; the node's own
+#: default is another decision of theirs, on generated dialogue audio (2026-10-02), and is not moved by this.
+#: `bench/results/2026-10-10_kept_frames_against_the_mesh.md` has the two sinks side by side on two shots.
+MASKED_JOB_SOL_SINK = "exact_kv_and_rows"
+#: The Masked Source's choices a load sets by name. A body mesh saved by the preview is a video the builder
+#: wires; `zoomed` shows it in the subject's box. A motion video goes in at the canvas's short edge, which the
+#: graph works out: the vendor rule for a reference video (`docs/h3_references.md`, "Video references"),
+#: adopted and not shown to be a gain (the node's own default, `video_mask.MOTION_SHORT_EDGE`, is smaller). A
+#: load's own `motion_edge` replaces it.
+MASKED_JOB_MOTION = dict(none="none", wired="a video I wire", zoomed="a video I wire, zoomed in")
+#: What a zoomed motion video is framed on when the pass takes a part: the part, not the whole tracked
+#: subject (`video_mask.BOXES`). **Reasoned**, by the node's author; nothing rendered.
+MASKED_JOB_PART_BOX = "what is replaced"
+#: A load shorter than its window: the frames past its end keep their region open, so the model is not shown
+#: the original subject as a picture to keep (`video_mask.TAILS`). **Measured** 2026-10-10 on three short
+#: loads that had ended on the source's picture, each rendered again with this one change, one seed each
+#: (`docs/wiki/window_context.md`, the held tail; the captures are
+#: `data/2026-10-10_fun_face_street_0438_tail` and `data/2026-10-10_fun_kitchen_shot2_tails_1010`). One
+#: clip: a starting value for another, and a load's own `held_tail` (`open` or `plate`) replaces it.
+MASKED_JOB_HELD_TAIL = "the last frame, with its region open"
+#: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
+#: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
+#: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped
+#: row gives the encoder its own copy (`REF_QWEN_SHORT_EDGE`), and is not moved by this.
+MASKED_JOB_STILL_VIEW = "shared"
+#: The song node's encode for a job's render. **Inherited** from the session builder of 2026-10-10, which
+#: took it from `bench/patch_render_window.py` (`PATCH_CRF`): a pass is encoded again at delivery.
+MASKED_JOB_CRF = 12
+#: The capture's word for a region's edge against the Masked Source's (`bench/capture_masked_run.py --plan`,
+#: `edge=`): a loads file is written in the capture's words.
+MASKED_JOB_EDGE = dict(cells="latent cells", tokens="whole tokens")
 
 # ---- FastH3 8-step V2 ------------------------------------------------------------
 #: **Inherited** from ComfyUI's own template, Comfy-Org/workflow_templates

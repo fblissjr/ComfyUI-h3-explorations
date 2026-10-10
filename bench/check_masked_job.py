@@ -43,6 +43,30 @@ Claims, i.e. what breaks if a case is deleted:
                         job with no pick; a stage queued twice; node code not
                         committed, with and without an override; an input the
                         server does not serve
+  a load lands on the inputs it names    a whole-subject load and a part load,
+                        each traced from the Masked Source and the song node
+                        back to the file and the frame it should read: the
+                        masks from the capture's first frame, the mesh from the
+                        job's, the audio cut to the load, the region open over
+                        a held tail and not set when the load fills its window,
+                        the kept frames noised only on a continuation
+  a plan is the render with nothing sampled    the two graphs of a load differ
+                        in the song node's `preview` and its folder, no more
+  a load leaves the row's model alone    every node of the shipped graph a
+                        load keeps and does not name is as the shipped file
+                        has it, and Sol differs in its sink only
+  a load the graph cannot be built from    each named refusal of `check_load`
+                        and `load`
+  loads from a capture    `build plan` and `build render` on a made capture
+                        folder: the files found are the capture's, the part is
+                        the capture's filled one, the mesh is the preview's;
+                        and what is refused there
+                        the build record says which settings the job file set
+                        and which were the builder's defaults, and what the
+                        capture measured on this clip for the load, with a
+                        figure the capture lacks said to be absent
+  the gate before a render    `verify` again, the capture's verdict, and the
+                        node's own plan read for that load, each refused apart
 
 **What it does not show**, each found by breaking the thing on purpose and
 seeing the case stay green:
@@ -299,6 +323,338 @@ def the_seek_lands_on_the_frame():
     return f"{len(asked)} frames, both sides of the loader's four-second rule"
 
 
+# ---- a load -------------------------------------------------------------------
+
+WINDOWS = tool.chain_lengths()
+BASE = json.loads((REPO / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
+#: Two subjects with a mesh and one without; the capture starts later than the job, so a mask's clock and the
+#: mesh's are different numbers.
+LOAD_JOB = {"name": "check", "source": "/clips/check_24p.mov", "first": 604, "frames": 447, "canvas": [1024, 768],
+            "output": "Video/check", "texts": {"w": "words.txt"},
+            "subjects": [{"label": "a", "pick": "largest", "parts": ["hair"], "pose": False},
+                         {"label": "b", "pick": "largest"}, {"label": "c", "pick": "largest"}]}
+CAPTURE_FIRST = 650
+WHOLE = {"name": "b_0700", "first": 700, "frames": 100, "subject": "b", "others": ["a", "c"], "margin": 48, "feather": 4,
+         "edge": "cells", "still": "b.png", "seed": 11, "audio": "/audio/voice.wav", "audio_first": 620, "text": "w"}
+PART = {"name": "a_0700", "first": 700, "frames": WINDOWS[0], "subject": "a", "others": ["b"], "margin": 16,
+        "carried": "held", "still": "a.png", "continue_from": "before.safetensors", "text": "w"}
+FILES_WHOLE = {"track": ("/capture/b/track.mkv", CAPTURE_FIRST), "parts": None, "motion": ("/output/b_mesh.mp4", 604),
+               "others": [("/capture/a/track.mkv", CAPTURE_FIRST), ("/capture/c/track.mkv", CAPTURE_FIRST)]}
+FILES_PART = {"track": ("/capture/a/track.mkv", CAPTURE_FIRST), "parts": ("/capture/a/parts_held.mkv", CAPTURE_FIRST),
+              "motion": None, "others": [("/capture/b/track.mkv", CAPTURE_FIRST)]}
+
+
+def _a_load(one=WHOLE, files=FILES_WHOLE, plan=False, job=LOAD_JOB) -> dict:
+    return graphs.load(BASE, job, one, files, "the words", windows=WINDOWS, plan=plan)
+
+
+def _files_behind(g: dict, link: list) -> set[tuple[str, float, int]]:
+    """The video files a link is read from, through any mask conversion or join: (path, start time, frames)."""
+    node = g[link[0]]
+    if node["class_type"] == cfg.MASKED_JOB_LOADER:
+        return {(node["inputs"]["video"], node["inputs"]["start_time"], node["inputs"]["frame_load_cap"])}
+    links = [v for v in node["inputs"].values() if isinstance(v, list) and len(v) == 2 and v[0] in g]
+    assert node["class_type"] in ("ImageToMask", "MaskComposite") and links, f"a mask is read through a {node['class_type']}"
+    return set().union(*(_files_behind(g, v) for v in links))
+
+
+def _read(one: dict, files) -> set:
+    """What `_files_behind` should find for a load's file: the load's own frames, on the file's own clock."""
+    several = files if isinstance(files, list) else [files]
+    return {(path, graphs.seek(one["first"] - at), one["frames"]) for path, at in several}
+
+
+def a_load_lands_on_the_inputs_it_names():
+    g = _a_load()
+    src, run = g[graphs._the(g, graphs.SOURCE)]["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
+    assert _files_behind(g, src["frames"]) == {(LOAD_JOB["source"], graphs.seek(WHOLE["first"]), WHOLE["frames"])}, "the source's frames"
+    assert _files_behind(g, src["mask"]) == _read(WHOLE, FILES_WHOLE["track"]), f"the subject's mask: {_files_behind(g, src['mask'])}"
+    assert _files_behind(g, src["others"]) == _read(WHOLE, FILES_WHOLE["others"]), f"the others: {_files_behind(g, src['others'])}"
+    assert _files_behind(g, src["motion_video"]) == _read(WHOLE, FILES_WHOLE["motion"]), f"the motion video: {_files_behind(g, src['motion_video'])}"
+    assert g[src["motion_video"][0]]["class_type"] == cfg.MASKED_JOB_LOADER, "the motion video is read as a mask"
+    assert src["replace"] == cfg.MASKED_SOURCE["replace"] and "parts" not in src, "a whole-subject load takes a part"
+    assert (src["grow_pixels"], src["feather_pixels"], src["edge"]) == (48, 4, cfg.MASKED_JOB_EDGE["cells"]), "margin, feather or edge"
+    assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["wired"] and src["motion_vae"] is True, "the mesh is not wired to the video model"
+    assert src["motion_short_edge"] == min(LOAD_JOB["canvas"]), f"the motion video goes in at {src['motion_short_edge']}"
+    assert run["window_frames"] == WINDOWS[0] > WHOLE["frames"] and src.get("held_tail") == cfg.MASKED_JOB_HELD_TAIL, \
+        "a load shorter than its window does not keep its region open over the held frames"
+    assert (run["prompt"], run["seed"], run["preview"]) == ("the words", 11, False), "text, seed or preview"
+    assert (run["width"], run["height"], run["context_frames"]) == (*LOAD_JOB["canvas"], cfg.MASKED_JOB_CONTEXT), "canvas or context"
+    assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - WHOLE["frames"]) < 1e-6, "the extent is not the load's frames"
+    assert run["filename_prefix"] == graphs.run_prefix(LOAD_JOB, WHOLE, False) and run["timeline"] == "", "prefix or timeline"
+    assert "continue_from" not in run and "context_noise" not in run, "a load of its own is given kept frames"
+    audio = g[run["audio"][0]]
+    assert audio["class_type"] == "VHS_LoadAudio" and audio["inputs"]["audio_file"] == WHOLE["audio"], "the audio file"
+    assert abs(audio["inputs"]["seek_seconds"] * cfg.FPS - (WHOLE["first"] - WHOLE["audio_first"])) < 1e-3, "the audio does not start on the load's first frame"
+    assert abs(audio["inputs"]["duration"] * cfg.FPS - WHOLE["frames"]) < 1e-3, "the audio is not cut to the load"
+    assert g[graphs._the(g, "LoadImage")]["inputs"]["image"] == WHOLE["still"], "the still"
+    view = {k: v for k, v in g[graphs._the(g, graphs.STILL)]["inputs"].items() if k.startswith("qwen_view")}
+    assert view == {"qwen_view": cfg.MASKED_JOB_STILL_VIEW}, f"the text encoder's view of the still: {view}"
+    sinks = [n["inputs"]["sink_conditioning"] for n in g.values() if "sink_conditioning" in n["inputs"]]
+    assert sinks == [cfg.MASKED_JOB_SOL_SINK], f"Sol's sink: {sinks}"
+
+    g = _a_load(PART, FILES_PART)
+    src, run = g[graphs._the(g, graphs.SOURCE)]["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
+    assert src["replace"] == cfg.MASKED_PARTS_SOURCE["replace"], "a part load replaces the whole subject"
+    assert _files_behind(g, src["parts"]) == _read(PART, FILES_PART["parts"]), f"the part: {_files_behind(g, src['parts'])}"
+    assert _files_behind(g, src["others"]) == _read(PART, FILES_PART["others"]), "the part load's others"
+    assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["none"] and src["motion_vae"] is False and "motion_video" not in src, \
+        "a part pass that asked for no motion video has one"
+    assert run["window_frames"] == PART["frames"] and "held_tail" not in src, "a load that fills its window is given a held tail"
+    assert run["continue_from"] == PART["continue_from"] and run["context_noise"] == cfg.MASKED_JOB_CONTEXT_NOISE, "a continuation's kept frames"
+    assert run["audio"] == [src["frames"][0], 2], "with no audio file the model hears something other than the source's own track"
+    assert run["seed"] == BASE[graphs._the(BASE, graphs.SONG)]["inputs"]["seed"], "a load with no seed does not take the row's"
+    plate = _a_load({**WHOLE, "held_tail": "plate", "motion_edge": 512})
+    assert "held_tail" not in plate[graphs._the(plate, graphs.SOURCE)]["inputs"], "a load that asks for the plate is given an open tail"
+    assert plate[graphs._the(plate, graphs.SOURCE)]["inputs"]["motion_short_edge"] == 512, "a load's own motion_edge is not used"
+    quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
+    assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
+    zoomed = _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
+    src = zoomed[graphs._the(zoomed, graphs.SOURCE)]["inputs"]
+    assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["zoomed"] and src["motion_box"] == cfg.MASKED_JOB_PART_BOX, \
+        "a zoomed mesh on a part pass is not framed on the part"
+    return "a whole-subject load and a part load"
+
+
+def a_plan_is_the_render_with_nothing_sampled():
+    for one, files in ((WHOLE, FILES_WHOLE), (PART, FILES_PART)):
+        plan, render = _a_load(one, files, plan=True), _a_load(one, files)
+        song = graphs._the(render, graphs.SONG)
+        assert plan[song]["inputs"]["preview"] is True and render[song]["inputs"]["preview"] is False, "the song node's preview"
+        assert plan[song]["inputs"]["filename_prefix"] != render[song]["inputs"]["filename_prefix"], "a plan saves into the render's folder"
+        for g in (plan, render):
+            g[song]["inputs"].pop("preview"), g[song]["inputs"].pop("filename_prefix")
+        assert plan == render, f"{one['name']}: the plan is another graph than the render"
+
+
+def a_load_leaves_the_rows_model_alone():
+    g = _a_load()
+    named = {cfg.MASKED_JOB_LOADER, graphs.SOURCE, graphs.SONG, graphs.STILL, "LoadImage"}
+    kept = [nid for nid, n in g.items() if nid in BASE and n["class_type"] not in named and "sink_conditioning" not in n["inputs"]]
+    moved = [f"{nid} ({g[nid]['class_type']})" for nid in kept if g[nid] != BASE[nid]]
+    assert not moved, f"changed from the shipped graph: {moved}"
+    classes = {g[nid]["class_type"] for nid in kept}
+    assert {"UNETLoader", "BasicScheduler", "KSamplerSelect", "VAELoader"} <= classes, f"only {sorted(classes)} were compared"
+    still = graphs._the(g, graphs.STILL)
+    differs = {k for k in set(g[still]["inputs"]) | set(BASE[still]["inputs"]) if g[still]["inputs"].get(k) != BASE[still]["inputs"].get(k)}
+    assert differs and all(k.startswith("qwen_view") for k in differs), f"the still's node differs from the shipped graph in {sorted(differs)}"
+    sol = next(nid for nid, n in g.items() if "sink_conditioning" in n["inputs"])
+    differs = {k for k in g[sol]["inputs"] if g[sol]["inputs"][k] != BASE[sol]["inputs"].get(k)}
+    assert differs <= {"sink_conditioning"}, f"Sol differs from the shipped graph in {sorted(differs)}"
+    gone = {n["class_type"] for nid, n in BASE.items() if nid not in g}
+    assert {"MiniMaxH3SubjectTrack", "MiniMaxH3SubjectParts"} <= gone, f"a load still tracks: left out are {sorted(gone)}"
+    return f"{len(kept)} nodes as shipped"
+
+
+def the_nodes_schemas_accept_a_load():
+    import build_workflows
+    oi = declared()
+    for label, g in (("whole", _a_load()), ("whole plan", _a_load(plan=True)), ("part", _a_load(PART, FILES_PART)),
+                     ("part, zoomed mesh", _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)}))):
+        ours = ours_only(g, oi)
+        assert {graphs.SOURCE, graphs.SONG, "MiniMaxH3AppendRefImage"} <= {n["class_type"] for n in ours.values()}, \
+            f"{label}: the nodes a load changes were not found to grade, only {sorted({n['class_type'] for n in ours.values()})}"
+        errors = build_workflows.validate_api(ours, oi, label)
+        assert not errors, "\n      ".join(errors)
+
+
+def _unbuildable(words: str, one: dict, files: dict = FILES_WHOLE, plan: bool = False) -> None:
+    try:
+        _a_load(one, files, plan=plan)
+    except ValueError as e:
+        assert all(w in str(e) for w in words.split("|")), f"refused without saying {words!r}: {e}"
+        return
+    raise AssertionError(f"built a load that should be refused for {words!r}")
+
+
+def a_load_the_graph_cannot_be_built_from():
+    _unbuildable("feather|margin", {**WHOLE, "feather": 49})
+    _unbuildable("subject|'z'", {**WHOLE, "subject": "z"})
+    _unbuildable("others", {**WHOLE, "others": ["b"]})
+    _unbuildable("span", {**WHOLE, "first": 600})
+    _unbuildable("span", {**WHOLE, "frames": 400})
+    _unbuildable("carried", {**WHOLE, "carried": "all"})
+    _unbuildable("motion", {**WHOLE, "motion": "skeleton"})
+    _unbuildable("edge", {**WHOLE, "edge": "pixels"})
+    _unbuildable("window", {**WHOLE, "window": 100})
+    _unbuildable("held_tail", {**WHOLE, "held_tail": "shut"})
+    _unbuildable("context", {**WHOLE, "context": 40})
+    _unbuildable("context", {**WHOLE, "context": WINDOWS[0]})               # a context as long as its window
+    _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
+    _unbuildable("name", {**WHOLE, "name": "b 0700"})
+    _unbuildable("part", {**WHOLE, "carried": "held"})                      # a part pass with no part mask
+    _unbuildable("motion", WHOLE, {**FILES_WHOLE, "motion": None})          # a mesh by default and none found
+    _unbuildable("still", {k: v for k, v in WHOLE.items() if k != "still"})
+    _unbuildable("audio", {**WHOLE, "audio_first": 701})
+    assert _a_load({k: v for k, v in WHOLE.items() if k != "still"}, plan=True), "a plan needs no still"
+    assert [graphs.window_for(n, WINDOWS) for n in (1, WINDOWS[0], WINDOWS[0] + 1, WINDOWS[-1], WINDOWS[-1] + 1)] == \
+        [WINDOWS[0], WINDOWS[0], WINDOWS[1], WINDOWS[-1], WINDOWS[-1]], "the window is not the shortest that holds the load"
+
+
+def _a_capture(tmp: Path) -> Path:
+    """A capture folder as `bench/capture_masked_run.py files` and `verify` leave one, with empty mask files."""
+    capture = tmp / "data" / "2026-01-01_check"
+    for label, files in (("a", ("track__p.mkv", "parts__p.mkv", "parts_held__p.mkv")), ("b", ("track__p.mkv",)), ("c", ("track__p.mkv",))):
+        (capture / "subjects" / label).mkdir(parents=True)
+        for name in files:
+            (capture / "subjects" / label / name).write_bytes(b"")
+    (capture / "manifest.json").write_text(json.dumps({
+        "name": "check", "first_frame": CAPTURE_FIRST, "frames": 300, "runs": [],
+        "subjects": [{"label": label, "sightings": [{"by": "p"}]} for label in "abc"]}))
+    # what the capture measured of `b`: a shot table with one cut inside the whole-subject load, and a row a frame
+    # whose share of the frame is its own frame number, so a middle, a least and a most are known
+    (capture / "subjects" / "b" / "shots__p.json").write_text(json.dumps(
+        {"shots": [{"first_frame": 0}, {"first_frame": 90}, {"first_frame": 250}]}))
+    (capture / "subjects" / "b" / "per_frame.json").write_text(json.dumps({"columns": [], "rows": [
+        {"source_frame": n, "seen_by": "p", "track_share": n / 1000, "parts_share": None,
+         "track_box": None if n == 705 else [10, 20, 110, 20 + 160]} for n in range(CAPTURE_FIRST, CAPTURE_FIRST + 300)]}))
+    (capture / "status.json").write_text(json.dumps({"state": "done"}))
+    (capture / "verify.json").write_text(json.dumps({"failed": 0, "not_made": 0}))
+    return capture
+
+
+def _loads_file(tmp: Path, capture: Path, loads=(WHOLE, PART), **job) -> Path:
+    from PIL import Image
+    (tmp / "words.txt").write_text("the words\n")
+    (tmp / "input").mkdir(exist_ok=True)
+    # one still smaller than the size it is shown at, one larger
+    Image.new("RGB", (512, 640)).save(tmp / "input" / "b.png")
+    Image.new("RGB", (4096, 5000)).save(tmp / "input" / "a.png")
+    path = tmp / "loads.json"
+    path.write_text(json.dumps({"job": {**LOAD_JOB, "capture": str(capture), **job}, "defaults": {}, "loads": list(loads)}))
+    return path
+
+
+def loads_from_a_capture():
+    import importlib
+    planner = importlib.import_module(f"{REPO.name}.loop_plan")
+    assert WINDOWS == planner.CHAIN_LENGTHS, "the windows read from the source are not the planner's"
+
+    def planner_takes(window: int, context: int) -> bool:
+        try:
+            planner.check_window_settings(window, context)
+        except ValueError:
+            return False
+        return True
+    for window in WINDOWS:
+        theirs = tuple(c for c in range(1, WINDOWS[-1] + 60) if planner_takes(window, c))
+        assert graphs.contexts_for(window, WINDOWS) == theirs and cfg.MASKED_JOB_CONTEXT in theirs, \
+            f"in a window of {window} the builder takes contexts {graphs.contexts_for(window, WINDOWS)}, the planner {theirs}"
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture = _a_capture(tmp)
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input")
+        (tmp / "output").mkdir()
+        # no mesh saved yet: the whole-subject load takes one by default and is refused, and nothing is written
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture), "plan", [], **where), "'b_0700'", "mesh")
+        folder = tmp / "data" / "2026-01-01_check_job"
+        assert not folder.exists(), "a refused build left a folder behind"
+        # the preview's record names the mesh it saved
+        folder.mkdir()
+        mesh = tmp / "output" / "Video/check/check" / "check_b_mesh_00001.mp4"
+        mesh.parent.mkdir(parents=True)
+        mesh.write_bytes(b"")
+        (folder / "preview.queued.json").write_text(json.dumps(
+            {"files": ["Video/check/check/check_b_mesh_00001.mp4", "Video/check/check/check_b_track_00001.mkv"]}))
+        written = tool.build_loads(_loads_file(tmp, capture), "plan", [], **where)
+        assert [p.name for p in written] == ["b_0700.plan.json", "a_0700.plan.json"], [p.name for p in written]
+        found = {"track": (str(capture / "subjects/b/track__p.mkv"), CAPTURE_FIRST), "parts": None, "motion": (str(mesh), LOAD_JOB["first"]),
+                 "others": [(str(capture / "subjects/a/track__p.mkv"), CAPTURE_FIRST), (str(capture / "subjects/c/track__p.mkv"), CAPTURE_FIRST)]}
+        job = json.loads((folder / "job.plan.json").read_text())["job"]
+        assert json.loads(written[0].read_text()) == graphs.load(BASE, job, WHOLE, found, "the words", windows=WINDOWS, plan=True), \
+            "the plan written is not the graph of the capture's own files"
+        part = json.loads(written[1].with_suffix(".built.json").read_text())
+        assert part["files"]["parts"][0].endswith("parts_held__p.mkv"), f"a part load takes {part['files']['parts']}, not the capture's filled part"
+        assert part["files"]["motion"] is None and any("no motion video" in line for line in part["shown"]), "the part load's motion"
+        assert any("held" in line and "open" in line for line in json.loads(written[0].with_suffix(".built.json").read_text())["shown"]), \
+            "what a short load is shown does not say its held tail"
+        assert (folder / "b_0700.plan.txt").read_text().strip() == "the words", "the text was not kept beside the graph"
+        whole = json.loads(written[0].with_suffix(".built.json").read_text())["shown"]
+        shown_at = BASE[graphs._the(BASE, graphs.STILL)]["inputs"]["size_policy.dit_short_edge"]
+        assert all("that same copy" in line for line in (whole[1], part["shown"][1])), f"the text encoder's view is not said: {whole[1]}"
+        assert any("b.png is 512x640" in line and f"ENLARGED by {shown_at / 512:.2f}" in line for line in whole), \
+            f"a still smaller than the size it is shown at is not said to be enlarged: {whole[1]}"
+        assert any("a.png is 4096x5000" in line and "reduced by" in line for line in part["shown"]), f"a larger still: {part['shown'][1]}"
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**PART, "name": "a_other", "still": "absent.png"},)),
+                                          "render", [], **where), "absent.png", "H3_INPUT_DIR")
+        # which settings the job set, and what the capture measured on this clip for the load
+        record = json.loads(written[0].with_suffix(".built.json").read_text())
+        by_job = {k for k, v in record["settings"].items() if v["set_by"] == "the job file"}
+        assert by_job == set(WHOLE) & set(graphs.SETTINGS) and set(record["settings"]) == set(graphs.SETTINGS), \
+            f"said to be set by the job file: {sorted(by_job)}"
+        assert record["settings"]["context"] == {"value": cfg.MASKED_JOB_CONTEXT, "set_by": "the builder's default"}, record["settings"]["context"]
+        assert record["settings"]["margin"]["value"] == WHOLE["margin"], record["settings"]["margin"]
+        seen = record["what_this_clips_preview_measured"]
+        last = WHOLE["first"] + WHOLE["frames"] - 1
+        assert seen["cuts_on_source_frames"] == [CAPTURE_FIRST + 90, CAPTURE_FIRST + 250], seen["cuts_on_source_frames"]
+        assert seen["cuts_inside_this_load"] == [CAPTURE_FIRST + 90], f"the cuts inside {WHOLE['first']}..{last}: {seen['cuts_inside_this_load']}"
+        assert seen["subject"]["frames_read"] == WHOLE["frames"] and seen["subject"]["frames_with_no_mask"] == 1, seen["subject"]
+        assert seen["subject"]["share_of_the_frame"] == {"least": WHOLE["first"] / 1000, "middle": (WHOLE["first"] + WHOLE["frames"] // 2) / 1000,
+                                                         "most": last / 1000}, seen["subject"]["share_of_the_frame"]
+        assert seen["subject"]["box_height_px_middle"] == 160 and "not in the capture" in seen["part"], seen
+        assert seen["load_against_its_window"] == {"frames": WHOLE["frames"], "window": WINDOWS[0], "held_past_the_load": WINDOWS[0] - WHOLE["frames"]}
+        absent = part["what_this_clips_preview_measured"]
+        assert "not in the capture" in absent["subject"] and "not in the capture" in absent["cuts_on_source_frames"], \
+            f"a figure the capture does not hold is not said to be absent: {absent}"
+        # the same load again; then the render, which is another stage and another folder
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture), "plan", ["b_0700"], **where), "b_0700.plan.json", "new `name`")
+        rendered = tool.build_loads(_loads_file(tmp, capture), "render", ["b_0700"], **where)
+        built = json.loads(rendered[0].with_suffix(".built.json").read_text())
+        assert built["output_folder"].endswith("check/b_0700") and built["capture"] == str(capture), built["output_folder"]
+        Path(built["output_folder"]).mkdir(parents=True)
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "motion": "none"},)), "render", [],
+                                          **{**where, "date": "2026-01-02"}), "output folder")
+        # what a capture must be, and what a load must have
+        later = {**where, "date": "2026-01-03"}
+        one = {**PART, "name": "a_new"}
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(one,)), "plan", ["nobody"], **later), "nobody")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "text": "x"},)), "plan", [], **later), "text")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "first": 610},)), "plan", [], **later), "holds 650")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "by": "q"},)), "plan", [], **later), "seen by")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, tmp / "data" / "nowhere", loads=(one,)), "plan", [], **later), "not a capture")
+        (capture / "subjects/a/parts_held__p.mkv").unlink()
+        made = tool.build_loads(_loads_file(tmp, capture, loads=(one,)), "plan", [], **later)
+        assert json.loads(made[0].with_suffix(".built.json").read_text())["files"]["parts"][0].endswith("parts__p.mkv"), \
+            "with nothing doubted the part as saved is not taken"
+        (capture / "subjects/a/parts__p.mkv").unlink()
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "name": "a_newer"},)), "plan", [], **later), "parts")
+        whole = {**one, "name": "a_newest", "carried": "track", "motion": "none"}
+        (capture / "verify.json").write_text(json.dumps({"failed": 1, "not_made": 0}))
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(whole,)), "plan", [], **later), "verify")
+        (capture / "verify.json").unlink()
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(whole,)), "plan", [], **later), "verify")
+        (capture / "status.json").write_text(json.dumps({"state": "running"}))
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(whole,)), "plan", [], **later), "not finished")
+    return "two loads planned and one rendered from a made capture"
+
+
+def the_gate_before_a_render():
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture, folder = _a_capture(tmp), tmp / "data" / "2026-01-01_check_job"
+        folder.mkdir()
+        built = {"capture": str(capture), "load": {"name": "b_0700"}}
+        ok = lambda c: 0                       # noqa: E731
+        _refused(lambda: tool.gate(built, folder, lambda c: 4), "verify", "exited 4")
+        _refused(lambda: tool.gate(built, folder, ok), "flags.json")
+        (capture / "flags.json").write_text(json.dumps({"verdict": "blocked", "blocking": ["f003"]}))
+        _refused(lambda: tool.gate(built, folder, ok), "blocked", "f003", "outcome")
+        (capture / "flags.json").write_text(json.dumps({"verdict": "clear", "blocking": [], "overridden": ["f003"]}))
+        _refused(lambda: tool.gate(built, folder, ok), "plan", "never queued")
+        (folder / "b_0700.plan.queued.json").write_text("{}")
+        _refused(lambda: tool.gate(built, folder, ok), "no run named 'b_0700'")
+        manifest = json.loads((capture / "manifest.json").read_text())
+        manifest["runs"] = [{"name": "b_0700", "read_from": "worked out from the saved masks: a plan, nothing rendered"}]
+        (capture / "manifest.json").write_text(json.dumps(manifest))
+        _refused(lambda: tool.gate(built, folder, ok), "worked", "node's own plan")
+        manifest["runs"] = [{"name": "b_0700", "read_from": "the region the node's preview planned for each window", "plan": "b_0700_plan.json"}]
+        (capture / "manifest.json").write_text(json.dumps(manifest))
+        found = tool.gate(built, folder, ok)
+        assert found == {"verify": 0, "verdict": "clear", "overridden": ["f003"], "plan_read": "b_0700_plan.json"}, found
+        _refused(lambda: tool.stem_of("render"), "--load")
+        assert (tool.stem_of("preview"), tool.stem_of("render", "b_0700")) == ("preview", "b_0700.render")
+
+
 def _job_file(tmp: Path, job: dict) -> Path:
     path = tmp / "job.json"
     path.write_text(json.dumps({"job": job, "defaults": {}, "loads": []}))
@@ -414,7 +770,10 @@ def main() -> int:
                every_job_value_lands_on_the_input_it_names, a_later_tracker_is_told_who_the_earlier_ones_hold,
                a_preview_samples_nothing, no_two_saves_share_a_name, the_capture_command_reads_what_the_preview_saves,
                the_seek_lands_on_the_frame,
-               build_refuses_what_it_must, queue_refuses_what_it_must):
+               build_refuses_what_it_must, queue_refuses_what_it_must,
+               a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
+               a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
+               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
 
