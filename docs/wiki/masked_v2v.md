@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-11 (the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -444,6 +444,9 @@ where in core.
   `route-motion-signal-not-words`). What that body model gives and does not
   (no mouth; one whole-frame crop when given no box) is in
   [`meta_perception_models.md`](meta_perception_models.md).
+  *2026-10-11: a body model with the source's eye openings drawn on its
+  face, and the text that goes with it, is the section "The motion video as
+  a body model, with marks drawn on its face" below.*
 - **A setting it will refuse is refused when the graph is queued**
   (2026-10-10): a feather wider than the margin, or a softened start with
   `paint_out` (`video_mask.settings_refusal`, called by the node's
@@ -537,6 +540,15 @@ from the others (the scene in its summary, the style opening, the light
 and the camera) until a render with and without them is read
 (`masked_prompt_text.py`, `HELD`). Neither cut role has rendered as it now
 stands. [`decisions.md`](decisions.md), that date.*
+
+*2026-10-11: the node's lines for a motion video take body movement from
+"the person in `<Video 1>`" and say nothing of a facial expression. A load
+whose motion video is a body model with marks on its face was given a text
+of another form, written by a session and handed in as a file: the section
+"The motion video as a body model, with marks drawn on its face", which
+holds the lines and one whole text as an example. By the owner's ruling of
+that day it stays a documented practice for now and is not put into the
+node.*
 
 **Say the least first, and add a sentence only when a render asks for it**
 (the owner, 2026-10-10: "let the model guide and infer until you need to get
@@ -752,6 +764,288 @@ every render so far was made with; any other value is untested.
 [`window_context.md`](window_context.md) is the ledger for this question:
 the mechanism, every lever with its kind and status, and each result as a
 dated line.
+
+## The motion video as a body model, with marks drawn on its face
+
+**Provisional, written 2026-10-11. It worked on one shot and may not on
+others.** The shot is the second subject's opening kitchen shot, her face
+and hair redrawn, one seed a render. Two more shots were rendering when
+this was written, one of them the first test of following in time. When
+they are read this section gets a dated note, and if the practice does not
+hold it is changed here and not left standing. It is ours, from one shot,
+and not the vendor's: mark it so wherever it is repeated. The two records
+hold every figure and every caveat:
+[`2026-10-11_kitchen_shot_head_and_eyes_two_tests.md`](../../bench/results/2026-10-11_kitchen_shot_head_and_eyes_two_tests.md)
+and
+[`2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`](../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md).
+The owner's rulings behind it are in [`decisions.md`](decisions.md) under
+2026-10-11.
+
+### What the reference video was
+
+One video, the load's motion video (`motion_video` under the Masked Source
+above), the size of the canvas, one frame for each frame of the load:
+
+- **A plain grey body model on a black ground**, posed on every frame as
+  the person in the source is posed on that frame, so it moves as she
+  moves. Nothing of the source's picture is in it: no face of hers, no
+  clothes, no room. Its own face is a neutral modelled face with sockets,
+  a nose and a mouth, and it never changes: the body model sets the jaw
+  and every expression to zero before it is posed
+  ([`meta_perception_models.md`](meta_perception_models.md), "SAM 3D Body",
+  "The face"). On the frames looked at its mouth is shut.
+- **On that face, over each eye, a white shape with a thin black edge**
+  filling the space between her upper and her lower lash line on that
+  frame: an almond where her eye is open, a sliver where it is lowered or
+  shut. Lids only; nothing is drawn for the mouth, the brows or the
+  pupils. Each shape is drawn larger than her eye, grown about its own
+  centre by one factor for the whole shot. In the render the owner picked
+  the factor was three (the drawing script's `--grow`), which makes each
+  shape several cells of the model's grid wide and has the two reach
+  across the bridge of the nose.
+
+The file is untracked and is not shown here:
+`data/2026-10-11_fun_gate_inputs/second_mesh_with_lids_0014_x3.mp4`.
+
+### How it was made: the nodes and the code
+
+1. **The body model.** A job's preview draws it from the track:
+   `MiniMaxH3SubjectBoxes` (`subject_boxes.py`) gives one box a frame round
+   the tracked person, and `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose`
+   and `MiniMaxH3BodyMeshVideo` (`body_pose.py`) pose the model in it and
+   draw it. Their settings are `h3_config.MASKED_JOB_BODY_MODEL`,
+   `MASKED_JOB_BOXES`, `MASKED_JOB_BODY_POSE` and `MASKED_JOB_MESH`. The
+   kitchen shot's was the one drawn on 2026-10-10 with those nodes at those
+   values, handed in as a named file.
+2. **The lash-line points.** The Sapiens2 pose model on every frame of the
+   source, fitted to the canvas as the loader fits it, in the tracked
+   person's box. No node runs that model. A one-off script did:
+   `data/2026-10-11_sapiens2_pose_consecutive/run.py`, which writes the
+   points of each frame and one row a frame of figures.
+3. **The marks.** A second one-off draws the shapes on the body-model
+   video from those points and writes the marked video, with a sheet of a
+   few frames laid over the source to look at before it is used:
+   `data/2026-10-11_fun_gate_inputs/draw_lids_on_mesh.py` for the kitchen
+   shot, and its later form with the paths as arguments,
+   `data/2026-10-11_fun_set_inputs/draw_lids.py`. That script's docstring
+   holds the size rule and why a first form of it failed. The size it
+   grows a shape to is a starting value measured on this one shot, and the
+   script says so; another clip's own faces set it for that clip
+   (`../../AGENTS.md`, "A rule that depends on the picture").
+4. **The load.** A job file's load names the marked video: `motion: mesh`,
+   `motion_file`, `motion_first` (`../../workflows/masked_job_graph.py`),
+   and its `text` names a text file. It goes through `bench/masked_job.py`
+   like any load, with the capture, its gate and the looks ("Running a
+   job" above). Nothing was posted by hand.
+5. **The render's graph**, as the builder wrote it: `MiniMaxH3MaskedSource`
+   with `motion_reference` on `a video I wire`, the video model's own copy
+   of the video on (`motion_vae`), the video at the canvas's short edge and
+   `start_from` on `noise`; `MiniMaxH3AudioFreezeSong`; `MiniMaxH3Sol`;
+   `MiniMaxH3AppendRefImage` for the still; and video loaders for the
+   source, the masks and the reference video. The graph is saved beside
+   the job: `data/2026-10-11_gate_p4_0014_job/second_hf_0014_p4.render.json`.
+
+**The pose pass and the marks are one-off scripts under the untracked
+`data/` today**, with one clip's canvas typed in. They are being made
+tracked tools, and steps 2 and 3 take their names when they land. No
+shipped graph has this form, and the builder cannot make a marked video; it
+can only be handed one.
+
+### What it carried on that shot
+
+- **The body model carries her head.** With it her head follows the
+  source's; without it, and without the sentences that go with it, her head
+  holds nearly still (the two-tests record).
+- **Nothing carried her lids until the marks did.** In every render
+  without them her eyes read wider open than the source's. With the
+  enlarged marks her lids come down to about the source's level where the
+  source's are lowered.
+- **It is a level, and following in time is not shown.** Where the source's
+  eyes are open no load opened hers as far as the source's, the render
+  without marks included, and the shot has no blink.
+- **On playback the owner picked the load with the enlarged marks and the
+  text below**, and called the other loads with enlarged marks as good.
+  They also put one load with marks at true size level with those, the one
+  whose text was laid out the vendor guide's way, and not the true-size
+  load in this pack's form: the same pair the measure separates ("Why we
+  think it worked" below). Their saved lines are in the local page's
+  untracked `data/fun/poc/answers.jsonl`.
+
+### The text: the fragment
+
+A reference the text does not speak of is one the model cannot know to
+use, and a text that says what her face does leaves a render unable to say
+whether the text or the reference did it (the rulings). So the text says
+what the video is and that she follows it, in four places, and nothing
+else about it. Copied from the picked render's text
+(`data/2026-10-11_fun_gate_inputs/second_hf_0014_p4.txt`):
+
+The end of the subject's definition, after who the subject is:
+
+```text
+, who follows the movements and the facial expressions of the figure in <Video 1>.
+```
+
+The line that says what the video is:
+
+```text
+<Video 1> is a plain grey body model on a black ground, with shapes drawn on its face that are part of its facial expression; <Subject 1> follows its movements and its facial expressions, and its grey look and the shapes themselves are not drawn.
+```
+
+Its retention line:
+
+```text
+<Video 1> (motion source): attribute_transfer - the movements and the facial expressions of the figure are transferred to <Subject 1>; the grey body model's look, the shapes themselves and its black ground are not.
+```
+
+One sentence in the shot:
+
+```text
+She follows the movements and the facial expressions of the figure in <Video 1>.
+```
+
+What to hold to when it is used on another load:
+
+- **The second line describes that video.** Grey, a black ground, shapes on
+  its face: if the reference is drawn another way the line says what that
+  one is, as the model sees it. The rulings have layers being added to the
+  video one at a time, and this line changes with each.
+- **Nothing names a feature, a turn of the head or what she does**, and the
+  shapes are given no colour. A sentence about her eyes is ruled out, a
+  clause that only relates them to the reference's included.
+- **The pronoun and the subject's number are the load's.**
+- **A shorter wording, "movements and expressions", was under test** on
+  the next shot when this was written.
+- **A line for `<Video 1>` as a source of movement is this pack's form**,
+  measured on 2026-10-05
+  (`../../bench/results/2026-10-05_masked_v2v_motion_arms.md`). The vendor
+  guide keeps `<Video N>` for a relationship to a whole video
+  ([`../prompting.md`](../prompting.md), section 9.4). The same content
+  laid out the guide's way was rendered once, with marks at true size; the
+  lid-marks record has what it did.
+- **It is not what the Masked Prompt node writes.** The node's lines for a
+  motion video (`masked_prompt_text.VIDEO_DEFINITION`, `VIDEO_RETENTION`,
+  `MOVES`) call the video a person and take only body movement from it. By
+  the owner's ruling of 2026-10-11 this form stays a documented practice
+  for now and is not put into code: a session writes a load's text from
+  its frames, sets the four places into it, and the job's note says where
+  they came from.
+
+### One whole text, as an example
+
+**An example, not a text to copy.** This is the whole text of the render
+the owner picked, kept here so the fragment can be seen in its place. Every
+sentence about the scene in it was written from that one shot's frames and
+is true of those frames only; a text for another load is written from that
+load's frames (`../../AGENTS.md`, "A scene's text is data"). And it is not
+a model of a caption: it still holds sentences about what "stays as it is"
+and what is "the scene's own", the kind the owner ruled out on 2026-10-10.
+They were kept the same across the day's loads on purpose, so that one
+thing changed at a time, and a render of this shot with them deleted came
+out as the same piece (the lid-marks record, the load called `text`). Do
+not carry them to a new text.
+
+```text
+subject_definitions:
+<Subject 1> is the woman in <Picture 1>, with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, who follows the movements and the facial expressions of the figure in <Video 1>.
+<Video 1> is a plain grey body model on a black ground, with shapes drawn on its face that are part of its facial expression; <Subject 1> follows its movements and its facial expressions, and its grey look and the shapes themselves are not drawn.
+
+summary:
+[reference generation] <Subject 1> sits at a kitchen table in a scene that is already lit, framed and cut. Her face and her hair are those of <Picture 1>; her clothing, her hands and everything she holds are the scene's own: a white bib apron over a sleeveless patterned blouse.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): partially_preserved - only the woman's face and her long, loose blonde hair are retained, wherever they show; the clothing, the accessories and the background of <Picture 1> are not used.
+<Video 1> (motion source): attribute_transfer - the movements and the facial expressions of the figure are transferred to <Subject 1>; the grey body model's look, the shapes themselves and its black ground are not.
+
+detailed_description:
+The target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.
+[Shot 1] In a kitchen with wooden cabinets and a curtained window, <Subject 1>, the woman with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, sits behind a table in a white bib apron over a sleeveless patterned blouse; the apron, the blouse, her arms and her hands are the scene's own and stay as they are. Her face is the face of <Picture 1> on every frame. She follows the movements and the facial expressions of the figure in <Video 1>. Her blonde hair hangs loose past her shoulders, over the straps of the apron. The wall, the curtained window and the cabinets behind her head are the scene's own and stay as they are. The warm light falls on her face and her hair as it falls on everything around her, from the same direction and in the same amber colour. The framing and every movement of the camera are the scene's own and do not change.
+
+overall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.
+
+non_diegetic_music: N/A
+```
+
+### Why we think it worked, and what is not shown
+
+What the renders support, and no further. Each is one shot and one seed.
+
+- **The body model, shown as a video, is what her head follows.** Taken
+  away, her head held nearly still.
+- **Larger marks did more, under the same words.** At true size each lay
+  inside one cell of the model's grid and her lids moved a little.
+  Enlarged, under the same words, they brought her lids to the source's
+  level. That step is the picture's and no sentence's. Small marks were
+  not unseen, though: the same true-size marks under the other form of
+  words (the vendor guide's layout) brought her lids most of the way.
+- **The words say that the video is followed; the picture says how.** A
+  text that only says what the video is and that she follows it did the
+  same for her lids as a longer one that related her eyes to the figure's.
+  For her head it did a little less: the limit below. Saying what is
+  retained of the video, or what the shapes are for, changed nothing by
+  the measures of her lids, of where her head sits and of her lip gap, on
+  this shot at this seed.
+- **Her look comes from the still and not from the figure, as far as was
+  looked.** On the stills the readers looked at no render shows a grey face
+  or the shapes, and no neutral white was found in a box round her eyes on
+  any frame; the rest of her face was not measured, and greyness was not
+  measured at all. One reader found a light streak on each upper lid, over
+  a run of frames in the middle of the shot, in the load with enlarged
+  marks, where the render without marks has a small bright point inside
+  each eye and no streak (its figures:
+  `data/2026-10-11_mrtie_gate_o_read/`). Nobody has judged it on playback.
+  Every text of the day said the figure's look is not used or not drawn,
+  so no render shows what happens without those words.
+
+Not shown: that she follows in time (nothing blinks in that shot, and
+where the source's eyes are open hers opened less far than the source's in
+every render); a second seed; any other shot. The three plain wordings are
+one seed and nearly one text, so their agreeing is one result seen three
+times. And the form of the words moved her face once, between two loads
+with the same true-size marks, for a reason nobody has: under this pack's
+form her lips were held parted through the whole shot and her lids moved
+a little, and under the guide's form her mouth was as in the render
+without marks and her lids came most of the way.
+
+### Limits known today
+
+- **A small face has no lids to draw.** On the lead's street shots the gap
+  between her lash lines at whole-frame size is too small to draw marks
+  from or to read a render by (the lid-marks record, "Which other shots can
+  take it"). The pose model's own score for the lid points does not say
+  this: it stays high on such a face and on a head turned away, so the
+  score cannot be what decides where marks are drawn.
+- **A load rendered zoomed in takes no motion video** (`video_mask.py`, the
+  note at `RENDER_ZOOM_REPLACED`; the builder refuses the pair), so the
+  section below and this one cannot be combined today.
+- **Her head sits a little further from the source's under the plain
+  text**, while its turn is the same in every render. The word "head" left
+  the text along with several other changes, so the cause is not separated.
+- **The figure's mouth never moves.** On a shot where the
+  subject sings, a text of this form says both that she sings and that she
+  follows the figure's facial expressions. Not rendered when this was
+  written.
+
+### Reading a render of this form
+
+The pose model on every frame of the source and of the render, as the
+records do: the eye opening taken apart by where the source's eyes are open
+and where they are lowered, and where the head sits in pixels beside any
+correlation, since a correlation hid the head's offset on this shot. A
+level is stated with a floor beside it, the same render made twice; that
+floor bounds two makes of one render and says nothing of a second seed. The
+eye figure is trusted at its two ends and not in between, and the mouth
+figure is not trusted
+([`meta_perception_models.md`](meta_perception_models.md), "The trials",
+the note under the table).
+
+### What comes next for the video
+
+By the rulings: segmentation and depth are to be shown to the model as
+further layers of this one video, never as more reference videos, added
+one at a time and each read as a single render against the kept one: the
+pose model's own drawing of the face points, then the part colours, then
+depth shading.
 
 ## A small subject, rendered zoomed in
 
