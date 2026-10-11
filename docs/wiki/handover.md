@@ -126,7 +126,7 @@ day had finished.
   Meta's keypoint config), so a fresh checkout cannot run the pose tool
   until it has a tracked home. *Decided at the close and not built when
   this was written: Meta's Sapiens2 names (the pose points and the part
-  model's classes and colours) go into a folder of their own with Meta's
+  model's classes and colours) go into `vendor/meta_sapiens2/` with Meta's
   licence file beside them, and the part node reads its names and
   colours from there, which is a node change with a restart and a smoke
   test ([`decisions.md`](decisions.md), 2026-10-11, the last entry).* [`masked_v2v.md`](masked_v2v.md), "How it
@@ -278,6 +278,15 @@ Every step is a tracked tool; every bench tool here wants
   graphs and queue records), `2026-10-11_sapiens2_pose_consecutive/` (the
   pose model's points and one table a clip, with the three one-off
   scripts), `2026-10-11_depth_who_is_in_front/` (trial 2, not finished).
+- **Where a video file goes, by the owner's word at the close**: under
+  the output folder's `Video/` on the share, not under `data/`. What was
+  made under `data/` that day and is still there because built graphs
+  name it by path: four marked reference videos and one face-only mask
+  video in the two `_inputs` folders above, one hands mask beside the
+  unfinished trial 2, and each capture's strip under its `looks/`. They
+  move when a job is next built, under a new job name. Whether a
+  capture's own mask copies are covered is open
+  ([`decisions.md`](decisions.md), 2026-10-11, the last entry).
 - **The page's review list**: `data/fun/review/items.json`, clips in
   `data/fun/review/media/`.
 - **Tracked tools the work ran on**: `bench/masked_job.py`,

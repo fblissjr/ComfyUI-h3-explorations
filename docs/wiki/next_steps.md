@@ -34,7 +34,10 @@ own below the rule.
   that takes the page's raw answers into it; trial 2 of
   [`meta_perception_models.md`](meta_perception_models.md), "The trials";
   a tracked home for the pose model's list of point names, without which
-  a fresh checkout cannot run `bench/pose_along_shot.py`. *The pose pass
+  a fresh checkout cannot run `bench/pose_along_shot.py` (decided:
+  `vendor/meta_sapiens2/`, with the part model's class names and colours
+  and Meta's licence file; then the part node reads its table from
+  there, with a restart and a smoke test). *The pose pass
   along a shot, listed here as owed when this block was written, landed
   the same night.*
 - **The direction for the capture tool, from the owner at the close**

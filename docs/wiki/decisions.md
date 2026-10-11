@@ -399,6 +399,18 @@ that session's record disagree, its record is the nearer one.*
     upstream's files where that checkout is present, and the point names
     to the checkpoint's own left and right pairs. Decided by the owner
     on being shown the options; not built when this was written.
+  - **Meta's folders live under `vendor/`.** The Sapiens2 names go to
+    `vendor/meta_sapiens2/` from the start; `meta_sam3/` moves under
+    `vendor/` later as a change of its own, since node code imports from
+    it. The pack carries a party's licence as that party's own file and
+    writes no wording of its own about it.
+  - **Video files go under the output folder's `Video/` on the share,
+    not under the repository's `data/`.** The marked reference videos
+    and the mask videos made on 2026-10-11 under `data/` stay where
+    built graphs name them until a job is next built, and move then
+    under a new job name. Open: whether this reaches the capture tool's
+    own mask copies and strips, which it writes into a capture's folder
+    by design and which the built graphs read.
   - **A layered view of the preprocessing is built as shared library
     code**, and what it adds goes into an existing smaller tool or node
     where it fits, with no code duplicated across them. Asked after four
