@@ -1,6 +1,6 @@
 # What can be made here: a library of uses
 
-last updated: 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
+last updated: 2026-10-11 (a row for eyelids from marks on the body mesh, and dated notes on the body-mesh rows); 2026-10-10 (the body-mesh row: this pack's own nodes); 2026-10-05 (first written; what each unshipped use needs, added the same day)
 
 Written by hand, at the owner's ask (2026-10-05: "a library of potential
 uses given what we have done here and can do here holistically with
@@ -108,7 +108,8 @@ below with what would accept or reject it.
 | A thing that is not a person | the same mask | a mode on the Subject Track without the head comparison | proposed | the board |
 | Correct one shot by hand | none: it is the mask that is corrected | `MiniMaxH3SubjectTrack`'s `corrections`: `shot 3: person 2` or `shot 3: none`, with the numbers the preview shows | built | `../../subject_track.py`, "A correction"; `../../bench/check_subject_track.py`, item 7. Not yet run on a clip |
 | One review per clip before any render | none | a dry run that emits masks, parts, shots and captions | proposed | the board |
-| Movement from a body mesh of the original, with none of its look | the mesh rendered as the video reference | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose` on `MiniMaxH3SubjectBoxes`' boxes, `MiniMaxH3BodyMeshVideo` (`../../body_pose.py`): the crop sampled as Meta's code samples it, no ComfyUI SAM node in the graph, and a table of what each hand's decoder did | built (2026-10-10); no shipped graph wires it yet | `../../bench/results/2026-10-10_sam3d_body_core_against_meta.md`; `../../bench/check_body_pose.py`; [`meta_perception_models.md`](meta_perception_models.md) |
+| Movement from a body mesh of the original, with none of its look | the mesh rendered as the video reference | `MiniMaxH3BodyModelLoader`, `MiniMaxH3BodyPose` on `MiniMaxH3SubjectBoxes`' boxes, `MiniMaxH3BodyMeshVideo` (`../../body_pose.py`): the crop sampled as Meta's code samples it, no ComfyUI SAM node in the graph, and a table of what each hand's decoder did | built (2026-10-10); no shipped graph wires it yet. *2026-10-11: a job's preview draws it and its loads have rendered with it; on one shot it is what carried the head of a load that redraws a face and hair* | `../../bench/results/2026-10-10_sam3d_body_core_against_meta.md`; `../../bench/check_body_pose.py`; [`meta_perception_models.md`](meta_perception_models.md); `../../bench/results/2026-10-11_kitchen_shot_head_and_eyes_two_tests.md` |
+| A redrawn face's eyelids at the original's level | the original's eye openings drawn on that body mesh's face, in the one motion video a load is given, and a text that says what the video is and that the subject follows it | `../../bench/draw_lid_marks.py` on the Sapiens2 pose model's lash-line points (the pose pass is a one-off script, no node); a load's `motion_file` in a job (`../../bench/masked_job.py`) | probe (2026-10-11): carried on one shot, did not repeat on a second; cause not known | [`masked_v2v.md`](masked_v2v.md), "The motion video as a body model, with marks drawn on its face"; `../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md` |
 | Movement from per-shot captions a model writes and the user can edit | the prompt, written by machine | core's text generation over the loaded encoder | proposed; it is still prompting | the board |
 | Movement from a control adapter | a trained mask-and-source path | none | closed: declined by the owner | [`decisions.md`](decisions.md), 2026-10-04 |
 | Movement from a late start on the schedule | the source showing through at the first step | none in the tree | closed: carries the original's look with its pose | `bench/results/2026-10-04_masked_v2v_turn_soft_arms.md` |
@@ -170,7 +171,8 @@ only where something more than promoting its graph is needed.
 | A thing that is not a person | a choice on the Subject Track that turns the head comparison off |
 | Correct one shot by hand | built on 2026-10-05 (section 4); a person the detector never found still needs points or boxes passed to it |
 | One review per clip before a render | a path that stops before sampling; the tracker's preview and the song node's `preview` are two parts of it |
-| Movement from a body mesh | a node that renders the mesh over the frames, then one render |
+| Movement from a body mesh | a node that renders the mesh over the frames, then one render. *2026-10-11: both exist (the row in section 4). What it needs now is a shipped graph: today it is reached through a job file only* |
+| A redrawn face's eyelids at the original's level | a second shot on which it holds, read with one thing changed at a time; the pose pass along a shot as a tracked tool; only then a node and a graph |
 | Movement from captions | a node that captions each shot and assembles the prompt, shown for editing |
 | Make the sound again on a finished clip | a graph that starts from a saved latent, not from a fresh sample |
 | The combinations in section 6 | one render each |
