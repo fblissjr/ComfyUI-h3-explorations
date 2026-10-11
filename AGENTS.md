@@ -147,12 +147,14 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   read it against that load's frames before it is used, and check after
   the render that it did what was expected. (Owner, 2026-10-10.)
 - **When a render is wrong, read three things before anything is
-  suspected or queued: its text, its mask, and where the mask falls
-  against the sampler's frames.** The text the model was given, against the
-  frames, for what it says and does not say about the thing that is wrong;
-  the mask on the frames that are wrong; and the plan's latent steps there
-  (which frames share a step, which are held, which have no mask). The
-  owner's count is that it is one of those three about half the time. On
+  suspected or queued: its text, its mask, and how four timelines line
+  up: the input video's frames, the mask's frames, the sampler's frames
+  and the audio.** The text the model was given, against the frames, for
+  what it says and does not say about the thing that is wrong; the mask on
+  the frames that are wrong; and, frame by frame there, which source frame,
+  which mask frame, which latent step (shared, held, with no mask of its
+  own) and which stretch of audio the model had together. The owner's
+  count is that it is one of those three about half the time. On
   2026-10-10 three test renders went to a kernel setting and an audio file
   before the text was read; one sentence fixed it. (Owner, 2026-10-10.)
 - **A rule that depends on the picture takes its value from the input
