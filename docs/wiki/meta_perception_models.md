@@ -79,15 +79,24 @@ The owner's rule for the masked lane stands whatever is used: no control
 adapter, so depth would be data for planning a mask and never an input to
 the video model.
 
-What could give it, cheapest first:
+What could give it. The order is one session's recommendation, changed the
+same day it was written: it first put the model that needs no download at
+the top, and that was an argument about effort, not about which answers the
+question best.
 
 | model | where | what it is for | state |
 |---|---|---|---|
-| Depth Anything V2 | already in the ComfyUI checkout's `models/depthanything/` | relative depth of a whole scene, people and things alike | on disk; no code of this pack loads it. The first thing to try, since it costs no download: on frames where the order is plain by eye, is the nearer mask the nearer one by its figures |
 | `facebook/sapiens2-pointmap-1b` | not on disk | the same head as the 5b in the store, on the backbone size this pack already runs its part model and its keypoint model at | the one to fetch if a person-only reading is wanted. Trained for pictures of people (the card's "Intended Use"), so it is for person against person and a hand against a face, not for a bowl or a telephone. The 5b in the store then serves as the reference the 1b is checked against on the same frames; the two smaller sizes are for speed and nothing here is short of it yet |
-| `facebook/hyden-da2-relative-depth` | not on disk | Meta's sharper-edged variant of Depth Anything V2 Large; relative depth | fetch only if the Depth Anything V2 already here gets the order right and its edges are too soft for thin things (hair, fingers, an earring) |
-| `facebook/hyden-mogev2-metric-point` | not on disk | Meta's variant of MoGe-2: a position in space for every pixel of a whole scene, in real units | not needed for an order. Its one other use here is the camera: see the next paragraph |
+| `facebook/hyden-mogev2-metric-point` | not on disk | Meta's variant of MoGe-2: a position in space for every pixel of a whole scene, in real units | fetch first. It is the one model here with two uses: the order between any two masks, things as well as people, and the camera the body mesh wants (the paragraph on MoGe below). For an order inside one frame its real units are not needed; they would matter only for comparing one frame with another |
+| `facebook/hyden-da2-relative-depth` | not on disk | Meta's sharper-edged variant of Depth Anything V2 Large; relative depth | fetch with it, as a second reading on the same frames. Two models looking at the same pixels are not two independent votes, so agreement proves little; a frame where they DISAGREE is one to look at by eye. Their base models differ (the cards) and their encoder design is the same |
+| Depth Anything V2 | already in the ComfyUI checkout's `models/depthanything/` | relative depth of a whole scene | on disk; no code of this pack loads it. The base model of the row above, so it adds nothing once that one is here; worth a run only if neither HyDen checkpoint can be made to load |
 | `facebook/hyden-mogev2-surface-normal`, and the Sapiens2 normal models | not on disk | which way each surface faces | no use in this lane that anybody has named |
+
+What fetching does not settle: the code that loads these checkpoints is
+Meta's `facebookresearch/metadepth`, which is not under `coderef/` and which
+nobody here has read, and no node exists for either. So the first run is a
+one-off against that reference, on a handful of frames where the order is
+plain by eye, before anything reads its output.
 
 The three `hyden` repositories were read on the Hub on 2026-10-11 and not
 downloaded: each card calls the encoder a hybrid of a low-resolution
