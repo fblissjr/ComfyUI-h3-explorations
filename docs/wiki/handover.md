@@ -290,6 +290,28 @@ a subject is in. The agreed points, the disagreements and the costs are
 on the board card `idea-who-is-in-a-scene-written-once-per-video`.
 Nothing is ruled and nothing is to be built on it until the owner says.*
 
+*Later still, and the last of the night: the owner then ruled on most of
+it, and asked how to put it in place. Read the rulings where they are
+written whole, not here: [`decisions.md`](decisions.md), 2026-10-10, the
+contact sheets entry and the dated lines under it. In short: who is in a
+scene is written once a video, in the cast file, as a person's answer to
+a numbered picture; the file holds only what a person said; the owner's
+look on playback and a session's look at stills are kept apart; an answer
+says how sure in a word and a number, concisely, and who gave it; four
+things are to be actively avoided, the first being a new place for a fact
+already written. Every session, asked separately, said to build it in the
+morning and gave nearly one order, which is the board card
+`plan-who-is-in-a-scene-put-in-place`: by hand first on one real stretch,
+then one tool at a time reads the cast file and loses its own copy of the
+fact in the same commit. That card is the morning's first read after this
+page, and it is **not a go**: the owner has still to say so, and whether
+they answer the first pictures themselves. The two parked patches named
+above predate all of it and put the statement in the job file; they are a
+first writing to learn from. The parked analysis-folder input on the song
+node also waits on the owner: it is a new refusal approved before these
+rulings, and its builder and the lead would now hold it back (the three
+choices are in the `needs` field of the card `note-morning-2026-10-11`).*
+
 ## What was done
 
 Pointers only; each tool's `--help` and docstring are the account.
