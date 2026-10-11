@@ -11,7 +11,8 @@
     <python> bench/capture_masked_run.py preflight data/<date>_<NAME> [--not-in a:294-414] [--text P.txt --voice-spans V.json]
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
     <python> bench/capture_masked_run.py shots data/<date>_<NAME> [--loads]   # the gate per shot and subject, or per load
-    <python> bench/capture_masked_run.py looked data/<date>_<NAME> --by WHO --note "every frame of each load, as the strip shows it"
+    <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP --job JOB.json --load LOAD     # the look's strip, one a load
+    <python> bench/capture_masked_run.py looked data/<date>_<NAME> --by WHO --note "every frame of each load and its text, as the strips show them"
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
     <python> bench/capture_masked_run.py look data/<date>_<NAME> --source CLIP --render R.mp4@14 --held REF.mp4@14
@@ -3066,36 +3067,54 @@ def preflight(a: argparse.Namespace) -> None:
         sys.exit(GATE_BLOCKED)
 
 
-def look_entry(status: dict, loads_known: list[str], by: str, loads: str | None, note: str, now: str) -> dict:
-    """One line of `looks.json`: who went through a capture's frames with their own eyes, when, which loads, and
-    what they say. A passing check says no rule failed, never that the masks are on the right person (owner,
-    2026-10-10), so a capture is looked at by somebody who did not make it before a plan or a render is built on
-    it. Kept as simple as it can be: no hash of the files. The builder compares the look's time with the
-    capture's own (`status.json`, `written`): a capture rebuilt after the look is to be looked at again, also
-    when the rebuild changed nothing."""
+def look_entry(status: dict, shown: list[dict], by: str, note: str, now: str) -> dict:
+    """One line of `looks.json`: who went through a capture's loads with their own eyes, when, what each strip
+    showed, and what they say. A passing check says no rule failed, never that the masks are on the right person
+    or that a text fits its frames (owner, 2026-10-10), so a capture's loads are looked at by somebody who did
+    not make it before a plan or a render is built on them.
+
+    `shown` is one row a load, as `video --load` wrote it beside the strip (`<load>.shown.json`): the load's
+    frames, the frames its text was written from and the hash of the text that was under the picture. The job
+    builder compares those three with what it is about to build, and the look's time with the capture's own
+    (`status.json`, `written`): a capture rebuilt after the look, a load whose frames moved, or a text that is
+    not the one that was read, is looked at again. A hash and not a time for the text, because a file's time
+    passes a text copied in with an old one."""
     if not by.strip() or not note.strip():
         raise SystemExit("a look is a person's word: give --by and a --note that says what was looked at and what was seen")
     if status.get("made_by") and status["made_by"] == by:
         raise SystemExit(f"{by} made this capture: the look is somebody else's")
-    names = "all" if not loads or loads == "all" else loads.split("+")
-    unknown = [] if names == "all" else [n for n in names if n not in loads_known]
-    if unknown:
-        raise SystemExit(f"no load named {', '.join(unknown)} in this capture; it has {', '.join(loads_known) or 'none'}")
-    return {"by": by, "at": now, "loads": names, "note": note.strip(), "capture_written": status.get("written"),
-            "maker": status.get("made_by") or "not recorded"}
+    if not shown:
+        raise SystemExit("no strip was shown: a look of nothing. Draw each load's with `video <capture> --source CLIP --job JOB.json --load NAME`")
+    old = [r["load"] for r in shown if r.get("made", "") <= str(status.get("written", ""))]
+    if old:
+        raise SystemExit(f"the strip of {', '.join(old)} was drawn before this capture was last written: draw it again and look at that one")
+    return {"by": by, "at": now, "loads": [r["load"] for r in shown], "note": note.strip(), "shown": shown,
+            "capture_written": status.get("written"), "maker": status.get("made_by") or "not recorded"}
 
 
 def looked(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     status = json.loads((folder / "status.json").read_text())
-    m = json.loads((folder / "manifest.json").read_text())
+    have = {p.name[:-len(".shown.json")]: p for p in sorted((folder / "looks").glob("*.shown.json"))} if (folder / "looks").is_dir() else {}
+    rows = {n: json.loads(p.read_text()) for n, p in have.items()}
+    # with no --loads: every strip drawn since the capture was last written; an older strip is of an earlier capture
+    names = sorted(n for n, r in rows.items() if r.get("made", "") > str(status.get("written", ""))) if not a.loads or a.loads == "all" \
+        else a.loads.split("+")
+    unrecorded = [n for n in names if n not in have and (folder / "looks" / f"{n}.mp4").is_file()]
+    if unrecorded:
+        raise SystemExit(f"a strip of {', '.join(unrecorded)} was drawn and nothing was recorded for it: the job file does not say which "
+                         "frames its text was written from, or by whom, so no look of it can be recorded")
+    missing = [n for n in names if n not in have]
+    if missing:
+        raise SystemExit(f"no strip was made for {', '.join(missing)}: a look of nothing. This capture has strips for "
+                         f"{', '.join(sorted(have)) or 'no load'}")
     kept = folder / "looks.json"
     looks = json.loads(kept.read_text())["looks"] if kept.is_file() else []
-    looks.append(look_entry(status, [r["name"] for r in m["runs"]], a.by, a.loads, a.note, datetime.datetime.now().isoformat(timespec="seconds")))
-    kept.write_text(json.dumps({"what": "who looked through this capture's frames, appended and never rewritten; a look older than the "
-                                        "capture's status.json `written` is of an earlier build", "looks": looks}, indent=1) + "\n")
-    print(f"recorded: {a.by} looked at {'every load' if looks[-1]['loads'] == 'all' else ', '.join(looks[-1]['loads'])} of {folder.name}; "
-          f"{len(looks)} look(s) in {kept}")
+    looks.append(look_entry(status, [rows[n] for n in names], a.by, a.note,
+                            datetime.datetime.now().isoformat(timespec="seconds")))
+    kept.write_text(json.dumps({"what": "who looked through this capture's loads, appended and never rewritten; each line holds what "
+                                        "the strips it looked at showed (`shown`)", "looks": looks}, indent=1) + "\n")
+    print(f"recorded: {a.by} looked at {', '.join(names)} of {folder.name}; {len(looks)} look(s) in {kept}")
 
 
 def outcome(a: argparse.Namespace) -> None:
@@ -3817,6 +3836,55 @@ def legend_lines(subjects: list, runs: list) -> list[tuple[tuple, str, str]]:
     return lines
 
 
+def load_and_text(job_path: Path, name: str) -> dict:
+    """One load of a job file and the text it will be given, as the look shows them and records them.
+
+    The keys are the job builder's (`bench/masked_job.py`): a load's `first`, `frames` and `text` (a label), and
+    in the file's `job` block `texts[label]` = {"file": a name beside the job file, "frames": the source frames
+    the text was written from, "by": who wrote it}. `text_sha256` is of the file's text with the whitespace at its ends stripped, the
+    string the builder puts in the graph: the builder's rule, restated here so that a strip can be drawn for a
+    job its build refuses. A job file with no such entry (every one made before 2026-10-11) is shown with the
+    built text found beside it and `recorded` false: where the text was written from and by whom is not known,
+    and no look of it can be recorded."""
+    import hashlib
+    file = json.loads(job_path.read_text())
+    named = [x.get("name") for x in file.get("loads", [])]
+    if name not in named:
+        raise SystemExit(f"no load named {name} in {job_path.name}; it has {', '.join(str(x) for x in named) or 'none'}")
+    load = {**(file.get("defaults") or {}), **next(x for x in file["loads"] if x.get("name") == name)}
+    first, count, label = int(load["first"]), int(load["frames"]), load.get("text")
+    out = {"load": name, "frames": [first, first + count - 1], "subject": load.get("subject"), "text_label": label, "recorded": False,
+           "text": "", "text_from": None}
+    entry = ((file.get("job") or {}).get("texts") or {}).get(label)      # in the job block, where the builder reads it
+    if isinstance(entry, dict) and entry.get("file") and entry.get("frames") and entry.get("by"):
+        text = (job_path.parent / entry["file"]).read_text().strip()
+        out.update(recorded=True, text=text, text_from=entry["file"], text_frames=[int(x) for x in entry["frames"]], text_by=str(entry["by"]),
+                   text_sha256=hashlib.sha256(text.encode()).hexdigest())
+    else:
+        for stage in ("render", "plan"):
+            built = job_path.parent / f"{name}.{stage}.txt"
+            if built.is_file():
+                out.update(text=built.read_text().strip(), text_from=built.name)
+                break
+    return out
+
+
+def wrap_text(text: str, width: float, measure) -> list[str]:
+    """A text as lines no wider than `width` by `measure` (a function of a string), every word kept and its own
+    line breaks kept: the look shows the whole text, never a shortened one."""
+    out = []
+    for para in text.splitlines():
+        line = ""
+        for word in para.split():
+            if line and measure(line + " " + word) > width:
+                out.append(line)
+                line = word
+            else:
+                line = (line + " " + word).strip()
+        out.append(line)
+    return out
+
+
 def video(a: argparse.Namespace) -> None:
     import cv2
     from PIL import Image, ImageDraw, ImageFont
@@ -3827,7 +3895,23 @@ def video(a: argparse.Namespace) -> None:
     source, render = a.source, a.render
     if Path(source).name != m["clip"]:
         raise SystemExit(f"--source is {Path(source).name}; this capture was made from {m['clip']}")
-    skip = 0
+    skip, lo, shown = 0, 0, None
+    if a.load:
+        # the look: one load's own frames, every one, with the text it will be given under the picture
+        if not a.job or render is not None:
+            raise SystemExit("--load draws one load's strip from its job file, before anything renders: give --job, and no --render")
+        shown = load_and_text(Path(a.job), a.load)
+        lo, frames = shown["frames"][0] - first, shown["frames"][1] - shown["frames"][0] + 1
+        if lo < 0 or lo + frames > m["frames"]:
+            raise SystemExit(f"load {a.load} is source frames {shown['frames'][0]}-{shown['frames'][1]}; this capture holds "
+                             f"{first}-{first + m['frames'] - 1}")
+        if shown["subject"] not in [s_["label"] for s_ in subjects]:
+            raise SystemExit(f"load {a.load} replaces {shown['subject']!r}, and this capture has no subject of that name: it was not made "
+                             f"for this job (it has {', '.join(s_['label'] for s_ in subjects)})")
+        runs = [r for r in runs if r["name"] == a.load]
+        # before a plan the capture holds no run of the load: the look is then of its frames, masks and text, and says so
+        shown["region"] = "the node's plan of this load" if runs and runs[0].get("planned") else \
+            "this load's render" if runs else "none: the capture holds no plan of this load yet"
     if render is not None:
         # the render's frame 0 on the span's clock: the run that wrote it says, or --render-first
         known = next((r["first_source_frame"] for r in runs if r.get("render") == Path(render).name), first)
@@ -3842,13 +3926,18 @@ def video(a: argparse.Namespace) -> None:
     for r in runs:
         focus |= r["region"]
     if not focus.any():
-        focus = cells_any(subjects[0]["track"])
+        # nothing regenerates in what is drawn: zoom on the subject the load replaces, or the first when no load is named
+        focus = cells_any(next((s_ for s_ in subjects if shown is not None and s_["label"] == shown["subject"]), subjects[0])["track"])
     boxes = zoom_boxes(focus, (w, h))
     z = h                                             # the zoom tile is the row's height, square
     row_h, n_rows = h + HEADER, 3 if render else 2
-    canvas_w, canvas_h = w + z, row_h * n_rows + PANEL
+    canvas_w = w + z
     big, text, small = ImageFont.truetype(MONO, 30), ImageFont.truetype(FONT, 22), ImageFont.truetype(FONT, 17)
     huge, line = ImageFont.truetype(MONO, 92), ImageFont.truetype(FONT, 19)
+    text_lines = [] if shown is None else wrap_text(shown["text"] or "(no text was found for this load)", canvas_w - 32, line.getlength)
+    notice = 26 if shown is not None and not runs else 0   # one more line when the capture holds no plan of the load
+    band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)   # even: the encoder's pixel format needs it
+    canvas_h = row_h * n_rows + PANEL + band
     # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
     table = {s["label"]: [r for r in json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
                           if r["seen_by"] == next(x for x in m["subjects"] if x["label"] == s["label"])["sightings"][0]["by"]]
@@ -3862,13 +3951,16 @@ def video(a: argparse.Namespace) -> None:
         pic = Image.open(path)
         pic = pic.convert("RGB").resize((max(1, round(pic.width * 150 / pic.height)), 150))
         stills.append((label, pic))
-    motions = stream(a.motion, (456, 342), skip, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
+    motions = stream(a.motion, (456, 342), skip + lo, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
                      pix="rgb24") if a.motion else None
     region_px = [cells_up(r["region"]) for r in runs]
     before = None
     lines = legend_lines(subjects, runs)
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
-    audio = ["-i", render] if render else ["-ss", f"{first / FPS:.6f}", "-i", str(source)]
+    if shown is not None and not a.out:
+        (folder / "looks").mkdir(exist_ok=True)
+        out = str(folder / "looks" / f"{a.load}.mp4")
+    audio = ["-i", render] if render else ["-ss", f"{(first + lo) / FPS:.6f}", "-i", str(source)]
     if render and skip:
         audio = ["-ss", f"{skip / FPS:.6f}"] + audio
     enc = subprocess.Popen(
@@ -3876,12 +3968,12 @@ def video(a: argparse.Namespace) -> None:
          "-s", f"{canvas_w}x{canvas_h}", "-r", str(FPS), "-i", "-", *audio, "-map", "0:v:0", "-map", "1:a:0?",
          "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
          "-t", f"{frames / FPS:.3f}", "-movflags", "+faststart", out], stdin=subprocess.PIPE)
-    plates = stream(str(source), (w, h), first, frames, vf=FIT.format(w=w, h=h), pix="rgb24")
+    plates = stream(str(source), (w, h), first + lo, frames, vf=FIT.format(w=w, h=h), pix="rgb24")
     renders = stream(render, (w, h), skip, frames, vf=f"scale={w}:{h}", pix="rgb24") if render else None
     names = ["SOURCE", "MASKS", "RENDER"]
     render_name = Path(render).name if render else ""
     done = 0
-    for n, plate in enumerate(plates):
+    for n, plate in enumerate(plates, lo):
         tiles = [plate, draw_masks(plate, n, subjects, runs)] + ([next(renders)] if render else [])
         x, y, side = boxes[n]
         canvas = np.zeros((canvas_h, canvas_w, 3), np.uint8)
@@ -3897,7 +3989,8 @@ def video(a: argparse.Namespace) -> None:
         said = ("", DIM) if voiced in (None, "") else (("VOICE", GREEN) if int(float(voiced)) else ("no voice", DIM))
         for k in range(n_rows):
             top = k * row_h
-            d.text((10, top + 6), f"SOURCE FRAME {first + n:05d}  RENDER FRAME {skip + n:04d}", font=big, fill=WHITE)
+            d.text((10, top + 6), f"SOURCE FRAME {first + n:05d}  " + (f"RENDER FRAME {skip + n:04d}" if shown is None else
+                                                                   f"LOAD FRAME {n - lo:04d}"), font=big, fill=WHITE)
             d.text((w - 250, top + 10), f"{(first + n) / FPS:6.2f} s", font=text, fill=DIM)
             d.text((w - 140, top + 10), said[0], font=text, fill=said[1])
             d.text((w + 12, top + 10), f"{names[k]}, zoomed on the region" + (f"   {render_name}" if k == 2 else ""),
@@ -3915,7 +4008,8 @@ def video(a: argparse.Namespace) -> None:
         d.line([(0, py), (canvas_w, py)], fill=DIM)
         d.text((14, py + 6), f"{first + n:05d}", font=huge, fill=WHITE)
         d.text((16, py + 104), f"source frame     {(first + n) / FPS:.2f} s", font=line, fill=DIM)
-        d.text((16, py + 130), f"render frame {skip + n:04d}" if render else "nothing rendered: a preview", font=text, fill=WHITE)
+        d.text((16, py + 130), f"render frame {skip + n:04d}" if render else "nothing rendered: a preview" if shown is None else
+               f"load {a.load}, frame {n - lo + 1} of {frames}", font=text if shown is None else line, fill=WHITE)
         if starts:
             window = sum(skip + n >= x for x in starts)
             d.text((16, py + 160), f"window {window} of {len(starts)}", font=line, fill=WHITE)
@@ -3963,9 +4057,9 @@ def video(a: argparse.Namespace) -> None:
         if flags is None:
             d.text((tx, ty + 4), "no preflight was run on this capture", font=small, fill=DIM)
         else:
-            shown = {r_["name"] for r_ in runs}
+            drawn = {r_["name"] for r_ in runs}
             live = [f for f in flags if any(x <= first + n <= y for x, y in f["source_frames"]) and f["level"] != LEVELS[0]
-                    and f.get("run") in (None, *shown)]
+                    and f.get("run") in (None, *drawn)]
             if not live:
                 d.text((tx, ty + 4), "no flag on this frame", font=small, fill=DIM)
             for f in live[:max(1, (py + PANEL - ty - 8) // 23)]:
@@ -3977,9 +4071,9 @@ def video(a: argparse.Namespace) -> None:
         mx = PANEL_TEXT + 12
         d.text((mx, py + 8), "movement, as the model was shown it", font=small, fill=AMBER)
         if motions is not None:
-            shown = next(motions, None)
-            if shown is not None:
-                img.paste(Image.fromarray(shown), (mx, py + 34))
+            moving = next(motions, None)
+            if moving is not None:
+                img.paste(Image.fromarray(moving), (mx, py + 34))
         else:
             d.text((mx, py + 150), "none: this run has no motion video" if not a.motion_note else a.motion_note, font=line, fill=DIM)
         sx = mx + 456 + 14
@@ -3990,8 +4084,25 @@ def video(a: argparse.Namespace) -> None:
             d.rectangle([sx, sy + 150, sx + pic.width - 1, sy + 172], fill=(0, 0, 0))
             d.text((sx + 2, sy + 151), label, font=small, fill=WHITE)
             sy += 180
+        if shown is not None:
+            # the text the load will be given, whole, on every frame: a look reads it against the frames beside it
+            by_ = py + PANEL
+            d.line([(0, by_), (canvas_w, by_)], fill=DIM)
+            d.text((16, by_ + 8), f"THE TEXT OF LOAD {a.load} (source frames {shown['frames'][0]}-{shown['frames'][1]}), label "
+                   f"{shown['text_label']!r}, from {shown['text_from'] or 'nowhere'}", font=text, fill=AMBER)
+            if notice:
+                d.text((16, by_ + 64), "NO PLAN OF THIS LOAD IN THE CAPTURE YET: ITS REGION IS NOT DRAWN", font=line, fill=AMBER)
+            if shown["recorded"]:
+                covers = shown["text_frames"][0] <= shown["frames"][0] and shown["frames"][1] <= shown["text_frames"][1]
+                d.text((16, by_ + 38), f"written from source frames {shown['text_frames'][0]}-{shown['text_frames'][1]} by {shown['text_by']}"
+                       + ("" if covers else "   THIS LOAD HAS FRAMES THE TEXT WAS NOT WRITTEN FROM"), font=line, fill=WHITE if covers else AMBER)
+            else:
+                d.text((16, by_ + 38), "NOT RECORDED: which frames this text was written from, and by whom. No look of it can be recorded",
+                       font=line, fill=AMBER)
+            for k, one_line in enumerate(text_lines):
+                d.text((16, by_ + 68 + notice + 24 * k), one_line, font=line, fill=WHITE)
         enc.stdin.write(np.asarray(img).tobytes())
-        done = n + 1
+        done = n - lo + 1
         if n % 100 == 0:
             print("frame", n, flush=True)
     enc.stdin.close()
@@ -3999,6 +4110,16 @@ def video(a: argparse.Namespace) -> None:
     print("wrote", out, "frames", done, "encoder exit", code)
     if done != frames or code:
         raise SystemExit(1)
+    if shown is not None and shown["recorded"] and not a.out:
+        # what this strip showed, for `looked` to copy: a look is held by what was shown, not by a time alone
+        row = {"load": a.load, "frames": shown["frames"], "text_label": shown["text_label"], "text_frames": shown["text_frames"],
+               "text_by": shown["text_by"], "text_sha256": shown["text_sha256"], "region": shown["region"], "strip": Path(out).name,
+               "made": datetime.datetime.now().isoformat(timespec="seconds")}
+        (folder / "looks" / f"{a.load}.shown.json").write_text(json.dumps(row, indent=1) + "\n")
+        print("wrote", folder / "looks" / f"{a.load}.shown.json")
+    elif shown is not None:
+        print("no record of what was shown was written: " + ("--out puts the strip outside the capture" if shown["recorded"] else
+              "the job file does not say which frames this load's text was written from, or by whom"))
 
 
 def main() -> None:
@@ -4041,6 +4162,9 @@ def main() -> None:
                    "it belongs to, shown small in the panel; repeatable")
     v.add_argument("--windows", help="the render frames where each window's new frames start, e.g. 0,345")
     v.add_argument("--all-runs", action="store_true", help="draw every run's region, also when --render is one run's")
+    v.add_argument("--load", metavar="NAME", help="the look: one load's own frames, every one, with the text it will be given under "
+                   "the picture; written to <capture>/looks/NAME.mp4 with NAME.shown.json beside it. Needs --job")
+    v.add_argument("--job", metavar="JOB.json", help="the job file the load and its text are read from")
     v.add_argument("--out")
     v = sub.add_parser("verify", help=f"does the capture read what the nodes wrote: writes verify.json, exits {VERIFY_FAILED} when not")
     v.add_argument("capture")
@@ -4066,7 +4190,7 @@ def main() -> None:
     lk = sub.add_parser("looked", help="record that somebody who did not make the capture looked through its frames: one line in looks.json")
     lk.add_argument("capture")
     lk.add_argument("--by", required=True, help="who looked")
-    lk.add_argument("--loads", metavar="A+B", help="the loads looked at, joined by +; every load when not given")
+    lk.add_argument("--loads", metavar="A+B", help="the loads looked at, joined by +; every load a strip was drawn for when not given")
     lk.add_argument("--note", required=True, help="what was looked at (every frame? which picture?) and what was seen")
     o = sub.add_parser("outcome", help="record what a render did against one flag")
     o.add_argument("capture")

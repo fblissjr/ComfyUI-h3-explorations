@@ -1196,22 +1196,68 @@ def gate_by_shot() -> str:
 
 
 def a_look() -> str:
-    """A look is one line by somebody who did not make the capture, about loads the capture has."""
+    """A look is one line by somebody who did not make the capture, holding what each strip it looked at showed."""
+    import hashlib
+    import tempfile
     status = {"state": "done", "written": "2026-10-10T17:00:00", "made_by": "maker"}
-    entry = cap.look_entry(status, ["a_1", "b_1"], "reader", "a_1+b_1", "every frame of both, on the strip", "2026-10-10T18:00:00")
-    assert entry == {"by": "reader", "at": "2026-10-10T18:00:00", "loads": ["a_1", "b_1"], "note": "every frame of both, on the strip",
+    row = {"load": "a_1", "frames": [100, 132], "text_label": "hall", "text_frames": [100, 140], "text_by": "writer", "text_sha256": "ab" * 32,
+           "strip": "a_1.mp4", "made": "2026-10-10T17:30:00"}
+    entry = cap.look_entry(status, [row], "reader", "every frame and the text, on the strip", "2026-10-10T18:00:00")
+    assert entry == {"by": "reader", "at": "2026-10-10T18:00:00", "loads": ["a_1"], "note": "every frame and the text, on the strip", "shown": [row],
                      "capture_written": "2026-10-10T17:00:00", "maker": "maker"}, entry
-    assert cap.look_entry({"written": "t"}, ["a_1"], "reader", None, "all of it", "now")["loads"] == "all"
-    assert cap.look_entry({"written": "t"}, ["a_1"], "reader", None, "all of it", "now")["maker"] == "not recorded"
-    for bad, why in (((status, ["a_1"], "maker", None, "looked", "now"), "the maker's own look was taken"),
-                     ((status, ["a_1"], "reader", "c_9", "looked", "now"), "a look at a load the capture does not have was taken"),
-                     ((status, ["a_1"], "reader", None, " ", "now"), "a look with no note was taken")):
+    assert cap.look_entry({"written": "2026-10-10T17:00:00"}, [row], "reader", "all of it", "now")["maker"] == "not recorded"
+    for bad, why in (((status, [row], "maker", "looked", "now"), "the maker's own look was taken"),
+                     ((status, [], "reader", "looked", "now"), "a look of no strip was taken"),
+                     ((status, [{**row, "made": "2026-10-10T16:59:00"}], "reader", "looked", "now"), "a strip drawn before the capture was written was taken"),
+                     ((status, [row], "reader", " ", "now"), "a look with no note was taken")):
         try:
             cap.look_entry(*bad)
         except SystemExit:
             continue
         raise AssertionError(why)
-    return "a look records who, when, which loads and a note; the maker's own, a load the capture lacks and an empty note are refused"
+    # what the strip shows of a load: its frames, its text whole, and where the text was written from; the hash is of the stripped text
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "hall.txt").write_text("\n  She walks down the hall.\nShe stops.  \n")
+        # the shape of a real job file: `texts` is in the `job` block, where the builder reads it (a made-up job with it at
+        # the top level kept this case green while no real job could ever be recorded, 2026-10-10)
+        job = {"job": {"name": "j", "texts": {"hall": {"file": "hall.txt", "frames": [100, 140], "by": "writer"}}}, "defaults": {"subject": "a"},
+               "loads": [{"name": "a_1", "first": 100, "frames": 33, "text": "hall"}, {"name": "a_2", "first": 150, "frames": 9, "text": "old"}]}
+        (folder / "job.json").write_text(json.dumps(job))
+        (folder / "a_2.plan.txt").write_text("An older text.\n")
+        got = cap.load_and_text(folder / "job.json", "a_1")
+        assert got["frames"] == [100, 132] and got["recorded"] and got["text"] == "She walks down the hall.\nShe stops." and got["text_by"] == "writer" \
+            and got["text_frames"] == [100, 140] and got["text_sha256"] == hashlib.sha256(got["text"].encode()).hexdigest(), got
+        # the hash is the job builder's rule (the string it writes into the graph), restated in the capture so a strip can be drawn
+        # for a job the build refuses. Two functions are held together by a case and not by a comment: the same file through both
+        (folder / "hall.txt").write_text("\n\n  She walks down the hall.\r\nShe stops.  \n\n")
+        mine = cap.load_and_text(folder / "job.json", "a_1")
+        sys.path.insert(0, str(Path(cap.__file__).resolve().parent))
+        import masked_job
+        try:
+            theirs = masked_job.text_of(job["job"], {**job["defaults"], **job["loads"][0]}, folder)
+        except (SystemExit, Exception) as exc:           # the builder's half is not in this tree yet, or refuses this small job
+            theirs = exc
+        compared = isinstance(theirs, dict) and "sha256" in theirs
+        if compared:
+            assert theirs["sha256"] == mine["text_sha256"], f"the builder hashes {theirs['sha256']} and the capture {mine['text_sha256']} for one file"
+        top = {**job, "job": {"name": "j"}, "texts": job["job"]["texts"]}       # the block in the wrong place is no record at all
+        (folder / "top.json").write_text(json.dumps(top))
+        assert not cap.load_and_text(folder / "top.json", "a_1")["recorded"], "a texts block outside the job block was read as the job's"
+        old = cap.load_and_text(folder / "job.json", "a_2")
+        assert not old["recorded"] and old["text"] == "An older text." and old["text_from"] == "a_2.plan.txt" and "text_sha256" not in old, old
+        try:
+            cap.load_and_text(folder / "job.json", "a_9")
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError("a load the job does not have was shown")
+    lines = cap.wrap_text("one two three four\n\nfive", 9, len)
+    assert lines == ["one two", "three", "four", "", "five"] and " ".join(x for x in lines if x).split() == "one two three four five".split(), lines
+    return ("a look holds what each strip showed; the maker's own, a look of no strip, a strip older than the capture and an empty note "
+            "are refused; a load's text is shown whole with the frames it was written from, or marked not recorded; "
+            + ("the builder's hash of one file equals the capture's" if compared else
+               "THE BUILDER'S HASH WAS NOT COMPARED (its text_of does not give one in this tree)"))
 
 
 def a_load_that_lays_nothing() -> str:
@@ -1262,7 +1308,7 @@ case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
 case("preflight: a shot where a tracker's call is nobody's word", who_is_who)
 case("shots: the gate's answer per shot and subject", gate_by_shot)
-case("looked: one line by somebody who did not make the capture", a_look)
+case("the look: what a strip shows of a load and its text, and the line that records it", a_look)
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
 case("a fill of a doubted part, graded by the class map", graded_holds)
 case("verify: the capture reads what the nodes wrote", verifying)
