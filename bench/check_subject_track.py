@@ -40,9 +40,9 @@ item drives the module's own functions on made-up frames and masks.
 6. **The node declares the phrase and every threshold as inputs**, with the
    module's constants as their defaults, and four outputs with the mask
    first (the last is the shot table, `bench/check_shot_table.py`). It is
-   not an output node and it declares a `MASK_VERSION`, the two
-   things `mask_store.py` needs for a kept mask to spare the tracker and to
-   go stale when the node's method changes.
+   not an output node and it declares a `MASK_VERSION` (the two things the
+   kept-mask store needed, until that store was removed on 2026-10-10; the
+   number is still what the job builder's corrections rule reads).
 
 7. **A correction takes the person its number names on the tile, and nothing
    else moves.** `shot N: person K` seeds shot N from person K as

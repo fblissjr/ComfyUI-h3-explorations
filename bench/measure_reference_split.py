@@ -4,25 +4,26 @@
     <comfy venv python> bench/measure_reference_split.py --capture-dir DIR --out OUT.json
         [--second IMAGE] [--third IMAGE] [--later-view N] [--host 127.0.0.1:8188]
 
-`reference_encode.py` encodes the references apart from the prompt and keeps
-each reference's span in a session store, chained to the ones before it. This
+`reference_encode.py` encodes the references apart from the prompt, each
+reference's span chained to the ones before it within one encode (nothing is
+kept between encodes: the session store was removed on 2026-10-10). This
 submits the bench node `H3BenchSplitReferences`
 (`bench/comfy_capture_nodes/h3_bench_prefix_reuse`), which runs that path
 beside `clip.encode_from_tokens_scheduled` on:
 
   one reference       the ref2va finish graph's still at its shipped view,
                       the graph's prompt, then an edit of the prompt on a
-                      store hit
+                      second encode, whose rows must equal the first's
   two chains          that still followed by a second one, then by a third:
-                      the first reference must be the kept span both times,
-                      the later one continued on it
+                      the first reference's rows must be the same both
+                      times, the later one continued on it
 
 and records, per reference span and for the prompt rows, `torch.equal` and
 the distance when they differ, the token tags, and the seconds each step took
 (the split path's include moving the kept keys and values to the card).
 
-The later stills get their own smaller encoder view (`--later-view`) so the
-chains fit the store's budget beside the first. The server has to be launched
+The later stills get their own smaller encoder view (`--later-view`), kept
+from when the chains had to fit a store's budget. The server has to be launched
 with the bench node directory and `H3_BENCH_CAPTURE_DIR`; when it was not,
 this prints the command and exits 2.
 """

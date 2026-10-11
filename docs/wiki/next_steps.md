@@ -107,10 +107,10 @@ the nodes and every store is still switched off in code or by default.
        out of the region (`subject_tracks.in_the_way`, not wired, into the
        Masked Source's `keep`); then that window again beside the last
        render of it. One render, one seed: a reading until that pair exists.
-    1. *Nothing kept on disk is reused* (kept masks, stored windows): both
-       are off in code until a key changes when the code does. That key, and
-       a sweep check for it, is the first build (`masked_v2v.md`, "What is
-       kept between runs, and what can go stale").
+    1. *Nothing an earlier run made is reused by a key*: the kept-mask
+       store and stored-window reuse were REMOVED on 2026-10-10 (the
+       owner's rule; `masked_v2v.md`, "Nothing is kept between runs by a
+       key"). The key that changes when the code does is not being built.
     2. *A subject who is small*: the part mask collapses, the fixed margin
        swamps him and the motion reference barely shows him; with the mask
        continuous over a window that starts with him small, the render does
@@ -157,8 +157,6 @@ the nodes and every store is still switched off in code or by default.
 - **The scene's clothes on the new subject** (owner: where they want the band
   clip to go). Untried: a crop of the original's torso as a second
   reference.
-- The kept mask across a server restart: every reuse so far was inside one
-  session, where core's cache does the same.
 - Owed, lower: the original subject's shadow stays in the plate; the source
   is resampled twice on its way to the canvas (the loader, then the fit); the
   margin as a share of the subject's size and not a pixel count.

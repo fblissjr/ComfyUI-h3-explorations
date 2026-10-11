@@ -8,8 +8,8 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 109 |
-| [`measure_*`](#measure) | 38 |
+| [`check_*`](#check) | 107 |
+| [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
@@ -64,7 +64,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
 | [`check_marker_corpus.py`](check_marker_corpus.py) | Hold the compiled marker corpus to the assertions its brief names. |
-| [`check_mask_store.py`](check_mask_store.py) | A kept subject mask is found when nothing that decides it has changed, and never otherwise. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
 | [`check_meta_sam3_copy.py`](check_meta_sam3_copy.py) | `meta_sam3/` differs from Meta's code by the rule and the declared edits, and by nothing else. |
@@ -129,7 +128,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_voice_spans.py`](check_voice_spans.py) | `bench/voice_spans.py`'s frame arithmetic and span rule, on a signal made for the purpose. |
 | [`check_vsa_core_patch.py`](check_vsa_core_patch.py) | Report whether this ComfyUI builds H3's VSA gate, and whether consistently. |
 | [`check_widget_deviations.py`](check_widget_deviations.py) | Every shipped widget value that differs from its node's own default is declared. |
-| [`check_window_keep.py`](check_window_keep.py) | Hold the keep a song window's source latent and conditioning are reused from (`window_keep.py`). |
 
 ## measure
 
@@ -153,7 +151,6 @@ this file is only a way to find a script by what it says it does.
 | [`measure_encoder_prefix_reuse.py`](measure_encoder_prefix_reuse.py) | Can the encoder's work on a reference be kept across prompt edits, exactly? |
 | [`measure_encoder_quant_dit.py`](measure_encoder_quant_dit.py) | Does the DiT's prediction move when the encoder is int8_convrot instead of bf16? |
 | [`measure_int8_weight_error.py`](measure_int8_weight_error.py) | How much of each linear's weight the shipped int8 convrot file loses, block by block. |
-| [`measure_keep_references.py`](measure_keep_references.py) | `keep_references` on `MiniMaxH3ReferenceConditioning`, on the real encoder. |
 | [`measure_keyframe_encode_determinism.py`](measure_keyframe_encode_determinism.py) | Is ComfyUI's H3 keyframe VAE encode byte-deterministic on this card? |
 | [`measure_marker_epsilon.py`](measure_marker_epsilon.py) | Does the DiT's prediction change when the seven H3 marker rows change? |
 | [`measure_merge_noise.py`](measure_merge_noise.py) | How much of a merged LoRA survives, and how much noise rides along with it. |

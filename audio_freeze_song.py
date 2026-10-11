@@ -71,16 +71,16 @@ given sampler and sigmas, the nested noise mask from the window node.
 
 **Files and resume.** `loop_output.py` and `loop_resume.py`: window files in
 `<prefix>_windows/`, each video with its sampled latent beside it, overwritten
-in place by the next run of the graph. A run reuses the stored windows whose
-inputs have not changed, in order, and renders from the first that has
-(`reuse_windows`); `loop_resume.py` says what a window's key covers and what it
-cannot see. The seed holds after each queue so a re-queue can reuse.
+in place by the next run of the graph. Every run renders every window:
+nothing an earlier run made is reused by a key (the owner's rule,
+2026-10-10; until then a run could reuse stored windows whose inputs had not
+changed, under `reuse_windows`). A stored window is read again only when a
+person names it (`continue_from`).
 With a `source` wired, each window also gets a **mask review**
 (`save_mask_review`, 2026-10-06): its render stacked over a view of what was
 regenerated (`video_mask.overlay_pieces`), kept beside the window's video as
 `..._with_mask.mp4` and joined into `<prefix>_NNNNN_with_mask.mp4` as the
-windows are joined, so the pair plays in step with one track. A reused window
-stored without one is stacked from its stored video. Each window rendered over
+windows are joined, so the pair plays in step with one track. Each window rendered over
 a source also leaves `..._region.npz` beside its latent (2026-10-10): the
 fitted mask, the token region and the settings its composite was run with
 (`video_mask.save_window_region`), which with the stored latent is what
@@ -95,18 +95,13 @@ picture in the zoomed space is written beside each window as
 `..._zoomed.json` that says the box, for a delivery built at the source's
 size; the mask review of such a run is drawn in the zoomed space, where the
 cells are the model's.
-A window that does render again, because its seed, the sampler or the
-schedule changed, reuses two things an earlier run in this server session
-made, under the same switch: its source latent and its conditioning
-(`window_keep.py`, 2026-10-06). Those are kept in memory, found by the
-objects they were made from, and the report says which windows used them.
 `keep_windows` off removes this run's window files after the join. The
 finished `<prefix>_NNNNN.mp4` carries no metadata (`loop_output.py` says why);
 `save_metadata_png` writes the first frame as a PNG carrying the prompt and
 workflow, the only place the graph is kept.
 
-First run: `bench/results/2026-09-12_audio_freeze_song_smoke.jsonl`, one short
-window; `bench/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`, two
+First run: `data/results/2026-09-12_audio_freeze_song_smoke.jsonl`, one short
+window; `data/results/2026-09-14_audio_freeze_song_stage1_smoke.jsonl`, two
 short windows with and without references. Resume arrived on 2026-09-14 after
 that; its first run is a throwaway.
 """
@@ -142,19 +137,8 @@ from .loop_output import (BT709_TAGS, CLEAN_OUTPUT_ARGS, SAY_BT709, TO_BT709, jo
 from .reference_conditioning import H3References, MiniMaxH3ReferenceConditioning, RuntimeVideoReference, _order_records
 from .reference_order import assign_labels
 from . import video_mask
-from . import window_keep
 
 logger = logging.getLogger(__name__)
-
-#: Reuse of a rendered window stored on disk, as a whole: only while this is True. **False since 2026-10-07 by the
-#: owner's decision, and to be turned on by a code change and nothing else**; `reuse_windows` on the node cannot
-#: turn it on. A stored window's key (`loop_resume.py`) is built from the queued graph, the track, the text and the
-#: seed, and from nothing derived from this pack's code, so a window rendered before a fix is handed back after it
-#: when the settings are the same. The kept mask had the same blind spot and hid a fix that evening
-#: (`video_mask.MASK_REUSE_ENABLED`). **Before either is turned back on, the key has to change when the code does.**
-#: Windows are still written (`keep_windows`), and what a session keeps in memory (`window_keep.py`) is not affected:
-#: a restart clears it, and a code change needs a restart.
-WINDOW_REUSE_ENABLED = False
 
 #: The inputs a preview does not ask for: every one runs a loader or a model.
 LAZY = ("model", "clip", "vae", "audio_vae", "sampler", "sigmas", "references", "source")
@@ -164,24 +148,14 @@ LAZY = ("model", "clip", "vae", "audio_vae", "sampler", "sigmas", "references", 
 PREVIEW_ASKS = ("source",)
 
 
-def _write_pieces_mp4(path: str, pieces, width: int, height: int, crf: int, under: str | None = None) -> int:
+def _write_pieces_mp4(path: str, pieces, width: int, height: int, crf: int) -> int:
     """Float frames in [0, 1], [n, height, width, 3] a piece at a time, to an H.264 mp4 through ffmpeg's
     rawvideo pipe. Frames written.
 
-    With `under`, the piped frames are stacked below that video's, frame for frame, in one picture of
-    twice the height: a stored window's video over a view drawn now.
-
-    The file is BT.709 and says so (`loop_output.TO_BT709`). The piped frames are converted before they
-    are stacked: left to the stack, they would take ffmpeg's default matrix under the file's tag.
+    The file is BT.709 and says so (`loop_output.TO_BT709`).
     """
-    cmd = [_ffmpeg(), "-y", "-v", "error"] + (["-i", under] if under else []) + [
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{int(width)}x{int(height)}", "-r", str(FPS), "-i", "-"]
-    if under:
-        cmd += ["-filter_complex", f"[1:v]{TO_BT709},format=yuv420p[drawn];"
-                                   f"[0:v][drawn]vstack=inputs=2:shortest=1,{SAY_BT709}[v]",
-                "-map", "[v]", "-r", str(FPS)]
-    else:
-        cmd += ["-vf", f"{TO_BT709},{SAY_BT709}"]
+    cmd = [_ffmpeg(), "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{int(width)}x{int(height)}",
+           "-r", str(FPS), "-i", "-", "-vf", f"{TO_BT709},{SAY_BT709}"]
     cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", str(int(crf)), "-pix_fmt", "yuv420p",
             *BT709_TAGS, *CLEAN_OUTPUT_ARGS, path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -208,18 +182,17 @@ def _write_frames_mp4(path: str, images: torch.Tensor, crf: int) -> int:
     return _write_pieces_mp4(path, [images], w, h, crf)
 
 
-def _write_review_mp4(path: str, pieces, width: int, height: int, crf: int, under: str | None = None) -> int:
+def _write_review_mp4(path: str, pieces, width: int, height: int, crf: int) -> int:
     """A mask review at `path`, whole or not at all: written under a temporary name beside it and renamed
     when ffmpeg has finished.
 
-    A window's review is reused whenever its file exists, and nothing else marks it finished (a window's
-    video has its latent, written last). So a file under the final name must never be a partial one: a
-    run that died inside this encode would otherwise leave every later run to fail at the review's join,
-    after all its windows had sampled.
+    A window's review is joined from its file, and nothing else marks it finished (a window's video has its
+    latent, written last). So a file under the final name must never be a partial one: the review's join
+    would fail on it after every window had sampled.
     """
     part = path[:-len(".mp4")] + ".part.mp4"
     try:
-        written = _write_pieces_mp4(part, pieces, width, height, crf, under)
+        written = _write_pieces_mp4(part, pieces, width, height, crf)
         os.replace(part, path)
         return written
     finally:
@@ -415,7 +388,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                          "Windows line up with each time, and lists move on once per line.")),
                 io.Boolean.Input("preview", default=False,
                                  tooltip=("Report every window's time range, timeline entry, filled prompt and "
-                                          "whether it would be reused, then stop: no model loads, nothing renders. "
+                                          "length, then stop: no model loads, nothing renders. "
                                           "With a source wired it also writes, in the _windows folder, each planned "
                                           "window's region as a render would save it and a plan file: what each "
                                           "window regenerates and writes, and what a cut does to it. The source is "
@@ -445,9 +418,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 # control_after_generate declared, not left to the frontend: it
                 # draws a control widget for any INT named `seed` whether or not
                 # the schema asks (`useIntWidget.ts`). Fixed, not the frontend's
-                # randomize: a new seed after every queue would re-render every
-                # window, which resume (`reuse_windows`) exists to avoid
-                # (owner, 2026-09-14).
+                # randomize (owner, 2026-09-14): a render is repeated by queueing it again.
                 io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff,
                              control_after_generate=io.ControlAfterGenerate.fixed),
                 io.Float.Input("audio_mask", default=0.0, min=0.0, max=1.0, step=0.01),
@@ -466,15 +437,6 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                    tooltip=("Reference stills from an Append Ref Image chain, presented with every "
                                             "window's prompt and encoded once per distinct prompt. The prompt then "
                                             "names them as <Picture N>.")),
-                io.Boolean.Input("reuse_windows", default=False,
-                                 tooltip=("STORED WINDOWS ARE NOT REUSED FOR NOW, whatever this is set to: every "
-                                          "window renders, until that is turned back on in the code.\n\n"
-                                          "What it still does when on: a window that renders again reuses its "
-                                          "source encode and its prompt encode from an earlier run in this "
-                                          "session, when nothing they are made from has changed. A restart clears "
-                                          "those.\n\nWhat it does when stored windows are enabled: reuse the "
-                                          "stored windows whose inputs have not changed, in order, and render from "
-                                          "the first that has.")),
                 H3PromptLists.Input("lists", optional=True,
                                     tooltip=("Prompt List nodes filling __name__ placeholders in the prompt: one "
                                              "value per timeline entry, or per window with no timeline.")),
@@ -515,7 +477,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 io.String.Output(display_name="report"),
                 io.Custom("VHS_FILENAMES").Output(display_name="Filenames"),
             ],
-            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo, io.Hidden.unique_id],
+            hidden=[io.Hidden.prompt, io.Hidden.extra_pnginfo],
         )
 
     @classmethod
@@ -531,7 +493,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
     def execute(cls, model, clip, vae, audio_vae, audio, sampler, sigmas, prompt, timeline, preview,
                 width, height, window_frames, context_frames, extent, seed, audio_mask, level,
                 filename_prefix, crf, save_metadata_png=True, keep_windows=True, references=None,
-                reuse_windows=False, lists=None, source=None, save_mask_review=True,
+                lists=None, source=None, save_mask_review=True,
                 continue_from="", context_noise=CONTEXT_NOISE) -> io.NodeOutput:
         import folder_paths
         # A DynamicCombo arrives as one nested dict (the selection under its own
@@ -564,44 +526,18 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         graph = getattr(cls.hidden, "prompt", None)
         extra = getattr(cls.hidden, "extra_pnginfo", None)
 
-        # The stored windows that still hold: a prefix whose keys match. With no
-        # queued prompt (a direct call) there is no root, nothing is reused and
-        # nothing is stored for reuse.
-        root = loop_resume.root_key(
-            loop_resume.graph_signature(graph, getattr(cls.hidden, "unique_id", None),
-                                        skip=loop_resume.SONG_PER_WINDOW),
-            loop_resume.track_hash(waveform, rate))
-        keys, reused = [], []
-        # A run that continues another's: its first window is keyed on the stored window it takes its
-        # context from, as window two is keyed on window one, and writes its length less that context.
-        # `head` is those frames; the run's track starts on the first of them.
+        # A run that continues another's: its first window takes its context from the stored window a
+        # person named, and writes its length less that context. `head` is those frames; the run's track
+        # starts on the first of them.
         continue_from = str(continue_from or "").strip()
-        continued_key = loop_resume.stored_key(continue_from) if continue_from else None
+        if continue_from:
+            loop_resume.check_window_latent(continue_from)      # here, so a preview's plan refuses a wrong file too
         head = context_frames if continue_from else 0
-        if root is not None:
-            for w in windows:
-                keys.append(loop_resume.window_key(root, w.number, w.text, w.frames, w.start,
-                                                   int(seed) + w.number - 1, keys[-1] if keys else continued_key))
         total = loop_plan.frames_covered([w.frames for w in windows], context_frames)
         # what is written of that: every frame, or as far as the track runs when it ends first;
         # the frames past it come off the last window's tail before it is encoded
         kept_frames = loop_plan.frames_kept(total, track_seconds)
         writes = loop_plan.frames_written([w.frames for w in windows], context_frames, kept_frames, head)
-        again = None
-        if WINDOW_REUSE_ENABLED and reuse_windows and root is not None:
-            for w in windows:
-                stored = loop_resume.read_window(work_dir, filename, w.number)
-                if stored is None or stored["key"] != keys[w.number - 1]:
-                    break
-                holds = loop_resume.stored_frames(stored, w.frames)
-                if holds != writes[w.number - 1]:
-                    # sampled the same way, cut differently: a last window stored whole before
-                    # 2026-10-06 under a track that ends inside it. Its key matches for ever, so
-                    # it is refused here and renders once more, cut at the frames.
-                    again = (w.number, holds)
-                    break
-                reused.append(stored)
-        first = len(reused)
 
         clock = loop_plan.clock
         lines = [f"{n_windows} windows {[w.frames for w in windows]} with {context_frames}-frame context, "
@@ -644,10 +580,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             end = w.first_frame + w.frames - (context_frames if w.number > 1 else 0)
             lines.append(f"[{w.number}] {clock(w.first_frame / FPS)}-{clock(end / FPS)}, {w.frames} frames"
                          + (f", {entries[w.entry][1]}" if w.entry is not None else "")
-                         + (", reused" if w.number <= first
-                            else f", renders again: its stored file holds {again[1]} frames and this run "
-                                 f"writes {writes[w.number - 1]}" if again and again[0] == w.number
-                            else ", renders"))
+                         + ", renders")
             if preview:
                 lines.append("    " + w.text.replace("\n", "\n    "))
         lines += list(list_lines)
@@ -695,7 +628,6 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         # the module docstring for why the key is the text (and, with
         # references, the frame count) and nothing else.
         track_latent, conds, cond_keys = None, {}, {}
-        kept_conds: list[int] = []
         reports = list(lines)
         # Where the render's time goes, by stage, for the report (2026-10-06): this node encodes,
         # samples and decodes inside itself, so nothing outside it can time its stages. Wall clock
@@ -710,114 +642,89 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             lap[stage] = lap.get(stage, 0.0) + now - clock[0]
             clock[0] = now
 
-        if first < n_windows:
-            enc = MiniMaxH3EncodeTrack.execute(audio_vae, audio, level)
-            enc = getattr(enc, "args", enc)
-            track_latent = enc[0]
-            reports.append(enc[1])
-            mark("track encode")
-            # A motion reference is built per window from the source (`video_mask.motion_reference`):
-            # the window's own frames, so its key carries the window number.
-            motion = source.get("motion_reference", video_mask.MOTION_NONE) if source is not None else video_mask.MOTION_NONE
-            motion_label = None
-            for w in windows[first:]:
-                with_refs = references is not None or motion != video_mask.MOTION_NONE
-                ck = (w.text, w.frames if with_refs else None, w.number if motion != video_mask.MOTION_NONE else None)
-                cond_keys[w.number] = ck
-                if ck in conds:
-                    continue
-                comfy.model_management.throw_exception_if_processing_interrupted()
-                lap.clear()
-                # What an earlier run of this stretch encoded is reused under `reuse_windows`
-                # (`window_keep.py`): found by the objects it was made from, so a hit is the
-                # same conditioning an encode would give, and the text encoder is not asked for.
-                # With the switch off nothing is read from the keep, and what this run encodes
-                # replaces what was there, as its windows replace the stored ones.
-                cond_kept = window_keep.cond_key(clip, w.text, w.frames, width, height, references, vae, audio_vae,
-                                                 source, int(round(w.start * FPS)))
-                kept = window_keep.CONDS.get(*cond_kept) if reuse_windows else None
-                if kept is not None:
-                    conds[ck], label = kept
-                    motion_label = label if label is not None else motion_label
-                    kept_conds.append(w.number)
-                    mark("conditioning")
-                    reports.append(f"[{w.number}] conditioning kept from an earlier run (not encoded)")
-                    continue
-                refs_w = references
-                if motion in video_mask.WIRED:
-                    # a video the user wired beside the source: this window's own frames of it, whole or, zoomed
-                    # in, laid out in the window's subject boxes (`video_mask.wired_motion`)
-                    ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
-                    if motion == video_mask.MOTION_WIRED_ZOOM:
-                        reports.append(f"[{w.number}] motion reference zoomed in: " + video_mask.zoom_note(
-                            video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height),
-                            height, width, int(source["motion_short_edge"])))
-                    looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
-                    if looked:
-                        reports.append(f"[{w.number}] motion reference {looked}")
-                    refs_w = tuple(references or ()) + (RuntimeVideoReference(
-                        frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
-                        use_vae=bool(source.get("motion_vae", False))),)
-                    motion_label = assign_labels(_order_records(refs_w))[-1]
-                    mark("motion reference")
-                elif motion != video_mask.MOTION_NONE:
-                    pixels, mask, _held = video_mask.window_frames(
-                        source, int(round(w.start * FPS)), w.frames, width, height)
-                    # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
-                    # also for a blur given as a share of the box, which any choice may carry (`look_boxes`)
-                    boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
-                             if motion == video_mask.MOTION_ZOOM
-                             else video_mask.look_boxes(source, int(round(w.start * FPS)), w.frames, width, height))
-                    # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
-                    # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
-                    ref_frames = video_mask.motion_reference(
-                        pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source),
-                        boxes, **video_mask.motion_look(source))
-                    if motion == video_mask.MOTION_ZOOM:
-                        reports.append(f"[{w.number}] motion reference zoomed in: "
-                                       + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
-                    looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
-                    if looked:
-                        reports.append(f"[{w.number}] motion reference {looked}")
-                    del pixels, mask, boxes
-                    refs_w = tuple(references or ()) + (RuntimeVideoReference(
-                        frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
-                        use_vae=bool(source.get("motion_vae", False))),)
-                    motion_label = assign_labels(_order_records(refs_w))[-1]
-                    mark("motion reference")
-                if refs_w is None:
-                    out = MiniMaxH3Conditioning.execute(clip, vae, w.text, width, height, w.frames,
-                                                        canvas="explicit")
-                else:
-                    out = MiniMaxH3ReferenceConditioning.execute(clip, refs_w, w.text, width, height,
-                                                                 w.frames, vae=vae, audio_vae=audio_vae)
-                conds[ck] = getattr(out, "args", out)[0]
-                del refs_w
-                # with the reference's name in the prompt, which the report line below reads
-                window_keep.CONDS.put(*cond_kept, (conds[ck], motion_label if motion != video_mask.MOTION_NONE else None))
-                mark("conditioning")
-                # per window: the first carries the encoder coming onto the card, the later ones are warm
-                reports.append(f"[{w.number}] conditioning seconds: "
-                               + ", ".join(f"{name} {took:.1f}" for name, took in lap.items()))
+        enc = MiniMaxH3EncodeTrack.execute(audio_vae, audio, level)
+        enc = getattr(enc, "args", enc)
+        track_latent = enc[0]
+        reports.append(enc[1])
+        mark("track encode")
+        # A motion reference is built per window from the source (`video_mask.motion_reference`):
+        # the window's own frames, so its key carries the window number.
+        motion = source.get("motion_reference", video_mask.MOTION_NONE) if source is not None else video_mask.MOTION_NONE
+        motion_label = None
+        for w in windows:
+            with_refs = references is not None or motion != video_mask.MOTION_NONE
+            ck = (w.text, w.frames if with_refs else None, w.number if motion != video_mask.MOTION_NONE else None)
+            cond_keys[w.number] = ck
+            if ck in conds:
+                continue
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            lap.clear()
+            refs_w = references
+            if motion in video_mask.WIRED:
+                # a video the user wired beside the source: this window's own frames of it, whole or, zoomed
+                # in, laid out in the window's subject boxes (`video_mask.wired_motion`)
+                ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
+                if motion == video_mask.MOTION_WIRED_ZOOM:
+                    reports.append(f"[{w.number}] motion reference zoomed in: " + video_mask.zoom_note(
+                        video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height),
+                        height, width, int(source["motion_short_edge"])))
+                looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
+                if looked:
+                    reports.append(f"[{w.number}] motion reference {looked}")
+                refs_w = tuple(references or ()) + (RuntimeVideoReference(
+                    frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+                    use_vae=bool(source.get("motion_vae", False))),)
+                motion_label = assign_labels(_order_records(refs_w))[-1]
+                mark("motion reference")
+            elif motion != video_mask.MOTION_NONE:
+                pixels, mask, _held = video_mask.window_frames(
+                    source, int(round(w.start * FPS)), w.frames, width, height)
+                # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
+                # also for a blur given as a share of the box, which any choice may carry (`look_boxes`)
+                boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
+                         if motion == video_mask.MOTION_ZOOM
+                         else video_mask.look_boxes(source, int(round(w.start * FPS)), w.frames, width, height))
+                # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
+                # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
+                ref_frames = video_mask.motion_reference(
+                    pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source),
+                    boxes, **video_mask.motion_look(source))
+                if motion == video_mask.MOTION_ZOOM:
+                    reports.append(f"[{w.number}] motion reference zoomed in: "
+                                   + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
+                looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
+                if looked:
+                    reports.append(f"[{w.number}] motion reference {looked}")
+                del pixels, mask, boxes
+                refs_w = tuple(references or ()) + (RuntimeVideoReference(
+                    frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+                    use_vae=bool(source.get("motion_vae", False))),)
+                motion_label = assign_labels(_order_records(refs_w))[-1]
+                mark("motion reference")
+            if refs_w is None:
+                out = MiniMaxH3Conditioning.execute(clip, vae, w.text, width, height, w.frames,
+                                                    canvas="explicit")
+            else:
+                out = MiniMaxH3ReferenceConditioning.execute(clip, refs_w, w.text, width, height,
+                                                             w.frames, vae=vae, audio_vae=audio_vae)
+            conds[ck] = getattr(out, "args", out)[0]
+            del refs_w
             mark("conditioning")
-            if motion != video_mask.MOTION_NONE and first < n_windows:
-                reports.append(f"motion reference: {motion} at a {int(source['motion_short_edge'])} short edge, "
-                               + ("with the video model's copy" if source.get("motion_vae") else "text encoder only")
-                               + f", named {motion_label} in the prompt, built per window from the source")
-        reports.append((f"reused windows 1-{first} of {n_windows}" if first else "no stored window reused")
-                       + (f"; {len(conds) - len(kept_conds)} conditioning(s) encoded"
-                          + (f" and {len(kept_conds)} kept from an earlier run" if kept_conds else "")
-                          + f" for {n_windows - first} rendered window(s)"
-                          if first < n_windows else "; nothing rendered")
-                       + (" with references" if references is not None and first < n_windows else ""))
+            # per window: the first carries the encoder coming onto the card, the later ones are warm
+            reports.append(f"[{w.number}] conditioning seconds: "
+                           + ", ".join(f"{name} {took:.1f}" for name, took in lap.items()))
+        mark("conditioning")
+        if motion != video_mask.MOTION_NONE:
+            reports.append(f"motion reference: {motion} at a {int(source['motion_short_edge'])} short edge, "
+                           + ("with the video model's copy" if source.get("motion_vae") else "text encoder only")
+                           + f", named {motion_label} in the prompt, built per window from the source")
+        reports.append(f"{len(conds)} conditioning(s) encoded for {n_windows} window(s)"
+                       + (" with references" if references is not None else ""))
 
-        files = [s["video"] for s in reused]
-        stored_latents = [s["latent"] for s in reused]
-        prev = loop_resume.load_window_latent(reused[-1]["latent"]) if reused and first < n_windows else None
-        if prev is None and continue_from and first < n_windows:
-            # no window of this run is reused: its first takes its context from the run it continues
-            prev = loop_resume.load_window_latent(continue_from)
-        for w in windows[first:]:
+        files, stored_latents = [], []
+        # the first window of a run that continues another takes its context from the stored window named
+        prev = loop_resume.load_window_latent(continue_from) if continue_from else None
+        for w in windows:
             i = w.number - 1
             comfy.model_management.throw_exception_if_processing_interrupted()
             lap.clear()
@@ -848,16 +755,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                    + (f"; {int(held) - past} held frame(s) are INSIDE the track and are written: the "
                                       "track is longer than the source (was the audio cut to the load?)"
                                       if int(held) > past else ""))
-                # The plate's encode does not depend on the seed or the schedule: under `reuse_windows`
-                # an earlier run's is reused (`window_keep.py`). Kept as the VAE returned it, before the
-                # late start's multiply below; the window node copies the video before it writes context in.
-                latent_kept = window_keep.latent_key(source, vae, int(round(w.start * FPS)), w.frames, width, height)
-                z = window_keep.LATENTS.get(*latent_kept) if reuse_windows else None
-                if z is not None:
-                    reports.append(f"[{w.number}] source latent kept from an earlier run (not encoded)")
-                else:
-                    z = vae.encode(src_encode)
-                    window_keep.LATENTS.put(*latent_kept, z)
+                # as the VAE returns it, before the late start's multiply below; the window node copies the
+                # video before it writes context in
+                z = vae.encode(src_encode)
                 del src_encode
                 if tuple(z.shape) != tuple(empty_video.shape):
                     raise ValueError(
@@ -973,9 +873,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     os.remove(stale)
             written = _write_frames_mp4(video_path, images, crf)
             files.append(video_path)
-            if root is not None:
-                stored_latents.append(loop_resume.save_window(work_dir, filename, w.number, keys[i], samples,
-                                                              trim, next_start, written))
+            # the sampled latent beside the video, on every run: what `continue_from` and the re-lay tool read
+            stored_latents.append(loop_resume.save_window(work_dir, filename, w.number, samples,
+                                                          trim, next_start, written))
             reports.append(f"[{w.number}] wrote {written} frames to {os.path.basename(video_path)}")
             if zoomed_images is not None:
                 # the laid picture in the zoomed space, beside the window; a failure costs that file and not the render
@@ -1049,44 +949,17 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             mark("zoomed picture")
         review_files: list[str] = []
         if review:
-            # One file beside the render: `<stem>_with_mask.mp4`, the windows' reviews joined as the windows
-            # are. A reused window stored without one (before 2026-10-06, or with the switch off) has no
-            # render in memory: its stored video is stacked over a view drawn now, with no outline, since
-            # what the composite kept was never stored.
-            restacked = []
+            # One file beside the render: `<stem>_with_mask.mp4`, the windows' reviews joined as the windows are
             review_out = os.path.join(full_out, stem + "_with_mask.mp4")
 
             def joined_review():
                 for rw in windows:
                     path = loop_resume.review_path(work_dir, filename, rw.number)
-                    if rw.number <= first and not os.path.isfile(path):
-                        stored = reused[rw.number - 1]
-                        shape = _empty_av_latent(width, height, rw.frames)[0]["samples"].unbind()[0].shape[2:]
-                        pixels, _encode, tokens, mask, _held = video_mask.window(
-                            source, int(round(rw.start * FPS)), rw.frames, width, height, *shape)
-                        del _encode
-                        rows = video_mask.overlay_pieces(
-                            pixels, video_mask.window_layers(mask, tokens, height, width, source["replace"]),
-                            int(tokens.shape[0]),
-                            int(stored["trim"]), f"{100.0 * float(tokens.mean()):.0f}% of this window regenerates")
-                        # as many frames as the stored video holds, which is what this run writes of the
-                        # window or it would not have been reused (`loop_resume.stored_frames`)
-                        under = stored["video"]
-                        if zoom is not None:
-                            # the view is of the zoomed space, so it goes over the zoomed picture or not at all
-                            under = loop_resume.zoomed_path(work_dir, filename, rw.number)
-                            if not os.path.isfile(under):
-                                raise FileNotFoundError(f"window {rw.number} was stored without its zoomed picture")
-                        _write_review_mp4(path, video_mask.first_frames(rows, writes[rw.number - 1]), width, height,
-                                          crf, under=under)
-                        del pixels, tokens, mask
-                        restacked.append(rw.number)
                     review_files.append(path)
                 join_and_mux(review_files, heard, rate, review_out, work_dir, stem + "_with_mask", kept_frames - head)
             # A failure here, or a window's review missing because its own write failed, is a line of the
             # report; the render above is already joined, and its metadata, shot table and outputs follow
-            # as they would with the switch off. A half-written joined review is removed. The next run
-            # reuses the windows and stacks whichever reviews are missing from their stored videos.
+            # as they would with the switch off. A half-written joined review is removed.
             why = _review_or_reason(joined_review, "the run")
             if why:
                 with contextlib.suppress(FileNotFoundError):
@@ -1094,9 +967,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             mark("mask review")
             reports.append(f"mask review FAILED; the render is complete and unaffected: {why}" if why else
                            f"mask review written beside the video: {os.path.basename(review_out)}, the render over "
-                           "what was regenerated"
-                           + (f"; window(s) {restacked} were stacked from their stored video, with no outline of "
-                              "what the render kept" if restacked else ""))
+                           "what was regenerated")
         if spent:
             reports.append(f"seconds by stage, {sum(spent.values()):.0f} in all: "
                            + ", ".join(f"{name} {took:.1f}" for name, took in sorted(spent.items(), key=lambda kv: -kv[1])))
@@ -1116,7 +987,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 os.rmdir(work_dir)
             except OSError:
                 pass  # windows from a longer earlier run are still there; they are that run's
-        report = f"{first} reused -> {out_path}; " + "\n".join(reports)
+        report = f"rendered -> {out_path}; " + "\n".join(reports)
         logger.info("[h3] MiniMaxH3AudioFreezeSong: %s", report.splitlines()[0])
         filenames, preview_ui = saved_outputs(out_path, subfolder, png_path)
         return io.NodeOutput(out_path, report, filenames, ui=preview_ui)

@@ -176,15 +176,16 @@ mechanism. The owner accepted that difference on 2026-10-03. No shipped graph
 wires these nodes; the one-node path is the default and the reference for
 "today's conditioning".
 
-**Without rewiring:** `MiniMaxH3ReferenceConditioning` has a
-`keep_references` switch (off by default) that runs the same two steps on the
-same store inside the one node. A prompt edit then re-executes the node, so it
-repeats the references' resize and VAE encode, which the two-node form does
-not; for stills that is small beside the encoder's pass, for a video
-reference it is not.
+**No keyed keep (2026-10-10).** Until that day the encode kept each
+reference's span in host memory under a chained hash and handed it back on
+a later run, and `keep_references` on `MiniMaxH3ReferenceConditioning`
+reached that store without rewiring. Both are removed under the owner's
+rule that nothing an earlier run made is reused by a key
+(`docs/wiki/decisions.md`). The two-node form above is the explicit one and
+stays: the encode node's output is wired into the prompt node, and what a
+prompt edit saves is core's own node cache holding that output.
 
-Not kept across a miss: the vision tower's output and the VAE rows.
-`bench/check_reference_encode.py` pins the core source the split depends on.
+The encode node runs every reference's vision pass and VAE encode each time it executes.
 
 The two RefMod packs under `coderef/` pre-encode references differently: they
 store the VAE rows, one also the encoder's rows for the image alone, and both

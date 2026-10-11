@@ -19,13 +19,13 @@ things here, each a way the freeze could look present and not be:
    carries `SetLatentNoiseMask` at all; every graph carrying the freeze node
    feeds the sampler from it, muxes its `clip_audio`, takes the preflight's
    latent, and has no audio decoder left to consume.
-4. **Resume reuses only what its key covers.** `loop_resume.py`: the graph
-   signature moves with a checkpoint, a sampler, the crf or the canvas and
-   not with the song node's per-window inputs; renumbering nodes moves
-   nothing; a missing prompt or a dangling link gives no key at all; a
-   window's key depends on the previous window's; and a stored window reads
-   back with its key, trim, next start and latent, and not at all once its
-   video is gone.
+4. **A window's stored latent, and nothing reused by a key.** `loop_resume.py`:
+   a window's sampled latent is written beside its video and reads back
+   whole, with its trim, next start and frames written in its header and no
+   key; a file that is not a stored window is refused in words; and the
+   module holds no key function and the song node no reuse input (until
+   2026-10-10 this item held the keys of stored-window reuse, removed under
+   the owner's rule that nothing an earlier run made is reused by a key).
 5. **The plan lines windows up with the timeline.** `loop_plan.py`: on the
    example song's timeline every entry after the first starts within half a
    `GRID` step of its time, and so does every interior part length in a sweep,
@@ -48,9 +48,7 @@ things here, each a way the freeze could look present and not be:
    `loop_plan.frames_kept`: every covered frame, or as far as the track runs,
    which is where a short track is cut, at the frames; `loop_plan.frames_written`,
    what each window's file holds, with a cut that never reaches what the last
-   window writes on any window length, context or track length; and a stored
-   window whose file holds another count (one stored whole before the cut
-   existed) is not what the run would write, so it is not reused.
+   window writes on any window length, context or track length.
    And `bench/join_stretches.py`, which joins several runs' windows over
    consecutive stretches under the clip's own audio: every frame, evenly
    spaced, the audio as long as the video with a tone where the span puts
@@ -343,11 +341,6 @@ def check_window_geometry(problems):
             _fail(problems, f"{name}: context_noise must be the node's last input, optional, at the shared default")
     if "context_noise=context_noise)" not in (REPO / "audio_freeze_song.py").read_text(encoding="utf-8"):
         _fail(problems, "the song node does not hand its context_noise to the window node")
-    # a changed context_noise changes what every window after the first samples, so it must change every
-    # stored window's key: it stays OUT of the inputs the graph signature skips
-    import loop_resume
-    if "context_noise" in loop_resume.SONG_PER_WINDOW:
-        _fail(problems, "context_noise is among loop_resume.SONG_PER_WINDOW: a run at another value would reuse windows sampled at this one")
     if "may not start where the last one ended" not in soft[5]:
         _fail(problems, f"the report does not say what a context shown with noise costs at the seam: {soft[5]!r}")
     vm, am = lat["noise_mask"].unbind()
@@ -450,92 +443,47 @@ def check_graphs(problems) -> tuple[int, int]:
 
 
 def check_resume(problems):
-    import copy
+    """A window's stored latent: written beside its video, read back whole by the two readers a person names
+    (`continue_from`, the re-lay tool), and refused when the file is not one. Nothing is keyed and nothing is
+    reused (2026-10-10): the module holds no key function, and the song node has no reuse input."""
     import os
     import tempfile
     import loop_resume as lr
 
-    base = {
-        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "a.safetensors"}},
-        "7": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "euler"}},
-        "74": {"class_type": "MiniMaxH3AudioFreezeSong",
-               "inputs": {"model": ["1", 0], "sampler": ["7", 0], "prompt": "a dancer", "crf": 19,
-                          "seed": 5, "filename_prefix": "Video/x", "extent": "whole", "width": 1344,
-                          "reuse_windows": True}},
-    }
-
-    def sig(g):
-        return lr.graph_signature(g, "74", skip=lr.SONG_PER_WINDOW)
-
-    s0 = sig(base)
-    if s0 is None:
-        _fail(problems, "resume: a complete prompt gave no graph signature")
-        return
-
-    def setter(nid, name, value):
-        return lambda g: g[nid]["inputs"].__setitem__(name, value)
-
-    for label, edit, same in (
-            ("a checkpoint change", setter("1", "unet_name", "b.safetensors"), False),
-            ("a sampler change", setter("7", "sampler_name", "res_multistep"), False),
-            ("a crf change", setter("74", "crf", 23), False),
-            ("a canvas change", setter("74", "width", 1152), False),
-            ("a prompt edit", setter("74", "prompt", "a dancer, closer"), True),
-            ("a seed change", setter("74", "seed", 6), True),
-            ("a filename change", setter("74", "filename_prefix", "Video/y"), True),
-            ("an extent change", setter("74", "extent", "first_seconds"), True),
-            ("a timeline edit", setter("74", "timeline", "00:00 intro"), True),
-            ("the preview switch", setter("74", "preview", True), True),
-            ("the reuse switch", setter("74", "reuse_windows", False), True)):
-        g = copy.deepcopy(base)
-        edit(g)
-        if (sig(g) == s0) != same:
-            _fail(problems, f"resume: {label} {'moved' if same else 'did not move'} the graph signature")
-    renumbered = {"9": copy.deepcopy(base["1"]), "7": copy.deepcopy(base["7"]), "74": copy.deepcopy(base["74"])}
-    renumbered["74"]["inputs"]["model"] = ["9", 0]
-    if sig(renumbered) != s0:
-        _fail(problems, "resume: renumbering the graph moved its signature")
-    dangling = copy.deepcopy(base)
-    dangling["74"]["inputs"]["model"] = ["42", 0]
-    if lr.graph_signature(None, "74") is not None or lr.graph_signature(base, "99") is not None \
-            or sig(dangling) is not None:
-        _fail(problems, "resume: a missing prompt, node or link still gave a key")
-
-    root = lr.root_key(s0, lr.track_hash(torch.zeros(1, 2, 100), 44100))
-    if lr.root_key(s0, lr.track_hash(torch.ones(1, 2, 100), 44100)) == root:
-        _fail(problems, "resume: the root ignores the track's samples")
-    k1 = lr.window_key(root, 1, "t", 141, 0.0, 5, None)
-    if lr.window_key(root, 2, "t", 141, 4.25, 6, k1) == lr.window_key(root, 2, "t", 141, 4.25, 6, "other"):
-        _fail(problems, "resume: a window's key ignores the previous window's")
-
     with tempfile.TemporaryDirectory() as d:
         video, audio = torch.randn(1, 24, 3, 4, 6), torch.randn(1, 32, 2, 5)
         samples = comfy.nested_tensor.NestedTensor((video, audio))
-        video_path, _latent = lr.window_paths(d, "song", 1)
-        if lr.read_window(d, "song", 1) is not None:
-            _fail(problems, "resume: an empty store read as a window")
-        open(video_path, "wb").close()
-        lr.save_window(d, "song", 1, k1, samples, 39, 5.875, 97)
-        got = lr.read_window(d, "song", 1)
-        if got is None or (got["key"], got["trim"], got["next_start"], got["written"]) != (k1, 39, 5.875, 97):
-            _fail(problems, f"resume: a stored window read back as {got}")
-        elif lr.stored_frames(got, 141) != 97:
-            _fail(problems, "resume: a stored window does not hold the frames it was written with")
-        else:
-            back = lr.load_window_latent(got["latent"])["samples"]
-            if not getattr(back, "is_nested", False) or not all(
-                    torch.equal(a, b) for a, b in zip(back.unbind(), (video, audio))):
-                _fail(problems, "resume: a stored latent did not round-trip")
-        # A store from before 2026-10-06 has no `written`: it reads back as None and holds its
-        # whole length less its head trim, which is what was written then.
-        comfy.utils.save_torch_file({"stream_0": video}, _latent,
-                                    metadata={"key": k1, "trim": "39", "next_start": "5.875", "nested": "False"})
-        old = lr.read_window(d, "song", 1)
-        if old is None or old["written"] is not None or lr.stored_frames(old, 141) != 102:
-            _fail(problems, f"resume: a window stored before its frame count was recorded read back as {old}")
-        os.remove(video_path)
-        if lr.read_window(d, "song", 1) is not None:
-            _fail(problems, "resume: a latent whose video is gone read as a finished window")
+        path = lr.save_window(d, "song", 1, samples, 39, 5.875, 97)
+        if path != lr.window_paths(d, "song", 1)[1] or not os.path.isfile(path):
+            _fail(problems, f"store: a window's latent was written to {path}, not beside its video")
+        back = lr.load_window_latent(path)["samples"]
+        if not getattr(back, "is_nested", False) or not all(torch.equal(a, b) for a, b in zip(back.unbind(), (video, audio))):
+            _fail(problems, "store: a stored latent did not round-trip")
+        from safetensors import safe_open
+        with safe_open(path, framework="pt") as f:
+            meta = f.metadata() or {}
+        if (meta.get("trim"), meta.get("next_start"), meta.get("written")) != ("39", "5.875", "97") or "key" in meta:
+            _fail(problems, f"store: a stored window's header is {meta}; it holds the trim, the next start and the frames written, and no key")
+        other = os.path.join(d, "other.safetensors")            # a latent some other node saved: no trim in it
+        comfy.utils.save_torch_file({"samples": torch.zeros(1, 4, 3, 2, 2)}, other, metadata={"note": "not a window"})
+        for bad in (os.path.join(d, "absent.safetensors"), __file__, other):
+            for reader in (lr.load_window_latent, lr.check_window_latent):
+                try:
+                    reader(bad)
+                    _fail(problems, f"store: {os.path.basename(bad)} was taken for a stored window by {reader.__name__}")
+                except ValueError as exc:
+                    if "is not a stored window's latent" not in str(exc):
+                        _fail(problems, f"store: the refusal of {os.path.basename(bad)} does not say what it is not: {exc}")
+        lr.check_window_latent(path)            # and the real one passes, by its header alone
+    gone = [name for name in ("graph_signature", "root_key", "window_key", "track_hash", "stored_key", "read_window",
+                              "stored_frames", "SONG_PER_WINDOW") if hasattr(lr, name)]
+    song_source = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
+    # a wrong `continue_from` is refused where the run starts: ahead of the preview's return and of every encode
+    at = song_source.find("loop_resume.check_window_latent(continue_from)")
+    if at < 0 or at > song_source.find("        if preview:\n            if source is not None:"):
+        _fail(problems, "store: the song node does not check the file `continue_from` names before its preview returns")
+    if gone or '"reuse_windows"' in song_source or "window_keep" in song_source:
+        _fail(problems, f"store: nothing an earlier run made is reused by a key, and {gone or 'the song node'} still keys or reuses one")
 
 
 #: The example song's sections (`build_workflows._SONG_FLICKER_TIMELINE`) and
@@ -670,9 +618,10 @@ def check_writer_colour(problems):
         plain = str(Path(tmp) / "plain.mp4")
         stacked = str(Path(tmp) / "stacked_with_mask.mp4")
         song._write_frames_mp4(plain, frames, 19)
-        song._write_review_mp4(stacked, iter([frames]), width, height, 19, under=plain)
+        # a review is one picture of twice the height: the render over the view of what was regenerated
+        song._write_review_mp4(stacked, iter([torch.cat([frames, frames], dim=1)]), width, 2 * height, 19)
         for label, path, crop in (("a render", plain, None),
-                                  ("a review, the stored half", stacked, f"crop={width}:{height}:0:0"),
+                                  ("a review, the render's half", stacked, f"crop={width}:{height}:0:0"),
                                   ("a review, the drawn half", stacked, f"crop={width}:{height}:0:{height}")):
             if tag(path) != "tv,bt709,bt709,bt709":
                 _fail(problems, f"writer colour: {label} is tagged {tag(path) or 'nothing'} "
@@ -811,8 +760,7 @@ def check_continue(problems, song_source):
     context, its first included; two stretches laid as the rule says (the second's track starting
     `context` frames before the first one's end) write exactly the frames of one run over both,
     with no frame twice and none missing, for a spread of stretch lengths; a run without the input
-    writes what it wrote before; and the first window is keyed on the window it continues, so a
-    first stretch rendered again renders the second again and a moved folder does not.
+    writes what it wrote before; and the first window takes its context from the stored window named.
     NOT held, and it cannot be without a render: that the seam is invisible.
     """
     import os
@@ -849,35 +797,12 @@ def check_continue(problems, song_source):
                     _fail(problems, f"continue: stretches {one} then {two}: the second writes from span frame {first_new}, "
                                     f"the first ends at {sum(wrote_one)}; it writes {sum(wrote_two)} of {covered_two - ctx}")
                     break
-    # the key chain: window one of a continued run is keyed on the stored window it continues
-    with tempfile.TemporaryDirectory() as d:
-        path = lr.save_window(d, "one", 3, "key-of-stretch-one", torch.zeros(1, 4, 3, 2, 2), 39, 30.0, 102)
-        if lr.stored_key(path) != "key-of-stretch-one":
-            _fail(problems, "continue: a stored window's key does not read back for the run that continues it")
-        keyless = os.path.join(d, "keyless.safetensors")        # a latent some other node saved: no key in it
-        comfy.utils.save_torch_file({"stream_0": torch.zeros(1, 4, 3, 2, 2)}, keyless, metadata={"trim": "39"})
-        for bad in (os.path.join(d, "absent.safetensors"), __file__, keyless):
-            try:
-                lr.stored_key(bad)
-                _fail(problems, f"continue: {os.path.basename(bad)} was taken for a stored window")
-            except ValueError:
-                pass
-    root = lr.root_key("sig", lr.track_hash(torch.zeros(1, 2, 10), 44100))
-    cold = lr.window_key(root, 1, "t", 345, 0.0, 5, None)
-    if lr.window_key(root, 1, "t", 345, 0.0, 5, "key-of-stretch-one") == cold \
-            or lr.window_key(root, 1, "t", 345, 0.0, 5, "key-of-stretch-one") == lr.window_key(root, 1, "t", 345, 0.0, 5, "another"):
-        _fail(problems, "continue: a continued first window's key ignores what it continues")
-    if "continue_from" not in lr.SONG_PER_WINDOW:
-        _fail(problems, "continue: moving the continued file would re-render the run that continues it")
-    # the node's side, from its source
-    for text, what in (("keys[-1] if keys else continued_key", "key its first window on the window it continues"),
-                       ("prev = loop_resume.load_window_latent(continue_from)", "seed its first window from the continued latent"),
+    # the node's side, from its source (the stored window it continues is read by `check_resume`'s cases)
+    for text, what in (("prev = loop_resume.load_window_latent(continue_from) if continue_from else None", "seed its first window from the continued latent"),
                        ("heard = waveform[..., int(round(head / FPS * rate)):]", "start its file's audio on its first new frame"),
                        ("head = context_frames if continue_from else 0", "count the context as not written")):
         if text not in song_source:
             _fail(problems, f"continue: the song node does not {what}")
-    if "if prev is None and continue_from and first < n_windows:" not in song_source:
-        _fail(problems, "continue: a continued run that reuses its own windows would be seeded from the other run's")
 
 
 def check_song_plan(problems):
@@ -1062,25 +987,14 @@ def check_song_plan(problems):
         except ValueError:
             continue
         _fail(problems, f"frames written: windows {lengths} keeping {kept} frames was not refused")
-    # The stored window the cut leaves behind: a last window stored whole, before its frame count
-    # was recorded, holds more than a run under a short track writes, so the song node does not
-    # reuse it; every other stored window, and one stored with the right count, is what the run writes.
-    import loop_resume as lr
-    short = lp.frames_written([345, 345, 141], ctx, 720)
-    before = [{"trim": 0, "written": None}, {"trim": ctx, "written": None}, {"trim": ctx, "written": None}]
-    if [lr.stored_frames(s, n) == w for s, n, w in zip(before, (345, 345, 141), short)] != [True, True, False]:
-        _fail(problems, "frames written: a last window stored whole under a track that ends first would be reused")
-    if lr.stored_frames({"trim": ctx, "written": short[-1]}, 141) != short[-1] \
-            or lr.stored_frames(before[-1], 141) != lp.frames_written([345, 345, 141], ctx, 753)[-1]:
-        _fail(problems, "frames written: a window stored with the frames this run writes would not be reused")
     song_source = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "join_and_mux(files, heard, rate, out_path, work_dir, stem, kept_frames - head)" not in song_source \
             or "images = images[:writes[i]]" not in song_source \
             or "writes = loop_plan.frames_written([w.frames for w in windows], context_frames, kept_frames, head)" not in song_source:
         _fail(problems, "frames kept: the song node no longer cuts the last window at the frames and joins that many")
     check_continue(problems, song_source)
-    if "if holds != writes[w.number - 1]:" not in song_source or "trim, next_start, written))" not in song_source:
-        _fail(problems, "frames written: the song node no longer stores a window's frame count or refuses one that differs")
+    if "trim, next_start, written))" not in song_source:
+        _fail(problems, "frames written: the song node no longer stores a window's frame count with its latent")
     if "loop_plan.extent_shortfall(" not in song_source or "logger.warning(\"[h3] MiniMaxH3AudioFreezeSong: %s\", shortfall)" not in song_source:
         _fail(problems, "shortfall: the song node no longer prints and logs the line")
 
@@ -1190,7 +1104,7 @@ def main() -> int:
         return 1
     print("  ok    slice on the grid and exact; nested mask survives the sampler's "
           "reshape and a flat one is refused; every freeze graph is wired end to end; "
-          "resume keys; the loop plan lines up with its timeline and its refusals and controls bite; "
+          "a stored latent round-trips and nothing is keyed or reused; the loop plan lines up with its timeline and its refusals and controls bite; "
           "a load's first frame names the cuts that split a latent step, as the node's gate does; "
           "the join returns every frame its windows hold; a written file is BT.709 and says so")
     return 0

@@ -292,9 +292,7 @@ def frames_kept(covered: int, track_seconds: float) -> int:
     When the track on hand is longer than that, as with an `extent` of its first seconds, nothing
     is past the track and every frame is kept. When it is not, the frames past its end are
     dropped from the last window before it is encoded, so the finished video ends with its
-    track, on a whole frame (`loop_output.join_and_mux` says why not in the join). A last
-    window that a run before 2026-10-06 stored holds its tail still, under a key that still
-    matches: it is not reused, and renders once more (`loop_resume.stored_frames`).
+    track, on a whole frame (`loop_output.join_and_mux` says why not in the join).
     """
     return min(int(covered), track_frames(track_seconds))
 

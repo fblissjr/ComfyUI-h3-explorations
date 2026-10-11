@@ -160,33 +160,31 @@ mask, the node counts how much of the tracker's mask the part covers
 (`part_coverage.py`), logs the figures, and puts the one-line warning in the
 source record under `part_warning`, None when no frame is in doubt. The song
 node's report and the prompt node's summary show it. It is a report: nothing
-is refused and no mask changes. A mask kept from an earlier run arrives
-without the part mask, so the key is None there.
+is refused and no mask changes.
 
 The record this node returns, by key, beyond the node's own inputs: `frames`
 and `mask` (the frames and the region used), `shot_table` and `replace` (read
 by the prompt node), `subject_boxes` (the tracked subject's box per frame),
 and `part_warning`.
 
-**The mask is kept across runs** (`reuse_mask`; owner, 2026-10-04: "save the
-mask"). Tracking the subject, and finding the part for `head and hair`, cost
-more than a window of sampling after every restart, and a clip's mask does
-not change between the arms of a test. The node keeps its finished mask on
-disk under a key made from everything that decides it, and asks core for
-`mask`, `segmenter` and `segmenter_clip` only when nothing kept matches, so on
-a hit the tracker and the detector never run. A hit is the same bytes as the
-tracked mask. `mask_store.py` has the key, the format and the budget;
-`MASK_KEY_SKIP` below is the list of this node's inputs that do not change
-its mask.
+**A mask is temporary data.** It is made by the preprocessing step for the
+job that reads it, and nothing hands a mask from one run to another by a key
+(the owner's rule, 2026-10-10: nothing an earlier run made is reused by a
+key; a result is made again, or handed in explicitly as a named file or a
+wired input; `AGENTS.md`, "Operative rules", and `docs/wiki/decisions.md`).
+From 2026-10-04 this node kept its finished mask on disk (`reuse_mask`,
+`mask_store.py`) under a key made from the upstream graph, a sample of the
+frames and hand-bumped version numbers. The key could not see a change to
+the code that makes a mask, a stale mask hid a fix on 2026-10-07 and the
+store was switched off in code that day; it was removed with its input on
+2026-10-10. A mask made once and used again is a file a person wires in.
 
 **The shot table travels with the mask** (2026-10-05, `shot_table.py`). The
 Subject Track's table says who was found and taken in each shot, and a
 person reviews it in place of a render. Wired into `shot_table` here, it is
-asked for only when the mask is (both are lazy and both come from the
-tracker), kept in the mask's file, read back on a hit, and handed on in the
-source bundle, where the song node writes it beside the video under the
-render's own number. Wiring it does not change the mask's key. A mask kept
-without a table is a miss the first time a graph wires one.
+asked for with the mask (both are lazy and both come from the tracker) and
+handed on in the source bundle, where the song node writes it beside the
+video under the render's own number.
 
 Design from two third-party nodes, read and not run:
 `coderef/comfyui_dagthomas/nodes/h3/mouth_guard.py` (pixel grow, max-pool,
@@ -298,26 +296,6 @@ PART_MARGIN = 8
 #: Inherited: core's node default
 #: (`comfy_extras/nodes_sam3.py::SAM3_Detect.define_schema`).
 PART_THRESHOLD = 0.5
-#: This node's inputs that do not change the mask it settles on: they act on
-#: the mask afterwards (the grow, the feather, the composite) or on the frames.
-#: Everything else on the node, and everything upstream of it, is in the key a
-#: kept mask is found by (`mask_store.mask_key`). Reasoned, from `execute`: the
-#: mask is final before any of these is read. `bench/check_mask_store.py`
-#: holds both directions.
-#: The kept mask on disk, as a whole: read and written only while this is True. **False since 2026-10-07 by the
-#: owner's decision, and to be turned on by a code change and nothing else**: `reuse_mask` on the node has no effect
-#: while it is False. A kept mask is only as fresh as the `MASK_VERSION` of the nodes that made it; a change to how a
-#: subject is followed that forgot to bump one was served the old mask that evening, and the fix it carried looked
-#: like it had failed. **Before it is turned back on, the store has to detect that the code changed**: the key holds
-#: the inputs and hand-bumped version numbers, and nothing derived from the code that makes the mask, so it cannot
-#: tell a mask made by yesterday's logic from today's (the owner, the same evening).
-MASK_REUSE_ENABLED = False
-
-MASK_KEY_SKIP = ("grow_pixels", "grow_by", "feather_pixels", "paint_out", "composite", "change_threshold", "reuse_mask",
-                 "motion_reference", "motion_short_edge", "motion_vae",
-                 "start_from", "start_top", "start_blur", "start_knots", "shot_table", "keep", "others", "edge",
-                 "motion_video", "motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey", "held_tail",
-                 "render_region", "largest_zoom")
 #: `start_from` choices: what the regenerated tokens start from.
 #:
 #: `noise` is the shipped render: the schedule runs from its first knot and
@@ -467,11 +445,10 @@ MOTION_BOX_ROOM = 32
 #: (`docs/h3_references.md`, "Budget by pixel area"). Encoder-only, it sets
 #: how much the text encoder sees of the subject at two frames per second.
 MOTION_SHORT_EDGE = 384
-#: The inputs core is asked for only when no kept mask matches.
+#: The lazy inputs core is asked for through `check_lazy_status`: the mask always, the segmenter and its text
+#: encoder only when `replace` cuts a part with them.
 LAZY_FOR_MASK = ("mask", "segmenter", "segmenter_clip")
-#: The tracker's shot table (`shot_table.py`), lazy with the mask and kept
-#: with it: a kept mask that carries a table spares the tracker for both, and
-#: one that carries none is a miss for a graph that wires the table, once.
+#: The tracker's shot table (`shot_table.py`), lazy with the mask.
 LAZY_FOR_TABLE = "shot_table"
 #: The part node's mask, lazy with the mask and read only for `the wired parts` (2026-10-05).
 LAZY_FOR_PARTS = "parts"
@@ -1330,8 +1307,8 @@ def _tracked_boxes(mask: torch.Tensor) -> torch.Tensor:
     """The subject's box on each frame of a [N, H, W] mask: [N, 4] long, (x0, y0, x1, y1) with the far side
     exclusive, a row of -1 where the mask is empty. The pack's one box function, `sapiens2_parts.mask_boxes`.
 
-    Kept as one function on purpose. The shot table is to carry the subject's box per frame (it lands with
-    the kept mask's removal); that day this reads the table and computes nothing, and nothing else changes.
+    Kept as one function on purpose. The shot table is to carry the subject's box per frame; that day this
+    reads the table and computes nothing, and nothing else changes.
     """
     from .sapiens2_parts import mask_boxes   # imported here: that module imports this one at load
     return mask_boxes(mask)
@@ -1881,8 +1858,7 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     One box for the whole LOAD, not one a window: a continuation's kept frames are the window before's latent,
     so two windows with two boxes would hand the model a context of another framing. For the same reason a
     load with a cut inside it is refused: a box held across a cut frames nobody on one side of it. The pictures
-    are kept on the host between runs (`window_keep.ZOOMS`), so the kept latents and conditionings, which are
-    found by the identity of these tensors, still hit.
+    are made on every run; nothing keeps them.
 
     A run that CONTINUES a stored window (`continue_from`) is a separate run on another load, and its kept
     frames are that window's latent, in that window's framing. `continued` is what that window's region file
@@ -1941,35 +1917,24 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     scale = (old_w - 2 * cx) / (box[2] - box[0])
     zoom = {"box": [int(v) for v in box], "source_size": [old_w, old_h], "canvas": [int(width), int(height)],
             "scale": float(scale), "render_region": choice, "set_by": why}
-    from . import window_keep   # here, not at the top: that module is the song node's, and this one loads without it
     names = [k for k in ("mask", "keep", "others") if source.get(k) is not None]
     wired = source.get("motion_frames")
-    static = ("zoom", tuple(zoom["box"]), int(width), int(height), tuple(names), wired is not None)
-    alive = (frames,) + tuple(source[k] for k in names) + ((wired,) if wired is not None else ())
-    made = window_keep.ZOOMS.get(static, alive)
-    held = "kept from an earlier run"
-    if made is None:
-        made = {"frames": crop_frames(frames, box, width, height)}
-        for k in names:
-            m = source[k]
-            made[k] = crop_mask(m[..., 0] if m.ndim == 4 else m, box, width, height)
-        if wired is not None:
-            # the wired video runs beside the source in its own pixels: the same part of the picture, through
-            # the fit each makes to the canvas, to the nearest of its pixels (it is a reference, not a plate).
-            # Untested on a wired video of another size than the source when written.
-            fx0, fy0, fx1, fy1 = _canvas_box(zoom)
-            wh, ww = int(wired.shape[1]), int(wired.shape[2])
-            wx, wy = _fit_crop(ww, wh, int(width), int(height))
-            kx, ky = (ww - 2 * wx) / int(width), (wh - 2 * wy) / int(height)
-            wbox = (max(0, int(round(wx + fx0 * kx))), max(0, int(round(wy + fy0 * ky))),
-                    min(ww, max(int(round(wx + fx1 * kx)), int(round(wx + fx0 * kx)) + 1)),
-                    min(wh, max(int(round(wy + fy1 * ky)), int(round(wy + fy0 * ky)) + 1)))
-            made["motion_frames"] = crop_frames(wired, wbox, width, height)
-        # host tensors are kept as they are, so these ARE the kept ones
-        size = sum(t.numel() * t.element_size() for t in made.values()) / 1024 ** 2
-        held = (f"made now and kept on the host for the next run, {size:.0f} MiB" if window_keep.ZOOMS.put(static, alive, made)
-                else f"made now and NOT kept ({size:.0f} MiB, over the keep's budget or the host is short): the next run makes "
-                     "them again and encodes again")
+    made = {"frames": crop_frames(frames, box, width, height)}
+    for k in names:
+        m = source[k]
+        made[k] = crop_mask(m[..., 0] if m.ndim == 4 else m, box, width, height)
+    if wired is not None:
+        # the wired video runs beside the source in its own pixels: the same part of the picture, through
+        # the fit each makes to the canvas, to the nearest of its pixels (it is a reference, not a plate).
+        # Untested on a wired video of another size than the source when written.
+        fx0, fy0, fx1, fy1 = _canvas_box(zoom)
+        wh, ww = int(wired.shape[1]), int(wired.shape[2])
+        wx, wy = _fit_crop(ww, wh, int(width), int(height))
+        kx, ky = (ww - 2 * wx) / int(width), (wh - 2 * wy) / int(height)
+        wbox = (max(0, int(round(wx + fx0 * kx))), max(0, int(round(wy + fy0 * ky))),
+                min(ww, max(int(round(wx + fx1 * kx)), int(round(wx + fx0 * kx)) + 1)),
+                min(wh, max(int(round(wy + fy1 * ky)), int(round(wy + fy0 * ky)) + 1)))
+        made["motion_frames"] = crop_frames(wired, wbox, width, height)
     out = {**source, **made, "zoom": zoom, "whole": source}
     out["subject_area"] = area_share(made["mask"])
     out["region_boxes"] = _tracked_boxes(made["mask"])
@@ -1984,7 +1949,7 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
                              torch.ceil((b[:, 3] - box[1]) * k).clamp(0, int(height))], dim=1).to(torch.long)
         moved[(tracked[:, 0] < 0) | (moved[:, 2] <= moved[:, 0]) | (moved[:, 3] <= moved[:, 1])] = -1
         out["subject_boxes"] = moved
-    return out, [render_zoom_note(zoom, source), f"the zoomed pictures of the load: {held}"]
+    return out, [render_zoom_note(zoom, source)]
 
 
 def lay_back(decode: torch.Tensor, alpha: torch.Tensor, whole: torch.Tensor, zoom: dict) -> torch.Tensor:
@@ -2126,12 +2091,6 @@ def settings_refusal(grow_pixels, feather_pixels, paint_out=False, start_from=ST
 
 
 class MiniMaxH3MaskedSource(io.ComfyNode):
-    #: Part of a kept mask's key (`mask_store.py`). Raise it when a change
-    #: would give a different mask from the same inputs and settings: that is
-    #: `_settle_mask` and what it calls. The grow, the feather and the
-    #: composite act after the mask and do not count.
-    MASK_VERSION = 1
-
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -2146,7 +2105,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 "as SAM3 Track to Mask gives it."),
             inputs=[
                 io.Image.Input("frames", tooltip="The source video's frames at 24 fps, from its start."),
-                # lazy since 2026-10-04: not asked for when a kept mask matches (`check_lazy_status`)
+                # lazy: asked for by `check_lazy_status`, with whichever other inputs `replace` needs
                 io.Mask.Input("mask", lazy=True, tooltip="One mask per frame, 1 on the subject to replace."),
                 # appended 2026-10-04
                 io.Combo.Input("replace", options=[REPLACE_WHOLE, REPLACE_PART, REPLACE_PARTS], default=REPLACE_WHOLE,
@@ -2251,18 +2210,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "source to be kept, as a fraction of full brightness. Lower it if parts "
                                         "of the new subject go missing; raise it if flicker around the subject "
                                         "remains.")),
-                # appended 2026-10-04 (`mask_store.py`)
-                # Off by default since 2026-10-07 (the owner: off until this lane is ready for production). A kept
-                # mask is only as fresh as the `MASK_VERSION` of the nodes that made it, and a change to how a
-                # subject is followed that forgets to bump one is served the old mask with no sign of it: that
-                # evening a fix's confirmation render showed the unfixed result for exactly that reason.
-                io.Boolean.Input("reuse_mask", default=False, optional=True,
-                                 tooltip=("DISABLED FOR NOW: this switch has no effect. Every run tracks afresh "
-                                          "and keeps nothing, whatever it is set to, until kept masks are turned "
-                                          "back on in the code.\n\n"
-                                          "What it does when enabled: the finished mask is kept on disk, and a later "
-                                          "run with the same video and the same mask settings uses it without "
-                                          "tracking again, also after a restart.")),
                 # appended 2026-10-05: the per-token late start (`START_TOP`)
                 io.Combo.Input("start_from", options=[START_NOISE, START_TOP], default=START_NOISE, optional=True,
                                tooltip=("What the new subject starts from. `noise` (default): nothing of the "
@@ -2282,11 +2229,10 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 io.Int.Input("start_knots", default=START_KNOTS, min=1, max=4, optional=True,
                              tooltip=("For a softened start: how many steps of the schedule are skipped. More "
                                       "shows more of the blur in the result.")),
-                # appended 2026-10-05 (`shot_table.py`): lazy with the mask and kept with it
+                # appended 2026-10-05 (`shot_table.py`): lazy with the mask
                 io.String.Input(LAZY_FOR_TABLE, optional=True, lazy=True, force_input=True,
-                                tooltip=("The Subject Track's `shot_table` output. It is kept with the mask, "
-                                         "so a render that reuses a kept mask still has it, and the song node "
-                                         "writes it next to the video.")),
+                                tooltip=("The Subject Track's `shot_table` output: who was found and taken in "
+                                         "each shot. The song node writes it next to the video.")),
                 # appended 2026-10-07 (the owner: "keep the prop rather than describe it"). A plain mask
                 # from any node; unwired, nothing changes.
                 io.Mask.Input("keep", optional=True,
@@ -2404,7 +2350,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "says the zoom it came to. Past the source's own resolution the "
                                         "surroundings are shown to the model enlarged and soft.")),
             ],
-            hidden=[io.Hidden.prompt, io.Hidden.unique_id],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
                                     tooltip=("The mask this node used, one per source frame, before grow_pixels: "
@@ -2416,30 +2361,11 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
         )
 
     @classmethod
-    def _mask_key(cls, frames, reuse_mask):
-        """The key this node's mask is kept under, or None: turned off, or no queued prompt to read (a direct call)."""
-        hidden = getattr(cls, "hidden", None)
-        prompt, node_id = getattr(hidden, "prompt", None), getattr(hidden, "unique_id", None)
-        if not MASK_REUSE_ENABLED or not reuse_mask or frames is None or not isinstance(prompt, dict) or node_id is None:
-            return None
-        from . import mask_store
-        return mask_store.mask_key(prompt, node_id, frames, skip=MASK_KEY_SKIP)
-
-    @classmethod
-    def check_lazy_status(cls, frames=None, replace=REPLACE_WHOLE, reuse_mask=False, **kwargs):
+    def check_lazy_status(cls, frames=None, replace=REPLACE_WHOLE, **kwargs):
         # None is a connected input core has not run yet; an unconnected
         # optional input is absent. `frames` is not lazy, so it is here.
         wanted = {REPLACE_PART: LAZY_FOR_MASK, REPLACE_PARTS: (LAZY_FOR_MASK[0], LAZY_FOR_PARTS)}.get(replace, LAZY_FOR_MASK[:1]) + (LAZY_FOR_TABLE,)
-        missing = [name for name in wanted if name in kwargs and kwargs[name] is None]
-        if not missing:
-            return []
-        key = cls._mask_key(frames, reuse_mask)
-        if key is not None:
-            from . import mask_store
-            # with the table wired, only a kept mask that carries one is a hit
-            if mask_store.has(key, tuple(frames.shape[:3]), with_table=LAZY_FOR_TABLE in kwargs):
-                return []           # a kept mask matches: the tracker and the detector do not run
-        return missing
+        return [name for name in wanted if name in kwargs and kwargs[name] is None]
 
     @classmethod
     def validate_inputs(cls, grow_pixels, feather_pixels, paint_out=False, start_from=START_NOISE) -> bool | str:
@@ -2461,12 +2387,12 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                 START_NOISE if start_from is None else start_from) or True
 
     @classmethod
-    # `mask` has no default: it is required in the schema, and core hands a lazy input it was not asked to run
-    # as None, which is what a hit on a kept mask looks like here.
+    # `mask` has no default: it is required in the schema. Core hands a lazy input it was not asked to run as
+    # None, which `check_lazy_status` does not allow for the mask, and `execute` refuses if it happens.
     def execute(cls, frames, mask, grow_pixels=GROW_PIXELS, feather_pixels=8, replace=REPLACE_WHOLE, paint_out=False,
                 segmenter=None, segmenter_clip=None, part_phrases=PART_PHRASES,
                 part_threshold=PART_THRESHOLD, part_margin=PART_MARGIN, composite=COMPOSITE_CHANGED,
-                change_threshold=CHANGE_THRESHOLD, reuse_mask=False, motion_reference=MOTION_NONE,
+                change_threshold=CHANGE_THRESHOLD, motion_reference=MOTION_NONE,
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
@@ -2554,43 +2480,16 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                     "and a softened start both change those pixels before the encode: turn them off, or unwire "
                     "`others`")
             others = (others > 0.5).to(torch.float32)
-        key = cls._mask_key(frames, reuse_mask)
-        kept = None
-        if key is not None:
-            from . import mask_store
-            kept = mask_store.load(key, tuple(frames.shape[:3]))
         table = str(shot_table or "")
-        part_warning = None     # a kept mask arrives without the part mask, so there is nothing to count
-        if kept is not None:
-            mask, note = kept, ", mask kept from an earlier run (nothing tracked)"
-            # The tracker did not run, so the subject's boxes are the kept REGION's. This branch goes with
-            # the kept mask's removal (`reuse_mask`, `mask_store`): delete it with them.
-            boxes = _tracked_boxes(mask)
-            if motion_reference in ZOOMED and replace != REPLACE_WHOLE:
-                note += ", the zoom framed on the kept region and not the whole subject"
-            if table:
-                # the tracker ran for its table alone: the kept file had none (kept before the
-                # table existed, or by a graph that did not wire it). Keep it for the next run.
-                if mask_store.table(key) != table:
-                    mask_store.save(key, mask, table)
-                    note += ", its shot table kept with it now"
-            else:
-                table = mask_store.table(key)
-        else:
-            if mask is None:
-                # `check_lazy_status` found a kept mask and it did not read here: it has been removed
-                raise ValueError(
-                    "the mask kept for this video could not be read and has been removed: queue the "
-                    "workflow again and it will be tracked afresh")
-            tracked = mask          # the tracker's own mask, before it is cut to a part below
-            mask, note, part_warning = cls._settle_mask(frames, mask, replace, segmenter, segmenter_clip,
-                                                        part_phrases, part_threshold, part_margin, parts)
-            # The whole subject's box per frame, from the tracker's mask and not from the part it was just
-            # cut to: on a parts graph nothing after this node knows where the subject is otherwise.
-            boxes = _tracked_boxes(tracked[..., 0] if tracked.ndim == 4 else tracked)
-            if key is not None:
-                seconds = mask_store.save(key, mask, table)
-                note += f", mask kept for the next run ({seconds:.0f} s to write)"
+        if mask is None:
+            raise ValueError("the Masked Source was run with no mask: wire one (a tracker's, or a mask video loaded "
+                             "from a file)")
+        tracked = mask          # the tracker's own mask, before it is cut to a part below
+        mask, note, part_warning = cls._settle_mask(frames, mask, replace, segmenter, segmenter_clip,
+                                                    part_phrases, part_threshold, part_margin, parts)
+        # The whole subject's box per frame, from the tracker's mask and not from the part it was just
+        # cut to: on a parts graph nothing after this node knows where the subject is otherwise.
+        boxes = _tracked_boxes(tracked[..., 0] if tracked.ndim == 4 else tracked)
         covered = float((mask > 0.5).any(dim=0).float().mean())
         # The mask's area on each frame as a share of the frame: what `grow_by` takes the margin from, here on
         # the source's own frames and in every window on the canvas (`source_margins`).

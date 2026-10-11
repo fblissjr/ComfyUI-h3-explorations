@@ -3,7 +3,7 @@
 `MiniMaxH3ReferenceConditioning` (`reference_conditioning.py`) presents the
 references and the prompt to Qwen3-VL as one sequence and encodes it whole, so
 a prompt edit pays for the references again. Nearly all of that is the encoder
-reading the stills (`bench/results/2026-10-03_prompt_edit_conditioning_cost.json`).
+reading the stills (`data/results/2026-10-03_prompt_edit_conditioning_cost.json`).
 
 Core places every reference ahead of the prompt
 (`comfy/text_encoders/minimax.py::MiniMaxH3Tokenizer`) and the language
@@ -30,31 +30,24 @@ difference on 2026-10-03. At other shapes the references' rows may also differ
 in the last bits. Nothing here is the default: every shipped graph still wires
 the one-node path.
 
-## The store
+## Nothing is kept between runs
 
-A reference's span depends on everything ahead of it and on nothing after it,
-so spans are kept one per reference under a chained content key: the hash of
-what the language model is handed for that span (token ids, the still at the
-encoder's view) and of the key before it. A changed image, size, label or
-position is a different key, so an entry cannot be stale, and nobody has to
-remember what was encoded where. Changing the last reference reuses the ones
-before it; moving a reference to another position is a miss, encoded fresh.
+Until 2026-10-10 each reference's span was kept in host memory under a
+chained hash of what the language model was handed for it, and handed back
+on a later run when the hash matched (and `keep_references` on the one-node
+path reached that store without rewiring). The owner's rule of that day
+removed it: nothing an earlier run made is reused by a key; a result is made
+again, or handed in explicitly as a named file or a wired input
+(`AGENTS.md`, "Operative rules"; `docs/wiki/decisions.md`). What is left is
+the explicit form. `MiniMaxH3EncodeReferences` hands its result out on an
+output and `MiniMaxH3PromptOnReferences` takes it on an input, so a prompt
+edit that leaves the references' node untouched pays for the prompt alone,
+through ComfyUI's own node cache and nothing of this pack's.
 
-The store lives in host memory for the session, least recently used out
-first. `STORE_BYTES` caps what it keeps beyond the chain in use, which is held
-whatever it weighs. Nothing is written to disk (owner, 2026-10-03: about 3 GB
-per 2048 still is not practical to persist). It serves one encoder at a time:
-a different encoder object, or new patches on it, empties it.
-
-Nothing kept stays on the card. A pass hands each layer its kept keys and
-values as the loop reaches it and drops them after, so the card holds one
-layer's worth at a time, not the chain's (a review by a peer session,
-2026-10-03: the whole chain on the card would come out of the DiT's room
-after a render).
-
-Not kept across a miss: the vision tower's output and the VAE rows. A moved
-or changed reference pays for both again, and the encode node runs every
-reference's VAE encode each time it executes.
+Within one encode a reference still continues on the references before it:
+a span depends on everything ahead of it and on nothing after it. Nothing
+kept stays on the card: a pass hands each layer its keys and values as the
+loop reaches it and drops them after.
 
 ## The loop below is a copy of core's
 
@@ -69,11 +62,8 @@ the real encoder.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import time
-import weakref
-from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -107,28 +97,10 @@ logger = logging.getLogger(__name__)
 
 H3EncodedReferences = io.Custom("MINIMAX_H3_ENCODED_REFERENCES")
 
-#: Host memory the store may hold, in bytes. Reasoned: room for the chain being
-#: iterated on and the one before it at about 3 GB per 2048 still (the size is
-#: `cache.bytes` in `bench/results/2026-10-03_encoder_prefix_reuse.json`), and
-#: no more, after the owner's reaction to that size (2026-10-03).
-STORE_BYTES = 8 * 1024 ** 3
-#: Host memory that must stay available after an entry is kept. Reasoned: the
-#: store is invisible to core, whose own answer to host memory pressure is to
-#: free its pinned weight buffers, not ours; so the store gives way first.
-STORE_HOST_FLOOR_BYTES = 16 * 1024 ** 3
-
-
-def _host_available() -> int:
-    """Available host memory as core reads it (cgroup limits included)."""
-    import comfy.system_memory
-    return int(comfy.system_memory.virtual_memory_available())
-
-
 @dataclass
 class Span:
-    """One reference's stretch of the encoder's sequence, as kept."""
+    """One reference's stretch of the encoder's sequence."""
 
-    key: str
     length: int
     rows: torch.Tensor                      # [1, length, hidden], float32, host
     keys: list[torch.Tensor]                # per layer [1, kv heads, length, head dim], host
@@ -191,68 +163,6 @@ def _kept_layer(spans, i: int, device):
             torch.cat([s.values[i].to(device) for s in spans], dim=2))
 
 
-class _Store:
-    """Spans by chained content key, least recently used out first."""
-
-    def __init__(self, budget: int):
-        self.budget = budget
-        self.spans: OrderedDict[str, Span] = OrderedDict()
-        self.owner = None
-        self.patches = None
-
-    def claim(self, encoder, patches):
-        if self.owner is None or self.owner() is not encoder or self.patches != patches:
-            if self.spans:
-                logger.info("[h3-ref] reference store emptied: a different encoder or new patches")
-            self.spans.clear()
-            # The callback empties the store when the encoder is collected:
-            # nothing could hit after that, and without it the spans would sit
-            # in memory until another encoder claimed the store.
-            self.owner, self.patches = weakref.ref(encoder, self._owner_gone), patches
-
-    def _owner_gone(self, ref):
-        if self.owner is ref:
-            self.spans.clear()
-            self.owner = None
-
-    def get(self, key: str):
-        span = self.spans.get(key)
-        if span is not None:
-            self.spans.move_to_end(key)
-        return span
-
-    def put(self, span: Span, keep: set, available=_host_available):
-        """Keep `span`, then drop the least recently used entries outside
-        `keep` (the chain in use) until what is kept beyond that chain is
-        inside the budget and the host has its floor of available memory. The
-        chain in use is held whatever it weighs. The caller holds its own
-        spans, so an eviction costs a later hit, never a result."""
-        self.spans[span.key] = span
-        self.spans.move_to_end(span.key)
-        beyond = sum(s.nbytes for k, s in self.spans.items() if k not in keep)
-        short = max(0, STORE_HOST_FLOOR_BYTES - available())
-        for key in list(self.spans):
-            if beyond <= self.budget and short <= 0:
-                break
-            if key in keep:
-                continue
-            freed = self.spans.pop(key).nbytes
-            beyond -= freed
-            short -= freed
-        if short > 0:
-            # Still short with only this call's spans left: do not keep them
-            # either. The node's output still holds what it needs.
-            for key in [k for k in self.spans if k in keep]:
-                del self.spans[key]
-            logger.info("[h3-ref] host memory is short; the reference store is keeping nothing")
-
-    def nbytes(self) -> int:
-        return sum(s.nbytes for s in self.spans.values())
-
-
-STORE = _Store(STORE_BYTES)
-
-
 def _parts(clip):
     """(text encoder model, its Qwen3-VL clip model, the language model), or a
     refusal when this is not core's H3 encoder."""
@@ -311,23 +221,6 @@ def span_entries(clip, ref_items, groups=None):
         entries = clip.tokenize("", minimax_ref_items=ref_items[:group[-1] + 1])[name][0]
         cuts.append(len(entries))
     return [entries[a:b] for a, b in zip(cuts, cuts[1:])]
-
-
-def span_key(parent: str, entries) -> str:
-    """Hash of what the language model is handed for one span, chained to the
-    span before it. Label text, ordinal, size policy and resampling are all
-    inside the token ids and the pixels."""
-    h = hashlib.blake2b(digest_size=20)
-    h.update(parent.encode())
-    for item, _weight in entries:
-        if isinstance(item, dict):
-            data = item["data"]
-            h.update(f"|{item.get('type')}|{bool(item.get('minimax_video_block'))}|"
-                     f"{tuple(data.shape)}|{data.dtype}|".encode())
-            h.update(memoryview(data.detach().contiguous().cpu().numpy()).cast("B"))
-        else:
-            h.update(f"|{int(item)}".encode())
-    return h.hexdigest()
 
 
 def _positions(images, start: int, count: int, device):
@@ -428,7 +321,7 @@ class _Loaded:
         return self.context.__exit__(*exc)
 
 
-def _encode_span(sdclip, lm, entries, key, start, images_before, before, device):
+def _encode_span(sdclip, lm, entries, start, images_before, before, device):
     """One reference's span, continued on the spans `before` it."""
     import comfy.model_management as mm
     embeds, _mask, _n, info = sdclip.process_tokens([[e[0] for e in entries]], device)
@@ -450,7 +343,7 @@ def _encode_span(sdclip, lm, entries, key, start, images_before, before, device)
                 torch.cat([deepstack[i], ds[i]], dim=0) for i in range(len(ds))]
     past = (lambda i: _kept_layer(before, i, device)) if before else None
     x, new = _lm_pass(lm, embeds, position_ids, visual, deepstack, past, start)
-    return Span(key=key, length=count, rows=x.float().to(mm.intermediate_device()),
+    return Span(length=count, rows=x.float().to(mm.intermediate_device()),
                 keys=[k for k, _v in new], values=[v for _k, v in new], images=images)
 
 
@@ -468,7 +361,7 @@ def _described(ref_items, labels):
 
 
 def encode_references(clip, ref_items, labels=None) -> EncodedReferences:
-    """Each reference's span, from the store where its chain is already there.
+    """Each reference's span, encoded now, each continued on the ones before it.
     `labels` are the prompt's names for the items, in order, for the report."""
     reason = unsupported(clip)
     if reason is not None:
@@ -477,44 +370,24 @@ def encode_references(clip, ref_items, labels=None) -> EncodedReferences:
             "Conditioning, which encodes in one pass.")
     te, sdclip, lm = _parts(clip)
     patches = clip.patcher.patches_uuid
-    STORE.claim(te, patches)
     groups = span_groups(ref_items)
     per_reference = span_entries(clip, ref_items, groups)
-    keys, parent = [], "h3-reference-chain"
-    for entries in per_reference:
-        parent = span_key(parent, entries)
-        keys.append(parent)
     described = _described(ref_items, labels)
     names = [" and ".join(described[i] for i in group) for group in groups]
-    found = [STORE.get(k) for k in keys]
-    spans, report, keep = [], [], set(keys)
-    if all(s is not None for s in found):
-        spans = found
-        report = [f"{names[i]}: kept ({s.length} tokens)" for i, s in enumerate(spans)]
-    else:
-        with _Loaded(clip, clip.tokenize("", minimax_ref_items=ref_items)) as device:
-            start, images = 0, []
-            for i, (entries, key, span) in enumerate(zip(per_reference, keys, found)):
-                if span is None:
-                    t0 = time.perf_counter()
-                    how = "encoded" if not spans else "continued on the references before it"
-                    span = _encode_span(sdclip, lm, entries, key, start, images, list(spans), device)
-                    STORE.put(span, keep)
-                    report.append(f"{names[i]}: {how} ({span.length} tokens, "
-                                  f"{time.perf_counter() - t0:.1f} s)")
-                else:
-                    # A kept span stands as it is even when one before it had
-                    # to be encoded again: its key says the chain before it
-                    # has not changed.
-                    report.append(f"{names[i]}: kept ({span.length} tokens)")
-                spans.append(span)
-                images += [dict(e, index=e["index"] + start) for e in span.images]
-                start += span.length
+    spans, report = [], []
+    with _Loaded(clip, clip.tokenize("", minimax_ref_items=ref_items)) as device:
+        start, images = 0, []
+        for i, entries in enumerate(per_reference):
+            t0 = time.perf_counter()
+            how = "encoded" if not spans else "continued on the references before it"
+            span = _encode_span(sdclip, lm, entries, start, images, list(spans), device)
+            report.append(f"{names[i]}: {how} ({span.length} tokens, {time.perf_counter() - t0:.1f} s)")
+            spans.append(span)
+            images += [dict(e, index=e["index"] + start) for e in span.images]
+            start += span.length
     chain = sum(s.nbytes for s in spans)
-    report.append(
-        f"in memory for this session: {STORE.nbytes() / 2 ** 30:.1f} GiB, of which this chain "
-        f"is {chain / 2 ** 30:.1f} GiB (earlier chains are kept up to "
-        f"{STORE.budget / 2 ** 30:.0f} GiB beyond the one in use; nothing is on the card or on disk)")
+    report.append(f"this encode holds {chain / 2 ** 30:.1f} GiB on the host for as long as its output is wired "
+                  "(nothing is kept between runs, on the card or on disk)")
     for line in report:
         logger.info("[h3-ref] %s", line)
     return EncodedReferences(spans=list(spans), ref_blocks=[], ref_items=list(ref_items),
@@ -621,7 +494,7 @@ class MiniMaxH3PromptOnReferences(io.ComfyNode):
             is_experimental=True,
             # "To within rounding": the prompt's rows come from a second pass, so
             # they differ from the one-node result in the last bits, not more
-            # (`bench/results/2026-10-03_reference_split.json`).
+            # (`data/results/2026-10-03_reference_split.json`).
             description=(
                 "Encode the prompt on top of references from MiniMax H3 Encode "
                 "References, and output the conditioning for the sampler. There "

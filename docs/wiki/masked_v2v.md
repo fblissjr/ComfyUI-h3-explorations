@@ -133,9 +133,9 @@ session starting a job needs to know:
   operative rule of that name; added 2026-10-10). A load's masks are files
   of the capture the job file names, read by path; its mesh is the file its
   own job's preview record lists, or the one the load names (`motion_file`);
-  the graph it builds has the kept-mask store and stored-window reuse off
-  (`reuse_mask`, `reuse_windows`, as the shipped graph it starts from has
-  them). The analysis folder is found from a file's name and then held to
+  the graph it builds reuses nothing an earlier run made (the kept-mask
+  store and stored-window reuse were removed on 2026-10-10, with their
+  inputs). The analysis folder is found from a file's name and then held to
   that file's size and head hash: an identity, not a store.
 - **A load made again is a new job name on the same capture.** The tool
   never reuses a name, and a capture can serve any number of jobs: the run
@@ -398,38 +398,27 @@ where in core.
   the region. `only what changed` (`changed_alpha`) keeps the render where
   it differs from the source or where the old subject stood, and restores
   the source in the rest of the margin, so the margin can be generous.
-- **The kept mask.** `mask_store.py` keeps the finished mask on disk, keyed
-  on the upstream graph, a fingerprint of the frames, the input files'
-  stats and every upstream node's `MASK_VERSION` (`mask_key`). On a hit the
-  Masked Source never asks
-  for its `mask` input, so the tracker does not run. `MASK_KEY_SKIP` names
-  the settings that do not change the mask. **Disabled in code since
-  2026-10-07** (`video_mask.MASK_REUSE_ENABLED` is False; `reuse_mask` on
-  the node defaults to off and cannot turn it on): every run tracks afresh.
-  See "What is kept between runs, and what can go stale" below.
+- **No kept mask.** Until 2026-10-10 `mask_store.py` kept the finished mask
+  on disk under a key (`reuse_mask`), and on a hit the tracker did not run.
+  It is removed: a mask is temporary data, made by the preprocessing step
+  for the job that reads it. See the next paragraph.
 
-**What is kept between runs, and what can go stale.** Three things are
-written by one run and read by a later one, and a fourth lives in memory:
+**Nothing is kept between runs by a key (2026-10-10).** The owner's rule:
+nothing an earlier run made is reused by a key; a result is made again, or
+handed in explicitly as a named file or a wired input (`AGENTS.md`,
+"Operative rules"; [`decisions.md`](decisions.md), 2026-10-10). What this
+lane had, and what became of each:
 
-| what | where | its key or version | reused today |
+| what | where it was | what it was keyed on | now |
 |---|---|---|---|
-| the finished mask | `output/masks/` (`mask_store.py`) | the queued graph, the frames, the files' stats, each upstream node's `MASK_VERSION` | no: `video_mask.MASK_REUSE_ENABLED` |
-| a rendered window | beside the render, `<prefix>_windows/` (`loop_resume.py`) | the queued graph upstream of the song node, the track, the window's text, length, start and seed, the window before it | no: `audio_freeze_song.WINDOW_REUSE_ENABLED` |
-| the shot table | `<prefix>_NNNNN_shots.json`, and the Subject Track's `shot_table` output | `TABLE_VERSION`, the file's format | read only when wired into `subject_from` |
-| a window's source encode and prompt encode | the server's memory (`window_keep.py`) | the identity of the live objects they were made from | yes, under `reuse_windows`; a restart clears it |
+| the finished mask | `output/masks/` (`mask_store.py`, `reuse_mask`) | the queued graph, a sample of the frames, the files' stats, a hand-bumped number per node | REMOVED with its input, module and check. The key could not see a change to the code that makes a mask; a stale mask hid a fix on 2026-10-07 and the store was off in code from that day |
+| a rendered window, reused | beside the render (`loop_resume.py`, `reuse_windows`) | the queued graph upstream of the song node, the track, the window's text, length, start and seed, the window before it | REMOVED: the keys and the reuse. The window FILES stay: a window's video and its sampled latent are written on every run, and read again only when a person names them (`continue_from`, `bench/recomposite_window.py`) |
+| a window's source encode and prompt encode | the server's memory (`window_keep.py`) | the identity of the live objects they were made from | REMOVED with its module and check. It was switched by `reuse_windows` on the node and not by the code switch, so it was live in any graph that set that input |
+| the shot table | `<prefix>_NNNNN_shots.json`, and the Subject Track's `shot_table` output | `TABLE_VERSION`, the file's format | unchanged: a file a person wires into `subject_from`, which is the explicit form the rule allows |
 
-**None of the first three keys holds anything derived from this pack's
-code.** A result made before a change to how a subject is followed, or to
-anything else the key does not name, is handed back after it when the
-settings are the same; the only guard is a number somebody has to remember
-to bump. That happened on 2026-10-07 (`decisions.md`), and the owner had
-both disk stores switched off in code that evening. The two inputs stay on
-their nodes so saved graphs still load, and their tooltips say they have no
-effect on what is stored. To turn them back on: a fingerprint of the pack's
-code in each key (and in the shot table), and a check in the sweep that
-every key that reaches disk carries it. Not built.
-`bench/check_mask_store.py` holds the shipped state of both switches and
-still exercises the mask store with its switch on.
+A mask made once and used many times is a mask VIDEO a job's graph loads
+from a file its capture wrote: named, visible, and replaced when the
+capture is made again.
 
 **Three things called a version, and none is the other.** The pack's
 version is the newest heading in `CHANGELOG.md`, assigned by
@@ -439,8 +428,10 @@ same build). `MASK_VERSION` is not a version of a node: it is one integer
 per node class that goes into the kept mask's key, bumped only when that
 node's code would make a different mask from the same inputs, so the
 numbers on different nodes (`subject_track.py`, `sapiens2_parts.py`,
-`video_mask.py`) are unrelated and never compared; it leaves with the kept
-mask (card `build-remove-kept-mask`). `TABLE_VERSION` (`shot_table.py`) is
+`video_mask.py`) are unrelated and never compared. The kept mask it keyed
+was removed on 2026-10-10 and the Masked Source's own number went with it;
+the trackers keep theirs because the job builder reads the Subject Track's
+for its corrections rule. `TABLE_VERSION` (`shot_table.py`) is
 the shot table's file format, checked on read. A node's identity is its
 `node_id` in `bench/node_id_manifest.json`, which has no number at all.
 
@@ -816,8 +807,9 @@ Each line names where the evidence is. "Seen" means on a render or a tile.
 - **Cuts.** A dissolve or a jump cut inside a cutaway can score under the
   threshold. The report prints the highest steps with the threshold marked.
 - **Cost.** Two detector passes on every frame looked at, and a tracker pass
-  per shot. The kept mask removed it from every later run; with the kept
-  mask disabled in code (2026-10-07) every run pays it.
+  per shot, on every run that tracks: nothing keeps a mask between runs
+  (2026-10-10). A job pays it once, in its preview, and its renders load
+  the mask videos that preview wrote.
 
 **Replacing the person**
 
@@ -901,8 +893,6 @@ wider set, with what each would buy and what is known about it.
 **The render**
 
 - The mask through two samplers, with the plate restored between them.
-- The kept mask across a server restart, which no run has exercised (and
-  none will while it is disabled in code).
 
 ## Seeing what the tracker and the masks did
 
@@ -1063,7 +1053,7 @@ tools above carries a field for which person a file is about.
 |---|---|
 | what a node input does | the node's `define_schema` tooltip |
 | why a default is what it is | the comment beside the constant, and `../../workflows/h3_config.py` (`SUBJECT_TRACK`, `MASKED_SOURCE`) |
-| what would go red | `bench/check_subject_track.py`, `bench/check_video_mask.py`, `bench/check_mask_store.py`, `bench/check_masked_prompt.py`, `bench/check_plate_restore.py`; [`../checks.md`](../checks.md) |
+| what would go red | `bench/check_subject_track.py`, `bench/check_video_mask.py`, `bench/check_masked_prompt.py`, `bench/check_plate_restore.py`; [`../checks.md`](../checks.md) |
 | what the owner said of a render | `../../bench/results/2026-10-04_masked_v2v_first_run.md`, `../../bench/results/2026-10-04_masked_v2v_band.md` |
 | how the prompts are written | `../../masked_prompt_text.py` (the node's sentences), `../../prompt_bank/` (`ref2va_masked_*`), [`../prompting.md`](../prompting.md) |
 | what was measured on which clip | `../../bench/results/2026-10-04_subject_track_three_clips.md` |

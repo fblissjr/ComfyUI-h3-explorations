@@ -139,18 +139,18 @@ he never faces the camera is not found, and the report and the preview show
 it as absent with its best value. One clip. Every value that decides the mask
 is an input or is stated in the report.
 
-**Keeping the mask** is not this node's job. `MiniMaxH3MaskedSource` keeps a
-finished mask across runs (`mask_store.py`) and on a hit never asks for its
-`mask` input, so core does not run this node at all. Two things here serve
-that. `MASK_VERSION` on the node goes into the kept mask's key: bump it when
-a change would give a different mask from the same inputs and settings (the
-cut score, the pick, the signature, the automatic rules, how a shot is
-seeded and tracked), and
-not for a tooltip or the report's wording. And the preview and the report are
-shown as the node's own UI, so nothing has to be wired to see them: a preview
-or save node on either output would make core run the tracker on every queue,
-whatever the Masked Source decided. The outputs exist; a shipped graph leaves
-them unwired.
+**Nothing keeps this node's mask between runs.** Until 2026-10-10
+`MiniMaxH3MaskedSource` kept a finished mask on disk under a key
+(`mask_store.py`) and on a hit never asked for its `mask` input, so core did
+not run this node at all; that store was removed under the owner's rule that
+nothing an earlier run made is reused by a key (`docs/wiki/decisions.md`).
+`MASK_VERSION` on the node was part of that key and stays as the number the
+job builder reads for its corrections rule: bump it when a change would give
+a different mask from the same inputs and settings (the cut score, the pick,
+the signature, the automatic rules, how a shot is seeded and tracked), and
+not for a tooltip or the report's wording. The preview and the report are
+shown as the node's own UI, so nothing has to be wired to see them; the
+outputs exist, and a shipped graph leaves them unwired.
 
 **The shot table** (`shot_table.py`) is the same per-shot state as a table a
 person reviews once: per shot, who was found, numbered left to right as on
@@ -1821,7 +1821,8 @@ def _selection(value, key: str, nested: str):
 
 
 class MiniMaxH3SubjectTrack(io.ComfyNode):
-    #: Part of a kept mask's key (`mask_store.mask_key`). Bump when the same
+    #: The tracker's method number, read by the job builder for its corrections rule (until 2026-10-10 it was
+    #: also part of a kept mask's key; that store is removed). Bump when the same
     #: inputs and settings would give a different mask. 2: the comparison became
     #: relative to the pick frame's other people. 3: every detection of the
     #: phrase is taken, not core's one per phrase. 4: the automatic pick and

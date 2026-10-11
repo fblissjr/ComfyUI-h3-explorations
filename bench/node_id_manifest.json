@@ -85,7 +85,6 @@
       "save_metadata_png",
       "keep_windows",
       "references",
-      "reuse_windows",
       "lists",
       "source",
       "save_mask_review",
@@ -365,7 +364,6 @@
       "part_margin",
       "composite",
       "change_threshold",
-      "reuse_mask",
       "start_from",
       "start_top",
       "start_blur",
@@ -486,8 +484,7 @@
       "height",
       "length",
       "video_policy",
-      "image_policy",
-      "keep_references"
+      "image_policy"
     ],
     "node_id": "MiniMaxH3ReferenceConditioning",
     "outputs": [

@@ -232,8 +232,10 @@ PDD8 chain). The first item tomorrow is one short run of the song graph.
 before any window samples, takes reference stills with every window's
 prompt, writes its window files to `<prefix>_windows/`, and embeds the prompt
 and workflow in the finished file. Resume followed the same day
-(`loop_resume.py`): stored windows whose inputs have not changed are reused
-in order and rendering starts at the first that has. Prompt lists followed
+(`loop_resume.py`: stored windows whose inputs had not changed were reused
+in order) and was removed on 2026-10-10 under the owner's rule that nothing
+an earlier run made is reused by a key; every run renders every window, and
+a stored window is read again only when `continue_from` names it. Prompt lists followed
 (`prompt_lists.py`, `MiniMaxH3PromptList`): a `__name__` in the prompt takes
 a value from a Prompt List chained into the node's `lists`, typed or read from
 a file in `wildcards/` under the input directory, without repeats until the
@@ -331,8 +333,9 @@ clips (`bench/results/2026-10-04_masked_v2v_first_run.md`,
   a stated rule, finds them again at the start of every other shot and
   tracks each shot from there; `MiniMaxH3MaskedSource` decides what happens
   to them. Kept apart so a change to the margin or the composite never runs
-  the tracker again, and the finished mask is kept across runs
-  (`mask_store.py`, another peer's). The shipped graph carries no core
+  the tracker again inside one server session (core's own node cache); the
+  kept-mask store that carried a mask across runs was removed on
+  2026-10-10. The shipped graph carries no core
   tracker and no object index. On the band clip one pick took the three
   shots the lead is in and no cutaway, once the match threshold was set from
   that run's own numbers. *(Later the same day the node stopped needing a

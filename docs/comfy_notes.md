@@ -198,14 +198,25 @@ It lasts for the server's life and no longer. What that means here:
   prompt, how many nodes were served from it; `/history`'s
   `execution_cached` message names them. Read it before believing a time.
 
-**This pack's own reuse** is opt-in and off in every shipped graph: a kept
-subject mask (`reuse_mask`), a stored or kept window (`reuse_windows`), kept
-reference encodes (`keep_references`), and the cache nodes that only probe
-graphs wire. `bench/check_mask_store.py` item 9 holds that, with the lists
-(`REUSE_INPUTS`, `CACHE_NODES`). The first two are also disabled in code
-whatever a graph says (`video_mask.MASK_REUSE_ENABLED`,
-`audio_freeze_song.WINDOW_REUSE_ENABLED`). A render's own report says what it
-reused, in the Song node's preview text.
+**This pack reuses nothing an earlier run made (2026-10-10).** The owner's
+rule: nothing an earlier run made is reused by a key;
+a result is made again, or handed in explicitly as a
+named file or a wired input
+(`AGENTS.md`, "Operative rules"; `docs/wiki/decisions.md`). Until that day
+the pack had four stores of its own, each opt-in and off in every shipped
+graph: a kept subject mask (`reuse_mask`, `mask_store.py`), stored-window
+reuse (`reuse_windows`, keyed in `loop_resume.py`), an in-memory keep of a
+window's source encode and prompt encode (`window_keep.py`), and kept
+reference encodes (`keep_references`, the store in `reference_encode.py`).
+All four are removed with their inputs, code and checks. None could show
+that its key covered everything its result depended on, and a stale kept
+mask had already hidden a fix (2026-10-07). What remains is explicit: a
+window's files, which a person names (`keep_windows`, `continue_from`); a
+mask video a job loads from the file its capture wrote; and the two
+reference nodes that encode once and WIRE the result
+(`MiniMaxH3EncodeReferences`, `MiniMaxH3PromptOnReferences`). The cache
+nodes that only probe graphs wire are a different thing: the step cache
+keeps rows from the first model call of ONE run for that run's later steps.
 
 ## Settings not to change without measuring
 

@@ -23,8 +23,10 @@ used: the root rotation it reports is the rig's, not the body's
 (`pred_global_rots[0]` is the identity on every frame probed), and its
 `global_rot` Euler angles wrap where the shoulder line does not.
 
-**The box** is the source's kept mask (`mask_store.py`, the file under the
-output folder's `masks/`), fitted to the render's canvas by the same centre
+**The box** is the source's kept mask (a file the removed kept-mask store,
+`mask_store.py`, wrote under the output folder's `masks/` until 2026-10-10;
+no run writes one any more, so this tool reads only masks kept before that
+day), fitted to the render's canvas by the same centre
 crop the song node gives the frames (`comfy.utils.common_upscale`,
 "center"). A masked render regenerates the subject inside that mask, so the
 source's box finds the new subject too. A window with no kept mask can give

@@ -24,14 +24,14 @@ from pathlib import Path
 #: graph since 2026-08-27 (late) by owner decision. On the 13-row holdout it
 #: sits an order of magnitude closer to the BF16 release at layer 50 than
 #: either W4A16 AWQ artifact it replaced
-#: (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
+#: (`data/results/2026-08-25_four_encoders_holdout_layer50.json`).
 #:
 #: **Against the bf16 pruned file on shipped graphs** (the release truncated
 #: to the 50 layers H3 reads by `bench/convert_h3_bf16_encoder.py`): text
 #: tokens stay close, while image tokens carry a heavy tail that the int8
 #: DECODER adds -- the vision tower and embedding table are bf16 in both
 #: files -- for seconds of encode time per prompt
-#: (`bench/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
+#: (`data/results/2026-09-27_encoder_int8_vs_bf16_conditioning.json`).
 #: Whether the DiT responds to that tail is
 #: `bench/measure_encoder_quant_dit.py`'s question.
 #:
@@ -65,7 +65,7 @@ MODELS = dict(
     # 200 int8 backbone linears replaced by quantise(W_release + PDD delta at
     # strength 1.0), round-to-nearest, every other key copied byte for byte.
     # The strength-zero control reproduced the shipped codes up to rounding
-    # ties (`bench/results/2026-09-05_bake_identity_control.json`), so this is
+    # ties (`data/results/2026-09-05_bake_identity_control.json`), so this is
     # the shipped file with the LoRA folded in and nothing else moved. It
     # loads ONLY with `PDD_FL2VA_STRIPPED_LORA`; the node refuses the full
     # sidecar on it (double apply) and refuses the stripped one on the base.
@@ -101,7 +101,7 @@ MODELS = dict(
     # switch"), after the owner could not tell it from fp16 on a 345-frame
     # clip pair. Measured: its decoder is the only quantized half, and its
     # encoder encodes bit-identically to the fp16 file's
-    # (`bench/results/2026-09-26_vae_encoder_int8_file.json`), so the switch
+    # (`data/results/2026-09-26_vae_encoder_int8_file.json`), so the switch
     # moves the decode only. That decode is faster, holds less VRAM, and adds
     # no flicker (`bench/results/2026-09-26_vae_decoders_345f.md`).
     #
@@ -728,7 +728,7 @@ SOL_RECOMMENDED_CUDA = dict(
     # (`sol_attn_h3.py::SOL_ROUTING_CHOICES`); `custom` carries its own list.
     # Comfy-Org/comfy-kitchen #156, released in 0.2.33, kept the same tree as
     # the head this repo graded, so the 2026-09-04 grade transferred without
-    # being redone (`bench/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`).
+    # being redone (`data/results/2026-09-08_kitchen_0233_blk_cnt_rebase.json`).
     #
     # It ships off, and it is per block rather than global, because the grade
     # is per block and mixed: on the captured Base16 cells token routing
@@ -745,7 +745,7 @@ SOL_RECOMMENDED_CUDA = dict(
     #
     # If it is ever turned on, 64 is the budget: 64, 128 and 256 measured
     # indistinguishable in accuracy AND in isolated kernel time
-    # (`bench/results/2026-09-04_sol_exact_random_1128df6_token_aug_timing.json`),
+    # (`data/results/2026-09-04_sol_exact_random_1128df6_token_aug_timing.json`),
     # so the wider budgets buy nothing while switching it on at all costs.
     token_routing="off",
 )
@@ -918,7 +918,7 @@ SOL_CUDA_DEFAULTS = dict(
 #   2026-08-17 reference-heavy pair at 362 frames 1024x768. Both were made for a
 #   different question. **This said no sage kernel had been graded against
 #   either and that there was no number to quote. Both were false when written:**
-#   `bench/results/2026-08-18_sage_accuracy_on_capture.json` grades sage against
+#   `data/results/2026-08-18_sage_accuracy_on_capture.json` grades sage against
 #   the 2026-08-17 capture named here, with a float64 reference, produced by
 #   `bench/grade_sage_on_capture.py`. Read the number there rather than this
 #   comment.
@@ -952,7 +952,7 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # `FLOOR_STEMS`). "comfy kitchen attention" is kitchen's `int8_attention`: it
 # rotates q and k before INT8, so no loud channel can own a shared scale, and
 # on the block-49 capture it is the most accurate INT8 attention this repo has
-# graded (bench/results/2026-09-15_ck_int8_attention_block49.json, measured).
+# graded (data/results/2026-09-15_ck_int8_attention_block49.json, measured).
 # Wall time against the sage chain: one market render per arm, same prompt and
 # seed (bench/results/2026-09-15_block49_community_chain.md, measured once).
 # The node rather than `--use-ck-attention`: the flag is server-global and
@@ -972,14 +972,14 @@ DENSE_BACKEND_NODE = dict(attention="comfy kitchen attention")
 #:              balanced until then), which rotates q/k by a fixed Hadamard
 #:              matrix inside its own quantizer: the most accurate INT8 arm on
 #:              every captured H3 block for about one percent of the call
-#:              (bench/results/2026-09-17_sage_qk_rotate_kernel.json), and the
+#:              (data/results/2026-09-17_sage_qk_rotate_kernel.json), and the
 #:              same matrix kitchen's dense kernel uses, so the two chains now
 #:              treat the loud channels the same way. Named explicitly rather
 #:              than as `auto`, so a graph and its records say what ran. No
 #:              MiniMaxH3ChannelBalance node and no balanced mode on top:
 #:              under rotation the balance factor finds nothing to do, and the
 #:              weights fold re-rounds q/k for nothing
-#:              (bench/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
+#:              (data/results/2026-09-17_channel_balance_vs_sage_balanced_b49_s15.json).
 #:
 #: `DEFAULT_DENSE_CHAIN` is what the shipped tree is generated on. The other
 #: chain's set is one command, written OUTSIDE the shipped tree because every
@@ -1025,7 +1025,7 @@ DEFAULT_DENSE_CHAIN = "kitchen"
 # sampler. Keep the key order matching the node's declared inputs: the
 # owner's editor-saved graphs map widget values positionally.
 #
-# Measured 2026-08-18 (bench/results/2026-08-18_cache_arms.jsonl, all-refs
+# Measured 2026-08-18 (data/results/2026-08-18_cache_arms.jsonl, all-refs
 # workload, 362f 1024x768, Sol on, 450 W stock): on er_sde at this 0.2
 # threshold the cache skips NOTHING (change rates 0.20-0.30, all just above
 # threshold) and costs nothing -- sampler 1489 s vs control 1491 s, output
@@ -1034,8 +1034,8 @@ DEFAULT_DENSE_CHAIN = "kitchen"
 # largest single-lever ratio measured on this box, stacked on Sol. The
 # er_sde null was the predicted sampler artifact. Quality of the 1.74x arm
 # vs its seed-matched control -- committed records, not prose:
-# bench/results/2026-08-18_cache_rm_quality.json (res_multistep pair) and
-# bench/results/2026-08-18_euler_quality.json (euler pair, the better
+# data/results/2026-08-18_cache_rm_quality.json (res_multistep pair) and
+# data/results/2026-08-18_euler_quality.json (euler pair, the better
 # behaved of the two) -- ranked by bench/quality_metrics.py, judged by
 # nobody yet. Whether to change the shipped sampler or threshold is an
 # owner decision gated on watching those pairs.
@@ -1259,12 +1259,9 @@ SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="auto
 #: One clip and one seed each; the feather is reasoned and unjudged.
 #: `replace` and `paint_out` are at the values that worked: head and hair
 #: gave an oversized head on a long-haired original, and painting out was
-#: judged worse. `reuse_mask` on keeps the finished mask across runs
-#: (`mask_store.py`); a kept mask is the tracked one's bytes, so it changes
-#: how long a run takes and not what it renders. **Off since 2026-10-07 (the
-#: owner: off until the lane is ready for production)**: it does change what
-#: a run renders when the code that makes the mask changed and no
-#: `MASK_VERSION` was bumped, which hid a fix that evening.
+#: judged worse. `reuse_mask` was here until 2026-10-10 (off since
+#: 2026-10-07): the kept-mask store went under the owner's rule that
+#: nothing an earlier run made is reused by a key.
 #: `motion_reference` and its two settings (2026-10-05) are the shipped render
 #: as it was: no motion reference. `subject only` with `motion_vae` off is the
 #: masking board's route 1, rendered as an arm before any default moves.
@@ -1276,7 +1273,7 @@ SUBJECT_TRACK = dict(subject_phrase="person", pick="most central", pick_on="auto
 #: ships it.
 MASKED_SOURCE = dict(grow_pixels=64, grow_by="a fixed margin", feather_pixels=8, replace="whole subject", paint_out=False,
                      part_phrases="hair, head", part_threshold=0.5, part_margin=8,
-                     composite="only what changed", change_threshold=0.05, reuse_mask=False,
+                     composite="only what changed", change_threshold=0.05,
                      motion_reference="none", motion_short_edge=384, motion_vae=False,
                      start_from="noise", start_top=0.3, start_blur=16, start_knots=1)
 #: **Measured** 2026-10-05 (`bench/results/2026-10-05_masked_v2v_motion_arms.md`):
@@ -1514,12 +1511,12 @@ FASTH3_CONTRACT_VSA = dict(FASTH3_CORE_VSA, **{"selection.keep_percent": 20.0,
 #: int8 since 0.154.0 (`docs/h3_quant_policy.md`).
 FLASHGEN_LORA = "h3/minimax_h3_4step_lora_flashgen_v1.0_768p_fl2va_pruned_avg_rank_13_bf16.safetensors"
 #: The publisher's LoRA at its full rank 64, converted here by
-#: `bench/convert_flashgen_lora.py` (`bench/results/2026-09-25_flashgen_lora_conversion.json`):
+#: `bench/convert_flashgen_lora.py` (`data/results/2026-09-25_flashgen_lora_conversion.json`):
 #: exact to the release where kijai's resize keeps about 95% of each delta.
 FLASHGEN_R64_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_fl2va_pruned_rank64_comfy.safetensors"
 #: The same at rank 64 for the pruned Ref2VA checkpoint: `convert_flashgen_lora.py
 #: --partition Ref2VA` fits the adaln onto that partition's own time basis
-#: (`bench/results/2026-09-26_flashgen_lora_conversion_ref2va.json`). FlashGen was
+#: (`data/results/2026-09-26_flashgen_lora_conversion_ref2va.json`). FlashGen was
 #: trained on FL2VA for T2VA; on Ref2VA it is an untested transfer.
 FLASHGEN_R64_REF2VA_LORA = "h3/minimax_h3_flashgen_4step_v1.0_768p_ref2va_pruned_rank64_comfy.safetensors"
 #: The node that applies a LoRA at the call instead of merging it (`lora_branch.py`).
@@ -2055,7 +2052,7 @@ REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # (14.375 * 24). Matching them is the point: the untrimmed 19.56s source was
 # cut mid-delivery by a 15.083s render, the reference kept talking past the
 # end, and the last third of every render drifted --
-# `bench/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
+# `data/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
 # numbers. 362 frames against this clip would fail the other way, ending 0.7s
 # after the reference runs out.
 #
@@ -2069,7 +2066,7 @@ REF_VIDEO_LENGTH = 345
 # The VHS loader every generated reference-video graph uses: the ffmpeg one,
 # not the cv2 `VHS_LoadVideo`. Owner's choice (2026-09-23), for decode
 # accuracy. The two are not interchangeable, and each difference was measured
-# rather than assumed, in `bench/results/2026-09-23_vhs_loader_comparison.json`
+# rather than assumed, in `data/results/2026-09-23_vhs_loader_comparison.json`
 # (`bench/compare_vhs_loaders.py` re-derives it). At `force_rate` 24 on a 25 or
 # 30 fps source they keep different frames: cv2's run late against the 24 fps
 # grid and ffmpeg's land on the nearest frame, so renders from before the

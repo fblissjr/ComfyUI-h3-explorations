@@ -273,8 +273,10 @@ def compare_conditioning(joint, split, encoded):
 
 class H3BenchSplitReferences:
     """The pack's two-node path (`reference_encode.py`) against core's one
-    pass, on the real encoder: one reference, the same again (a store hit),
-    then two chains that share their first reference."""
+    pass, on the real encoder: one reference, the same encoded again, then two
+    chains that share their first reference. Nothing is kept between encodes
+    (the pack's reference store was removed on 2026-10-10), so "again" is a
+    second encode whose rows must equal the first's."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -310,8 +312,7 @@ class H3BenchSplitReferences:
             torch.cuda.synchronize()
             return value, round(time.perf_counter() - t0, 2)
 
-        enc.STORE.spans.clear()
-        record = {"store_budget_bytes": enc.STORE.budget, "cases": {}, "seconds": {}, "reports": {}}
+        record = {"cases": {}, "seconds": {}, "reports": {}}
         cases, seconds, reports = record["cases"], record["seconds"], record["reports"]
 
         a = items(references_a)
@@ -324,7 +325,7 @@ class H3BenchSplitReferences:
         joint_a_edit, seconds["joint_a_edit"] = timed(_joint, clip, a, edit)
         again, seconds["encode_a_again"] = timed(enc.encode_references, clip, a)
         reports["encode_a_again"] = again.report
-        cases["store_hit_same_spans"] = all(x is y for x, y in zip(again.spans, encoded_a.spans))
+        cases["encoded_again_same_rows"] = all(bool(torch.equal(x.rows, y.rows)) for x, y in zip(again.spans, encoded_a.spans))
         split_a_edit, seconds["prompt_edit_on_a"] = timed(enc.condition_prompt, again, edit)
         cases["one_reference_edit"] = compare_conditioning(joint_a_edit, split_a_edit, again)
         repeat, _ = timed(enc.condition_prompt, again, edit)
@@ -339,65 +340,17 @@ class H3BenchSplitReferences:
             if label != "ab_again":
                 joint, seconds[f"joint_{label}"] = timed(_joint, clip, both, prompt)
                 cases[f"chain_{label}"] = compare_conditioning(joint, split, encoded)
-                cases[f"chain_{label}"]["first_span_is_a"] = encoded.spans[0] is encoded_a.spans[0]
+                cases[f"chain_{label}"]["first_span_rows_are_a"] = bool(torch.equal(encoded.spans[0].rows, encoded_a.spans[0].rows))
                 del joint
             record.setdefault("tokens", {})[label] = [s.length for s in encoded.spans]
             record.setdefault("span_bytes", {})[label] = [s.nbytes for s in encoded.spans]
             del split
         record["tokens"]["a"] = [s.length for s in encoded_a.spans]
-        record["store_bytes_at_end"] = enc.STORE.nbytes()
         record["torch"], record["device"] = torch.__version__, torch.cuda.get_device_name(0)
         with open(os.path.join(out, f"{name}.json"), "w") as f:
             json.dump(record, f, indent=1)
         return {"ui": {"text": (json.dumps(record["cases"]),)}}
 
 
-class H3BenchCompareConditioning:
-    """Two conditionings from real nodes, compared: rows, token tags, and the
-    reference latents each carries. For `keep_references` on against off on
-    `MiniMaxH3ReferenceConditioning`, the whole node on the real encoder."""
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {"required": {"reference": ("CONDITIONING",),
-                             "candidate": ("CONDITIONING",),
-                             "name": ("STRING", {"default": "compare_conditioning"})}}
-
-    RETURN_TYPES = ()
-    FUNCTION = "run"
-    OUTPUT_NODE = True
-    CATEGORY = "h3/bench"
-
-    def run(self, reference, candidate, name):
-        out = os.environ.get("H3_BENCH_CAPTURE_DIR")
-        if not out:
-            raise RuntimeError("H3_BENCH_CAPTURE_DIR is not set in the server's environment")
-        os.makedirs(out, exist_ok=True)
-        a, b = reference[0], candidate[0]
-        record = {"entries": [len(reference), len(candidate)], "rows": compare(a[0], b[0])
-                  if tuple(a[0].shape) == tuple(b[0].shape) else {"shapes": [list(a[0].shape), list(b[0].shape)]}}
-        ea, eb = a[1], b[1]
-        record["extra_keys"] = [sorted(ea), sorted(eb)]
-        ta, tb = ea.get("minimax_token_tags"), eb.get("minimax_token_tags")
-        record["tags_equal"] = bool(ta is not None and tb is not None and ta.shape == tb.shape
-                                    and torch.equal(ta.cpu(), tb.cpu()))
-        if ta is not None and tuple(a[0].shape) == tuple(b[0].shape):
-            # The reference rows are the vision blocks (tag 0) and their labels
-            # ahead of the prompt; cut at the last vision token.
-            last = int((ta == 0).nonzero().max()) + 1 if bool((ta == 0).any()) else 0
-            record["reference_rows"] = compare(a[0][:, :last], b[0][:, :last]) if last else None
-            record["prompt_rows"] = compare(a[0][:, last:], b[0][:, last:])
-        ra, rb = ea.get("minimax_refs") or [], eb.get("minimax_refs") or []
-        record["reference_latents"] = {
-            "count": [len(ra), len(rb)],
-            "equal": len(ra) == len(rb) and all(
-                x.get("kind") == y.get("kind") and torch.equal(x["latent"].cpu(), y["latent"].cpu())
-                for x, y in zip(ra, rb) if "latent" in x and "latent" in y)}
-        with open(os.path.join(out, f"{name}.json"), "w") as f:
-            json.dump(record, f, indent=1)
-        return {"ui": {"text": (json.dumps(record),)}}
-
-
 NODE_CLASS_MAPPINGS = {"H3BenchEncoderPrefixReuse": H3BenchEncoderPrefixReuse,
-                       "H3BenchSplitReferences": H3BenchSplitReferences,
-                       "H3BenchCompareConditioning": H3BenchCompareConditioning}
+                       "H3BenchSplitReferences": H3BenchSplitReferences}

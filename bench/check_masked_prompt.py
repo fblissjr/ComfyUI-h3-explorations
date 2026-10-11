@@ -253,8 +253,8 @@ def node_reads_the_source():
     vm = importlib.import_module("_h3pack.video_mask")
     node = importlib.import_module("_h3pack.masked_prompt").MiniMaxH3MaskedPrompt
     frames, mask = torch.zeros(2, 64, 64, 3), torch.ones(2, 64, 64)
-    plain = vm.MiniMaxH3MaskedSource.execute(frames, mask, reuse_mask=False).args[0]
-    moving = vm.MiniMaxH3MaskedSource.execute(frames, mask, reuse_mask=False, motion_reference=vm.MOTION_SUBJECT,
+    plain = vm.MiniMaxH3MaskedSource.execute(frames, mask).args[0]
+    moving = vm.MiniMaxH3MaskedSource.execute(frames, mask, motion_reference=vm.MOTION_SUBJECT,
                                               motion_short_edge=32).args[0]
     assert plain["replace"] == vm.REPLACE_WHOLE and moving["motion_reference"] == vm.MOTION_SUBJECT
     assert node.execute(source=plain).args[0] == m.assemble()

@@ -88,6 +88,5 @@ stages a masked render adds to the song chain.
 | cuts, the pick, the match across shots | `subject_track.py` (`cut_scores`, `main_subject`, `follow`) | the module docstring; [`masked_v2v.md`](masked_v2v.md) for the limits | `check_subject_track.py`, with stand-ins for SAM 3: it cannot check that the features tell real people apart | core's `SAM3_VideoTrack` with a text prompt, for what it does across a cut; `coderef/sam3` for the caller-mask request |
 | tracking inside a shot | core `SAM3_VideoTrack` on its `initial_mask` path, called from `subject_track.py` | core | nothing | `coderef/sam3` |
 | the region and what is encoded | `video_mask.py` (`grow`, `token_mask`, `window`) | the module docstring; [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4 | `check_video_mask.py` | core's `SetLatentNoiseMask` and mask resize, which the docstring says are not enough |
-| the kept mask | `mask_store.py` (`mask_key`) | the module docstring | `check_mask_store.py` | nothing |
 | the composite | `video_mask.py` (`changed_alpha`, `composite`) | [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4 | `check_video_mask.py` | nothing |
 | the mask through two samplers | `plate_restore.py`, in no shipped graph | the module docstring | `check_plate_restore.py`, on a stub model: not run on H3 | core's `KSamplerX0Inpaint` |

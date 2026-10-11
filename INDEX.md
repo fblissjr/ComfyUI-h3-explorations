@@ -39,7 +39,7 @@ with none is a helper the others import.
 |---|---|---|
 | [`loop_output.py`](loop_output.py) |  | Where a frozen-audio loop's files go, and what they carry. |
 | [`loop_plan.py`](loop_plan.py) |  | Where a loop's windows fall on its track, and which text each window renders. |
-| [`loop_resume.py`](loop_resume.py) |  | Resume a frozen-audio loop from the first window that changed. |
+| [`loop_resume.py`](loop_resume.py) |  | The files a frozen-audio loop leaves beside its windows, and a window's stored latent. |
 
 ### masked_*
 
@@ -105,7 +105,6 @@ with none is a helper the others import.
 | [`keyframe_canvas.py`](keyframe_canvas.py) |  | Resolve an H3 canvas from a keyframe, the way the reference pipeline does. |
 | [`lora_branch.py`](lora_branch.py) | `MiniMaxH3LoRABranch` | Apply an H3 LoRA as a separate low-rank branch, so none of it is lost to the int8 grid. |
 | [`marker_arms.py`](marker_arms.py) |  | Bench-only marker-corpus arms: bind one to a CLIP, and read back what bound. |
-| [`mask_store.py`](mask_store.py) |  | Keep a subject mask on disk across runs, so a restart does not pay for the tracker again. |
 | [`nodes.py`](nodes.py) | `MiniMaxH3SageAttention` | MiniMax H3 SageAttention node. |
 | [`overlay_loader.py`](overlay_loader.py) | `MiniMaxH3OverlayLoader` | Load a research checkpoint as an overlay on the released one, a piece at a time. |
 | [`part_coverage.py`](part_coverage.py) |  | How much of a tracked subject a part mask covers, frame by frame, and which frames to doubt. |
@@ -125,7 +124,6 @@ with none is a helper the others import.
 | [`vae_precision.py`](vae_precision.py) | `MiniMaxH3VAEPrecision` | Split the H3 video VAE's encode precision from its decode precision. |
 | [`vendor_config.py`](vendor_config.py) |  | The release's own configuration, vendored, and the readers for it. |
 | [`video_mask.py`](video_mask.py) | `MiniMaxH3MaskedSource` | A source video and a subject mask, for masked video-to-video. |
-| [`window_keep.py`](window_keep.py) |  | Keep a song window's source latent and its conditioning between runs of one stretch. |
 
 ## Other files at the root
 
@@ -149,7 +147,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 725 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 722 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `docs/` | 178 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
