@@ -142,6 +142,23 @@ that session's record disagree, its record is the nearer one.*
   pose, depth or body model as well; nothing has been tried there. The
   two delivery files that had been marked not to be used were removed
   with their check records on the owner's word.
+- **Three verdicts of the owner on playback, on renders of 2026-10-10**
+  (taken down by the same session). Where the lead sings, the text says
+  so: on the close-up of frames 1575 to 1729 the render whose text has
+  the one sentence that she sings shows her singing with the replaced
+  face and was called good, and the render of the same frames without it
+  has the right face and a mouth that does not move; the lead's piece for
+  frames 1222 to 1305 looks right and its mouth does not move either. So
+  the sentence is wanted on a load that replaces the subject who is
+  heard, and is no longer only a thing to test. It is one load and one
+  seed with the sentence; what it does on other loads, and where the
+  track has no voice, is not known. **The zoomed render stays**: on the
+  street shot of frames 438 to 483 the owner saw a gain in the render
+  made zoomed in on what is replaced over the whole-frame one, so
+  `render_region: part` and the delivery tool's lay-back are kept, where
+  the standing question of 2026-10-10 had them going if no gain was
+  seen. It is the method on the table for the small faces. One clip, one
+  seed; the capture and its gate cannot read a zoomed load yet.
 
 ## 2026-10-10
 
