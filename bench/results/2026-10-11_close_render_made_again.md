@@ -64,6 +64,23 @@ whole against the frames; then the node's region. The maker looked at
 source frames 72 and 148 of both renders side by side and could not tell
 them apart at that size.
 
+*Added the same day, after the render:* the second session read both
+renders without the maker's conclusions and came to the same reading by
+its own measures: the two renders agree, area by area against the source,
+to the first decimal of a grey level (the part, the hands under the
+region, the hands outside it, clothing and wall inside the region); the
+second latent stream is identical but for its last positions, which is
+the audio cut and nothing else; the change from frame to frame inside
+the region follows the old render's almost exactly. By eye on ten frames
+of both it could not tell them apart. It also saw, on source frame 152,
+a small orange spot near the bridge of the nose in both renders and not
+in the source, and that on frames 100 and 120 the source's head is tilted
+and turned further than either render's. Seven of the eight flags now
+have an outcome in the capture, all "yes": what lay inside the region was
+drawn again (hands under it, clothing, wall), as it was on 2026-10-10.
+The eighth, the mouth open with no voice on the track, has none: nothing
+measured the mouth in the render.
+
 ## What it does not say
 
 That the piece is good. The owner's words on the old render were that it
