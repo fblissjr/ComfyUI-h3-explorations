@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-11 (later the same evening, a dated note that the practice did not repeat on a second shot; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-11 (later the same evening, a dated note that the practice did not repeat on a second shot, and the marks tool named where a one-off was; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -846,16 +846,22 @@ The file is untracked and is not shown here:
    person's box. No node runs that model. A one-off script did:
    `data/2026-10-11_sapiens2_pose_consecutive/run.py`, which writes the
    points of each frame and one row a frame of figures.
-3. **The marks.** A second one-off draws the shapes on the body-model
-   video from those points and writes the marked video, with a sheet of a
-   few frames laid over the source to look at before it is used:
-   `data/2026-10-11_fun_gate_inputs/draw_lids_on_mesh.py` for the kitchen
-   shot, and its later form with the paths as arguments,
-   `data/2026-10-11_fun_set_inputs/draw_lids.py`. That script's docstring
-   holds the size rule and why a first form of it failed. The size it
-   grows a shape to is a starting value measured on this one shot, and the
-   script says so; another clip's own faces set it for that clip
-   (`../../AGENTS.md`, "A rule that depends on the picture").
+3. **The marks.** `bench/draw_lid_marks.py` draws the shapes on the
+   body-model video from those points. It writes the marked video, a
+   record beside it and, given the source, a sheet of a few frames laid
+   over the original to look at before the video is used. It reads its own
+   video back, and its `verify` is for a second reader, with that reader's
+   own account of which frame each file begins on. Each shape is grown by
+   `h3_config.LID_MARKS["face_px"]` over the shot's median face height, or
+   by a factor given by hand. That constant is a starting value measured on
+   this one shot and says so; another clip's own faces set it for that clip
+   (`../../AGENTS.md`, "A rule that depends on the picture"). The tool
+   leaves no frame bare by itself: frames where a head is turned away are
+   named by a person. It says when a shot's lash lines sit closer on the
+   canvas than `h3_config.POSE_READING["lid_gap_px_to_draw"]`, and still
+   draws. *Tracked since the evening of 2026-10-11. The kitchen shot's
+   video was drawn before that, by the one-off the tool was written from:
+   `data/2026-10-11_fun_gate_inputs/draw_lids_on_mesh.py`.*
 4. **The load.** A job file's load names the marked video: `motion: mesh`,
    `motion_file`, `motion_first` (`../../workflows/masked_job_graph.py`),
    and its `text` names a text file. It goes through `bench/masked_job.py`
@@ -869,11 +875,11 @@ The file is untracked and is not shown here:
    source, the masks and the reference video. The graph is saved beside
    the job: `data/2026-10-11_gate_p4_0014_job/second_hf_0014_p4.render.json`.
 
-**The pose pass and the marks are one-off scripts under the untracked
-`data/` today**, with one clip's canvas typed in. They are being made
-tracked tools, and steps 2 and 3 take their names when they land. No
-shipped graph has this form, and the builder cannot make a marked video; it
-can only be handed one.
+**The pose pass is a one-off script under the untracked `data/` today**,
+with one clip's canvas typed in. It is being made a tracked tool, and step
+2 takes its name when it lands. No node draws marks, no shipped graph has
+this form, and the builder cannot make a marked video; it can only be
+handed one.
 
 ### What it carried on that shot
 
@@ -1004,7 +1010,11 @@ What the renders support, and no further. Each is one shot and one seed.
   Enlarged, under the same words, they brought her lids to the source's
   level. That step is the picture's and no sentence's. Small marks were
   not unseen, though: the same true-size marks under the other form of
-  words (the vendor guide's layout) brought her lids most of the way.
+  words (the vendor guide's layout) brought her lids most of the way. Part
+  of what size buys is in the drawing itself: the dark edge and the
+  encoder take a strip along a mark's outline, so a thin mark is mostly
+  edge and little white (`../../bench/draw_lid_marks.py`, the comment at
+  `EDGE_PX`; held by `../../bench/check_draw_lid_marks.py`).
 - **The words say that the video is followed; the picture says how.** A
   text that only says what the video is and that she follows it did the
   same for her lids as a longer one that related her eyes to the figure's.
