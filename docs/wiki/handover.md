@@ -67,10 +67,18 @@ day closed there with one render proposed.
   `data/fun/poc/answers.jsonl`. Read that file whole before saying what the
   owner said: a typed word counts over a button beside it, and a line with
   `taken_down_by` was typed in a terminal and saved by a session.
-- **A full check sweep** was started by the session that has the page a
-  minute before the server was stopped; read its result from that session
-  before calling the tree green, and run one on a started server before
-  any node or schema change.
+- **A full check sweep** (`bench/run_checks.py`, the card masked) was run
+  that evening by the session that has the page and read by it: no check
+  red. It began a minute before the server was stopped, and the tree
+  moved under it; the one commit of code that landed meanwhile (the tool
+  that reads a render against its original, with its check) had its
+  check and two others run again alone afterwards, green. **What it does
+  not say:** nothing on the card was checked, and no check ran against a
+  live server: two could not reach the stopped one and the checks that
+  need the card were skipped as the tool skips them. So run a sweep on a
+  started server before any node or schema change. Its counts and the
+  list of what was not graded are in the message of the commit that
+  placed this paragraph.
 - **Built, looked at, and NOT rendered**, both on the close-up of source
   frames 1575 to 1729: the same load with a shorter wording the owner
   asked to try (`data/2026-10-11_fun_set_inputs/set_close_1575_e.json`,
