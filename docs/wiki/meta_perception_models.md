@@ -57,6 +57,18 @@ MoGe (ComfyUI has a node for it, `comfy_extras/nodes_moge.py`; no weights
 here), MediaPipe (ComfyUI's face node uses it; the owner does not build on
 that node).
 
+**Looked at and set aside: MoE-ViE** (`facebookresearch/moe_vie`, read on
+GitHub on 2026-10-11; nothing fetched). It is a contrastive image and video
+encoder scored against text, of the family that ranks a picture against a
+caption: one vector for a whole image or clip. It finds nothing in a frame
+and follows nothing, so it has no place in making a mask. The one question
+it could be pointed at is whether two crops show the same person, and that
+road is closed here for a reason that does not depend on the encoder: who is
+in a scene is a person's answer to a numbered picture, because appearance
+alone could not tell two people of this lane's clips apart
+([`who_is_who.md`](who_is_who.md); [`decisions.md`](decisions.md),
+2026-10-10).
+
 **The part classes are not things a person would choose.** Seen on
 2026-10-11 by one session, on stills of two shots of one clip, in the class
 maps of one preview (the per-shot table is in the untracked
@@ -86,9 +98,9 @@ question best.
 
 | model | where | what it is for | state |
 |---|---|---|---|
-| `facebook/sapiens2-pointmap-1b` | not on disk | the same head as the 5b in the store, on the backbone size this pack already runs its part model and its keypoint model at | the one to fetch if a person-only reading is wanted. Trained for pictures of people (the card's "Intended Use"), so it is for person against person and a hand against a face, not for a bowl or a telephone. The 5b in the store then serves as the reference the 1b is checked against on the same frames; the two smaller sizes are for speed and nothing here is short of it yet |
-| `facebook/hyden-mogev2-metric-point` | not on disk | Meta's variant of MoGe-2: a position in space for every pixel of a whole scene, in real units | fetch first. It is the one model here with two uses: the order between any two masks, things as well as people, and the camera the body mesh wants (the paragraph on MoGe below). For an order inside one frame its real units are not needed; they would matter only for comparing one frame with another |
-| `facebook/hyden-da2-relative-depth` | not on disk | Meta's sharper-edged variant of Depth Anything V2 Large; relative depth | fetch with it, as a second reading on the same frames. Two models looking at the same pixels are not two independent votes, so agreement proves little; a frame where they DISAGREE is one to look at by eye. Their base models differ (the cards) and their encoder design is the same |
+| `facebook/sapiens2-pointmap-1b` | in the store since 2026-10-11 as `facebook_sapiens2-pointmap-1b`; loaded by nothing | the same head as the 5b in the store, on the backbone size this pack already runs its part model and its keypoint model at | the one to fetch if a person-only reading is wanted. Trained for pictures of people (the card's "Intended Use"), so it is for person against person and a hand against a face, not for a bowl or a telephone. The 5b in the store then serves as the reference the 1b is checked against on the same frames; the two smaller sizes are for speed and nothing here is short of it yet |
+| `facebook/hyden-mogev2-metric-point` | in the store since 2026-10-11 as `facebook_hyden-mogev2-metric-point`; loaded by nothing | Meta's variant of MoGe-2: a position in space for every pixel of a whole scene, in real units | fetch first. It is the one model here with two uses: the order between any two masks, things as well as people, and the camera the body mesh wants (the paragraph on MoGe below). For an order inside one frame its real units are not needed; they would matter only for comparing one frame with another |
+| `facebook/hyden-da2-relative-depth` | in the store since 2026-10-11 as `facebook_hyden-da2-relative-depth`; loaded by nothing | Meta's sharper-edged variant of Depth Anything V2 Large; relative depth | fetch with it, as a second reading on the same frames. Two models looking at the same pixels are not two independent votes, so agreement proves little; a frame where they DISAGREE is one to look at by eye. Their base models differ (the cards) and their encoder design is the same |
 | Depth Anything V2 | already in the ComfyUI checkout's `models/depthanything/` | relative depth of a whole scene | on disk; no code of this pack loads it. The base model of the row above, so it adds nothing once that one is here; worth a run only if neither HyDen checkpoint can be made to load |
 | `facebook/hyden-mogev2-surface-normal`, and the Sapiens2 normal models | not on disk | which way each surface faces | no use in this lane that anybody has named |
 
@@ -98,8 +110,8 @@ nobody here has read, and no node exists for either. So the first run is a
 one-off against that reference, on a handful of frames where the order is
 plain by eye, before anything reads its output.
 
-The three `hyden` repositories were read on the Hub on 2026-10-11 and not
-downloaded: each card calls the encoder a hybrid of a low-resolution
+The three `hyden` repositories were read on the Hub on 2026-10-11, before
+two of them were fetched: each card calls the encoder a hybrid of a low-resolution
 transformer path and a full-resolution convolution path, names
 `facebookresearch/metadepth` as the code, and carries a non-commercial
 research licence behind an access form. Read a card again before fetching;
