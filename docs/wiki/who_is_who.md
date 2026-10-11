@@ -348,6 +348,15 @@ section 6 will decide on. A pass that looks at every shot with no subject
 and nobody set aside is the only source of looks the decision can use. It
 is not a convenience.*
 
+*2026-10-10, later the same night: this stopped being true of the tracker.
+A tracker told who the earlier ones hold now lists everybody on a frame and
+marks the held, in one numbering for every tracker of a job
+(`shot_table.py::TABLE_VERSION`, 2; `subject_track.py::held_people`), so
+every tracker's looks are complete. The census is still the one pass in
+which NOBODY is held and no tracker has yet chosen anyone, which is why a
+person's answer is taken from its tiles (`bench/cast_file.py`); it is no
+longer the only source of a complete list.*
+
 **It is part of the analysis that runs first for an input video.** The
 owner's rule of 2026-10-10 (`AGENTS.md`, "A rule that depends on the
 picture takes its value from the input video, up front") is that the

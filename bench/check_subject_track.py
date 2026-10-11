@@ -1234,15 +1234,14 @@ def check_settled_from_tables(problems):
     def track(start, end, seed, mask):
         calls.append((start, end, "lead" if torch.equal(mask, lead) else "second"))
         return mask[None].repeat(end - start, 1, 1)
-    def run(detector, corrections=None):
+    def run(detector, corrections=None, held=None):
         got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.99, detector, sign, track, stride=4, offset=1, sign_whole=whole,
-                        corrections=corrections)
+                        corrections=corrections, held=held)
         mask = st.assemble(24, H, W, got.pieces)
         return got, mask, st.shot_table.build(got, detector, mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
-                                              named_frame=True, named_value=True, cuts=[8, 16])
+                                              named_frame=True, named_value=True, cuts=[8, 16], held=held)
     got_lead, mask_lead, table_lead = run(detect)
-    others = st.without_others(detect, mask_lead, {})
-    got_second, _, table_second = run(others)
+    got_second, _, table_second = run(detect, held=st.held_people(detect, mask_lead))
     if [s.seed for s in got_lead.shots] != [2, None, None] or [s.seed for s in got_second.shots] != [2, None, 17]:
         problems.append(f"settled: the control: alone, the lead's tracker should hold shot 1 only and the second's shots 1 and 3; "
                         f"seeds {[s.seed for s in got_lead.shots]}, {[s.seed for s in got_second.shots]}")
@@ -1318,7 +1317,8 @@ def check_settled_from_tables(problems):
     if (8, 16, "lead") not in calls or fixed.shots[1].seed is None:
         problems.append(f"settled: the correction written for the lead's tracker, typed back into it, does not seed the lead in shot 2: {calls}")
     calls.clear()
-    fixed, _, fixed_second = run(st.without_others(detect, fixed_mask, {}), corrections=st.parse_corrections(two["trackers"]["second"]["correction"], 3))
+    fixed, _, fixed_second = run(detect, corrections=st.parse_corrections(two["trackers"]["second"]["correction"], 3),
+                                 held=st.held_people(detect, fixed_mask))
     if (8, 16, "second") not in calls:
         problems.append(f"settled: the correction written for the second tracker does not seed the second subject in shot 2: {calls}")
     # a second run on the corrected trackers' tables clears itself: the row agrees and says what was typed
@@ -1621,12 +1621,14 @@ def check_seeds(problems):
                          seeds=st.parse_seeds(f"frame 28: {x + shift}, {y}, {w}, {h}", shots))
         if (near.shots[3].seed is not None) != taken:
             problems.append(f"seeds: a box {shift} columns off a {w}-wide person should be {'taken' if taken else 'refused'}: {near.shots[3].seeded}")
-    # a seed on a person another tracker holds is refused: that person is not among the detections
+    # a seed MAY name a person another tracker holds: a person's word outranks a tracker's take, and the shot says so
     held = torch.zeros((32, H, W))
     held[13] = boxes[2]
-    theirs = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, st.without_others(detect, held, {}), sign, track, stride=4, offset=1, seeds=seeds)
-    if st._state(theirs.shots[1]) != "absent (seed refused)":
-        problems.append(f"seeds: a seed naming a person `others` holds must be refused: {st._state(theirs.shots[1])}")
+    theirs = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds, held=st.held_people(detect, held))
+    if st._state(theirs.shots[1]) != "taken (seeded)" or not theirs.shots[1].also_held:
+        problems.append(f"seeds: a seed naming a person `others` holds is taken and marked as also held: {st._state(theirs.shots[1])}, {theirs.shots[1].also_held}")
+    if any(shot.also_held for shot in st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds).shots):
+        problems.append("seeds: with no `others` wired a seeded shot is marked as also held")
     # a seed and a typed correction on one shot are two words for it: an error naming both
     try:
         st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, seeds=seeds, corrections={2: 1})
@@ -1683,9 +1685,31 @@ def check_seeds(problems):
         problems.append("seeds: the table writes a seeded shot's automatic similarity, or does not say that a seed was the pick")
 
 
-def check_only_person_left_by_others(problems):
-    """2026-10-10, three trackers: the third took another subject as "the only person" at 0.59, because the people
-    the earlier trackers held had been set aside and one was left. The only person nobody claimed is not the subject."""
+def _removing(detect, others, most=None):
+    """THE OLD FORM, kept here as the reference a take is compared with: `detect` with held people REMOVED from the list.
+    It left the tree on 2026-10-10 (`held_people` marks them); the tracker must take exactly whom it took on this."""
+    most = st.ON_OTHERS if most is None else most
+    kept = {}
+
+    def detect_others_removed(f):
+        if f not in kept:
+            masks, scores = detect(f)
+            keep = [i for i in range(int(masks.shape[0])) if st.share_on(masks[i], others[f]) <= most]
+            kept[f] = (masks[keep], [scores[i] for i in keep if i < len(scores)])
+        return kept[f]
+
+    return detect_others_removed
+
+
+def _takes(got, detector):
+    """Per shot: the frame it was taken on and the MASK of the person taken (a list's index means nothing across two lists)."""
+    return [(shot.seed, None if shot.seed is None else detector(shot.seed)[0][shot.index].flatten().tolist(), round(float(shot.best), 6))
+            for shot in got.shots]
+
+
+def check_only_person_off_with_others(problems):
+    """2026-10-10, three trackers: the third took another subject as "the only person" at 0.59, and the second took a
+    subject small in an inset twice. With `others` wired a lone person may be any of the job's named people: the rule is off."""
     me, held_person, other = _box(40, 10, 80, 60), _box(0, 20, 20, 50), _box(100, 20, 120, 50)
     e = lambda *v: torch.tensor(v, dtype=torch.float32) / torch.tensor(v, dtype=torch.float32).norm()   # noqa: E731
     sigs = [(me, e(1.0, 0, 0)), (held_person, e(0, 1.0, 0)), (other, e(0.6, 0, 0.8))]      # the other is 0.6 like me: under any line
@@ -1696,77 +1720,63 @@ def check_only_person_left_by_others(problems):
         return torch.stack(people), [0.9] * len(people)
     theirs = torch.zeros((24, H, W))
     theirs[8:16] = held_person
-    # the control: with nobody set aside, a shot holding ONE person takes them under the line as the only person
+    # the control: with no other tracker, a shot holding ONE person takes them under the line as the only person
     plain = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, detect, sign, track, stride=4, offset=1)
     if [st._state(s) for s in plain.shots] != ["picked", "absent", "taken (only person)"]:
         problems.append(f"only person: the control: two people in shot 2 is absent, one in shot 3 is taken as the only person: {[st._state(s) for s in plain.shots]}")
-    left_out: dict[int, int] = {}
-    got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, st.without_others(detect, theirs, left_out), sign, track, stride=4, offset=1, removed=left_out)
-    if [st._state(s) for s in got.shots] != ["picked", "absent", "taken (only person)"] or got.shots[1].left_by_others is None:
-        problems.append(f"only person: in shot 2 the one person left after another tracker's person is set aside must NOT be taken; "
-                        f"shot 3, where nobody was set aside, still is: {[st._state(s) for s in got.shots]}, {got.shots[1].left_by_others}")
-    # without being told who was set aside the old behaviour shows: this is the fault
-    blind = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, st.without_others(detect, theirs, {}), sign, track, stride=4, offset=1)
-    if st._state(blind.shots[1]) != "taken (only person)":
-        problems.append(f"only person: the fault's own control did not reproduce: {st._state(blind.shots[1])}")
-    said = st.report(got, [8, 16], st.PICK_LARGEST, "person", True, False, 1.0)
-    if "one person was left on frame 9 once another tracker's people were set aside, which is not taken as the only person" not in said:
-        problems.append(f"only person: the report does not say why shot 2 was not taken: {said!r}")
-    table = st.shot_table.build(got, st.without_others(detect, theirs, {}), st.assemble(24, H, W, got.pieces), state=st._state, phrase="person",
-                                pick=st.PICK_LARGEST, named_frame=True, named_value=False, cuts=[8, 16])
-    if "is not taken as the only person" not in table["shots"][1]["subject"]["why"]:
-        problems.append(f"only person: the table's reason for shot 2 does not say it: {table['shots'][1]['subject']['why']}")
-    # somebody set aside ON THE PICK FRAME: "nobody to mistake the subject for" was never true, so no shot is a lone take
-    theirs_on_pick = torch.zeros((24, H, W))
-    theirs_on_pick[0:8] = held_person
-    crowd = lambda f: (torch.stack([me, held_person]), [0.9, 0.8]) if f < 8 else detect(f)   # noqa: E731
-    left2: dict[int, int] = {}
-    hidden = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, st.without_others(crowd, theirs_on_pick, left2), sign, track, stride=4, offset=1, removed=left2)
-    if st._state(hidden.shots[2]) != "absent" or hidden.shots[2].left_by_others is None:
-        problems.append(f"only person: with somebody set aside on the pick frame, a lone person later is not taken either: {st._state(hidden.shots[2])}")
-    # the likeness line still decides: the subject themselves, alone in a shot beside a set-aside person, is taken by likeness
+    got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, detect, sign, track, stride=4, offset=1, held=st.held_people(detect, theirs))
+    if [st._state(s) for s in got.shots] != ["picked", "absent", "absent"]:
+        problems.append(f"only person: with `others` wired nobody is taken as the only person, in shot 2 (one left beside a held person) "
+                        f"or in shot 3 (one person, nobody held there): {[st._state(s) for s in got.shots]}")
+    # ...even when the other tracker's mask is empty on every frame: the rule is off because the job names several people
+    empty = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, detect, sign, track, stride=4, offset=1, held=st.held_people(detect, torch.zeros((24, H, W))))
+    if st._state(empty.shots[2]) != "absent":
+        problems.append(f"only person: `others` wired and empty still switches the rule off: {st._state(empty.shots[2])}")
+    # the likeness line still decides: the subject themselves, in a shot beside a held person, is taken by likeness
     back = lambda f: (torch.stack([held_person, me]), [0.9, 0.8]) if 8 <= f < 16 else detect(f)   # noqa: E731
-    left3: dict[int, int] = {}
-    mine = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, st.without_others(back, theirs, left3), sign, track, stride=4, offset=1, removed=left3)
+    mine = st.follow(24, [8, 16], st.PICK_LARGEST, 2, None, back, sign, track, stride=4, offset=1, held=st.held_people(back, theirs))
     if st._state(mine.shots[1]) != "taken" or mine.shots[1].best < 0.99:
-        problems.append(f"only person: the subject left beside a set-aside person is still taken by likeness: {st._state(mine.shots[1])}, {mine.shots[1].best}")
+        problems.append(f"only person: the subject beside a held person is still taken by likeness: {st._state(mine.shots[1])}, {mine.shots[1].best}")
     source = (REPO / "subject_track.py").read_text(encoding="utf-8")
-    if "removed=left_out if others is not None else None" not in source:
-        problems.append("only person: the node does not tell `follow` whom `others` set aside")
+    if "alone = match_threshold is None and not others and held is None" not in source or "held=held)" not in source:
+        problems.append("only person: the node does not tell `follow` that `others` is wired, or the rule does not read it")
 
 
 def check_others(problems):
-    """Two trackers, one person (2026-10-10): what another tracker holds is never this one's subject."""
+    """Two trackers, one person (2026-10-10): what another tracker holds is LISTED, marked, and never this one's subject."""
     boxes, detect, sign, track, calls = _world()
     cuts = [8, 16, 24]
-    held = torch.zeros((32, H, W))
+    held_mask = torch.zeros((32, H, W))
     for f in list(range(0, 8)) + list(range(20, 32)):       # where person 0 is: the other tracker's mask
-        held[f] = boxes[0]
+        held_mask[f] = boxes[0]
     # the control: with nothing held, the largest person on frame 3 is person 0
     plain = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1)
     if [c[3] for c in calls["track"]] != [0, 0, 0]:
         problems.append(f"others: the control did not follow person 0 as the largest: {calls['track']}")
     calls["track"].clear()
-    left_out: dict[int, int] = {}
-    got = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, st.without_others(detect, held, left_out), sign, track, stride=4, offset=1)
+    held = st.held_people(detect, held_mask)
+    got = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, detect, sign, track, stride=4, offset=1, held=held)
     if calls["track"] != [(0, 8, 3, 1), (8, 16, 9, 1)]:
         problems.append(f"others: with person 0 held by another tracker the node should follow person 1 through the two "
                         f"shots they are in and nobody after; it tracked {calls['track']}")
     if [s.seed for s in got.shots] != [3, 9, None, None]:
         problems.append(f"others: seeds {[s.seed for s in got.shots]}; shot 3 holds a stranger and the held person, shot 4 only "
                         "the held person, so both are absent")
-    if left_out.get(3) != 1 or left_out.get(9) != 0 or not all(left_out[f] == 1 for f in left_out if f >= 24):
-        problems.append(f"others: the count of detections left out per frame looked at is {left_out}")
-    if got.shots[3].seen != 0:
-        problems.append("others: on the shot holding only the held person, a candidate was still seen")
+    seen = {f: len(v) for f, v in held.seen.items()}
+    if seen.get(3) != 1 or seen.get(9) != 0 or not all(seen[f] == 1 for f in seen if f >= 24):
+        problems.append(f"others: the count of held detections per frame looked at is {seen}")
+    # THE LIST IS EVERYBODY: the frame's people are not shortened, on any frame, and the held person keeps a place in it
+    if int(detect(3)[0].shape[0]) != 2 or got.shots[3].seen != 1 or got.shots[3].best >= 0:
+        problems.append(f"others: on the shot holding only the held person they are listed (seen 1) and compared with nobody: "
+                        f"seen {got.shots[3].seen}, best {got.shots[3].best}")
     mask = st.assemble(32, H, W, got.pieces)
-    if st.frames_on_others(mask, held) != []:
+    if st.frames_on_others(mask, held_mask) != []:
         problems.append("others: the track of person 1 is reported as lying on the held person")
     drifted = mask.clone()
     drifted[5:8] = boxes[0]                                 # the tracker moved onto the held person, no empty frame between
-    if st.frames_on_others(drifted, held) != [5, 6, 7]:
-        problems.append(f"others: a track that moved onto the held person is on them on {st.frames_on_others(drifted, held)}, not 5 to 7")
-    # the line: half on is kept, more than half is not
+    if st.frames_on_others(drifted, held_mask) != [5, 6, 7]:
+        problems.append(f"others: a track that moved onto the held person is on them on {st.frames_on_others(drifted, held_mask)}, not 5 to 7")
+    # the line: half on is not held, a pixel more is; and both stay in the list
     half, more = torch.zeros((H, W)), torch.zeros((H, W))
     half[10:20, 0:20] = 1.0
     more[10:20, 0:20] = 1.0
@@ -1776,28 +1786,157 @@ def check_others(problems):
         problems.append("others: `share_on` is not the share of a mask's own pixels, or an empty mask has one")
     theirs_more = theirs.clone()
     theirs_more[10:20, 10:11] = 1.0
-    counts: dict[int, int] = {}
-    kept = st.without_others(lambda f: (torch.stack([half, more]), [0.9, 0.8]), torch.stack([theirs, theirs_more]), counts)
-    if int(kept(0)[0].shape[0]) != 2 or int(kept(1)[0].shape[0]) != 0 or counts != {0: 0, 1: 2}:
-        problems.append(f"others: exactly half on the held person is kept and a pixel more is not; got {counts}")
-    text = st.others_report(got.shots, left_out, [5, 6, 7])
-    for need in ("lay mostly on a person another tracker holds", "[4] no subject", "on 3 frame(s): 5-7", "Nothing was cut",
-                 "[1] 1 person(s) on the tile's frame, 3, belong to another tracker and are not numbered"):
+    line = st.held_people(lambda f: (torch.stack([half, more]), [0.9, 0.8]), torch.stack([theirs, theirs_more]))
+    if line(0) != frozenset() or line(1) != frozenset({0, 1}):
+        problems.append(f"others: exactly half on the held person is not held and a pixel more is; got {line(0)}, {line(1)}")
+    text = st.others_report(got.shots, held.seen, [5, 6, 7])
+    for need in ("lie mostly on a person another tracker holds: listed and numbered, marked held, never candidates", "[4] no subject",
+                 "on 3 frame(s): 5-7", "Nothing was cut"):
         if need not in text:
             problems.append(f"others: the report lacks {need!r}: {text!r}")
-    table = st.shot_table.build(got, st.without_others(detect, held, {}), mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
-                                named_frame=True, named_value=True, cuts=cuts, left_out=left_out, on_others=[5, 6, 7])
+    table = st.shot_table.build(got, detect, mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                named_frame=True, named_value=True, cuts=cuts, held=held, on_others=[5, 6, 7])
     rows = table["shots"]
-    if rows[0]["others_left_out"] != {"on_shown_frame": 1, "on_frames_looked_at": 1} or rows[0]["frames_on_others"] != [[5, 7]] \
-            or rows[1]["frames_on_others"] != [] or rows[3]["others_left_out"]["on_frames_looked_at"] < 1:
-        problems.append(f"others: the shot table's rows do not carry what was left out and where the track sits on others: "
-                        f"{[(r['others_left_out'], r['frames_on_others']) for r in rows]}")
+    marks = [[p["held_by_another_tracker"] for p in r["people"]] for r in rows]
+    if table["version"] != 2 or "every detection on the frame" not in table["people_are"] or any("others_left_out" in r for r in rows):
+        problems.append(f"others: a table that lists everybody is version 2, says so, and has no `others_left_out`: {table['version']}")
+    if [len(m) for m in marks[:2]] != [2, 2] or sum(marks[0]) != 1 or any(marks[1]) or marks[3] != [True]:
+        problems.append(f"others: the table's people are everybody, with the held one marked: {marks}")
+    if rows[0]["subject"]["person"] is None or rows[0]["people"][rows[0]["subject"]["person"] - 1]["held_by_another_tracker"]:
+        problems.append("others: the subject's own number is read in the whole list and is not the held person's")
+    if rows[0]["frames_on_others"] != [[5, 7]] or rows[1]["frames_on_others"] != [] or any(r["subject"]["also_held_by_another_tracker"] for r in rows):
+        problems.append(f"others: where the track sits on others, or a take marked as also held with nothing typed: {[r['frames_on_others'] for r in rows]}")
+    if any(p["held_by_another_tracker"] for look in rows[2]["looks"] for p in look["people"] if look["frame"] < 20) \
+            or not any(p["held_by_another_tracker"] for look in rows[2]["looks"] for p in look["people"]):
+        problems.append("others: a look's people carry the mark where a held person is on that frame, and only there")
     bare = st.shot_table.build(plain, detect, st.assemble(32, H, W, plain.pieces), state=st._state, phrase="person",
                                pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=cuts)
-    if any(r["others_left_out"] is not None or r["frames_on_others"] is not None or r["track_score"] is not None for r in bare["shots"]):
-        problems.append("others: a tracker with no `others` and no scores writes something other than null for them")
+    if any(r["frames_on_others"] is not None or r["track_score"] is not None or any(p["held_by_another_tracker"] for p in r["people"]) for r in bare["shots"]):
+        problems.append("others: a tracker with no `others` and no scores writes a mark, or something other than null for them")
     if abs(st.ON_OTHERS - 0.5) > 1e-9:
         problems.append("others: ON_OTHERS moved; read the day's figures beside it before changing this check")
+    # the tile numbers everybody, and says which are held
+    tiles = st.preview(torch.zeros((32, H, W, 3)), mask, got.shots, detect, held=held)
+    if tiles.shape[0] != 4:
+        problems.append(f"others: the preview with held people did not draw a tile a shot: {tuple(tiles.shape)}")
+
+    # JUDGING DID NOT MOVE: against the old form, which removed held people from the list, the same person is taken
+    # on the same frame at the same score in every shot. Compared by the taken person's MASK, since the two lists
+    # number people differently, which is the fault the one list removes.
+    old = st.follow(32, cuts, st.PICK_LARGEST, 3, 0.8, _removing(detect, held_mask), sign, track, stride=4, offset=1)
+    if _takes(old, _removing(detect, held_mask)) != _takes(got, detect):
+        problems.append("others: marking held people changed a take against removing them, with a named pick frame")
+    for pick in st.PICKS:
+        new_auto = st.follow(32, cuts, pick, None, 0.8, detect, sign, track, stride=4, offset=1, held=st.held_people(detect, held_mask))
+        old_auto = st.follow(32, cuts, pick, None, 0.8, _removing(detect, held_mask), sign, track, stride=4, offset=1)
+        if _takes(old_auto, _removing(detect, held_mask)) != _takes(new_auto, detect):
+            problems.append(f"others: marking changed a take against removing, with the automatic pick `{pick}`")
+        if any(s.seed is not None and s.index in held(s.seed) for s in new_auto.shots):
+            problems.append(f"others: the automatic pick `{pick}` took a held person")
+    # THE MARK IS READ AFTER THE DUPLICATE JOIN, as the removal was (mrcorn's pin). One person detected twice: the
+    # whole of them, mostly OFF the other tracker's mask, and a smaller detection of them the detector scored
+    # higher, mostly ON it. Joined first, the smaller stands for the person and the person is held; marked first,
+    # the whole would have stayed a candidate.
+    whole_of, part_of, stranger = _box(0, 0, 40, 60), _box(0, 0, 40, 40), _box(100, 20, 120, 50)
+    twice = lambda f: (torch.stack([whole_of, part_of, stranger]), [0.7, 0.9, 0.8])   # noqa: E731
+    on_part = torch.zeros((8, H, W))
+    on_part[:, 0:25, 0:40] = 1.0            # 25 of the part's 40 rows, and 25 of the whole's 60
+    one_each = st.one_detection_each(twice, {})
+    people = one_each(0)[0]
+    if int(people.shape[0]) != 2 or not any(torch.equal(m, part_of) for m in people):
+        problems.append(f"others: the pair's own control: the two detections of one person are joined and the smaller stands for them: {int(people.shape[0])}")
+    after = st.held_people(one_each, on_part)(0)
+    if {int(i) for i in after} != {next(k for k, m in enumerate(people) if torch.equal(m, part_of))}:
+        problems.append(f"others: read after the join, the person the smaller detection stands for is held: {after}")
+    if int(_removing(one_each, on_part)(0)[0].shape[0]) != 1 or st.held_people(twice, on_part)(0) != frozenset({1}):
+        problems.append("others: the old form removed that person too; and before the join only the smaller detection would be held")
+    source = (REPO / "subject_track.py").read_text(encoding="utf-8")
+    if source.index("detect = one_detection_each(detect, joined, parts=parts, unsure=unsure)") > source.index("held = held_people(detect, others) if others is not None else None"):
+        problems.append("others: the node marks held people before it joins duplicates")
+
+    # EVERY CHOOSER SKIPS THE HELD. A twin: a held person whose signature IS the subject's, so each rule would take them
+    me, twin, stranger = _box(40, 10, 80, 60), _box(0, 20, 20, 50), _box(100, 20, 120, 50)
+    e = lambda *v: torch.tensor(v, dtype=torch.float32) / torch.tensor(v, dtype=torch.float32).norm()   # noqa: E731
+    twin_sigs = [(me, e(1.0, 0, 0)), (twin, e(1.0, 0, 0)), (stranger, e(0.6, 0, 0.8))]
+    twin_sign = lambda _f, m: next(v for b, v in twin_sigs if torch.equal(b, m))   # noqa: E731
+    def twin_detect(f: int):     # shot 1: me. shot 2: the twin and a stranger. shot 3 (16-39): me, then only the twin from frame 20
+        people = [me] if f < 8 else ([twin, stranger] if f < 16 else ([me] if f < 20 else [twin]))
+        return torch.stack(people), [0.9] * len(people)
+    twin_mask = torch.zeros((40, H, W))
+    twin_mask[8:16] = twin
+    twin_mask[20:40] = twin
+    def losing(start, end, seed, mask):          # a track that lets go from frame 20, for long enough that the re-find looks there
+        out = mask[None].repeat(end - start, 1, 1)
+        out[max(20 - start, 0):] = 0.0
+        return out
+    # the control: with nobody held the twin IS taken in shot 2, and re-found in shot 3
+    free = st.follow(40, [8, 16], st.PICK_LARGEST, 2, 0.8, twin_detect, twin_sign, losing, stride=4, offset=1)
+    if st._state(free.shots[1]) != "taken" or not free.shots[2].regained:
+        problems.append(f"others: the twin's own control: unheld, they are taken in shot 2 and re-found in shot 3: {st._state(free.shots[1])}, {free.shots[2].regained}")
+    twin_held = st.held_people(twin_detect, twin_mask)
+    kept = st.follow(40, [8, 16], st.PICK_LARGEST, 2, 0.8, twin_detect, twin_sign, losing, stride=4, offset=1, held=twin_held)
+    if st._state(kept.shots[1]) != "absent" or kept.shots[2].regained:
+        problems.append(f"others: a held person exactly like the subject is not the best match of a look, and not a re-find: "
+                        f"{st._state(kept.shots[1])}, {kept.shots[2].regained}")
+    # ...nor the pick a handed gallery points at: the gallery is the twin's own look, and only the twin is on the frames probed
+    only_twin = lambda f: (torch.stack([twin]), [0.9])   # noqa: E731
+    all_twin = torch.zeros((24, H, W))
+    all_twin[:] = twin
+    handed = [(e(1.0, 0, 0), e(1.0, 0, 0))]
+    sign2 = lambda f, m: (twin_sign(f, m), twin_sign(f, m))   # noqa: E731
+    if st.follow(24, [8, 16], st.PICK_LARGEST, None, 0.8, only_twin, sign2, losing, stride=4, offset=1, gallery=handed).pick_frame is None:
+        problems.append("others: the handed gallery's own control: unheld, the twin is picked")
+    if st.follow(24, [8, 16], st.PICK_LARGEST, None, 0.8, only_twin, sign2, losing, stride=4, offset=1, gallery=handed,
+                 held=st.held_people(only_twin, all_twin)).pick_frame is not None:
+        problems.append("others: a handed gallery picked a held person")
+    # ...and the scores are relative to the pick frame's UNHELD people: a held person there does not move anybody's score
+    crowd = lambda f: (torch.stack([me, twin]), [0.9, 0.8]) if f < 8 else twin_detect(f)   # noqa: E731
+    on_pick = torch.zeros((24, H, W))
+    on_pick[0:8] = twin
+    rel_new = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.8, crowd, twin_sign, losing, stride=4, offset=1, held=st.held_people(crowd, on_pick))
+    rel_old = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.8, _removing(crowd, on_pick), twin_sign, losing, stride=4, offset=1)
+    if _takes(rel_old, _removing(crowd, on_pick)) != _takes(rel_new, crowd) or rel_new.others != rel_old.others:
+        problems.append(f"others: a held person on the pick frame moved a score or the count of people beside the subject: {rel_new.others} against {rel_old.others}")
+
+    # A PERSON'S WORD MAY NAME A HELD PERSON, and the shot says it: in the state, the report and the table
+    number = st.shot_table.person_number(twin_detect(9)[0], 0)          # the twin's number on shot 2's tile, in the whole list
+    typed = st.follow(40, [8, 16], st.PICK_LARGEST, 2, 0.8, twin_detect, twin_sign, losing, stride=4, offset=1, held=twin_held,
+                      corrections={2: number})
+    if st._state(typed.shots[1]) != "taken (corrected)" or not typed.shots[1].also_held or typed.shots[0].also_held:
+        problems.append(f"others: a correction naming a held person is taken and marked: {st._state(typed.shots[1])}, {typed.shots[1].also_held}")
+    said = st.others_report(typed.shots, twin_held.seen, [])
+    if "[2] THE PERSON NAMED BY HAND HERE IS ALSO HELD BY ANOTHER TRACKER" not in said:
+        problems.append(f"others: the report does not say a hand-named person is also held: {said!r}")
+    # A SEED goes round `_free` too, and that is a change against the old form: between two people who overlap, one
+    # of them held, a box on the held one NAMES them now; with held people removed it reached only the free one and
+    # was refused. A box read off a tile sits wholly on its own detection, so this is the hand-typed case.
+    near, far = _box(40, 10, 80, 60), _box(50, 10, 90, 60)
+    pair = lambda f: (torch.stack([near, far]), [0.9, 0.8])   # noqa: E731
+    on_far = torch.zeros((8, H, W))
+    on_far[:] = far
+    people_now, named_now, record_now = st.seed_names(pair, 2, (50, 10, 40, 50))
+    _, _, record_then = st.seed_names(_removing(pair, on_far), 2, (50, 10, 40, 50))
+    if named_now is None or not torch.equal(people_now[named_now], far) or record_now["refused"] or not record_then["refused"]:
+        problems.append(f"others: a seed's box on a held person names them (and was refused when held people were removed): "
+                        f"now {record_now}, then {record_then}")
+    # ...and on the PICKED shot it becomes the reference, a person the other tracker holds everywhere: said in the loudest line
+    both = lambda f: (torch.stack([me, twin]), [0.9, 0.8]) if f < 8 else twin_detect(f)   # noqa: E731
+    twin_all = torch.zeros((40, H, W))
+    twin_all[0:16] = twin
+    twin_all[20:40] = twin
+    both_held = st.held_people(both, twin_all)
+    seeded = st.follow(40, [8, 16], st.PICK_LARGEST, 2, 0.8, both, twin_sign, losing, stride=4, offset=1, held=both_held,
+                       seeds=st.parse_seeds("frame 2: 0, 20, 20, 30", [(0, 8), (8, 16), (16, 40)]))
+    if seeded.pick_seed != "is the pick" or not seeded.shots[0].also_held or [s.seed is None for s in seeded.shots[1:]] != [True, True]:
+        problems.append(f"others: a seed on the picked shot naming a held person is the pick, is marked, and leaves every other shot "
+                        f"with nobody to take: {seeded.pick_seed}, {seeded.shots[0].also_held}, {[st._state(x) for x in seeded.shots]}")
+    if "AND THIS IS THE PICK" not in st.others_report(seeded.shots, both_held.seen, []) or "AND THIS IS THE PICK" in said:
+        problems.append("others: the report says the pick-shot consequence only for a hand-named held person on the PICKED shot")
+    typed_table = st.shot_table.build(typed, twin_detect, st.assemble(40, H, W, typed.pieces), state=st._state, phrase="person",
+                                      pick=st.PICK_LARGEST, named_frame=True, named_value=True, cuts=[8, 16], held=twin_held)
+    if [r["subject"]["also_held_by_another_tracker"] for r in typed_table["shots"]] != [False, True, False]:
+        problems.append("others: the table's take does not carry `also_held_by_another_tracker` on the shot a held person was typed into")
+
 
 
 class _SteppingTracker:
@@ -2005,7 +2144,7 @@ def check_schema(problems):
         problems.append("`seeds` left empty must be the empty text in execute, parsed against the load's shots and handed to `follow`")
     if inspect.signature(st.MiniMaxH3SubjectTrack.execute).parameters["others"].default is not None:
         problems.append("`others` left unwired must be None in execute: nobody is held by another tracker")
-    for need in ("detect = without_others(detect, others, left_out)", "track_scores=track_scores)",
+    for need in ("held = held_people(detect, others) if others is not None else None", "track_scores=track_scores)",
                  "on_others = frames_on_others(mask, others)"):
         if need not in source:
             problems.append(f"the node no longer does `{need}`: the `others` input or the tracker's score is not wired")
@@ -2017,7 +2156,7 @@ def check_schema(problems):
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
-                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_settled_from_tables, check_seeds, check_only_person_left_by_others, check_others,
+                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_settled_from_tables, check_seeds, check_only_person_off_with_others, check_others,
                   check_track_score, check_schema):
         check(problems)
     for p in problems:

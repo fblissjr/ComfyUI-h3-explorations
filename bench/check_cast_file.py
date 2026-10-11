@@ -47,8 +47,8 @@ import cast_file as C  # noqa: E402
 
 SIZE = [1024, 768]
 JOB = ["lead", "second", "third"]
-#: A census table as a preview saves it: two shots, the first with two people on its tile.
-TABLE = {"size": SIZE, "shots": [
+#: A census table as a version 1 tracker saved it: two shots, the first with two people on its tile.
+TABLE = {"version": 1, "size": SIZE, "shots": [
     {"shot": 1, "first_frame": 0, "last_frame": 39, "shown_frame": 20, "others_left_out": None,
      "people": [{"person": 1, "box": [100, 50, 200, 600]}, {"person": 2, "box": [600, 80, 300, 500]}]},
     {"shot": 2, "first_frame": 40, "last_frame": 99, "shown_frame": 70, "others_left_out": {"on_shown_frame": 0, "on_frames_looked_at": 0},
@@ -165,6 +165,16 @@ def a_tile_that_does_not_show_everybody_is_refused():
     _raises(lambda: _tile(1, table=old), "does not say whether anybody was left out")
     # None is what the table writes when the tracker had nobody to leave out: that IS everybody (shot 1 of TABLE)
     assert _tile(1, (1, "lead"))[0]["answer"] == C.HERE
+    # a version 2 table lists everybody by construction and carries no such field: accepted as it is
+    new = json.loads(json.dumps(old))
+    new["version"] = 2
+    del new["shots"][1]["others_left_out"]
+    assert _tile(1, (1, "lead"), table=new)[0]["answer"] == C.HERE and len(_tile(2, table=new)) == 3
+    # a version this tool does not know is refused, never read as complete; so is a table with no version
+    for unknown in (3, None, "2"):
+        later = json.loads(json.dumps(new))
+        later["version"] = unknown
+        _raises(lambda: _tile(1, (1, "lead"), table=later), "does not know")
 
 
 def the_latest_line_for_a_frame_stands():

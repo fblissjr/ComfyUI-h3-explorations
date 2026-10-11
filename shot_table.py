@@ -69,8 +69,14 @@ from PIL import Image
 
 from . import subject_tracks
 
-#: Bumped when a field changes meaning or leaves; a reader checks it.
-TABLE_VERSION = 1
+#: Bumped when a field changes meaning or leaves; a reader checks it. 2 (2026-10-10): a shot's `people` and every
+#: look's are EVERYBODY the detector found on the frame, with `held_by_another_tracker` on a person an earlier
+#: tracker's mask lies mostly on. In version 1 a tracker given `others` listed the people left once those were
+#: removed and counted the removed under `others_left_out`, which is gone.
+TABLE_VERSION = 2
+#: What a reader of `people` may rely on, written into every table.
+PEOPLE_ARE = ("every detection on the frame, in one numbering for every tracker of a job; `held_by_another_tracker` marks a "
+              "person an earlier tracker's mask lies mostly on, who is listed and was never a candidate")
 
 #: The numbering rule in words, carried in every table so a file read alone
 #: says how its person numbers were assigned.
@@ -192,10 +198,7 @@ def _why(shot, state: str, match: float, pick: str, phrase: str, named_frame: bo
     if shot.seed is not None:
         return f"similarity {shot.best:.2f} on frame {shot.seed}, at or above the line {match:.2f}"
     if shot.best >= 0:
-        left = getattr(shot, "left_by_others", None)
-        return (f"best similarity {shot.best:.2f} on frame {shot.shown}, under the line {match:.2f}"
-                + ("" if left is None else f"; the one person left on frame {left} once another tracker's people were set aside "
-                                           "is not taken as the only person"))
+        return f"best similarity {shot.best:.2f} on frame {shot.shown}, under the line {match:.2f}"
     if not getattr(shot, "seen", 0):
         return "no detection in this shot"
     return f"up to {shot.seen} detection(s), none that could be compared"
@@ -215,7 +218,7 @@ def _runs(flags: list[bool], first: int) -> list[list[int]]:
 
 def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask: torch.Tensor, *,
           state: Callable[[object], str], phrase: str, pick: str, named_frame: bool, named_value: bool,
-          cuts: list[int], left_out: dict[int, int] | None = None, on_others: list[int] | None = None,
+          cuts: list[int], held=None, on_others: list[int] | None = None,
           track_scores: dict | None = None, joined: dict[int, int] | None = None,
           gap: tuple[float, float] | None = None, parts: dict[int, float] | None = None,
           unsure: dict[int, int] | None = None) -> dict:
@@ -227,9 +230,9 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
     own word for a shot. The rest is what the user set, for the header.
 
     Three things a tracker may hand in, each None when it has none (added
-    2026-10-10, none changes a field that was there): `left_out`, for a
-    tracker given the people others hold, {frame looked at: detections left
-    out as theirs}; `on_others`, the frames where this track's own mask lies
+    2026-10-10, none changes a field that was there): `held`, for a
+    tracker given the people others hold, its `held_people` callable (frame ->
+    the held detections); `on_others`, the frames where this track's own mask lies
     mostly on those people; `track_scores`, {frame: the tracker's own score
     there or None}, with its reasons under "trouble"; `joined`, {frame looked
     at: detections left out as another detection of the same thing}; `gap`,
@@ -258,10 +261,14 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                 "box": list(box) if box else None,
                 "share_of_frame": round(float((masks[index] > 0.5).sum()) / float(height * width), 4),
                 "detector_score": round(float(scores[index]), 3) if index < len(scores) else None,
+                "held_by_another_tracker": held is not None and index in held(int(shot.shown)),
+                # whether a head was found on this detection: None on a frame the tracker never compared anybody on
+                "has_head": None,
             })
             seen = judged.get(int(shot.shown))
             if seen is not None and index < len(seen):
                 people[-1].update(_signed(seen[index]))
+                people[-1]["has_head"] = _headed(seen[index])
         looks, before = [], None
         judged_here = sorted(k for k in judged if int(shot.start) <= k < int(shot.end) and not getattr(shot, "picked", False))
         # on a shot the tracker's own rule took nobody on (absent, or settled by hand), the looks that carry signatures:
@@ -292,6 +299,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                                  for k, v in enumerate(each)},
                     "lowest": None if lowest is None else round(float(lowest), 3),
                     "same_as": same,
+                    "held_by_another_tracker": held is not None and index in held(int(f)),
+                    "has_head": _headed(entry),
                 })
                 if f in signed_looks:
                     row[-1].update(_signed(entry))
@@ -318,6 +327,8 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                 # not written for a seeded shot: the automatic pass's best there is somebody the seed may not have named
                 "similarity": None if shot.picked or shot.best < 0 or getattr(shot, "seeded", None) else round(float(shot.best), 3),
                 "why": _why(shot, word, float(found.match), pick, phrase, named_frame),
+                # a correction or a seed named a person an earlier tracker holds: one of the two trackers is wrong
+                "also_held_by_another_tracker": bool(getattr(shot, "also_held", False)),
             },
             "closest_person": None if taken else candidate,
             # mrorange's corrections set this on the tracker's `Shot`; a
@@ -340,11 +351,7 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
             "caption": "",
             # every frame this shot was judged on after a cut, with everybody on it (`LOOKS_ARE`); empty for the picked shot
             "looks": looks,
-            # with the `others` input wired: detections left out as another tracker's person, on the shown frame and
-            # on every frame looked at in the shot; and the frames this track's own mask lies mostly on such a person
-            "others_left_out": None if left_out is None else {
-                "on_shown_frame": int(left_out.get(int(shot.shown), 0)),
-                "on_frames_looked_at": int(sum(v for f, v in left_out.items() if shot.start <= f < shot.end))},
+            # with the `others` input wired: the frames this track's own mask lies mostly on another tracker's person
             "frames_on_others": None if on_others is None else _runs(
                 [f in theirs for f in range(int(shot.start), int(shot.end))], int(shot.start)),
             # detections that were another detection of the same thing, joined before anyone was numbered
@@ -363,6 +370,7 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
     return {
         "table": "h3 shot table",
         "version": TABLE_VERSION,
+        "people_are": PEOPLE_ARE,
         "frames": frames,
         "size": [width, height],
         "subject_phrase": phrase,
@@ -397,6 +405,12 @@ def build(found, detect: Callable[[int], tuple[torch.Tensor, list[float]]], mask
                                      "next_person": None if second < 0 else round(float(second), 3)}
                                     for f, n, best, second in getattr(found, "pick_probes", [])]},
     }
+
+
+def _headed(entry: tuple) -> bool | None:
+    """Whether a judged person had a head found on them: the second place the tracker signs is the head."""
+    views = entry[0] if entry else ()
+    return None if not views else len(views) > 1 and views[1] is not None
 
 
 def _signed(entry: tuple) -> dict:

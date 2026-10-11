@@ -173,19 +173,7 @@ def from_tile(table: dict, table_name: str, first: int, shot: int, subjects: lis
     found = next((s for s in table.get("shots", []) if int(s["shot"]) == int(shot)), None)
     if found is None:
         raise ValueError(f"cast: {table_name} has no shot {shot}")
-    # Three cases, and only one of them is "everybody" (mrcorn's cold read: of forty real tables, twenty-three carry
-    # the field on no shot, and a missing field was being read as nobody left out). None is what the table writes
-    # when the tracker had nobody to leave out; a count is how many it left out; ABSENT is a table that does not say.
-    if "others_left_out" not in found:
-        raise ValueError(f"cast: {table_name}, shot {shot}: this table does not say whether anybody was left out of its tiles "
-                         "(it was made before the table recorded that), so its numbers cannot be trusted to be everybody. "
-                         "Answer from a new preview with one subject and no `others`.")
-    left = (found["others_left_out"] or {}).get("on_shown_frame")
-    if found["others_left_out"] is not None and left is None:
-        raise ValueError(f"cast: {table_name}, shot {shot}: `others_left_out` has no `on_shown_frame`")
-    if left:
-        raise ValueError(f"cast: {table_name}, shot {shot}: {left} detection(s) were left out of this tile as another tracker's "
-                         "people, so its numbers are not everybody on the frame. Answer from a preview with one subject and no `others`.")
+    _shows_everybody(table, found, table_name, shot)
     subjects = [str(s) for s in subjects]
     if not subjects or len(set(subjects)) != len(subjects):
         raise ValueError(f"cast: `subjects` is every subject the job names, each once: {subjects}")
@@ -206,6 +194,32 @@ def from_tile(table: dict, table_name: str, first: int, shot: int, subjects: lis
     is_person = dict(zip(people, numbers))
     return [entry(s, frame, HERE, by=by, box=on_tile[is_person[s]]["box"], size=table["size"], table=table_name, at=at)
             if s in is_person else entry(s, frame, NONE_OUTLINED, by=by, table=table_name, at=at) for s in subjects]
+
+
+def _shows_everybody(table: dict, found: dict, table_name: str, shot: int) -> None:
+    """Refuse a tile whose numbers are not everybody the detector found on its frame, or a table that does not say.
+
+    A version 2 table lists everybody by construction (`shot_table.py::TABLE_VERSION`). A version 1 table has
+    three cases, and only one of them is "everybody" (mrcorn's cold read: of forty real tables, twenty-three carry
+    the field on no shot, and a missing field was being read as nobody left out): None is what that table wrote
+    when the tracker had nobody to leave out; a count is how many it left out; ABSENT is a table that does not
+    say. A version this tool does not know is refused: read as complete, it would be the same hole one release on."""
+    version = table.get("version")
+    if version == 2:
+        return
+    if version != 1:
+        raise ValueError(f"cast: {table_name} is a shot table of version {version!r}, which this tool does not know; it cannot say "
+                         "whether its tiles show everybody")
+    if "others_left_out" not in found:
+        raise ValueError(f"cast: {table_name}, shot {shot}: this table does not say whether anybody was left out of its tiles "
+                         "(it was made before the table recorded that), so its numbers cannot be trusted to be everybody. "
+                         "Answer from a new preview with one subject and no `others`.")
+    left = (found["others_left_out"] or {}).get("on_shown_frame")
+    if found["others_left_out"] is not None and left is None:
+        raise ValueError(f"cast: {table_name}, shot {shot}: `others_left_out` has no `on_shown_frame`")
+    if left:
+        raise ValueError(f"cast: {table_name}, shot {shot}: {left} detection(s) were left out of this tile as another tracker's "
+                         "people, so its numbers are not everybody on the frame. Answer from a preview with one subject and no `others`.")
 
 
 def _number(v: float) -> str:

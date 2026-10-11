@@ -224,19 +224,30 @@ always the better one".
 
 Every phrase SAM 3 is given is an input: `subject_phrase` and `head_phrase`.
 
-**Two nodes, one person** (`others`, `without_others`; 2026-10-10). Each node
+**Two nodes, one person** (`others`, `held_people`; 2026-10-10). Each node
 follows one person and knows nothing of another node in the same graph. On
 the first clip with two people followed, the second node's pick rule took the
 first node's person for four shots, and every frame of both masks was the
 same mask (the day's captures under `data/`; `ON_OTHERS` has the figures).
-`others` is the first node's mask wired into the second: a detection lying
-mostly on it is not a candidate, anywhere a detection is looked at. It is
-done on the detector's answer and not inside `follow`, so the preview's
-numbers and a correction count the people that are left. A shot showing only
-people other nodes hold has no subject. What it does not do: cut a track
-that moves onto such a person in the middle of a shot. The node can see that
-for nothing (`frames_on_others`), reports it and writes it into the shot
-table, and cuts nothing.
+`others` is the earlier nodes' mask wired into a later one: a detection lying
+mostly on it is HELD, and a held detection is never a candidate, anywhere a
+person is chosen (the pick rule, a shot's match, a re-find, the people the
+scores are taken relative to). It is still LISTED: a frame's people are
+always everybody the detector found, in one numbering, with the held ones
+marked on the tile and in the shot table. The first form removed them from
+the list. That made a later tracker's numbers a different list from an
+earlier one's on the same frame, made its looks incomplete (a reader took
+"whoever is left" for a finding), and hid a subject from her own tracker
+when an earlier one had wrongly taken her (the same day's three-tracker
+run). Judging did not move: the tracker compares and takes among the people
+it did before. A typed correction or a seed MAY name a held person, since
+one of the two trackers is then wrong and a person is saying which; the
+report and the table say so. With `others` wired the "only person" rule is
+off altogether: in a job with several named people a lone person may be any
+of them. What `others` does not do: cut a track that moves onto a held person
+in the middle of a shot. The node can see that for nothing
+(`frames_on_others`), reports it and writes it into the shot table, and cuts
+nothing.
 
 **The tracker's own score** (`ScoreTap`; 2026-10-10). ComfyUI's tracker
 computes, per frame, a score that its object is there, and its node returns
@@ -655,7 +666,7 @@ class Shot:
     lone: bool = False           # taken under the line, as the only person on its frame
     # a frame where one person was left only because another tracker's people were set aside: not taken as "the only
     # person", whatever it scored there. None when that did not happen in this shot
-    left_by_others: int | None = None
+    also_held: bool = False       # a correction or a seed named a person an earlier tracker holds
     width: int = 0               # columns the mask on `shown` covers
     seen: int = 0                # the most detections on any frame looked at
     corrected: str = ""          # what a correction said of this shot: `person 2`, `none`, or nothing
@@ -772,8 +783,27 @@ def parse_corrections(text: str, n_shots: int) -> dict[int, int | None]:
     return out
 
 
+def _free(masks: torch.Tensor, held: frozenset) -> list[int]:
+    """The detections of a frame that no other tracker holds, as indices into that frame's list.
+
+    The one road to a candidate for every choice THE TRACKER makes: the pick (by rule, on a named frame, or from a
+    handed gallery), a shot's best match, a re-find, and the people the scores are taken relative to. A PERSON'S
+    WORD goes round it, in two places and on purpose: a typed correction (`_correct`) and a seed (`seed_names`)
+    choose among everybody, and may name a held person."""
+    return [k for k in range(int(masks.shape[0])) if k not in held]
+
+
+def choose_free(masks: torch.Tensor, scores: list[float], pick: str, held: frozenset) -> int | None:
+    """`choose` among the detections no other tracker holds; the index is into the frame's whole list."""
+    free = _free(masks, held)
+    if not free:
+        return None
+    i = choose(masks[torch.tensor(free, dtype=torch.long)], [scores[k] for k in free if k < len(scores)], pick)
+    return None if i is None else free[i]
+
+
 def main_subject(shots: list[Shot], pick: str, detect, sign,
-                 passed_over: list[tuple[int, int]] | None = None) -> tuple[int, int] | None:
+                 passed_over: list[tuple[int, int]] | None = None, held=None) -> tuple[int, int] | None:
     """The frame and detection to pick when no frame is named.
 
     The rule is applied on every shot's probe frame. The people it favours are
@@ -788,10 +818,11 @@ def main_subject(shots: list[Shot], pick: str, detect, sign,
     winners, headed = [], []
     for shot in shots:
         masks, scores = detect(shot.probe)
-        i = choose(masks, scores, pick)
+        off = held(shot.probe) if held is not None else frozenset()
+        i = choose_free(masks, scores, pick, off)
         if i is not None:
             sig = sign(shot.probe, masks[i])
-            winners.append((shot, i, _views(sig)[0], int(masks.shape[0])))
+            winners.append((shot, i, _views(sig)[0], len(_free(masks, off))))
             headed.append(_has_head(sig))
     if not winners:
         return None
@@ -880,7 +911,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
            corrections: dict[int, int | None] | None = None, gallery: list[tuple] | None = None,
            sign_whole: Callable[[int, torch.Tensor], torch.Tensor | None] | None = None,
            seeds: dict[int, tuple[int, tuple | None]] | None = None,
-           removed: dict[int, int] | None = None) -> Followed:
+           held=None) -> Followed:
     """The subject's mask per frame, shot by shot. The model work is in three callables.
 
     `detect(frame)` returns that frame's detections, [N, H, W] and their
@@ -914,17 +945,13 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     detection there agrees with the box (`_seed`). A shot may not carry
     both a seed and a correction.
 
-    `removed` is {frame looked at: detections another tracker's people took
-    out of `detect`'s answer} (`without_others` fills it as frames are
-    looked at). It switches off ONE rule: "the only person on the frame is
-    taken whatever it scores". With people set aside, the one left is only
-    the person nobody earlier claimed, which is evidence of nothing: on
-    2026-10-10 the third of three trackers took another subject that way at
-    0.59 (`bench/results/2026-10-10_who_is_who_across_shots.md`). So a look
-    on which anybody was set aside is never a lone take, and neither is any
-    look when somebody was set aside on the pick frame, since "nobody to
-    mistake the subject for" was then never true. The likeness line still
-    decides those shots.
+    `held` is None, or a callable giving, for a frame, which of `detect`'s
+    detections there another tracker holds (`held_people`). A held detection
+    is listed and never chosen. With `held` given the rule "the only person
+    on the frame is taken whatever it scores" is off: in a job with several
+    named people a lone person may be any of them (on 2026-10-10 the third of
+    three trackers took another subject that way, and a second took a
+    subject small in an inset twice).
 
     `sign_whole(frame, mask)`, when given, is a person's signature under
     their WHOLE mask. NOTHING HERE IS DECIDED ON IT: it is kept beside
@@ -952,6 +979,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     # tracked from the corrected or seeded frame, below, and not by the automatic pass
     by_hand = {id(shots[int(number) - 1]) for number in list(corrections) + list(given_seeds)}
     result = Followed(shots)
+    off = held if held is not None else (lambda f: frozenset())
     given = list(gallery or [])
     result.gallery_given = len(given)
     if pick_frame is None and given:
@@ -960,22 +988,23 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         step = max(int(stride), 1)
         for f in probes + [f for f in range(0, int(n_frames), step) if f not in set(probes)]:
             found, _ = detect(f)
-            which, best, second = clear_best(gallery_scores(found, f, given, sign))
+            free = _free(found, off(f))
+            which, best, second = clear_best(gallery_scores(found[torch.tensor(free, dtype=torch.long)], f, given, sign))
             result.pick_probes.append((int(f), int(found.shape[0]), best, second))
             if which is not None:
-                entry = (int(f), which)
+                entry = (int(f), free[which])
                 break
     elif pick_frame is None:
-        entry = main_subject(shots, pick, detect, sign, result.passed_over)
+        entry = main_subject(shots, pick, detect, sign, result.passed_over, held)
     else:
         if not 0 <= int(pick_frame) < int(n_frames):
             raise ValueError(f"pick_frame {pick_frame} is outside the clip's {n_frames} frames")
         masks, scores = detect(int(pick_frame))
-        which = choose(masks, scores, pick)
+        which = choose_free(masks, scores, pick, off(int(pick_frame)))
         entry = None if which is None else (int(pick_frame), which)
     if entry is None:
-        _correct(result, corrections, detect, track)
-        _seed(result, given_seeds, detect, track)
+        _correct(result, corrections, detect, track, held)
+        _seed(result, given_seeds, detect, track, held)
         return result
     frame0, which = entry
     # A SEED ON THE PICKED SHOT IS THE PICK (mrcorn's cold read, 2026-10-10). A tool seeds that shot precisely when
@@ -996,7 +1025,10 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     masks0, _ = detect(frame0)
     picked = masks0[which]
     mine = _views(sign(frame0, picked))
-    theirs = [_views(sign(frame0, m)) for i, m in enumerate(masks0) if i != which]
+    beside = [_views(sign(frame0, m)) for i, m in enumerate(masks0) if i != which]      # everybody else there, for the table
+    free0 = set(_free(masks0, off(frame0)))
+    # the scores are taken relative to the people there NOBODY ELSE HOLDS, as they were when held people were not listed
+    theirs = [v for i, v in zip([i for i in range(int(masks0.shape[0])) if i != which], beside) if i in free0]
     use = [k for k, v in enumerate(mine) if v is not None]         # the views the subject has
     others = [t for t in theirs if t[0] is not None]
     centres = []
@@ -1005,7 +1037,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         centres.append(torch.stack(have, dim=0).mean(dim=0) if have else None)
     reference = tuple(relative(v, c) for v, c in zip(mine, centres))
     result.pick_frame, result.others, result.pick_width = frame0, len(others), _width(picked)
-    result.judged[int(frame0)] = [(mine if i == which else theirs[i - (i > which)], [None] * len(mine), None,
+    result.judged[int(frame0)] = [(mine if i == which else beside[i - (i > which)], [None] * len(mine), None,
                                    None if sign_whole is None else sign_whole(frame0, masks0[i]))
                                   for i in range(int(masks0.shape[0]))]
     result.views, result.views_used = len(mine), len(use)
@@ -1030,8 +1062,9 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         sims = [alike(v) for v in sigs]
         result.judged[int(f)] = [(_views(v), per_view(v), a, None if sign_whole is None else sign_whole(f, m))
                                  for v, a, m in zip(sigs, sims, found)]
-        heads = sum(1 for v in sigs if _has_head(v))
-        able = [k for k, v in enumerate(sims) if v is not None]
+        free = set(_free(found, off(f)))              # a held person is listed and signed, and is never the best
+        heads = sum(1 for k, v in enumerate(sigs) if k in free and _has_head(v))
+        able = [k for k, v in enumerate(sims) if v is not None and k in free]
         if not able:
             return -1.0, None, heads, found
         i = max(able, key=lambda k: sims[k])
@@ -1077,9 +1110,11 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
             frames = range(a, b, step) if a > shot.start else range(b - 1, a - 1, -step)
             for f in frames:
                 found, _ = detect(f)
-                which, best, second = clear_best(gallery_scores(found, f, known, sign))
+                free = _free(found, off(f))
+                which, best, second = clear_best(gallery_scores(found[torch.tensor(free, dtype=torch.long)], f, known, sign))
                 shot.probes.append((f, int(found.shape[0]), best, second))
                 if which is not None:
+                    which = free[which]
                     piece[a - shot.start:b - shot.start] = track(a, b, f, found[which])
                     shot.regained.append((a, f, int(found.shape[0]), best, second))
                     break
@@ -1095,10 +1130,8 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     result.gap = None if match_threshold is not None else auto_gap([s.first for s in rest], floor)
     result.match = float(match_threshold) if match_threshold is not None else auto_match([s.first for s in rest], floor)
     # nobody else on the pick frame and nothing named: there is nobody to mistake the subject for
-    alone = match_threshold is None and not others
-    held = removed if removed is not None else {}
-    # ...unless another tracker's people were set aside on that frame: then there was somebody, and they were hidden
-    lone_allowed = alone and not held.get(int(frame0), 0)
+    # ...and no other tracker in the job: with `others` wired a lone person may be any of the job's named people
+    alone = match_threshold is None and not others and held is None
 
     for shot in shots:
         if shot.start <= frame0 < shot.end:
@@ -1122,10 +1155,7 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
             if score >= result.match:
                 taken = (score, f, i)
                 break
-            if alone and heads == 1 and (not lone_allowed or held.get(int(f), 0)):
-                if shot.left_by_others is None:
-                    shot.left_by_others = int(f)      # one person left, and only because others were set aside
-            elif alone and heads == 1 and (lone is None or score > lone[0]):
+            if alone and heads == 1 and (lone is None or score > lone[0]):
                 lone = (score, f, i)
         if taken is None and lone is not None:
             taken, shot.lone = lone, True
@@ -1138,13 +1168,13 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
         if id(shot) not in by_hand:
             result.pieces[shot.start] = track(shot.start, shot.end, seed, seeds[i])
             regain(shot)
-    _correct(result, corrections, detect, track)
+    _correct(result, corrections, detect, track, held)
     # A correction says who, not that the tracker will hold them: where the corrected track lets go, look again as
     # for any other shot. The gallery is the corrected track's own frames (`regain`), so the search is for that person.
     for number, person in sorted(corrections.items()):
         if person is not None:
             regain(result.shots[int(number) - 1])
-    _seed(result, given_seeds, detect, track)
+    _seed(result, given_seeds, detect, track, held)
     if result.pick_seed == "is the pick":
         # the subject as the seeded track shows them, as the picked shot's own track would have: for a loss later in
         # that shot, for a reader of the table, and for the run after this one
@@ -1161,12 +1191,15 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     return result
 
 
-def _correct(result: Followed, corrections: dict[int, int | None], detect, track) -> None:
-    """Apply the corrections to `follow`'s result: each on the frame its shot's tile shows."""
+def _correct(result: Followed, corrections: dict[int, int | None], detect, track, held=None) -> None:
+    """Apply the corrections to `follow`'s result: each on the frame its shot's tile shows.
+
+    A correction may name a person another tracker holds: a person's word outranks a tracker's take, and one of the
+    two trackers is then wrong. The shot remembers it (`also_held`), for the report and the table."""
     for number, person in sorted(corrections.items()):
         shot = result.shots[int(number) - 1]
         if person is None:
-            shot.seed, shot.lone, shot.corrected = None, False, "none"
+            shot.seed, shot.lone, shot.corrected, shot.also_held = None, False, "none", False
             result.pieces.pop(shot.start, None)
             continue
         people, _ = detect(shot.shown)
@@ -1176,6 +1209,7 @@ def _correct(result: Followed, corrections: dict[int, int | None], detect, track
                 f"corrections: shot {number} has {int(people.shape[0])} person(s) on frame {shot.shown}, the frame "
                 f"its tile shows, so there is no person {int(person)} to take")
         shot.seed, shot.index, shot.lone, shot.corrected = shot.shown, which, False, f"person {int(person)}"
+        shot.also_held = held is not None and which in held(int(shot.shown))
         shot.candidates, shot.width = int(people.shape[0]), _width(people[which])
         result.pieces[shot.start] = track(shot.start, shot.end, shot.shown, people[which])
 
@@ -1184,6 +1218,9 @@ def seed_names(detect, frame: int, box: tuple) -> tuple[torch.Tensor, int | None
     """The detection on `frame` a seed's box names: (that frame's detections, which one or None, the seed's record).
 
     The one whose box overlaps the seed's most; it is refused, and nobody is named, under `SEED_AGREES`.
+    Among EVERYBODY on the frame, a person another tracker holds included: a seed is a person's word (or a tool's
+    carrying one), and `_seed` marks the shot when the one named is held. A box read off a tile overlaps its own
+    detection wholly; a box typed by hand between two people who overlap names the nearer, held or not.
     """
     people, _ = detect(int(frame))
     wanted = (box[0], box[1], box[0] + box[2], box[1] + box[3])
@@ -1197,7 +1234,7 @@ def seed_names(detect, frame: int, box: tuple) -> tuple[torch.Tensor, int | None
     return people, best, record
 
 
-def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, track) -> None:
+def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, track, held=None) -> None:
     """Apply the seeds to `follow`'s result: each on its own frame, from the detection its box names."""
     for number, (frame, box) in sorted(seeds.items()):
         shot = result.shots[int(number) - 1]
@@ -1216,6 +1253,7 @@ def _seed(result: Followed, seeds: dict[int, tuple[int, tuple | None]], detect, 
             shot.seed, shot.index = None, best
             continue
         shot.seed, shot.index, shot.width = frame, best, _width(people[best])
+        shot.also_held = held is not None and best in held(frame)
         result.pieces[shot.start] = track(shot.start, shot.end, frame, people[best])
 
 
@@ -1232,25 +1270,25 @@ def share_on(mask: torch.Tensor, others: torch.Tensor) -> float:
     return float((on & (others > 0.5)).sum()) / area if area else 0.0
 
 
-def without_others(detect, others: torch.Tensor, left_out: dict[int, int], most: float = ON_OTHERS):
-    """`detect` with every detection that lies mostly on `others` removed: people another tracker already holds.
+def held_people(detect, others: torch.Tensor, most: float = ON_OTHERS):
+    """Which of a frame's detections another tracker holds: a callable, frame -> the held indices into `detect(frame)`.
 
-    `others` is [frames, H, W]. A detection with more than `most` of its pixels on that frame's `others` is not
-    returned, so it is not a candidate for the pick, for a shot's match or for a re-find, and the preview and the
-    corrections count the people that are left. `left_out[frame]` is how many were removed on each frame looked at.
-    A frame where everybody is somebody else's has no candidate, so the subject is absent there.
-    """
-    kept: dict[int, tuple[torch.Tensor, list[float]]] = {}
+    `others` is [frames, H, W], every earlier tracker's mask joined. A detection with more than `most` of its pixels
+    on that frame's `others` is HELD: it stays in the frame's list, numbered like anybody, and is never chosen
+    (`_free` is the one road to a candidate). `detect` is the detector AFTER duplicates were joined, as it was when
+    held people were removed from the list: the mark is read on the detection that stands for a person, never on
+    one of the detections joined into it. The frames asked about are kept on the callable as `seen`."""
+    seen: dict[int, frozenset] = {}
 
-    def detect_others_removed(f: int):
-        if f not in kept:
-            masks, scores = detect(f)
-            keep = [i for i in range(int(masks.shape[0])) if share_on(masks[i], others[f]) <= most]
-            left_out[int(f)] = int(masks.shape[0]) - len(keep)
-            kept[f] = (masks[keep], [scores[i] for i in keep if i < len(scores)])
-        return kept[f]
+    def held(f: int) -> frozenset:
+        f = int(f)
+        if f not in seen:
+            masks, _ = detect(f)
+            seen[f] = frozenset(i for i in range(int(masks.shape[0])) if share_on(masks[i], others[f]) > most)
+        return seen[f]
 
-    return detect_others_removed
+    held.seen = seen
+    return held
 
 
 def one_detection_each(detect, joined: dict[int, int], same: float = subject_tracks.SAME_THING,
@@ -1345,23 +1383,24 @@ def frames_on_others(mask: torch.Tensor, others: torch.Tensor, most: float = ON_
     return [int(f) for f in ((area > 0) & (both.to(torch.float32) > most * area.to(torch.float32))).nonzero().flatten().tolist()]
 
 
-def others_report(shots, left_out: dict[int, int], on_others: list[int]) -> str:
-    """The report's lines about the `others` input: what was left out, which shots it emptied, and where this track
-    itself sits on another tracker's person."""
-    looked = sorted(left_out)
-    gone = sum(left_out.values())
-    lines = [f"others: {gone} detection(s) on {sum(1 for f in looked if left_out[f])} of the {len(looked)} frame(s) looked at "
-             "lay mostly on a person another tracker holds and were not candidates"]
+def others_report(shots, held: dict[int, frozenset], on_others: list[int]) -> str:
+    """The report's lines about the `others` input: who is held, which shots that left with no subject, a person's word
+    that names a held person, and where this track itself sits on another tracker's person. `held` is `held_people`'s
+    `seen`."""
+    looked = sorted(held)
+    lines = [f"others: {sum(len(held[f]) for f in looked)} detection(s) on {sum(1 for f in looked if held[f])} of the {len(looked)} "
+             "frame(s) looked at lie mostly on a person another tracker holds: listed and numbered, marked held, never candidates"]
     for number, shot in enumerate(shots, 1):
-        there = sum(left_out.get(f, 0) for f in looked if shot.start <= f < shot.end)
-        on_tile = left_out.get(int(shot.shown), 0)
-        if on_tile:
-            # a correction is typed by the tile's numbers, and these people have none (mrcorn's cold read)
-            lines.append(f"[{number}] {on_tile} person(s) on the tile's frame, {shot.shown}, belong to another tracker and are "
-                         "not numbered: a correction's `person K` counts the people left")
+        there = sum(len(held[f]) for f in looked if shot.start <= f < shot.end)
+        if shot.also_held:
+            lines.append(f"[{number}] THE PERSON NAMED BY HAND HERE IS ALSO HELD BY ANOTHER TRACKER (frame {shot.shown}): one of "
+                         "the two trackers is wrong, and two masks are on one person until the other is corrected"
+                         + (". AND THIS IS THE PICK: every other shot is judged against that person, whom the other tracker "
+                            "holds wherever it follows them, so this tracker can take nobody there until the other is corrected"
+                            if shot.picked else ""))
         if there and shot.seed is None:
             lines.append(f"[{number}] no subject: every person compared there was another tracker's, or nobody was "
-                         f"like enough ({there} detection(s) left out on the frames looked at)")
+                         f"like enough ({there} held detection(s) on the frames looked at)")
     if on_others:
         runs = shot_table._runs([f in set(on_others) for f in range(on_others[0], on_others[-1] + 1)], on_others[0])
         lines.append(f"this track's own mask lies mostly on another tracker's person on {len(on_others)} frame(s): "
@@ -1587,9 +1626,6 @@ def report(found: Followed, cuts: list[int], pick: str, phrase: str, named_frame
         else:
             why = (f"best similarity {s.best:.2f} on frame {s.shown}{_framing(s, found)}" if s.best >= 0 else
                    "no detection" if not s.seen else f"up to {s.seen} detection(s), none that could be compared")
-            if s.left_by_others is not None:
-                why += (f"; one person was left on frame {s.left_by_others} once another tracker's people were set aside, "
-                        "which is not taken as the only person")
             lines.append(f"{span}: absent ({why})")
     lines.append(f"{seconds:.0f} s")
     return "\n".join(lines)
@@ -1628,7 +1664,7 @@ def tile_label(number: int, shot: Shot, joined: dict[int, int] | None = None, un
 
 
 def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect, joined: dict[int, int] | None = None,
-            unsure: dict[int, int] | None = None) -> torch.Tensor:
+            unsure: dict[int, int] | None = None, held=None) -> torch.Tensor:
     """One labelled frame per shot, [shots, h, TILE_WIDTH, 3].
 
     The frame is the one the shot was taken on, or where its best candidate
@@ -1663,9 +1699,13 @@ def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect,
         draw.text((8, 6), text, fill=(255, 255, 255), font=font)
         label_bottom, label_right = box[3] + 6, box[2] + 8
         subject = shot_table.person_number(found, s.index)
+        # a person another tracker holds keeps their number and says so: one numbering on every tracker's tile
+        theirs = held(int(s.shown)) if held is not None else frozenset()
+        marked = {n for n, index in enumerate(shot_table.person_order(found), 1) if index in theirs}
         for number, col, row in shot_table.label_points(found):
+            name = f"{number} held" if number in marked else str(number)
             x, y = col * TILE_WIDTH / width, row * th / height + 3
-            nb = draw.textbbox((0, 0), str(number), font=font)
+            nb = draw.textbbox((0, 0), name, font=font)
             w, h = nb[2] - nb[0] + 10, nb[3] - nb[1] + 8
             x = min(max(x - w / 2, 0), TILE_WIDTH - w)
             if y < label_bottom and x < label_right:      # clear of the shot's own label
@@ -1673,7 +1713,7 @@ def preview(frames: torch.Tensor, mask: torch.Tensor, shots: list[Shot], detect,
             y = min(y, th - h)
             ink = (255, 255, 255) if number != subject else ((40, 255, 60) if s.seed is not None else (255, 160, 0))
             draw.rectangle((x, y, x + w, y + h), fill=(0, 0, 0))
-            draw.text((x + 5 - nb[0], y + 4 - nb[1]), str(number), fill=ink, font=font)
+            draw.text((x + 5 - nb[0], y + 4 - nb[1]), name, fill=ink, font=font)
         tiles.append(torch.from_numpy(np.asarray(pil).copy()).to(torch.float32) / 255.0)
     return torch.stack(tiles, dim=0) if tiles else torch.zeros((1, th, TILE_WIDTH, 3))
 
@@ -1796,8 +1836,13 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
     #: specks are dropped from the mask (`subject_tracks.drop_specks`). 12: a
     #: detection lying mostly on `others` is not a candidate. 13: detections
     #: that are another detection of the same thing are joined before anyone
-    #: is numbered, picked or compared (`one_detection_each`).
-    MASK_VERSION = 13
+    #: is numbered, picked or compared (`one_detection_each`). 14: a person
+    #: another tracker holds stays in the frame's list, marked, so a later
+    #: tracker's tile numbers count them (`held_people`); nobody is taken as
+    #: "the only person" once `others` is wired. Who is taken did not move
+    #: otherwise; the number moves because a typed `person K` now counts in
+    #: the whole list.
+    MASK_VERSION = 14
 
     @classmethod
     def define_schema(cls):
@@ -1879,7 +1924,8 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
                               tooltip=("Optional. The people other Subject Track nodes already follow, one mask per "
                                        "frame: wire their `mask` here (several joined into one). A person lying "
                                        "mostly on it is never taken as this node's subject, so two nodes cannot "
-                                       "follow the same person. A shot where only those people are on screen has "
+                                       "follow the same person. Such a person stays outlined and numbered on the "
+                                       "preview, marked `held`. A shot where only those people are on screen has "
                                        "no subject.")),
                 io.String.Input("seeds", default="", multiline=True, optional=True,
                                 tooltip=("Optional. Tells the tracker which person to follow in a shot, by a box on one "
@@ -1943,14 +1989,13 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         parts: dict[int, float] = {}
         unsure: dict[int, int] = {}
         detect = one_detection_each(detect, joined, parts=parts, unsure=unsure)
-        left_out: dict[int, int] = {}
-        if others is not None:
-            detect = without_others(detect, others, left_out)
+        # after the join, as it always was: the mark is read on the detection that stands for a person
+        held = held_people(detect, others) if others is not None else None
         with torch.no_grad():
             found = follow(n, found_cuts, pick, int(pick_frame) if named_frame else None,
                            float(match_threshold) if named_value else None, detect, sign, track, corrections=by_hand,
                            gallery=handed, sign_whole=getattr(sign, "whole", None), seeds=seeded,
-                           removed=left_out if others is not None else None)
+                           held=held)
         # Stray specks of the tracker's go before anything reads the mask: the tiles, the shot table and every node
         # after this one widen what they are given (`subject_tracks.drop_specks`).
         # In place: `assemble` returns a tensor nothing else holds, and a copy of a clip's mask is gigabytes.
@@ -1965,16 +2010,16 @@ class MiniMaxH3SubjectTrack(io.ComfyNode):
         on_others = None
         if others is not None:
             on_others = frames_on_others(mask, others)
-            text += "\n" + others_report(found.shots, left_out, on_others)
+            text += "\n" + others_report(found.shots, held.seen, on_others)
         trouble = track_scores.get("trouble") or []
         if trouble:
             text += ("\nthe tracker's own score per frame could not be read on " + f"{len(trouble)} run(s), and is left "
                      "out of the shot table there: " + "; ".join(trouble[:4]) + (" and more" if len(trouble) > 4 else ""))
         logger.info("[h3] MiniMaxH3SubjectTrack: %s", text.replace("\n", "; "))
-        tiles = preview(frames, mask, found.shots, detect, joined, unsure)
+        tiles = preview(frames, mask, found.shots, detect, joined, unsure, held)
         table = shot_table.build(found, detect, mask, state=_state, phrase=subject_phrase, pick=pick,
                                  named_frame=named_frame, named_value=named_value, cuts=found_cuts,
-                                 left_out=left_out if others is not None else None, on_others=on_others,
+                                 held=held, on_others=on_others,
                                  track_scores=track_scores, joined=joined, gap=moved_by_a_gap(found, named_value),
                                  parts=parts, unsure=unsure)
         table_json = shot_table.as_json(table)
