@@ -164,6 +164,15 @@ that session's record disagree, its record is the nearer one.*
   pose, depth or body model as well; nothing has been tried there. The
   two delivery files that had been marked not to be used were removed
   with their check records on the owner's word.
+  *Two cautions added the same evening, from a session that read the
+  owner's own rows: "the second subject is not replaced whole" is the
+  wording of the session that took it down, and stronger than what the
+  owner said, which was about the clips then on the review page; on
+  2026-10-10 they had praised two whole-person renders of her. And her
+  default is NOT settled: on the page the owner later chose her face
+  only and wrote that on each of her shots, where this page's line above
+  and the render they kept say face and hair. It is put to the owner;
+  nothing is built on either reading until they answer.*
 - **Three verdicts of the owner on playback, on renders of 2026-10-10**
   (taken down by the same session). Where the lead sings, the text says
   so: on the close-up of frames 1575 to 1729 the render whose text has
