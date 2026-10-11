@@ -159,6 +159,18 @@ that session's record disagree, its record is the nearer one.*
   the standing question of 2026-10-10 had them going if no gain was
   seen. It is the method on the table for the small faces. One clip, one
   seed; the capture and its gate cannot read a zoomed load yet.
+  *Corrected the same day, on a second session's read of the three
+  graphs, checked by diffing the texts: the two clips the owner compared
+  differ by TWO sentences, not one. The text without the singing
+  sentence also holds a sentence about a telephone handset that "stays
+  as it is", which the singing text lacks. The pair that differs by the
+  one added sentence is the singing render against a third render of
+  those frames, made with that handset sentence removed and nothing
+  added; all three had the same audio, region and seed. And the added
+  sentence is three things at once: that she sings, the handset held to
+  her ear, and her mouth opening wide on the sung phrases. A test that
+  carries "the singing sentence" to another load says which of the three
+  it carries.*
 
 ## 2026-10-10
 
