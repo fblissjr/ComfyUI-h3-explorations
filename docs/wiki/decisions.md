@@ -125,6 +125,20 @@ that session's record disagree, its record is the nearer one.*
   without a word and prints every flag twice. The inputs, the captures
   and the figures are under the untracked `data/2026-10-11_fun_gate_inputs/`
   and `data/2026-10-11_gate_hf_0014*`.
+- **Later the same day, the owner, as the session they spoke to took it
+  down:** objects are built together with the rest and not after it. The
+  folder on the share, `Video/fun/`, is for new work only and work is
+  built there from now; the dated folders stay where they are. (That
+  folder already held unrelated renders of September; how the two are
+  kept apart is with the owner.) The second subject is not replaced
+  whole: her whole-person renders glitch, and for her it is face and hair
+  only, which the owner, having watched the face-and-hair render of
+  2026-10-10 with the mesh on the opening shot, called good and to be
+  kept. Where she is small behind the lead (frames 1010 to 1038) the
+  owner expects face and hair to do better and that it will need the
+  pose, depth or body model as well; nothing has been tried there. The
+  two delivery files that had been marked not to be used were removed
+  with their check records on the owner's word.
 
 ## 2026-10-10
 
