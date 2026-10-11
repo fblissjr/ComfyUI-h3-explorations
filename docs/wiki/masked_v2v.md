@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-11 (later the same evening, a dated note that the practice did not repeat on a second shot, and the marks tool named where a one-off was; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-11 (at the close, how to read the section on the body model with marks: patterns with their conditions, not a recipe; later the same evening, a dated note that the practice did not repeat on a second shot, and the marks tool named where a one-off was; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -766,6 +766,29 @@ the mechanism, every lever with its kind and status, and each result as a
 dated line.
 
 ## The motion video as a body model, with marks drawn on its face
+
+**How to read this section: patterns with their conditions, not a recipe**
+(the owner's ruling at the close of 2026-10-11, in substance). Nothing
+below is a procedure that gives a result. It is a few patterns, each of
+which did a named job under the conditions it was tried in, with our best
+account of why. Do not assume one holds on a shot unlike the one it was
+seen on. Do not start from nothing either: begin from the pattern nearest
+your case, say which of its conditions your shot shares and which it does
+not, and treat the first render as a test of the pattern, read against its
+source before anything is built on it.
+
+| the pattern | what it was for | the conditions it was seen under | why we think it worked | where it stands |
+|---|---|---|---|---|
+| a body-model video of the subject as the load's motion video | her head following the source's | one shot; one person, seated, her face AND her hair redrawn | the model takes movement from a video reference, and with her hair redrawn nothing else in the picture fixes where her head is | held on that shot. On a load that redraws a face only, her head sat as near the source's without the video, so it is not shown there |
+| the source's eye openings drawn LARGE on that body model's face | her eyelids at the source's level | the same shot; the source's eyes lowered for most of it; each mark several of the model's cells wide | marks that fit inside one cell did little and the same marks enlarged did, under the same words: a mark has to be large enough for the model to see | held on that shot as a level, never as following in time. Did not repeat on a second shot, which differed in several ways at once: another person, a face only, marks grown less against her face, eyes fully shut for a long stretch |
+| a text that says what the reference video is and that she follows it, and nothing of what her face does | the model using the reference, with a render still able to show whether the reference or the words did it | the same shot, with the enlarged marks | the words license the reference and the picture carries the content: a longer text that related her eyes to the figure's did no better | held on that shot, on one seed and nearly one text; the owner picked it on playback |
+| the pose model's eye figure on the source and on the render, taken apart by where the source's eyes are open and where they are lowered | a first check of a render's eyes before a person looks | the renders of one shot, with one render made twice as the floor | on that shot it fell on the same sides as the owner's verdicts on playback | trusted at its two ends only; its mouth figure is not trusted; a line drawn after the verdicts were seen |
+
+**When a pattern fails on a new shot, that is a row for this table, not a
+reason to delete one:** add the shot and the condition that differed, and
+keep the pattern with the narrower condition it now has. The notes that
+follow are the history of exactly that. Every figure and caveat behind a
+row is in the records this section points at.
 
 **Provisional, written 2026-10-11. It worked on one shot and may not on
 others.** The shot is the second subject's opening kitchen shot, her face
