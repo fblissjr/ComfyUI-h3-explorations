@@ -166,7 +166,14 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   own) and which stretch of audio the model had together. The owner's
   count is that it is one of those three about half the time. On
   2026-10-10 three test renders went to a kernel setting and an audio file
-  before the text was read; one sentence fixed it. (Owner, 2026-10-10.)
+  before the text was read; one sentence fixed it. **A load that built and
+  passed its gate has had none of the three checked for being right.** The
+  builder holds a text to its frames and its writer, never to the truth,
+  and what is already in the tree was not made good by being there. More
+  refusals do not change that, and a wall of them invites the reader to
+  stop looking: when something is broken, assume one of the text, the
+  window's frames, the mask or the audio is out of step, and look at them
+  together. (Owner, 2026-10-10.)
 - **A rule that depends on the picture takes its value from the input
   video, up front.** A likeness line, a size line, a cut score, a margin:
   the preview measures this clip and the rule is set from that, as
