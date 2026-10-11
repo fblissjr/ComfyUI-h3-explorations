@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-11 (the section "What is on disk, what loads it, and what to try next", with depth and geometry models that are not Meta's perception stack; dated notes where the keypoint model's first run overtook a sentence). Before that, 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style))
+last updated: 2026-10-11 (the sections "What is on disk, what loads it, and what to try next" and "The trials", with depth and geometry models that are not Meta's perception stack; dated notes where the keypoint model's first run overtook a sentence). Before that, 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style))
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -128,6 +128,53 @@ estimate has never been run here ("Not run"). A model of that family would
 be the way to give the body mesh the camera Meta's pipeline expects. Whether
 that changes a mesh enough to see is not measured, and it matters only while
 a mesh is used at all.
+
+## The trials: one a model, each on a handful of frames
+
+Written 2026-10-11 at the owner's ask, because the models in the store kept
+being talked about and not tried. Nothing here has been run except the first
+half of the first row. It is a plan, so every row says before it runs what
+it would buy a render, what passes and what fails; a row with no such line
+does not get card time. The order is a proposal and the owner sets it.
+
+The same rules for every row, from this lane's own:
+
+- **A handful of frames where the answer is plain by eye**, picked from
+  captures whose masks a person has looked at. A model that is wrong where a
+  person is sure is not worth a second handful.
+- **Whoever runs it does not judge it.** A second session looks at the
+  pictures and the saved figures before it reads the first one's conclusion,
+  and the record says who did which.
+- **A one-off first, a tool only on a pass.** The first run is a script
+  beside its data under the untracked `data/`, with a record under
+  `bench/results/`; nothing reads its output until the row has passed.
+- **A measure, never an input.** None of these becomes something the video
+  model is given. They plan a mask or score a render.
+
+| trial | the question, and what an answer buys a render | on what | written before it runs | built only on a pass |
+|---|---|---|---|---|
+| 1. The keypoint model, second handful | Do the eye and mouth openings follow the picture from one frame to the next, not only on eight separate frames? It buys a number for expression on a source and on its render, which the open problem of this lane (a redrawn face that does not move with the original's) has no measure for | a run of consecutive frames of a sung close-up, a blink, a half-open mouth; the same frames of a render | passes when the two figures rise and fall where the picture does and do not jump where it does not; fails on a jump, or a shut mouth read as open. The first handful is `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md` | a measuring tool that reads a source and a render and writes one row a frame; no node |
+| 2. Who is in front | Of two masks that touch or cross, which is nearer the camera? It buys the one relation the planned record of a video asks for and no file holds, and with it whose pixels are protected when two people cross or a hand passes a face | two people crossing, one person behind another, a hand over a face, somebody passing close to the lens; the HyDen metric point checkpoint, the HyDen relative depth one and the smaller Sapiens2 pointmap on the same frames, the larger pointmap once as a reference | passes for a model that names the nearer mask on every frame where a person looking is sure; fails for one that is wrong on a crossing. Frames where two models disagree are listed and looked at | one column in the capture's per-frame table. Not a node |
+| 3. The camera for the body mesh | Does the field of view from the metric point model put the mesh closer on the tracked person than the fallback does? | the frames of trial 2 that hold a whole person | passes if the drawn mesh overlaps the tracked mask more with it than without, on frames of more than one shot; fails if no different. Run only while a load is given a mesh at all | the body node takes its field of view from it |
+| 4. Whose voice | Can one voice be taken out of the track by naming or pointing at its singer? It buys "who is heard on this shot" as data where a person types it today | a stretch where two people sing in turn; the phrase alone, the masked video alone, and both; the current vocal stem beside it | passes if each singer's line lands in that singer's part and not the other's; fails if the two parts hold the same line. Needs an environment of its own and a card with no H3 server on it ("SAM-Audio", "What loading it brings") | one column in the voice table |
+| 5. How small a face the part model can read | Below what size do the lip, teeth and tongue classes stop being found? It buys a floor taken from a measurement where the capture's is reasoned | one face at a ladder of sizes, as "Candidate preflight flags" already asks | the size at which the classes vanish, stated per clip; there is no pass, it is a measurement | the part node reports it, and a rule that depends on it takes its value from the input video |
+| 6. A soft edge | Does a matte at the hairline look better than the hard part mask? | a render already made, its saved window laid again both ways with `../../bench/recomposite_window.py` | the owner's eyes on the hairline. Run only if the hairline is named as a fault | the composite reads a matte |
+| 7. The other body backbone | no question yet | | run only on a frame where the mesh in use is wrong | |
+
+**Not on the list unless the owner reopens it: telling who is who by a
+likeness score.** A score between two crops was the first idea of 2026-10-10
+and failed there on this lane's own clip, with the tracker's features: a
+line could not name a person, and wrong takes scored inside the range of
+right ones (`../../bench/results/2026-10-10_who_is_who_across_shots.md`).
+The ruling that followed stands: the answer is a person's, given once a
+video. What is still open to a fair trial is narrower, and is a second
+reading shown BESIDE a numbered picture, never written into the cast file:
+on the shots whose answers a person has already given, does some other
+feature (the part model's own backbone under the mask costs no download)
+rank the right person first on the shots the tracker's features got wrong?
+It passes only if it does that on those shots; agreeing on the easy ones
+says nothing. A likeness cannot know a person who has turned away or
+changed clothes, whichever model it comes from.
 
 ## Where each was read
 
