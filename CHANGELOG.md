@@ -7,6 +7,88 @@ artifact.
 <!-- To add an entry: write a file in changelog.d/ (changelog.d/README.md has the three steps) and run
      bench/build_changelog.py. Do not type an entry in here: the newest entries below are generated. -->
 
+## 0.284.0
+<!-- changelog.d/day-2026-10-11.md -->
+
+### Added
+
+- `bench/pose_along_shot.py`: the Sapiens2 pose model on every frame of a
+  shot. `run` (on the card) reads a source fitted as the loader fits it,
+  gives the model the tracked person's box from a named mask video or the
+  whole frame, and writes the points, their scores, their names and a
+  record of what they were made from. `read` (no card) says what a shot's
+  points can carry before anything is drawn from them or read by them: the
+  face's height and the gap between the lash lines in pixels, and how many
+  frames sit under, over and between the two lines the eye opening is
+  readable at. It prints figures and no verdict. The model's folder is
+  `h3_config.POSE_MODEL`; the list of the points' names is given with
+  `--names` and has no tracked home yet. Held by
+  `bench/check_pose_along_shot.py`.
+- `bench/draw_lid_marks.py`: a shot's eye openings, from those points,
+  drawn on its body-model video as the motion video a masked load reads.
+  One factor a shot (`h3_config.LID_MARKS`, by the face's height, or
+  `--grow`), frames left bare when a person names them, a record and a
+  sheet beside the video, and `verify` for a second reader. Held by
+  `bench/check_draw_lid_marks.py`.
+- `bench/read_render_against_original.py`: a render's face beside its
+  original's from the points of each, split by the stretches where the
+  original's eyes are open and shut, the head as a place in pixels, the
+  mouth as a column never called open or shut, and a floor from a render
+  made twice or a plain statement that none was given. Held by
+  `bench/check_read_render_against_original.py`.
+- `bench/_lib/face_points.py`: one definition of each figure read off the
+  pose model's points, and `h3_config.POSE_READING`, the starting values
+  they are read against.
+- `bench/check_loader_fit.py`: holds `bench/_lib/frames.py::FIT` to what
+  the graphs' video loader does to a source that is not the canvas's
+  shape, and to the loader's own line of code.
+- Records under `bench/results/`: the close render of 2026-10-10 made
+  again through the tracked job builder; the pose model's first run and
+  what its figures can and cannot measure; two tests on one shot (a
+  body-model motion video carries a redrawn head; a face-only region keeps
+  the original's hair); eyelid marks drawn on the body-model video, which
+  set a redrawn face's lids to the original's level on one shot under a
+  short plain text, and did nothing for them on a second shot; two runs of
+  an embedding model as a second reading of who a numbered person is,
+  which did not pass.
+- `docs/wiki/masked_v2v.md`, "The motion video as a body model, with marks
+  drawn on its face": a provisional practice from one shot, with how the
+  reference video was made, the lines of text for it, one whole text as an
+  example, and at its top that it did not repeat on a second shot.
+  `docs/wiki/meta_perception_models.md`: which perception models are on
+  disk, what loads each, and a trial for each written before it is run.
+  `docs/research/postmortems/2026-10-11_span_fun-lid-marks-one-shot.md`.
+
+### Changed
+
+- `docs/wiki/handover.md` is the page for 2026-10-11: what not to assume
+  from one shot, the steps a masked render was made and read by, and where
+  the day's folders, tools and one-offs are. `docs/wiki/decisions.md` holds
+  the owner's rulings of the day, among them: the masked lane is built
+  segments first; a text is the caption of what is generated and names
+  what each reference gives; movement and expression come from one motion
+  video; a bench tool gives data and its context and leaves the reading to
+  whoever runs it; and the capture tool is to hold the whole path of each
+  thing a node uses, source to target.
+
+### Fixed
+
+- `bench/_lib/frames.py::FIT`, through which the bench tools read a source
+  beside a render, did its two steps in the other order from the graphs'
+  video loader (it scaled to cover the canvas and then cut the centre; the
+  loader cuts to the canvas's shape and then scales). For a source whose
+  shape is not the canvas's the two differ by a fraction of a row, so a
+  capture made before this read its source that far off; a source already
+  the canvas's shape was never affected, and no node or generated graph
+  carried it. `bench/masked_render_against_source.py` held the same order
+  as its own string and reads `FIT` now; `bench/assemble_delivery.py` and
+  `bench/patch_render_window.py`, which had the loader's order written out
+  themselves, build theirs from the one place (`frames.LOADER_CROP`) with
+  no change to what they write. With the correction the floor that
+  `bench/capture_masked_run.py changed` measures against is lower on such
+  a source, so its "times the floor" figures read higher than before for
+  the same render.
+
 ## 0.283.0
 <!-- changelog.d/day-2026-10-10.md -->
 
