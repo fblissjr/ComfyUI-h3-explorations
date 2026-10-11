@@ -80,12 +80,49 @@ carries anything, and only for large, clear crops.
   people, and a person whose only large crops are in another kind of shot.
   Shot 9, which the trackers swapped on the 10th, is right for the third
   subject and for one of the lead's two crops, and wrong for the other.
-- **Not tried:** crops cut by the mask, crops of one part (hair, clothing), a
-  comparison with the features of the models this pack already loads, any
-  other stretch or clip, the model's video or audio inputs.
+- **Not tried in this run:** crops of one part (the second run, below), crops
+  cut by the whole mask, a comparison with the features of the models this
+  pack already loads, any other stretch or clip, the model's video or audio
+  inputs.
 - One reader has not looked: the crops and the full table are with the data.
+
+## A second run the same day: the same people cut by part
+
+The owner allowed one more try. The same 25 people, cut this time by the part
+maps the preview had already made (`trial_parts.py` beside the first script):
+the HAIR pixels only and the CLOTHING pixels only, everything else grey. A map
+was taken as a person's only when it filled over a third of their box; the
+first cut had shown a neighbour's pixels inside small boxes at a lower line.
+Sixteen of the 25 people have a map at that line and fifteen have each kind of
+crop; none of the second subject's small figures does, so she has no crop of
+hers in another shot and is not counted.
+
+Written before it ran: hair would hold for the lead and the third subject when
+large; clothing would fail for the lead across her two outfits.
+
+| | hair only | clothing only |
+|---|---|---|
+| named people with a crop of theirs in another shot whose nearest is the same person | 8 of 13 | 13 of 13 |
+| the lead | 8 of 9 | 9 of 9 |
+| the third subject | 0 of 4 | 4 of 4 |
+| the lead, matched only against shots where she wears the other outfit | 5 of 9 | 5 of 9 |
+
+- **Hair does not hold.** Every one of the third subject's hair crops is
+  nearest the second subject's: both have dark curly hair. The expectation for
+  him was wrong.
+- **Clothing is right only inside an outfit,** as expected: across the lead's
+  change of outfit it is right on five of nine, where the whole box was right
+  on ten of eleven.
+- The scores overlap as before: most different-person pairs score above the
+  lowest same-person pair in both kinds.
+
+So cutting by part did worse than the whole box on the one case that matters
+(the same person in other clothes), and hair alone confuses two people of this
+clip. The whole-box result above is the best this model gave here. The road
+rests where the first run left it: at most a hint beside a numbered picture
+for a large, clear person, never the judge.
 
 ## Where the data is
 
-`data/2026-10-11_fun_eg2_who_first_crops/` (untracked): the script, the 50
-crops, the two score tables and what the run printed.
+`data/2026-10-11_fun_eg2_who_first_crops/` (untracked): the two scripts, the
+crops of both runs, the score tables and what each run printed.
