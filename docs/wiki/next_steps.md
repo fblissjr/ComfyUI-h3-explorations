@@ -31,9 +31,19 @@ own below the rule.
 - **Not to be done until the form has held on two shots**: the builder's
   motion choice and a generated workflow for it.
 - Owed and not started: the record of a video on the share with the tool
-  that takes the page's raw answers into it; the pose pass along a shot
-  as a tracked tool run once on the card; trial 2 of
-  [`meta_perception_models.md`](meta_perception_models.md), "The trials".
+  that takes the page's raw answers into it; trial 2 of
+  [`meta_perception_models.md`](meta_perception_models.md), "The trials";
+  a tracked home for the pose model's list of point names, without which
+  a fresh checkout cannot run `bench/pose_along_shot.py`. *The pose pass
+  along a shot, listed here as owed when this block was written, landed
+  the same night.*
+- **The direction for the capture tool, from the owner at the close**
+  ([`decisions.md`](decisions.md), 2026-10-11, the last entry): the whole
+  path of each thing a node uses, source to target, every change with
+  the node and values that made it, for every window; and a capture that
+  says up front whether the source's shape is the canvas's. Not sized.
+  First step: list what the saved graph, the plan, the saved region and
+  the tables already hold.
 
 **Whole-frame video to video (2026-10-09): two full clips on one source; what is owed.**
 - What was rendered, what each showed and what is unexplained:

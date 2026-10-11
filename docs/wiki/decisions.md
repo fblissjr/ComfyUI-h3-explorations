@@ -350,6 +350,34 @@ that session's record disagree, its record is the nearer one.*
   and asked again at the close that the code and tooling be left in a good
   spot. [`handover.md`](handover.md) carries a dated note of where it is
   wrong or short.
+- **What the owner said the bench tools are for, after the day had
+  closed** (2026-10-11, late; three messages typed to the session that
+  has the page, read in the page's own file of answers; in substance):
+  - **A tool gives data and its context and leaves the reading to
+    whoever runs it.** It does not print a verdict. The three tools
+    written that evening print figures with what they were measured on
+    and the starting value each is held against, and say no more.
+  - **A standing check is worth having only where it tells the runner
+    something before time is spent.** Asked of a comparison between a
+    fitted source and a render's untouched pixels after every render:
+    no. What meets it: a capture saying up front whether the source's
+    shape is the canvas's and how much the loader cuts. Not built.
+  - **The capture tool's purpose is the whole path of the data.** For
+    each thing a node uses on the way from source to target, a reader
+    is to be able to see how it came in, every change made to it, what
+    made the change and why, at which step of the workflow, from which
+    node to which, with which values set on the node, for every window
+    that runs. The capture as a workflow is wanted for the same reason.
+    Nothing is built or sized for it; it is the direction the capture
+    tool is held to from here, and its first step is a list of what the
+    saved graph, the plan, the saved region and the tables already hold
+    of it.
+  What prompted it, the same night: the bench tools' own fit of a source
+  to the canvas was found to differ from the loader's by about half a
+  row on this video, and nothing recorded how the source came in. The
+  correction, what it means for older captures and what was read both
+  ways on a real capture: [`handover.md`](handover.md), "After the page
+  was first committed".
 
 ## 2026-10-10
 
