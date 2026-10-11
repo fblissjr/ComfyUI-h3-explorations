@@ -8,6 +8,41 @@ Nothing was rendered and no wording was changed. It was asked for when a
 prompt was found to say a quiet room about a track that is a song. Whether
 that sentence is why a mouth stayed shut in a render is not shown here.
 
+**2026-10-10, later the same night: one row below is wrong, and the count
+is ten, not eleven.** The `MUSIC` row (line 110 of the file, "that there is
+no score") is not an assertion the code cannot know in the case every
+shipped masked graph is in. This record quotes the guide's rule for that
+field two sections down and then did not apply it: `non_diegetic_music` is
+music only the audience hears, a song a person on screen performs belongs
+in the description, and `N/A` is the guide's form for no such music
+(`vendor_guides/base_en.md`, 4.7). With the subject as the main voice,
+which is every shipped masked graph, `N/A` is that form and says nothing
+about whether the track has music. What stays unknown: with `voice` silent
+over a score nobody on screen makes, `N/A` may be false and the node cannot
+tell. Found by the session that audited the fix (mrnemo), reading the guide
+against a replacement sentence I had proposed. Read "eleven" as ten
+wherever it stands below and in the verdict line; the generator's row for
+line 3206 is not changed by this.
+
+**The same night: the owner ordered the sentences fixed and a second
+session to audit the fix.** What was cut and what replaced the soundscape
+line is in `docs/wiki/decisions.md`, 2026-10-10, "The masked text's
+hardcoded assertions cut", once that change is in the tree; this record
+describes the file as it stood before it.
+
+**The same night: the case under test, as the lead reported it.** On the
+close-up the handset sentence was written for, five arms on one seed were
+read by the capture's session for how many of the window's frames show the
+mouth open. The lead's report to me: a single caption sentence saying that
+she sings moved that count most; removing the handset sentence alone moved
+it part of the way; the attention sink and the audio stem did not move it.
+The arms' job files are under `data/2026-10-10_fun_rest_b3_1466_job/`
+(untracked). I did not read the figures myself and the reading is not yet a
+record, so it stands here as a report: one clip, one seed, one window. It
+is the first reading in this lane of a prompt sentence steering a window
+with the audio frozen, and it is why the fix keeps the whole sentence that
+tells the mouth to follow the voice.
+
 ## What was asked
 
 The owner, relayed by the lead session: make sure prompts are not hardcoded
