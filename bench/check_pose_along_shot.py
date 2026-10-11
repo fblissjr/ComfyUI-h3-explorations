@@ -17,8 +17,9 @@ the files the tool wrote are read back.
    bands at its sides comes through `bench/_lib/frames.FIT` with the bands cut away, and the record says it was
    fitted. This does not judge FIT, which has one place and its own check.
 4. **Where the names come from.** Given by hand they are used as given; a folder whose config names its
-   points is read; one whose labels are placeholders is refused without them; a count that does not match the
-   model's points is refused.
+   points is read; one whose labels are placeholders gets Meta's tracked list (`vendor/meta_sapiens2/`) when it has
+   that many points and its own left-right pairs are the list's, and is refused when one pair differs, when it
+   has no pairs, or when it is another model; a count that does not match the model's points is refused.
 5. **`read` says what the points can carry.** On a face whose openings are chosen here it prints the face's
    height and the lid gap in pixels, and with `--table` writes one row a frame whose eye figure is the one
    worked out by hand, with how many frames sit under, over and between the eye opening's two starting lines;
@@ -136,9 +137,9 @@ def fitted_or_not() -> str:
 
 
 def names() -> str:
-    def folder(labels: dict | None, extra: list[str] | None = None) -> str:
+    def folder(labels: dict | None, extra: list[str] | None = None, pairs: list | None = None) -> str:
         d = Path(tempfile.mkdtemp(dir=WORK))
-        (d / "config.json").write_text(json.dumps({"id2label": labels} if labels is not None else {}))
+        (d / "config.json").write_text(json.dumps(({"id2label": labels} if labels is not None else {}) | ({"flip_pairs": pairs} if pairs is not None else {})))
         if extra is not None:
             (d / "names.json").write_text(json.dumps(extra))
         return str(d)
@@ -152,13 +153,34 @@ def names() -> str:
             assert "--names" in str(exc), exc
         else:
             raise AssertionError("a folder that does not name its points was accepted")
+    # Meta's tracked list: for a folder with placeholders, that many points and the list's own left-right pairs
+    table = json.loads(pa.TRACKED_NAMES.read_text())
+    listed = table["names"]
+    at = {n: i for i, n in enumerate(listed)}
+    pairs = sorted({tuple(sorted((at[a], at[b]))) for a, b in table["swap"].items()})
+    blank = {str(i): f"LABEL_{i}" for i in range(len(listed))}
+    got, source = pa.names_and_source(folder(blank, pairs=[list(p) for p in pairs]))
+    assert got == listed and "vendor/meta_sapiens2/pose_keypoints308.json" in source, source
+    assert pa.names_and_source(folder({"0": "nose", "1": "left_eye"}))[1] == "the model's own config"
+    (a, b), (c, d) = pairs[0], pairs[1]
+    for why, its_labels, its_pairs in (("one pair that is not the list's", blank, [[a, c], [b, d]] + [list(p) for p in pairs[2:]]),
+                                       ("no pairs at all", blank, None),
+                                       ("one point more than the list", blank | {str(len(listed)): "LABEL_x"}, [list(p) for p in pairs])):
+        try:
+            pa.point_names(folder(its_labels, pairs=its_pairs))
+        except SystemExit as exc:
+            assert "--names" in str(exc) and "vendor/meta_sapiens2/pose_keypoints308.json" in str(exc), exc
+        else:
+            raise AssertionError(f"a folder with {why} was given Meta's list")
     try:
         pa.run(LEVELS, 0, 4, (W, H), WORK / "n_points.npz", "the check", model, NAMES + ["one_too_many"], say=quiet)
     except SystemExit as exc:
         assert "names" in str(exc), exc
     else:
         raise AssertionError("four names for three points were accepted")
-    return "a config that names its points is read in the labels' order; placeholders are refused unless a names file is there; a count that does not match the model's points is refused"
+    return (f"a config that names its points is read in the labels' order; placeholders get Meta's {len(listed)} tracked names when the folder's own "
+            f"{len(pairs)} left-right pairs are the list's, and are refused with one pair moved, with no pairs, with a point more, or with nothing at all; "
+            "a count that does not match the model's points is refused")
 
 
 def read_says_what_they_carry() -> str:
@@ -192,13 +214,14 @@ def read_says_what_they_carry() -> str:
 
 def the_record() -> str:
     said: list[str] = []
-    rec = pa.run(LEVELS, 2, 5, (W, H), WORK / "rec_points.npz", "a session", model, NAMES, source_first=50, say=said.append)
+    rec = pa.run(LEVELS, 2, 5, (W, H), WORK / "rec_points.npz", "a session", model, NAMES, source_first=50, names_from="a list of the check's", say=said.append)
     assert any(line.startswith("wrote ") for line in said) and any("no summary of the face" in line for line in said), said   # written, then said plainly
     saved = json.loads((WORK / "rec_points.json").read_text())
     assert saved == rec and saved["made_by"] == "a session" and saved["made_at"].endswith("Z") and saved["model"] == h3_config.POSE_MODEL
     assert saved["made_from"]["its_frames"] == [2, 6] and saved["made_from"]["which_are_source_frames"] == [50, 54] and saved["frames"] == 5
-    assert len(saved["not_known"]) == 2
-    return ("the record says who made it and when, the clip's frames and the source frames they are, and what the tool cannot know; "
+    assert len(saved["not_known"]) == 2 and saved["names_from"] == "a list of the check's"
+    assert pa.run(LEVELS, 2, 5, (W, H), WORK / "rec2_points.npz", "a session", model, NAMES, say=quiet)["names_from"] == "given by the caller"
+    return ("the record says who made it and when, where the points' names came from, the clip's frames and the source frames they are, and what the tool cannot know; "
             "points that name no face are written all the same and the tool says it has no summary of them")
 
 

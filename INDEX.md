@@ -147,7 +147,7 @@ with none is a helper the others import.
 | `.claude/` | 2 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
-| `bench/` | 739 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
+| `bench/` | 741 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
 | `docs/` | 176 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
@@ -155,7 +155,7 @@ with none is a helper the others import.
 | `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 25 | [below](#standalone) |
-| `vendor/` | 2 | [below](#vendor) |
+| `vendor/` | 6 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 4 | [below](#vendor_guides) |
 | `workflows/` | 178 | [`workflows/INDEX.md`](workflows/INDEX.md) |
@@ -251,6 +251,10 @@ with none is a helper the others import.
 | file | what it says |
 |---|---|
 | [`README.md`](vendor/README.md) | (empty) |
+| [`meta_sapiens2/LICENSE.md`](vendor/meta_sapiens2/LICENSE.md) | Sapiens2 License |
+| [`meta_sapiens2/README.md`](vendor/meta_sapiens2/README.md) | vendor/meta_sapiens2: Meta's names for the Sapiens2 models' points and classes |
+| [`meta_sapiens2/pose_keypoints308.json`](vendor/meta_sapiens2/pose_keypoints308.json) | Meta's names for the Sapiens2 pose model's points, in the checkpoint's order, with each name's left-right partner |
+| [`meta_sapiens2/seg_classes29.json`](vendor/meta_sapiens2/seg_classes29.json) | Meta's names and preview colours for the Sapiens2 segmentation model's classes, by index |
 | [`rebuild_kernel.sh`](vendor/rebuild_kernel.sh) | Rebuild and install comfy_kitchen's Sol-Attn kernel from a source checkout. |
 
 ## vendor_config/

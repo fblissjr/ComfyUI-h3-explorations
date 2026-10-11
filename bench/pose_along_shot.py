@@ -3,7 +3,7 @@
 
     python bench/pose_along_shot.py run --video SOURCE.mov --first 1575 --count 155 --canvas 1024x768 \\
         --box-mask TRACK.mkv --box-mask-first 1575 --model-folder <the store>/<h3_config.POSE_MODEL> \\
-        --names NAMES.json --out data/<job>/lead_1575_points.npz --by <session>
+        --out data/<job>/lead_1575_points.npz --by <session> [--names NAMES.json]
     python bench/pose_along_shot.py read data/<job>/lead_1575_points.npz [--table]
 
 `run` needs the card: whoever holds it runs it. It reads the frames it is told to, by number; fits a source to
@@ -12,12 +12,15 @@ one box a frame, the tracked person's from a named mask video or the whole frame
 scores, the picture's size, the points' NAMES and the source frame of row 0. A record goes beside it
 (`.json`). It derives no figure: those have one definition, `bench/_lib/face_points.py`.
 
-THE NAMES. Every tool finds a point by its name, so a points file carries them. The checkpoint in the store
-does not name its points (its config calls them `LABEL_0` on), so they are given with `--names`: a json list
-in the checkpoint's order. The list used so far was read out of Meta's own keypoint config for this model and
-is an untracked file; where it came from and what its order rests on is in
-`bench/results/2026-10-11_sapiens2_pose_first_frames.md`. A model folder that does name its points needs no
-`--names`, and one that does not is refused without it.
+THE NAMES. Every tool finds a point by its name, so a points file carries them, and its record says where
+they came from. The checkpoint in the store does not name its points (its config calls them `LABEL_0` on).
+Meta's code does, and that list is kept in `vendor/meta_sapiens2/pose_keypoints308.json` with Meta's licence beside
+it (`vendor/meta_sapiens2/README.md`). It is used for a model folder whose config has that many points and whose own
+left-right pairs (`flip_pairs`) are the list's. That says the folder is the model the list is for; it does
+not prove the list's order, which `bench/check_meta_sapiens2.py` holds to Meta's file, and what else the order
+rests on is in `bench/results/2026-10-11_sapiens2_pose_first_frames.md`. A folder that names its own points is read from its
+config, `--names` (a json list in the checkpoint's order) is used as given, and a folder that fits none of
+these is refused.
 
 A render is read the same way. Its frame 0 is not source frame 0: `--source-first` says which source frame the
 clip's `--first` frame is, and that is what the file records.
@@ -72,6 +75,10 @@ LINES_NOTE = ("On the one close-up those two lines were read off, a person looki
 GAP_NOTE = "a starting value that lies between the median of the one shot whose marks carried and those of shots whose lash lines are under a pixel apart"
 
 
+#: Meta's names for the pose model's points, kept with Meta's licence beside them: `vendor/meta_sapiens2/README.md`.
+TRACKED_NAMES = REPO / "vendor" / "meta_sapiens2" / "pose_keypoints308.json"
+
+
 def load_model(folder: str, names: list[str] | None = None):
     """The pose model from a folder: (predict, names). `predict(picture [h, w, 3], box [x, y, w, h])` gives points
     [n, 2] in the picture's pixels and scores [n]. `names` given by hand are used as given; else the folder's own.
@@ -94,19 +101,43 @@ def load_model(folder: str, names: list[str] | None = None):
     return predict, names
 
 
-def point_names(folder: str, config=None) -> list[str]:
-    """The points' names, from the model's own files. A config whose labels are placeholders is refused: a points file
-    with made-up names would be read by index in all but word."""
-    labels = getattr(config, "id2label", None) or json.loads((Path(folder) / "config.json").read_text()).get("id2label", {})
+def tracked_names(labels: dict, flip_pairs: list | None) -> list[str] | None:
+    """Meta's list for the pose model, when a model's config has that many points and its own left-right pairs are
+    the list's; else None. The pairs are the one thing a checkpoint's config says about which point is which."""
+    if not TRACKED_NAMES.exists():
+        return None
+    table = json.loads(TRACKED_NAMES.read_text())
+    names = [str(n) for n in table["names"]]
+    at = {n: i for i, n in enumerate(names)}
+    listed = {tuple(sorted((at[a], at[b]))) for a, b in table["swap"].items()}
+    own = {tuple(sorted(int(i) for i in pair)) for pair in flip_pairs or []}
+    return names if own and own == listed and len(labels) == len(names) else None
+
+
+def names_and_source(folder: str, config=None) -> tuple[list[str], str]:
+    """The points' names and where they came from: the model's own config, a names file in its folder, or Meta's
+    tracked list. A folder that fits none is refused: a points file with made-up names would be read by index in
+    all but word."""
+    own = json.loads((Path(folder) / "config.json").read_text())
+    labels = getattr(config, "id2label", None) or own.get("id2label") or {}
     names = [labels[k] for k in sorted(labels, key=int)]
     if names and not all(n.startswith("LABEL_") for n in names):
-        return names
+        return names, "the model's own config"
     for extra in ("keypoint_names.json", "names.json"):
         f = Path(folder) / extra
         if f.exists():
-            return list(json.loads(f.read_text()))
-    raise SystemExit(f"{folder} does not name its points (its config's labels are placeholders and it holds no names file): give --names, "
-                     "a json list in the checkpoint's order")
+            return list(json.loads(f.read_text())), f"{extra} in the model's folder"
+    listed = tracked_names(labels, own.get("flip_pairs"))
+    if listed:
+        return listed, f"{TRACKED_NAMES.relative_to(REPO)}: the model's own left-right pairs are that list's"
+    raise SystemExit(f"{folder} does not name its points (its config's labels are placeholders and it holds no names file), and its "
+                     f"point count and left-right pairs are not those of {TRACKED_NAMES.relative_to(REPO)}: give --names, a json list "
+                     "in the checkpoint's order")
+
+
+def point_names(folder: str, config=None) -> list[str]:
+    """The points' names alone: `names_and_source`."""
+    return names_and_source(folder, config)[0]
 
 
 def boxes_from(mask: np.ndarray, covered: np.ndarray, size: tuple[int, int]) -> tuple[list[list[float]], list[int]]:
@@ -124,7 +155,7 @@ def boxes_from(mask: np.ndarray, covered: np.ndarray, size: tuple[int, int]) -> 
 
 
 def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, by: str, predict, names: list[str], *,
-        source_first: int | None = None, box_mask: str = "", box_mask_first: int | None = None, model: str = "", say=print) -> dict:
+        source_first: int | None = None, box_mask: str = "", box_mask_first: int | None = None, model: str = "", names_from: str = "", say=print) -> dict:
     """Read the frames, give each to `predict` in its box, write the points and the record. Returns the record."""
     w, h = canvas
     vw, vh, have = probe(video)
@@ -151,7 +182,7 @@ def run(video: str, first: int, count: int, canvas: tuple[int, int], out: Path, 
                         first_frame=np.array(source_first))
     record = {
         "points": out.name, "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "model": model or h3_config.POSE_MODEL,
+        "model": model or h3_config.POSE_MODEL, "names_from": names_from or "given by the caller",
         "made_from": {"video": str(video), "its_frames": [first, first + count - 1], "which_are_source_frames": [source_first, source_first + count - 1],
                       "fitted_to_the_canvas": ("as the loader fits a source: cut to the canvas's shape at the centre, then scaled" if fitted
                                                else "no: it is the canvas's size"),
@@ -230,7 +261,7 @@ def main() -> int:
     r.add_argument("--box-mask", default="", help="a mask video of the tracked person at the canvas's size; the whole frame when left out")
     r.add_argument("--box-mask-first", type=int, help="the source frame of the mask video's frame 0; the shot's first when left out")
     r.add_argument("--model-folder", required=True, help=f"where the model is: the store's folder named {h3_config.POSE_MODEL}")
-    r.add_argument("--names", help="a json list of the points' names, when the model's folder does not name them")
+    r.add_argument("--names", help="a json list of the points' names in the checkpoint's order, for a model that neither names them nor is the one vendor/meta_sapiens2/ lists")
     r.add_argument("--out", required=True, help="the points file to write (.npz); its record goes beside it")
     r.add_argument("--by", required=True, help="who is running it")
     d = sub.add_parser("read", help="say what a points file can carry (no card)")
@@ -242,9 +273,10 @@ def main() -> int:
         return 0
     if Path(v.model_folder).name != h3_config.POSE_MODEL:
         print(f"note: the folder is named {Path(v.model_folder).name}, and h3_config.POSE_MODEL is {h3_config.POSE_MODEL}")
+    names, names_from = (names, f"--names {v.names}") if names else names_and_source(v.model_folder)      # refused here, before the model is loaded
     predict, names = load_model(v.model_folder, names)
     run(v.video, v.first, v.count, v.canvas, Path(v.out), v.by, predict, names, source_first=v.source_first, box_mask=v.box_mask,
-        box_mask_first=v.box_mask_first, model=Path(v.model_folder).name)
+        box_mask_first=v.box_mask_first, model=Path(v.model_folder).name, names_from=names_from)
     return 0
 
 

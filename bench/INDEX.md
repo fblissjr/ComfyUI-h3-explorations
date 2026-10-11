@@ -8,12 +8,12 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 112 |
+| [`check_*`](#check) | 113 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 18 |
+| [`build_*`](#build) | 19 |
 | [`probe_*`](#probe) | 11 |
 | [the rest](#the-rest) | 145 |
 
@@ -70,6 +70,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
 | [`check_meta_sam3_copy.py`](check_meta_sam3_copy.py) | `meta_sam3/` differs from Meta's code by the rule and the declared edits, and by nothing else. |
+| [`check_meta_sapiens2.py`](check_meta_sapiens2.py) | `vendor/meta_sapiens2/` is Meta's text as Meta wrote it: its licence, and its names for the Sapiens2 models' points and classes. |
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
 | [`check_model_files.py`](check_model_files.py) | No graph or constant may name a model file its real loader cannot use. |
 | [`check_mutant_parity.py`](check_mutant_parity.py) | The standalone `H3ExactLoRA` node computes what this pack's two nodes compute. |
@@ -267,6 +268,7 @@ this file is only a way to find a script by what it says it does.
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
 | [`build_meta_sam3.py`](build_meta_sam3.py) | Make `meta_sam3/sam3` from `coderef/sam3`: Meta's files, one rule, the declared edits. |
+| [`build_meta_sapiens2.py`](build_meta_sapiens2.py) | Make `vendor/meta_sapiens2/` from `coderef/sapiens2`: Meta's names for its models' points and classes, and its licence. |
 | [`build_mutant_examples.py`](build_mutant_examples.py) | Generate h3-mutant-distill's example workflows, in the frontend's own UI format. |
 | [`build_outputs_record.py`](build_outputs_record.py) | Join a run JSONL to the clips the server wrote for it, before the server goes down. |
 | [`build_pdd_base_shim.py`](build_pdd_base_shim.py) | A minimal `--base` for `convert_pdd_lora.py`, with any time embedder. CPU only. |

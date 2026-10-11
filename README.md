@@ -9,5 +9,6 @@ See [LLM wiki index](docs/wiki/index.md)
 ## Licence
 
 This pack is under the MIT licence in `LICENSE`, except the `meta_sam3/`
-directory: that is Meta's SAM 3.1 inference code with our edits, and
-everything in it is under the SAM License in `meta_sam3/LICENSE`.
+and `vendor/meta_sapiens2/` directories: those hold Meta's code and text,
+under Meta's licences in `meta_sam3/LICENSE` and
+`vendor/meta_sapiens2/LICENSE.md`.
