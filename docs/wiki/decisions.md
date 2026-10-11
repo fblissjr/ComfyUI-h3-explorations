@@ -298,6 +298,17 @@ Older history lives elsewhere and is not copied here:
     which goes once the held tail's change is served. One thing was done
     that the list above does not say: the json beside a zoomed file is
     version 2 (the key `largest_zoom` left it).
+  - 2026-10-10, after the lead's sweep: the stores' removal had left five
+    stale sentences, against the rule that every reference goes in the
+    removal's own commit. Two were pointers to removed symbols, found by
+    `bench/check_doc_links.py` in the full sweep (`docs/h3_references.md`,
+    a dated research note); it had not been among the single checks run
+    at the landing, and it is the one to run with any removal. Three named
+    no symbol and no check sees them: the help text of the encode node and
+    of the song node, which still promised a reuse, and two docstrings.
+    Corrected in 7c902d53 and e550c443, text only. How the three were
+    found: a grep of every touched node for the words a keep is described
+    in (reuse, kept, stays in memory, a hit), read line by line.
 
 - **No more data files under `bench/results/`** (owner, to the lead: the
   folder had been taking files that serve the same purpose as `data/`).
