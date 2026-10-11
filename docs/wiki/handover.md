@@ -124,7 +124,12 @@ day had finished.
   the pose model's point names is an untracked file
   (`data/2026-10-11_sapiens2_pose_consecutive/names308.json`, read out of
   Meta's keypoint config), so a fresh checkout cannot run the pose tool
-  until it has a tracked home. [`masked_v2v.md`](masked_v2v.md), "How it
+  until it has a tracked home. *Decided at the close and not built when
+  this was written: Meta's Sapiens2 names (the pose points and the part
+  model's classes and colours) go into a folder of their own with Meta's
+  licence file beside them, and the part node reads its names and
+  colours from there, which is a node change with a restart and a smoke
+  test ([`decisions.md`](decisions.md), 2026-10-11, the last entry).* [`masked_v2v.md`](masked_v2v.md), "How it
   was made", names both tools and says nothing joins them up: no node, no
   shipped graph, and the builder is handed a marked video and cannot make
   one.

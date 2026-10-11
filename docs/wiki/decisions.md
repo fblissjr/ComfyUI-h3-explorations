@@ -388,6 +388,17 @@ that session's record disagree, its record is the nearer one.*
     tool is held to from here, and its first step is a list of what the
     saved graph, the plan, the saved region and the tables already hold
     of it.
+  - **Meta's Sapiens2 names are kept in a folder of their own, with
+    Meta's licence file beside them.** The pose model's list of point
+    names (its checkpoint names none, so the tools need the list) and
+    the part model's class names and colours go there, each list as a
+    file saying where upstream keeps it. The part node reads its names
+    and colours from there; that is a node change, so it lands with a
+    restart and a smoke test (the same preview before and after, its
+    class map equal array for array). The lists are held two ways: to
+    upstream's files where that checkout is present, and the point names
+    to the checkpoint's own left and right pairs. Decided by the owner
+    on being shown the options; not built when this was written.
   What prompted it, the same night: the bench tools' own fit of a source
   to the canvas was found to differ from the loader's by about half a
   row on this video, and nothing recorded how the source came in. The
