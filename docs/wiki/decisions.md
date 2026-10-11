@@ -15,6 +15,50 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-11
+
+*Written by the session that took the build over (mrfire) from what the
+session the owner spoke to (mrhop) took down the same day; where this and
+that session's record disagree, its record is the nearer one.*
+
+- **Segments first, designed as one thing with the planning data and with
+  objects** (owner, after a whole-person render of the opening shot redrew
+  about half the frame, where the render of 2026-10-10 that replaced only
+  the face and hair of the same frames was the close one). What it
+  replaces: a job file that says, before any picture exists, whether a
+  subject is taken whole or as one fixed set of part ticks
+  (`carried: track|held`, `h3_config.SUBJECT_PARTS`), and three fixed cases
+  of text in the Masked Prompt node. Now, as a direction and with nothing
+  built: every subject of the input video is cut into its most granular
+  parts on every frame, every reference still is cut the same way, and
+  what is replaced, kept out or left on a shot is a choice a person makes
+  from a view of those parts, so that whole body, face only, or hair and
+  clothes is data handed in and not a code path. Objects are in the same
+  design and kept apart from people, with what the preprocessing can tell
+  of how they relate (held by, in front of, passes, touches). The planning
+  data is designed with it and not after: per video, in source frames, who
+  is in each shot, what is replaced in each shot, and the text of each.
+  **Before any of it changes code**, the close render of 2026-10-10 is
+  made again through the tools as they stand, unchanged; what that run
+  shows the tools cannot say is the first input to the design.
+- **This clip's defaults for what is replaced** (owner): the lead, the
+  face only; the second subject, face and hair; the third subject, the
+  face only, keeping his own hair. A default covers a subject's shots
+  until a shot is changed.
+- **A clip handed to the owner to judge is stacked with its masks and
+  carries frame numbers, on one local page, with its prompt shown**
+  (owner, on reviewing a joined file by the second it played at). The
+  source on top with each subject's mask, part and margin in its own
+  colour and its label, the render under it, the source frame number
+  burned into both. The tool is `bench/capture_masked_run.py video`. A bare
+  render is not handed over, and nothing of the owner's media goes to a
+  hosted page.
+- **A working database may be a preview build, and is short-lived**
+  (owner): what a tool needs to query is read in place from the tables
+  the tools already write, a database earns a file only where something
+  needs it, and any of it can be moved later. What a person submits on a
+  page stays one appended line a submit in a plain file.
+
 ## 2026-10-10
 
 - **What is on a frame of an input video is made once and kept, in
