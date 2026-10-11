@@ -38,6 +38,63 @@ Older history lives elsewhere and is not copied here:
   from per-video data. A second session's audit of every prompt sentence
   held in code is a dated record under `bench/results/`.
 
+- **The masked text's hardcoded assertions cut** (owner, on that audit,
+  `bench/results/2026-10-10_prompt_text_hardcoded_in_code.md`: fix the
+  prompts and have a second session audit the fix). What it replaces, all
+  in `masked_prompt_text.py`, the text the Masked Prompt node writes for
+  every graph that wires it: sentences that said, of a clip the node never
+  sees, that the picture is photorealistic live-action, that the subject is
+  there for the whole take at one size, what else is in the scene, that
+  the plate is steady and sharp, that the subject casts a shadow, that the
+  original has hair on the shoulders and the clothing a print, and what the
+  subject's breath, eyes, head, shoulders and hands do; and sentences that
+  spoke of an edit (what takes whose place, what stays, what is kept, what
+  is "the scene's own", a camera that "does not change"). Now the
+  whole-person and head roles open their shot with one sentence, that the
+  subject is in the scene, and hold only what the reference provides and
+  how the mouth follows the chosen voice. The soundscape was a line saying the scene is quiet with a brush
+  of clothing; it is now the general line the reference composer already
+  wrote, held once and read by both (approved by the lead; read and
+  accepted by the owner the same night, as the lead relays it; reasoned,
+  not measured: the field was not tested on its own).
+  - *The music line did not change, and the entry above misreads it.*
+    `non_diegetic_music: N/A` does not say the track has no music. That
+    field is music only the audience hears, the guide counts a song a
+    person on screen performs as part of the description, and `N/A` is its
+    form for no such music (`vendor_guides/base_en.md`, 4.7). So it holds
+    for a subject who performs the track, which is every shipped masked
+    graph, and the audit's row calling it an unconditional fault was too
+    strong: found by the fix's auditor. What is not known: with `voice`
+    silent over a score nobody on screen makes, `N/A` may be false, and
+    the node cannot tell.
+  - *The head-and-upper-body role is held back* (the lead, the same
+    night). It is the one wording a person has watched and accepted, and
+    an accepted result is not changed without a render; the order to fix
+    the prompts and that rule meet here. So only its sound line changed
+    where a motion reference is wired, which is every shipped graph of
+    that role (with none wired, one sentence nobody had rendered, that the
+    upper body and the legs "move as one body", was cut at the auditor's
+    word), and it keeps four sentences of the kinds cut elsewhere, named in the
+    file as `HELD`: the scene "already lit, framed and cut" in its
+    summary, the style opening, the light sentence and the camera
+    sentence. They go after one render of the upper graph with and
+    without them, on a window already accepted, is read.
+  - *What it costs.* Each cut text is under the reference guide's word
+    budget for a description, as the upper-body role already was; nothing
+    was written to fill the count. The whole-person and motion entries of
+    the bank no longer hold the wording the measured arms ran. Neither cut
+    role has rendered as it now stands.
+  - *Not done.* The bank's hand-typed masked texts from before the node
+    (`ref2va_masked_subject_swap`, `_head_swap`, the three `_lead_` texts,
+    `_stage_singer`) still carry sentences of both kinds; no shipped graph
+    reads them through the node. The mouth sentence still says the lips
+    rest whenever the voice pauses, which goes further than the choice of
+    voice; it was left alone because the one measured reading of a mouth
+    that night was a sentence about singing opening it. The description has no style opening,
+    which the guide asks for (`vendor_guides/ref_en.md`, 5.2) and the node
+    cannot write truthfully. The sound lines from a video's own track are
+    the analysis folder's work.
+
 - **Nothing an earlier run made is reused by a key** (owner, to the lead,
   on the list of stores a session drew up that evening). Until this line
   the pack had a kept-mask store (`reuse_mask`), stored-window reuse

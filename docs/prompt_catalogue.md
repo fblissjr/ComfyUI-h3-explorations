@@ -13,12 +13,14 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`ref2va_role_character_environment`](#ref2va-role-character-environment) | `ref2va_role_character_environment` | 10 | 135 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | `i2va_lighthouse_keyframe` | 9 | 90 | 1 | 0 | — |
 | [`ref2va_role_character_garment_environment`](#ref2va-role-character-garment-environment) | `ref2va_role_character_garment_environment` | 9 | 173 | 1 | 0 | — |
+| [`ref2va_masked_person_swap`](#ref2va-masked-person-swap) | `ref2va_masked_person_swap` | 4 | 248 | 1 | 1 | — |
 | [`fl2va_interior_converge`](#fl2va-interior-converge) | `fl2va_interior_converge` | 3 | 159 | 1 | 0 | — |
 | [`ref2va_image_video_audio_music`](#ref2va-image-video-audio-music) | `ref2va_image_video_audio_music` | 3 | 264 | 1 | 0 | — |
+| [`ref2va_masked_person_motion`](#ref2va-masked-person-motion) | `ref2va_masked_person_motion` | 3 | 327 | 1 | 1 | — |
+| [`ref2va_masked_person_upper_motion`](#ref2va-masked-person-upper-motion) | `ref2va_masked_person_upper_motion` | 3 | 250 | 1 | 1 | — |
 | [`BENCH_T2V_PROMPT`](#bench-t2v-prompt) | `t2va_frontier_standoff` | 2 | 385 | 3 | 2 | `<d>` |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | `ref2va_stairwell_dialogue` | 2 | 640 | 3 | 2 | `<d>` |
-| [`ref2va_masked_subject_motion`](#ref2va-masked-subject-motion) | `ref2va_masked_subject_motion` | 2 | 637 | 1 | 1 | — |
-| [`ref2va_masked_subject_swap`](#ref2va-masked-subject-swap) | `ref2va_masked_subject_swap` | 2 | 476 | 1 | 1 | — |
+| [`ref2va_masked_person_head`](#ref2va-masked-person-head) | `ref2va_masked_person_head` | 2 | 229 | 1 | 1 | — |
 | [`ref2va_studio_dancer_close_refs`](#ref2va-studio-dancer-close-refs) | `ref2va_studio_dancer_close_refs` | 2 | 568 | 2 | 0 | — |
 | [`ref2va_video_sound_structure`](#ref2va-video-sound-structure) | `ref2va_video_sound_structure` | 2 | 183 | 1 | 0 | — |
 | [`t2va_studio_dancer_close`](#t2va-studio-dancer-close) | `t2va_studio_dancer_close` | 2 | 236 | 2 | 0 | — |
@@ -304,6 +306,37 @@ non_diegetic_music:
 N/A
 ```
 
+## ref2va_masked_person_swap
+
+Carried by **4** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_mask_pdd8_api`
+- `h3_mask_review_api`
+- `h3_video_to_video_masked_review_api`
+- `h3_video_to_video_masked_song_pdd8_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
+
+summary:
+[reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
+
+detailed_description:
+[Shot 1] <Subject 1>, the person, is in the scene. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of their clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
+
+overall_soundscape: Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music: N/A
+```
+
 ## fl2va_interior_converge
 
 Carried by **3** graph(s). Sections: none.
@@ -367,6 +400,71 @@ non_diegetic_music:
 A slow instrumental score follows the tempo and instrumentation of <Audio 2>.
 ```
 
+## ref2va_masked_person_motion
+
+Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_mask_ref2va_motion_api`
+- `h3_probe_v2v_masked_song_ref2va_motion_cache_api`
+- `h3_video_to_video_masked_song_ref2va_motion_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
+<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+
+summary:
+[reference generation] <Subject 1> is in the scene and performs the main voice heard on the track to its timing.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side.
+<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+
+detailed_description:
+[Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of their clothing is plain and in keeping with it; where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
+
+overall_soundscape: Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music: N/A
+```
+
+## ref2va_masked_person_upper_motion
+
+Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_mask_upper_ref2va_motion_api`
+- `h3_probe_v2v_masked_upper_song_ref2va_motion_cache_api`
+- `h3_video_to_video_masked_upper_song_ref2va_motion_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the person shown in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>.
+<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+
+summary:
+[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. From the waist up <Subject 1> is as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - the person: their face and everything <Picture 1> shows of them from the waist up are retained in every frame.
+<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+
+detailed_description:
+The target video is photorealistic live-action.
+[Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. The scene's own light falls on <Subject 1> as it falls on everything around them, from the same direction and in the same colour, and changes on them when it changes there. <Subject 1> (S1) is the main voice heard on the track and performs it as it plays. The framing and every movement of the camera are the scene's own and do not change.
+
+overall_soundscape: Natural ambient atmosphere continues throughout the shot.
+
+non_diegetic_music: N/A
+```
+
 ## BENCH_T2V_PROMPT
 
 Carried by **2** graph(s). Sections: none.
@@ -425,64 +523,31 @@ non_diegetic_music:
 N/A
 ```
 
-## ref2va_masked_subject_motion
+## ref2va_masked_person_head
 
 Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
 
 <details><summary>graphs</summary>
 
-- `h3_mask_ref2va_motion_api`
-- `h3_video_to_video_masked_song_ref2va_motion_api`
+- `h3_mask_parts_pdd8_api`
+- `h3_video_to_video_masked_parts_song_pdd8_api`
 
 </details>
 
 ```text
 subject_definitions:
-<Subject 1> is the man shown in <Picture 1>, preserving his facial identity, hair, build and the clothing visible in <Picture 1>, whose body motion, posture, gestures, head movements and their timing come from the person in <Video 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-<Video 1> is the source of the movement transferred to <Subject 1>; its scene is not reused and its person's appearance is not.
+<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, their hair and anything worn on the head in <Picture 1>. The clothing, background, lighting and framing of <Picture 1> are not present in the target video.
 
 summary:
-[reference generation] <Subject 1> takes the place of one person in a scene that is already lit, framed and cut, and performs the main voice heard on the track to its timing, while everything else in the scene stays as it is.
+[reference generation] <Subject 1> is in the scene, with the face, the hair and anything worn on the head as <Picture 1> shows them, and performs the main voice heard on the track to its timing.
 
 retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame, at every distance from the camera and from every side; only the setting changes.
-<Video 1> (motion source): attribute_transfer - only the body motion, posture, gestures and their timing are taken; the scene and the person's appearance are not.
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair and headwear in every frame, at every distance from the camera and from every side.
 
 detailed_description:
-The target video is photorealistic live-action, and its setting, its lighting, its framing and every other person and object in it stay exactly as they already are from the first frame to the last.
-[Shot 1] <Subject 1> is in the scene for the whole take, in the place the scene holds for one person, at that place's distance from the lens and at the scale of everything around it. <Subject 1> moves exactly as the person in <Video 1> moves, turning when they turn and by as much, facing where they face, gesturing when they gesture, at the same moments. The scene's own light falls on <Subject 1> exactly as it falls on what is beside him: the same direction, the same softness and the same colour on the face, the hair and the clothing, and whenever the light changes colour or brightness, the light on <Subject 1> changes with it at the same moment. The shadow <Subject 1> casts lies where that light sends it and moves when <Subject 1> moves. Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, and whatever <Picture 1> does not show of his clothing is plain and in keeping with it; where the frame shows only the head and shoulders, the face of <Subject 1> fills that space at the same scale, sharp and evenly exposed, with the skin texture, the hairline and the eyes of <Picture 1>. Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the same clothing. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of every sung or spoken phrase, the mouth shapes each vowel and closes on each consonant in time with the voice, and the lips rest together, still, whenever the voice pauses. A breath lifts the chest and shoulders before each new phrase. The eyes blink naturally and hold a steady line of sight, and the brows and cheeks carry the feeling of the line. The head tips and turns with the delivery, the shoulders loosen and move with the rhythm, and the hands move with the phrasing, opening on a long note and settling as it ends. Everyone and everything else is untouched: wherever <Subject 1> does not cover them, the other people, the walls, the furniture and the ground are visible exactly as before, steady and in focus. The framing and every movement of the camera are the scene's own and do not change.
+[Shot 1] <Subject 1>, the person, is in the scene. When <Subject 1> has their back to the camera, the camera sees the back of their head and whatever is worn on it, never the face. Where the frame is close, the face has the skin texture, the hairline and the eyes of <Picture 1>. <Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of each phrase of that voice, the mouth shapes each vowel and closes on each consonant in time with it, and the lips rest together, still, whenever that voice pauses.
 
-overall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.
-
-non_diegetic_music: N/A
-```
-
-## ref2va_masked_subject_swap
-
-Carried by **2** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
-
-<details><summary>graphs</summary>
-
-- `h3_mask_pdd8_api`
-- `h3_video_to_video_masked_song_pdd8_api`
-
-</details>
-
-```text
-subject_definitions:
-<Subject 1> is the person shown in <Picture 1>, preserving their facial identity, hair, build and the clothing visible in <Picture 1>. The background, lighting and framing of <Picture 1> are not present in the target video.
-
-summary:
-[reference generation] <Subject 1> is the one performer on screen, placed in a scene that is already lit, framed and cut, and delivers the voice heard on the track to its timing.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build and clothing in every frame and at every distance from the camera; only the setting changes.
-
-detailed_description:
-The target video is photorealistic live-action, and its setting, lighting and framing stay exactly as they already are from the first frame to the last. <Subject 1> is the only person in it.
-[Shot 1] <Subject 1> stands where the performer stands in the scene across the fourteen-second take, at the performer's distance from the lens and facing the way the performer faces, lit by the scene's own light: the same direction, the same colour and the same softness fall on the face, the hair and the clothing of <Subject 1> as fall on the wall and the floor around them, and the shadow <Subject 1> casts lies where that light sends it and moves when they move. Where the scene shows the performer whole, <Subject 1> is whole, with clothing from <Picture 1> on the upper body and plain dark trousers and shoes below; where it shows only the head and shoulders, the face of <Subject 1> fills that space at the same scale, sharp and evenly exposed, with the skin texture, the hairline and the eyes of <Picture 1>. <Subject 1> (S1) is the voice on the track and performs it on screen: the jaw drops and the lips open on the first syllable of every sung or spoken phrase, the mouth shapes each vowel and closes on each consonant in time with the voice, and the lips rest together, still, whenever the voice pauses. A breath lifts the chest and shoulders before each new phrase. The eyes stay on whatever the performer is looking at, blinking naturally, and the brows and cheeks carry the feeling of the line. The head tips and turns with the delivery, the shoulders loosen and sway with the rhythm, and the hands move with the phrasing, opening on a long note and falling back to the sides as it ends, the weight shifting from one foot to the other in time. Nothing else in the frame changes: the background, the floor and every object stay where they are, steady, undisturbed and in focus exactly as before. The camera holds a static shot.
-
-overall_soundscape: Quiet room tone sits under the scene, with the soft brush of clothing and the performer's footsteps as they move.
+overall_soundscape: Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music: N/A
 ```

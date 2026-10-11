@@ -177,6 +177,18 @@ its choices (`masked_prompt_text.py`; `bench/check_masked_prompt.py` holds
 copy and node together). None names a setting, a shot, a cut or a camera,
 for the reason the 2026-10-04 row gives.
 
+*2026-10-10: the node's sentences were cut, so the rows below describe the
+earlier wording wherever they say a text is mrhf's, is the text the motion
+arms ran, or has rendered. What went: every sentence asserting what the
+node cannot know of a clip it never sees, and every sentence that speaks of
+an edit (`wiki/decisions.md`, that date;
+`../bench/results/2026-10-10_prompt_text_hardcoded_in_code.md`). The
+upper-body entry changed only in its sound line: its accepted wording is
+held until a render says the same sentences can go there too. The other
+five now run under the reference guide's word budget for a description,
+which the bank records on each, and none of the five has rendered as it
+now stands.*
+
 | scene | mode | verdict | why |
 |---|---|---|---|
 | `ref2va_masked_person_swap` | ref2va | **keep** | the shipped prompt of `h3_video_to_video_masked_song_pdd8`: the node at its defaults. mrhf's generic swap text of 2026-10-04, which drops what `ref2va_masked_subject_swap` claimed about the clip (one performer, alone, standing, a fourteen-second static shot). Rendered once in that form, one window and one seed on the band clip, and not judged by the owner |

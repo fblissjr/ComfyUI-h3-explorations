@@ -461,6 +461,24 @@ does not know which window of a clip a render takes. The head and
 whole-person roles share the movement sentence and are otherwise as they
 were (`decisions.md`, 2026-10-07; `masked_prompt_text.py`).
 
+*2026-10-10: the rule was applied to all three roles, and "as they were"
+no longer holds. An audit of the node's sentences
+([`../../bench/results/2026-10-10_prompt_text_hardcoded_in_code.md`](../../bench/results/2026-10-10_prompt_text_hardcoded_in_code.md))
+found two kinds the rule forbids and the owner ordered them fixed: what
+the node cannot know of a clip (the look, how long the subject is there,
+what else is in the scene, a shadow, the original's hair, what breath,
+eyes, head and hands do), and talk of an edit (what stays, what is kept,
+what is "the scene's own"). The whole-person and head roles now open
+their shot with the upper-body role's sentence that the subject is in the
+scene, and the soundscape is one general line shared with the reference
+composer. The upper-body role, the one wording a person has accepted,
+changed only in that sound line where a motion reference is wired: it
+keeps four sentences of the kinds cut
+from the others (the scene in its summary, the style opening, the light
+and the camera) until a render with and without them is read
+(`masked_prompt_text.py`, `HELD`). Neither cut role has rendered as it now
+stands. [`decisions.md`](decisions.md), that date.*
+
 **Say the least first, and add a sentence only when a render asks for it**
 (the owner, 2026-10-10: "let the model guide and infer until you need to get
 more specific", "just like progressive disclosure"). It is the rule above

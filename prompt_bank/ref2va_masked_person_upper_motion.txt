@@ -13,6 +13,6 @@ detailed_description:
 The target video is photorealistic live-action.
 [Shot 1] <Subject 1>, the person, is in the scene. <Subject 1> moves as the person in <Video 1> moves, at the same moments. The scene's own light falls on <Subject 1> as it falls on everything around them, from the same direction and in the same colour, and changes on them when it changes there. <Subject 1> (S1) is the main voice heard on the track and performs it as it plays. The framing and every movement of the camera are the scene's own and do not change.
 
-overall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.
+overall_soundscape: Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music: N/A

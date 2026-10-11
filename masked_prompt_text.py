@@ -40,6 +40,21 @@ widest window the owner accepted (the masking board, finding mj-06; one
 clip, one seed, two window lengths). The role below is that text with the
 still's own words moved into `subject`; its sentences for a render with no
 motion reference have not rendered at all.
+
+**Cut on 2026-10-10, and the texts below have not rendered as they now
+stand.** The owner's rule of that day is that a text says nothing of a
+window that is not known to be so, and that it is a caption of the finished
+shot, never an instruction about an edit. An audit of this file
+(`bench/results/2026-10-10_prompt_text_hardcoded_in_code.md`) found sentences
+of both kinds in every role, and they went: see the note above `ROLES`.
+What "rendered" means above is therefore the earlier wording; the
+whole-person and head-and-hair shots are about half their old length, and
+the head-and-upper-body role, which already said almost none of it and
+is the one wording a person has accepted, changed only in its sound line
+where a motion reference is wired (its unrendered sentence for a render
+with none was cut):
+four sentences of the kinds cut elsewhere are held in it until a render
+says they can go (`HELD`). `docs/wiki/decisions.md`, 2026-10-10.
 """
 from __future__ import annotations
 
@@ -96,72 +111,85 @@ MOVES = "<Subject 1> moves as the person in <Video 1> moves, at the same moments
 SUMMARY_VOICE = {VOICE_MAIN: "and performs the main voice heard on the track to its timing",
                  VOICE_SILENT: "without speaking or singing"}
 
+# "each phrase of that voice", not "every sung or spoken phrase" (2026-10-10): a track has other voices, and in a
+# window where one of them sings the old wording told the subject's mouth to follow it.
 LIP_SYNC = ("<Subject 1> (S1) is the main voice on the track and performs it on screen: the jaw drops and "
-            "the lips open on the first syllable of every sung or spoken phrase, the mouth shapes each "
-            "vowel and closes on each consonant in time with the voice, and the lips rest together, still, "
-            "whenever the voice pauses.")
+            "the lips open on the first syllable of each phrase of that voice, the mouth shapes each "
+            "vowel and closes on each consonant in time with it, and the lips rest together, still, "
+            "whenever that voice pauses.")
 LIPS_STILL = ("<Subject 1> does not speak or sing at any point: the lips rest together, relaxed and still, "
               "from the first frame to the last, and none of the voices on the track belongs to "
               "<Subject 1>.")
-EYES = "The eyes blink naturally and hold a steady line of sight"
-CAMERA = "The framing and every movement of the camera are the scene's own and do not change."
-SOUNDSCAPE = ("overall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of "
-              "clothing as the performer moves.")
+#: The head-and-upper-body role's four sentences kept as accepted (see the note above `ROLES`): the scene in
+#: its summary, the style opening, the light on the subject, and the camera. `bench/check_masked_prompt.py`
+#: reads this tuple, so deleting a sentence here and in the role is the whole of the later cut.
+HELD_SCENE = "<Subject 1> is in a scene that is already lit, framed and cut."
+HELD_OPENING = "The target video is photorealistic live-action."
+HELD_LIGHT = ("The scene's own light falls on <Subject 1> as it falls on everything around {obj}, from the "
+              "same direction and in the same colour, and changes on {obj} when it changes there.")
+HELD_CAMERA = "The framing and every movement of the camera are the scene's own and do not change."
+HELD = (HELD_SCENE, HELD_OPENING, HELD_LIGHT, HELD_CAMERA)
+#: The one sentence every role's shot opens with: the subject, in the user's words, is there. It says nothing of
+#: where, for how long or at what size, which the node cannot know of a window it never sees.
+PLACE = "[Shot 1] <Subject 1>, the {who}, is in the scene."
+#: The soundscape, in general words, since the node never hears the track. THE SAME SENTENCE the reference
+#: composer writes when no reused audio is wired (`workflows/build_workflows.py::_ref_prompt` reads this
+#: constant), so the pack has one generic line and not two. `N/A` is not available here: the guide keeps it for
+#: a user who asked for complete silence (`vendor_guides/base_en.md`, 4.6). Reasoned, not measured: the field
+#: was not tested on its own. It asserts ambience over a track nobody heard, and less than the line it replaced;
+#: approved by the lead, read and accepted by the owner, 2026-10-10 (as the lead relays it).
+AMBIENCE = "Natural ambient atmosphere continues throughout the shot."
+SOUNDSCAPE = "overall_soundscape: " + AMBIENCE
+#: `N/A` is the guide's form for "no music that only the audience hears" (`vendor_guides/base_en.md`, 4.7), and
+#: the guide counts singing and music the people on screen can hear as part of the description, not of this
+#: field. So it holds where the subject performs the track, which is every shipped masked graph. It is NOT known
+#: to hold with `voice` silent on a track that has a score nobody on screen makes: the node never hears the
+#: track. No generic sentence stands in for it, because any sentence here asserts such a score.
 MUSIC = "non_diegetic_music: N/A"
 
-#: What the still provides -> that role's text. `shot` is the paragraph before
-#: the performance sentences, `performance` the sentences per voice choice,
-#: `close` what ends the shot. `unreferenced`, where a role has it, is the
-#: sentence that stands where `MOVES` would when there is no `<Video 1>`.
+#: "The [clothing,] background, lighting and framing of <Picture 1> are not present in the target video", in two
+#: definitions, is OURS and not the guide's form: the guide never says what a reference does not supply. It is
+#: kept because it says how much of a WIRED reference is used, which the node knows, and in the head role it is
+#: the one sentence that keeps the still's clothing out.
+#:
+#: What the still provides -> that role's text. `shot` is what follows the place and movement sentences,
+#: `performance` the sentences per voice choice. `opening`, where a role has it, is a line before the shot, and
+#: `close` a sentence after anything `add_to_shot` adds. With no `<Video 1>` no role says anything of movement:
+#: the head-and-upper-body role had a sentence for that case (the upper body and the legs "move as one body"),
+#: which asserted legs in the frame and that they move, had never rendered, and was cut with the rest.
+#:
+#: **What these texts no longer say (owner, 2026-10-10; `docs/wiki/decisions.md`, that date;
+#: `bench/results/2026-10-10_prompt_text_hardcoded_in_code.md` has every sentence that went).** Two kinds were
+#: cut from all three roles. (1) Anything the node cannot know of a clip it never sees: that the picture is
+#: photorealistic live-action, that the subject is there for the whole take at one size, what else stands in
+#: the scene, that the plate is steady and sharp, a shadow, the original's hair and a print, and what the
+#: subject's breath, eyes, head, shoulders and hands do. (2) Anything that speaks of an edit: what stays, what
+#: is kept, what is "the scene's own", "exactly as before", "takes the place of". The model was trained on
+#: captions of finished shots and is told of no edit, so each sentence left is a plain statement of what the
+#: finished shot shows, or a relationship to a wired reference. No style sentence opens the description: the
+#: guide asks for one (`vendor_guides/ref_en.md`, 5.2) and the node cannot write a true one.
+#:
+#: **The head-and-upper-body role is held back, on purpose (the lead, 2026-10-10).** It is the one wording a
+#: person has watched and accepted, and an accepted result is not changed without a render. So it keeps four
+#: sentences of the kinds cut elsewhere, exactly as accepted: `HELD` below. They go after one render of the
+#: upper graph with and without them on a window already accepted; until then only its sound line changed.
 ROLES: dict[str, dict] = {
     GIVES_WHOLE: dict(
         definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, hair, "
                     "build and the clothing visible in <Picture 1>{motion}. The background, lighting and "
                     "framing of <Picture 1> are not present in the target video."),
-        summary=("[reference generation] <Subject 1> takes the place of one person in a scene that is "
-                 "already lit, framed and cut, {voice}, while everything else in the scene stays as it is."),
+        summary="[reference generation] <Subject 1> is in the scene {voice}.",
         retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair, build "
-                   "and clothing in every frame, at every distance from the camera and from every side; "
-                   "only the setting changes."),
-        scene=("The target video is photorealistic live-action, and its setting, its lighting, its framing "
-               "and every other person and object in it stay exactly as they already are from the first "
-               "frame to the last."),
-        place=("[Shot 1] <Subject 1> is in the scene for the whole take, in the place the scene holds for "
-               "one person, at that place's distance from the lens and at the scale of everything around "
-               "it."),
+                   "and clothing in every frame, at every distance from the camera and from every side."),
         shot=(
-            "The scene's own light falls on <Subject 1> exactly as it falls on what is beside {obj}: the "
-            "same direction, the same softness and the same colour on the face, the hair and the clothing, "
-            "and whenever the light changes colour or brightness, the light on <Subject 1> changes with it "
-            "at the same moment.",
-            "The shadow <Subject 1> casts lies where that light sends it and moves when <Subject 1> moves.",
             "Where the frame shows the whole figure, <Subject 1> is whole, in the clothing of <Picture 1>, "
             "and whatever <Picture 1> does not show of {poss} clothing is plain and in keeping with it; "
-            "where the frame shows only the head and shoulders, the face of <Subject 1> fills that space at "
-            "the same scale, sharp and evenly exposed, with the skin texture, the hairline and the eyes of "
-            "<Picture 1>.",
+            "where the frame shows only the head and shoulders, it shows the face of <Subject 1> with the "
+            "skin texture, the hairline and the eyes of <Picture 1>.",
             "Seen from the side or from behind, <Subject 1> keeps the same hair, the same build and the "
             "same clothing.",
         ),
-        performance={
-            VOICE_MAIN: (
-                LIP_SYNC,
-                "A breath lifts the chest and shoulders before each new phrase.",
-                EYES + ", and the brows and cheeks carry the feeling of the line.",
-                "The head tips and turns with the delivery, the shoulders loosen and move with the rhythm, "
-                "and the hands move with the phrasing, opening on a long note and settling as it ends.",
-            ),
-            VOICE_SILENT: (
-                LIPS_STILL,
-                "The breathing is slow and even, lifting the chest a little.",
-                EYES + ", and the face stays attentive to what is happening in the scene.",
-                "The head, the shoulders and the hands move a little and often, the small shifts of a "
-                "person at ease, in time with the rhythm of the scene.",
-            ),
-        },
-        close=("Everyone and everything else is untouched: wherever <Subject 1> does not cover them, the "
-               "other people, the walls, the furniture and the ground are visible exactly as before, steady "
-               "and in focus."),
+        performance={VOICE_MAIN: (LIP_SYNC,), VOICE_SILENT: (LIPS_STILL,)},
     ),
     # A still that shows a person from the chest up cannot dress their legs: asked for the whole
     # person it gave a head at the portrait's scale or nobody, and asked for this it held
@@ -175,67 +203,36 @@ ROLES: dict[str, dict] = {
     # of a clip a render takes, so it cannot count that window's cuts.
     GIVES_UPPER: dict(
         definition="<Subject 1> is the {who} shown in <Picture 1>{motion}.",
-        summary=("[reference generation] <Subject 1> is in a scene that is already lit, framed and cut. "
-                 "From the waist up <Subject 1> is as <Picture 1> shows {obj}, {voice}."),
+        summary=("[reference generation] " + HELD_SCENE + " From the waist up <Subject 1> is as "
+                 "<Picture 1> shows {obj}, {voice}."),
         retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - the {who}: {poss} face and "
                    "everything <Picture 1> shows of {obj} from the waist up are retained in every frame."),
-        scene="The target video is photorealistic live-action.",
-        place="[Shot 1] <Subject 1>, the {who}, is in the scene.",
-        unreferenced="The upper body of <Subject 1> and the legs below it move as one body.",
-        shot=(
-            "The scene's own light falls on <Subject 1> as it falls on everything around {obj}, from the "
-            "same direction and in the same colour, and changes on {obj} when it changes there.",
-        ),
+        opening=HELD_OPENING,
+        shot=(HELD_LIGHT,),
+        close=HELD_CAMERA,
         performance={
             VOICE_MAIN: ("<Subject 1> (S1) is the main voice heard on the track and performs it as it plays.",),
             VOICE_SILENT: ("<Subject 1> does not speak or sing at any point, and none of the voices on the "
                            "track belongs to <Subject 1>.",),
         },
-        close="",
     ),
     GIVES_HEAD: dict(
         definition=("<Subject 1> is the {who} shown in <Picture 1>, preserving {poss} facial identity, "
                     "{poss} hair and anything worn on the head in <Picture 1>{motion}. The clothing, "
                     "background, lighting and framing of <Picture 1> are not present in the target video."),
-        summary=("[reference generation] The head of <Subject 1> takes the place of one person's head in a "
-                 "scene that is already lit, framed and cut, on that person's own body and in that "
-                 "person's own clothes, {voice}, while everything else in the scene stays as it is."),
+        summary=("[reference generation] <Subject 1> is in the scene, with the face, the hair and anything "
+                 "worn on the head as <Picture 1> shows them, {voice}."),
         retention=("<Subject 1> (appears in [Shot 1]): fully_preserved - retain the same face, hair and "
-                   "headwear in every frame, at every distance from the camera and from every side; the "
-                   "body, the clothing and the setting are the scene's own."),
-        scene=("The target video is photorealistic live-action, and its setting, its lighting, its framing, "
-               "every other person and object in it, and the body, the clothing and the movement of the "
-               "one person whose head is replaced stay exactly as they already are from the first frame to "
-               "the last. Only that person's head changes: it is the head of <Subject 1>."),
-        place=("[Shot 1] The head of <Subject 1> sits on that person's neck for the whole take, at the same "
-               "size and in the same place, and meets the collar of the clothing with no gap and no second "
-               "neckline."),
+                   "headwear in every frame, at every distance from the camera and from every side."),
         shot=(
-            "The head always faces the way the body beneath it faces: when the body turns, the head turns "
-            "with it at the same moment and by the same amount, and when the body has its back to the "
-            "camera the camera sees only the back of the head of <Subject 1> and whatever is worn on it, "
-            "never the face.",
-            "The hair of <Subject 1> is the only hair: none of the original hair remains on the shoulders, "
-            "the chest or the back, where the clothing, its print and its folds carry on unbroken.",
-            "The scene's own light falls on the head exactly as it falls on the body below it and on what "
-            "is beside it: the same direction, the same softness and the same colour, and whenever the "
-            "light changes colour or brightness, the light on the face changes with it at the same moment.",
-            "Where the frame is close, the face is sharp and evenly exposed, with the skin texture, the "
-            "hairline and the eyes of <Picture 1>.",
+            # the one thing kept of the old paragraph about the head and the body: a face must not be drawn
+            # on the back of a head. Said as what the shot shows, on a condition, with no "body beneath".
+            "When <Subject 1> has {poss} back to the camera, the camera sees the back of {poss} head and "
+            "whatever is worn on it, never the face.",
+            "Where the frame is close, the face has the skin texture, the hairline and the eyes of "
+            "<Picture 1>.",
         ),
-        performance={
-            VOICE_MAIN: (
-                LIP_SYNC,
-                EYES + ", and the head tips and nods with the delivery while the body carries on moving "
-                "exactly as before.",
-            ),
-            VOICE_SILENT: (
-                LIPS_STILL,
-                EYES + ", and the head moves only as the body beneath it moves.",
-            ),
-        },
-        close=("Everyone and everything else is untouched: the other people, the walls, the furniture and "
-               "the ground are visible exactly as before, steady and in focus."),
+        performance={VOICE_MAIN: (LIP_SYNC,), VOICE_SILENT: (LIPS_STILL,)},
     ),
 }
 
@@ -285,8 +282,8 @@ def summary(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_give
         + (" (read from the Masked Source's `replace`)" if picture_gives == GIVES_FOLLOW and replace is not None
            else " (no Masked Source wired)" if picture_gives == GIVES_FOLLOW else " (set here)"),
         "movement: from <Video 1>, the Masked Source's motion reference" if moving
-        else "movement: from the prompt (the Masked Source's motion reference is off)" if replace is not None
-        else "movement: from the prompt (no Masked Source wired)",
+        else "movement: the text says nothing of it (the Masked Source's motion reference is off)" if replace is not None
+        else "movement: the text says nothing of it (no Masked Source wired)",
         "added to the shot: " + (re.sub(r"\s+", " ", add_to_shot or "").strip() or "nothing"),
     ]
     return "\n".join(lines)
@@ -303,7 +300,9 @@ def assemble(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_giv
     render drifts from and words that do not match override it. `replace`
     and `motion_reference` are the Masked Source's own values, or None when
     no source is wired (the whole person, no `<Video 1>`). `add_to_shot` is
-    added to the shot as written, after the performance sentences.
+    added to the shot as written, after the performance sentences; it ends
+    the shot in every role but the head-and-upper-body one, whose camera
+    sentence still follows it.
     """
     if voice not in VOICES:
         raise ValueError(f"unknown voice {voice!r}; one of {list(VOICES)}")
@@ -312,17 +311,18 @@ def assemble(subject: str = SUBJECT_PERSON, voice: str = VOICE_MAIN, picture_giv
     poss, obj, _word = pronouns(subject)
     fill = dict(poss=poss, obj=obj, motion=MOTION_CLAUSE if moving else "",
                 voice=SUMMARY_VOICE[voice], who="{who}", added="{added}")
-    moves = [MOVES] if moving else [role["unreferenced"]] if "unreferenced" in role else []
-    shot = [role["place"]] + moves + list(role["shot"]) + list(role["performance"][voice])
+    moves = [MOVES] if moving else []
+    shot = [PLACE] + moves + list(role["shot"]) + list(role["performance"][voice])
     added = re.sub(r"\s+", " ", add_to_shot or "").strip()
     if added:
         shot.append("{added}")
-    shot += ([role["close"]] if role["close"] else []) + [CAMERA]
+    shot += [role["close"]] if "close" in role else []
+    opening = role["opening"] + "\n" if "opening" in role else ""
     sections = [
         "subject_definitions:\n" + "\n".join([role["definition"]] + ([VIDEO_DEFINITION] if moving else [])),
         "summary:\n" + role["summary"],
         "retention_analysis:\n" + "\n".join([role["retention"]] + ([VIDEO_RETENTION] if moving else [])),
-        "detailed_description:\n" + role["scene"] + "\n" + " ".join(shot),
+        "detailed_description:\n" + opening + " ".join(shot),
         SOUNDSCAPE,
         MUSIC,
     ]

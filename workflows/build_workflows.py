@@ -3193,7 +3193,8 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
             f"referenced from <Audio {audio_n}>, "
             "<d>[English] I thought you would have gone by now.</d>")
 
-    soundscape = "Natural ambient atmosphere continues throughout the shot."
+    # one generic line for the pack, held beside the Masked Prompt node's sentences, which write it too
+    soundscape = _prompts._masked_text().AMBIENCE
     if video_audio:
         soundscape = "The ambience of <Audio 1> continues under the shot."
     if audio and audio_role == "voice":

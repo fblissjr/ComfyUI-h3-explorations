@@ -15,11 +15,13 @@ Each case is a way a render could run on a text nobody meant:
                                   `<Video 1>` named exactly when a motion
                                   reference is on, `(S1)` exactly when the
                                   subject is the voice.
-  extra_lands_in_the_shot         `add_to_shot` appears once, on the shot's line,
-                                  on one line whatever whitespace it held.
+  extra_lands_in_the_shot         `add_to_shot` appears once and ends the
+                                  shot's line, on one line whatever
+                                  whitespace it held.
   subject_is_the_users_words      `subject` lands in the subject's definition
-                                  (once; the upper-body role says it again in
-                                  the retention line and the shot), as one
+                                  and the shot's first sentence (the
+                                  upper-body role says it again in the
+                                  retention line), as one
                                   phrase whatever article,
                                   punctuation and whitespace it came with;
                                   an empty one is "person"; the first man or
@@ -29,6 +31,21 @@ Each case is a way a render could run on a text nobody meant:
                                   name the pronouns and the word that
                                   decided them, where `picture_gives` came
                                   from, and where the movement comes from.
+  nothing_says_what_was_cut       no combination of the choices writes a
+                                  phrase of the two kinds cut on 2026-10-10:
+                                  what the node cannot know of a clip it
+                                  never sees, and talk of an edit. The
+                                  head-and-upper-body role is read without
+                                  the four sentences it keeps as accepted
+                                  (the module's `HELD`), and must still
+                                  hold each of them. The
+                                  phrases are `CUT`; it is a list of what
+                                  went, so it catches a sentence coming back
+                                  and not a new one of the same kind: a new
+                                  assertion stays green here, and the guard
+                                  against one is whoever reads the text. And
+                                  the soundscape is the reference composer's
+                                  own line, held once.
   wired_parts_must_be_named       the Masked Source's `the wired parts` can
                                   be any part, so following it is refused
                                   with the input to set named.
@@ -95,6 +112,14 @@ BANK_COPIES = {
     "ref2va_masked_person_silent": dict(voice=m.VOICE_SILENT),
 }
 SONG, SOURCE, NODE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", h3_config.MASKED_PROMPT_NODE
+#: A phrase from each sentence cut on 2026-10-10 (bench/results/2026-10-10_prompt_text_hardcoded_in_code.md,
+#: sorts 1 and 4; docs/wiki/decisions.md, that date). The first row is what the node cannot know, the second
+#: is talk of an edit. Lower case; matched in the lowered text.
+CUT = ("photorealistic", "whole take", "walls", "furniture", "steady and in focus", "shadow", "its print",
+       "on the shoulders", "breath", "blink", "line of sight", "hands move", "long note", "quiet ambience",
+       "brush of clothing",
+       "the scene's own", "exactly as", "takes the place", "already lit", "do not change", "stays as it is",
+       "stay exactly", "untouched", "the original", "body beneath", "everyone and everything else")
 
 
 def bank_copies_are_what_it_writes():
@@ -126,17 +151,21 @@ def extra_lands_in_the_shot():
     want = "<Subject 1> moves in step with the people on either side."
     assert text.count(want) == 1
     line = next(ln for ln in text.split("\n") if ln.startswith("[Shot 1]"))
-    assert want in line and line.index(want) < line.index("Everyone and everything else")
+    # it ends the shot: the sentences about what else is in the scene and about the camera, which stood after
+    # it until 2026-10-10, were cut
+    assert line.endswith(want), line[-200:]
     assert m.assemble(add_to_shot="  \n ") == m.assemble()
 
 
 def subject_is_the_users_words():
     for gives in m.ROLES:
         text = m.assemble(subject=" A blonde haired woman,\n wearing a grey T-shirt. ", picture_gives=gives)
-        # the upper-body role says the words in the definition, the retention line and the shot; the others once
+        # every role says the words in the definition and in the shot's first sentence; the upper-body role
+        # says them in the retention line too
         upper = gives == m.GIVES_UPPER
         want = "<Subject 1> is the blonde haired woman, wearing a grey T-shirt shown in <Picture 1>" + ("" if upper else ", preserving her")
-        assert text.count(want) == 1 and text.count("blonde haired") == (3 if upper else 1), gives
+        assert text.count(want) == 1 and text.count("blonde haired") == (3 if upper else 2), gives
+        assert "[Shot 1] <Subject 1>, the blonde haired woman, wearing a grey T-shirt, is in the scene." in text, gives
         assert m.assemble(subject=" \n", picture_gives=gives) == m.assemble(picture_gives=gives)
         assert m.assemble(subject="a person", picture_gives=gives) == m.assemble(picture_gives=gives)
     # the first man or woman word decides the pronouns, and none means "their"
@@ -152,12 +181,41 @@ def subject_is_the_users_words():
 def summary_says_what_was_worked_out():
     plain = m.summary()
     assert "pronouns: their" in plain and "no Masked Source wired" in plain and "added to the shot: nothing" in plain
+    # with no <Video 1> no role's text speaks of movement, and the line a person reads says so
+    assert "movement: the text says nothing of it" in plain and "from the prompt" not in plain
     wired = m.summary("blonde haired woman", replace=m.REPLACE_PART, motion_reference=MOTION_ON, add_to_shot="She waves.")
     for want in ('"the blonde haired woman shown in <Picture 1>"', 'pronouns: her (from "woman")',
                  "the still gives: the head and hair (read from the Masked Source's `replace`)",
                  "movement: from <Video 1>", "added to the shot: She waves."):
         assert want in wired, (want, wired)
     assert "(set here)" in m.summary(picture_gives=m.GIVES_HEAD, replace=m.REPLACE_PARTS)
+
+
+def nothing_says_what_was_cut():
+    count = 0
+    for subject, voice, gives, motion in itertools.product((m.SUBJECT_PERSON, m.SUBJECT_MAN), m.VOICES, m.ROLES,
+                                                         (None, m.MOTION_NONE, MOTION_ON)):
+        text = m.assemble(subject, voice, gives, motion_reference=motion)
+        if gives == m.GIVES_UPPER:
+            # the accepted wording keeps four sentences until a render says they can go (the module's `HELD`):
+            # each must be there once, and what is left is read like the other roles
+            obj = m.pronouns(subject)[1]
+            for held in m.HELD:
+                held = held.format(obj=obj)
+                assert text.count(held) == 1, (subject, voice, motion, held)
+                text = text.replace(held, "")
+        else:
+            # no style sentence before the shot: the node cannot write a true one
+            assert "detailed_description:\n[Shot 1] <Subject 1>, the " in text, (gives, "the description does not open on the shot")
+        text = text.lower()
+        back = [phrase for phrase in CUT if phrase in text]
+        assert not back, f"{(subject, voice, gives, motion)}: {back}"
+        assert text.endswith(f"\n\noverall_soundscape: {m.AMBIENCE.lower()}\n\nnon_diegetic_music: n/a"), gives
+        count += 1
+    # one generic soundscape line in the pack: the composer reads this module's and does not retype it
+    generator = (REPO / "workflows" / "build_workflows.py").read_text(encoding="utf-8")
+    assert m.AMBIENCE not in generator and "_masked_text().AMBIENCE" in generator, "the reference composer has its own soundscape line"
+    return f"{count} combinations, {len(CUT)} phrases"
 
 
 def wired_parts_must_be_named():
@@ -188,17 +246,15 @@ def upper_body_role_says_nothing_it_cannot_know():
             assert guess not in text.replace("gestures and their timing", "").replace("gestures, head movements", ""), guess
         # the user's words for the subject are said three times: the definition, the retention line, the shot
         assert text.count("the man") == 3, text.count("the man")
-    # with no <Video 1> the sentence that ties the upper body to the kept legs stands where MOVES would
-    unreferenced = m.ROLES[m.GIVES_UPPER]["unreferenced"]
-    assert unreferenced in still and m.MOVES not in still
-    assert m.MOVES in moving and unreferenced not in moving
+    # with no <Video 1> the role says nothing of movement: its sentence about the legs was cut (2026-10-10)
+    assert m.MOVES in moving and m.MOVES not in still and "legs" not in still and "move as" not in still
     # the role says the voice once, either way
     for voice in m.VOICES:
         assert len(m.ROLES[m.GIVES_UPPER]["performance"][voice]) == 1, voice
     assert "does not speak or sing" in silent and "performs it as it plays" not in silent
-    # and it is the short one: under half the whole person's text for the same choices
+    # and it is the short one. It was under half the whole person's text until that text was cut (2026-10-10)
     whole = m.assemble("man", motion_reference=MOTION_ON)
-    assert len(moving.split()) * 2 < len(whole.split()), (len(moving.split()), len(whole.split()))
+    assert len(moving.split()) < len(whole.split()), (len(moving.split()), len(whole.split()))
     assert "the head and upper body (set here)" in m.summary(picture_gives=m.GIVES_UPPER, replace=m.REPLACE_PARTS)
 
 
@@ -306,7 +362,8 @@ def main() -> int:
             print(f"wrote prompt_bank/{pid}.txt")
         return 0
     for fn in (bank_copies_are_what_it_writes, every_combination_is_well_formed, extra_lands_in_the_shot,
-               subject_is_the_users_words, summary_says_what_was_worked_out, wired_parts_must_be_named, upper_body_role_says_nothing_it_cannot_know,
+               subject_is_the_users_words, summary_says_what_was_worked_out, nothing_says_what_was_cut,
+               wired_parts_must_be_named, upper_body_role_says_nothing_it_cannot_know,
                copies_match_the_masked_source, config_is_the_defaults,
                graders_read_what_the_node_writes, node_reads_the_source, shipped_graphs_wire_the_node):
         case(fn.__name__, fn)
