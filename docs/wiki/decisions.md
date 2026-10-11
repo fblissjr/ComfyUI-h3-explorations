@@ -75,6 +75,26 @@ Older history lives elsewhere and is not copied here:
     kept apart from it: an answer says which of the two it rests on, and a
     session's look is never recorded as, or shown as, the owner's. Not
     built: the cast file records who answered and not on what kind of look.
+  - 2026-10-10, the same night: HOW SURE, AND BY WHOM (owner, settling the
+    point left open above). An answer says how sure it is in BOTH a word
+    and a number, kept short, and says who gave it: the session's name, or
+    that it was the owner. The reason given is that an answer can then be
+    audited. What the sessions had all attached to a confidence still
+    stands and was not overruled: only the one who answers writes it, it is
+    never shown without what it rests on, and no tool compares it to a
+    line, blends it with a tracker's figure or refuses on it. Not decided:
+    whether a tool may list the least sure first. Not built.
+  - 2026-10-10, the same night: HOW IT IS PUT IN PLACE. Asked by the owner
+    how, when and who, with the condition that it is not another check, all
+    seven sessions said the morning and not that night, and agreed an order
+    whose first step is no code: answer the pictures of one real stretch by
+    hand with the cast file as it is, then give the cast file what it lacks
+    and one reader every tool calls, show the answers where a window is
+    already shown, let an answer start the tracker, and take each old place
+    away in the same commit as the tool that starts reading the cast file.
+    The order, who takes which piece and what would make it fail are on the
+    masking board, `plan-who-is-in-a-scene-put-in-place`. Nothing of it is
+    built.
 
 - **The text is read whole, and never at second hand; and the day's
   handover is corrected by the day's postmortem** (owner, to the session that wrote
