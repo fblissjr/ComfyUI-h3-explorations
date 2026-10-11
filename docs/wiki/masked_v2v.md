@@ -1017,7 +1017,9 @@ What the renders support, and no further. Each is one shot and one seed.
   video sits as near the source's head as the one with it (the note at
   the top), and the two-tests record has the same of that shot.*
 - **Larger marks did more, under the same words.** At true size each lay
-  inside one cell of the model's grid and her lids moved a little.
+  inside one cell of the model's grid and her lids moved a little (against
+  the render with no marks, whose text also lacked a clause relating her
+  eyes to the figure's, so that small step is not the marks' alone).
   Enlarged, under the same words, they brought her lids to the source's
   level. That step is the picture's and no sentence's. Small marks were
   not unseen, though: the same true-size marks under the other form of

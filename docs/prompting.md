@@ -1,6 +1,6 @@
 # How to write an H3 prompt
 
-last updated: 2026-10-01
+last updated: 2026-10-11 (one row in "Where everything else lives", pointing at the masked lane's page); 2026-10-01
 
 **The single source of truth for writing an H3 prompt, in any mode.** Everything
 needed is restated here: the closed vocabularies in full, the exact Part One
@@ -37,6 +37,7 @@ this file is right and the other is stale.
 | Why a rule was added, reversed or withdrawn | [`wiki/decisions.md`](wiki/decisions.md) |
 | Handing the rules to someone outside the repo | [`portable/h3_prompt_standard.html`](portable/h3_prompt_standard.html), and a writer-model version at [`portable/h3_system_prompt.md`](portable/h3_system_prompt.md). Both are copies of this file; `portable/snapshots.json` pins the frozen dated ones, and a copy published elsewhere is a snapshot of whatever it was published from |
 | An agent routing by task | `.claude/skills/h3-prompt` |
+| The text of a masked video-to-video load, and what it says of a motion video | [`wiki/masked_v2v.md`](wiki/masked_v2v.md): its section on the Masked Prompt node for what that node writes, and "The motion video as a body model, with marks drawn on its face" for the lines that say what such a video is and that the subject follows it. **That second one is provisional and ours (HOUSE, 2026-10-11): it held on one shot and did not repeat on a second.** It is a practice written down with its evidence, not a rule of this file |
 
 ## Four layers, and every rule says which one it is
 
