@@ -149,13 +149,35 @@ session starting a job needs to know:
   on one clip is a starting value, a job file may set any of them, and a
   load's build record says which were set by the job and what the capture
   measured on this clip.
+- **A load's text is data of the job, tied to the frames it was written
+  from** (the owner, 2026-10-10; AGENTS.md, the operative rules on a scene's
+  text). In the job file a text is a file beside it, the source frames it
+  was written from and who wrote it. A text serves the loads inside those
+  frames and is of one shot, so one text for loads of different shots is
+  refused, by name, and so are the same words under two labels. `build`
+  prints each load's text in full with where it was written from. A load
+  that holds a cut cannot be built for now: one load a shot, each with its
+  own text. That last part is an edge accepted, not a rule of the model
+  (`bench/masked_job.py::ONE_SHOT`).
+- **Somebody looks before a plan and before a render** (the owner,
+  2026-10-10: a passing check never says the masks are on the right person
+  or the text is of these frames). `build plan` and `queue` of a render
+  refuse a load unless the capture's `looks.json` holds a look, later than
+  the capture was last written, that showed this load's frames with this
+  text (`bench/masked_job.py::looked_at`). The strip with the whole text
+  beside the frames, and the record of the look, are
+  `bench/capture_masked_run.py` `video` and `looked`. The capture is
+  written again when it reads the plans, so a job is looked at twice.
 - **Not built, added 2026-10-10:** the one-window patch (until it is,
   `bench/patch_render_window.py build` and the session script the masking
   board's `note-do-not-build-on-these-2026-10-10` names are the only route,
   and neither is checked); the analysis folder's own passes, its
   `profile.json` and the rules that set a load's values from the clip
   (the masking board, `build-per-video-analysis-folder`); a subject's
-  `seeds` in a job file (the tracker has the input, section 1 below).
+  `seeds` in a job file (the tracker has the input, section 1 below); a
+  cheap variant of a built load for a test that changes one thing, and a
+  load over several shots with a text that describes each shot (both on
+  the same card).
 
 ## The rule: data before a render, and the same data after
 

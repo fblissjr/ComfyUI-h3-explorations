@@ -68,6 +68,15 @@ Claims, i.e. what breaks if a case is deleted:
                         and which were the builder's defaults, and what the
                         capture measured on this clip for the load, with a
                         figure the capture lacks said to be absent
+  a text is of its frames    a text says the frames it was written from and
+                        who wrote it, covers its load to the frame, holds no
+                        cut of any subject's shot table and stays inside the
+                        capture; one text for loads of different shots names
+                        every load outside its shot; the same words under
+                        two labels; the look, held by the frames and the text
+                        hash it showed and by the capture's own clock; a plan
+                        refused without one and a render refused at queue
+                        when its text changed after the build
   the gate before a render    (and, in the same case, what `collect` reads out
                         of a finished run's history: its files, its words,
                         its time, its error)
@@ -98,6 +107,7 @@ seek case runs ffmpeg on a clip of a few hundred small frames.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import shutil
 import subprocess
@@ -342,7 +352,7 @@ BASE = json.loads((REPO / "workflows" / cfg.MASKED_JOB_BASE_GRAPH).read_text())
 #: Two subjects with a mesh and one without; the capture starts later than the job, so a mask's clock and the
 #: mesh's are different numbers.
 LOAD_JOB = {"name": "check", "source": "/clips/check_24p.mov", "first": 604, "frames": 447, "canvas": [1024, 768],
-            "output": "Video/check", "texts": {"w": "words.txt"},
+            "output": "Video/check", "texts": {"w": {"file": "words.txt", "frames": [690, 899], "by": "a check"}},
             "subjects": [{"label": "a", "pick": "largest", "parts": ["hair"], "pose": False},
                          {"label": "b", "pick": "largest"}, {"label": "c", "pick": "largest"}]}
 CAPTURE_FIRST = 650
@@ -529,14 +539,15 @@ def _a_capture(tmp: Path) -> Path:
     (capture / "manifest.json").write_text(json.dumps({
         "name": "check", "first_frame": CAPTURE_FIRST, "frames": 300, "runs": [],
         "subjects": [{"label": label, "sightings": [{"by": "p"}]} for label in "abc"]}))
-    # what the capture measured of `b`: a shot table with one cut inside the whole-subject load, and a row a frame
+    # what the capture measured of `b`: a shot table with a cut before the two loads and one after them (source
+    # frames 690 and 900: the loads are inside one shot, as a load has to be for a text to cover it), and a row a frame
     # whose share of the frame is its own frame number, so a middle, a least and a most are known
     (capture / "subjects" / "b" / "shots__p.json").write_text(json.dumps(
-        {"shots": [{"first_frame": 0}, {"first_frame": 90}, {"first_frame": 250}]}))
+        {"shots": [{"first_frame": 0}, {"first_frame": 40}, {"first_frame": 250}]}))
     (capture / "subjects" / "b" / "per_frame.json").write_text(json.dumps({"columns": [], "rows": [
         {"source_frame": n, "seen_by": "p", "track_share": n / 1000, "parts_share": None,
          "track_box": None if n == 705 else [10, 20, 110, 20 + 160]} for n in range(CAPTURE_FIRST, CAPTURE_FIRST + 300)]}))
-    (capture / "status.json").write_text(json.dumps({"state": "done"}))
+    (capture / "status.json").write_text(json.dumps({"state": "done", "written": "2026-01-01T10:00:00"}))
     (capture / "verify.json").write_text(json.dumps({"failed": 0, "not_made": 0}))
     return capture
 
@@ -582,7 +593,8 @@ def loads_from_a_capture():
         tmp = Path(t)
         capture = _a_capture(tmp)
         where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
-                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"},
+                     look=lambda capture, one, told: {"by": "nobody: this case is about something else"})
         (tmp / "output").mkdir()
         # no mesh saved yet: the whole-subject load takes one by default and is refused, and nothing is written
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture), "plan", [], **where), "'b_0700'", "mesh")
@@ -625,8 +637,8 @@ def loads_from_a_capture():
         assert record["settings"]["margin"]["value"] == WHOLE["margin"], record["settings"]["margin"]
         seen = record["what_this_clips_preview_measured"]
         last = WHOLE["first"] + WHOLE["frames"] - 1
-        assert seen["cuts_on_source_frames"] == [CAPTURE_FIRST + 90, CAPTURE_FIRST + 250], seen["cuts_on_source_frames"]
-        assert seen["cuts_inside_this_load"] == [CAPTURE_FIRST + 90], f"the cuts inside {WHOLE['first']}..{last}: {seen['cuts_inside_this_load']}"
+        assert seen["cuts_on_source_frames"] == [CAPTURE_FIRST + 40, CAPTURE_FIRST + 250], seen["cuts_on_source_frames"]
+        assert seen["cuts_inside_this_load"] == [], f"the cuts inside {WHOLE['first']}..{last}: {seen['cuts_inside_this_load']}"
         assert seen["subject"]["frames_read"] == WHOLE["frames"] and seen["subject"]["frames_with_no_mask"] == 1, seen["subject"]
         assert seen["subject"]["share_of_the_frame"] == {"least": WHOLE["first"] / 1000, "middle": (WHOLE["first"] + WHOLE["frames"] // 2) / 1000,
                                                          "most": last / 1000}, seen["subject"]["share_of_the_frame"]
@@ -646,9 +658,14 @@ def loads_from_a_capture():
             return any("extent.seconds" in e and "below min" in e for e in build_workflows.validate_api(graph, declared(), "short"))
         assert node_refuses(least_frames - 1) and not node_refuses(least_frames), \
             f"the node's own schema does not draw the line at {least_frames} frames ({least_seconds} s), where the tool reads it"
-        # a zoomed load is one shot: the capture's cut inside the whole-subject load refuses it
-        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_zoomed", "carried": "held", "motion": "none", "render_region": "part"},)),
-                                          "plan", [], **where), "b_zoomed", "cut", str(CAPTURE_FIRST + 90))
+        # a zoomed load is one shot. The builder had a refusal of its own for a zoomed load that holds a cut; it was
+        # taken out on 2026-10-10 as unreachable, because NO load that holds a cut is built now: its text would
+        # span the cut. This case shows it: a zoomed load across the cut on 690, with a text of exactly its own
+        # frames, is refused by the text rule, naming the cut. The day the text rule is loosened this goes red and
+        # the hole is seen (the node's own refusal of a cut in a zoomed load is behind it either way).
+        across = {**WHOLE, "name": "b_zoomed", "first": 660, "carried": "held", "motion": "none", "render_region": "part"}
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(across,), texts={"w": {"file": "words.txt", "frames": [660, 759], "by": "a check"}}),
+                                          "plan", [], **where), "b_zoomed", "cut(s) on", str(CAPTURE_FIRST + 40), "one shot")
         # a subject's still stands for its loads; a load's own wins; a stretch left out on purpose is carried
         no_still = {k: v for k, v in WHOLE.items() if k != "still"}
         subjects = [dict(s, still="a.png") if s["label"] == "b" else s for s in LOAD_JOB["subjects"]]
@@ -676,7 +693,8 @@ def loads_from_a_capture():
         one = {**PART, "name": "a_new"}
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(one,)), "plan", ["nobody"], **later), "nobody")
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "text": "x"},)), "plan", [], **later), "text")
-        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "first": 610},)), "plan", [], **later), "holds 650")
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "first": 610},), texts={"w": {"file": "words.txt", "frames": [610, 899], "by": "a check"}}),
+                                          "plan", [], **later), "holds 650")
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**one, "by": "q"},)), "plan", [], **later), "seen by")
         _refused(lambda: tool.build_loads(_loads_file(tmp, tmp / "data" / "nowhere", loads=(one,)), "plan", [], **later), "not a capture")
         (capture / "subjects/a/parts_held__p.mkv").unlink()
@@ -693,6 +711,155 @@ def loads_from_a_capture():
         (capture / "status.json").write_text(json.dumps({"state": "running"}))
         _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=(whole,)), "plan", [], **later), "not finished")
     return "two loads planned and one rendered from a made capture"
+
+
+def a_text_is_of_its_frames():
+    """The made capture holds source frames 650-949 and cuts on 690 and 900, so its shots are 650-689, 690-899
+    and 900-949."""
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture = _a_capture(tmp)
+        (tmp / "t.txt").write_text("  the words\nof one shot \n")
+        (tmp / "copy.txt").write_text("the words\nof one shot\n")
+        (tmp / "other.txt").write_text("other words\n")
+        entry = {"file": "t.txt", "frames": [690, 899], "by": "a check"}
+        job = {**LOAD_JOB, "texts": {"w": entry}}
+        told = tool.text_of(job, WHOLE, tmp)
+        assert told == {"label": "w", "file": str(tmp / "t.txt"), "frames": [690, 899], "by": "a check", "text": "the words\nof one shot",
+                        "sha256": hashlib.sha256(b"the words\nof one shot").hexdigest()}, told
+        # a text says its frames and its writer, and is a file beside the job file; the refusal says the rule
+        for bad, words in (("t.txt", ("bare file name",)), ({"file": "t.txt", "by": "a check"}, ("frames",)),
+                           ({**entry, "frames": [899, 690]}, ("frames",)), ({**entry, "frames": [690.0, 899]}, ("frames",)),
+                           ({**entry, "frames": [True, 899]}, ("frames",)), ({**entry, "frames": [690]}, ("frames",)),
+                           ({**entry, "by": " "}, ("who wrote it",)), ({"file": "t.txt", "frames": [690, 899]}, ("who wrote it",)),
+                           ({**entry, "file": str(tmp / "t.txt")}, ("beside the job file",)), ({**entry, "file": "sub/t.txt"}, ("beside the job file",)),
+                           ({**entry, "file": "none.txt"}, ("missing or empty",))):
+            _refused(lambda: tool.text_of({**LOAD_JOB, "texts": {"w": bad}}, WHOLE, tmp), "'b_0700'", "`w`", "true of one window only", *words)
+        _refused(lambda: tool.text_of(job, {**WHOLE, "text": "x"}, tmp), "no entry `x`")
+        _refused(lambda: tool.text_of(job, {k: v for k, v in WHOLE.items() if k != "text"}, tmp), "no text")
+        # a text covers a load when the load's frames lie inside the text's: to the frame at both ends
+        last = WHOLE["first"] + WHOLE["frames"] - 1
+        for frames, covered in (([WHOLE["first"], last], True), ([WHOLE["first"] + 1, last], False), ([WHOLE["first"], last - 1], False)):
+            fn = lambda: tool.text_of({**LOAD_JOB, "texts": {"w": {**entry, "frames": frames}}}, WHOLE, tmp)  # noqa: E731
+            if covered:
+                assert fn()["frames"] == frames
+            else:
+                _refused(fn, "'b_0700'", f"{WHOLE['first']}-{last}", f"{frames[0]}-{frames[1]}", "does not cover")
+
+        def texts(frames, loads=(WHOLE,), **more):
+            return tool.texts_for({**LOAD_JOB, "texts": {"w": {**entry, "frames": frames}, **more}}, list(loads), tmp, capture)
+        # a text is of one shot: exactly a shot passes, a frame more at either end holds a cut
+        assert texts([690, 899])["b_0700"]["sha256"] == told["sha256"]
+        _refused(lambda: texts([689, 899]), "'b_0700'", "cut(s) on 690", "one shot", "one load a shot", "not a law of the model")
+        _refused(lambda: texts([690, 900]), "cut(s) on 900")
+        tiny = {**WHOLE, "name": "b_tiny", "first": 690, "frames": 1}
+        assert texts([690, 690], loads=(tiny,)) and texts([650, 689], loads=({**tiny, "first": 689},)), "a text of one frame, a load on a cut frame"
+        _refused(lambda: texts([689, 690], loads=(tiny,)), "cut(s) on 690")
+        # outside the frames the capture saw nobody knows where the cuts are
+        _refused(lambda: texts([640, 689], loads=({**tiny, "first": 650},)), "holds 650-949")
+        _refused(lambda: texts([900, 950], loads=({**tiny, "first": 900},)), "holds 650-949")
+        # one text for loads of different shots, tonight's fault: every load outside the text's shot is named, the
+        # load inside it is not, and that one builds alone
+        p, q, r = ({**WHOLE, "name": name, "first": first, "frames": 30} for name, first in (("b_p", 650), ("b_q", 700), ("b_r", 900)))
+        try:
+            texts([690, 899], loads=(p, q, r))
+            raise AssertionError("one text for three shots was not refused")
+        except tool.Refused as e:
+            assert "2 thing(s)" in str(e) and "'b_p'" in str(e) and "'b_r'" in str(e) and "'b_q'" not in str(e), str(e)
+            assert str(e).count(tool.TEXT_RULE) == 1, "the rule is not said once"
+        assert list(texts([690, 899], loads=(q,))) == ["b_q"]
+        _refused(lambda: tool.texts_for({**LOAD_JOB, "texts": {"w": "t.txt"}}, [p, q], tmp, capture), "bare file name", "'b_p', 'b_q'", "true of one window only")
+        # the same words under two labels, whatever the files are called; other words are another text; a
+        # label no chosen load takes and that is not a text yet stops nothing
+        twin = {"file": "copy.txt", "frames": [650, 689], "by": "a check"}
+        _refused(lambda: texts([690, 899], loads=(q,), v=twin), "same words", "`v` (copy.txt, frames 650-689)", "`w` (t.txt, frames 690-899)")
+        assert texts([690, 899], loads=(q,), v={**twin, "file": "other.txt"}) and texts([690, 899], loads=(q,), v="other.txt")
+        # every subject's table counts: a cut only another subject's table holds is a cut
+        (capture / "subjects" / "c" / "shots__p.json").write_text(json.dumps({"shots": [{"first_frame": 0}, {"first_frame": 100}]}))
+        assert tool.cuts_of(capture) == ([690, 750, 900], CAPTURE_FIRST, CAPTURE_FIRST + 299), tool.cuts_of(capture)
+        _refused(lambda: texts([690, 899]), "cut(s) on 750")
+        (capture / "subjects" / "c" / "shots__p.json").unlink()
+        (capture / "subjects" / "b" / "shots__p.json").rename(tmp / "kept.json")
+        _refused(lambda: texts([690, 899]), "no shot table")
+        (tmp / "kept.json").rename(capture / "subjects" / "b" / "shots__p.json")
+        _refused(lambda: tool.texts_for(job, [WHOLE], tmp, tmp / "nowhere"), "not a capture")
+
+        # ---- the look: held by what was shown, and by the capture's own clock
+        row = {"load": "b_0700", "frames": [WHOLE["first"], last], "text_frames": [690, 899], "text_sha256": told["sha256"], "strip": "b_0700.mp4"}
+
+        def looks(*lines):
+            (capture / "looks.json").write_text(json.dumps({"looks": list(lines)}))
+        look = lambda: tool.looked_at(capture, WHOLE, told)  # noqa: E731
+        _refused(look, "nobody has looked", "'b_0700'", "video", "looked")
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "loads": "all", "note": "a line of the form before the text rule"})
+        _refused(look, "nobody has looked")
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "shown": [{**row, "load": "a_0700"}]})
+        _refused(look, "nobody has looked")
+        for at in ("2026-01-01T09:59:59", "2026-01-01T10:00:00"):                 # before the capture, and the same second
+            looks({"by": "p", "at": at, "shown": [row]})
+            _refused(look, "not later than the capture", "made again")
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "note": "every frame", "shown": [row]})
+        assert look() == {"by": "p", "at": "2026-01-01T10:00:01", "note": "every frame", "strip": "b_0700.mp4"}, look()
+        for key, other, words in (("frames", [700, 798], "as source frames [700, 798]"), ("text_frames", [690, 898], "written from [690, 898]"),
+                                  ("text_sha256", "0" * 64, "other words")):
+            looks({"by": "p", "at": "2026-01-01T10:00:01", "shown": [{**row, key: other}]})
+            _refused(look, words, "something else than this build")
+        # an earlier look that does match is not hidden by a later one that does not, and the reverse
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "shown": [row]}, {"by": "q", "at": "2026-01-01T10:00:09", "shown": [{**row, "text_sha256": "0" * 64}]})
+        assert look()["by"] == "p"
+        # one clock: a time with a zone, or no time, is refused and never compared
+        for at, words in (("2026-01-01T15:00:01+00:00", "zone"), ("yesterday", "not a time"), (None, "not a time")):
+            looks({"by": "p", "at": at, "shown": [row]})
+            _refused(look, words)
+        # the capture written again a minute after the look
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "shown": [row]})
+        (capture / "status.json").write_text(json.dumps({"state": "done", "written": "2026-01-01T10:01:01"}))
+        _refused(look, "not later than the capture")
+        (capture / "status.json").write_text(json.dumps({"state": "done"}))
+        _refused(look, "status.json", "not a time")
+        (capture / "status.json").write_text(json.dumps({"state": "done", "written": "2026-01-01T10:00:00"}))
+
+        # ---- `build plan` and `queue render` on it
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"})
+        (tmp / "output").mkdir()
+        one, two = {**WHOLE, "motion": "none"}, {**WHOLE, "name": "b_0800", "first": 800, "frames": 60, "motion": "none"}
+        made = lambda stage: tool.build_loads(_loads_file(tmp, capture, loads=(one, two)), stage, [], **where)  # noqa: E731
+        (capture / "looks.json").unlink()
+        try:
+            made("plan")
+            raise AssertionError("a plan was built on a capture nobody looked at")
+        except tool.Refused as e:
+            assert "2 load(s)" in str(e) and "'b_0700'" in str(e) and "'b_0800'" in str(e), str(e)
+        assert not (tmp / "data" / "2026-01-01_check_job").exists(), "a plan refused for its look left a folder behind"
+        words = hashlib.sha256(b"the words").hexdigest()
+        rows = [{"load": "b_0700", "frames": [700, 799], "text_frames": [690, 899], "text_sha256": words},
+                {"load": "b_0800", "frames": [800, 859], "text_frames": [690, 899], "text_sha256": words}]
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "note": "both", "shown": rows})
+        plans = made("plan")
+        record = json.loads(plans[0].with_suffix(".built.json").read_text())
+        assert record["look"]["by"] == "p" and record["text"]["frames"] == [690, 899] and record["text"]["by"] == "a check" \
+            and record["text"]["text"] == "the words" and record["text"]["sha256"] == words, record
+        said = record["shown"]
+        at = next(i for i, line in enumerate(said) if line.startswith("text `w` (words.txt), written from source frames 690-899 by a check; this load is 700-799"))
+        assert said[at + 1:] == ["  | the words"], f"the build does not print the text in full: {said[at:]}"
+        assert not any("characters" in line for line in said), "the build still prints a text's length"
+        # a render is built without a look and queued only with one, on the text it was built with
+        (capture / "looks.json").unlink()
+        renders = made("render")
+        built, graph = json.loads(renders[0].with_suffix(".built.json").read_text()), json.loads(renders[0].read_text())
+        assert built["look"] is None
+        _refused(lambda: tool.text_and_look(built, graph), "nobody has looked")
+        looks({"by": "p", "at": "2026-01-01T10:00:01", "note": "both", "shown": rows})
+        assert tool.text_and_look(built, graph)["by"] == "p"
+        (tmp / "words.txt").write_text("the words, and a sentence more\n")
+        _refused(lambda: tool.text_and_look(built, graph), "changed after it was built", "build the load again")
+        (tmp / "words.txt").write_text("the words\n")
+        graph[graphs._the(graph, graphs.SONG)]["inputs"]["prompt"] = "edited in the graph"
+        _refused(lambda: tool.text_and_look(built, graph), "changed after it was built")
+        _refused(lambda: tool.text_and_look({k: v for k, v in built.items() if k != "text"} | {"text_file": "words.txt"}, graph),
+                 "built before", "true of one window only")
+    return "the form, the cover, one shot, the same words twice, the look by what was shown, and both where a build and a queue meet them"
 
 
 def the_gate_before_a_render():
@@ -926,7 +1093,8 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, the_gate_before_a_render):
+               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_text_is_of_its_frames,
+               the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
 

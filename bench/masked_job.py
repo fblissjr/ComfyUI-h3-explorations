@@ -29,10 +29,22 @@ files of the capture the job block names (`capture`, a folder of `bench/capture_
 subject's mask, the part as the capture filled and graded it, the other subjects' masks, and the mesh the
 preview saved. Nothing is tracked again. A plan is the render's graph with the song node on `preview`: it
 samples nothing and writes, under its own folder, what each window will be given, which is what the gate
-reads (step 3). A load's text is given to it: `text` in a load is a label, and the job block's `texts` maps a
-label to a file beside the job file. `build` prints, for each load, what each model will be shown (step 6): the frames, the window and what is held past
+reads (step 3).
+
+**A load's text is data the job serves, tied to the frames it was written from** (the owner, 2026-10-10: a text
+kept in a graph or in code is forgotten there and then used for a window it was not written for). `text` in a
+load is a label, and the job block's `texts` maps a label to `{"file", "frames": [first, last], "by"}`: a file
+beside the job file, the source frames the words were written from, and who wrote them. A text serves the loads
+inside its frames and no other, and it is of one shot: its frames hold no cut of the capture. So one text for
+loads of different shots cannot be built, and neither can a load that holds a cut: one load a shot, each with
+a text of its own frames. That second part is an edge accepted, not a law of the model (`ONE_SHOT`): a load over
+several shots with a text that describes each shot under its own header is not built yet. The graph carries the text
+because the node needs it; it is a product of the job and never where a text is kept or edited.
+
+`build` prints, for each load, what each model will be shown (step 6): the frames, the window and what is held past
 the load's end; the still's own size against the size the video model is shown it at, with "enlarged by" said when
-it is; the region; the motion video and which model gets how much of it; the audio; the text's length and the seed.
+it is; the region; the motion video and which model gets how much of it; the audio; the seed; and the
+text in full, with the frames it was written from and who wrote it.
 
 **A default measured on one clip is a starting value for another** (the owner, 2026-10-10: a rule that depends on
 the picture takes its value from this clip, measured before anything renders). So every such setting can be set
@@ -69,9 +81,19 @@ only an "absent" on every row of a table nobody opens.
 - a `corrections` line whose `corrections_at` is not the tracker's mask version today. A correction names a
   person by the number on a tile, and the numbers are that version's;
 - a load whose capture is not finished, did not pass `verify`, lacks a file the load needs or does not reach
-  the load's frames; a load shorter than the song node's shortest extent (`shortest_load`); a load rendered zoomed
-  in that holds a cut; a load with no text; a feather wider than its margin; a render with no still, or a still
+  the load's frames; a load shorter than the song node's shortest extent (`shortest_load`); a feather wider than
+  its margin; a render with no still, or a still
   the server's input folder does not hold (`H3_INPUT_DIR`);
+- a text that does not say the frames it was written from or who wrote it (a bare file name, the form until
+  2026-10-10, included); a load whose frames do not lie inside its text's; a text whose frames hold a cut of the
+  capture's shot tables or reach outside the frames the capture saw; the same words served under two labels.
+  Every chosen load is tested before anything is written and the refusal lists them all (`texts_for`);
+- at `build plan` and at `queue` of a render, a load nobody looked at: the capture's `looks.json` must hold a
+  look later than the capture's own `written` whose row for the load has this build's frames, text frames and
+  text hash (`looked_at`; the strip and the record are `bench/capture_masked_run.py video` and `looked`). The
+  capture is written again when it reads the plans, so a job is looked at twice. At `queue` of a render also a
+  text file that no longer reads as the text in the built graph. `--override` lets neither of these through: it
+  answers uncommitted node code and nothing else;
 - at `queue`: a graph that was queued before; an input the server does not serve; and node code in the tree
   that is not committed, unless `--override "WHO: WHY"` is given, which is written into the record. The server
   serves a commit, and a graph built beside uncommitted node code can describe a server nobody is running;
@@ -85,7 +107,15 @@ What the builder sets so that a flag does not fire: a load's audio is cut to the
 window keeps its region open over the held frames by the node's own rule since 2026-10-10; the builder set it
 until then.)
 
-Not here yet: the one-window patch on a finished render.
+**What refuses nothing.** Every refusal above stands in `build` and `queue` and nowhere else. A built graph
+posted to the server by any other road (a session's own script, the canvas) meets none of them: no look, no
+gate, no test of its text. And the same words under two labels are caught inside one job file only: two job
+files that each serve one file's words to a shot of their own are not seen. Both are known gaps, said here so
+that nobody reads the list above as a guarantee about a render.
+
+Not here yet: the one-window patch on a finished render; a named variant of a built and gated load that changes
+one stated thing (the masking board, `build-per-video-analysis-folder`), without which a small test is easier
+to post by hand than to build.
 
 Run it from ComfyUI's environment, with `H3_OUTPUT_DIR` set as every bench tool that reads renders needs it,
 and `H3_INPUT_DIR` when the server's input folder is not the stock one.
@@ -95,6 +125,7 @@ from __future__ import annotations
 import argparse
 import ast
 import datetime
+import hashlib
 import json
 import subprocess
 import sys
@@ -262,17 +293,211 @@ def left_out(job: dict) -> list[dict]:
     return out
 
 
-def text_of(job: dict, one: dict, beside: Path) -> tuple[str, str]:
-    """A load's text and the file it came from. The builder writes no text and guesses none."""
-    label = one.get("text")
-    named = (job.get("texts") or {}).get(label) if label else None
-    if not named:
-        raise Refused(f"load {one['name']!r} has no text: give it a `text` label and the job block a "
-                      f"`texts` entry naming that label's file")
-    path = Path(named) if Path(named).is_absolute() else beside / named
+#: Said with every refusal of a text, so that the person meeting it learns the rule and not only the key (the
+#: owner, 2026-10-10; AGENTS.md "Operative rules": a text is data served by what plans the shots).
+TEXT_RULE = ('A text needs the frames it was written from and who wrote it, because a text is true of one window '
+             'only: written from one stretch of one shot, it is wrong for another. In the job block: "texts": '
+             '{"LABEL": {"file": "a file name beside the job file", "frames": [first, last], "by": "who wrote it"}}, '
+             'source frames, both included.')
+
+
+#: Said once when a text is refused for holding a cut. The way out, and what the refusal is not (the lead,
+#: 2026-10-10): the owner ruled out one shot's text served to another shot, not long loads.
+ONE_SHOT = ("The way out: one load a shot, each with a text written from its own frames. This is an edge accepted "
+            "and not a law of the model: the vendor's format has a text for several shots, each under its own shot "
+            "header, and a load over several shots with such a text is not built yet (its headers would have to be "
+            "held against the capture's cuts).")
+
+
+def text_entry(job: dict, label: str, beside: Path) -> dict:
+    """One entry of a job's `texts`, as data: the words, the source frames they were written from, who wrote
+    them, and a hash of exactly the string that goes into a graph. The builder writes no text and guesses none."""
+    named = (job.get("texts") or {}).get(label)
+    if named is None:
+        raise Refused(f"the job block's `texts` has no entry `{label}`")
+    if not isinstance(named, dict):
+        raise Refused(f"text `{label}` is given as {named!r}, a bare file name, with no frames and no writer")
+    file, frames, by = named.get("file"), named.get("frames"), named.get("by")
+    lacking = []
+    if not (isinstance(frames, list) and len(frames) == 2 and all(type(n) is int for n in frames) and 0 <= frames[0] <= frames[1]):
+        lacking.append(f"the source frames it was written from (`frames` is {frames!r}; it is [first, last])")
+    if not isinstance(by, str) or not by.strip():
+        lacking.append("who wrote it (`by`)")
+    if lacking:
+        raise Refused(f"text `{label}` does not say " + " or ".join(lacking))
+    if not isinstance(file, str) or not file or Path(file).name != file:
+        raise Refused(f"text `{label}`: its `file` is {file!r}; a text is a file beside the job file, named with no folder")
+    path = beside / file
     if not path.is_file() or not path.read_text().strip():
-        raise Refused(f"load {one['name']!r}: its text file {path} is missing or empty")
-    return path.read_text().strip(), str(path)
+        raise Refused(f"text `{label}`: its file {path} is missing or empty")
+    text = path.read_text().strip()
+    return {"label": label, "file": str(path), "frames": frames, "by": by.strip(), "text": text,
+            "sha256": hashlib.sha256(text.encode()).hexdigest()}
+
+
+def text_of(job: dict, one: dict, beside: Path) -> dict:
+    """A load's text (`text_entry`), refused when the load's frames do not lie inside the frames the text was
+    written from: a text serves the loads inside its own frames and no other."""
+    name, label = one.get("name"), one.get("text")
+    if not label:
+        raise Refused(f"load {name!r} has no text: give it a `text` label. {TEXT_RULE}")
+    try:
+        told = text_entry(job, label, beside)
+    except Refused as e:
+        raise Refused(f"load {name!r}: {e}. {TEXT_RULE}") from e
+    first, last = one["first"], one["first"] + one["frames"] - 1
+    if not told["frames"][0] <= first <= last <= told["frames"][1]:
+        raise Refused(f"load {name!r} is source frames {first}-{last} and its text `{label}` was written from "
+                      f"{told['frames'][0]}-{told['frames'][1]}: the text does not cover the load")
+    return told
+
+
+def cuts_of(capture: Path) -> tuple[list[int], int, int]:
+    """Every cut a capture's shot tables hold, on source frames, and the first and last source frame the capture
+    saw. Each subject's tracker writes a table; a cut that any of them holds is a cut, so tables that disagree
+    are read on the strict side."""
+    if not (capture / "manifest.json").is_file():
+        raise Refused(f"{capture} is not a capture folder (no manifest.json); the job block's `capture` names it")
+    manifest = json.loads((capture / "manifest.json").read_text())
+    cuts, tables = set(), 0
+    for subject in manifest["subjects"]:
+        for sighting in subject["sightings"]:
+            table = capture / "subjects" / subject["label"] / f"shots__{sighting['by']}.json"
+            if table.is_file():
+                at = sighting.get("shots_first_source_frame", manifest["first_frame"])
+                cuts |= {at + shot["first_frame"] for shot in json.loads(table.read_text()).get("shots", [])[1:]}
+                tables += 1
+    if not tables:
+        raise Refused(f"the capture {capture.name} holds no shot table: where its shots are cut is not known, so no "
+                      f"text can be held to one shot")
+    return sorted(cuts), manifest["first_frame"], manifest["first_frame"] + manifest["frames"] - 1
+
+
+def texts_for(job: dict, chosen: list[dict], beside: Path, capture: Path) -> dict:
+    """The text of every chosen load, by load name, each held to the rule (`TEXT_RULE`): it says its frames and
+    its writer; it covers its load; it is of one shot, so its frames hold no cut of the capture and stay inside
+    the frames the capture saw; and no two labels serve the same words. One text across different shots, the
+    fault this is for, needs no rule of its own: a text of one shot covers no load outside that shot. Every
+    load is tested before anything is said, and the refusal lists them all."""
+    cuts, lo, hi = cuts_of(capture)
+    told, refused, entries, bad, cut = {}, [], {}, {}, False
+    for label in sorted({one["text"] for one in chosen if one.get("text")}):
+        try:
+            entries[label] = text_entry(job, label, beside)
+        except Refused as e:
+            bad[label] = str(e)
+    for label, why in bad.items():
+        refused.append(f"{why}; taken by load(s) " + ", ".join(repr(one["name"]) for one in chosen if one.get("text") == label))
+    for one in chosen:
+        if one.get("text") in bad:
+            continue
+        try:
+            mine = text_of(job, one, beside)
+        except Refused as e:
+            refused.append(str(e).removesuffix(f" {TEXT_RULE}"))
+            continue
+        a, b = mine["frames"]
+        inside = [c for c in cuts if a < c <= b]
+        if a < lo or b > hi:
+            refused.append(f"load {one['name']!r}: its text `{mine['label']}` was written from source frames {a}-{b}, and the "
+                           f"capture {capture.name} holds {lo}-{hi}: where the shots are cut outside those is not known")
+        elif inside:
+            cut = True
+            refused.append(f"load {one['name']!r}: its text `{mine['label']}` was written from source frames {a}-{b}, which "
+                           f"hold the cut(s) on {', '.join(map(str, inside))}: a text is of one shot")
+        else:
+            told[one["name"]] = mine
+    same = {}
+    for label in sorted(job.get("texts") or {}):
+        try:
+            entry = entries.get(label) or text_entry(job, label, beside)
+        except Refused:
+            continue                                   # a label no chosen load takes, and not a text yet
+        same.setdefault(entry["sha256"], []).append(entry)
+    for group in same.values():
+        if len(group) > 1:
+            refused.append("the same words are served under " + " and ".join(
+                f"`{e['label']}` ({Path(e['file']).name}, frames {e['frames'][0]}-{e['frames'][1]})" for e in group)
+                + ": one text for several stretches is the fault this rule is for, whatever the labels and the files "
+                  "are called. A text that serves another stretch is written for it, from its frames")
+    if refused:
+        raise Refused(f"{len(refused)} thing(s) about the texts of this job:\n  - " + "\n  - ".join(refused) + f"\n{TEXT_RULE}"
+                      + (f"\n{ONE_SHOT}" if cut else ""))
+    return told
+
+
+def text_shown(one: dict, told: dict) -> list[str]:
+    """A load's text as a person reads it before it is used: where it was written from, by whom, every word."""
+    return [f"text `{told['label']}` ({Path(told['file']).name}), written from source frames {told['frames'][0]}-"
+            f"{told['frames'][1]} by {told['by']}; this load is {one['first']}-{one['first'] + one['frames'] - 1}. "
+            f"The whole text:"] + [f"  | {line}" for line in told["text"].splitlines()]
+
+
+def _when(value, what: str) -> datetime.datetime:
+    """A time as `bench/capture_masked_run.py` writes it: local, with no zone. Anything else is refused and not
+    guessed at, so that two clocks cannot make a look read hours newer or older than it is."""
+    try:
+        at = datetime.datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise Refused(f"{what} is {value!r}, which is not a time") from None
+    if at.tzinfo is not None:
+        raise Refused(f"{what} is {value!r}, a time with a zone: the capture tool writes local time with none, and "
+                      f"the look and the capture are compared on that one clock")
+    return at
+
+
+def looked_at(capture: Path, one: dict, told: dict) -> dict:
+    """The look a load is built on, or a refusal. A passing check says no rule failed, never that the masks are
+    on the right person or that the text is of these frames (the owner, 2026-10-10), so somebody who did not
+    make the capture goes through each load's strip, the whole text beside its frames, before a plan or a
+    render is built on it. `bench/capture_masked_run.py video --job --load` draws the strip and writes what it
+    showed; `looked` copies that into a line of the capture's `looks.json`. A line counts for a load when it is
+    later than the capture's own `written` (what was made again is looked at again) and its `shown` row for the
+    load has the frames, the text's frames and the text's hash this build has. Held by what was shown and not
+    by a file's time: a text copied in with an old time, or a label pointed at another file, is another text."""
+    name, frames = one["name"], [one["first"], one["first"] + one["frames"] - 1]
+    status = capture / "status.json"
+    written = _when(json.loads(status.read_text()).get("written") if status.is_file() else None,
+                    f"`written` in the status.json of the capture {capture.name}")
+    kept = capture / "looks.json"
+    looks = json.loads(kept.read_text()).get("looks", []) if kept.is_file() else []
+    mine = [(look, row) for look in looks for row in look.get("shown") or [] if row.get("load") == name]
+    how = (f" To look: `bench/capture_masked_run.py video {capture} --source CLIP --job JOB.json --load {name}` draws the "
+           f"load's strip with its text; somebody who did not make the capture goes through it; `bench/capture_masked_run.py "
+           f"looked {capture} --by WHO --loads {name} --note WHAT_WAS_SEEN` records it.")
+    if not mine:
+        raise Refused(f"nobody has looked at load {name!r} on the capture {capture.name}." + how)
+    since = [(look, row) for look, row in mine if _when(look.get("at"), f"a look's `at` in {kept}") > written]
+    if not since:
+        look = mine[-1][0]
+        raise Refused(f"the last look at load {name!r} ({look.get('by')}, {look.get('at')}) is not later than the capture, "
+                      f"written {written.isoformat()}: what was made again is looked at again." + how)
+    want = {"frames": frames, "text_frames": told["frames"], "text_sha256": told["sha256"]}
+    for look, row in reversed(since):
+        if all(row.get(key) == value for key, value in want.items()):
+            return {"by": look.get("by"), "at": look.get("at"), "note": look.get("note"), "strip": row.get("strip")}
+    look, row = since[-1]
+    said = {"frames": f"as source frames {row.get('frames')}, and it is {frames}",
+            "text_frames": f"with a text written from {row.get('text_frames')}, and its text is written from {told['frames']}",
+            "text_sha256": "with other words in its text than it has now"}
+    raise Refused(f"load {name!r} was looked at ({look.get('by')}, {look.get('at')}) "
+                  + "; ".join(said[key] for key, value in want.items() if row.get(key) != value)
+                  + ": that look is of something else than this build." + how)
+
+
+def text_and_look(built: dict, graph: dict) -> dict:
+    """Before a render is queued: the text in the built graph is still the text its file serves, and the load
+    was looked at with that text since the capture was last written (`looked_at`)."""
+    name, told = built["load"]["name"], built.get("text")
+    if not isinstance(told, dict):
+        raise Refused(f"load {name!r} was built before a text carried its frames and its writer: build it again. {TEXT_RULE}")
+    path = Path(told["file"])
+    in_graph = graph[graphs._the(graph, graphs.SONG)]["inputs"]["prompt"]
+    if in_graph != told["text"] or not path.is_file() or path.read_text().strip() != in_graph:
+        raise Refused(f"the text of load {name!r} changed after it was built: {path} no longer reads as the text in the "
+                      f"built graph. A graph is a product of the job and never where a text is kept: build the load again "
+                      f"under a new `name`, and it is looked at with the text it now has.")
+    return looked_at(Path(built["capture"]), built["load"], told)
 
 
 def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
@@ -392,7 +617,7 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     else:
         lines.append("no motion video")
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
-    lines.append(f"text: {len(run['prompt'])} characters; seed {run['seed']}"
+    lines.append(f"seed {run['seed']}"
                  + (f"; continues {run['continue_from']} with its kept frames at noise {run['context_noise']}"
                     if "continue_from" in run else ""))
     return lines
@@ -462,8 +687,10 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
 
 
 def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data: Path, output: Path,
-                inputs: Path, repo: Path = REPO, analysis=analysed) -> list[Path]:
-    """Write the plan or render graph of each chosen load into the job folder; returns the graph files."""
+                inputs: Path, repo: Path = REPO, analysis=analysed, look=looked_at) -> list[Path]:
+    """Write the plan or render graph of each chosen load into the job folder; returns the graph files. Every
+    chosen load's text is held to its frames first (`texts_for`), and a plan is built only on a capture
+    somebody looked at with that text (`look`)."""
     given = json.loads(job_file.read_text())
     if "job" not in given:
         raise Refused(f"{job_file} has no `job` block")
@@ -491,6 +718,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
     base = json.loads((repo / "workflows" / h3_config.MASKED_JOB_BASE_GRAPH).read_text())
     windows, written, todo = chain_lengths(repo), [], []
     least_seconds, least_frames = shortest_load(repo)
+    texts = texts_for(job, chosen, job_file.parent, capture)
     for one in chosen:
         if one["frames"] < least_frames:
             raise Refused(f"load {one.get('name')!r} is {one['frames']} frames: the song node takes no extent under "
@@ -499,31 +727,41 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         try:
             graphs.check_job(job)
             graphs.check_load(job, one, windows)
-            text, text_file = text_of(job, one, job_file.parent)
+            told = texts[one["name"]]
+            text = told["text"]
             files = capture_files(job, one, capture, preview_mesh(folder, job, output))
             graph = graphs.load(base, job, one, files, text, windows=windows, plan=stage == "plan")
-            says = shown(job, one, files, graph, inputs)
+            says = shown(job, one, files, graph, inputs) + text_shown(one, told)
             seen = measured(job, one, capture, graph)
         except ValueError as e:
             raise Refused(f"{job_file}: {e}") from e
-        if "render_region" in graph[graphs._the(graph, graphs.SOURCE)]["inputs"] and seen.get("cuts_inside_this_load"):
-            raise Refused(f"load {one['name']!r} is rendered zoomed in and holds a cut on source frame(s) "
-                          f"{seen['cuts_inside_this_load']}: a zoomed load is one shot. Split the load at the cut.")
+        # (A zoomed load that holds a cut was refused here until 2026-10-10. No load that holds a cut is built
+        # now: its text would have to span the cut, and `texts_for` refuses that first. The node's own refusal
+        # of a cut inside a zoomed load is still behind it, and the check holds a case that shows this.)
         saves_to = (output / graphs.run_prefix(job, one, stage == "plan")).parent
         graph_file = folder / f"{one['name']}.{stage}.json"
         for path, what in ((graph_file, "graph"), (saves_to, "output folder")):
             if path.exists():
                 raise Refused(f"the {what} {path} exists. A run never reuses a name: give the load a new `name`.")
-        todo.append((one, graph, graph_file, saves_to, files, text, text_file, says, seen))
+        todo.append((one, graph, graph_file, saves_to, files, told, says, seen))
+    looks, unseen = {}, []
+    for one in chosen if stage == "plan" else ():
+        try:
+            looks[one["name"]] = look(capture, one, texts[one["name"]])
+        except Refused as e:
+            unseen.append(str(e))
+    if unseen:
+        raise Refused(f"{len(unseen)} load(s) of this plan were not looked at:\n  - " + "\n  - ".join(unseen))
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"job.{stage}.json").write_bytes(job_file.read_bytes())
-    for one, graph, graph_file, saves_to, files, text, text_file, says, seen in todo:
+    for one, graph, graph_file, saves_to, files, told, says, seen in todo:
         graph_file.write_text(json.dumps(graph, indent=1) + "\n")
-        (folder / f"{one['name']}.{stage}.txt").write_text(text + "\n")
+        (folder / f"{one['name']}.{stage}.txt").write_text(told["text"] + "\n")
         record = {"stage": stage, "load": one, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                   "commit": head(repo), "builder_not_committed": builder_not_committed(repo), "analysis": made_from,
                   "uncommitted_node_code": uncommitted_node_code(repo), "job_file": str(job_file),
-                  "capture": str(capture), "files": files, "text_file": text_file, "output_folder": str(saves_to),
+                  "capture": str(capture), "files": files, "text": told, "look": looks.get(one["name"]),
+                  "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says, "settings": settings_of(one, graph), "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
@@ -731,6 +969,7 @@ def before_queue(folder: Path, stage: str, served: dict, *, load: str = "", over
         raise Refused("the running server does not accept this graph:\n  " + "\n  ".join(errors))
     record = {"stage": stage, "commit": head(repo), "uncommitted_node_code": dirty, "override": override}
     if stage == "render":
+        record["look"] = text_and_look(built, graph)
         record["gate"] = gate(built, folder, verify)
     return graph, record
 
