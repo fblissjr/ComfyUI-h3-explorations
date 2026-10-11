@@ -881,10 +881,15 @@ The file is untracked and is not shown here:
    from them (the face's height and the gap between the lash lines on the
    canvas, beside `h3_config.POSE_READING["lid_gap_px_to_draw"]`), with no
    verdict. The model folder is `h3_config.POSE_MODEL` in the owner's
-   store. It does not run from a fresh checkout: the checkpoint does not
-   name its points, and the list of names the tool is handed is an
-   untracked file with no tracked home yet (the tool's docstring, "The
-   names"). *Tracked since the night of 2026-10-11. The day's renders used
+   store. The checkpoint does not name its points. The tool takes Meta's
+   list of names from `vendor/meta_sapiens2/pose_keypoints308.json`, kept
+   with Meta's licence file beside it, for a model folder whose own left
+   and right pairs are the list's. That says the folder is the model the
+   list is for; the list's order is held to Meta's own file by
+   `bench/check_meta_sapiens2.py` where the reference checkout is present
+   (the tool's docstring, "The names"). *Tracked since the night of
+   2026-10-11; until the names landed that night this step said the tool
+   could not run from a fresh checkout. The day's renders used
    the one-off it replaces,
    `data/2026-10-11_sapiens2_pose_consecutive/run.py`.*
 3. **The marks.** `bench/draw_lid_marks.py` draws the shapes on the
