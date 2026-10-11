@@ -94,6 +94,20 @@ out since.
 - No kept code writes the two special masks this render depends on (a
   cleaned face-and-hair mask and a hands, arms and held-things mask). They
   exist as two files and cannot be made again.
+  *Corrected the same day by the session that wrote it: "cannot be made
+  again" was wrong. No kept code writes them, but both are recovered
+  exactly, on every frame of the load, from what that day's preview
+  saved. The cleaned face-and-hair mask is the largest connected piece
+  (diagonal neighbours joined) of the classes `Face_Neck`, `Hair`,
+  `Eyeglass`, `Lower_Lip`, `Upper_Lip` and `Tongue`, NOT clipped to the
+  tracked person. The keep-out is the two hand and four arm classes
+  together with the preview's held-things mask. What the cleaning took
+  out is skin on her arms and hands that the part model labelled
+  `Face_Neck`, in up to eighteen pieces a frame. And clipping the face
+  and hair to the tracked person, which the first claim did not test,
+  loses about a tenth of the mask, the hair that lies outside the
+  outline. A one-off comparison on the CPU against the two files; the
+  rule is not in any tool yet.*
 - `bench/capture_masked_run.py files` takes a `--loads` plan and a `--run` of
   the same name together, keeps both, and prints every flag twice.
 - A capture's sighting cannot hold files of two runs

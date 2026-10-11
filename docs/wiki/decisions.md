@@ -124,7 +124,10 @@ that session's record disagree, its record is the nearer one.*
   cannot be made again; and the capture takes two runs under one name
   without a word and prints every flag twice. The inputs, the captures
   and the figures are under the untracked `data/2026-10-11_fun_gate_inputs/`
-  and `data/2026-10-11_gate_hf_0014*`.
+  and `data/2026-10-11_gate_hf_0014*`. *Corrected within the hour: "they
+  cannot be made again" is wrong. No kept code writes them, and both are
+  recovered exactly from what that day's preview saved; the rule for
+  each is in the record. What stands is that the rule lives in no tool.*
 - **Later the same day, the owner, as the session they spoke to took it
   down:** objects are built together with the rest and not after it. The
   folder on the share, `Video/fun/`, is for new work only and work is
