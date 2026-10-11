@@ -1437,13 +1437,6 @@ MASKED_JOB_MOTION = dict(none="none", wired="a video I wire", zoomed="a video I 
 #: What a zoomed motion video is framed on when the pass takes a part: the part, not the whole tracked
 #: subject (`video_mask.BOXES`). **Reasoned**, by the node's author; nothing rendered.
 MASKED_JOB_PART_BOX = "what is replaced"
-#: A load shorter than its window: the frames past its end keep their region open, so the model is not shown
-#: the original subject as a picture to keep (`video_mask.TAILS`). **Measured** 2026-10-10 on three short
-#: loads that had ended on the source's picture, each rendered again with this one change, one seed each
-#: (`docs/wiki/window_context.md`, the held tail; the captures are
-#: `data/2026-10-10_fun_face_street_0438_tail` and `data/2026-10-10_fun_kitchen_shot2_tails_1010`). One
-#: clip: a starting value for another, and a load's own `held_tail` (`open` or `plate`) replaces it.
-MASKED_JOB_HELD_TAIL = "the last frame, with its region open"
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped

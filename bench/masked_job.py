@@ -81,8 +81,9 @@ only an "absent" on every row of a table nobody opens.
   answered in the capture (`outcome <capture> <flag> overridden --by WHO --note WHY`), never here: there is no
   override of the gate in this tool.
 
-What the builder sets so that a flag does not fire: a load shorter than its window keeps its region open over
-the held frames (`h3_config.MASKED_JOB_HELD_TAIL`), and an audio file is cut to its load.
+What the builder sets so that a flag does not fire: a load's audio is cut to the load. (A load shorter than its
+window keeps its region open over the held frames by the node's own rule since 2026-10-10; the builder set it
+until then.)
 
 Not here yet: the one-window patch on a finished render.
 
@@ -376,8 +377,8 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     ref = graph[graphs._the(graph, graphs.STILL)]["inputs"]
     lines = [f"frames {one['first']}..{one['first'] + one['frames'] - 1} of the copy at {h3_config.FPS:g} fps, canvas "
              f"{run['width']}x{run['height']}, window {run['window_frames']}, context {run['context_frames']}"
-             + (f", its last frame held for {run['window_frames'] - one['frames']} frames with the region "
-                f"{'open' if 'held_tail' in src else 'SHUT'}" if one["frames"] < run["window_frames"] else ""),
+             + (f", its last frame held for {run['window_frames'] - one['frames']} frames with the region open"
+                if one["frames"] < run["window_frames"] else ""),
              (still_seen(one["still"], ref["size_policy.dit_short_edge"], ref["size_policy.allow_upscale"], inputs)
               if one.get("still") else "no still named: a plan samples nothing")
              + "; the text encoder is shown "
@@ -406,7 +407,6 @@ def settings_of(one: dict, graph: dict) -> dict:
             "edge": src.get("edge", "the node's own"), "window": run["window_frames"], "context": run["context_frames"],
             "context_noise": run.get("context_noise", "none: the load keeps no frames"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
-            "held_tail": src.get("held_tail", "the node's own: the source's last frame, shut"),
             "render_region": src.get("render_region", "the node's own: the whole frame"),
             "largest_zoom": src.get("largest_zoom", "the node's own" if "render_region" in src else "no zoomed render"),
             "seed": run["seed"]}

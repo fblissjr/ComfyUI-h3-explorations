@@ -50,8 +50,7 @@ entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carr
 `context`, `feather`, `motion` (`mesh`, `mesh zoomed` or `none`; without it a whole-subject pass of a subject
 with a pose pass takes the mesh and any other load takes none), `continue_from`, `context_noise`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
-place of the capture's own), `motion_edge` (the motion video's short edge), `held_tail` (`open` or `plate`,
-for a load shorter than its window), and `render_region` with `largest_zoom`: `subject` or `part` renders
+place of the capture's own), `motion_edge` (the motion video's short edge), and `render_region` with `largest_zoom`: `subject` or `part` renders
 the load zoomed in on the tracked subject or on what is replaced and lays it back (`RENDER_REGIONS`; for a
 subject or a part that is small in the frame), where `frame`, the default, renders the whole frame. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
@@ -71,7 +70,7 @@ import re
 from h3_config import (
     FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
     MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_PART_BOX,
-    MASKED_JOB_HELD_TAIL, MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
+    MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
     MASKED_JOB_LOSSLESS, MASKED_JOB_PICTURE,
@@ -294,13 +293,11 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "held_tail", "render_region", "largest_zoom", "seed")
+            "render_region", "largest_zoom", "seed")
 #: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
 #: `frame` is the node's own default and sets nothing. A zoomed load must be one shot: the node refuses a
 #: cut inside the loaded frames, and the tool refuses it first, from the capture's cuts.
 RENDER_REGIONS = {"frame": None, "subject": "zoomed in on the tracked subject", "part": "zoomed in on what is replaced"}
-#: What a load's `held_tail` may say.
-TAILS = ("open", "plate")
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
 CARRIED = ("track", "held")
 SONG, SOURCE, STILL = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", "MiniMaxH3AppendRefImage"
@@ -356,7 +353,7 @@ def window_for(frames: int, windows: tuple[int, ...]) -> int:
     """The window a load is rendered in: the shortest the planner has that holds it whole, else the longest.
 
     A load capped at its shot is one window whenever a window can hold it; a shot shorter than the shortest
-    window is still one window, its last frame held (`h3_config.MASKED_JOB_HELD_TAIL`). `windows` is
+    window is still one window, its last frame held with its region open (`video_mask.held_mask`). `windows` is
     `loop_plan.CHAIN_LENGTHS`, handed in because that module needs ComfyUI."""
     return next((w for w in sorted(windows) if w >= frames), max(windows))
 
@@ -399,8 +396,9 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
                          f"the `subject`, or take a part (`carried: held`)")
     if "largest_zoom" in one and region == "frame":
         raise ValueError(f"load {name!r}: largest_zoom with no zoomed render_region")
-    if one.get("held_tail", "open") not in TAILS:
-        raise ValueError(f"load {name!r}: held_tail {one['held_tail']!r}; one of {TAILS}")
+    if "held_tail" in one:
+        raise ValueError(f"load {name!r} sets held_tail: no longer a key. A load shorter than its window keeps its "
+                         f"region open over the held frames, and that is the node's only behaviour since 2026-10-10")
     if "window" in one and one["window"] not in windows:
         raise ValueError(f"load {name!r}: window {one['window']} is not a length the planner has, {windows}")
     window, context = one.get("window", window_for(frames, windows)), one.get("context", MASKED_JOB_CONTEXT)
@@ -500,8 +498,6 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         if "largest_zoom" in one:
             src["largest_zoom"] = float(one["largest_zoom"])
     src.pop("held_tail", None)
-    if frames < window and one.get("held_tail", "open") == "open":
-        src["held_tail"] = MASKED_JOB_HELD_TAIL
 
     still = _the(g, "LoadImage")
     if not plan and not one.get("still"):

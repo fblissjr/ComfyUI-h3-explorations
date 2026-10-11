@@ -51,8 +51,7 @@ Claims, i.e. what breaks if a case is deleted:
                         each traced from the Masked Source and the song node
                         back to the file and the frame it should read: the
                         masks from the capture's first frame, the mesh from the
-                        job's, the audio cut to the load, the region open over
-                        a held tail and not set when the load fills its window,
+                        job's, the audio cut to the load,
                         the kept frames noised only on a continuation
   a plan is the render with nothing sampled    the two graphs of a load differ
                         in the song node's `preview` and its folder, no more
@@ -389,8 +388,8 @@ def a_load_lands_on_the_inputs_it_names():
     assert (src["grow_pixels"], src["feather_pixels"], src["edge"]) == (48, 4, cfg.MASKED_JOB_EDGE["cells"]), "margin, feather or edge"
     assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["wired"] and src["motion_vae"] is True, "the mesh is not wired to the video model"
     assert src["motion_short_edge"] == min(LOAD_JOB["canvas"]), f"the motion video goes in at {src['motion_short_edge']}"
-    assert run["window_frames"] == WINDOWS[0] > WHOLE["frames"] and src.get("held_tail") == cfg.MASKED_JOB_HELD_TAIL, \
-        "a load shorter than its window does not keep its region open over the held frames"
+    assert run["window_frames"] == WINDOWS[0] > WHOLE["frames"] and "held_tail" not in src, \
+        "a short load is in another window than the shortest that holds it, or still sets an input the node no longer has"
     assert (run["prompt"], run["seed"], run["preview"]) == ("the words", 11, False), "text, seed or preview"
     assert (run["width"], run["height"], run["context_frames"]) == (*LOAD_JOB["canvas"], cfg.MASKED_JOB_CONTEXT), "canvas or context"
     assert run["extent"] == "first_seconds" and abs(run["extent.seconds"] * cfg.FPS - WHOLE["frames"]) < 1e-6, "the extent is not the load's frames"
@@ -417,7 +416,7 @@ def a_load_lands_on_the_inputs_it_names():
     assert _files_behind(g, src["others"]) == _read(PART, FILES_PART["others"]), "the part load's others"
     assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["none"] and src["motion_vae"] is False and "motion_video" not in src, \
         "a part pass that asked for no motion video has one"
-    assert run["window_frames"] == PART["frames"] and "held_tail" not in src, "a load that fills its window is given a held tail"
+    assert run["window_frames"] == PART["frames"], "a load that fills a window is given another"
     assert run["continue_from"] == PART["continue_from"] and run["context_noise"] == cfg.MASKED_JOB_CONTEXT_NOISE, "a continuation's kept frames"
     cut = g[run["audio"][0]]
     assert cut["class_type"] == "TrimAudioDuration" and cut["inputs"]["audio"] == [src["frames"][0], 2] and cut["inputs"]["start_index"] == 0, \
@@ -425,8 +424,7 @@ def a_load_lands_on_the_inputs_it_names():
     short = PART["frames"] - cut["inputs"]["duration"] * cfg.FPS
     assert 0 < short < 1, f"the source's track is cut {short:.3f} frames short of the load"
     assert run["seed"] == BASE[graphs._the(BASE, graphs.SONG)]["inputs"]["seed"], "a load with no seed does not take the row's"
-    plate = _a_load({**WHOLE, "held_tail": "plate", "motion_edge": 512})
-    assert "held_tail" not in plate[graphs._the(plate, graphs.SOURCE)]["inputs"], "a load that asks for the plate is given an open tail"
+    plate = _a_load({**WHOLE, "motion_edge": 512})
     assert plate[graphs._the(plate, graphs.SOURCE)]["inputs"]["motion_short_edge"] == 512, "a load's own motion_edge is not used"
     close = _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)
     src = close[graphs._the(close, graphs.SOURCE)]["inputs"]
@@ -507,7 +505,7 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("motion", {**WHOLE, "motion": "skeleton"})
     _unbuildable("edge", {**WHOLE, "edge": "pixels"})
     _unbuildable("window", {**WHOLE, "window": 100})
-    _unbuildable("held_tail", {**WHOLE, "held_tail": "shut"})
+    _unbuildable("held_tail|no longer a key", {**WHOLE, "held_tail": "open"})
     _unbuildable("render_region", {**WHOLE, "render_region": "face"})
     _unbuildable("render_region|whole subject", {**WHOLE, "render_region": "part"})
     _unbuildable("largest_zoom", {**WHOLE, "largest_zoom": 2})
