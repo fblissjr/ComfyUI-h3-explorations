@@ -62,18 +62,24 @@ import argparse
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.frames import FIT  # noqa: E402
+
 SEAM_BAND = 10   # pixels either side of the region's edge; reasoned: under the smallest margin the lane grows
 DEEP = 40        # pixels inside the edge counted as "deep inside"; reasoned, inside a 64 pixel margin
 OVERLAY_DIFF = 40.0  # summed channel difference that marks a tinted overlay pixel; measured on the Song node's overlay
 # How a source can have been fitted to the canvas. `crop` is what VHS's ffmpeg loader does with both a custom
-# width and a custom height (a centre crop to that shape, then one scale; read in its code 2026-10-09).
+# width and a custom height: a centre crop to that shape, then one scale. It is `bench/_lib/frames.py::FIT`, the
+# one place that fit is kept. Until 2026-10-11 this dict held its own string for it, which did the two steps in
+# the other order while this comment described the right one.
 FITS = {
-    "crop": "scale={w}:{h}:force_original_aspect_ratio=increase:flags=bicubic,crop={w}:{h}",
+    "crop": FIT,
     "stretch": "scale={w}:{h}:flags=bicubic",
     "pad": "scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bicubic,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2",
 }

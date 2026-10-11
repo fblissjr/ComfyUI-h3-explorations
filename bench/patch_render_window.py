@@ -75,6 +75,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import REPO, bootstrap  # noqa: E402
+from _lib.frames import LOADER_CROP  # noqa: E402
 
 SONG, SOURCE = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource"
 LOADER, TO_MASK, APPEND_VIDEO = "VHS_LoadVideoFFmpegPath", "ImageToMask", "MiniMaxH3AppendRefVideo"
@@ -303,7 +304,7 @@ def build(args) -> int:
             raise SystemExit(f"the render's graph has a motion video (`{motion}`): give --source and --source-first")
         source_rate = probe(args.source)[2]
         ar = w / h
-        crop = f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih),scale={w}:{h}"   # the loader's own
+        crop = LOADER_CROP.format(ar=ar) + f",scale={w}:{h}"   # the loader's own, from the one place it is kept
         pixels = torch.from_numpy(read(args.source, args.source_first + first, length, source_rate, (w, h), "rgb24", crop).copy())
         clip = vm.motion_reference(pixels.to(torch.float32) / 255.0, settled, motion, int(src.get("motion_short_edge", h)),
                                    int(src.get("grow_pixels", vm.GROW_PIXELS)) // 2)

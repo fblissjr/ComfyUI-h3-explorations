@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 109 |
+| [`check_*`](#check) | 111 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 143 |
+| [the rest](#the-rest) | 144 |
 
 ## check
 
@@ -61,6 +61,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
+| [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
 | [`check_lora_alpha.py`](check_lora_alpha.py) | Check every LoRA this repo names is one ComfyUI can scale correctly. |
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
@@ -92,6 +93,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_prompt_lists.py`](check_prompt_lists.py) | The prompt list contract, and the controls that show each rule can fail. |
 | [`check_prompt_rule_controls.py`](check_prompt_rule_controls.py) | Controls for the prompt grader's rules, and its copies of the guide's closed sets. |
 | [`check_provenance_stamp.py`](check_provenance_stamp.py) | Check that `provenance.py` records the knobs that actually ran. |
+| [`check_read_render_against_original.py`](check_read_render_against_original.py) | `bench/read_render_against_original.py` against faces whose every figure is chosen here. |
 | [`check_recomposite_window.py`](check_recomposite_window.py) | `bench/recomposite_window.py` on a window made for the purpose: the frames it says a change moves are the frames it moves. |
 | [`check_ref_prompt_labels.py`](check_ref_prompt_labels.py) | Check every ref graph's prompt declares exactly the labels it wires. |
 | [`check_reference_contracts.py`](check_reference_contracts.py) | The load-bearing contracts in core's reference node, asserted for the first time. |
@@ -379,6 +381,7 @@ this file is only a way to find a script by what it says it does.
 | [`profile_sol_stages.py`](profile_sol_stages.py) | Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v. |
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
+| [`read_render_against_original.py`](read_render_against_original.py) | Set a render's face beside its original's, frame by frame, from the pose model's points of each. |
 | [`recomposite_window.py`](recomposite_window.py) | Lay a saved window of a masked render again, with the song node's own composite, and say what a change moves. |
 | [`record_capture_inventory.py`](record_capture_inventory.py) | Write down what a capture CONTAINED, so the capture can be deleted. |
 | [`record_render_substrate.py`](record_render_substrate.py) | What each render RAN UNDER, so a time or memory number can be checked. |

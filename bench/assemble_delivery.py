@@ -284,6 +284,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _lib.frames import LOADER_CROP  # noqa: E402
+
 FFMPEG = "ffmpeg"
 BATCH = 24        # frames converted at a time; reasoned: bounded memory on the loader's 16-bit frames
 STATIC = 0.15     # mean |difference| under which two fed frames are the same picture; reasoned: under the codec
@@ -520,9 +523,10 @@ def pipe_frames(cmd, size):
 
 def loader_fit(w, h):
     # VHS_LoadVideoFFmpeg's own filter for a custom width and height (its `ffmpeg_frame_generator`, read
-    # 2026-10-10): a centre crop to the canvas's shape, then one scale. Inherited, not chosen.
-    ar = float(w) / float(h)
-    return f"crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih),scale={w}:{h}"
+    # 2026-10-10): a centre crop to the canvas's shape, then one scale. Inherited, not chosen. The crop's text
+    # is `bench/_lib/frames.py::LOADER_CROP`, the one place it is kept (this function held its own copy until
+    # 2026-10-11); the ratio is written as the loader writes it, so the filter is the same text as before.
+    return LOADER_CROP.format(ar=float(w) / float(h)) + f",scale={w}:{h}"
 
 
 def original_frames(source, first, last, w, h):

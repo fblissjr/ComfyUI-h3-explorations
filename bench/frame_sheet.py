@@ -11,8 +11,8 @@ read a render had written its own tool for it. This is the one in the tree.
 
 **The clock.** `--frames` are source frame numbers. A row's video starts at source frame `@FIRST` (0 when not
 given), so a render that begins at source frame 604 is `R.mp4@604` and its tile for 640 is its own frame 36,
-which the label says (`r36`). `:fit` fits a row to the canvas as the lane's loader does (scale to cover, crop
-the centre); a row without it is scaled to the canvas. A frame a video does not have is a black tile.
+which the label says (`r36`). `:fit` fits a row to the canvas as the lane's loader does (cut to the canvas's shape at the
+centre, then scale: `bench/_lib/frames.py::FIT`); a row without it is scaled to the canvas. A frame a video does not have is a black tile.
 
 **The crop.** `--crop` is one box on the canvas for every tile. `--follow` takes a mask video and centres a
 square of `--side` pixels on the mask's centre frame by frame, for a face that moves across the frame; a frame

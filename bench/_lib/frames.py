@@ -17,10 +17,23 @@ from pathlib import Path
 
 import numpy as np
 
-#: The loader's fit: scale to cover the canvas, crop the centre. Inherited:
-#: `bench/masked_render_against_source.py::FITS["crop"]`, read off VHS's ffmpeg loader with both a custom width
-#: and a custom height.
-FIT = "scale={w}:{h}:force_original_aspect_ratio=increase:flags=bicubic,crop={w}:{h}"
+#: The crop the graphs' video loader makes before it scales, as its own code writes it, with the canvas's aspect
+#: ratio as `{ar}`. Inherited, word for word: `ComfyUI-VideoHelperSuite/videohelpersuite/load_video_nodes.py`,
+#: the line under "Aspect ratio is changed. Crop to new aspect ratio before scale", read 2026-10-11.
+#: `bench/check_loader_fit.py` holds this text to that line, so a change in the loader goes red there.
+LOADER_CROP = "crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih)"
+#: The loader's fit: CUT the source to the canvas's shape at its centre, THEN scale it. Formatted with `w` and
+#: `h`, the canvas's size; the loader's ratio is written as their quotient, which ffmpeg works out to the same
+#: number. For a source already the canvas's shape the cut removes nothing and this is a plain scale.
+#:
+#: Until 2026-10-11 this was the other order (scale to cover, then cut the centre), said to have been read off
+#: the same loader. The two differ whenever the source's shape is not the canvas's: on a 1424 by 1080 source at
+#: 1024 by 768 they sit about half a row apart. Found three ways that day: the loader's code; two renders'
+#: own pixels outside their redrawn region, which sit nearer a source cut first; and the pose model, whose
+#: points on a source fitted the old way were half a pixel from those of a run that cut first, and identical
+#: once the fit was changed. The loader also rounds a custom size to a multiple of eight, which this does not:
+#: give it the canvas's own size.
+FIT = LOADER_CROP.format(ar="({w}/{h})") + ",scale={w}:{h}"
 #: The rate a mask video is written at. Inherited: the lane renders at 24 frames a second.
 FPS = 24
 
