@@ -1,6 +1,6 @@
 # The wiki: where to start, and who owns each answer
 
-last updated: 2026-10-10 (the who-is-who design page); 2026-10-07 (the page on asking SAM 3.1 for something); 2026-10-05 (the library of uses); 2026-10-04 (the masked video to video page; the masking research folder); 2026-10-01 (the clip-to-graph coverage tool; the wiki's prompting page folded into `docs/prompting.md` and removed); 2026-09-29 (next_steps and decisions: the ref2va verification, the gate dial and issue 16604); 2026-09-29 (the FastH3 overlay, rank, gates and finisher rows); 2026-09-29 (the block-49 row says the problem is specific to unrotated attention); 2026-09-27 (the two encoder tool rows: the bf16 pruned rebuild and the int8-vs-bf16 DiT measurement)
+last updated: 2026-10-10 (the handover page; the who-is-who design page); 2026-10-07 (the page on asking SAM 3.1 for something); 2026-10-05 (the library of uses); 2026-10-04 (the masked video to video page; the masking research folder); 2026-10-01 (the clip-to-graph coverage tool; the wiki's prompting page folded into `docs/prompting.md` and removed); 2026-09-29 (next_steps and decisions: the ref2va verification, the gate dial and issue 16604); 2026-09-29 (the FastH3 overlay, rank, gates and finisher rows); 2026-09-29 (the block-49 row says the problem is specific to unrotated attention); 2026-09-27 (the two encoder tool rows: the bf16 pruned rebuild and the int8-vs-bf16 DiT measurement)
 
 Written by hand, and the only copy of these routes: `CLAUDE.md` points here
 instead of carrying them. This is a router, not an authority. It states no
@@ -12,6 +12,7 @@ under `docs/` that no link from `CLAUDE.md` or this wiki reaches.
 
 | page | what it is for |
 |---|---|
+| [`handover.md`](handover.md) | **read before anything else when a working day starts.** Rewritten each evening by the session that led the day: what the day left and did not, what is not certain, what was kept or cut in its last hours and why, and the suggested order for the next day. It opens by saying that nothing it describes is known good |
 | [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The short form of `docs/roadmap.md`'s current forward plan; start there when the question is what to work on, and when the two disagree the roadmap is right |
 | [`decisions.md`](decisions.md) | **what was decided or reversed, and when.** One dated line per owner decision or corrected claim, with what it used to say and the commit, and where older history lives |
 | [`references.md`](references.md) | the sister checkouts under `coderef/`: what each one implements for H3, what has been compared against it, and at which revision. The map to reach for before proposing a borrow |

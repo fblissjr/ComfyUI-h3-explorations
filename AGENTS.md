@@ -196,6 +196,10 @@ Read those, never a sentence naming a build.
 
 ## Where things are
 
+**Starting a working day, read
+[`docs/wiki/handover.md`](docs/wiki/handover.md) before anything else**: what
+the last day left and did not, what is not certain, and what not to assume.
+The session that leads a day rewrites it that evening.
 [`docs/wiki/index.md`](docs/wiki/index.md) is the router: what to read
 before you start, which document answers which question, and the rule for
 each code directory. [`docs/wiki/next_steps.md`](docs/wiki/next_steps.md) is

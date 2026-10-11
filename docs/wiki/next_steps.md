@@ -5,6 +5,10 @@ reasoning lives; it restates none of it.** Kept short on purpose: when it
 disagrees with [`../roadmap.md`](../roadmap.md), the roadmap is right and this
 page is stale.
 
+**Starting a day: read [`handover.md`](handover.md) first.** It is what the
+last working day left, in the order its lead would take it up, and it opens
+with what not to assume.
+
 ## To-do (the owner's action list, 2026-09-05)
 
 **Pointers only, one line each, consolidated across the sessions working this
@@ -29,12 +33,15 @@ own below the rule.
 - Open with the owner: whether the rule the text pairs point at goes into
   `../prompting.md`; a repair for the one held frame.
 
-**Owed first, as the next node change in the masked lane (owner, 2026-10-10):
-the removals and the one addition listed in `decisions.md`, 2026-10-10, "What
-the owner cut from the masked lane's nodes".** One change, idle card, one
-sweep, a rebuild of `workflows/`, a cold read, then the job builder's commit
-that follows the new schema. Until it lands, every removed input is still on
-the nodes and every store is still switched off in code or by default.
+**The removals listed in `decisions.md`, 2026-10-10, "What the owner cut
+from the masked lane's nodes", landed that evening** (`e9de8cc3` to
+`368fbaa8`, the rebuild `ac35766a`); the one addition, the song node's input
+that reads the analysis folder, is held for the next day
+(`data/2026-10-10_cuts_piece5_analysis_input/`). *2026-10-10, evening: this
+paragraph said the change was owed and gave its order as one sweep, then a
+rebuild; the order that works after a node loses an input is restart,
+rebuild, sweep, because the generator validates against the running
+server.*
 
 **Masked video to video (owner, 2026-10-04): version one shipped; movement from the source is answered on ref2va (2026-10-05) and open on fl2va.**
 - **The 2026-10-08 crowd render, looked back on (2026-10-10):**
