@@ -146,6 +146,12 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   stored mask and is trusted as little: know which text a load is getting,
   read it against that load's frames before it is used, and check after
   the render that it did what was expected. (Owner, 2026-10-10.)
+- **When a render is wrong, read its text first.** Before a kernel, a
+  setting, the audio or a mask is suspected or a test is queued: the text
+  the model was given, read against the frames, for what it says and what
+  it does not say about the thing that is wrong. On 2026-10-10 three test
+  renders went to a kernel setting and an audio file before the text was
+  read; one sentence fixed it. (Owner, 2026-10-10.)
 - **A rule that depends on the picture takes its value from the input
   video, up front.** A likeness line, a size line, a cut score, a margin:
   the preview measures this clip and the rule is set from that, as
