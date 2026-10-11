@@ -73,6 +73,80 @@ front of you, line up its text, its window's frames, its mask and its
 audio yourself before you build on any of it (`AGENTS.md`, "When a render is
 wrong").
 
+## After the page was first committed: a fault in the tools' own reading of a source, and three tools
+
+Added the same night by this page's writer, when the last session of the
+day had finished.
+
+- **The bench tools fitted a source to the canvas in a different order
+  from the loader, about half a row off on this video.**
+  `bench/_lib/frames.py::FIT` scaled to cover and then cut; the graphs'
+  video loader cuts to the canvas's shape and then scales. Found by the
+  session writing the pose tool, which held the tool to giving a one-off's
+  points exactly. Corrected in `100f9e09`, whose message says how it was
+  found and what it means for every capture made before it; read that
+  message before trusting an older capture's reading of a render against
+  its source. `bench/check_loader_fit.py` now holds the fit to the
+  loader's own line. **No workflow and no node carried it**: the job
+  graphs load through the loader itself, and the Masked Source's own
+  resize cuts first too. **No figure in the records of 2026-10-11
+  moves**: they were made by one-offs that cut first.
+- **What that correction does to a capture, read both ways on one real
+  capture by this page's writer** (the kitchen load, made again on the
+  corrected fit beside the same capture made earlier that day; the
+  figures are in the message of the commit that placed this paragraph):
+  the gate's flags are the same, every one. The two per-frame columns
+  about the source's own picture move a hair. **The reading that moves is
+  `changed`**: its floor falls, so every "times the floor" it prints rises
+  with nothing redrawn differently, and a multiple of the floor quoted
+  before that night would read higher if made again. One threshold is a
+  multiple of that floor (`capture_masked_run.source_at_the_ends`: a
+  render within three floors of its source is not read). Not read both
+  ways, reasoned only: `look` and the un-tinting of a review.
+- **The older stacked clips on the owner's page** (`Video/fun/review_clips/`)
+  and its plain stills were built with a scale-first fit: their top row
+  sits that half row from the render. Known, not remade; nobody measures
+  from them. `data/fun/poc/README.md` says what to change when one is
+  next built.
+- **Three tools are tracked, each with a check**, written that evening by
+  one session from the day's one-offs: `bench/pose_along_shot.py` (the
+  pose model on every frame of a shot; `run` needs the card, `read` says
+  what a shot's points can carry before anything is drawn from them),
+  `bench/draw_lid_marks.py` (the marks on a body-model video, with a
+  `verify` for a second reader) and
+  `bench/read_render_against_original.py` (a render's face beside its
+  original's, split by where the original's eyes are open, with a floor
+  or a plain "no floor given"). One definition of each figure:
+  `bench/_lib/face_points.py`; their starting values:
+  `h3_config.POSE_READING` and `LID_MARKS`. The one-offs under
+  `data/2026-10-11_sapiens2_pose_consecutive/` are superseded and stay as
+  what the day's tables were made by. Two things still open: the list of
+  the pose model's point names is an untracked file
+  (`data/2026-10-11_sapiens2_pose_consecutive/names308.json`, read out of
+  Meta's keypoint config), so a fresh checkout cannot run the pose tool
+  until it has a tracked home; and [`masked_v2v.md`](masked_v2v.md), "How
+  it was made", still names the one-off in its step 2 and in the sentence
+  under its list.
+- **What the owner said the tools are for, at the close** (in substance;
+  the Open List's row t83 has it):
+  - A tool gives data and its context and leaves the reading to whoever
+    runs it. It does not print a verdict.
+  - A standing check is worth having only where it tells the runner
+    something before time is spent. For the fit that means: a capture
+    says up front whether the source's shape is the canvas's and how much
+    the loader cuts, not a comparison run after every render.
+  - **The capture tool's purpose is the whole path.** For each thing a
+    node uses on the way from source to target (the source's frames, a
+    mask, a reference video, a still, the text, the sound), a reader can
+    see how it came in, every change made to it, by which node with which
+    values, at which step, from which node to which, for every window
+    that runs. The fit fault is the plain case of what that would have
+    shown. And the capture as a workflow is wanted for the same reason.
+    Nothing is built for this yet and it is not sized: it is the
+    direction for the capture tool, and its first step is to list what
+    the saved graph, the plan, the saved region and the tables already
+    hold of it.
+
 ## The day in five sentences
 
 The owner ruled in the morning that the masked lane is built segments
@@ -89,8 +163,9 @@ day closed there with one render proposed.
 
 - **Commits.** Read `git status -sb`; the owner pushes from their own
   terminal through the day and no session pushed. The day's commits are
-  docs and records, plus one tool with its check and three constants
-  (`12e460a1`). **No node and no generated workflow changed today**, on
+  docs and records, plus three bench tools with their checks, three
+  constants and the correction of the bench tools' fit (the section
+  above). **No node and no generated workflow changed today**, on
   purpose: the form was not to be built into a graph on one shot.
 - **The ComfyUI server is stopped** (by this page's writer, 22:28Z, at the
   owner's ask; the port's owner was killed with an empty queue). Start it
@@ -190,13 +265,11 @@ Every step is a tracked tool; every bench tool here wants
   `data/fun/review/media/`.
 - **Tracked tools the work ran on**: `bench/masked_job.py`,
   `bench/capture_masked_run.py`, `bench/contact_sheets.py`, and from
-  today `bench/draw_lid_marks.py` with `bench/check_draw_lid_marks.py`
-  and `bench/_lib/face_points.py` (one definition of each figure read off
-  the pose model's points). **Still one-offs**, named so nobody builds on
-  them unknowing: the pose pass along a shot
-  (`data/2026-10-11_sapiens2_pose_consecutive/run.py`) and the two
-  readers beside it (`read_tables.py`, `read_from_files.py`); a session
-  is writing them as tracked tools with a check each.
+  that evening `bench/pose_along_shot.py`, `bench/draw_lid_marks.py` and
+  `bench/read_render_against_original.py`, each with its check, over
+  `bench/_lib/face_points.py`. *When this page was first committed two
+  of the three were still one-offs; the section near the top says what
+  landed.*
 - **Asks and answers**: the H3 Open List (the owner's page with Claude),
   rows g00 to g10 and t58 to t82; the cards on the local page are cut
   from those rows by the session that has the page.
@@ -228,9 +301,10 @@ The owner decides the order.
    at `RENDER_ZOOM_REPLACED`).
 4. **Then, and only if step 3 carries**, the two held loads: the shorter
    wording, and the third subject.
-5. **The two remaining tools** (the pose pass along a shot, a render read
-   against its original), each with a check; then the one-offs are
-   retired by name.
+5. **Use the three tracked tools for the next render's reading**, and
+   make its points with `bench/pose_along_shot.py`; the one-offs are not
+   run again. *First written as "the two remaining tools": both landed
+   the same night.*
 6. **Nothing of this form goes into the builder or a generated workflow**
    until it has held on two shots. When it does: the builder's motion
    choice, the generated graph, a full sweep, a restart, by one session.
