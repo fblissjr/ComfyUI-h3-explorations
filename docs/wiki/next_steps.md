@@ -17,6 +17,24 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
+- Start from [`handover.md`](handover.md): what not to assume, where the
+  day's folders, tools and one-offs are, and the order for the next day.
+- The two records: `../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`
+  (it worked there, as a level; the owner picked a render) and
+  `../../bench/results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md`
+  (it did nothing for her eyes; what differs between the two loads).
+- **Owed, on the owner's word: one render**, the close-up with the marks
+  at three times and nothing else changed; before it, a look at what of
+  the reference the model is shown, which costs no render. Built and
+  held behind it: the shorter wording, and the third subject's shot.
+- **Not to be done until the form has held on two shots**: the builder's
+  motion choice and a generated workflow for it.
+- Owed and not started: the record of a video on the share with the tool
+  that takes the page's raw answers into it; the pose pass along a shot
+  as a tracked tool run once on the card; trial 2 of
+  [`meta_perception_models.md`](meta_perception_models.md), "The trials".
+
 **Whole-frame video to video (2026-10-09): two full clips on one source; what is owed.**
 - What was rendered, what each showed and what is unexplained:
   `../../bench/results/2026-10-09_whole_frame_text_and_copy_size.md`. Not

@@ -288,6 +288,50 @@ that session's record disagree, its record is the nearer one.*
   owner closed it. So no render of the form above is read for it, and the
   render that tries the retention line is read for her eyes and head like
   the others.*
+- **What the owner ruled at the close of 2026-10-11**, on the local page
+  and in three sessions' terminals; each line was read in the page's own
+  file of answers before anything was queued on it. Taken down in
+  substance.
+  - **The kitchen shot's pick.** The owner judged all eleven renders of
+    it on playback and picked the one with the wording they had chosen;
+    they could not tell it from the two other plain-text renders, and
+    liked the enlarged-marks render before it as much. Their eye and the
+    pose model's table sorted the eleven the same way
+    ([`2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`](../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md),
+    "Added later the same evening").
+  - **Other examples before more is read into one clip.** Two shots, the
+    lead's singing close-up first and the third subject's face after, in
+    that wording word for word; and a shorter wording ("the movements and
+    the expressions") to be tried as well, if the form works. This
+    answers the line above that had it second hand.
+  - **Where the reference's wording lives: a documented practice, not
+    code.** In the wiki, with the fragment alone, one whole text as an
+    example that is plainly not for copying, what the reference video
+    consisted of and how it was made, and why it is thought to have
+    worked; said to be from one case; and changed when it turns out not
+    to be true. It is
+    [`masked_v2v.md`](masked_v2v.md), "The motion video as a body model,
+    with marks drawn on its face". Each load keeps its own copy of the
+    lines in its text file.
+  - **The day's tools are tracked, and the day's way of working is
+    written down where the next session starts.** The marks on a
+    body-model video, the pose pass along a shot and a render read
+    against its original become tracked tools with a check each, written
+    by one session. The builder's motion choice and a generated workflow
+    for the form wait until it has held on two shots: decided by the
+    sessions and not objected to. [`handover.md`](handover.md) says where
+    every folder, tool and one-off is.
+  - **The ComfyUI server is stopped when the day's card work is done.**
+    Stopped that evening by the session that held it.
+  **And the form did not repeat.** On the close-up her mouth sings and
+  her eyes read as they do in the render of 2026-10-10 that was given no
+  motion video
+  ([`2026-10-11_lead_closeup_lid_marks_did_not_carry.md`](../../bench/results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md)).
+  The shorter wording and the third subject's shot were built and held,
+  since neither would say why. One render is put to the owner for the
+  morning: the same close-up with the marks at three times. So the
+  wording above is the owner's pick for a shot where it worked, and is
+  not yet a rule for another.
 
 ## 2026-10-10
 
