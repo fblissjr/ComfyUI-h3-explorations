@@ -873,9 +873,20 @@ The file is untracked and is not shown here:
    values, handed in as a named file.
 2. **The lash-line points.** The Sapiens2 pose model on every frame of the
    source, fitted to the canvas as the loader fits it, in the tracked
-   person's box. No node runs that model. A one-off script did:
-   `data/2026-10-11_sapiens2_pose_consecutive/run.py`, which writes the
-   points of each frame and one row a frame of figures.
+   person's box. No node runs that model. `bench/pose_along_shot.py` does:
+   its `run` needs the card and writes each frame's points and scores, the
+   points' names and the source frame of the first row, with a record
+   beside them that says how the frames were fitted; its `read` needs no
+   card and says what a shot's points can carry before anything is drawn
+   from them (the face's height and the gap between the lash lines on the
+   canvas, beside `h3_config.POSE_READING["lid_gap_px_to_draw"]`), with no
+   verdict. The model folder is `h3_config.POSE_MODEL` in the owner's
+   store. It does not run from a fresh checkout: the checkpoint does not
+   name its points, and the list of names the tool is handed is an
+   untracked file with no tracked home yet (the tool's docstring, "The
+   names"). *Tracked since the night of 2026-10-11. The day's renders used
+   the one-off it replaces,
+   `data/2026-10-11_sapiens2_pose_consecutive/run.py`.*
 3. **The marks.** `bench/draw_lid_marks.py` draws the shapes on the
    body-model video from those points. It writes the marked video, a
    record beside it and, given the source, a sheet of a few frames laid
@@ -905,11 +916,11 @@ The file is untracked and is not shown here:
    source, the masks and the reference video. The graph is saved beside
    the job: `data/2026-10-11_gate_p4_0014_job/second_hf_0014_p4.render.json`.
 
-**The pose pass is a one-off script under the untracked `data/` today**,
-with one clip's canvas typed in. It is being made a tracked tool, and step
-2 takes its name when it lands. No node draws marks, no shipped graph has
+**Steps 2 and 3 are tracked tools, each with a check; nothing joins them
+up.** No node runs the pose model or draws marks, no shipped graph has
 this form, and the builder cannot make a marked video; it can only be
-handed one.
+handed one. *Until the night of 2026-10-11 this paragraph said the pose
+pass was a one-off script under the untracked `data/`.*
 
 ### What it carried on that shot
 
