@@ -5,7 +5,8 @@
         --out data/<job>/lead_mesh_with_lids_1575.mp4 --by <session> [--source SOURCE.mov] \\
         [--bare 1533-1540 --bare-by <who looked>] [--grow 3] [--mesh-first N] [--points-first N]
 
-The body-model video carries the head; its face is blank, so nothing in it says how open the eyes are. This
+The body-model video carries the head; its face is a neutral modelled one that never changes, so nothing in
+it says how open the eyes are. This
 fills the area between each eye's upper and lower lash line, from the pose model's points on the ORIGINAL
 (`bench/pose_along_shot.py`), white with a thin black edge on the body model's own frame. Lids only: the same
 points' lip lines were judged and are not drawn (`bench/_lib/face_points.py::lip_gap`).
