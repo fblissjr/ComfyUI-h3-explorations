@@ -65,9 +65,10 @@ and follows nothing, so it has no place in making a mask. The one question
 it could be pointed at is whether two crops show the same person, and that
 road is closed here for a reason that does not depend on the encoder: who is
 in a scene is a person's answer to a numbered picture, because appearance
-alone could not tell two people of this lane's clips apart
-([`who_is_who.md`](who_is_who.md); [`decisions.md`](decisions.md),
-2026-10-10).
+alone could not tell two people of this lane's clips apart (the evidence:
+[`who_is_who_evidence.md`](who_is_who_evidence.md) and
+`../../bench/results/2026-10-10_who_is_who_across_shots.md`; the ruling:
+[`decisions.md`](decisions.md), 2026-10-10).
 
 **The part classes are not things a person would choose.** Seen on
 2026-10-11 by one session, on stills of two shots of one clip, in the class
