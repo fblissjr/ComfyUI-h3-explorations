@@ -409,9 +409,10 @@ that session's record disagree, its record is the nearer one.*
     `bench/_lib` first, as a change of their own with a check and a
     sweep on a started server; a view reads a capture folder and not
     raw mask paths; it is the look recorded before a plan or says it is
-    extra; one palette and one legend. Not yet: the owner has not
-    answered on the one layered clip that exists, and it is sized
-    together with the capture tool's purpose above.
+    extra; one palette and one legend. The owner then said of the one
+    layered clip that exists that the view is wanted; that is not a
+    verdict on each of its panels. It is sized together with the capture
+    tool's purpose above, and nothing of it is built.
   What prompted it, the same night: the bench tools' own fit of a source
   to the canvas was found to differ from the loader's by about half a
   row on this video, and nothing recorded how the source came in. The

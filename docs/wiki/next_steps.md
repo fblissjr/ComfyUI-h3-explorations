@@ -47,8 +47,9 @@ own below the rule.
 - **A layered view of the preprocessing** (the same entry): shared
   library code first (the capture tool's drawing helpers into
   `bench/_lib`, their own change), then the view where it fits an
-  existing smaller tool, nothing duplicated. Waits on the owner's word
-  on the one clip that exists; the Open List's row t76.
+  existing smaller tool, nothing duplicated. Wanted, by the owner's word
+  on the one clip that exists (the Open List's row t76); which of its
+  panels earn their place is asked when it is built. Not started.
 - **For new checks and tools, from the owner at the close** (the same
   entry): green or red only for a hard failure; anything of degree is
   data with its context, no verdict. Whether that reaches the existing
