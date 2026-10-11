@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-11 (the sections "What is on disk, what loads it, and what to try next" and "The trials", with depth and geometry models that are not Meta's perception stack; dated notes where the keypoint model's first run overtook a sentence). Before that, 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style))
+last updated: 2026-10-11 (the sections "What is on disk, what loads it, and what to try next" and "The trials", with depth and geometry models that are not Meta's perception stack; dated notes where the keypoint model's first run overtook a sentence; the same evening, trial 1's verdict, what the body-model video and the lid marks carried on one shot, and dated notes where the owner's ruling that marks and layers are shown to the model overtook a sentence). Before that, 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style))
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -8,6 +8,10 @@ line or the command that holds it. Where this page and the code disagree,
 the code is right. **Everything here was read, not run**, unless a line
 names a record; one record exists so far, for SAM 3D Body. What a run would
 have to show for the rest is under "Not run".
+*2026-10-11: more than one record exists now. The keypoint model has been
+run along whole shots, and what a body-model video and marks drawn from
+those points carried on one shot is in two records; each is named where it
+bears on a line below.*
 
 The two questions this page was written for come from the masked lane
 ([`masked_v2v.md`](masked_v2v.md)):
@@ -27,6 +31,7 @@ The two questions this page was written for come from the masked lane
 | Can SAM-Audio take "the voice of the person under this mask"? | Yes, it is a designed case, and Meta calls it the weaker prompt. Meta's own code disagrees with itself about which way the mask goes | "SAM-Audio", "The visual prompt" |
 | Does SAM 3D Body follow more than one person? | Meta's pipeline is one image at a time with no identity between frames. Identity is whatever the caller's boxes or track carry | "SAM 3D Body", "More than one person" |
 | What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which no node runs (*2026-10-11: run once as a one-off on eight frames; the next section*) | "Sapiens2" |
+| When a face and hair are redrawn, what carries the head, and what the eyelids? | On one shot, one seed a load: the body-model video carries the head, and nothing carried the lids until the source's eye openings, taken from the keypoint model's points, were drawn on that video's face. A level reached; following in time is not shown | "What is on disk, what loads it, and what to try next", the notes of 2026-10-11 in two rows; [`masked_v2v.md`](masked_v2v.md), "The motion video as a body model, with marks drawn on its face" |
 | Which of these models are on disk, and which does any code load? | The tracker, the part model and the body model are loaded by the masked lane; the keypoint model has been tried once; nothing loads the rest | "What is on disk, what loads it, and what to try next" |
 
 ## What is on disk, what loads it, and what to try next
@@ -44,9 +49,9 @@ wait: [`decisions.md`](decisions.md), 2026-10-11).
 |---|---|---|---|---|
 | `facebook_sam3.1` | people and things found by a phrase, and one mask followed through a shot | `h3_config.SEGMENTER`, the file `../../bench/convert_sam3_checkpoint.py` writes from it; `../../subject_track.py` | in every masked job | keep. It says where a person is, not who: [`who_is_who.md`](who_is_who.md) |
 | `facebook_sapiens2-seg-1b` | a class for every pixel of one person: `sapiens2_parts.CLASS_NAMES` | `h3_config.SAPIENS2["segmentation"]`; `../../sapiens2_parts.py` | in every masked job that takes a part | keep. Its classes are not the things a person would choose: read the note under the table before building a choice on them |
-| `facebook_sam-3d-body-dinov3` | a posed body mesh and a table of joints, from one frame and a box | `h3_config.MASKED_JOB_BODY_MODEL`; `../../body_pose.py` | the motion video of a whole-person load | keep for a whole person. It has no face ("SAM 3D Body", "The face"). Whether it helps or hinders a load that redraws only a face and hair is an open question of 2026-10-11 with one render proposed to answer it: the same load with the motion video taken away |
+| `facebook_sam-3d-body-dinov3` | a posed body mesh and a table of joints, from one frame and a box | `h3_config.MASKED_JOB_BODY_MODEL`; `../../body_pose.py` | the motion video of a whole-person load | keep for a whole person. It has no face ("SAM 3D Body", "The face"). Whether it helps or hinders a load that redraws only a face and hair is an open question of 2026-10-11 with one render proposed to answer it: the same load with the motion video taken away. *Answered the same evening on one shot and one seed: it helps. With the motion video taken away, and the sentences about it with it, her head held nearly still; with it her head follows the source's. Its face is a neutral modelled face, not a blank one: `../../bench/results/2026-10-11_kitchen_shot_head_and_eyes_two_tests.md`* |
 | `facebook_sam-3d-body-vith` | the same model on the other backbone | a loader exists (`../../sam3d_body_vith.py`, held by `../../bench/check_sam3d_body_vith.py`); the job builder names the other file | on disk, used by no job | do not switch without a failing case. One frame through both is all that has been compared: `../../bench/results/2026-10-05_sam3d_body_vith.md` |
-| `facebook_sapiens2-pose-1b` | named points on the body, hands and face, the lids and the lips among them | no node. A one-off run: `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md` | tried once, on eight frames | use it to MEASURE: how open each eye is and whether a mouth is open or shut, on the source and on a render. Do not cut a mask from its lip points on a small face, and do not use its pupil points; the record says why. Next for it: frames where the answer is not at either end (a blink, a half-open mouth) |
+| `facebook_sapiens2-pose-1b` | named points on the body, hands and face, the lids and the lips among them | no node. A one-off run: `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md` | tried once, on eight frames | use it to MEASURE: how open each eye is and whether a mouth is open or shut, on the source and on a render. Do not cut a mask from its lip points on a small face, and do not use its pupil points; the record says why. Next for it: frames where the answer is not at either end (a blink, a half-open mouth). *The same evening: run on every frame of several shots and of their renders, still as a one-off and by no node. As trial 1 its eye figure passed at its two ends and its mouth figure failed (the note under the table in "The trials"). And its lash-line points were put to a second use, which the owner ruled for: the source's eye openings drawn on the body-model video that a load is shown (`../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`). The pass along a shot and the drawing are being moved into tracked tools* |
 | `facebook_sapiens2-matting-1b` | a soft edge for the whole person, not for a part | the part node has a slot for it (`sapiens2_parts.MATTE_ARCH`); `h3_config.SAPIENS2["matting"]` is `"none"` | on disk, switched off | leave it off until something reads a matte. The comment beside `h3_config.SAPIENS2` gives the reason: the Masked Source reads the hard part mask, so loading it costs a pass a frame and changes nothing. It becomes worth a try the day the composite's edge is the fault, and then on hair against a wall first. One earlier run loaded it: `../../bench/results/2026-10-05_sapiens2_first_frame.md` |
 | `facebook_sapiens2-pointmap-5b` | a position in space for every pixel of a person | nothing | on disk, loaded by nothing | the only model in the store that could say which of two people is in front. Its file is about the size of the card's whole memory (`ls -la` on the folder against `nvidia-smi`), so it cannot sit beside a loaded H3 server. The smaller release of the same head is the one to try first: "Depth and geometry" below |
 | `facebook_sam-audio-large`, `facebook_sam-audio-base-tv`, `facebook_sam-audio-judge` | one sound taken out of a mix by a phrase, a time span or a masked video; the judge scores a separation | nothing; the server's environment lacks its dependencies ("SAM-Audio", "What loading it brings") | on disk, loaded by nothing | wait, as ruled. Its first use here would be a voice a person: who is heard on a shot is typed by a person today, and the voice table is made with another model (`../../bench/voice_spans.py`) |
@@ -91,6 +96,13 @@ front of the shot). That is an order between two regions, not a distance.
 The owner's rule for the masked lane stands whatever is used: no control
 adapter, so depth would be data for planning a mask and never an input to
 the video model.
+*2026-10-11, the owner's ruling of that evening
+([`decisions.md`](decisions.md)): "never an input" no longer holds as
+written. Depth and segmentation are to be SHOWN to the model as layers
+drawn into the one reference video a load is given, added one at a time and
+each kept or dropped on a render. What stands: no control adapter, and no
+figure handed to the model as a number. No depth or segmentation layer
+exists yet; only lid marks have been rendered.*
 
 What could give it. The order is one session's recommendation, changed the
 same day it was written: it first put the model that needs no download at
@@ -150,6 +162,12 @@ The same rules for every row, from this lane's own:
   `bench/results/`; nothing reads its output until the row has passed.
 - **A measure, never an input.** None of these becomes something the video
   model is given. They plan a mask or score a render.
+  *2026-10-11, the owner's ruling of that evening
+  ([`decisions.md`](decisions.md)): overtaken for what is drawn from a
+  measure. Marks drawn from the keypoint model's points have been shown to
+  the model in a load's reference video, and segmentation and depth are to
+  follow as further layers of that one video. The figures themselves are
+  still given to no model, and nothing goes through a control adapter.*
 
 | trial | the question, and what an answer buys a render | on what | written before it runs | built only on a pass |
 |---|---|---|---|---|
@@ -160,6 +178,28 @@ The same rules for every row, from this lane's own:
 | 5. How small a face the part model can read | Below what size do the lip, teeth and tongue classes stop being found? It buys a floor taken from a measurement where the capture's is reasoned | one face at a ladder of sizes, as "Candidate preflight flags" already asks | the size at which the classes vanish, stated per clip; there is no pass, it is a measurement | the part node reports it, and a rule that depends on it takes its value from the input video |
 | 6. A soft edge | Does a matte at the hairline look better than the hard part mask? | a render already made, its saved window laid again both ways with `../../bench/recomposite_window.py` | the owner's eyes on the hairline. Run only if the hairline is named as a fault | the composite reads a matte |
 | 7. The other body backbone | no question yet | | run only on a frame where the mesh in use is wrong | |
+
+*2026-10-11, trial 1's verdict*, by a session that did not run it and
+looked at every frame of the lead's sung close-up before reading the
+runner's account (`../../bench/results/2026-10-11_sapiens2_pose_first_frames.md`, the dated addition headed "The same
+evening, the verdict on that run as trial 1", which holds the lines and
+the frames):
+
+- *The eye figure passes on that clip and is trusted at its two ends: it
+  says shut and it says open, and between the two it is not readable. Shut
+  is not one value across views of the head. Not tested: a blink, which
+  the row asked for and the shot does not have, and a smaller face.*
+- *The mouth figure fails the row. It jumped on a frame where the mouth did
+  not move, read a shut mouth facing the camera as open at a high score,
+  and read an open mouth in profile as nearly shut. One value means a shut
+  mouth in one view and an open one in another, so a render's mouth is read
+  by eye.*
+- *The score of the lid points does not say the lids were seen: it stays
+  high on a face a few pixels tall and on a head turned away.*
+- *What the row said would be built on a pass, a tool that reads a source
+  and a render and writes one row a frame, is being written as a tracked
+  tool for the eyes; the lines it trusts are starting values read off two
+  shots of one clip.*
 
 **Not on the list unless the owner reopens it: telling who is who by a
 likeness score.** A score between two crops was the first idea of 2026-10-10
@@ -184,7 +224,7 @@ changed clothes, whichever model it comes from.
 | PE-AV and PE-A-Frame | upstream `facebookresearch/perception_models` at `3e352cc`, not under `coderef/`; a port is in `coderef/transformers/src/transformers/models/pe_audio_video` and in the ComfyUI venv's `transformers` | | none |
 | SAM 3D Body | `coderef/sam-3d-body` | `b5c765a` | both releases, with Meta's originals and the rig file, in the owner's model store; `../../bench/results/2026-10-05_sam3d_body_conversion.md` |
 | core's SAM 3D Body port | the ComfyUI checkout, `comfy_extras/nodes_sam3d_body.py`, `comfy_extras/sam3d_body/`, `comfy/ldm/sam3d_body/` | `0df64eb24` | the converted files above |
-| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model since 2026-10-10, as Meta's original file, which nothing here loads yet (*2026-10-11: no node loads it; a one-off ran it on eight frames, and the largest pointmap model is in the store too: the section above*) |
+| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model since 2026-10-10, as Meta's original file, which nothing here loads yet (*2026-10-11: no node loads it; a one-off ran it on eight frames, and the largest pointmap model is in the store too: the section above. The same evening: run along whole shots, still by no node*) |
 
 The papers: SAM Audio is arXiv 2512.18099 and SAM 3D Body is arXiv
 2602.15989, both linked from their READMEs; the PE-AV report is linked from
@@ -467,11 +507,24 @@ The Meta model that does read a mouth, two ways:
   eight frames: `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md`.
   On a small, soft face its lip points sat above the lips the part model
   found, so of the two ways to read a mouth the part classes are the one to
-  cut a mask from, and the points are for measuring an opening.*
+  cut a mask from, and the points are for measuring an opening.* *The same
+  evening, on a run along a whole shot: the points measure an eye's
+  opening at its two ends and do not measure a mouth's ("The trials", the
+  note under the table).*
 
 Both read the original performer's mouth from the picture, which is the
 signal a face-only swap is missing: the model hears the frozen track and is
 shown nothing of the mouth that made it.
+
+*2026-10-11: the first thing read from the picture and shown to the model
+was the eyelids, not the mouth. The source's eye openings, from the
+keypoint model's lash-line points, were drawn on the face of the
+body-model video a load is given, and on one shot the redrawn face's lids
+came to the source's level (`../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`;
+[`masked_v2v.md`](masked_v2v.md), "The motion video as a body model, with
+marks drawn on its face"). Nothing has been drawn for a mouth: the lip
+points are not good enough on a small face to draw from, and the body
+model's own mouth is shut on every frame.*
 
 ## Candidate preflight flags
 
@@ -534,7 +587,12 @@ Each line is a claim above that only a run settles.
   MoGe call, and core as the server runs it (the card, half precision).
 - A tracked person leaving the frame in core's predict node.
 - The Sapiens2 keypoint model. *2026-10-11: run once on eight frames (the
-  record above); not yet on a blink or a half-open mouth, and not as a node.*
+  record above); not yet on a blink or a half-open mouth, and not as a node.
+  The same evening: run along whole shots; still not on a blink, and still
+  not as a node.*
+- Marks drawn on the body-model video on a second shot, a second seed, or a
+  shot where the eyes open and shut quickly. One shot is all that has been
+  read; a sung close-up was rendering when this was written.
 - Any depth or pointmap model on a frame of ours: whether the nearer of two
   crossing masks is the nearer one by its figures.
 - The matting model with something reading its matte.

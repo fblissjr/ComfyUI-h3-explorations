@@ -227,6 +227,19 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   `marked_is_the_mesh_with_parts_painted`, on one public sample turned
   about the vertical; the first two are held, the side-on one is printed
   only. Not drawn on the card and not rendered when this was written.
+- **Added 2026-10-11 (mrdoc, from the build session's record): a second
+  kind of mark has been rendered, drawn on the plain mesh video and not by
+  the `marked` style.** The source's eye openings, from the Sapiens2 pose
+  model's lash-line points, drawn on the body model's face in the one
+  motion video a load is given, with a text that says what the video is and
+  that the subject follows its movements and facial expressions. On one
+  shot, one seed a load, the redrawn face's eyelids came to the source's
+  level: a level, not timing. The timing test is the lead's sung close-up
+  of source frames 1575 to 1729, not yet read when this was written.
+  `../../bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`;
+  the form is in [`masked_v2v.md`](masked_v2v.md), "The motion video as a
+  body model, with marks drawn on its face". The drawing is a one-off
+  script when this was written, in no node.
 - **A sentence by rule:** the head angle at a load's first and last frame,
   each put in one of four bins (facing the camera, three-quarters away,
   profile, from behind), the start always written and the end only when the
