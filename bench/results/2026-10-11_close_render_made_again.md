@@ -81,6 +81,17 @@ drawn again (hands under it, clothing, wall), as it was on 2026-10-10.
 The eighth, the mouth open with no voice on the track, has none: nothing
 measured the mouth in the render.
 
+*Added later the same day: the owner watched both clips stacked on the
+local page. In substance: it looks good and is to be kept; it looks like
+the render of 2026-10-10; they could not say which of the two is the
+better; and of the two they would go with the one made by today's tools,
+since the older one was made by code that has changed since. The button
+they chose of the three offered was "not sure", which the session that
+made the run reads, with their words beside it, as not sure which is
+better and not as doubt that it is the same piece. On that reading the
+condition this record set for itself is met, and the reference for this
+load from here on is this render and not the older one.*
+
 ## What it does not say
 
 That the piece is good. The owner's words on the old render were that it

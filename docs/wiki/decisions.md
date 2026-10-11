@@ -142,6 +142,14 @@ that session's record disagree, its record is the nearer one.*
   cannot be made again" is wrong. No kept code writes them, and both are
   recovered exactly from what that day's preview saved; the rule for
   each is in the record. What stands is that the rule lives in no tool.*
+- **The owner watched the remade render beside the one of 2026-10-10,
+  stacked on the local page, and kept it** (their saves on the page, read
+  whole by the session that made the run): it looks good, it looks like
+  the older one, they cannot say which is better, and of the two the one
+  made by today's tools is the one to go with. So the condition set
+  before any segments-first change is met, and that load's reference is
+  today's render. The button chosen of three was "not sure"; the reading
+  of it is in the record.
 - **Later the same day, the owner, as the session they spoke to took it
   down:** objects are built together with the rest and not after it. The
   folder on the share, `Video/fun/`, is for new work only and work is
