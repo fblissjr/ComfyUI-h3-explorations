@@ -184,7 +184,7 @@ server.*
   The renders and the owner's verdicts:
   `../../bench/results/2026-10-04_masked_v2v_band.md` and
   `../../bench/results/2026-10-04_masked_v2v_first_run.md`. Each session's
-  notes: [`../research/masking/`](../research/masking/README.md).
+  notes: [`../research/masking/`](../research/masking/).
 - The Subject Track with nothing to set (automatic pick frame, match and
   cuts, a manual value beside each) is landed and in the shipped graph,
   validated by three sessions on two clips. A third clip then broke it (two

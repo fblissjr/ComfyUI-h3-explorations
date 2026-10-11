@@ -11,7 +11,7 @@ holds it, and where this page and the code disagree the code is right.
 The dated account, with the owner's words, is
 [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4. What was
 decided is in [`decisions.md`](decisions.md) under 2026-10-04. Each session's
-working notes are in [`../research/masking/`](../research/masking/README.md).
+working notes are in [`../research/masking/`](../research/masking/).
 
 ## What it is
 
