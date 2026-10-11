@@ -233,6 +233,15 @@ shots.
 
 ### 4. The cast file
 
+*2026-10-10, later the same night: a least form of this is built,
+`bench/cast_file.py` with `bench/check_cast_file.py` (35e45d29 to
+68347328, the tracker owner's). It keeps what a person answered about a
+frame and can write a load's seeds from the answers; it holds no likeness,
+no scene and no appearance, and nothing calls it yet. What it is and is
+not is in [`who_is_who_evidence.md`](who_is_who_evidence.md), the dated
+line under section 10's table. The section below is the whole design, of
+which that is the first part.*
+
 One an input video, at `data/<the video's stem>/cast` in the untracked
 `data/`, written first by the analysis workflow of section 5 and shared by
 every job, load and session on that clip. A log, one event a line,
@@ -416,6 +425,23 @@ next: the shots where the together-decision still leads and the person it
 hands to a subject is least like anything the file holds of them.
 
 ### 6. The decision for a shot
+
+*2026-10-10, later the same night. Read this before the section: its
+arithmetic is a design that nothing in the tree computes.* The two totals
+below, the levels they were read against, the rule that a row agrees when
+three readings agree, the floor a suggestion needed and the switch that
+took a row without a person were built in a first form that day and
+removed that night (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"; ace202c4). The reason is the tracker owner's:
+the totals were the tracker's own likeness arranged twice more, so where
+they agreed it was one clue agreeing with itself. Every dated line below
+that says "built" describes the tools between its own commit and that cut.
+What the tools do now, from `bench/who_is_who_across_shots.py`: each
+tracker makes its own take; the tool lays the takes of one load side by
+side, a row a shot; a row is answered when every call on it is a person's
+word, and otherwise it asks; nothing is suggested and nothing is taken.
+The section stays as the design it was, for when a second vote of another
+kind exists to set beside the likeness
+([`who_is_who_evidence.md`](who_is_who_evidence.md), section 2).
 
 Made for one shot, for every named subject, every bystander the cast knows
 in that scene, and "nobody", together.
@@ -620,6 +646,10 @@ If a figure is shown beside one, it is the best total of any way in which
 the subject takes that person, less the best way overall, which orders
 candidates as the decision does. Not built; the file lists them in tile
 order.*
+
+*2026-10-10, later the same night: the switch below was built as the
+corrections tool's take option and removed with the totals (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"). Today
+there is no guess: a row that is not a person's word asks.*
 
 **Stop or guess: one switch, `unsure`, in the job file; the default is
 stop.** The owner has not chosen. With `stop` an ask blocks the gate until
@@ -1040,7 +1070,10 @@ Each step waits on the one before it.
 2. More kept at preview, all small: the plate vector a look, the build
    values in the pose table, every person's clues on every look.
 3. The cast file with no model: the log, the fold, the audit, remove, the
-   sheet, and reading an answer.
+   sheet, and reading an answer. *2026-10-10, later: a least form exists
+   (`bench/cast_file.py`; the dated line under section 4): the log, the
+   lock, and reading an answer. No fold into appearances, no audit, no
+   sheet.*
 4. The casting pass on the job of 2026-10-10. Its first sheet, its time,
    and the count of questions for the whole job.
 5. The decision reading the cast, asking only. Accepted when, on the
@@ -1053,6 +1086,11 @@ Each step waits on the one before it.
    with one that belongs to a subject.
 
 ### The limits this design proposes
+
+*2026-10-10, later the same night: two rows below name things that are no
+longer in the tree, the lead's floor and the impostor level. Both belonged
+to the totals of section 6, removed that night (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"). They stay in the
+table as limits the design would need again, each still a guess.*
 
 This table is where these values are held until code holds them, and the
 only place on this page a number of the design's appears. By the owner's
@@ -1079,6 +1117,19 @@ a constant with its provenance beside it, and leaves this table.
 | `ASKS_BEFORE_RESEED` | shots asking in one job before the tool shows more looks to confirm in their place | `12` | not the picture: a person's attention. The job file's to set |
 
 ## Part two: the premortems
+
+*2026-10-10, later the same night: these were written against the design
+of Part one, and several name parts of it that were built that day and
+then removed (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"): the built total, the evidence total and its
+impostor level, the tracker's `sure`, the lead's floor, the guess switch.
+Read each such mention as the design's. What changes for the failures
+themselves: no tool now combines takes, suggests an answer or takes a row
+without a person, so 7 (the lead's floor) and 18 (the guess switch left
+on) have nothing to act through. 1 (a bystander taken as a subject who is
+away) is still open as a tracker's own take, and is asked about only
+where the gate is given the who-is-who file. 2 (too many questions,
+answered carelessly) is the one the cut makes more likely, since every
+row that is not a person's word now asks.*
 
 Each is written as if it were three weeks from now and that part had
 failed on a real job. **Signal** is what would show it before a render,

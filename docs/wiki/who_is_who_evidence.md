@@ -38,7 +38,9 @@ people made a wrong take in most of its shots
 they must agree.
 
 1. **The likeness we have**, decided for everybody together as it is now
-   built.
+   built. *2026-10-10, later the same night: no longer decided together.
+   The joint decision was removed from the tools (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"), so vote one is
+   each tracker's own take on its subject: section 2.*
 2. **SAM's own memory, started from a picture where we already know who
    it is.** The owner's idea. SAM's tracker looks back at earlier frames;
    put a confirmed picture in front of a shot, and it looks back at that.
@@ -84,6 +86,18 @@ wrong for a different reason.
 **Vote one: the likeness, as built.** Every way of handing a shot's
 people to the names is totalled over several looks, with "nobody" a valid
 answer (`hand_out` (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes"); `who_is_who.md`, section 6).
+
+*2026-10-10, later the same night: vote one is now the tracker's own
+take.* The totalling over looks, and "nobody" as an answer with a value,
+were removed from the tools that night (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"): they were the same
+likeness arranged again and added no second opinion. What is left as vote
+one is what each Subject Track calls for its own subject, shot by shot,
+with the people another tracker holds marked and no longer hidden from it
+(`subject_track.py`, "Two nodes, one person"; e9de8cc3). That makes the
+plan plainer and vote two matter more: one take, one vote of another
+kind, and a person where they differ or where there is only the one.
+Until vote two is built every take that is not a person's word asks
+(`bench/who_is_who_across_shots.py`).
 
 **Vote two: the seeded tracker (the owner's idea, 2026-10-10).**
 ComfyUI's tracker looks back at three things: the last few frames
@@ -556,6 +570,18 @@ column is the list the next job most needs.
 | no classifier for each video; recognition reads the source, never a render | | a session, from [`decisions.md`](decisions.md) and this page |
 | a thing inside a region is answered for before a render | for a tracked subject's own parts, the gate's `segment_inside_region`, which warns and does not block | for an object: a session adds a tracker by hand, or nothing knows it is there |
 | a cut is a spike, not a level; the confirmed look is shown again | | not built: `subject_track.py::find_cuts` takes every frame over the line |
+
+*2026-10-10, later the same night: four rows of the table changed with
+the owner's cut (`decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"; ace202c4, e9de8cc3).* "Nothing is taken without a
+person" is now held by there being nothing that takes: the take option is
+gone, so no session has to remember not to pass it. "A weak row suggests
+nobody" is now every row: the tool suggests nothing at all, and the
+suggestion floor is gone with it. In "one detection a person ...", "only
+looks nobody was removed from are read" no longer applies: a later
+tracker's looks hold everybody, with the people an earlier tracker holds
+marked. And in "thresholds come from the clip", the levels the corrections
+tool took from a load's own tables went with the totals; the cut line and
+the match line stand.
 
 *2026-10-10, later the same night: one row of the right column moved.
 The cast file exists in its least form, `bench/cast_file.py` with
