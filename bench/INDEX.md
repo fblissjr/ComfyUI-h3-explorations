@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 108 |
+| [`check_*`](#check) | 109 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 142 |
+| [the rest](#the-rest) | 143 |
 
 ## check
 
@@ -51,6 +51,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_dit_prefix_attention.py`](check_dit_prefix_attention.py) | Controls for `bench/measure_dit_prefix_attention.py`, on a synthetic capture. |
 | [`check_doc_inventory.py`](check_doc_inventory.py) | Every check on disk has a row in the index, and every row names a real file. |
 | [`check_doc_links.py`](check_doc_links.py) | Fail when a doc points at a file or line that is not there any more. |
+| [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
 | [`check_frame_sheet.py`](check_frame_sheet.py) | The frame reader in `bench/_lib/frames.py` and the sheet tool built on it, against a clip made for the purpose. |
 | [`check_frozen_video_cache.py`](check_frozen_video_cache.py) | `MiniMaxH3FrozenVideoCache` on a tiny H3 model: which path each call takes, and what it computes. |
@@ -337,6 +338,7 @@ this file is only a way to find a script by what it says it does.
 | [`diff_clip_graphs.py`](diff_clip_graphs.py) | What actually differs between two rendered clips? Read from the graphs they were rendered from. |
 | [`diff_prompt_corpus.py`](diff_prompt_corpus.py) | Report every prompt FEATURE where the vendor is unanimous and we diverge. |
 | [`distill_signatures.py`](distill_signatures.py) | Which measured properties separate the distills consistently across scenes? |
+| [`draw_lid_marks.py`](draw_lid_marks.py) | Draw a shot's eye openings on its body-model video: the motion video a masked load reads for expression. |
 | [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
 | [`exercise_pdd_stripped_path.py`](exercise_pdd_stripped_path.py) | Exercise `MiniMaxH3PDDLoRA.execute` on a LOADED model with the baked pair. |
@@ -513,6 +515,8 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | file | what it says |
 |---|---|
 | [`__init__.py`](_lib/__init__.py) | The three things a `bench/` check kept writing for itself. |
+| [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
+| [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
 | [`frames.py`](_lib/frames.py) | Frames and masks in and out of video files, by frame number, for the tools that read renders. |
 
 ### briefs
@@ -561,7 +565,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-260 tracked files: [`results/INDEX.md`](results/INDEX.md).
+261 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

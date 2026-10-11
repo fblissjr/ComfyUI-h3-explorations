@@ -185,6 +185,33 @@ every frame of every render of this shot, the gate and the 10th's
 included; it is not from the marks or from any text here, and the owner
 closed it.
 
+## Added later the same evening
+
+*The owner then watched all eleven renders of this shot on the local page
+and judged each. Their eye and the table sort the eleven the same way:
+every clip they called good has the lowered stretch's eye opening (the
+column for frames 45 to 154) between 0.020 and 0.024 (o1x3, p1, p2, p4,
+o2), and every clip they called not good has 0.027 or more (o1, the gate,
+`text`, the 10th's render, and the two tests of the earlier record); the
+original is at 0.019. They picked p4, and could not tell p1, p2 and p4
+apart, which is what the table says of them. One shot; it says the
+measure can stand as a first look at eyes here, and nothing about
+likeness. Two of their remarks the table does not hold: o1's face read to
+them as not moving at all, and the test that kept her own hair was wrong
+for that reason before any other.*
+
+*A second eye measure, the blind reader's (the area between the lash
+lines over the eye's width squared), puts the five clips the owner called
+good at 0.088 to 0.108 and the four it can be made for of the six they
+called not good at 0.132 to 0.151, with the original at 0.098; the line
+was drawn after their answers, on one shot, among about eight independent
+clips, and their "not good" was not always about how open her eyes are.
+Its figures: `data/2026-10-11_mrtie_gate_o_read/owner_verdicts_against_my_figure.txt`.*
+
+*And the form did not repeat on a second shot the same evening:
+[`2026-10-11_lead_closeup_lid_marks_did_not_carry.md`](2026-10-11_lead_closeup_lid_marks_did_not_carry.md).
+So every "it says" above stands for this shot and seed and no further.*
+
 ## Where things are
 
 Untracked: the job files, the texts, the script that draws the marks and
