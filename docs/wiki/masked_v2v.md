@@ -1320,7 +1320,7 @@ Each line names where the evidence is. "Seen" means on a render or a tile.
 - **The first clip's flicker was set aside**, its dark lines being seams in
   the source's own backdrop. One part of it has no explanation yet.
   `../../bench/results/2026-10-04_masked_v2v_first_run.md` and
-  `../research/masking/2026-10-04_mrhf.md`, section 4.
+  `docs/research/masking/2026-10-04_mrhf.md` (no longer in the tree since 2026-10-11), section 4.
 
 **Using it**
 
@@ -1371,7 +1371,7 @@ wider set, with what each would buy and what is known about it.
   The nodes for it exist (`sapiens2_parts.py`, `MiniMaxH3SubjectParts`); the
   parts graph wires the part mask and not the matte, which is in no graph.
   (Said until 2026-10-06 that the nodes were in no shipped graph.) What was read of the model:
-  `../research/masking/2026-10-04_mrhf.md`, "Matting".
+  `docs/research/masking/2026-10-04_mrhf.md` (no longer in the tree since 2026-10-11), "Matting".
 
 **The render**
 

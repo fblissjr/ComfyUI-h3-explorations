@@ -121,7 +121,7 @@ to find the same object again.
 
 What is not known, and why it is a vote and not the answer: Meta's code
 has nothing for a cut and its training video had none
-([`../research/masking/2026-10-06_mrsun.md`](../research/masking/2026-10-06_mrsun.md),
+(`docs/research/masking/2026-10-06_mrsun.md` (no longer in the tree since 2026-10-11),
 "At a cut"); nobody here has measured a track across one
 ([`../../bench/results/2026-10-06_meta_sam3_card_run.md`](../../bench/results/2026-10-06_meta_sam3_card_run.md),
 its verdict line); a look from another shot is "one frame back" only
@@ -464,7 +464,7 @@ out (`flat_borders`).
 On record it has missed a jump cut inside a cutaway, a cut between two
 angles of one room, and two camera changes inside one scene, and it has
 called every frame of a black opening a cut
-([`../research/masking/2026-10-04_mrhf.md`](../research/masking/2026-10-04_mrhf.md);
+(`docs/research/masking/2026-10-04_mrhf.md` (no longer in the tree since 2026-10-11);
 [`../../bench/results/2026-10-06_subject_track_defaults.md`](../../bench/results/2026-10-06_subject_track_defaults.md);
 `data/CAPTURE_GAPS.md`, entry 13, untracked). A clip that opens on a
 dissolve has no single frame to find.

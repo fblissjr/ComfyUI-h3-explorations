@@ -465,7 +465,7 @@ a new capture path, and
 no-attention-patching PDD arms as the cleanest source.** **SOURCE, verified:**
 no attention patching in this repo reaches the Qwen3-VL encoder at all. The
 node the shipped graphs actually wire for Sol is
-[`SolAttnMiniMax`](../../../../vendor/sol_attn_minimax.py) (`node_id`
+`SolAttnMiniMax` (`vendor/sol_attn_minimax.py`) (`node_id`
 "SolAttnMiniMax", the vendored patcher), and it takes `io.Model.Input("model")`;
 its whole file contains no case-insensitive reference to a clip, text encoder or
 qwen. `MiniMaxH3SageAttention` and `MiniMaxH3SLARouter` take the same MODEL

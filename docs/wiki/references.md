@@ -1107,7 +1107,7 @@ The lane's own map is [`masked_v2v.md`](masked_v2v.md).
   (`coderef/vllm-omni/vllm_omni/model_executor/models/minimax_h3/encoder_processing.py::_resize_video_edit_mask`).
   The lane's choice is deliberate (a token regenerated or kept whole), and
   what a fractional label does was reasoned on 2026-10-05
-  ([`../research/masking/2026-10-05_mryellow.md`](../research/masking/2026-10-05_mryellow.md),
+  (`docs/research/masking/2026-10-05_mryellow.md` (no longer in the tree since 2026-10-11),
   section 1). Nothing here has rendered a cell-level edge beside a
   token-level one.
 - **The task and the references.** vllm-omni's shipped editing graph runs

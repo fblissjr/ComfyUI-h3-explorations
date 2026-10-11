@@ -451,6 +451,42 @@ An entry asserts that someone looked and the target is *deliberately* gone. It
 is not a way to silence a broken link.
 
 ```doc-link-absent
+PATH: docs/research/masking/2026-10-04_mrblue.md
+WHY: a session's research note on the masked lane (a code review of the mask path); removed from the tree by the
+     owner on 2026-10-11 with four others of 2026-10-04 to 2026-10-06, last present at commit
+     c237d6cf. Records under bench/results, a later note and the index in the same folder, and
+     pages of the wiki keep citing it.
+
+PATH: docs/research/masking/2026-10-04_mrhf.md
+WHY: a session's research note on the masked lane (which other models help the lane, and the band clip's shot table); removed from the tree by the
+     owner on 2026-10-11 with four others of 2026-10-04 to 2026-10-06, last present at commit
+     c237d6cf. Records under bench/results, a later note and the index in the same folder, and
+     pages of the wiki keep citing it.
+
+PATH: docs/research/masking/2026-10-04_mrpink.md
+WHY: a session's research note on the masked lane (the build session's notes on the first clips); removed from the tree by the
+     owner on 2026-10-11 with four others of 2026-10-04 to 2026-10-06, last present at commit
+     c237d6cf. Records under bench/results, a later note and the index in the same folder, and
+     pages of the wiki keep citing it.
+
+PATH: docs/research/masking/2026-10-05_mryellow.md
+WHY: a session's research note on the masked lane (the lane read broadly, and what a fractional mask does); removed from the tree by the
+     owner on 2026-10-11 with four others of 2026-10-04 to 2026-10-06, last present at commit
+     c237d6cf. Records under bench/results, a later note and the index in the same folder, and
+     pages of the wiki keep citing it.
+
+PATH: docs/research/masking/2026-10-06_mrsun.md
+WHY: a session's research note on the masked lane (a reading of SAM 3.1's video pipeline against core's port); removed from the tree by the
+     owner on 2026-10-11 with four others of 2026-10-04 to 2026-10-06, last present at commit
+     c237d6cf. Records under bench/results, a later note and the index in the same folder, and
+     pages of the wiki keep citing it.
+
+PATH: vendor/sol_attn_minimax.py
+WHY: upstream's Sol-Attn node, kept as a read-only reference since 2026-08-30 and loaded by
+     nothing; removed from the tree by the owner on 2026-10-11, last present at commit c237d6cf.
+     The node that runs is sol_attn_h3.py. docs/SOLATTN.md, docs/morton.md,
+     docs/open_experiments.md and one research note cite it by line as where a thing was read.
+
 PATH: void_conditioning.py
 WHY: the module of `MiniMaxH3VoidConditioning`; removed 2026-10-05 with the VOID code at the owner's word (0.192.0),
      last present at commit df3bd21b. The two records of the test under bench/results,

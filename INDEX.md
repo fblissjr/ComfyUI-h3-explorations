@@ -150,12 +150,12 @@ with none is a helper the others import.
 | `bench/` | 739 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
 | `changelog.d/` | | [`changelog.d/README.md`](changelog.d/README.md), one file per changelog entry; not listed and not counted |
 | `contact_sheets/` | 1 | [below](#contact_sheets) |
-| `docs/` | 181 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
+| `docs/` | 176 | [`docs/wiki/index.md`](docs/wiki/index.md), the hand-written router |
 | `meta_sam3/` | 65 | [`meta_sam3/README.md`](meta_sam3/README.md), Meta's SAM 3.1 inference code, under its own licence; `meta_sam3/FILES.txt` lists the copied files |
 | `prompt_bank/` | 168 | [`docs/prompt_bank.md`](docs/prompt_bank.md), the prompt catalogue |
 | `sparse_tables/` | 1 | [below](#sparse_tables) |
 | `standalone/` | 25 | [below](#standalone) |
-| `vendor/` | 6 | [below](#vendor) |
+| `vendor/` | 2 | [below](#vendor) |
 | `vendor_config/` | 8 | [below](#vendor_config) |
 | `vendor_guides/` | 4 | [below](#vendor_guides) |
 | `workflows/` | 178 | [`workflows/INDEX.md`](workflows/INDEX.md) |
@@ -250,12 +250,8 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`README.md`](vendor/README.md) | vendor/ — third-party code we read but no longer run |
-| [`UPSTREAM.md`](vendor/UPSTREAM.md) | What we want changed in code we don't own |
-| [`build_sana_sol_sm89.sh`](vendor/build_sana_sol_sm89.sh) | Build NVLabs' SM89 CuTe Sol-Attn kernel into the ComfyUI venv, and prove that |
-| [`patches/002-comfyui-h3-special-tokens.patch`](vendor/patches/002-comfyui-h3-special-tokens.patch) | diff --git a/comfy/text_encoders/minimax.py b/comfy/text_encoders/minimax.py |
+| [`README.md`](vendor/README.md) | (empty) |
 | [`rebuild_kernel.sh`](vendor/rebuild_kernel.sh) | Rebuild and install comfy_kitchen's Sol-Attn kernel from a source checkout. |
-| [`sol_attn_minimax.py`](vendor/sol_attn_minimax.py) | Sol-Attn (arXiv 2607.24027) for MiniMax-H3, via comfy-kitchen's CUDA kernels. |
 
 ## vendor_config/
 
