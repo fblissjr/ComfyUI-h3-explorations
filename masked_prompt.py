@@ -20,8 +20,10 @@ worked out is hidden.
 
 **What the `source` wire costs.** The song node's `preview` asks for no
 loader and no model, but it does ask for its prompt, and this node asks for
-the Masked Source. So with `source` wired, a preview tracks the subject the
-first time (the mask is kept, and the render that follows tracks nothing).
+the Masked Source. So with `source` wired, a preview tracks the subject.
+(Until 2026-10-10 the Masked Source kept that mask on disk and the render
+that followed tracked nothing; that store is removed. Whether the render
+tracks again is now core's own node cache's to say, not this pack's.)
 Reading the two settings from the queued graph instead would avoid that and
 was not done: core computes a node's cache fingerprint without the graph
 (`execution.py`, the `fingerprint_inputs` call passes no prompt), so a

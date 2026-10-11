@@ -17,10 +17,10 @@ freeze pads silence and the report says how much.
 into `lists`, through `prompt_lists.fill_windows`, the call every loop node
 makes (`prompt_lists.py` holds the owner's rules): once per timeline entry, or
 once per window with no timeline. Filling happens during planning, so every
-key and encode below sees the filled-in text.
+encode below sees the filled-in text.
 
 **Preview.** `preview` on plans, fills and reports every window's time range,
-entry, filled prompt and whether resume would reuse it, and stops. The model,
+entry and filled prompt, and stops. The model,
 encoder, VAEs, sampler, sigmas and references are lazy inputs this node does
 not ask for in preview (`check_lazy_status`), so core never runs the loaders
 behind them. The shipped graphs show the report on a Preview as Text.
@@ -31,10 +31,10 @@ its references alone -- not its seed, start or the previous window -- because
 continuity reaches the next window as the previous window's latent tail frozen
 in, never through the encoder. So Qwen3-VL and the DiT trade places on the
 card once per run rather than once per window, and a song on one prompt
-encodes one prompt. With references the frame count joins the key: the
-reference compiler is handed it, and a shorter window costs at most one more
-encode. With resume, only the windows that render are encoded for, and a run
-that reuses every window never loads the encoder.
+encodes one prompt. With references the frame count is part of what makes a
+prompt distinct: the reference compiler is handed it, and a shorter window
+costs at most one more encode. (Until 2026-10-10 a run that reused every
+stored window never loaded the encoder; that reuse is removed, below.)
 
 **References.** `references` takes an Append Ref Image chain and presents it
 with every window's prompt through `MiniMaxH3ReferenceConditioning`'s own
@@ -363,8 +363,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 "encodes the track and every distinct prompt once, then runs the windows in "
                 "sequence with the previous window's tail frozen as context and the track's slice "
                 "frozen in each, writes each window's new frames to <prefix>_windows/ as it goes, "
-                "and joins the files with the full track, reusing unchanged windows from the last "
-                "run. An optional timeline lines the windows up with sections of the track, one "
+                "and joins the files with the full track. Every run renders every window. "
+                "An optional timeline lines the windows up with sections of the track, one "
                 "prompt block per label; preview reports the plan without loading a model, and with "
                 "a source wired writes each planned window's region and a plan file. "
                 "docs/h3_audio_freeze.md."
