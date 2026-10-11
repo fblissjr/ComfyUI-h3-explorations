@@ -226,6 +226,61 @@ that session's record disagree, its record is the nearer one.*
   the head follows and the eyes do not. A direction; the overlay is not
   built, and whether a sentence about her eyes is tried before it is the
   owner's to say.
+  *Corrected the same evening: the mesh's face is not blank. It is a
+  neutral modelled face with sockets, a nose and a mouth, which never
+  changes; seen on the sheet drawn to check the overlay.*
+- **What the owner ruled while the overlay was built and rendered**
+  (2026-10-11 evening, to the session that has the page and to the one
+  that has the build; taken down in substance, each on the kitchen load
+  of the record above):
+  - **No softened start** on these loads. Asked for and dropped within
+    minutes; a builder key written for it was reverted before any commit.
+  - **No sentence about her eyes, not even as a render to compare
+    against.** It does not scale: a sentence is written for one shot by
+    whoever read its frames, where a reference is made by a pass over the
+    clip and named once. And a text that says what her expression is
+    leaves a render unable to say whether the text or the reference did
+    it. This also covers a clause that only relates her eyes to the
+    reference's, which the first three overlay texts carried; a second
+    reader caught it before they were read.
+  - **The overlay is the one thing built for her eyes**: the body-mesh
+    video with the pose model's lid points drawn on its face, as the one
+    motion video of the load.
+  - **The form of the text for it.** Say what the reference video is, as
+    the model sees it, then that the subject follows its movements and its
+    facial expressions. Nothing more: no head turns, no named feature, no
+    statement of what she does. Where the reference carries marks, the
+    line that describes it says what they are for in the reference (part
+    of its facial expression) and that its look and the marks themselves
+    are not drawn; the marks are given no colour.
+  - **The reference video's retention line** may be what was missing:
+    the vendor guide (`vendor_guides/ref_en.md`, its retention markers)
+    has a line say what of a reference is preserved, and the texts so far
+    did not say it of the video. One render tries it; nothing is settled.
+  - **Segmentation and depth are to be shown to the model, as layers in
+    that one reference video**, not as further reference videos and not
+    only as planning data. They are added one at a time, each a single
+    render against the kept one: the lid marks; the pose model's own
+    drawing of the face points; the part colours; depth shading. The
+    line describing the video changes with each.
+  - **What times a sentence**: the kept sound and the kept picture round
+    the mask. A sentence states a fact and the model places it where the
+    track and the picture agree with it, which is how the one sentence
+    that the lead sings worked. So a sentence about something neither the
+    sound nor the surrounding picture marks has nothing to time it. A
+    reading from one load each.
+  - **After this load, the same form goes to the other shots** of the
+    first target, one shot of the lead first; relayed by the session that
+    has the page and not yet said to the build. One thing found while
+    preparing it and put to the owner: a load rendered zoomed in on what
+    is replaced takes no motion video (`video_mask.py`, the note at
+    `RENDER_ZOOM_REPLACED`), and the lead's render the owner called the
+    best of its stretch was a zoomed one.
+  What the overlay renders showed is not in a record yet. The owner sees
+  light dots in her eyes on playback of the one with enlarged marks; no
+  session has placed them on stills or by a count, and the owner said not
+  to dig for them. Whether a wording takes them away is what the renders
+  with the form above are for.
 
 ## 2026-10-10
 
