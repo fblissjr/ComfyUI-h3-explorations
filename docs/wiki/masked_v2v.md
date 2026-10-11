@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-11 (the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-11 (later the same evening, a dated note that the practice did not repeat on a second shot; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -781,6 +781,30 @@ and
 The owner's rulings behind it are in [`decisions.md`](decisions.md) under
 2026-10-11.
 
+**2026-10-11, later the same evening: on a second shot it did not
+repeat.** The lead's sung close-up, her face only, one seed, given a
+body-model video of her with lid marks and the wording below. Her eyes
+read as they do in the render of those frames made on 2026-10-10 with no
+reference video at all: open through the long stretch where the source's
+are shut, and less than wide where the source's are wide. So on that shot
+the marks gave neither a level nor timing that can be told from having no
+marks. Her mouth sings as it did before, and her head is as that earlier
+render's. This is the reading of the session that took the looks, from
+stills and the pose tables; a second session worked the eye figure again
+from the same tables and agrees. One shot, one seed, and no tracked record
+yet. Until one exists the files are the job
+`data/2026-10-11_fun_set_inputs/set_close_1575.json`, the capture
+`data/2026-10-11_set_close_1575/`, and the tables `leadcanvas_1575`,
+`closeup_lids_1575`, `closeup_d10sings_1575` and `closeup_d10plain_1575` in
+`data/2026-10-11_sapiens2_pose_consecutive/`.
+
+**Why is not known and is not said here.** Several things differ from the
+kitchen load together and none is separated: the person, a face only
+against a face and hair, the mask and its margin, how much the marks were
+grown, how a shut eye comes out when it is drawn, and a sentence in the
+text that she sings. Read everything below as what one shot showed and a
+second did not.
+
 ### What the reference video was
 
 One video, the load's motion video (`motion_video` under the Masked Source
@@ -862,7 +886,9 @@ can only be handed one.
   source's are lowered.
 - **It is a level, and following in time is not shown.** Where the source's
   eyes are open no load opened hers as far as the source's, the render
-  without marks included, and the shot has no blink.
+  without marks included, and the shot has no blink. *Later the same
+  evening: the shot that tests timing was rendered and her eyes did not
+  follow; the note at the top.*
 - **On playback the owner picked the load with the enlarged marks and the
   text below**, and called the other loads with enlarged marks as good.
   They also put one load with marks at true size level with those, the one
@@ -915,7 +941,8 @@ What to hold to when it is used on another load:
   clause that only relates them to the reference's included.
 - **The pronoun and the subject's number are the load's.**
 - **A shorter wording, "movements and expressions", was under test** on
-  the next shot when this was written.
+  the next shot when this was written. *It had not rendered when that
+  shot's first render was read.*
 - **A line for `<Video 1>` as a source of movement is this pack's form**,
   measured on 2026-10-05
   (`../../bench/results/2026-10-05_masked_v2v_motion_arms.md`). The vendor
@@ -1024,7 +1051,10 @@ without marks and her lids came most of the way.
 - **The figure's mouth never moves.** On a shot where the
   subject sings, a text of this form says both that she sings and that she
   follows the figure's facial expressions. Not rendered when this was
-  written.
+  written. *Rendered later the same evening, on the lead's sung close-up:
+  her mouth sings as it did in the earlier render that had the singing
+  sentence and no reference video, by the reader's eye; the figure's still
+  mouth did not shut hers. One shot, one seed.*
 
 ### Reading a render of this form
 

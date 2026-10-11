@@ -31,7 +31,7 @@ The two questions this page was written for come from the masked lane
 | Can SAM-Audio take "the voice of the person under this mask"? | Yes, it is a designed case, and Meta calls it the weaker prompt. Meta's own code disagrees with itself about which way the mask goes | "SAM-Audio", "The visual prompt" |
 | Does SAM 3D Body follow more than one person? | Meta's pipeline is one image at a time with no identity between frames. Identity is whatever the caller's boxes or track carry | "SAM 3D Body", "More than one person" |
 | What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which no node runs (*2026-10-11: run once as a one-off on eight frames; the next section*) | "Sapiens2" |
-| When a face and hair are redrawn, what carries the head, and what the eyelids? | On one shot, one seed a load: the body-model video carries the head, and nothing carried the lids until the source's eye openings, taken from the keypoint model's points, were drawn on that video's face. A level reached; following in time is not shown | "What is on disk, what loads it, and what to try next", the notes of 2026-10-11 in two rows; [`masked_v2v.md`](masked_v2v.md), "The motion video as a body model, with marks drawn on its face" |
+| When a face and hair are redrawn, what carries the head, and what the eyelids? | On one shot, one seed a load: the body-model video carries the head, and nothing carried the lids until the source's eye openings, taken from the keypoint model's points, were drawn on that video's face. A level reached; following in time is not shown. *Later the same evening: on a second shot, a sung close-up, the marks changed nothing that can be told from having none; cause not known* | "What is on disk, what loads it, and what to try next", the notes of 2026-10-11 in two rows; [`masked_v2v.md`](masked_v2v.md), "The motion video as a body model, with marks drawn on its face" |
 | Which of these models are on disk, and which does any code load? | The tracker, the part model and the body model are loaded by the masked lane; the keypoint model has been tried once; nothing loads the rest | "What is on disk, what loads it, and what to try next" |
 
 ## What is on disk, what loads it, and what to try next
@@ -592,7 +592,12 @@ Each line is a claim above that only a run settles.
   not as a node.*
 - Marks drawn on the body-model video on a second shot, a second seed, or a
   shot where the eyes open and shut quickly. One shot is all that has been
-  read; a sung close-up was rendering when this was written.
+  read; a sung close-up was rendering when this was written. *2026-10-11,
+  later the same evening: that close-up was read, one seed. The marks did
+  not repeat there ([`masked_v2v.md`](masked_v2v.md), the note at the top
+  of "The motion video as a body model, with marks drawn on its face").
+  Still not run: a second seed of either shot, and any render that changes
+  one thing between the two.*
 - Any depth or pointmap model on a frame of ours: whether the nearer of two
   crossing masks is the nearer one by its figures.
 - The matting model with something reading its matte.

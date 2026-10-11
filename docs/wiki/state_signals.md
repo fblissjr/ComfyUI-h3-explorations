@@ -240,6 +240,15 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   the form is in [`masked_v2v.md`](masked_v2v.md), "The motion video as a
   body model, with marks drawn on its face". The drawing is a one-off
   script when this was written, in no node.
+- **Added 2026-10-11, later the same evening (mrdoc, from the reading of
+  the session that took the looks, the eye figure worked again by me from
+  the same tables): on the sung close-up the lid marks did not repeat.**
+  The redrawn face's eyes read as in the render of those frames made the
+  day before with no reference video: open where the source's are shut.
+  One shot, one seed; several things differ from the first shot together
+  and none is separated, so no cause is given. No tracked record yet; the
+  files are named in the note at the top of that section of
+  [`masked_v2v.md`](masked_v2v.md).
 - **A sentence by rule:** the head angle at a load's first and last frame,
   each put in one of four bins (facing the camera, three-quarters away,
   profile, from behind), the start always written and the end only when the
