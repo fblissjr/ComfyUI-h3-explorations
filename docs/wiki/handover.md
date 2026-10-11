@@ -9,6 +9,41 @@ disagree, they are right. The owner's live board carries the same note as
 the card `note-morning-2026-10-11`, with the figures this page leaves in
 their records.
 
+*Checked the same evening against the transcripts by the day's postmortem,
+[`2026-10-10_span_fun-three-people.md`](../research/postmortems/2026-10-10_span_fun-three-people.md),
+written by a session that took no part in the day. Its section 8 has the
+rows. This page is left as written below; these are the places it is wrong
+or short:*
+
+- *"Frames 0 to 1050 were delivered earlier in the week and that file is
+  locked": the job began on 2026-10-10. The locked file is
+  `fun_0604_1050.mp4`, built and locked that day, and its record has read
+  as failing since a whole shot of it was found left as the source. The
+  files covering 0 to 1050 were first placed that evening and none is
+  locked.*
+- *"Four commits of the day carried a peer's uncommitted lines": the
+  transcripts show ten, listed in the postmortem's section 1.7.*
+- *"Twelve renders were queued after six frames a load had been looked at":
+  the look at six frames a load was made after the queue.*
+- *The first landing is thirteen commits by four sessions, not eleven.*
+- *Eight sessions worked the lane, not seven: the eighth retired
+  mid-afternoon with its queued readings unread, and nobody has read them.*
+- *The owner's verdict that a whole-person replacement follows the head
+  better compares two renders that also differ in whether they were given a
+  motion video.*
+- *"Three renders before anyone read the text": the order was the audio
+  file, then the attention setting; the first of the three also changed the
+  text; and the independent reader had read the same texts against their
+  frames, for another question, before the first of them.*
+- *"Every swept commit of the day was reported by the session that made
+  it": true of most, not all.*
+- *One thing this page does not say and the transcripts do: the other
+  sessions never had the texts in front of them. Each text reached them as
+  a clause in a message from the lead session, and they built on that
+  description. The standing sentences the owner ruled out are the same,
+  word for word, in a text whose render opened its mouth and in one whose
+  render did not; why the first opened is not known.*
+
 ## Before anything: nothing here is known good, the prompt least of all
 
 The sessions of 2026-10-10 got the masked lane a long way, and every piece

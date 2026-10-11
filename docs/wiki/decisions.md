@@ -17,6 +17,21 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **The text is read whole, and never at second hand; and the day's
+  handover is corrected by the day's postmortem** (owner, to the session that wrote
+  the day's postmortem, on its finding that every other session had known
+  the texts only from the lead session's descriptions of them). What it
+  replaces: nothing said how a text travels between sessions; a text went
+  out as a clause in a message, and a rule written that morning had kept
+  one of the sentences the owner ruled out that night. Now `AGENTS.md`,
+  "When a render is wrong", says the text is read whole by whoever reasons
+  about the load, and that the owner is shown the whole text when a cause
+  is not obvious. The postmortem is
+  [`2026-10-10_span_fun-three-people.md`](../research/postmortems/2026-10-10_span_fun-three-people.md);
+  what [`handover.md`](handover.md) used to claim and where it was wrong is
+  that postmortem's section 8, and the page carries a dated note at its
+  head with the same list.
+
 - **A scene's text is data served by what plans the shots, never verbatim
   in code or a workflow; and it is a caption, not an instruction** (owner,
   to the lead, the evening a face render's mouth stayed shut through a

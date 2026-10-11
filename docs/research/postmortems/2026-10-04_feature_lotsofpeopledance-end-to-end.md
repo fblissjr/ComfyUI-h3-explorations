@@ -417,14 +417,18 @@ flowchart LR
 ### What we'd do differently, as checkable items
 
 1. **Keep every shipped render's inputs in the tracked tree or `data/`**: per-window texts, graph and measure scripts. *Done when* the next shipped masked render's texts can be read without the output share.
+   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* half met on the next job. The texts, job files and hand-posted graphs of 2026-10-10 are under `data/2026-10-10_fun_job_inputs/` and beside each job's records, readable without the share; that folder is untracked, so this holds on the owner's machine only.
 2. **Run `capture_masked_run.py preflight` before any multi-window render** and write each flag's outcome. *Done when* a render folder carries `flags.json` with outcomes. *Refuted if* the next render's faults were not visible in its flags.
+   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* run on every load of 2026-10-10 that went through the job builder, with `flags.json` in each capture; outcomes are written in some captures and not in others. The refutation condition is met in part: takes of the wrong person read clear, and the fault that cost that evening was in a text, which no flag reads.
 3. **Label who each mask is on (the owner's eye on a stacked tile) before measuring a tracker change.** *Check:* the next tracker record names the person by tile number and frame.
 4. **Save the tracker's per-frame score** and test it on 10-07's eight drops. *Refuted if* it warns fewer than two frames ahead on most of them.
+   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* the score is saved per frame since `83430df8`; the test on the 10-07 drops was not run, and `track_score` is on the approved removal list (`docs/wiki/decisions.md`, 2026-10-10), so this item is overtaken unless someone runs the test first.
 5. **Wire the jump test and re-find by place into the Subject Track.** *Accepted when* the 10-07 regain-looks stretch (largest pick) retakes the original person in all four re-finds.
 6. **Render the timed-text arm on the patched stretch.** *Refuted if* actions still land more than 0.5 s off the source (today about 1 s late and 2 s long).
    *Annotation 2026-10-10 (transcripts):* the timed text for v3 and its graphs were in session scratchpads and are gone; the nine times would have to be written again from the source.
 7. **Render `others` with per-frame detection on the dancing stretch.** *Accepted when* the band around him differs from the original on far fewer pixels than today's "about a quarter".
 8. **Put a code fingerprint in every stored key, then switch the stores back on.** *Check:* a sweep check fails on a key without it.
+   *Annotation 2026-10-10 (the postmortem of that day, `2026-10-10_span_fun-three-people.md`):* wrong premise by the owner's later rule that nothing an earlier run made is reused by a key (`AGENTS.md`, 2026-10-10). The stores were removed in `efc99317`, not switched back on.
 9. **Start from where he is big and carry forward.** A window that began with frames of the new subject held him "down to about 2% of the frame" [board plan-start-where-the-subject-is-big](https://claude.ai/artifact/Byvp9hbg99FDdB27c9wq4B). *Check:* the next small-subject clip's windows are planned from the preview.
    *Annotation 2026-10-10 (transcripts):* "held" is the session's measure of presence. The owner's verdict on that same two-window render was that he goes motionless late in the second window (mrdragon 00:54:14Z, typed), which is the fault render day started from.
 
