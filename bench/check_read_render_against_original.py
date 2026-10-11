@@ -182,19 +182,21 @@ def the_mouth_is_never_read() -> str:
 
 def this_clip_against_the_lines() -> str:
     band = h3_config.POSE_READING
-    res, _ = run({"render": RENDER}, **given())
+    res, lines = run({"render": RENDER}, **given())
     e = eyes(OPEN_PX)
     c = res["this_clip"]
     assert c["original_frames_under_the_shut_line"] == int((e < band["eyes_shut_under"]).sum()), c
     assert c["over_the_open_line"] == int((e > band["eyes_open_over"]).sum()) and c["over_the_open_line"] > 0 and c["original_frames_under_the_shut_line"] == 0, c
-    assert c["between_the_two_where_the_figure_was_not_readable"] == N - c["over_the_open_line"], c
-    assert c["lid_gap_under_the_line_to_draw_from"] is False and abs(c["face_height_px_median"] - FACE) < 0.1
+    assert c["between_the_two_lines"] == N - c["over_the_open_line"] and "starting value" in c["the_two_lines_are"], c
+    assert c["lid_gap_median_under_its_line"] is False and abs(c["face_height_px_median"] - FACE) < 0.1
+    assert any("this clip's median is over it" in line for line in lines) and "starting value" in c["that_line_is"]
     small = save("small", OPEN_PX / 20, face_px=14.0)                             # a face 14 px tall with lash lines about a pixel apart
     lines2: list[str] = []
     res2 = rr.read(small, {"small render": save("small_render", RENDER_PX / 20, face_px=14.0)}, say=lines2.append, **given())
-    assert res2["this_clip"]["lid_gap_under_the_line_to_draw_from"] is True and any("UNDER" in line for line in lines2), res2["this_clip"]
+    assert res2["this_clip"]["lid_gap_median_under_its_line"] is True and any("this clip's median is under it" in line for line in lines2), res2["this_clip"]
+    assert not any(w in " ".join(lines + lines2).lower() for w in ("not readable", "too close", " good", " bad", "better", "worse")), lines2   # it measures
     assert any("does not say lids were seen" in line for line in lines2)
-    return (f"{c['over_the_open_line']} of the original's frames are over the open line and {c['between_the_two_where_the_figure_was_not_readable']} between the two, "
+    return (f"{c['over_the_open_line']} of the original's frames are over the open line and {c['between_the_two_lines']} between the two, "
             "as chosen; a face 14 px tall is said to be under the gap a mark can be drawn from")
 
 

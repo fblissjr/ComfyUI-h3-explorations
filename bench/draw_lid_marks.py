@@ -24,7 +24,8 @@ WHAT IT CANNOT KNOW, and says:
   well. Frames to leave bare come from a person, by name (`--bare`, `--bare-by`); the tool leaves none bare
   by itself.
 - Whether the lash lines are far enough apart to draw from. It prints the shot's lid gap in canvas pixels
-  beside `h3_config.POSE_READING["lid_gap_px_to_draw"]` and says when the shot sits under it. It still draws.
+  beside `h3_config.POSE_READING["lid_gap_px_to_draw"]`, says which side of that line the shot's median is and
+  what the line is, and draws either way. Whether that is far enough is the reader's to say.
 - Whether the points and the body-model video are on the source's clock. It is told which source frame each
   begins on and believes it. Three looks stand against a wrong answer, none of them this run's own word:
   with `--source` it sets how much the body-model video changes from frame to frame against how much the
@@ -260,7 +261,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "grown": round(factor, 3), "grown_by": "--grow" if grow else f"h3_config.LID_MARKS['face_px'] over the shot's median face height ({face:.0f} px)",
         "a_mark_on_the_canvas_px": {"wide": round(size[0], 1), "tall": round(size[1], 1)},
         "lid_gap_px_median": round(gap, 2), "lid_gap_px_to_draw": line,
-        "lid_gap_says": ("under the line: the lash lines are too close on this canvas for the marks to say much" if gap < line else "over the line"),
+        "lid_gap_median_is": ("under" if gap < line else "over") + " that line",
+        "that_line_is": "a starting value between the median of the one shot whose marks carried and those of shots whose lash lines are under a pixel apart",
         "frames_left_bare": sorted(first + f for f in left), "left_bare_by": bare_by,
         "not_known": ["whether a head is turned away on any frame: the model places and scores lid points on the back of a head",
                       "whether the marks sit on her eyes: open the sheet"],
@@ -268,7 +270,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                       "fit_by_frames_of_slip": {str(k): (None if np.isnan(v) else round(v, 4)) for k, v in lags.items()},
                       "white_on_a_bare_frame": on_bare, "marked_frames_with_no_white": [first + f for f in back["marked_frames_with_no_white"]],
                       "marks_too_thin_to_leave_much_white": {"frames": [first + f for f in back["too_thin"]],
-                                                              "says": "on these frames the marks are about as thin as their own edge: the video shows next to nothing there"},
+                                                              "which_are": f"frames whose marks should leave under {THIN_PX2:g} square pixels of white, both eyes: the outline's area less about a pixel of its length"},
                       "eyes_never_change": no_change, "passed": back["passed"],
                       "what_it_cannot_catch": "points or a body-model video given on the wrong clock: the drawing and the area come from the same rows"},
         "body_model_against_the_source": ("not looked at: no --source" if moves is None else {
@@ -281,10 +283,10 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
         record["sheet"] = {"file": sheet_path.name, "frames": sheet(sheet_path, src, first, marked, points, count), "looked_at_by": ""}
     out.with_suffix(".json").write_text(json.dumps(record, indent=1) + "\n")
-    say(f"face {face:.0f} px tall at the median; lid gap {gap:.2f} px ({record['lid_gap_says']}; the line is {line})")
+    say(f"face {face:.0f} px tall at the median; lid gap {gap:.2f} px, {record['lid_gap_median_is']} of {line} px ({record['that_line_is']})")
     say(f"marks grown {factor:.2f} times: {size[0]:.0f} px wide and {size[1]:.0f} px tall on the canvas at the median")
     if back["too_thin"]:
-        say(f"marks too thin to leave much white on {len(back['too_thin'])} of {count} frames: the video shows next to nothing on them")
+        say(f"on {len(back['too_thin'])} of {count} frames the marks should leave under {THIN_PX2:g} square pixels of white, both eyes (the outline's area less about a pixel of its length)")
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))
     say("read back: white a frame %d to %d; fit at no slip %s, one frame early %s, one late %s; white on a bare frame %d" % (
         white.min(), white.max(), *(("n/a" if np.isnan(lags[k]) else f"{lags[k]:.3f}") for k in (0, -1, 1)), on_bare))

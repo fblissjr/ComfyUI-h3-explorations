@@ -25,8 +25,13 @@ WHERE THE STRETCHES COME FROM. Best from a person who looked at the original: `-
 frames, with `--stretches-by`. Without them the tool takes the third of the frames where the ORIGINAL's own
 figure is highest and the third where it is lowest, and says that it did. Either way it prints how this
 clip's figures sit against `h3_config.POSE_READING`, whose two lines were read off one close-up and are a
-starting value: on a small or a blurred face most frames can fall between them, where the figure was not
-readable, and the tool says how many do.
+starting value: it counts the original's frames under, over and between them and says what the lines are. On a
+small or a blurred face most frames can fall between them.
+
+IT MEASURES; IT DOES NOT JUDGE. Like a tape measure, it says how far apart two things are and what they were
+measured on. A figure near the original's is not good and one far from it is not bad: which is wanted depends
+on the shot and on what the render was for, and the scales of these figures are not known yet. The words are
+the reader's.
 
 WHAT IT REFUSES TO SAY. A level without a floor. Two makes of ONE render at one seed (`--floor`) show how far
 these figures move when nothing was changed; without them every difference is printed and none is called a
@@ -57,6 +62,10 @@ from _lib import face_points as fp  # noqa: E402
 sys.path.insert(0, str(REPO / "workflows"))
 import h3_config  # noqa: E402
 
+#: What the two lines of `h3_config.POSE_READING` for the eye opening are, said beside every count against them.
+LINES_NOTE = ("On the one close-up those two lines were read off, a person looking at every frame agreed with the figure outside them and could not tell narrowed eyes from open ones between them; they are a starting value and not this clip's")
+#: What the line for the lid gap is.
+GAP_NOTE = "a starting value that lies between the median of the one shot whose marks carried and those of shots whose lash lines are under a pixel apart"
 #: A stretch of this many frames is what "its worst stretch" means for the head. Reasoned: about a second and a
 #: quarter at the lane's rate, long enough not to be one bad frame.
 STRETCH = 30
@@ -142,16 +151,16 @@ def read(original_path: str, renders: dict[str, str], *, floor: tuple[str, str] 
     under, over = int((o["eyes"] < band["eyes_shut_under"]).sum()), int((o["eyes"] > band["eyes_open_over"]).sum())
     face, gap = float(np.median(o["face_height_px"])), float(np.median(o["lid_gap_px"]))
     res["this_clip"] = {"face_height_px_median": round(face, 1), "lid_gap_px_median": round(gap, 2), "original_frames_under_the_shut_line": under,
-                        "over_the_open_line": over, "between_the_two_where_the_figure_was_not_readable": n - under - over,
-                        "lid_gap_under_the_line_to_draw_from": bool(gap < band["lid_gap_px_to_draw"]),
+                        "over_the_open_line": over, "between_the_two_lines": n - under - over, "the_two_lines_are": LINES_NOTE,
+                        "lid_gap_median_under_its_line": bool(gap < band["lid_gap_px_to_draw"]), "that_line_is": GAP_NOTE,
                         "lid_score_median": round(float(np.median(o["score_lids"])), 3)}
     say(f"this clip: her face is {face:.0f} px tall and her lash lines {gap:.2f} px apart at the median"
-        + (f", UNDER the {band['lid_gap_px_to_draw']} px a mark can be drawn from or a render read by" if gap < band["lid_gap_px_to_draw"] else "")
+        + f" (the line kept for that gap is {band['lid_gap_px_to_draw']} px, {GAP_NOTE}; this clip's median is {'under' if gap < band['lid_gap_px_to_draw'] else 'over'} it)"
         + f"; lid score {np.median(o['score_lids']):.2f}, which does not say lids were seen")
     say(f"   against the starting lines (one close-up's): {under} of the original's {n} frames are under the shut line ({band['eyes_shut_under']}), "
-        f"{over} over the open line ({band['eyes_open_over']}), {n - under - over} between them, where the figure was not readable")
+        f"{over} over the open line ({band['eyes_open_over']}), {n - under - over} between them. {LINES_NOTE}.")
     if fall <= 0:
-        say("   THE ORIGINAL'S EYES DO NOT OPEN in the stretches as given: the open stretch reads no higher than the shut one. Nothing here can show following.")
+        say(f"   in the stretches as given the original's open stretch reads no higher than its shut one ({eo['open']:.4f} against {eo['shut']:.4f}), so the fall below is of nothing")
 
     # the floor
     fl = None

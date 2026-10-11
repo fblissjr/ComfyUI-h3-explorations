@@ -173,9 +173,10 @@ def read_says_what_they_carry() -> str:
     band = h3_config.POSE_READING
     against = said["eyes_against_the_starting_lines"]
     assert against["under_the_shut_line"] == int((eyes_by_hand < band["eyes_shut_under"]).sum()) and against["over_the_open_line"] == int((eyes_by_hand > band["eyes_open_over"]).sum()) == 4
-    assert against["between_them_where_the_figure_was_not_readable"] == 2 and "starting value" in against["which_are"], against
+    assert against["between_the_two_lines"] == 2 and "starting value" in against["which_are"] and "one close-up" in against["which_are"], against
     text = "\n".join(lines)
-    assert "4 over the open line" in text and "2 between them, where the figure was not readable" in text, text
+    assert "4 over the open line" in text and "2 between them." in text and "a starting value and not this clip's" in text, text
+    assert not any(w in text.lower() for w in ("not readable", "too close", "good", "bad", "passed", "failed")), text      # it measures; the words are the reader's
     assert "source frames 40 to 45" in text and "does not say lids were seen" in text and "not a measure of a mouth" in text
     rows = list(csv.DictReader(open(WORK / "face.csv")))
     assert list(rows[0]) == list(fp.COLUMNS) and [int(r["source_frame"]) for r in rows] == list(range(40, 46))
@@ -183,7 +184,8 @@ def read_says_what_they_carry() -> str:
     small = fx.save(WORK / "small_points.npz", fx.face(opening / 20, (160, 100), face_px=14.0), (320, 240), first=40)
     lines2: list[str] = []
     s2 = pa.read(small, say=lines2.append)
-    assert s2["median_under_it"] is True and any("THE SHOT SITS UNDER THE LINE" in line for line in lines2), s2
+    assert s2["median_under_it"] is True and any("the shot's median is under it" in line for line in lines2), s2
+    assert any("the shot's median is over it" in line for line in lines) and "starting value" in said["that_line_is"]
     assert "table" not in s2 and not (WORK / "small.csv").exists()
     return f"a face 60 px tall with lash lines {said['lid_gap_px']['median']:.2f} px apart is read as that and its table's eye figure is the hand-worked one; a face 14 px tall sits under the line"
 

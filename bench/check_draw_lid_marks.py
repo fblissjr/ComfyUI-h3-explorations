@@ -224,10 +224,10 @@ def the_size_rule() -> str:
     want = h3_config.LID_MARKS["face_px"] / 60.0
     assert abs(rec["grown"] - want) < 0.01 and "face_px" in rec["grown_by"], (rec["grown"], want)
     line = h3_config.POSE_READING["lid_gap_px_to_draw"]
-    assert rec["lid_gap_px_to_draw"] == line and rec["lid_gap_says"] == "over the line", rec["lid_gap_px_median"]
+    assert rec["lid_gap_px_to_draw"] == line and rec["lid_gap_median_is"] == "over that line" and "starting value" in rec["that_line_is"], rec["lid_gap_px_median"]
     small = fx.save(WORK / "small_points.npz", fx.face(np.full(N, 0.3) + OPEN / 40, CENTRE), (W, H), first=0)
     low = dm.run(str(MESH), str(small), 0, N, WORK / "small.mp4", "the check", grow=GROW, say=quiet)
-    assert low["lid_gap_px_median"] < line and low["lid_gap_says"].startswith("under the line"), low["lid_gap_px_median"]
+    assert low["lid_gap_px_median"] < line and low["lid_gap_median_is"] == "under that line", low["lid_gap_px_median"]
     assert white(WORK / "small.mp4", N).sum() > 0                                  # said, and still drawn
     return f"with no factor given it grows by face_px over the face's height ({want:.2f}); a gap under the line is said and the marks are still drawn"
 

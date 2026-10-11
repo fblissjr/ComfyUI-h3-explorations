@@ -24,10 +24,10 @@ clip's `--first` frame is, and that is what the file records.
 
 `read` needs no card. It says what a shot's points can and cannot carry before anything is drawn from them or
 read by them: the face's height and the gap between the lash lines in the picture's pixels, beside
-`h3_config.POSE_READING["lid_gap_px_to_draw"]`; how many frames sit under, over and between the two lines the
-eye opening was found readable at; and the model's own scores with the reminder that a score does not say
-lids were seen. It prints figures with what they were measured on and against what; it gives no verdict, and
-what a shot is good for is the reader's to say. `--table` writes one row a frame beside the points (`.csv`).
+`h3_config.POSE_READING["lid_gap_px_to_draw"]`; how many frames sit under, over and between the two lines kept
+for the eye opening, with what those lines are; and the model's own scores with the reminder that a score does
+not say lids were seen. It prints figures with what they were measured on and against what, like a tape
+measure; it gives no verdict, and what a shot is good for is the reader's to say. `--table` writes one row a frame beside the points (`.csv`).
 
 WHAT IT CANNOT KNOW
 - Whether the box holds the right person. It takes the mask it is given.
@@ -64,6 +64,12 @@ from _lib.frames import FIT, probe, read_mask, stream  # noqa: E402
 
 sys.path.insert(0, str(REPO / "workflows"))
 import h3_config  # noqa: E402
+
+
+#: What the two lines of `h3_config.POSE_READING` for the eye opening are, and the one for the lid gap: said beside
+#: every count against them, in the same words as `bench/read_render_against_original.py`.
+LINES_NOTE = ("On the one close-up those two lines were read off, a person looking at every frame agreed with the figure outside them and could not tell narrowed eyes from open ones between them; they are a starting value and not this clip's")
+GAP_NOTE = "a starting value that lies between the median of the one shot whose marks carried and those of shots whose lash lines are under a pixel apart"
 
 
 def load_model(folder: str, names: list[str] | None = None):
@@ -179,22 +185,22 @@ def read(points_path: Path | str, *, names: list[str] | None = None, table: bool
     said = {"frames": len(rows), "first_source_frame": points["first"],
             "face_height_px": {"least": round(float(face.min()), 1), "median": round(float(np.median(face)), 1), "most": round(float(face.max()), 1)},
             "lid_gap_px": {"least": round(float(gap.min()), 2), "median": round(float(np.median(gap)), 2), "most": round(float(gap.max()), 2)},
-            "lid_gap_px_to_draw": line, "frames_under_it": under, "median_under_it": bool(np.median(gap) < line),
+            "lid_gap_px_to_draw": line, "that_line_is": GAP_NOTE, "frames_under_it": under, "median_under_it": bool(np.median(gap) < line),
             "eyes": {"least": round(float(col("eyes").min()), 4), "median": round(float(np.median(col("eyes"))), 4), "most": round(float(col("eyes").max()), 4)},
             "score_lids_median": round(float(np.median(col("score_lids"))), 3), "score_lips_median": round(float(np.median(col("score_lips"))), 3)}
     band, e = h3_config.POSE_READING, col("eyes")
     shut, wide = int((e < band["eyes_shut_under"]).sum()), int((e > band["eyes_open_over"]).sum())
     said["eyes_against_the_starting_lines"] = {"under_the_shut_line": shut, "over_the_open_line": wide,
-                                               "between_them_where_the_figure_was_not_readable": len(rows) - shut - wide,
+                                               "between_the_two_lines": len(rows) - shut - wide,
                                                "the_lines": [band["eyes_shut_under"], band["eyes_open_over"]],
-                                               "which_are": "read off one close-up of one video: a starting value, not this clip's own"}
+                                               "which_are": LINES_NOTE}
     where = "" if points["first"] is None else f", source frames {points['first']} to {points['first'] + len(rows) - 1}"
     say(f"{len(rows)} frames{where}: face {said['face_height_px']['median']:.0f} px tall at the median ({said['face_height_px']['least']:.0f} to {said['face_height_px']['most']:.0f})")
     say(f"lash lines {said['lid_gap_px']['median']:.2f} px apart at the median ({said['lid_gap_px']['least']:.2f} to {said['lid_gap_px']['most']:.2f}); "
-        f"{under} of {len(rows)} frames under the {line} px a mark can be drawn from or a render read by"
-        + (": THE SHOT SITS UNDER THE LINE" if said["median_under_it"] else ""))
+        f"{under} of {len(rows)} frames under {line} px, and the shot's median is {'under' if said['median_under_it'] else 'over'} it. That line is "
+        f"{GAP_NOTE}.")
     say(f"eye opening: {shut} of {len(rows)} frames under the shut line ({band['eyes_shut_under']}), {wide} over the open line ({band['eyes_open_over']}), "
-        f"{len(rows) - shut - wide} between them, where the figure was not readable. The two lines are one close-up's: a starting value.")
+        f"{len(rows) - shut - wide} between them. {LINES_NOTE}.")
     say(f"eye opening {said['eyes']['least']:.4f} to {said['eyes']['most']:.4f}; lid score {said['score_lids_median']:.2f} and lip score "
         f"{said['score_lips_median']:.2f} at the median. A score does not say lids were seen; the lip gap is not a measure of a mouth.")
     if table:
