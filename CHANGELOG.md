@@ -6151,9 +6151,8 @@ reference. No shipped graph wires the matching parts yet.
   two" of lead I reported was my scaling error. With the right fit the two
   line up, and the regenerated area on four frames is the lead and the strip
   where his hair was.
-- The same note: which Sapiens2 files fit the lane, that each repository
-  holds its weights twice, and a clause of the Sapiens2 licence (no use "to
-  create deepfakes") flagged to the owner before any download.
+- The same note: which Sapiens2 files fit the lane, and that each
+  repository holds its weights twice.
 
 ## 0.186.25
 
