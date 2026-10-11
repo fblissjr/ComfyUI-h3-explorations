@@ -200,6 +200,12 @@ Read those, never a sentence naming a build.
 
 ## Where things are
 
+**Before anything else, if `internal/claude/OWNER_MORNING.md` exists and has
+open items, read its short list to the owner** and ask which they want to
+do now. It is the owner's own list of things waiting for their eyes or
+their word, kept untracked; its contents are never copied into a commit
+message, a tracked file or the board. (Owner, 2026-10-10.)
+
 **What is on a frame of an input video is already in
 [`contact_sheets/`](contact_sheets/AGENTS.md)**: one folder a video, named by
 its file name, sheets of its raw frames named by first and last frame. Open
