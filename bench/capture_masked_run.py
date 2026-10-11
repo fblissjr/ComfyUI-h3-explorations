@@ -1938,7 +1938,10 @@ def flag_shots(label: str, by: str, table: dict, at: int, not_in: list[list[int]
     line = float(table["match"])
     for shot in table["shots"]:
         a, b = at + shot["first_frame"], at + shot["last_frame"]
-        (state, typed), sim, people = shot_state(shot), shot["subject"].get("similarity"), len(shot.get("people", []))
+        # the people nobody else holds: a tracker's list may MARK those an earlier tracker has (`held_by_another_tracker`),
+        # and a subject truly absent beside somebody else's subject is not a question
+        (state, typed), sim = shot_state(shot), shot["subject"].get("similarity")
+        people = sum(1 for p in shot.get("people", []) if not p.get("held_by_another_tracker"))
         level = LEVELS[0]
         barred = [x for x in not_in if x[0] <= b and a <= x[1]]
         if state == "absent" and people:

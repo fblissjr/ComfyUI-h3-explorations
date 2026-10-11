@@ -245,6 +245,12 @@ def shot_rules() -> str:
     assert [(f["rule"], f["level"], f["source_frames"], f["figures"]["a_shot_is_picked"]) for f in never] == \
         [("subject_never_found", "likely to fail", [[100, 100 + N - 1]], False)], never
     assert cap.flag_never("a", "run1", cap.subject_rows("a", "run1", 100, A, np.ones(N, bool)), None, 100) == [], "a subject with a mask was called never found"
+    # a shot table that MARKS the people an earlier tracker holds: they do not make an absence a question
+    held = {"match": 0.8, "shots": [{"first_frame": 0, "last_frame": 9, "people": [{"held_by_another_tracker": True}, {"held_by_another_tracker": True}],
+                                     "subject": {"state": "absent", "similarity": None}}]}
+    assert cap.flag_shots("a", "run1", held, 100, [])[0] == [], "an absence beside people another tracker holds was asked about"
+    held["shots"][0]["people"][0] = {"held_by_another_tracker": False}
+    assert [f["rule"] for f in cap.flag_shots("a", "run1", held, 100, [])[0]] == ["absent_with_people_on_screen"], "one person nobody holds, and no question"
     assert cap.shot_state({"subject": {"state": "taken (corrected)"}}) == ("taken", True)
     assert cap.shot_state({"subject": {"state": "taken"}, "corrected": ""}) == ("taken", False)
     assert len(shots) == 6 and shots[2]["level"] == "likely fine", shots
