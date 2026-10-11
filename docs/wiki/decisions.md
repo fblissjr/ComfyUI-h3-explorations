@@ -90,6 +90,24 @@ Older history lives elsewhere and is not copied here:
     not kept as columns: a column nothing reads is what was cut. The gate
     reads `suggests`, `lead` and `looks_used` from the corrections file, so
     that cut lands together with the capture tool dropping those fields.
+    2026-10-10, the same night, WHAT OF THIS LIST IS IN THE TREE, by its
+    owner. LANDED, in one stretch with the gate's two commits between them:
+    `others` marks held people and removes nobody, with the left-out counts,
+    the per-look only-person bookkeeping and "complete looks only" gone and
+    the only-person rule off whenever `others` is wired (`e9de8cc3`; the
+    shot table is version 2 and `MASK_VERSION` is 14, so a correction typed
+    before it is refused until a preview is run again); the corrections
+    tool cut to its reading half, the sum, the evidence total, the levels,
+    the three-way agreement, `--suggest-lead`, `--unsure take`, the
+    measurement modes and the two reading rules removed whole, with
+    `hand_out`, `same_people` and `sure` out of `subject_tracks.py`
+    (`ace202c4`; the gate's side is `317d9c65` and `da9b8446`). Every doc
+    reference went in those commits. NOT YET CUT, still approved: `track_score`
+    in the shot table, the signature vectors in `looks`, the
+    `duplicates_joined` block down to one count, and the `marked` mesh style
+    with its `legend`; the last is node code and takes a cold read, a sweep
+    and a restart of its own. `seeds` stays: `bench/cast_file.py` writes its
+    text, though no job carries it yet.
   - THE CAPTURE AND ITS GATE (`bench/capture_masked_run.py`): its own
     entry, by its session, is further down this day's list ("What the owner
     cut from the capture tool and its gate"); the large simplification is ONE
