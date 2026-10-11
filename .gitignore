@@ -34,3 +34,10 @@ bench/results/**/*.json
 bench/results/**/*.jsonl
 bench/results/**/*.csv
 bench/results/**/*.npz
+
+# 2026-10-10 (owner): contact sheets of input videos, made once by
+# bench/contact_sheets.py, one folder a video. Pictures of the owner's clips
+# are never repo content; the folder's AGENTS.md is, so that a session which
+# lands there knows what it is looking at.
+contact_sheets/*
+!contact_sheets/AGENTS.md

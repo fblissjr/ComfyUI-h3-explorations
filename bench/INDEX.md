@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 107 |
+| [`check_*`](#check) | 108 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 141 |
+| [the rest](#the-rest) | 142 |
 
 ## check
 
@@ -42,6 +42,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
+| [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
 | [`check_denoise_mask_probe.py`](check_denoise_mask_probe.py) | `denoise_mask_probe.py` observes the mask and changes nothing. |
@@ -320,6 +321,7 @@ this file is only a way to find a script by what it says it does.
 | [`clip_analysis.py`](clip_analysis.py) | Make and fill an input video's analysis folder: the workflow that runs before any job on that video. |
 | [`clip_recipe_coverage.py`](clip_recipe_coverage.py) | Which rendered recipes have a graph in this repo, and which have none. |
 | [`compile_marker_corpus.py`](compile_marker_corpus.py) | CLOSED RECORD since 2026-09-18. This compiler stamps every shot after the first with a cut time, and its compiled corpus is pinned by hash (August 2026 marker grading). Kept byte for byte because dated records were produced by it; do not ... |
+| [`contact_sheets.py`](contact_sheets.py) | Contact sheets of an input video's own frames, made once and kept: one folder a video, one file a frame range. |
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
 | [`control_time_warp.py`](control_time_warp.py) | Can `bench/analyze_time_warp.py` see a warp at all? A control for its "not a time warp" claim. |
 | [`convert_flashgen_lora.py`](convert_flashgen_lora.py) | Convert Beidouqixing's FlashGen 4-step LoRA, at its full rank, for the pruned fl2va checkpoint. |

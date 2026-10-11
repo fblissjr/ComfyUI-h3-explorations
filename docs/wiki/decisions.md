@@ -17,6 +17,30 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-10
 
+- **What is on a frame of an input video is made once and kept, in
+  `contact_sheets/`; and the file of who is who holds only what a person
+  said** (owner, late that night, on what eight sessions answered when asked
+  for a better way to write down who is in a scene). What it replaces: every
+  session sampled the input video again into its own scratch folder, at its
+  own spacing, and read six or eight stills; the form stopped earlier that
+  night had a person or a tool write a statement for every subject on every
+  window of a load's plan. Now: `bench/contact_sheets.py` writes a video's
+  raw frames as sheets into ONE folder a video, named by the video's file
+  name, each sheet named by its first and last frame; the folder is ignored
+  by git except its `AGENTS.md`, which says to open a sheet before sampling
+  again and to make something else only for a closer look, a mask, or what
+  a frame number and the raw frame cannot answer. The sheet of a few chosen
+  frames a window, carded that night for the capture, is not built: these
+  answer it, and a session still looks at frames when in doubt. On who is
+  who the owner took two points from the answers: the question is "who are
+  the numbered people on this picture" and never "is this subject in", and
+  the file that keeps the answers holds only what a person said, the
+  tracker's opinion staying in its own table. `bench/cast_file.py` is
+  already both; what changes is that no tool drafts a tracker's take into
+  it. Not decided: whether a person's answer says how sure it is, and in
+  what form; and nothing reads the cast file yet. The board card is
+  `idea-who-is-in-a-scene-written-once-per-video`.
+
 - **The text is read whole, and never at second hand; and the day's
   handover is corrected by the day's postmortem** (owner, to the session that wrote
   the day's postmortem, on its finding that every other session had known

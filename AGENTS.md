@@ -200,7 +200,12 @@ Read those, never a sentence naming a build.
 
 ## Where things are
 
-**Starting a working day, read
+**What is on a frame of an input video is already in
+[`contact_sheets/`](contact_sheets/AGENTS.md)**: one folder a video, named by
+its file name, sheets of its raw frames named by first and last frame. Open
+a sheet before sampling a video again; make something else only for a closer
+look, a mask, or what a frame number and the raw frame cannot answer.
+(Owner, 2026-10-10.) **Starting a working day, read
 [`docs/wiki/handover.md`](docs/wiki/handover.md) before anything else**: what
 the last day left and did not, what is not certain, and what not to assume.
 The session that leads a day rewrites it that evening.
