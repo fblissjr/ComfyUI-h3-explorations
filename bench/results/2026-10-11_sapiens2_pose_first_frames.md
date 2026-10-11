@@ -85,6 +85,23 @@ careful one.*
 - *What it would add before trusting the eye number: a blink and a
   half-open mouth, where the answer is at neither end.*
 
+*Added in the evening, the middle of the eye measure, which the second
+session asked for: the model was run on every frame of the lead's
+close-up (source frames 1575 to 1729, the original at the canvas, her
+tracked box), where her eyes go wide, shut and part open again, and
+twelve frames spread over the range of the eye opening were looked at
+in order of the number (opening over the distance from glabella to chin,
+the measure of the later records). Under about 0.02 her eyes are shut on
+all eight frames; at 0.032 they are open and at 0.062 wide. But at 0.021
+and 0.025, two frames near the shot's end where she smiles and the frame
+blurs, they also look shut. So the two ends are right and the middle is
+not shown to be: a shut eye in a blurred or smiling face can read part
+open. A second session found the same on its own crops of source frames
+1700 to 1729. The score of the lid points stays high on those frames, on
+a face a few pixels tall, and on a frame where a head is turned away, so
+it says nothing about whether the lids were seen. The sheet:
+`data/2026-10-11_sapiens2_pose_consecutive/leadcanvas_1575_eyes_by_rank_sheet.jpg`.*
+
 ## Two numbers against the eye
 
 `lip gap`: the two centre points of the inner lips apart, over the width of
