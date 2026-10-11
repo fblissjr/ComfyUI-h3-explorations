@@ -102,6 +102,9 @@ SLOT = {
 #: runs after others sees its pick frame with their people set aside, so it can be "alone" beside somebody.
 #: Naming a value turns that rule off. The values a job would name are the node's own two floors,
 #: `subject_track.MATCH_FLOOR` and, for a tracker whose pick frame shows it alone, `subject_track.PLAIN_FLOOR`.
+#: (2026-10-10, since e9de8cc3: with `others` wired the node switches that rule off itself, `subject_track.py::follow`,
+#: `alone`, so "alone beside somebody" can no longer happen to a tracker that runs after others. A job names a
+#: value for its FIRST tracker, the only one that still has the rule; naming one for a later tracker is harmless.)
 TRACKER_MATCH_AT = "at a value"
 #: What a job or a subject may be named: the name goes into file names and into the capture's `--mask` spec,
 #: where a comma, a colon or an equals sign is syntax.
@@ -519,7 +522,11 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         run.pop(key, None)
     run.update(prompt=text, width=canvas[0], height=canvas[1], window_frames=window,
                context_frames=one.get("context", MASKED_JOB_CONTEXT), filename_prefix=run_prefix(job, one, plan),
-               crf=MASKED_JOB_CRF, timeline="", preview=bool(plan), keep_windows=True, reuse_windows=False)
+               crf=MASKED_JOB_CRF, timeline="", preview=bool(plan), keep_windows=True)
+    # the kept-mask store and stored-window reuse are gone from the nodes (2026-10-10); a shipped graph built
+    # before that still names their inputs, and a load must not carry them over
+    run.pop("reuse_windows", None)
+    src.pop("reuse_mask", None)
     # the model hears the source's own track, cut to the load (`AUDIO_SHORT_BY` has why it is cut again
     # after the loader has cut it)
     heard = round((frames - AUDIO_SHORT_BY) / FPS, 6)

@@ -405,6 +405,8 @@ def a_load_lands_on_the_inputs_it_names():
     assert g[graphs._the(g, "LoadImage")]["inputs"]["image"] == WHOLE["still"], "the still"
     view = {k: v for k, v in g[graphs._the(g, graphs.STILL)]["inputs"].items() if k.startswith("qwen_view")}
     assert view == {"qwen_view": cfg.MASKED_JOB_STILL_VIEW}, f"the text encoder's view of the still: {view}"
+    reused = sorted(k for n in g.values() for k in n["inputs"] if k.startswith("reuse"))
+    assert not reused, f"a load carries inputs of stores the nodes no longer have: {reused}"
     sinks = [n["inputs"]["sink_conditioning"] for n in g.values() if "sink_conditioning" in n["inputs"]]
     assert sinks == [cfg.MASKED_JOB_SOL_SINK], f"Sol's sink: {sinks}"
 
