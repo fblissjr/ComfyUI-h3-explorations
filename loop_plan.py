@@ -42,7 +42,9 @@ a cycle of `STEP_CYCLE` frames), and every window of a load starts a whole
 number of cycles after the load's first frame, so a load cuts its steps at the
 same frames in every window. A cut of the source that falls inside a step
 gives that step frames of two shots (`split_steps`); which cuts those are is
-set by the load's first frame alone (`first_frame_choices`).
+set by the load's first frame alone. A function that ranked a load's possible
+first frames by it was removed on 2026-10-10: no start clears every cut, and
+one load per shot made the question moot.
 """
 
 from __future__ import annotations
@@ -474,27 +476,3 @@ def split_steps(cuts, first_frame: int = 0, present=None, frames: int | None = N
         shared = [f for (lo, b), h in zip(sides, has) if h for f in range(lo, b)] if sum(has) > 1 else []
         out.append({"step": [first + a, last - 1], "cuts": held, "across": across, "shared": shared})
     return out
-
-
-def first_frame_choices(cuts, first_frame: int, present=None, frames: int | None = None) -> list[dict]:
-    """`split_steps` for each start of a load from `first_frame` back to one cycle of latent steps before it,
-    the best first.
-
-    Starting a load a few frames early moves every step's edge by as many, so a cut that splits a step
-    under one start falls on an edge under another. A load only ever starts earlier here: the frames from
-    `first_frame` on are all still rendered, and the ones before it are the caller's to drop. A start
-    before frame zero is left out. With `frames` (the length from `first_frame`) the load's end stays
-    where it was.
-
-    Each entry: `first_frame`, `earlier` (how many frames before the one asked for), `split` (the steps),
-    `across` and `shared` (how many frames of each). Ordered by fewest frames of the two together, then
-    fewest split steps, then fewest frames added. Reasoned, not measured: whether a frame of a split step
-    on the subject's own side is any worse than its neighbours is not known (2026-10-10).
-    """
-    first = int(first_frame)
-    out = []
-    for k in range(min(STEP_CYCLE, first + 1)):
-        split = split_steps(cuts, first - k, present, None if frames is None else int(frames) + k)
-        out.append({"first_frame": first - k, "earlier": k, "split": split,
-                    "across": sum(len(s["across"]) for s in split), "shared": sum(len(s["shared"]) for s in split)})
-    return sorted(out, key=lambda c: (c["across"] + c["shared"], len(c["split"]), c["earlier"]))

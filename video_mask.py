@@ -853,9 +853,9 @@ def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor,
     `source_margins` and `first_frame` where the window starts in the source. The weight is the whole
     region's (`pixel_alpha`) or, under `only what changed`, `changed_alpha`'s; it is then taken off every
     frame whose own mask is empty (`unlaid_frames`: across a cut from the subject, or with no cut beside it);
-    `composite` blends. A record with `lay_frames_with_no_mask` set lays them as renders made before
-    2026-10-10 did; no node sets it, and it is there for `bench/recomposite_window.py` to lay an old render as
-    it was rendered. One function, so
+    `composite` blends. Until 2026-10-10 such frames were laid, and for a day a hidden key reproduced that
+    for the tool below; it is gone, so a render from before that date, laid again, differs on those frames.
+    One function, so
     that a saved window can be laid again with exactly what the render ran: `bench/recomposite_window.py`
     decodes a window's stored latent and calls this, with the settings the render used or with one changed.
     """
@@ -875,8 +875,6 @@ def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor,
     # the next shot's across a cut, a frame the part was emptied on, a held frame. Those stay the source's
     first = int(first_frame)
     across, bare = unlaid_frames(mask, tokens, source.get("cuts"), first)
-    if source.get("lay_frames_with_no_mask"):
-        bare = []       # as before 2026-10-10: only the cut's frames are left, and those only when cuts are given
     if across or bare:
         gate = torch.ones(int(mask.shape[0]), dtype=torch.float32)
         gate[across + bare] = 0.0
@@ -894,11 +892,10 @@ def lay_window(images: torch.Tensor, pixels: torch.Tensor, tokens: torch.Tensor,
 #: What of a source's record a window's composite reads, saved with the window's region (`save_window_region`)
 #: so the window can be laid again without the graph. `lay_window` reads the first four; the rest say how the
 #: region was made.
-REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge",
-                   "lay_frames_with_no_mask")
-#: A region file's version. 2 since 2026-10-10: the render that wrote it left every frame with no mask of its
-#: own as the source (`unlaid_frames`). A file of version 1 is from a render that laid them, and
-#: `load_window_region` says so in the settings it returns, so laying it again reproduces that render.
+REGION_SETTINGS = ("composite", "feather_pixels", "change_threshold", "cuts", "grow_pixels", "grow_by", "replace", "edge")
+#: A region file's version, written into it and read by nothing here. 2 since 2026-10-10: the render that
+#: wrote it left every frame with no mask of its own as the source (`unlaid_frames`); a file of version 1 is
+#: from a render that laid them, and is read like any other.
 REGION_VERSION = 2
 
 
@@ -939,12 +936,7 @@ def load_window_region(path: str) -> dict:
         margin = z["margin"]
         out = {"mask": torch.from_numpy(mask).to(torch.float32), "tokens": torch.from_numpy(z["tokens"]).to(torch.float32),
                "margin": int(margin) if margin.ndim == 0 else torch.from_numpy(margin).long()}
-    settings = dict(meta["source"])
-    if int(meta.get("version", 1)) < 2:
-        # written by a render from before a frame with no mask was left as the source: to lay that window as it
-        # was rendered, such frames are laid (`lay_window`)
-        settings["lay_frames_with_no_mask"] = True
-    return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": settings,
+    return {**out, "first_frame": int(meta["first_frame"]), "trim": int(meta["trim"]), "source": dict(meta["source"]),
             "zoom": meta.get("zoom")}
 
 

@@ -812,17 +812,17 @@ def check_lay_window(problems):
         _fail(problems, f"lay window: frames {across} lie across the cut and must be the source bit for bit, with a "
                         "weight the gate had something to take off")
     # A frame with no mask of its own is never laid (2026-10-10), cut or no cut: with the cuts taken away the
-    # same frames are still the source, and the report says why in its other line. Laid as renders before that
-    # day were (`lay_frames_with_no_mask`, which only the re-lay tool sets), they carry the render again.
+    # same frames are still the source, and the report says why in its other line. No key lays them as
+    # renders before that day did: a record that still carries the old one is laid like any other.
     free, _a, quiet = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": []}, grow_px, first)
     if not torch.equal(out, free) or len(quiet) != 2 or "no mask of their own and no cut beside them" not in quiet[1] \
             or not quiet[1].endswith(", ".join(str(first + f) for f in across)):
         _fail(problems, f"lay window: with no cut named, the frames with no mask must still be the source and be named: {quiet}")
-    before, _a, said = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": [], "lay_frames_with_no_mask": True},
-                                     grow_px, first)
-    moved = sorted({int(f) for f in (out != before).flatten(1).any(dim=1).nonzero().flatten()})
-    if moved != across or len(said) != 1:
-        _fail(problems, f"lay window: laid as before the rule, the frames that differ are {moved}, not the frames with no mask {across}")
+    keyed, _a, said = vm.lay_window(render, pixels, tokens, old, {**record, "cuts": [], "lay_frames_with_no_mask": True},
+                                    grow_px, first)
+    if not torch.equal(keyed, free) or said != quiet:
+        _fail(problems, "lay window: the key that laid frames with no mask as renders before 2026-10-10 did is gone, and a "
+                        "record that still carries it must be laid like any other")
     if len(lines) != 2 or "only what changed" not in lines[0] or "lie across a cut" not in lines[1] \
             or not lines[1].endswith(", ".join(str(first + f) for f in across)):
         _fail(problems, f"lay window: the report's lines are {lines} with the cut")
@@ -843,10 +843,7 @@ def check_lay_window(problems):
         _fail(problems, f"lay window: the frames with no mask a region reaches are {names[1]}; they must be frame {lost} and the "
                         f"split step's {across}, and no frame of a step with no region")
     plain_region = {**record, "composite": vm.COMPOSITE_REGION, "cuts": []}
-    whole, w_alpha, w_lines = vm.lay_window(render, pixels, tokens, old, {**plain_region, "lay_frames_with_no_mask": True}, grow_px, first)
     region_alpha = vm.pixel_alpha(tokens, H, W, feather)
-    if not torch.equal(w_alpha, region_alpha) or not torch.equal(whole, vm.composite(render, pixels, w_alpha)) or w_lines:
-        _fail(problems, "lay window: under `whole region`, laid as before the rule, the weight is not the region's own, or a line was reported")
     _w, n_alpha, n_lines = vm.lay_window(render, pixels, tokens, old, plain_region, grow_px, first)
     keep_frames = torch.ones(FRAMES)
     keep_frames[across] = 0.0
@@ -871,19 +868,19 @@ def check_lay_window(problems):
             if not torch.equal(want, again):
                 _fail(problems, f"window region: a window laid from its file is not the window laid from its tensors "
                                 f"(margin {vm.margin_note(margin)})")
-        # a file from a render of before the no-mask rule says so when it is read, so laying it again is that render
+        # a file from a render of before the no-mask rule is read like any other: nothing reproduces that render
         import numpy as np
         with np.load(path) as z:
             parts = {k: z[k] for k in z.files}
         meta = json.loads(str(parts["meta"]))
-        if meta.get("version") != vm.REGION_VERSION or vm.load_window_region(path)["source"].get("lay_frames_with_no_mask"):
-            _fail(problems, "window region: a file written now must carry the current version and lay no frame without a mask")
+        now = vm.load_window_region(path)["source"]
         meta["version"] = 1
         old_path = str(Path(tmp) / "old_region.npz")
         with open(old_path, "wb") as fh:
             np.savez_compressed(fh, **{**parts, "meta": np.asarray(json.dumps(meta))})
-        if vm.load_window_region(old_path)["source"].get("lay_frames_with_no_mask") is not True:
-            _fail(problems, "window region: a version 1 file must read back as laid the way its render laid it")
+        if vm.load_window_region(old_path)["source"] != now or "lay_frames_with_no_mask" in now:
+            _fail(problems, "window region: a version 1 file must read back with the settings a file written now has, and no "
+                            "key that lays frames with no mask")
         Path(old_path).unlink()
         if sorted(x.name for x in Path(tmp).iterdir()) != ["w_region.npz"]:
             _fail(problems, f"window region: the write left {sorted(x.name for x in Path(tmp).iterdir())} behind")

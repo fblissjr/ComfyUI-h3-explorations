@@ -2,9 +2,9 @@
 """Lay a saved window of a masked render again, with the song node's own composite, and say what a change moves.
 
     <python> bench/recomposite_window.py --window R_windows/R_window_2.safetensors --source SRC24.mov --source-first 14 \\
-        --set cuts=none --out data/<date>_<name>
+        --set "composite=whole region" --out data/<date>_<name>
     <python> bench/recomposite_window.py --window R_windows/R_window_2.safetensors --source SRC24.mov --source-first 14 \\
-        --capture data/<capture> --run R --shots R_00001_shots.json --context 90 --as-rendered cuts=none --out data/<date>_<name>
+        --capture data/<capture> --run R --shots R_00001_shots.json --context 90 --set feather_pixels=4 --out data/<date>_<name>
 
 **What it buys.** A change to the masked lane's composite (what the render is laid with over its source) can be
 tried on a render that already exists, with no sampling: a window's stored latent is decoded once, and
@@ -52,12 +52,12 @@ picture is laid into the box and set against the piece (`read_files`). It answer
 lay back of a zoomed region, leave the plate alone" from files a render already wrote, and is the first thing
 to run on a render that looks wrong outside its subject.
 
-**`--set` and `--as-rendered`.** Each is `key=value` over the window's own settings: `cuts=none` (no gate),
-`cuts=12,40`, `composite=whole region`, `feather_pixels=4`, `change_threshold=0.08`, and `no_mask=laid` or
-`no_mask=source` (whether a frame with no mask of its own is laid, as renders before 2026-10-10 laid it, or left
-as the source; a window's own setting is the one it was rendered under, read from its region file's version). `--as-rendered` changes the
-first laying and `--set` the second, each from the window's settings and not from the other: a render made before
-the gate was laid with `--as-rendered cuts=none`, and is then set beside the window's settings as they stand.
+**`--set` and `--as-rendered`.** Each is `key=value` over the window's own settings: `composite=whole region`,
+`feather_pixels=4`, `change_threshold=0.08`, and `cuts=none` or `cuts=12,40`. `--as-rendered` changes the first
+laying and `--set` the second, each from the window's settings and not from the other. A frame with no mask of
+its own is left as the source whatever is set, so `cuts` moves no pixel: it only says which of the report's two
+lines names such a frame (across a cut, or no cut beside it). A render from before 2026-10-10 laid those frames;
+laid again here it differs on them, and the first laying's distance from the window's own video says so.
 
 **What it writes**, under `--out` (untracked `data/`): `<window name>.csv`, a row a frame of the window, and
 `<window name>.json`, the inputs, the settings of each laying and the summary printed.
@@ -119,14 +119,9 @@ def change(settings: dict, edits: list[str]) -> dict:
             out[key] = float(value)
         elif key == "composite":
             out[key] = value
-        elif key == "no_mask":
-            if value not in ("laid", "source"):
-                raise SystemExit("--set no_mask takes `laid` (as renders before 2026-10-10 laid a frame with no mask of "
-                                 "its own) or `source` (the frame is left as the source)")
-            out["lay_frames_with_no_mask"] = True if value == "laid" else None
         else:
             raise SystemExit(f"--set {key}: not a setting the composite reads; one of cuts, composite, feather_pixels, "
-                             "change_threshold, no_mask")
+                             "change_threshold")
     return out
 
 
@@ -180,9 +175,7 @@ def rebuilt_region(vm, capture: Path, run_name: str, shots: str, first: int, fra
     cuts = json.loads(Path(shots).read_text())["cuts"] if shots else []
     settings = {"composite": node.get("composite", vm.COMPOSITE_REGION), "feather_pixels": int(node["feather_pixels"]),
                 "change_threshold": float(node.get("change_threshold", vm.CHANGE_THRESHOLD)), "cuts": [int(c) for c in cuts],
-                "grow_pixels": int(node["grow_pixels"]), "grow_by": record["grow_by"], "replace": node.get("replace"), "edge": edge,
-                # a render that saved no region is from before a frame with no mask was left as the source
-                "lay_frames_with_no_mask": True}
+                "grow_pixels": int(node["grow_pixels"]), "grow_by": record["grow_by"], "replace": node.get("replace"), "edge": edge}
     region = {"mask": mask, "tokens": tokens, "margin": margin, "first_frame": first, "source": settings}
     how = {"region": "rebuilt from the capture's read-back of the review", "capture": capture.name, "run": run_name,
            "cells_differing": int((made != seen).sum()), "cells_in_region": int(seen.sum()),
@@ -527,7 +520,7 @@ def read_files(a: argparse.Namespace) -> dict:
         raise SystemExit(f"{Path(piece_path).name} is missing or does not hold the {count} frames the window wrote")
     weight = vm.pixel_alpha(region["tokens"], size[1], size[0], 0).clone()
     across, bare = vm.unlaid_frames(region["mask"], region["tokens"], region["source"].get("cuts"), first)
-    weight[across + ([] if region["source"].get("lay_frames_with_no_mask") else bare)] = 0.0
+    weight[across + bare] = 0.0
     box = torch.ones(size[1], size[0], dtype=torch.bool)
     if zoom is not None:
         # the weight where the node put it: `lay_back` of a white decode over black is the weight on the canvas

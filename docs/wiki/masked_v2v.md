@@ -579,15 +579,14 @@ follow, and both are arithmetic that needs no render:
 - **The load's first frame is a lever, for a load with few cuts.** Moving
   it by fewer frames than the cycle is long moves every step's edge with
   it, so the cut that matters most can be put on an edge.
-  `loop_plan.split_steps` lists the steps a load splits and
-  `loop_plan.first_frame_choices` orders every start one cycle back by how
-  many frames it lays across a cut (`bench/check_audio_freeze.py`, the
-  step grid case). All of a load's cuts cannot be cleared in general: a
+  `loop_plan.split_steps` lists the steps a load splits
+  (`bench/check_audio_freeze.py`, the step grid case); a function that
+  ranked every start one cycle back was removed on 2026-10-10, moot under
+  one load per shot. All of a load's cuts cannot be cleared in general: a
   cut is on an edge for as many starts as the cycle has steps, out of as
   many as it has frames, so the chance that one start clears several cuts
   falls with each cut. On the first clip's whole-subject piece no start
-  cleared every cut the subject is beside; the function's output on that
-  check's cuts and shots is the record.
+  cleared every cut the subject is beside.
 
 **The cycle is the video VAE's, and the decode is not local to a step.** A
 reading of core's code (`comfy/ldm/minimax/vae.py`: `MiniMaxH3VideoVAE`'s

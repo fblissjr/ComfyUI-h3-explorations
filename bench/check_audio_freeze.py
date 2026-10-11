@@ -66,7 +66,7 @@ things here, each a way the freeze could look present and not be:
    picture this size showed a render off in colour beside its own source.
 
 8. **A load's first frame fixes which cuts split a latent step.**
-   `loop_plan.split_steps`, `first_frame_choices` (2026-10-10). Every window
+   `loop_plan.split_steps` (2026-10-10). Every window
    length and context the planner allows adds a whole number of step cycles,
    and `step_span` agrees with the frame count the window node takes for a
    latent length, so the grid is one per load. On the cuts and the subject's
@@ -1132,15 +1132,6 @@ def check_step_grid(problems):
     if blind == found:
         _fail(problems, "step grid control: counted from frame zero the same cuts still name the measured frames, so "
                         "the case does not show that the load's first frame matters")
-    choices = lp.first_frame_choices(cuts, first, present, frames)
-    asked = next((c for c in choices if c["earlier"] == 0), None)
-    if asked is None or asked["split"] != split or sorted(c["earlier"] for c in choices) != list(range(min(lp.STEP_CYCLE, first + 1))):
-        _fail(problems, f"step grid: the choices are not one a start from {first} back a cycle, the asked start among them: "
-                        f"{[c['earlier'] for c in choices]}")
-    elif choices[0]["across"] + choices[0]["shared"] > asked["across"] + asked["shared"]:
-        _fail(problems, "step grid: the first choice lays more frames across a cut than the start that was asked for")
-    if any(c["first_frame"] < 0 for c in lp.first_frame_choices(cuts, 3, present)):
-        _fail(problems, "step grid: a start before the source's first frame was offered")
 
     # the node's own gate as the second implementation, window by window
     rng = random.Random(20261010)
