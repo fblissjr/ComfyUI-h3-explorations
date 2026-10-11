@@ -140,8 +140,12 @@ docstring.
   others' single cumulative decode.
 - **The song node** would get a `continuation` combo (`masked_prefix`,
   default; `guide_rows`). It stays out of the resume root and folds into the
-  keys of windows 2 and later only (`loop_resume.py::window_key`), so a mode
-  switch reuses window 1.
+  keys of windows 2 and later only (the window key in `loop_resume.py`, as
+  it was at efc99317's parent), so a mode switch reuses window 1.
+  *2026-10-10: the keyed reuse of stored windows this sentence builds on
+  was removed (efc99317; `docs/wiki/decisions.md`, that date, "What the
+  owner cut from the masked lane's nodes"). Every run renders every window,
+  so there is no key for a mode to fold into and nothing to reuse.*
 - **Overlap: 39 frames**, the smallest context on both clocks and the one
   the owner already judged on arm A. The 22 frames the other packs use is
   off our audio grid.

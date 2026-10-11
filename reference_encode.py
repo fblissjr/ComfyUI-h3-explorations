@@ -443,10 +443,9 @@ class MiniMaxH3EncodeReferences(io.ComfyNode):
                 "output an empty latent of the right size. Wire the result into "
                 "MiniMax H3 Prompt On References. Editing the prompt then re-runs "
                 "only that node, which is fast.\n\n"
-                "Encoded references stay in memory for the session, so going "
-                "back to a reference used a moment ago, or changing only the "
-                "last one, reuses the rest. After a run, the preview says what "
-                "was reused and what was encoded."
+                "Every reference is encoded each time this node runs, and "
+                "nothing is kept afterwards. After a run, the preview says "
+                "how long each reference took."
             ),
             # The tooltips are `reference_conditioning.py`'s own, one copy each:
             # the inputs mean the same thing on both nodes.

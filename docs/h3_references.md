@@ -159,14 +159,19 @@ experimental nodes split the work there (`reference_encode.py`):
   encodes only the prompt's tokens on top. It uses the encoder the references
   were encoded with; there is none to wire.
 
-Each reference is kept for the session under a key made of what the encoder
-was shown for it and for everything ahead of it. Nobody tracks order: a
-changed, resized or moved reference is a miss and is encoded fresh, never a
-wrong hit; changing only the last reference reuses the ones before it; going
-back to a chain used a moment ago is a hit. The encode node's preview says,
-per reference, kept, continued or encoded. The kept data lives in host memory
-under a byte budget (`reference_encode.py::STORE_BYTES`), never on the card
-between passes and never on disk.
+Each reference is encoded every time the encode node executes, each one
+continued on the references before it in the chain, and nothing is kept
+after the call: the node's output holds the rows on the host for as long as
+it is wired, never on the card between passes and never on disk. The encode
+node's preview says, per reference, encoded or continued on the ones before
+it, with its token count and time (`reference_encode.py::encode_references`).
+
+*2026-10-10: until that day this paragraph described a session store: each
+reference kept under a key made of what the encoder was shown for it and
+for everything ahead of it, a changed or moved reference a miss, a chain
+used a moment ago a hit, the preview saying "kept, continued or encoded",
+and the kept data under a byte budget in host memory. The store and its
+budget were removed (efc99317; "No keyed keep" below).*
 
 **It is not bit-identical to the one-node path.** The conditioning differs in
 the last bits, by far less than the shipped int8 encoder differs from bf16;

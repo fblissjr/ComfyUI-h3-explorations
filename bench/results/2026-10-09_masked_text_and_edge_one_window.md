@@ -172,7 +172,9 @@ those with the control and differs from it only in the prompt.
 
 Nothing was reused by this pack: `audio_freeze_song.WINDOW_REUSE_ENABLED`
 and `video_mask.MASK_REUSE_ENABLED` are off and each render's report says so
-(the json has the lines). ComfyUI's own node cache served the track and the
+(the json has the lines; *2026-10-10: both switches and the stores they
+guarded were removed in efc99317, so the names are of that day's code*).
+ComfyUI's own node cache served the track and the
 parts to all three renders from the pick preview run before them, which is
 read from the timings, the server's history being gone; all three therefore
 rendered from one and the same mask.
