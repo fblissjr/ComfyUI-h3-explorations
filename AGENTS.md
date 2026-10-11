@@ -169,7 +169,8 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   before the text was read; one sentence fixed it. **The text is
   read whole by whoever reasons about the load, never as a summary or at
   second hand, and when the cause is not obvious the session shows the
-  owner the whole text.** **A load that built and
+  owner the whole text.** Where each of the four is for a window:
+  `docs/wiki/masked_v2v.md`, "Reading one window whole". **A load that built and
   passed its gate has had none of the three checked for being right.** The
   builder holds a text to its frames and its writer, never to the truth,
   and what is already in the tree was not made good by being there. More

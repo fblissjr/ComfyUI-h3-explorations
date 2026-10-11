@@ -179,6 +179,43 @@ session starting a job needs to know:
   load over several shots with a text that describes each shot (both on
   the same card).
 
+## Reading one window whole: its text, its frames, its mask, its audio
+
+How the lane got to work, written down so nobody has to find it again
+(owner, 2026-10-10). It is a habit and not a gate: nothing checks that it
+was done, and no more refusals are wanted for it. On that day a wrong
+render was put down to a signal four times, renders were spent, and the
+cause was in the text each time; the other sessions had never seen the
+texts, only one session's description of them. The account is
+[`2026-10-10_span_fun-three-people.md`](../research/postmortems/2026-10-10_span_fun-three-people.md),
+section 1.1.
+
+**When.** Before building on a load somebody else made, or you made on
+another day. And first, before any test render, when a render is wrong in a
+way that is not obvious.
+
+**What.** Take ONE window of ONE load and put four things side by side for
+the same frames. Assume one of them is out of step until you have looked.
+
+| what | where it is today |
+|---|---|
+| **The text**, whole, as the model gets it | `bench/masked_job.py build` prints each load's text in full with the frames it was written from. The look's strip draws it under the frames: `bench/capture_masked_run.py video <capture> --source CLIP --job JOB.json --load LOAD`. The texts are short. Read the text itself; hand another session the file, never a sentence about it; and when a cause is not obvious, show the owner the whole text |
+| **The window's frames**: which source frames, which are held, which share a latent step | the plan the song node's preview writes, `<name>_plan.json`, and each window's `<name>_window_N_planned_region.npz` ("Seeing what the tracker and the masks did", below); "A latent step is several frames", below, for why a frame can be drawn with no mask of its own. For a finished render, `bench/recomposite_window.py --read-files` reads the window's own files with nothing decoded |
+| **The mask** on those frames, and whose it is | the capture's stacked, frame-numbered video (`bench/capture_masked_run.py video`), its per-frame tables, and the region each window was really given, `<name>_window_N_region.npz` |
+| **The audio** the load was given, and whether a voice is on those frames | `build` prints an `audio:` line for each load (a sentence, not yet data: the audio in a load's record is not landed). The capture's voice table, and `bench/capture_masked_run.py shots --loads`, which says how many of a load's frames have a voice and where the source's mouth is open with none |
+
+**What it is for.** Every fault of 2026-10-10 that cost a render was two of
+these four disagreeing: a text written from one shot on a load of another;
+a frame drawn with no mask of its own; one sample of audio deciding a
+frame; a text saying the scene is quiet over a song. Each was gated on its
+own and passed.
+
+**Not built.** One command that shows the four together for a window (the
+masking board, `build-why-command-text-mask-four-timelines-first`), and the
+statement of who is in each window with what it rests on
+([`handover.md`](handover.md), "After the close"). Until they are, the four
+places above are the route.
+
 ## The rule: data before a render, and the same data after
 
 Set by the owner on 2026-10-10 for every session on this lane: "take a data
