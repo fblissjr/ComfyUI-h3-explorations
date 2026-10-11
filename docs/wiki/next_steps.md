@@ -44,6 +44,11 @@ own below the rule.
   says up front whether the source's shape is the canvas's. Not sized.
   First step: list what the saved graph, the plan, the saved region and
   the tables already hold.
+- **For new checks and tools, from the owner at the close** (the same
+  entry): green or red only for a hard failure; anything of degree is
+  data with its context, no verdict. Whether that reaches the existing
+  checks and the capture gate's levels is open with the owner; nothing
+  existing is changed on it yet.
 
 **Whole-frame video to video (2026-10-09): two full clips on one source; what is owed.**
 - What was rendered, what each showed and what is unexplained:

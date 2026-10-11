@@ -368,6 +368,16 @@ that session's record disagree, its record is the nearer one.*
     what is wanted, and the scales are not known yet: what the day has is
     single points on one or two shots ([`handover.md`](handover.md) lists
     them), not a scale for any measure.
+  - **Green and red are for a hard failure**, a thing plainly broken
+    that stops the work (a graph that names a node that does not exist,
+    a missing file, an import that fails). Anything of degree or of
+    judgement is given as data beside its context and left to the
+    runner; a bare score with nothing beside it helps little. Said when
+    told that a green check does not mean the thing was exercised. **Its
+    scope is open and was asked once**: whether it covers the softer of
+    the existing checks and the levels of the capture's gate, or only
+    what is built from here on. No existing check or gate level is
+    changed or retired on this sentence alone.
   - **The capture tool's purpose is the whole path of the data.** For
     each thing a node uses on the way from source to target, a reader
     is to be able to see how it came in, every change made to it, what
