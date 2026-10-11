@@ -435,10 +435,7 @@ def a_load_lands_on_the_inputs_it_names():
     assert "render_region" not in g[graphs._the(g, graphs.SOURCE)]["inputs"], "a load that asks for no zoom is given one"
     quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
     assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
-    zoomed = _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
-    src = zoomed[graphs._the(zoomed, graphs.SOURCE)]["inputs"]
-    assert src["motion_reference"] == cfg.MASKED_JOB_MOTION["zoomed"] and src["motion_box"] == cfg.MASKED_JOB_PART_BOX, \
-        "a zoomed mesh on a part pass is not framed on the part"
+    _unbuildable("motion", {**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
     return "a whole-subject load and a part load"
 
 
@@ -476,7 +473,6 @@ def the_nodes_schemas_accept_a_load():
     import build_workflows
     oi = declared()
     for label, g in (("whole", _a_load()), ("whole plan", _a_load(plan=True)), ("part", _a_load(PART, FILES_PART)),
-                     ("part, zoomed mesh", _a_load({**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})),
                      ("part, rendered zoomed in", _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)),
                      ("whole, rendered zoomed in", _a_load({**WHOLE, "render_region": "subject"}))):
         ours = ours_only(g, oi)

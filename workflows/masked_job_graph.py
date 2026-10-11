@@ -47,7 +47,7 @@ most likely to be confused with another first.
 stretch of frames, as a rule one shot. It is written in the capture's words, since the capture reads the same
 entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carried`, `text`, `audio`,
 `still`), and the builder reads a few more that the capture carries without using: `seed`, `window`,
-`context`, `feather`, `motion` (`mesh`, `mesh zoomed` or `none`; without it a whole-subject pass of a subject
+`context`, `feather`, `motion` (`mesh` or `none`; without it a whole-subject pass of a subject
 with a pose pass takes the mesh and any other load takes none), `continue_from`, `context_noise`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
 place of the capture's own), `motion_edge` (the motion video's short edge), and `render_region` with `largest_zoom`: `subject` or `part` renders
@@ -69,7 +69,7 @@ import re
 
 from h3_config import (
     FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
-    MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_PART_BOX,
+    MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION,
     MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
@@ -288,8 +288,7 @@ def preview(job: dict) -> dict:
 # ---- a load: one subject on one stretch, from a checked capture ----------------
 
 #: What a load's `motion` may say, and the Masked Source's choice for each.
-MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"],
-           "mesh zoomed": MASKED_JOB_MOTION["zoomed"]}
+MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]}
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
@@ -478,8 +477,6 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     if joined is not None:
         src["others"] = joined
     motion = motion_of(job, one)
-    for theirs in ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey"):
-        src.pop(theirs, None)
     src.update(motion_reference=MOTIONS[motion], motion_vae=motion != "none")
     if motion != "none":
         if not files.get("motion"):
@@ -488,8 +485,6 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         # as the text encoder: the encoder reads one picture of it a second
         src.update(motion_video=from_file(*files["motion"], as_mask=False),
                    motion_short_edge=one.get("motion_edge", min(canvas)))
-        if part and motion == "mesh zoomed":
-            src["motion_box"] = MASKED_JOB_PART_BOX
     window = one.get("window", window_for(frames, windows))
     for theirs in ("render_region", "largest_zoom"):
         src.pop(theirs, None)

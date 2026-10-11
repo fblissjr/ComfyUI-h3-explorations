@@ -1429,14 +1429,11 @@ MASKED_JOB_CONTEXT_NOISE = 0.8
 #: `bench/results/2026-10-10_kept_frames_against_the_mesh.md` has the two sinks side by side on two shots.
 MASKED_JOB_SOL_SINK = "exact_kv_and_rows"
 #: The Masked Source's choices a load sets by name. A body mesh saved by the preview is a video the builder
-#: wires; `zoomed` shows it in the subject's box. A motion video goes in at the canvas's short edge, which the
+#: wires. A motion video goes in at the canvas's short edge, which the
 #: graph works out: the vendor rule for a reference video (`docs/h3_references.md`, "Video references"),
 #: adopted and not shown to be a gain (the node's own default, `video_mask.MOTION_SHORT_EDGE`, is smaller). A
 #: load's own `motion_edge` replaces it.
-MASKED_JOB_MOTION = dict(none="none", wired="a video I wire", zoomed="a video I wire, zoomed in")
-#: What a zoomed motion video is framed on when the pass takes a part: the part, not the whole tracked
-#: subject (`video_mask.BOXES`). **Reasoned**, by the node's author; nothing rendered.
-MASKED_JOB_PART_BOX = "what is replaced"
+MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped
