@@ -1090,6 +1090,17 @@ figure is not trusted
 ([`meta_perception_models.md`](meta_perception_models.md), "The trials",
 the note under the table).
 
+*Since the evening of 2026-10-11 one tracked tool does this reading:
+`../../bench/read_render_against_original.py`, from the points files of the
+source and of each render. The stretches where the source's eyes are open
+and shut are best given by a person who looked, by name; without two makes
+of one render handed in as a floor it prints every difference and calls
+none a difference; it writes the lip gap as a column and says nothing of
+a mouth, which is read by eye. Its figures are defined once, in
+`../../bench/_lib/face_points.py`, and the lines it reads them against are
+`h3_config.POSE_READING`, each a starting value. It replaces the three
+sessions' own scripts the records of that day were read with.*
+
 ### What comes next for the video
 
 By the rulings: segmentation and depth are to be shown to the model as

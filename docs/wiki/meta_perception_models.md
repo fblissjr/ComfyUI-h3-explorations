@@ -199,7 +199,9 @@ the frames):
 - *What the row said would be built on a pass, a tool that reads a source
   and a render and writes one row a frame, is being written as a tracked
   tool for the eyes; the lines it trusts are starting values read off two
-  shots of one clip.*
+  shots of one clip. It landed the same evening:
+  `../../bench/read_render_against_original.py`, which writes the lip gap
+  as a column and says nothing of a mouth.*
 
 **Not on the list unless the owner reopens it: telling who is who by a
 likeness score.** A score between two crops was the first idea of 2026-10-10
