@@ -408,7 +408,6 @@ def settings_of(one: dict, graph: dict) -> dict:
             "context_noise": run.get("context_noise", "none: the load keeps no frames"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
             "render_region": src.get("render_region", "the node's own: the whole frame"),
-            "largest_zoom": src.get("largest_zoom", "the node's own" if "render_region" in src else "no zoomed render"),
             "seed": run["seed"]}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
             for key in graphs.SETTINGS}

@@ -426,12 +426,10 @@ def a_load_lands_on_the_inputs_it_names():
     assert run["seed"] == BASE[graphs._the(BASE, graphs.SONG)]["inputs"]["seed"], "a load with no seed does not take the row's"
     plate = _a_load({**WHOLE, "motion_edge": 512})
     assert plate[graphs._the(plate, graphs.SOURCE)]["inputs"]["motion_short_edge"] == 512, "a load's own motion_edge is not used"
-    close = _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)
+    own_run = {k: v for k, v in PART.items() if k != "continue_from"}
+    close = _a_load({**own_run, "render_region": "part"}, FILES_PART)
     src = close[graphs._the(close, graphs.SOURCE)]["inputs"]
-    assert src["render_region"] == graphs.RENDER_REGIONS["part"] and src["largest_zoom"] == 3.0, "a zoomed part load"
-    near = _a_load({**WHOLE, "render_region": "subject"})
-    src = near[graphs._the(near, graphs.SOURCE)]["inputs"]
-    assert src["render_region"] == graphs.RENDER_REGIONS["subject"] and "largest_zoom" not in src, "a zoomed subject load with the node's own limit"
+    assert src["render_region"] == graphs.RENDER_REGIONS["part"] and "largest_zoom" not in src, "a zoomed part load"
     assert "render_region" not in g[graphs._the(g, graphs.SOURCE)]["inputs"], "a load that asks for no zoom is given one"
     quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
     assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
@@ -473,8 +471,7 @@ def the_nodes_schemas_accept_a_load():
     import build_workflows
     oi = declared()
     for label, g in (("whole", _a_load()), ("whole plan", _a_load(plan=True)), ("part", _a_load(PART, FILES_PART)),
-                     ("part, rendered zoomed in", _a_load({**PART, "render_region": "part", "largest_zoom": 3}, FILES_PART)),
-                     ("whole, rendered zoomed in", _a_load({**WHOLE, "render_region": "subject"}))):
+                     ("part, rendered zoomed in", _a_load({**{k: v for k, v in PART.items() if k != "continue_from"}, "render_region": "part"}, FILES_PART))):
         ours = ours_only(g, oi)
         assert {graphs.SOURCE, graphs.SONG, "MiniMaxH3AppendRefImage"} <= {n["class_type"] for n in ours.values()}, \
             f"{label}: the nodes a load changes were not found to grade, only {sorted({n['class_type'] for n in ours.values()})}"
@@ -504,7 +501,11 @@ def a_load_the_graph_cannot_be_built_from():
     _unbuildable("held_tail|no longer a key", {**WHOLE, "held_tail": "open"})
     _unbuildable("render_region", {**WHOLE, "render_region": "face"})
     _unbuildable("render_region|whole subject", {**WHOLE, "render_region": "part"})
-    _unbuildable("largest_zoom", {**WHOLE, "largest_zoom": 2})
+    _unbuildable("render_region", {**WHOLE, "render_region": "subject"})
+    own_run = {k: v for k, v in PART.items() if k != "continue_from"}
+    _unbuildable("largest_zoom|no longer a key", {**own_run, "render_region": "part", "largest_zoom": 2}, FILES_PART)
+    _unbuildable("zoomed in|motion", {**own_run, "render_region": "part", "motion": "mesh"}, {**FILES_PART, "motion": ("/output/a.mp4", 604)})
+    _unbuildable("zoomed in|continue_from", {**PART, "render_region": "part"}, FILES_PART)
     _unbuildable("context", {**WHOLE, "context": 40})
     _unbuildable("context", {**WHOLE, "context": WINDOWS[0]})               # a context as long as its window
     _unbuildable("context_noise|continue_from", {**WHOLE, "context_noise": 0.5})
@@ -521,7 +522,7 @@ def a_load_the_graph_cannot_be_built_from():
 def _a_capture(tmp: Path) -> Path:
     """A capture folder as `bench/capture_masked_run.py files` and `verify` leave one, with empty mask files."""
     capture = tmp / "data" / "2026-01-01_check"
-    for label, files in (("a", ("track__p.mkv", "parts__p.mkv", "parts_held__p.mkv")), ("b", ("track__p.mkv",)), ("c", ("track__p.mkv",))):
+    for label, files in (("a", ("track__p.mkv", "parts__p.mkv", "parts_held__p.mkv")), ("b", ("track__p.mkv", "parts__p.mkv")), ("c", ("track__p.mkv",))):
         (capture / "subjects" / label).mkdir(parents=True)
         for name in files:
             (capture / "subjects" / label / name).write_bytes(b"")
@@ -646,7 +647,7 @@ def loads_from_a_capture():
         assert node_refuses(least_frames - 1) and not node_refuses(least_frames), \
             f"the node's own schema does not draw the line at {least_frames} frames ({least_seconds} s), where the tool reads it"
         # a zoomed load is one shot: the capture's cut inside the whole-subject load refuses it
-        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_zoomed", "render_region": "subject"},)),
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**WHOLE, "name": "b_zoomed", "carried": "held", "motion": "none", "render_region": "part"},)),
                                           "plan", [], **where), "b_zoomed", "cut", str(CAPTURE_FIRST + 90))
         # a subject's still stands for its loads; a load's own wins; a stretch left out on purpose is carried
         no_still = {k: v for k, v in WHOLE.items() if k != "still"}
