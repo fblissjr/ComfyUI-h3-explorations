@@ -281,6 +281,13 @@ that session's record disagree, its record is the nearer one.*
   session has placed them on stills or by a count, and the owner said not
   to dig for them. Whether a wording takes them away is what the renders
   with the form above are for.
+  *Corrected within the hour: the dot is not in her eyes and not from the
+  overlay. The owner pointed at it on a still: a small warm point on the
+  side of her nose, which a second reader then found on every frame of
+  every render of this shot, the kept one and the 10th's included. The
+  owner closed it. So no render of the form above is read for it, and the
+  render that tries the retention line is read for her eyes and head like
+  the others.*
 
 ## 2026-10-10
 
