@@ -188,6 +188,57 @@ The owner decides the order; this is the lead's recommendation.
    same command as the commit, and the commit refused when the diff is not
    exactly what its author expects.
 
+## After the close: the statement of who is in each window, and why it did not land
+
+*Added the same night, an hour after the day was closed. It changes the
+order above: this piece comes before `job.who` as that list had it, and
+its form is settled first.*
+
+The owner asked, after the close, for the one statement of who is in each
+shot to be built at once, in a new form given in six remarks over an
+hour. In substance: every statement carries a confidence that the subject
+is really there; it is tied to the plan's windows, not to shots or loads;
+it shows and never blocks; it is shown as a best guess beside everything
+it has to agree with for that window (the input frames, the mask, the
+plan, the sampled frames, the audio and the text assigned); a few frames
+of the input, not evenly spaced, are drawn a window with the mask, the
+subject's identifier and the frame number; and each statement has a short
+reason that points into both the data and the frames, so that what the
+frames do not show the data does. The owner also asked each session to
+say whether the idea is a bad one.
+
+**What exists, on copies, read by nobody but its author and landed
+nowhere**: the builder's half (`internal/claude/2026-10-10_mrsheep/who_mrsheep.patch`)
+writes one block a window into each load's build record and prints it
+first; the capture's half (`internal/claude/2026-10-10_mrdeer/who_mrdeer.patch`)
+prints that block with its own count of masks beside each statement. Both
+apply at `dab2f38f`. Neither knows the reason, the data pointer, the frame
+numbers or the sheet of frames, and they have never been run together.
+The reader's test statements and cases are beside the delivery tables
+under `data/2026-10-10_fun_delivery_tables/`.
+
+**Why it did not land.** The lead's rule that night was that it landed
+only on a clean first joint run. The form then changed again, so no run
+could be clean against it, and the lead stopped the landing. The form is
+settled once in the morning and built once.
+
+**What four sessions said, each without reading the others** (the lead and
+the three builders): the block a window is right and worth keeping
+whatever else changes, and showing in place of refusing is right; the
+typed number is the weak part, since a session that built on the wrong
+subject would type it high as easily, and what carries the confidence is
+what a statement rests on, a short reason, and a pointer and frames a
+reader can open; and typed by hand for every subject on every window it
+will be filled by rote or gone round, so the tool drafts each statement
+from the capture's own tables and the cast file, marked as nobody having
+looked, and a person changes only what they looked at. One rule from the
+reading session is kept whatever the form: a mask count is the tracker's
+own reading, so beside a statement that rests on the tracker it is the
+same source and never a second one, and no tool prints agreement.
+
+**For the owner to settle first**: whether the confidence stays a number;
+and whether statements are drafted by the tool and corrected by a person.
+
 ## What was done
 
 Pointers only; each tool's `--help` and docstring are the account.
