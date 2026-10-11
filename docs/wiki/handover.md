@@ -166,7 +166,8 @@ The owner decides the order.
 
 1. **The owner sees the close-up render** (it is on the page, stacked,
    after the kitchen clips). Three sessions read it as a null for her
-   eyes; nobody has judged it on playback.
+   eyes, each before seeing another's, and a fourth worked the eye figure
+   again from the same tables; nobody has judged it on playback.
 2. **A look that costs no render**: what of the close-up's reference the
    model is actually shown. A shut eye's mark there is a sliver, and the
    new marks tool reports marks too thin to leave any white. Read the
