@@ -102,6 +102,41 @@ a face a few pixels tall, and on a frame where a head is turned away, so
 it says nothing about whether the lids were seen. The sheet:
 `data/2026-10-11_sapiens2_pose_consecutive/leadcanvas_1575_eyes_by_rank_sheet.jpg`.*
 
+*The same evening, the verdict on that run as trial 1 of
+`docs/wiki/meta_perception_models.md`, "The trials", by a session that
+did not run it and looked at every one of the 155 frames before reading
+the paragraph above (the figures are the opening over the distance from
+glabella to chin):*
+
+- ***The eye figure passes on this clip.** It rises as her eyes open,
+  holds while they are wide, falls as they close, stays flat while they
+  are shut and rises again where she looks up; the ten largest steps
+  from one frame to the next all lie inside those events. What it could
+  not test: a blink. The shot has none, every change takes three to five
+  frames, and the one closing happens while her head turns away.*
+- ***Where the eye figure is trusted: at its two ends.** Under about
+  0.020 her eyes are shut and over about 0.045 they are open; between
+  the two it is not readable. Shut is not one number (lower with the head
+  tilted or in profile than facing the camera), and near the shot's end
+  the figure climbs slowly into the middle on blurred frames where no
+  opening can be seen. Both lines are read off this clip and the kitchen
+  shot and are starting values.*
+- ***The mouth figure fails**, by the row's own words. It jumps on one
+  frame of a fast head turn where the mouth neither closes nor reopens
+  (the lower line of points lands on her teeth). A shut mouth facing the
+  camera does not read shut: the lower "inner" line lies on the lip's
+  outer edge, so the gap is the lip's thickness, at a score of the lip
+  points near one, so the score does not warn. And an open mouth in
+  profile behind a handset reads nearly shut, at a low score. So one
+  value means a shut mouth in one view and an open one in another.*
+- ***What the mouth figure can still do:** more or less open between
+  frames of one view, with the lip points' score at or above about 0.8
+  (read off this clip, a starting value). Never open or shut from a
+  line. A render's mouth is read by eye.*
+
+*The judge's figures and sheets: `data/2026-10-11_mrtie_trial1_read/`.
+Not done by anyone: a blink; a smaller face.*
+
 ## Two numbers against the eye
 
 `lip gap`: the two centre points of the inner lips apart, over the width of
