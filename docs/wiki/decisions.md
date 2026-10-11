@@ -362,6 +362,12 @@ that session's record disagree, its record is the nearer one.*
     fitted source and a render's untouched pixels after every render:
     no. What meets it: a capture saying up front whether the source's
     shape is the canvas's and how much the loader cuts. Not built.
+  - **A figure is a measurement and not a judgement**, as a tape says a
+    length and not whether it is the right one. Being near the original
+    means nothing in isolation, a higher or a lower figure is sometimes
+    what is wanted, and the scales are not known yet: what the day has is
+    single points on one or two shots ([`handover.md`](handover.md) lists
+    them), not a scale for any measure.
   - **The capture tool's purpose is the whole path of the data.** For
     each thing a node uses on the way from source to target, a reader
     is to be able to see how it came in, every change made to it, what

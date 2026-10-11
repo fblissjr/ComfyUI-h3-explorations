@@ -120,13 +120,14 @@ day had finished.
   `bench/_lib/face_points.py`; their starting values:
   `h3_config.POSE_READING` and `LID_MARKS`. The one-offs under
   `data/2026-10-11_sapiens2_pose_consecutive/` are superseded and stay as
-  what the day's tables were made by. Two things still open: the list of
+  what the day's tables were made by. One thing still open: the list of
   the pose model's point names is an untracked file
   (`data/2026-10-11_sapiens2_pose_consecutive/names308.json`, read out of
   Meta's keypoint config), so a fresh checkout cannot run the pose tool
-  until it has a tracked home; and [`masked_v2v.md`](masked_v2v.md), "How
-  it was made", still names the one-off in its step 2 and in the sentence
-  under its list.
+  until it has a tracked home. [`masked_v2v.md`](masked_v2v.md), "How it
+  was made", names both tools and says nothing joins them up: no node, no
+  shipped graph, and the builder is handed a marked video and cannot make
+  one.
 - **What the owner said the tools are for, at the close** (in substance;
   the Open List's row t83 has it):
   - A tool gives data and its context and leaves the reading to whoever
@@ -135,6 +136,17 @@ day had finished.
     something before time is spent. For the fit that means: a capture
     says up front whether the source's shape is the canvas's and how much
     the loader cuts, not a comparison run after every render.
+  - **A figure is a tape reading.** Near the original means nothing by
+    itself; sometimes a higher or a lower figure is what is wanted; and
+    the scales are not known yet. What exists is single points, not
+    scales: one shot where the owner's verdicts fall on two sides of one
+    eye figure, a line drawn after their answers; a band read off one
+    blurred close-up, whose middle is where the second shot's render sat;
+    a floor from one render made twice. Nothing says where a head's
+    offset becomes visible, what difference in pixels a viewer sees, or
+    anything for a mouth, a likeness or a movement. A scale would come
+    from pairing the owner's verdicts on playback with the figures over
+    more shots, one measure at a time.
   - **The capture tool's purpose is the whole path.** For each thing a
     node uses on the way from source to target (the source's frames, a
     mask, a reference video, a still, the text, the sound), a reader can
