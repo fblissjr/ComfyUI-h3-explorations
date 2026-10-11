@@ -142,8 +142,7 @@
       "timeline": "",
       "preview": false,
       "save_metadata_png": true,
-      "keep_windows": true,
-      "reuse_windows": false
+      "keep_windows": true
     }
   },
   "75": {
