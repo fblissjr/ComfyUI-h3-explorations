@@ -19,11 +19,6 @@ Everything in this directory is under the SAM License in
 edits to them, and the files we added. The rest of the pack keeps the licence
 in the repository's root.
 
-The two licences differ. The SAM License allows copying, modification and
-redistribution under its own terms with a copy of the agreement, it restricts
-some uses (its section 1.b), and Meta may modify it (its section 8). Read it
-before reusing anything from this directory.
-
 Every Python file of Meta's begins with three lines that name the upstream
 commit and this licence and say how the file differs from upstream. Meta's
 own copyright line stays below them. A file of ours begins with one line

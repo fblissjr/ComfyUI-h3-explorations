@@ -126,9 +126,8 @@ plain by eye, before anything reads its output.
 The three `hyden` repositories were read on the Hub on 2026-10-11, before
 two of them were fetched: each card calls the encoder a hybrid of a low-resolution
 transformer path and a full-resolution convolution path, names
-`facebookresearch/metadepth` as the code, and carries a non-commercial
-research licence behind an access form. Read a card again before fetching;
-this paragraph is one day's reading.
+`facebookresearch/metadepth` as the code, and names its licence. Read a
+card again before fetching; this paragraph is one day's reading.
 
 **Why MoGe has come up before.** Not for depth. Meta's own SAM 3D Body demo
 estimates the camera's field of view with MoGe-2 before it poses a body, and
