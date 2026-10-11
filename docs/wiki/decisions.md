@@ -40,6 +40,35 @@ Older history lives elsewhere and is not copied here:
   it. Not decided: whether a person's answer says how sure it is, and in
   what form; and nothing reads the cast file yet. The board card is
   `idea-who-is-in-a-scene-written-once-per-video`.
+  - 2026-10-10, an hour later, on the owner's three objections to the
+    first form of the sheets (a tool that writes nothing must say why; a
+    session could make a set somewhere else; a sheet could be wrong because
+    a frame rate was off, unknown or assumed): the tool takes no other
+    folder; every refusal and the "nothing written" line say why there is
+    one set and what to do; and a frame number is proved, not assumed. It
+    reads each frame's own timestamp, reads the written sheets back against
+    frames read by timestamp at the cuts, removes a set it cannot show
+    right, and has `verify` for a set already there
+    (`contact_sheets/AGENTS.md`, "Can the numbers be trusted").
+  - 2026-10-10, the same hour: FOUR THINGS THE OWNER MARKED TO ACTIVELY
+    AVOID, from what the sessions answered. (1) A new place for a fact that
+    is already written: the answer is to take the other places away, so
+    who is where is typed into the cast file and nowhere else, and the
+    tools' own switches for it go. (2) A record with no way to say "I
+    looked and I am still not sure": the answer itself needs that value.
+    (3) The three costs of answering a picture: depending on the cuts being
+    right (an answer is of a frame, never of a shot, so a missed cut costs a
+    question and not a wrong answer); one picture being one frame (ask at
+    more frames where the tracker's table shows the people on screen
+    changing, and show which frame an answer is of beside each window); and
+    a wrong answer inherited by every later job (who, when and which frame
+    shown wherever it is used, taken back in one line with the old one
+    kept, the tracker's disagreement shown first, the outcome written after
+    a render). (4) A rule for every fault: first ask which view that exists
+    would have shown it and why nobody opened it; a new rule comes in only
+    with one going out. Of these only the frame-and-box form and the
+    withdrawal exist (`bench/cast_file.py`); the rest is not built, and (4)
+    is a habit with no mechanism behind it.
 
 - **The text is read whole, and never at second hand; and the day's
   handover is corrected by the day's postmortem** (owner, to the session that wrote

@@ -276,3 +276,5 @@ Small, and each can be marked done or wrong.
 9. **mrwolf's queued readings:** read them or drop them, one line on its card.
 
 Two habits of the day cost nothing and found more than every rule written that day: writing down what a result should be before reading it, and handing the real files to a session that has not been told the answer.
+
+*Annotation 2026-10-10, later the same night:* the owner read the sessions' answers to section 5's questions and to two more rounds about the statement of who is in a scene, and marked four things to actively avoid: a new place for a fact that is already written; a record with no way to say "I looked and I am still not sure"; the three costs of answering a picture (the cuts must be right, one picture is one frame, a wrong answer is inherited by every later job); and a rule for every fault. What each needs, and which of them exist, is in `docs/wiki/decisions.md`, 2026-10-10, under the contact sheets entry. Item 3 above is overtaken in form by the same entry: the answers are kept once a video, as a person's answer to a numbered picture, and a tool drafts nothing into that file.

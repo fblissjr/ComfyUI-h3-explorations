@@ -14,6 +14,13 @@ flat grey of level 10 n, makes its sheets into a scratch root, and reads the PIC
    `--again` and replaces the set with it, leaving no sheet of the old set behind.
 5. **Another file of the same name is refused**, by name, and the folder is untouched.
 6. **`find`** gives the sheet that holds a frame, and refuses a frame the clip does not have.
+7. **The numbers are proved, and the proof can fail.** The index says how the numbers were got, that the
+   frames' own timestamps were read, and holds the read-back of tiles against frames read by timestamp. With
+   the reader made to hand every tile the frame one tile later, `make` refuses and leaves nothing on disk;
+   with one timestamp missing it refuses before writing. `verify` passes on the set as made and fails once
+   one sheet's picture is put under another's name.
+8. **Frame times that are not evenly spaced** are said so in the index, and the tiles are still numbered by
+   the frames' order.
 
 Needs ffmpeg and ffprobe on the path. No model, no card, no server.
 
@@ -75,7 +82,7 @@ def levels(folder: Path) -> dict[int, int]:
 
 
 def one_folder() -> str:
-    folder, written = cs.make(SRC, ROOT, SPAN, EVERY, COLS, CELL)
+    folder, written, _ = cs.make(SRC, ROOT, SPAN, EVERY, COLS, CELL)
     assert folder == ROOT / "clip one", folder
     assert [p.name for p in ROOT.iterdir()] == ["clip one"], list(ROOT.iterdir())
     assert sorted(p.name for p in folder.iterdir()) == sorted(written + [cs.INDEX]), sorted(p.name for p in folder.iterdir())
@@ -103,15 +110,15 @@ def tiles_are_their_frames() -> str:
 def made_once() -> str:
     folder = ROOT / "clip one"
     before = {p.name: p.stat().st_mtime_ns for p in folder.iterdir()}
-    again_folder, written = cs.make(SRC, ROOT, SPAN, EVERY, COLS, CELL)
+    again_folder, written, _ = cs.make(SRC, ROOT, SPAN, EVERY, COLS, CELL)
     assert again_folder == folder and written == [], written
     assert before == {p.name: p.stat().st_mtime_ns for p in folder.iterdir()}, "a second make touched a file"
     try:
         cs.make(SRC, ROOT, 6, EVERY, COLS, CELL)
         raise AssertionError("another spacing was accepted without --again")
     except cs.Refused as e:
-        assert "--again" in str(e), e
-    _, written = cs.make(SRC, ROOT, 6, EVERY, COLS, CELL, again=True)
+        assert "--again" in str(e) and "same frames by the same numbers" in str(e), e
+    _, written, _ = cs.make(SRC, ROOT, 6, EVERY, COLS, CELL, again=True)
     names = sorted(p.name for p in folder.iterdir() if p.suffix == ".jpg")
     assert names == sorted(written) and len(names) == 4 and "clip one_0000_0011.jpg" not in names, names
     cs.make(SRC, ROOT, SPAN, EVERY, COLS, CELL, again=True)
@@ -151,6 +158,71 @@ case("a sheet's name is its first and last frame", names_cover)
 case("a tile is the frame its number says", tiles_are_their_frames)
 case("made once", made_once)
 case("another file of the same name", another_file_same_name)
+def proved_and_the_proof_can_fail() -> str:
+    folder = ROOT / "clip one"
+    index = json.loads((folder / cs.INDEX).read_text())
+    assert index["version"] == cs.VERSION and index["check"]["ok"] and index["check"]["tiles"], index.get("check")
+    assert index["times"]["evenly_spaced"] is True and "no rate" in index["numbers"], index["times"]
+    assert all(r["to_its_own_frame"] < r["to_the_frame_one_tile_earlier"] for r in index["check"]["tiles"]), index["check"]
+    assert cs.verify(SRC, ROOT)["ok"]
+
+    shifted_root = WORK / "shifted"
+    real = cs.stream
+
+    def one_tile_late(*a, **k):                    # every tile is handed the frame one tile later
+        frames = list(real(*a, **k))
+        yield from frames[1:] + frames[-1:]
+    cs.stream = one_tile_late
+    try:
+        cs.make(SRC, shifted_root, SPAN, EVERY, COLS, CELL)
+        raise AssertionError("sheets whose tiles carry their neighbour's frame were accepted")
+    except cs.Refused as e:
+        assert "read back" in str(e) and "removed" in str(e), e
+    finally:
+        cs.stream = real
+    assert not (shifted_root / "clip one").exists(), "a refused set was left on disk"
+
+    real_times = cs.times
+    cs.times = lambda video: real_times(video)[:-1]
+    try:
+        cs.make(SRC, WORK / "short", SPAN, EVERY, COLS, CELL)
+        raise AssertionError("a file with a frame that has no timestamp was given sheets")
+    except cs.Refused as e:
+        assert "timestamps" in str(e) and "Nothing was written" in str(e), e
+    finally:
+        cs.times = real_times
+    assert not (WORK / "short" / "clip one").exists()
+
+    first, second = (folder / i["file"] for i in index["sheets"])
+    kept = first.read_bytes()
+    first.write_bytes(second.read_bytes())            # one sheet's picture under another's name
+    try:
+        found = cs.verify(SRC, ROOT)
+        assert not found["ok"] and "not the frames'" in found["why"], found
+    finally:
+        first.write_bytes(kept)
+    assert cs.verify(SRC, ROOT)["ok"]
+    return "the index holds the read-back; a set one tile late and a file short of a timestamp are refused with nothing left; verify fails on a swapped sheet"
+
+
+def uneven_times() -> str:
+    src = WORK / "uneven" / "clip two.mkv"
+    src.parent.mkdir()
+    clip(src)
+    late = WORK / "uneven" / "clip late.mkv"          # the same frames, with half a second added from frame 10 on
+    assert subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", "setpts=PTS+gte(N\\,10)*0.5/TB", "-fps_mode",
+                           "passthrough", "-c:v", "ffv1", "-level", "3", str(late)]).returncode == 0
+    folder, written, index = cs.make(late, ROOT, SPAN, EVERY, COLS, CELL)
+    assert index["times"]["evenly_spaced"] is False, index["times"]
+    got = levels(folder)
+    assert not {f: v for f, v in got.items() if abs(v - 10 * f) > 4}, got
+    assert any("NOT evenly spaced" in line for line in cs.listing(ROOT)), cs.listing(ROOT)
+    shutil.rmtree(folder)
+    return "a clip with a gap in its frame times is said to be unevenly spaced, and its tiles are numbered by frame order"
+
+
 case("find and list", finding)
+case("the numbers are proved, and the proof can fail", proved_and_the_proof_can_fail)
+case("frame times not evenly spaced", uneven_times)
 shutil.rmtree(WORK, ignore_errors=True)
 sys.exit(finish())
