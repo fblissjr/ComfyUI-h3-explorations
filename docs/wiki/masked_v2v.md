@@ -789,10 +789,18 @@ reference video at all: open through the long stretch where the source's
 are shut, and less than wide where the source's are wide. So on that shot
 the marks gave neither a level nor timing that can be told from having no
 marks. Her mouth sings as it did before, and her head is as that earlier
-render's. This is the reading of the session that took the looks, from
-stills and the pose tables; a second session worked the eye figure again
-from the same tables and agrees. One shot, one seed, and no tracked record
-yet. Until one exists the files are the job
+render's. Four sessions read it and agree, one of them blind to the
+others: the session that took the looks, the one that holds the build, a
+blind reader, and the one writing this page, which worked the eye figure
+again from the tables. What each kind of reading supports is kept apart.
+From the tables: the render with marks and the render without sit at the
+same number on both stretches. From stills: that her eyes are open at
+that number, which lies in the middle the eye figure cannot read
+([`meta_perception_models.md`](meta_perception_models.md), "The trials",
+the note under the table). No render of this load was made twice, so no
+floor exists for it and "the same" is all that is said, never a
+difference. One shot, one seed, and no tracked record yet. Until one
+exists the files are the job
 `data/2026-10-11_fun_set_inputs/set_close_1575.json`, the capture
 `data/2026-10-11_set_close_1575/`, and the tables `leadcanvas_1575`,
 `closeup_lids_1575`, `closeup_d10sings_1575` and `closeup_d10plain_1575` in
@@ -1004,7 +1012,11 @@ non_diegetic_music: N/A
 What the renders support, and no further. Each is one shot and one seed.
 
 - **The body model, shown as a video, is what her head follows.** Taken
-  away, her head held nearly still.
+  away, her head held nearly still. *That is the kitchen load, where her
+  hair was redrawn with her face. It is not shown for a load that redraws
+  a face only: on the sung close-up the earlier render with no motion
+  video sits as near the source's head as the one with it (the note at
+  the top), and the two-tests record has the same of that shot.*
 - **Larger marks did more, under the same words.** At true size each lay
   inside one cell of the model's grid and her lids moved a little.
   Enlarged, under the same words, they brought her lids to the source's
