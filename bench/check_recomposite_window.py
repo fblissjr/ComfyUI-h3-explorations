@@ -274,7 +274,7 @@ def zoomed() -> str:
 
     def zoom(at):
         return {"box": at, "source_size": [W, H], "canvas": [W, H], "scale": 2.0, "render_region": vm.RENDER_ZOOM_REPLACED,
-                "set_by": "largest_zoom"}
+                "set_by": vm.SET_BY_LARGEST}
     pixels = vm.crop_frames(MADE["pixels"], box, W, H)
     mask = torch.zeros(FRAMES, H, W)
     mask[:, 4:12, 4:12] = 1.0                       # small and in a corner: its region leaves plate, which is what a wrong box moves

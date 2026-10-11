@@ -361,9 +361,12 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: not written; one inside the track (a track longer than the source, usually audio that was not cut to the
 #: load) is written, and the song node's report says how many.
 #: Where the region is rendered (`render_region`, 2026-10-10). `the whole frame` is the render as it has been:
-#: the source fitted to the canvas. The two zoomed choices crop the load to ONE box round the tracked subject
-#: or round what is replaced, scale that box to the canvas, run the whole render on it as if it were the clip,
-#: and lay the region back into the whole frame (`zoomed_source`, `lay_back`). Why: a subject small in the
+#: the source fitted to the canvas. The zoomed choice crops the load to ONE box round what is replaced, scales
+#: that box to the canvas, runs the whole render on it as if it were the clip, and lays the region back into
+#: the whole frame (`zoomed_source`, `lay_back`). Cut down on 2026-10-10 to what its one render used, until
+#: the owner rules on that render (`docs/wiki/decisions.md`): a second choice round the tracked subject, an
+#: input for the largest zoom, the rules that let a zoomed run continue another, and a zoomed run with a
+#: wired motion video are removed. Why a zoom at all: a subject small in the
 #: frame is a few of the model's tokens. The evidence when written is one clip and mixed (the owner on
 #: playback, 2026-10-10): a face part about 94 px tall on the canvas did not read as replaced where one about
 #: 164 px had, and the same small face then did read as replaced once its load no longer faded at the end
@@ -372,17 +375,15 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: still the canvas, so it does not buy delivered pixels there. The laid picture in the zoomed space is
 #: written beside each window for a delivery built at the source's size. Untested on a render when written.
 RENDER_WHOLE = "the whole frame"
-RENDER_ZOOM_SUBJECT = "zoomed in on the tracked subject"
 RENDER_ZOOM_REPLACED = "zoomed in on what is replaced"
-RENDER_REGIONS = (RENDER_WHOLE, RENDER_ZOOM_SUBJECT, RENDER_ZOOM_REPLACED)
-#: The largest zoom, as a default for `largest_zoom`. Reasoned (the lead's arithmetic on the one case above):
+RENDER_REGIONS = (RENDER_WHOLE, RENDER_ZOOM_REPLACED)
+#: The largest zoom. A constant: for a day it was an input, and on its first use the box set the zoom and not
+#: the setting (a subject who crosses the frame). Reasoned (the lead's arithmetic on the one case above):
 #: about twice takes the face that failed to the size of the one that was accepted. What is enlarged is
 #: whatever the node was handed: a graph whose loader fits the clip to the canvas hands canvas pixels, and the
 #: plate the model sees is then those enlarged by the whole zoom; one that hands the clip's own frames
 #: enlarges less (that clip holds about 1.4 times the canvas's pixels each way). Only the region is laid back.
 ZOOM_LARGEST = 2.0
-#: The widget's ceiling. Reasoned: past this a canvas-wide box is a few dozen source pixels of plate.
-ZOOM_LARGEST_MAX = 8.0
 #: The smallest zoom worth doing: under it the load is rendered on the whole frame and the report says so.
 #: Reasoned: a quarter larger is a token or two on a face, for a second resize of everything laid back.
 ZOOM_SMALLEST = 1.25
@@ -394,9 +395,9 @@ ZOOM_ROOM = 0.25
 #: and its `zoom` record (it was rendered in that box): the run continues nothing, or the stored window has no
 #: region file to say (`stored_zoom`).
 NOT_CONTINUED = "not continued"
-#: A zoom's `set_by` when the box is the stored window's own (`zoomed_source`), beside "the box" and "largest_zoom".
-CONTINUED_BOX = "the run it continues"
 NO_REGION_FILE = "no region file"
+#: A zoom's `set_by`: the box with its room, or `ZOOM_LARGEST`.
+SET_BY_BOX, SET_BY_LARGEST = "the box", "the largest zoom"
 #: Room left around the subject's box on each side, in canvas pixels, before
 #: it is taken out to the canvas multiple. Reasoned: one of the encoder's
 #: merged tokens (patch 16 by merge 2), so a limb at the edge of the box is
@@ -1526,7 +1527,7 @@ def box_sides_cut(tokens: torch.Tensor, zoom: dict) -> list[str]:
     """The sides of a zoomed window's box its regenerated region reaches, where the box's side is inside the
     frame: the region is cut off there (the picture ends), and `lay_back` fades it into the whole frame at the
     box's edge. A side of the box that is the frame's own edge is not named: a region at the frame's edge is
-    the frame's. A smaller `largest_zoom` holds more of the picture."""
+    the frame's. A smaller `ZOOM_LARGEST` would hold more of the picture."""
     old_w, old_h = (int(v) for v in zoom["source_size"])
     width, height = (int(v) for v in zoom["canvas"])
     cx, cy = _fit_crop(old_w, old_h, width, height)
@@ -1537,8 +1538,8 @@ def box_sides_cut(tokens: torch.Tensor, zoom: dict) -> list[str]:
     return [name for name, edge, inside in sides if inside and bool(edge.any())]
 
 
-def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: int, largest: float):
-    """The one box a load is rendered in, and what set it: ((x0, y0, x1, y1), "the box" or "largest_zoom"), or
+def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: int, largest: float = ZOOM_LARGEST):
+    """The one box a load is rendered in, and what set it: ((x0, y0, x1, y1), `SET_BY_BOX` or `SET_BY_LARGEST`), or
     (None, why not).
 
     `boxes` are [N, 4] on the load's own `old_w` by `old_h` frames, a row of -1 where there is none. The box is
@@ -1575,7 +1576,7 @@ def zoom_box(boxes: torch.Tensor, old_w: int, old_h: int, width: int, height: in
                       f"which is under {ZOOM_SMALLEST:g} times")
     left = min(max(int(round(((x0 + x1) / 2.0 - box_w / 2.0) / 2.0)) * 2, left_lo), left_hi)
     top = min(max(int(round(((y0 + y1) / 2.0 - box_h / 2.0) / 2.0)) * 2, top_lo), top_hi)
-    return (left, top, left + box_w, top + box_h), ("largest_zoom" if by_cap >= by_box else "the box")
+    return (left, top, left + box_w, top + box_h), (SET_BY_LARGEST if by_cap >= by_box else SET_BY_BOX)
 
 
 def crop_frames(frames: torch.Tensor, box, width: int, height: int) -> torch.Tensor:
@@ -1619,12 +1620,10 @@ def render_zoom_note(zoom: dict, source: dict) -> str:
     scale, enlarged = float(zoom["scale"]), float(width) / float(x1 - x0)
     return (f"ZOOMED {scale:.2f}x: rendered {zoom['render_region']}: one box for the load, {x1 - x0}x{y1 - y0} at ({x0}, {y0}) "
             f"of its {old_w}x{old_h} frames, shown {scale:.2f} times larger than on the whole frame (set by "
-            + (f"largest_zoom {float(source.get('largest_zoom', ZOOM_LARGEST)):g}" if zoom["set_by"] == "largest_zoom"
-               else "the window this run continues, whose kept frames are of this box" if zoom["set_by"] == CONTINUED_BOX
-               else "the box with its room")
+            + (f"the largest zoom, {ZOOM_LARGEST:g}" if zoom["set_by"] == SET_BY_LARGEST else "the box with its room")
             + f"); the node was handed {old_w}x{old_h} frames for a {width}x{height} canvas, so "
-            + (f"each pixel it was handed is shown {enlarged:.2f} times its size: the surroundings the model sees are "
-               "that much softer than the frames handed in" if enlarged > 1.0 + 1e-9
+            + (f"each pixel it was handed is shown enlarged {enlarged:.2f} times: the surroundings the model sees are "
+               "the handed frames enlarged by that much, not a sharper picture" if enlarged > 1.0 + 1e-9
                else "nothing is enlarged: the box holds at least the canvas's pixels")
             + ("" if (old_w, old_h) != (width, height) else
                " (the frames arrived already at the canvas's size: a loader that hands the clip's own frames would "
@@ -1641,7 +1640,7 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     or a copy whose pictures are one box of the load scaled to the canvas.
 
     Made once a run, by the song node, because the canvas is known there and not at the Masked Source. In the
-    copy `frames`, `mask`, `keep`, `others` and a wired motion video are the box at the canvas's size, the two
+    copy `frames`, `mask`, `keep` and `others` are the box at the canvas's size, the two
     box tables and the subject's area are of that picture, `zoom` says what was done (`box` in whole even
     pixels of the load's own frames, `source_size`, `canvas`, `scale`, `render_region`, `set_by`) and `whole`
     is the source as it came. Everything between here and the composite then runs unchanged on a clip that
@@ -1653,14 +1652,18 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
     load with a cut inside it is refused: a box held across a cut frames nobody on one side of it. The pictures
     are made on every run; nothing keeps them.
 
-    A run that CONTINUES a stored window (`continue_from`) is a separate run on another load, and its kept
-    frames are that window's latent, in that window's framing. `continued` is what that window's region file
-    says (`stored_zoom`). The two runs must be framed alike: a whole-frame run cannot continue a zoomed window,
-    nor a zoomed run a whole-frame one; a zoomed run that continues a zoomed window TAKES that window's box,
-    so the framing is the kept frames' by construction, and is refused when this load's subject does not fit
-    in it or the frames or the canvas are of another size; a stored window with no region file cannot say, and
-    a zoomed run is refused on it. (A zoomed choice that comes to the whole frame, the subject too large for a
-    zoom, is a whole-frame run for all of this.)
+    A ZOOMED RUN CONTINUES NOTHING AND IS NOT CONTINUED (`continue_from`). A continuation is a separate run on
+    another load, and its kept frames are the stored window's latent, in that window's framing: `continued` is
+    what that window's region file says (`stored_zoom`). A whole-frame run on a zoomed window is refused, and
+    so is a zoomed run on any stored window. For a day a zoomed run could take the stored window's box; no
+    render had done it, and it was removed on 2026-10-10. A zoomed choice that comes to the whole frame (the
+    subject too large for a zoom) is a whole-frame run for this. A zoomed run with a wired motion video is
+    refused too: the video would have to be cut to the same box, and a pass that replaces a part wires none.
+
+    ONE EDGE, left open: a whole-frame run that continues a stored window with NO region file is let through
+    as a whole-frame continuation. A zoomed window always writes its region file except when the save itself
+    failed (the song node reports "the window's region was NOT saved" and goes on); such a window, continued
+    by a whole-frame run, hands over kept frames of a box and nothing says so.
     """
     choice = source.get("render_region", RENDER_WHOLE)
     stored = continued if isinstance(continued, dict) else None
@@ -1668,66 +1671,43 @@ def zoomed_source(source: dict, width: int, height: int, continued=NOT_CONTINUED
         if stored is not None:
             raise ValueError(f"this run renders `{RENDER_WHOLE}` and the window it continues was rendered zoomed in, in the "
                              f"box {stored['box']} of {stored['source_size'][0]}x{stored['source_size'][1]} frames: its kept "
-                             "frames are of that box. Set render_region to a zoomed choice, or continue a whole-frame run")
+                             "frames are of that box. A zoomed window is not continued: continue a whole-frame run")
         return source, []
     if choice not in RENDER_REGIONS:
         raise ValueError(f"unknown render_region {choice!r}; one of {list(RENDER_REGIONS)}")
     frames = source["frames"]
     n, old_h, old_w = int(frames.shape[0]), int(frames.shape[1]), int(frames.shape[2])
-    rows = source.get("region_boxes") if choice == RENDER_ZOOM_REPLACED else source.get("subject_boxes")
+    rows = source.get("region_boxes")
     if rows is None:
-        raise ValueError(f"render_region `{choice}` needs the subject's box on each frame, and this source carries "
+        raise ValueError(f"render_region `{choice}` needs the replaced part's box on each frame, and this source carries "
                          "none: it was not made by a Masked Source that tracked a subject")
     cuts = [int(c) for c in source.get("cuts") or [] if 0 < int(c) < n]
     if cuts:
         raise ValueError(f"render_region `{choice}` takes one box for the whole load, and this load has a cut at "
                          f"frame(s) {', '.join(str(c) for c in cuts)}: load one shot at a time (the loader's "
                          f"skip and cap), or render `{RENDER_WHOLE}`")
-    if stored is not None:
-        # the kept frames are of the stored window's box: this run is rendered in it, whatever its own would be
-        if [int(v) for v in stored["source_size"]] != [old_w, old_h] or [int(v) for v in stored["canvas"]] != [int(width), int(height)]:
-            raise ValueError(f"the window this run continues was rendered zoomed in on {stored['source_size'][0]}x"
-                             f"{stored['source_size'][1]} frames for a {stored['canvas'][0]}x{stored['canvas'][1]} canvas, and "
-                             f"this run has {old_w}x{old_h} frames for {int(width)}x{int(height)}: its box means another place here")
-        box, why = tuple(int(v) for v in stored["box"]), CONTINUED_BOX
-        on = rows[rows[:, 0] >= 0]
-        if int(on.shape[0]):
-            union = (int(on[:, 0].min()), int(on[:, 1].min()), int(on[:, 2].max()), int(on[:, 3].max()))
-            if union[0] < box[0] or union[1] < box[1] or union[2] > box[2] or union[3] > box[3]:
-                raise ValueError(f"the window this run continues was rendered in the box {list(box)}, and over this load "
-                                 f"the subject takes {list(union)}: it does not fit in the kept frames' framing. Continue "
-                                 "from a run rendered with a smaller largest_zoom, or start this load as its own run")
-    else:
-        box, why = zoom_box(rows, old_w, old_h, width, height, float(source.get("largest_zoom", ZOOM_LARGEST)))
-        if box is None:
-            return source, [f"render_region `{choice}` asked, and the load is rendered on the whole frame: {why}"]
-        if continued == NO_REGION_FILE or continued is None:
-            raise ValueError(f"render_region `{choice}` would render this load in the box {list(box)}, and the window it "
-                             "continues " + ("left no region file to say how it was framed" if continued == NO_REGION_FILE
-                                             else "was rendered on the whole frame")
-                             + f": its kept frames are not of this box. Render `{RENDER_WHOLE}`, or continue a zoomed run")
+    box, why = zoom_box(rows, old_w, old_h, width, height)
+    if box is None:
+        if stored is not None:      # a whole-frame run after all, and the window it continues was zoomed
+            raise ValueError(f"this load is rendered on the whole frame ({why}) and the window it continues was rendered "
+                             f"zoomed in, in the box {stored['box']}: a zoomed window is not continued")
+        return source, [f"render_region `{choice}` asked, and the load is rendered on the whole frame: {why}"]
+    if continued != NOT_CONTINUED:
+        raise ValueError(f"render_region `{choice}` would render this load in the box {list(box)}, and the run continues "
+                         "a stored window: a zoomed run continues nothing, because its kept frames would be of another "
+                         f"framing. Render `{RENDER_WHOLE}`, or start this load as its own run")
+    if source.get("motion_frames") is not None:
+        raise ValueError(f"render_region `{choice}` and a wired motion video: the video would have to be cut to the same "
+                         f"box. Unwire `motion_video`, or render `{RENDER_WHOLE}`")
     cx, _cy = _fit_crop(old_w, old_h, int(width), int(height))
     scale = (old_w - 2 * cx) / (box[2] - box[0])
     zoom = {"box": [int(v) for v in box], "source_size": [old_w, old_h], "canvas": [int(width), int(height)],
             "scale": float(scale), "render_region": choice, "set_by": why}
     names = [k for k in ("mask", "keep", "others") if source.get(k) is not None]
-    wired = source.get("motion_frames")
     made = {"frames": crop_frames(frames, box, width, height)}
     for k in names:
         m = source[k]
         made[k] = crop_mask(m[..., 0] if m.ndim == 4 else m, box, width, height)
-    if wired is not None:
-        # the wired video runs beside the source in its own pixels: the same part of the picture, through
-        # the fit each makes to the canvas, to the nearest of its pixels (it is a reference, not a plate).
-        # Untested on a wired video of another size than the source when written.
-        fx0, fy0, fx1, fy1 = _canvas_box(zoom)
-        wh, ww = int(wired.shape[1]), int(wired.shape[2])
-        wx, wy = _fit_crop(ww, wh, int(width), int(height))
-        kx, ky = (ww - 2 * wx) / int(width), (wh - 2 * wy) / int(height)
-        wbox = (max(0, int(round(wx + fx0 * kx))), max(0, int(round(wy + fy0 * ky))),
-                min(ww, max(int(round(wx + fx1 * kx)), int(round(wx + fx0 * kx)) + 1)),
-                min(wh, max(int(round(wy + fy1 * ky)), int(round(wy + fy0 * ky)) + 1)))
-        made["motion_frames"] = crop_frames(wired, wbox, width, height)
     out = {**source, **made, "zoom": zoom, "whole": source}
     out["subject_area"] = area_share(made["mask"])
     out["region_boxes"] = _tracked_boxes(made["mask"])
@@ -2080,26 +2060,20 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "at every frame; off, the text encoder sees two frames a second.")),
                 # appended 2026-10-10: a small subject rendered zoomed in (`RENDER_REGIONS`, `zoomed_source`)
                 io.Combo.Input("render_region", options=list(RENDER_REGIONS), default=RENDER_WHOLE, optional=True,
-                               tooltip=("Where the replaced region is drawn. Use a zoomed choice when the face "
-                                        "or person being replaced is small in the frame and comes out looking "
+                               tooltip=("Where the replaced region is drawn. Use the zoomed choice when the face "
+                                        "or part being replaced is small in the frame and comes out looking "
                                         "like nobody in particular.\n\n"
                                         "the whole frame (default): the picture is rendered as it is.\n\n"
-                                        "zoomed in on the tracked subject: the load is cropped to one box "
-                                        "round the whole tracked person, rendered at that size, and the result "
-                                        "is put back into the whole frame.\n\n"
-                                        "zoomed in on what is replaced: the same, with the box round the "
-                                        "replaced part only (on a face pass, the head). Zooms further.\n\n"
+                                        "zoomed in on what is replaced: the load is cropped to one box round "
+                                        "the replaced part (on a face pass, the head), rendered at that size, "
+                                        "and the result is put back into the whole frame. The report says the "
+                                        "zoom it came to; a part that crosses the frame is zoomed less, and one "
+                                        "that fills it is rendered on the whole frame.\n\n"
                                         "One box for the whole load, so load one shot at a time: a load with "
-                                        "a cut in it is refused. Costs no sampling time. The zoomed picture is "
+                                        "a cut in it is refused, and so is a run that continues another or "
+                                        "wires a motion video. Costs no sampling time. The zoomed picture is "
                                         "also written beside each window. grow_pixels and feather_pixels are "
                                         "then pixels of the zoomed picture.")),
-                io.Float.Input("largest_zoom", default=ZOOM_LARGEST, min=ZOOM_SMALLEST, max=ZOOM_LARGEST_MAX, step=0.05,
-                               optional=True,
-                               tooltip=("With a zoomed render_region, the most the picture is enlarged. The box "
-                                        "is never smaller than this allows; a large subject is zoomed less, and "
-                                        "one that fills the frame is rendered on the whole frame. The report "
-                                        "says the zoom it came to. Past the source's own resolution the "
-                                        "surroundings are shown to the model enlarged and soft.")),
             ],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
@@ -2148,7 +2122,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
                 edge=EDGE_TOKENS, motion_video=None,
-                render_region=RENDER_WHOLE, largest_zoom=ZOOM_LARGEST) -> io.NodeOutput:
+                render_region=RENDER_WHOLE) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -2168,8 +2142,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
         if render_region not in RENDER_REGIONS:
             raise ValueError(f"unknown render_region {render_region!r}; one of {list(RENDER_REGIONS)}")
-        if not ZOOM_SMALLEST <= float(largest_zoom) <= ZOOM_LARGEST_MAX:
-            raise ValueError(f"largest_zoom {largest_zoom!r} is outside {ZOOM_SMALLEST:g} to {ZOOM_LARGEST_MAX:g}")
         if motion_reference == MOTION_WIRED and motion_video is None:
             raise ValueError(f"motion_reference is `{motion_reference}` and nothing is wired to `motion_video`: wire the "
                              "video that shows the movement, or choose another motion_reference")
@@ -2286,9 +2258,9 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # the same for the mask this record carries (the part, on a parts graph), and which
                               # of the two a zoomed reference and a blur's share read (`window_boxes`)
                               "region_boxes": region_boxes,
-                              # where the region is rendered, and the most a zoomed one is enlarged; the box is
-                              # made where the canvas is known (`zoomed_source`, called by the song node)
-                              "render_region": render_region, "largest_zoom": float(largest_zoom),
+                              # where the region is rendered; the box is made where the canvas is known
+                              # (`zoomed_source`, called by the song node)
+                              "render_region": render_region,
                               # read by the prompt node (`masked_prompt.py`), which describes what is replaced
                               "shot_table": table, "replace": replace,
                               # the frames that start a shot: the composite lays nothing across one of them

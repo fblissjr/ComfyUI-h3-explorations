@@ -219,9 +219,10 @@ def _review_or_reason(make, what: str) -> str | None:
 
 
 
+#: What `<stem>_zoomed.json` calls itself (`zoomed_record`). 2 (2026-10-10): the key `largest_zoom` left with
+#: the input, and `set_by` says "the largest zoom" where it said "largest_zoom"; every other key is as it was.
+ZOOMED_NAME, ZOOMED_VERSION = "h3 zoomed piece", 2
 #: The plan file's name for itself and its version. Bump the version when a field's meaning changes.
-#: What `<stem>_zoomed.json` calls itself (`zoomed_record`).
-ZOOMED_NAME, ZOOMED_VERSION = "h3 zoomed piece", 1
 PLAN_NAME, PLAN_VERSION = "h3 song plan", 2      # 2: `frames_left_as_source` is every frame with no mask, not the cut's alone
 
 
@@ -234,8 +235,7 @@ def zoomed_record(zoom: dict, source: dict, stem: str, frames: int, cut_sides=()
     return {"file": ZOOMED_NAME, "version": ZOOMED_VERSION, "run": stem, "piece": stem + ".mp4",
             "zoomed": stem + "_zoomed.mp4", "frames": int(frames), "canvas": list(zoom["canvas"]),
             "source_size": [old_w, old_h], "box": list(zoom["box"]), "fixed": True, "zoom": float(zoom["scale"]),
-            "render_region": zoom["render_region"], "largest_zoom": float(source.get("largest_zoom", video_mask.ZOOM_LARGEST)),
-            "set_by": zoom["set_by"],
+            "render_region": zoom["render_region"], "set_by": zoom["set_by"],
             # the sides of the box the regenerated region reaches in some window (`video_mask.box_sides_cut`): the
             # region is cut off there and fades into the whole frame at the box's edge
             "region_cut_at_box_sides": sorted(cut_sides),
@@ -726,8 +726,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     sides = video_mask.box_sides_cut(src_tokens, zoom)
                     cut_sides.update(sides)
                     reports.append(f"[{w.number}] the regenerated region reaches the {', '.join(sides)} of the zoomed box: it is "
-                                   "cut off there and fades into the whole frame at the box's edge; a smaller largest_zoom "
-                                   "holds more of the picture")
+                                   "cut off there and fades into the whole frame at the box's edge; a smaller zoom "
+                                   "(`video_mask.ZOOM_LARGEST`) would hold more of the picture")
                 # the margin `window` grew the region by, for the report and the composite below
                 margin = video_mask.source_margins(source, int(round(w.start * FPS)), w.frames,
                                                    int(width) * int(height))

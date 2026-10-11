@@ -374,8 +374,7 @@
       "others",
       "edge",
       "motion_video",
-      "render_region",
-      "largest_zoom"
+      "render_region"
     ],
     "node_id": "MiniMaxH3MaskedSource",
     "outputs": [

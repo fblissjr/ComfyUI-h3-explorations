@@ -686,10 +686,11 @@ once its load stopped fading at the end (the open tail, now the only tail): so h
 was the face's size is not settled, and smaller subjects than that one are
 in the clip. `video_mask.RENDER_WHOLE`'s comment holds the case.
 
-**What it does.** `render_region` on the Masked Source (`RENDER_REGIONS`)
-with `largest_zoom`. Under a zoomed choice the song node crops the load to
-ONE box round the tracked subject or round what is replaced
-(`video_mask.zoom_box`), scales it to the canvas (`zoomed_source`), and
+**What it does.** `render_region` on the Masked Source (`RENDER_REGIONS`:
+the whole frame, or zoomed in on what is replaced). Under the zoomed choice
+the song node crops the load to ONE box round what is replaced
+(`video_mask.zoom_box`, never smaller than `ZOOM_LARGEST` allows), scales it
+to the canvas (`zoomed_source`), and
 runs everything as it does on any clip: the margins, the token region, the
 motion reference, the encode, the sampler, the decode and `lay_window` all
 see a clip that happens to be a crop. `lay_back` then puts the region into
@@ -708,13 +709,16 @@ a context of another framing; and a box held across a cut frames nobody on
 one side. So the box is fixed over every frame loaded, and a load with a
 cut inside it is refused: load one shot at a time. A subject who crosses
 the frame makes the box most of the frame; under `ZOOM_SMALLEST` the load
-is rendered on the whole frame and the report says so.
+is rendered on the whole frame and the report says so. A zoomed run
+continues nothing and is not continued (`continue_from` is refused both
+ways), and a zoomed run with a wired motion video is refused.
 
 **The box is in the pixels the node was handed.** The job graphs' loader
 fits the clip to the canvas before the Masked Source
 (`workflows/masked_job_graph.py::loader`), so in a job-built graph the
 box is of canvas-size frames and the whole zoom is enlargement of those:
-the plate the model sees is softer by that factor. A loader that hands the
+the plate the model sees is those frames enlarged by that factor, not a
+sharper picture. A loader that hands the
 clip's own frames gives the box more pixels. The report's line says which,
 and the files carry the size as `source_size`. Only the region is laid
 back, so the plate's softness is in no delivered pixel; whether it changes
@@ -754,6 +758,16 @@ song loop; `bench/check_recomposite_window.py`'s zoomed window.
   stills, not judged on playback: the face is replaced where it shows and
   no edge of the box shows. Whether it reads as the reference at this
   zoom is the owner's to say and is open.
+- 2026-10-10, the end of the day: CUT DOWN to what its one render used,
+  until the owner rules on that render ([`decisions.md`](decisions.md),
+  "What the owner cut from the masked lane's nodes"). Removed: the choice
+  "zoomed in on the tracked subject" (a bigger box, less zoom); the input
+  `largest_zoom` (a constant now, `video_mask.ZOOM_LARGEST`: on its first
+  use the box set the zoom and not the setting); the rules by which a
+  zoomed run took the box of a stored window it continued (no render had
+  done it; a zoomed run now continues nothing); the cut of a wired motion
+  video to the box (refused instead). The lines above that speak of two
+  zoomed choices or of a setting are of their hour.
 - 2026-10-10, NOT BUILT, the lever that would reach the setting on a
   subject who travels: a box that FOLLOWS the part through the load (a
   smoothed track, cut at sub-pixel positions) in place of one fixed box.

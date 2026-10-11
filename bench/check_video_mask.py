@@ -1144,7 +1144,7 @@ def check_song_loop(problems):
                                     "corrected": "", "on_screen": True, "frames_with_subject": total, "frames_without_subject": [],
                                     "caption": ""}]})
         far = getattr(vm.MiniMaxH3MaskedSource.execute(big, small, grow_pixels=4, feather_pixels=0, composite=vm.COMPOSITE_REGION,
-                                                       shot_table=one_shot, render_region=vm.RENDER_ZOOM_REPLACED, largest_zoom=2.0), "args", None)[0]
+                                                       shot_table=one_shot, render_region=vm.RENDER_ZOOM_REPLACED), "args", None)[0]
         try:
             zpath, zreport = run(tmp, "z/run", record=far)[:2]
             zplan_said = run(tmp, "z/run", record=far, preview=True)[1]
@@ -1221,32 +1221,22 @@ def check_song_loop(problems):
                               zstem + shots.SUFFIX_JSON, zstem + shots.SUFFIX_TEXT]):
             _fail(problems, f"song loop, zoomed: beside the render are {zbeside}")
         try:
-            run(tmp, "y/run", record={**source, "render_region": vm.RENDER_ZOOM_REPLACED, "largest_zoom": 2.0})
+            run(tmp, "y/run", record={**source, "render_region": vm.RENDER_ZOOM_REPLACED})
             _fail(problems, "song loop, zoomed: a load with cuts in it was rendered zoomed; one box cannot frame two shots")
         except ValueError as exc:
             if "one box for the whole load" not in str(exc):
                 _fail(problems, f"song loop, zoomed: the refusal of a load with cuts does not say why: {exc}")
-        # CONTINUING a stored window (the one the continued run above used, which has no region file): a zoomed
-        # run is refused until that window says how it was framed, then takes its box; a whole-frame run is
-        # refused once it says it was zoomed
-        try:
-            run(tmp, "k/run", record=far, continue_from=stored)
-            _fail(problems, "song loop, zoomed: a zoomed run continued a stored window that does not say how it was framed")
-        except ValueError as exc:
-            if "left no region file" not in str(exc):
-                _fail(problems, f"song loop, zoomed: the refusal of a stored window with no region file does not say so: {exc}")
-        kept_box = {**regions[0]["zoom"], "box": [v - 2 for v in regions[0]["zoom"]["box"]]}
-        vm.save_window_region(stored[:-len(".safetensors")] + "_region.npz", regions[0]["mask"], regions[0]["tokens"],
-                              {"zoom": kept_box}, 4, 0, 0)
-        try:
-            run(tmp, "k/run", record=far, continue_from=stored)
-            framed = vm.load_window_region(str(Path(tmp) / "k" / "run_windows" / "run_window_1_region.npz"))["zoom"]
-        except Exception as exc:  # noqa: BLE001
-            _fail(problems, f"song loop, zoomed: a zoomed run continuing a zoomed window raised: {type(exc).__name__}: {exc}")
-            return
-        if framed["box"] != kept_box["box"] or framed["set_by"] != vm.CONTINUED_BOX:
-            _fail(problems, f"song loop, zoomed: a continuation must be rendered in the box of the window it continues, "
-                            f"{kept_box['box']}; it was rendered in {framed['box']} ({framed['set_by']})")
+        # CONTINUING a stored window: a zoomed run continues nothing, whatever the stored window says of its
+        # framing; and a whole-frame run is refused on a stored window that says it was zoomed
+        for said_of_it in ("has no region file", "says it was zoomed"):
+            try:
+                run(tmp, "k/run", record=far, continue_from=stored)
+                _fail(problems, f"song loop, zoomed: a zoomed run continued a stored window that {said_of_it}")
+            except ValueError as exc:
+                if "a zoomed run continues nothing" not in str(exc):
+                    _fail(problems, f"song loop, zoomed: the refusal of a zoomed continuation does not say why: {exc}")
+            vm.save_window_region(stored[:-len(".safetensors")] + "_region.npz", regions[0]["mask"], regions[0]["tokens"],
+                                  {"zoom": regions[0]["zoom"]}, 4, 0, 0)
         try:
             run(tmp, "j/run", continue_from=stored)
             _fail(problems, "song loop, zoomed: a whole-frame run continued a window that was rendered zoomed in")
@@ -1330,11 +1320,11 @@ def check_render_zoom(problems):
         cx, cy = vm._fit_crop(old_w, old_h, width, height)
         shown_w, shown_h = old_w - 2 * cx, old_h - 2 * cy
         mx, my = old_w // 2, old_h // 2
-        cases = {"small, in the middle": ((mx - shown_w // 40, my - shown_h // 30, mx + shown_w // 40, my + shown_h // 30), 2.0, "largest_zoom"),
+        cases = {"small, in the middle": ((mx - shown_w // 40, my - shown_h // 30, mx + shown_w // 40, my + shown_h // 30), 2.0, vm.SET_BY_LARGEST),
                  # from the first EVEN column and row the canvas shows: the box is even, so an odd crop's first
                  # column is the one pixel a box cannot reach
-                 "small, in a corner": ((cx + cx % 2, cy + cy % 2, cx + shown_w // 20, cy + shown_h // 15), 2.0, "largest_zoom"),
-                 "a quarter of the frame": ((mx - shown_w // 8, my - shown_h // 8, mx + shown_w // 8, my + shown_h // 8), 8.0, "the box")}
+                 "small, in a corner": ((cx + cx % 2, cy + cy % 2, cx + shown_w // 20, cy + shown_h // 15), 2.0, vm.SET_BY_LARGEST),
+                 "a quarter of the frame": ((mx - shown_w // 8, my - shown_h // 8, mx + shown_w // 8, my + shown_h // 8), 8.0, vm.SET_BY_BOX)}
         for name, (subject, largest, by) in cases.items():
             rows = torch.tensor([list(subject)] * 3 + [[-1] * 4])
             box, why = vm.zoom_box(rows, old_w, old_h, width, height, largest)
@@ -1350,10 +1340,10 @@ def check_render_zoom(problems):
                                 f"pixels in the canvas's proportions, inside what the canvas shows and round the subject {subject}")
             if why != by or scale > largest + 1e-9 or scale < vm.ZOOM_SMALLEST:
                 _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: set by {why!r} at {scale:.3f} times; it is set by {by} "
-                                f"and never over largest_zoom {largest:g}")
-            if by == "largest_zoom" and scale < largest * 0.9:
+                                f"and never over the largest zoom, {largest:g}")
+            if by == vm.SET_BY_LARGEST and scale < largest * 0.9:
                 _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: a small subject comes to {scale:.3f} times under a cap of {largest:g}")
-            if by == "the box" and ((x1 - x0) < (subject[2] - subject[0]) * (1 + 2 * vm.ZOOM_ROOM) - 1e-6
+            if by == vm.SET_BY_BOX and ((x1 - x0) < (subject[2] - subject[0]) * (1 + 2 * vm.ZOOM_ROOM) - 1e-6
                                     or (y1 - y0) < (subject[3] - subject[1]) * (1 + 2 * vm.ZOOM_ROOM) - 1e-6):
                 _fail(problems, f"render zoom: {name} on {old_w}x{old_h}: the box {box} leaves the subject less than its room")
         big = torch.tensor([[cx + shown_w // 10, cy + shown_h // 10, old_w - cx - shown_w // 10, old_h - cy - shown_h // 10]])
@@ -1369,9 +1359,10 @@ def check_render_zoom(problems):
     table = json.dumps({"shots": [{"first_frame": 0, "last_frame": n - 1}]})
     node = vm.MiniMaxH3MaskedSource
     rec = node.execute(frames, mask, grow_pixels=8, feather_pixels=2, shot_table=table,
-                       render_region=vm.RENDER_ZOOM_REPLACED, largest_zoom=2.0).args[0]
-    if (rec.get("render_region"), rec.get("largest_zoom"), rec.get("cuts")) != (vm.RENDER_ZOOM_REPLACED, 2.0, []):
-        _fail(problems, f"render zoom: the record carries {rec.get('render_region')!r}, {rec.get('largest_zoom')!r} and cuts {rec.get('cuts')}")
+                       render_region=vm.RENDER_ZOOM_REPLACED).args[0]
+    if (rec.get("render_region"), rec.get("cuts")) != (vm.RENDER_ZOOM_REPLACED, []) or "largest_zoom" in rec or vm.ZOOM_LARGEST != 2.0:
+        _fail(problems, f"render zoom: the record carries {rec.get('render_region')!r} and cuts {rec.get('cuts')}; it carries no "
+                        "largest_zoom, which is the constant ZOOM_LARGEST (2.0 in this fixture's arithmetic)")
         return
     plain = {**rec, "render_region": vm.RENDER_WHOLE}
     same, said = vm.zoomed_source(plain, width, height)
@@ -1385,7 +1376,7 @@ def check_render_zoom(problems):
         return
     x0, y0, x1, y1 = zoom["box"]
     if (x1 - x0, y1 - y0) != (width, height) or abs(zoom["scale"] - 2.0) > 1e-9 or zoom["source_size"] != [big_w, big_h] \
-            or zoom["canvas"] != [width, height] or zoom["set_by"] != "largest_zoom":
+            or zoom["canvas"] != [width, height] or zoom["set_by"] != vm.SET_BY_LARGEST:
         _fail(problems, f"render zoom: on frames twice the canvas a small subject under a cap of 2 is a {width}x{height} box at 2 times; got {zoom}")
         return
     if not torch.equal(z["frames"], frames[:, y0:y1, x0:x1]) or not torch.equal(z["mask"], mask[:, y0:y1, x0:x1]):
@@ -1410,22 +1401,24 @@ def check_render_zoom(problems):
         except ValueError as exc:
             if word not in str(exc):
                 _fail(problems, f"render zoom: the refusal does not say {word!r}: {exc}")
-    # a run that CONTINUES a stored window is framed as that window was: its kept frames are that latent
-    other = {**zoom, "box": [x0 - 2, y0 - 2, x1 - 2, y1 - 2]}       # another box that still holds the subject
-    took, said = vm.zoomed_source(rec, width, height, other)
-    if took["zoom"]["box"] != other["box"] or took["zoom"]["set_by"] != vm.CONTINUED_BOX or "the window this run continues" not in said[0] \
-            or not torch.equal(took["frames"], frames[:, y0 - 2:y1 - 2, x0 - 2:x1 - 2]):
-        _fail(problems, f"render zoom: a zoomed run that continues a zoomed window must take that window's box, {other['box']}: {took['zoom']}")
-    for record, stored, word in ((plain, zoom, "was rendered zoomed in"), (rec, None, "was rendered on the whole frame"),
-                                 (rec, vm.NO_REGION_FILE, "left no region file"),
-                                 (rec, {**zoom, "box": [0, 0, width, height]}, "does not fit"),
-                                 (rec, {**zoom, "canvas": [2 * width, 2 * height]}, "another place")):
+    # A ZOOMED RUN CONTINUES NOTHING AND IS NOT CONTINUED: its kept frames would be of another framing. For a day
+    # a zoomed run took the stored window's box; that went on 2026-10-10 with no render having done it
+    other = {**zoom, "box": [x0 - 2, y0 - 2, x1 - 2, y1 - 2]}
+    for record, stored, word in ((plain, zoom, "was rendered zoomed in"), (rec, None, "a zoomed run continues nothing"),
+                                 (rec, vm.NO_REGION_FILE, "a zoomed run continues nothing"),
+                                 (rec, other, "a zoomed run continues nothing"), (rec, zoom, "a zoomed run continues nothing")):
         try:
             vm.zoomed_source(record, width, height, stored)
             _fail(problems, f"render zoom: a continuation that should be refused ({word}) was not")
         except ValueError as exc:
             if word not in str(exc):
                 _fail(problems, f"render zoom: the continuation's refusal does not say {word!r}: {exc}")
+    try:
+        vm.zoomed_source(dict(rec, motion_frames=frames), width, height)
+        _fail(problems, "render zoom: a zoomed run with a wired motion video was not refused")
+    except ValueError as exc:
+        if "wired motion video" not in str(exc):
+            _fail(problems, f"render zoom: the refusal of a wired motion video does not say so: {exc}")
     for stored in (None, vm.NO_REGION_FILE, vm.NOT_CONTINUED):
         if vm.zoomed_source(plain, width, height, stored)[0] is not plain:
             _fail(problems, f"render zoom: a whole-frame run continuing a whole-frame window ({stored!r}) must run as it always has")
@@ -1457,12 +1450,19 @@ def check_render_zoom(problems):
     back, said = vm.zoomed_source(filled, width, height)
     if back is not filled or len(said) != 1 or "rendered on the whole frame" not in said[0]:
         _fail(problems, f"render zoom: a subject that fills the frame is rendered on the whole frame, and the report says so: {said}")
-    where, most = _appended("render_region"), _appended("largest_zoom")
-    if where is None or most is None or not where.optional or not most.optional or where.default != vm.RENDER_WHOLE \
-            or most.default != vm.ZOOM_LARGEST:
-        _fail(problems, "render zoom: the two inputs must be the node's last (`APPENDED`), optional, defaulting to the whole frame "
-                        "and to ZOOM_LARGEST")
-    for kw, word in ((dict(render_region="closer"), "render_region"), (dict(largest_zoom=1.0), "largest_zoom"), (dict(largest_zoom=9.0), "largest_zoom")):
+    where = _appended("render_region")
+    if where is None or not where.optional or where.default != vm.RENDER_WHOLE \
+            or vm.RENDER_REGIONS != (vm.RENDER_WHOLE, vm.RENDER_ZOOM_REPLACED) \
+            or any(i.id == "largest_zoom" for i in node.define_schema().inputs) \
+            or any(hasattr(vm, name) for name in ("RENDER_ZOOM_SUBJECT", "ZOOM_LARGEST_MAX", "CONTINUED_BOX")):
+        _fail(problems, "render zoom: `render_region` must be the node's last input (`APPENDED`), optional, the whole frame by "
+                        "default, with one zoomed choice; the largest zoom is a constant and no input")
+    try:
+        node.execute(frames, mask, shot_table=table, largest_zoom=3.0)
+        _fail(problems, "render zoom: the node still takes a `largest_zoom`")
+    except TypeError:
+        pass
+    for kw, word in ((dict(render_region="closer"), "render_region"), (dict(render_region="zoomed in on the tracked subject"), "render_region")):
         try:
             node.execute(frames, mask, shot_table=table, **kw)
             _fail(problems, f"render zoom: the Masked Source took {kw}")
@@ -1480,7 +1480,7 @@ def check_render_zoom(problems):
     box, _why = vm.zoom_box(rows, old_w, old_h, width, height, 2.0)
     cx, _cy = vm._fit_crop(old_w, old_h, width, height)
     zoom = {"box": list(box), "source_size": [old_w, old_h], "canvas": [width, height], "scale": (old_w - 2 * cx) / (box[2] - box[0]),
-            "render_region": vm.RENDER_ZOOM_REPLACED, "set_by": "largest_zoom"}
+            "render_region": vm.RENDER_ZOOM_REPLACED, "set_by": vm.SET_BY_LARGEST}
     fx0, fy0, fx1, fy1 = vm._canvas_box(zoom)
     if all(float(v).is_integer() for v in (fx0, fy0, fx1, fy1)):
         _fail(problems, f"render zoom: the fixture's box lands on whole canvas pixels ({fx0}, {fy0}); the case below needs one that does not")
@@ -1663,7 +1663,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "render_region", "largest_zoom")
+APPENDED = ("others", "edge", "motion_video", "render_region")
 
 
 def _appended(name: str):
