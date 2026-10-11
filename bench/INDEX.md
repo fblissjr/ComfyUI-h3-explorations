@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 111 |
+| [`check_*`](#check) | 112 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 144 |
+| [the rest](#the-rest) | 145 |
 
 ## check
 
@@ -87,6 +87,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
 | [`check_pool_media_integrity.py`](check_pool_media_integrity.py) | Hold the candidate pool's media verification to a standard it can fail. |
+| [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
 | [`check_prompt_bank.py`](check_prompt_bank.py) | The prompt bank's gate, where the sweep can see it. |
 | [`check_prompt_docs_sync.py`](check_prompt_docs_sync.py) | Fail when a prompt DOCUMENT drifts from the source that owns what it quotes. |
 | [`check_prompt_guide_conformance.py`](check_prompt_guide_conformance.py) | Check every shipped ref prompt against the OFFICIAL guide, not against us. |
@@ -371,6 +372,7 @@ this file is only a way to find a script by what it says it does.
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
 | [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
+| [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
 | [`preflight_graph.py`](preflight_graph.py) | Grade a graph's prompt and price its sequence, BEFORE you press Queue. |
 | [`prepare_encoder_ab_compare.py`](prepare_encoder_ab_compare.py) | Stage two generated clips and build the requested side-by-side API graph. |
 | [`prepare_hf_first_frame_encoder_arms.py`](prepare_hf_first_frame_encoder_arms.py) | Prepare controlled I2VA/FL2VA encoder arms from the shipped HF workflow. |
