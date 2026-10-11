@@ -46,7 +46,17 @@ lesson below.
 
 ## State when the day closed
 
-- **Nothing is pushed.** Every commit of the day is local.
+- **The day's commits are on both remotes up to `2dce659f`**; the two
+  after it (this page and the changelog entry) were local when the day
+  closed. Read `git status -sb` and `git reflog show origin/main`, never
+  this sentence. No session pushed: none of the seven transcripts holds a
+  push, and the remote moved many times through the day, to both remotes
+  seconds apart, which is the owner's own terminal. *Corrected the same
+  evening, minutes after this page was committed: it said "Nothing is
+  pushed. Every commit of the day is local." The lead had written that
+  three times without once reading the remote. The lesson list below has
+  the same fault in it already: a claim told as fact is read from its
+  source first.*
 - **The node cuts and the who-is-who cuts are in the tree** as one stretch
   of commits from `e9de8cc3` to `368fbaa8`; what each removed and why is in
   [`decisions.md`](decisions.md), 2026-10-10, "What the owner cut from the
