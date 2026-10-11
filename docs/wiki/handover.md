@@ -274,6 +274,22 @@ same source and never a second one, and no tool prints agreement.
 **For the owner to settle first**: whether the confidence stays a number;
 and whether statements are drafted by the tool and corrected by a person.
 
+*Later the same night: the owner asked every session for the case for
+keeping the idea, what each disliked, and a better way, and decided
+nothing. The answers moved past the two questions above. All eight
+sessions keep the declaration; all eight move it from the job to the
+video and from windows to shots in source frames; nearly all make the
+look the answer (a person answers a numbered picture) by growing
+`bench/cast_file.py`, with the block a window worked out and shown, never
+typed. Two disagreements stand: whether a tool writes the tracker's guess
+into unanswered rows or shows it beside them, and whose look counts as
+seen. The lead argued for drafting into the rows and withdraws it: the
+same day had already shown a pre-filled answer wrong on two shots, which
+is why the cast sheet asks who the numbered people are and never whether
+a subject is in. The agreed points, the disagreements and the costs are
+on the board card `idea-who-is-in-a-scene-written-once-per-video`.
+Nothing is ruled and nothing is to be built on it until the owner says.*
+
 ## What was done
 
 Pointers only; each tool's `--help` and docstring are the account.
