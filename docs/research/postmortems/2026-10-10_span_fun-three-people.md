@@ -278,3 +278,36 @@ Small, and each can be marked done or wrong.
 Two habits of the day cost nothing and found more than every rule written that day: writing down what a result should be before reading it, and handing the real files to a session that has not been told the answer.
 
 *Annotation 2026-10-10, later the same night:* the owner read the sessions' answers to section 5's questions and to two more rounds about the statement of who is in a scene, and marked four things to actively avoid: a new place for a fact that is already written; a record with no way to say "I looked and I am still not sure"; the three costs of answering a picture (the cuts must be right, one picture is one frame, a wrong answer is inherited by every later job); and a rule for every fault. What each needs, and which of them exist, is in `docs/wiki/decisions.md`, 2026-10-10, under the contact sheets entry. Item 3 above is overtaken in form by the same entry: the answers are kept once a video, as a person's answer to a numbered picture, and a tool drafts nothing into that file.
+
+## 10. Where the sessions agreed, where they split, and where each saw it from its own seat
+
+*Annotation 2026-10-10, later the same night, at the owner's ask.* After the day closed the seven open sessions answered three rounds by message, each writing before reading the others: the five questions of section 5; the best case for a confidence number on a written statement of who is in a window, with its risks; and what else is wrong with that statement and a better way to write it down. The session that wrote this page answered the last two as an eighth voice. This is how the answers fell.
+
+**Unanimous, or nearly.**
+
+- **What helped most.** All seven named a second session reading or running their work on real files. None named a check.
+- **Their own memory.** All seven said, unasked, that their morning survives only as their own summary of it.
+- **Keep the declaration.** All eight, for one reason: every wrong take of the day was an "in" that nobody wrote down.
+- **It belongs to the video, by shot, in the source's own frames.** All eight. In a job file it dies with the job; tied to a window it dies with the next plan.
+- **Grow the cast file and add no new form** (`bench/cast_file.py`). All eight in substance. Five of the seven counted the form stopped that night as the fifth, sixth or seventh place the same fact is written, with none retired.
+- **The case for saying how sure.** All eight found the same one: it is the only place a person can say "I looked, and I am still not sure".
+- **The conditions on it.** All eight: only a person writes it, and no tool thresholds it or blends it with a tracker's figure.
+- **What the better way costs.** Nearly all named the same three: the cuts must be right; one picture is one frame, so a subject who enters mid-shot needs a second answer; and a wrong answer is inherited by every later job.
+- **A rule for every fault was wrong.** Nobody defended it, and two said they had doubted it since mid-afternoon.
+
+**Split down the middle.**
+
+- **Should a tool draft the tracker's take into rows nobody has answered?** Four yes, marked as nobody's word (mrsheep, mrcorn, mrpop, mrdeer); four no, show it beside the row (mrfrog, mrnemo, mrghost, and this page's author after reading them). The owner settled it the same night: the file holds only what a person said, and the tracker's opinion stays in its own table.
+- **A number or words for how sure.** Three for a number, kept only if it is scored against what later proved true (mrpop, mrcorn, mrsheep); five for a few steps or words (mrghost, mrfrog, mrnemo, mrdeer, this page's author). Not decided.
+- **May a tool list the least sure first.** Five yes (mrpop, mrsheep, mrcorn, mrghost, this page's author); three say no tool should sort by it at all (mrfrog, mrnemo, mrdeer). Not decided.
+- **What "not sure" is worth.** One would count it as not answered (mrghost); most say a recorded doubt is the most useful line in the file.
+
+**No agreement: each saw it from its own seat.**
+
+- **The day's biggest miss.** Four named the texts (two outright, one as a guess, one as its second choice). The rest named what was nearest their own work: data that passed its checks and was wrong, the shot left as the source, one measurement arranged three ways, and nobody looking at one load whole.
+- **The idea that came too late.** Three pairs and a single: the one-change variant of a built load (mrpop, mrsheep), the statement of who is in a shot (mrcorn, mrdeer), the owner's two ideas for who is who (mrghost, mrfrog), and tying a render to its analysis (mrnemo).
+- **Landing every removal the same night.** Two doubted it and did not say so (mrfrog, mrnemo); the lead session's handover lists it among the right calls.
+
+**Raised by one or two, and contested by nobody.** That the owner's eyes on playback are the real "seen" and should be kept apart from a session's look at stills (mrcorn, mrpop). That one load a shot was never tested against the alternative (mrsheep). That the question to ask is "who are the numbered people on this picture" and never "is this subject in", because a pre-filled "not in" was wrong on the two shots where a wrong take hid somebody (mrfrog); the owner called it a good idea.
+
+What the owner marked from these to actively avoid, and what was built that night on the strength of them, is the annotation at the end of section 9 and `docs/wiki/decisions.md`, 2026-10-10.
