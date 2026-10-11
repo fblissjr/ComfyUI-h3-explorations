@@ -203,6 +203,26 @@ Older history lives elsewhere and is not copied here:
     its checks green there: `first_frame_choices` and the old-render
     switch. Everything else is not started. The session's scratch copy is
     not a place anything rests on; this list is.
+  - 2026-10-10, later the same evening: LANDED, by the owner's word that the
+    cut goes in once the renders finish, as five pieces of the nodes, each
+    its own commit, each read cold as a patch by the assembler's session
+    first, with the job builder's matching change straight after each:
+    `first_frame_choices` and the old-render switch (ae12af0a; no builder
+    change); the four stores (efc99317, builder a3a23384); the held tail
+    (3e78f3de, builder eb735b3a); the motion inputs (0daa147c, builder
+    25122b4e); the zoom cut down (5e0d7468, builder 368fbaa8).
+    `bench/node_id_manifest.json` lost nine inputs across them
+    (`reuse_windows`, `reuse_mask`, `keep_references`, `held_tail`,
+    `motion_box`, `motion_blur_share`, `motion_blur_pixels`, `motion_grey`,
+    `largest_zoom`). NOT IN when this line is written: the ADD (the
+    `analysis` input), which is built and read cold and waits a day by the
+    lead's ruling; the rebuild of `workflows/`, the full sweep and the
+    restart, which are the lead's and follow these commits, so until they
+    are done the shipped graphs still name the two reuse inputs and the
+    server still runs the nodes as they were; the gate's plate-tail rule,
+    which goes once the held tail's change is served. One thing was done
+    that the list above does not say: the json beside a zoomed file is
+    version 2 (the key `largest_zoom` left it).
 
 - **No more data files under `bench/results/`** (owner, to the lead: the
   folder had been taking files that serve the same purpose as `data/`).
@@ -385,6 +405,20 @@ Older history lives elsewhere and is not copied here:
     (voiced frames of the load; frames where the source's mouth is open
     with no voice), not a flag; the `mouth` reading and the two text rules
     still go.
+  - 2026-10-10, late (the capture's session): what has landed, and one
+    more change. LANDED with the tracker's change, in one stretch: the
+    absence question counts only the people no other tracker holds
+    (317d9c65), and the who-is-who reader for the tool cut to its reading
+    half, with `suggests`, `lead`, `looks_used`, `correction` and
+    `people_seen` gone from the flag, `rules_input.json` and `shots`
+    (da9b8446). MOVED FROM REMOVE TO KEEP, renamed: `diagnose`. The owner's
+    rule the same night (`AGENTS.md`, "Operative rules": a wrong render is
+    read as its text, its mask and four timelines before anything is
+    suspected) wants one command that prints those three first and the
+    measurements after; `diagnose` is the measurements and becomes its last
+    part. Not built: the masking board, `build-why-command-text-mask-four-timelines-first`,
+    which says what the builder's record lacks for it (a load's audio as
+    data).
 
 ## 2026-10-09
 
