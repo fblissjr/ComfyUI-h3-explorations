@@ -248,7 +248,8 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
   One shot, one seed; several things differ from the first shot together
   and none is separated, so no cause is given. No tracked record yet; the
   files are named in the note at the top of that section of
-  [`masked_v2v.md`](masked_v2v.md).
+  [`masked_v2v.md`](masked_v2v.md). *The record, committed within the
+  hour: `../../bench/results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md`.*
 - **A sentence by rule:** the head angle at a load's first and last frame,
   each put in one of four bins (facing the camera, three-quarters away,
   profile, from behind), the start always written and the end only when the

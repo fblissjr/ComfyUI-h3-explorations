@@ -799,19 +799,18 @@ that number, which lies in the middle the eye figure cannot read
 ([`meta_perception_models.md`](meta_perception_models.md), "The trials",
 the note under the table). No render of this load was made twice, so no
 floor exists for it and "the same" is all that is said, never a
-difference. One shot, one seed, and no tracked record yet. Until one
-exists the files are the job
-`data/2026-10-11_fun_set_inputs/set_close_1575.json`, the capture
-`data/2026-10-11_set_close_1575/`, and the tables `leadcanvas_1575`,
-`closeup_lids_1575`, `closeup_d10sings_1575` and `closeup_d10plain_1575` in
-`data/2026-10-11_sapiens2_pose_consecutive/`.
+difference. One shot, one seed. The record, with the table and where the
+files are:
+[`2026-10-11_lead_closeup_lid_marks_did_not_carry.md`](../../bench/results/2026-10-11_lead_closeup_lid_marks_did_not_carry.md).
 
 **Why is not known and is not said here.** Several things differ from the
 kitchen load together and none is separated: the person, a face only
 against a face and hair, the mask and its margin, how much the marks were
 grown, how a shut eye comes out when it is drawn, and a sentence in the
-text that she sings. Read everything below as what one shot showed and a
-second did not.
+text that she sings. The record lists them, and the one render it puts
+to the owner next: the same load with the marks grown as much as the
+kitchen's and nothing else changed. Read everything below as what one
+shot showed and a second did not.
 
 ### What the reference video was
 
