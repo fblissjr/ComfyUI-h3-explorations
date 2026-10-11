@@ -58,6 +58,73 @@ that session's record disagree, its record is the nearer one.*
   the tools already write, a database earns a file only where something
   needs it, and any of it can be moved later. What a person submits on a
   page stays one appended line a submit in a plain file.
+- **One local page** (owner, later the same day): the page a second
+  session had made for looking at spots, numbered pictures and segments
+  (`data/fun/poc/`) is the one page; the review clips with their notes and
+  prompts are shown on it from `data/fun/review/items.json`, and the page
+  first made for them is stopped once they have moved. What the owner
+  saves on it is one appended line a save.
+- **A video's things live on the share, under the output folder, in one
+  folder a video** (owner): `Video/fun/` for this clip, holding its data,
+  its videos and its frames, so the owner can open them. What it
+  replaces: the one folder a video under the repo's untracked `data/`
+  (`clip_folder.py`, `data/fun/`), and through it the sentence in
+  `AGENTS.md` that puts data under `data/`. Nothing has moved yet. Two
+  things to square when it does: the share is a network mount, so plain
+  and appended files only and no database file with more than one writer
+  there; and the contact sheets' own rule of 2026-10-10 gives them one
+  place, `contact_sheets/`, so a frames folder on the share is either
+  that place moved or a second place, which is the owner's to say.
+  `clip_folder.py` is the one function that says where a video's folder
+  is, so the move is made there.
+- **A text is written by a session, to the vendor's guide, and says what
+  is true of the job** (owner): `vendor_guides/ref_en.md` and
+  `docs/prompting.md`; the job is a generation from reference stills that
+  follows a motion reference video, and is not an edit of a video. What
+  SAM is asked follows `docs/wiki/sam3_prompting.md`. *A reading, not the
+  owner's ruling:* the guide asks for each shot described in full, and the
+  rule of 2026-10-10 says the least and nothing that is not seen or
+  heard; the session that took this down reads the two together as
+  everything that is seen on the frames, as fully as the guide asks,
+  nothing unseen or unheard, and no sentence about what stays or is kept.
+  The text the Masked Prompt node wrote for a whole person after
+  2026-10-10's cuts names no place and no framing, and its first render
+  drew a face filling the frame.
+- **A mask that is changed is shown as changed; the plan is stated once a
+  video, and a shot that departs from it says why** (owner), with a
+  session's reason or the owner's.
+- **The second look is against the data and the text read whole**
+  (owner), by someone who knows who and what is in the shot and whether
+  the right things are replaced; never against a paraphrase. A subject
+  known to be in a shot with no mask there is a problem.
+- **The first target is the clip's first 600 frames**, every shot through
+  the new record and each clip handed over stacked (owner). Before it:
+  the close render of 2026-10-10 made again, then one design page for
+  the owner's yes.
+- **Of the perception models on disk that no code loads, the Sapiens2
+  pose model is wired first** (owner), because it serves head movement
+  and expression, and it is tried on a handful of frames where the answer
+  is plain by eye before anything is built on it. The depth and audio
+  models wait until the design needs them. Which models are loaded is
+  read from the code and a server log, never from this line.
+- **The close render of 2026-10-10 was made again through the tools as
+  they stand** (the session that took the build, the same day; the
+  owner's look is still to come). The whole load went through
+  `bench/masked_job.py` with nothing posted by hand: that day's mask files,
+  mesh video, text and seed handed in as named files, and its
+  hands-arms-and-held-things mask taken by the capture as a subject of its
+  own, which a load's `others` can name. Read from files: the region the
+  node planned and the region the render saved are that day's on every
+  latent step and frame; how close the window's saved latent and the
+  pictures are to that day's is in the record,
+  [`2026-10-11_close_render_made_again.md`](../../bench/results/2026-10-11_close_render_made_again.md).
+  Two things it showed
+  the tools cannot do: no kept code writes the two special masks that
+  render used (a cleaned face-and-hair mask and the keep-out), so they
+  cannot be made again; and the capture takes two runs under one name
+  without a word and prints every flag twice. The inputs, the captures
+  and the figures are under the untracked `data/2026-10-11_fun_gate_inputs/`
+  and `data/2026-10-11_gate_hf_0014*`.
 
 ## 2026-10-10
 
