@@ -1,6 +1,6 @@
 # SAM-Audio, PE-AV, SAM 3D Body and Sapiens2: what each gives the masked lane, and what it does not
 
-last updated: 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style)
+last updated: 2026-10-11 (the section "What is on disk, what loads it, and what to try next", with depth and geometry models that are not Meta's perception stack; dated notes where the keypoint model's first run overtook a sentence). Before that, 2026-10-10 (first written, from a reading of Meta's code, the three papers and ComfyUI core's SAM 3D Body port; later the same day, core's SAM 3D Body prediction run against Meta's code, a section of candidate preflight flags with the tool each belongs in, where the probes are, and which weights are now on disk; then this pack's own body pose nodes, which replace ComfyUI's three in our graphs; a cold read's fixes to them: a box that is not a person gets no body; a `marked` drawing style))
 
 Written by hand. One claim a line, each with the file that says it. It
 carries no numbers of its own: a threshold, a rate or a size is cited by the
@@ -26,7 +26,86 @@ The two questions this page was written for come from the masked lane
 | Does PE-AV score lip sync? | **No.** Its audio-to-video outputs are one pooled vector for a whole clip. Nothing in it compares a video frame with an audio frame | "PE-AV" |
 | Can SAM-Audio take "the voice of the person under this mask"? | Yes, it is a designed case, and Meta calls it the weaker prompt. Meta's own code disagrees with itself about which way the mask goes | "SAM-Audio", "The visual prompt" |
 | Does SAM 3D Body follow more than one person? | Meta's pipeline is one image at a time with no identity between frames. Identity is whatever the caller's boxes or track carry | "SAM 3D Body", "More than one person" |
-| What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which nothing here runs yet | "Sapiens2" |
+| What published by Meta does read a mouth? | Sapiens2: the lip, teeth and tongue classes of its part segmentation, which this pack already loads, and its keypoint model, which no node runs (*2026-10-11: run once as a one-off on eight frames; the next section*) | "Sapiens2" |
+| Which of these models are on disk, and which does any code load? | The tracker, the part model and the body model are loaded by the masked lane; the keypoint model has been tried once; nothing loads the rest | "What is on disk, what loads it, and what to try next" |
+
+## What is on disk, what loads it, and what to try next
+
+Written 2026-10-11 by a session that read the code and the store that day
+and ran none of the models. The store is the owner's model folder, one
+`facebook_<name>/` folder a Hugging Face repository; list it to see what is
+there now, since this table is a reading of one day. "Loaded by" names the
+constant or the file, which is the thing to read; a recommendation here is
+one session's, and the owner's ruling of the same day sets the order (the
+keypoint model first, tried on a handful of plain frames; depth and audio
+wait: [`decisions.md`](decisions.md), 2026-10-11).
+
+| folder in the store | what it gives | loaded by | state | recommendation |
+|---|---|---|---|---|
+| `facebook_sam3.1` | people and things found by a phrase, and one mask followed through a shot | `h3_config.SEGMENTER`, the file `../../bench/convert_sam3_checkpoint.py` writes from it; `../../subject_track.py` | in every masked job | keep. It says where a person is, not who: [`who_is_who.md`](who_is_who.md) |
+| `facebook_sapiens2-seg-1b` | a class for every pixel of one person: `sapiens2_parts.CLASS_NAMES` | `h3_config.SAPIENS2["segmentation"]`; `../../sapiens2_parts.py` | in every masked job that takes a part | keep. Its classes are not the things a person would choose: read the note under the table before building a choice on them |
+| `facebook_sam-3d-body-dinov3` | a posed body mesh and a table of joints, from one frame and a box | `h3_config.MASKED_JOB_BODY_MODEL`; `../../body_pose.py` | the motion video of a whole-person load | keep for a whole person. It has no face ("SAM 3D Body", "The face"). Whether it helps or hinders a load that redraws only a face and hair is an open question of 2026-10-11 with one render proposed to answer it: the same load with the motion video taken away |
+| `facebook_sam-3d-body-vith` | the same model on the other backbone | a loader exists (`../../sam3d_body_vith.py`, held by `../../bench/check_sam3d_body_vith.py`); the job builder names the other file | on disk, used by no job | do not switch without a failing case. One frame through both is all that has been compared: `../../bench/results/2026-10-05_sam3d_body_vith.md` |
+| `facebook_sapiens2-pose-1b` | named points on the body, hands and face, the lids and the lips among them | no node. A one-off run: `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md` | tried once, on eight frames | use it to MEASURE: how open each eye is and whether a mouth is open or shut, on the source and on a render. Do not cut a mask from its lip points on a small face, and do not use its pupil points; the record says why. Next for it: frames where the answer is not at either end (a blink, a half-open mouth) |
+| `facebook_sapiens2-matting-1b` | a soft edge for the whole person, not for a part | the part node has a slot for it (`sapiens2_parts.MATTE_ARCH`); `h3_config.SAPIENS2["matting"]` is `"none"` | on disk, switched off | leave it off until something reads a matte. The comment beside `h3_config.SAPIENS2` gives the reason: the Masked Source reads the hard part mask, so loading it costs a pass a frame and changes nothing. It becomes worth a try the day the composite's edge is the fault, and then on hair against a wall first. One earlier run loaded it: `../../bench/results/2026-10-05_sapiens2_first_frame.md` |
+| `facebook_sapiens2-pointmap-5b` | a position in space for every pixel of a person | nothing | on disk, loaded by nothing | the only model in the store that could say which of two people is in front. Its file is about the size of the card's whole memory (`ls -la` on the folder against `nvidia-smi`), so it cannot sit beside a loaded H3 server. The smaller release of the same head is the one to try first: "Depth and geometry" below |
+| `facebook_sam-audio-large`, `facebook_sam-audio-base-tv`, `facebook_sam-audio-judge` | one sound taken out of a mix by a phrase, a time span or a masked video; the judge scores a separation | nothing; the server's environment lacks its dependencies ("SAM-Audio", "What loading it brings") | on disk, loaded by nothing | wait, as ruled. Its first use here would be a voice a person: who is heard on a shot is typed by a person today, and the voice table is made with another model (`../../bench/voice_spans.py`) |
+| `facebook_SACo-Gold`, `facebook_SACo-Silver`, `facebook_SACo-VEval`, `facebook_SA-FARI` | annotation sets, not models | `../../bench/sam3_dataset_phrases.py` | read by that one script | nothing to wire |
+
+Not in the store and named on this page: PE-AV (no weights here, "PE-AV"),
+MoGe (ComfyUI has a node for it, `comfy_extras/nodes_moge.py`; no weights
+here), MediaPipe (ComfyUI's face node uses it; the owner does not build on
+that node).
+
+**The part classes are not things a person would choose.** Seen on
+2026-10-11 by one session, on stills of two shots of one clip, in the class
+maps of one preview (the per-shot table is in the untracked
+`data/fun/poc/segments.json`): one class, apparel, held a hat, a collar,
+gloves and a belt together; a whole dress was one class; bare forearms were
+labelled hands; on a shot of a dancer many of the classes that appeared did so
+on a handful of frames only; and a share of the hair lay
+outside the tracked person on every shot. The face and the hair were the two
+parts that looked right. So a choice of "what to replace" offered from this
+model's classes is safe for a face and for hair, and needs a second look
+before it offers clothing, a hat or hands.
+
+### Depth and geometry
+
+Nothing in this pack reads depth today. The question depth would answer here
+is narrow: of two masks that touch or cross on a frame, which is nearer the
+camera (two people crossing; a hand over a face; somebody walking through the
+front of the shot). That is an order between two regions, not a distance.
+The owner's rule for the masked lane stands whatever is used: no control
+adapter, so depth would be data for planning a mask and never an input to
+the video model.
+
+What could give it, cheapest first:
+
+| model | where | what it is for | state |
+|---|---|---|---|
+| Depth Anything V2 | already in the ComfyUI checkout's `models/depthanything/` | relative depth of a whole scene, people and things alike | on disk; no code of this pack loads it. The first thing to try, since it costs no download: on frames where the order is plain by eye, is the nearer mask the nearer one by its figures |
+| `facebook/sapiens2-pointmap-1b` | not on disk | the same head as the 5b in the store, on the backbone size this pack already runs its part model and its keypoint model at | the one to fetch if a person-only reading is wanted. Trained for pictures of people (the card's "Intended Use"), so it is for person against person and a hand against a face, not for a bowl or a telephone. The 5b in the store then serves as the reference the 1b is checked against on the same frames; the two smaller sizes are for speed and nothing here is short of it yet |
+| `facebook/hyden-da2-relative-depth` | not on disk | Meta's sharper-edged variant of Depth Anything V2 Large; relative depth | fetch only if the Depth Anything V2 already here gets the order right and its edges are too soft for thin things (hair, fingers, an earring) |
+| `facebook/hyden-mogev2-metric-point` | not on disk | Meta's variant of MoGe-2: a position in space for every pixel of a whole scene, in real units | not needed for an order. Its one other use here is the camera: see the next paragraph |
+| `facebook/hyden-mogev2-surface-normal`, and the Sapiens2 normal models | not on disk | which way each surface faces | no use in this lane that anybody has named |
+
+The three `hyden` repositories were read on the Hub on 2026-10-11 and not
+downloaded: each card calls the encoder a hybrid of a low-resolution
+transformer path and a full-resolution convolution path, names
+`facebookresearch/metadepth` as the code, and carries a non-commercial
+research licence behind an access form. Read a card again before fetching;
+this paragraph is one day's reading.
+
+**Why MoGe has come up before.** Not for depth. Meta's own SAM 3D Body demo
+estimates the camera's field of view with MoGe-2 before it poses a body, and
+without an estimator it falls back to a focal length taken from the image's
+diagonal ("Core's port against Meta's inference", the row "camera"). This
+pack's body node runs on that fallback, and the comparison against Meta's
+code was made with one field of view given to both sides, so MoGe's own
+estimate has never been run here ("Not run"). A model of that family would
+be the way to give the body mesh the camera Meta's pipeline expects. Whether
+that changes a mesh enough to see is not measured, and it matters only while
+a mesh is used at all.
 
 ## Where each was read
 
@@ -36,7 +115,7 @@ The two questions this page was written for come from the masked lane
 | PE-AV and PE-A-Frame | upstream `facebookresearch/perception_models` at `3e352cc`, not under `coderef/`; a port is in `coderef/transformers/src/transformers/models/pe_audio_video` and in the ComfyUI venv's `transformers` | | none |
 | SAM 3D Body | `coderef/sam-3d-body` | `b5c765a` | both releases, with Meta's originals and the rig file, in the owner's model store; `../../bench/results/2026-10-05_sam3d_body_conversion.md` |
 | core's SAM 3D Body port | the ComfyUI checkout, `comfy_extras/nodes_sam3d_body.py`, `comfy_extras/sam3d_body/`, `comfy/ldm/sam3d_body/` | `0df64eb24` | the converted files above |
-| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model since 2026-10-10, as Meta's original file, which nothing here loads yet |
+| Sapiens2 | `coderef/sapiens2` | `7e5bae8` | part segmentation and matting; the keypoint model since 2026-10-10, as Meta's original file, which nothing here loads yet (*2026-10-11: no node loads it; a one-off ran it on eight frames, and the largest pointmap model is in the store too: the section above*) |
 
 The papers: SAM Audio is arXiv 2512.18099 and SAM 3D Body is arXiv
 2602.15989, both linked from their READMEs; the PE-AV report is linked from
@@ -315,7 +394,11 @@ The Meta model that does read a mouth, two ways:
   Body takes its keypoints from a mapping of the same size that its comment
   names after Sapiens (`coderef/sam-3d-body/sam_3d_body/models/heads/mhr_head.py::mhr_forward`); whether the two orders
   match was not checked. Its weights are in the owner's model store and
-  nothing here runs it yet.
+  nothing here runs it yet. *2026-10-11: run once, outside any node, on
+  eight frames: `../../bench/results/2026-10-11_sapiens2_pose_first_frames.md`.
+  On a small, soft face its lip points sat above the lips the part model
+  found, so of the two ways to read a mouth the part classes are the one to
+  cut a mask from, and the points are for measuring an opening.*
 
 Both read the original performer's mouth from the picture, which is the
 signal a face-only swap is missing: the model hears the frozen track and is
@@ -381,4 +464,8 @@ Each line is a claim above that only a run settles.
 - Core's SAM 3D Body prediction with MoGe's field of view against Meta's own
   MoGe call, and core as the server runs it (the card, half precision).
 - A tracked person leaving the frame in core's predict node.
-- The Sapiens2 keypoint model.
+- The Sapiens2 keypoint model. *2026-10-11: run once on eight frames (the
+  record above); not yet on a blink or a half-open mouth, and not as a node.*
+- Any depth or pointmap model on a frame of ours: whether the nearer of two
+  crossing masks is the nearer one by its figures.
+- The matting model with something reading its matte.

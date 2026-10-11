@@ -21,6 +21,20 @@ Older history lives elsewhere and is not copied here:
 session the owner spoke to (mrhop) took down the same day; where this and
 that session's record disagree, its record is the nearer one.*
 
+- **Which perception models are on disk, and which code loads each, is now
+  one table** (the owner's ask; session mrice):
+  [`meta_perception_models.md`](meta_perception_models.md), "What is on
+  disk, what loads it, and what to try next". What it used to say: that page
+  said in three places that nothing here runs the Sapiens2 keypoint model. A
+  one-off ran it on eight frames this day
+  (`../../bench/results/2026-10-11_sapiens2_pose_first_frames.md`); each of
+  the three sentences keeps a dated note in place. Read from the code and
+  not from a run: the matting model in the store is left off on purpose
+  (the comment beside `h3_config.SAPIENS2`), because the Masked Source reads
+  the hard part mask and not a matte, so it is not the next model to wire.
+  New on the page: the depth and geometry models that could say which of two
+  crossing masks is in front, on disk or not, and why MoGe had come up
+  before (the body model's camera, not depth). Nothing was run for it.
 - **Segments first, designed as one thing with the planning data and with
   objects** (owner, after a whole-person render of the opening shot redrew
   about half the frame, where the render of 2026-10-10 that replaced only
