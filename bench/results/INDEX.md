@@ -17,6 +17,7 @@ replaces `docs/evidence.md`, which says what the records established.
 | date | lane | record | verdict |
 |---|---|---|---|
 | 2026-10-11 | sapiens2 | [The Sapiens2 pose model, first run: eight frames where the answer is plain by eye](2026-10-11_sapiens2_pose_first_frames.md) |  |
+| 2026-10-11 | kitchen | [Lid marks drawn on the body-model video, and the words that go with them: renders of the kitchen shot](2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md) |  |
 | 2026-10-11 | kitchen | [What carries her head and what does not carry her eyes: two tests on the kitchen shot, read with the pose model on every frame](2026-10-11_kitchen_shot_head_and_eyes_two_tests.md) |  |
 | 2026-10-11 | embeddinggemma2 | [EmbeddingGemma 2 as a second reading of who a numbered person is: a first run on 25 crops](2026-10-11_embeddinggemma2_who_is_who_first_crops.md) |  |
 | 2026-10-11 | close | [The close render of 2026-10-10, made again through the tools as they stand](2026-10-11_close_render_made_again.md) |  |
