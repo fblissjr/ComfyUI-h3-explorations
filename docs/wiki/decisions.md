@@ -173,6 +173,12 @@ that session's record disagree, its record is the nearer one.*
   only and wrote that on each of her shots, where this page's line above
   and the render they kept say face and hair. It is put to the owner;
   nothing is built on either reading until they answer.*
+  *Answered within the hour (owner, taken down by the session that has
+  the page): the plan is the second subject's face AND hair, and the lead
+  and the third subject face only; the face-only answers on the page
+  were a slip. And where a button and the words typed beside it
+  disagree, the words count. That settles the button on the remade
+  render as well: its words are the verdict.*
 - **Three verdicts of the owner on playback, on renders of 2026-10-10**
   (taken down by the same session). Where the lead sings, the text says
   so: on the close-up of frames 1575 to 1729 the render whose text has
