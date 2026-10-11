@@ -1319,6 +1319,35 @@ SAPIENS2 = dict(segmentation="facebook_sapiens2-seg-1b", matting="none")
 SUBJECT_PARTS = dict(hair=True, face_and_neck=True, upper_clothing=False, lower_clothing=False,
                      hands=False, mouth=False, other_classes="", crop_margin=32, subject_margin=8,
                      matte_reach=8, hold_missing=True)
+#: The Sapiens2 pose model, the one that names 308 points a frame: its folder
+#: name in the owner's model store. `bench/pose_along_shot.py` is told where
+#: that store is; nothing here knows a path. **Inherited**: the folder the
+#: first run loaded (`bench/results/2026-10-11_sapiens2_pose_first_frames.md`).
+POSE_MODEL = "facebook_sapiens2-pose-1b"
+#: How far the figures read off those points (`bench/_lib/face_points.py`)
+#: are trusted. Every line is a STARTING VALUE from one or two clips of one
+#: video: a tool prints the clip's own figures beside it and says when they
+#: sit elsewhere, and none of these is a rule for another video.
+#: `eyes_shut_under`, `eyes_open_over`: the two ends of the eye opening that
+#: a person looking at every frame agreed with. Between them the figure is not
+#: readable: smiling, blurred eyes and open ones read alike. **Measured** by
+#: eye on one close-up, a face far larger than most in a shot (same record).
+#: `lip_score_at_least`: under it the lip gap jumped or wandered on a steady
+#: mouth. **Measured** on that close-up. It does not make the lip gap an
+#: opening: a shut mouth scored near one and read a third open.
+#: `lid_gap_px_to_draw`: under it the lash lines are too close on the canvas
+#: for a mark to be drawn from them. **Reasoned**: between the median of the
+#: one shot whose marks carried and those of shots whose lids are under a
+#: pixel apart (the tables under `data/2026-10-11_sapiens2_pose_consecutive/`).
+POSE_READING = dict(eyes_shut_under=0.020, eyes_open_over=0.045, lip_score_at_least=0.8, lid_gap_px_to_draw=1.6)
+#: The eye marks `bench/draw_lid_marks.py` draws on a body-model video: each
+#: eye's outline is grown about its own centre by `face_px` over the shot's
+#: median face height, so a frontal face's marks come out one size whatever
+#: the face's. **Measured** on the one shot whose marks carried
+#: (`bench/results/2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md`);
+#: a starting value. A rule by the marks' own width was tried first and
+#: failed on a face in profile, whose far eye is narrow.
+LID_MARKS = dict(face_px=318.0, fill=(255, 255, 255), edge=(0, 0, 0))
 #: The parts graph's Masked Source and prompt: the region is the part node's
 #: mask, and since that can be any part, the prompt node is told what the
 #: still provides (`masked_prompt_text.resolve_gives` refuses to guess).
