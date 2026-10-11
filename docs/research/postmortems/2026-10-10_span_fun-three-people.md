@@ -277,6 +277,18 @@ Small, and each can be marked done or wrong.
 
 Two habits of the day cost nothing and found more than every rule written that day: writing down what a result should be before reading it, and handing the real files to a session that has not been told the answer.
 
+*Annotation 2026-10-11, by the postmortem of the next day ([`2026-10-11_span_fun-lid-marks-one-shot.md`](2026-10-11_span_fun-lid-marks-one-shot.md), section 7, which has the rows). Where each of the nine stood after one more working day:*
+
+1. *Done in the tool: `build plan` prints a load's whole text (`bench/masked_job.py`, `text_shown`), and every text was read whole before its plan by a session that did not build the load. The other half was broken three times: a sentence was shown to the owner as a description of two forms of text, one "sentence" that is three things was relayed as one, and three texts' lengths were compared in place of the texts.*
+2. *Done, on the first load of the day and on every load after it. It stopped a load whose part mask was empty on half its frames. It did not predict the morning's failed render.*
+3. *Half done: the owner answered the numbered pictures for frames 0 to 603 on the local page; the answers are raw lines and are in no cast file.*
+4. *Not built. No hand-posted graph was found: every test arm was a new job, a new capture and two looks.*
+5. *Not done. No second seed of anything was rendered, and the no-render reading is still an open row on the owner's list.*
+6. *Contradicted once (a printed line read past three times while the gate read clear), and after that flags travelled as counts with no outcome entered.*
+7. *Not done: the new checks' fixture is a face made of points known by construction; the real-file proof was done by hand and reported in a message.*
+8. *Not built. No carried line was found; fewer sessions were in the tree at once.*
+9. *Neither read nor dropped, a second day.*
+
 *Annotation 2026-10-10, later the same night:* the owner read the sessions' answers to section 5's questions and to two more rounds about the statement of who is in a scene, and marked four things to actively avoid: a new place for a fact that is already written; a record with no way to say "I looked and I am still not sure"; the three costs of answering a picture (the cuts must be right, one picture is one frame, a wrong answer is inherited by every later job); and a rule for every fault. What each needs, and which of them exist, is in `docs/wiki/decisions.md`, 2026-10-10, under the contact sheets entry. Item 3 above is overtaken in form by the same entry: the answers are kept once a video, as a person's answer to a numbered picture, and a tool drafts nothing into that file.
 
 ## 10. Where the sessions agreed, where they split, and where each saw it from its own seat

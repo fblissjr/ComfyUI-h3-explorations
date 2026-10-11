@@ -10,6 +10,41 @@ and a record, a commit or a transcript disagree, they are right. A session
 that took no part in the day is writing its postmortem and will check this
 page against the transcripts.
 
+*Checked the same evening against the transcripts by the day's postmortem,
+[`2026-10-11_span_fun-lid-marks-one-shot.md`](../research/postmortems/2026-10-11_span_fun-lid-marks-one-shot.md),
+written by a session that took no part in the day. Its section 8 has the
+rows. This page is right in outline and is left as written below; these are
+the places it is wrong or short:*
+
+- *"Every step is a tracked tool": step 7, the pose model on the original
+  and on the render, ran on one-off scripts all day, as "Where things are"
+  says further down.*
+- *"A flag overridden is a person's statement": true of the overrides. After
+  the afternoon's first capture, no capture that led to a render has an
+  outcome entered for its flags beyond its maker's overrides; flags went
+  round as a count.*
+- *"Each was read first hand ... before anything was queued on it": true of
+  what was queued. Three things were built on the first part of a run of
+  relayed messages and withdrawn by its end; none was rendered.*
+- *The morning is thinner here than in the rows. Not on this page: the
+  morning's whole-person render of the opening shot, which failed and whose
+  cause was never separated; that the floor `PART_LEAST_PX` emptied half of
+  one load's part mask while its gate read clear; the second reader's
+  warning that the overnight preview's masks should not be planned from; and
+  the owner's points on the joined clip, which no render of the day
+  addressed.*
+- *Three things the rows put ahead of where "Tomorrow" has them, or that it
+  leaves out: a zoomed load that keeps its motion video (the owner has twice
+  called the zoomed render the better one and has not been asked); the
+  vendor guide's own form of the reference text on the large marks (named as
+  the next single change three times and not run); and a second seed of the
+  picked render.*
+- *One thing this page does not say and the rows do: the result was first
+  told to the owner from a whole-shot average by two sessions in two
+  terminals, while the blind reader's split was already in a peer's inbox,
+  and the owner's word to keep moving through the scenes came before the
+  correction.*
+
 ## Before anything: one shot is one shot
 
 The day's good result was read too far the same evening, by the session

@@ -332,6 +332,24 @@ that session's record disagree, its record is the nearer one.*
   morning: the same close-up with the marks at three times. So the
   wording above is the owner's pick for a shot where it worked, and is
   not yet a rule for another.
+- **The day's postmortem, written from the six sessions' transcripts by a
+  session that took no part in the day** (the owner's ask; session mrmuse):
+  [`2026-10-11_span_fun-lid-marks-one-shot.md`](../research/postmortems/2026-10-11_span_fun-lid-marks-one-shot.md).
+  Nothing is decided by it. It ends on nine small things to pick up, in an
+  order that is the owner's, and it marks each of the previous postmortem's
+  nine as done, half done or not touched (dated annotations in that page).
+  What it says the day showed: the way of working held, and a figure over a
+  whole shot was still told as a result before the second reader's split was
+  read; the form went to a second shot that changed several things at once;
+  and the ideas that slipped were single arms that make a result readable
+  (a second seed, one change on the same load, the vendor guide's form on
+  the large marks, a zoomed load that keeps its motion video), each deferred
+  as "next" more than once. What this page used to claim: the entry above
+  says the hold on the builder and the generated workflow was "decided by
+  the sessions and not objected to"; the rows show the owner was not asked,
+  and asked again at the close that the code and tooling be left in a good
+  spot. [`handover.md`](handover.md) carries a dated note of where it is
+  wrong or short.
 
 ## 2026-10-10
 
