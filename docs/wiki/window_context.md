@@ -244,6 +244,15 @@ them.
   tail: a reference still that shows another pose is a pull of the same
   kind as a kept frame, and it is not among the levers above. Not built
   on; one load.
+- 2026-10-10, the end of the day: THE PLATE TAIL AND THE INPUT ARE REMOVED.
+  A window past its source's last frame always holds that frame with its
+  mask, so the region stays open (`video_mask.held_mask`); `held_tail` is
+  no longer an input of the Masked Source and the choice named "the last
+  frame, as the source's" no longer exists. Why: on all three loads
+  measured the plate brought the original back toward the end and the open
+  tail did not, and the owner asked for the one behaviour
+  ([`decisions.md`](decisions.md), 2026-10-10). The lines above that speak
+  of a choice are of their hour. One clip: a second clip has not been run.
 
 ## Results, dated
 

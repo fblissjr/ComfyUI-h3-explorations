@@ -682,7 +682,7 @@ Built 2026-10-10; when this was written no render had been made with it.
 
 **Why.** A subject small in the frame is a few of the model's tokens. On
 one clip the owner did not read a small face as replaced, and then did,
-once its load stopped fading at the end (`held_tail`): so how much of that
+once its load stopped fading at the end (the open tail, now the only tail): so how much of that
 was the face's size is not settled, and smaller subjects than that one are
 in the clip. `video_mask.RENDER_WHOLE`'s comment holds the case.
 

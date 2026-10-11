@@ -395,8 +395,8 @@ def check_grow_by(problems):
         if first == 120 and float(t_scaled.sum()) >= float(t_fixed.sum()):
             problems.append("grow_by: a window on the small frames regenerates as many tokens as the fixed margin")
     got = vm.source_margins(record, 120, 40, px)
-    if tuple(got.shape) != (40,) or not torch.equal(got[:30], each[120:150]) or set(got[30:].tolist()) != {cap}:
-        problems.append("grow_by: a window's margins are not its own frames', held at the cap past the source's end")
+    if tuple(got.shape) != (40,) or not torch.equal(got[:30], each[120:150]) or set(got[30:].tolist()) != {int(each[149])}:
+        problems.append("grow_by: a window's margins are not its own frames', with the last frame's held past the source's end")
     if vm.source_margins(base, 120, 40, px) != cap or vm.source_margins({"mask": mask, "grow_pixels": cap}, 0, 4, px) != cap:
         problems.append("grow_by: a record without the choice does not take the fixed margin")
     if vm.margin_note(cap) != f"{cap} px" or vm.margin_note(each) != f"{int(each.min())} to {int(each.max())} px":
@@ -1658,7 +1658,8 @@ def check_render_zoom(problems):
 
 
 def check_held_tail(problems):
-    """Item 23. What a window is given past the source's last frame: plate, or the last frame's region held open."""
+    """Item 23. What a window is given past the source's last frame: that frame, with its mask held so the region
+    stays open. The plate tail and the input that chose it were removed on 2026-10-10."""
     node = vm.MiniMaxH3MaskedSource
     have = sum(vm.run_lengths(3)) + 2                 # the source ends two frames into the window's fourth latent step
     frames = torch.rand(have, H, W, 3)
@@ -1669,46 +1670,43 @@ def check_held_tail(problems):
     keep = torch.zeros(have, H, W)
     keep[-1, 70:74, 90:94] = 1.0
     shape = (LATENT_T, LAT_H, LAT_W)
-    plate = node.execute(frames, mask, grow_pixels=8, keep=keep).args[0]
-    opened = node.execute(frames, mask, grow_pixels=8, keep=keep, held_tail=vm.TAIL_OPEN).args[0]
-    if plate.get("held_tail") != vm.TAIL_PLATE or opened.get("held_tail") != vm.TAIL_OPEN:
-        problems.append("held tail: the record does not carry the choice, or its default is not the plate")
-        return
-    a, b = vm.window(plate, 0, FRAMES, W, H, *shape), vm.window(opened, 0, FRAMES, W, H, *shape)
-    if a[4] != FRAMES - have or b[4] != a[4] or not torch.equal(a[0], b[0]) or not torch.equal(a[1], b[1]):
-        problems.append("held tail: the choice changed the frames, the encode frames or how many are held; it must change the mask alone")
-    if bool(a[3][have:].any()) or bool(a[2][4:].any()):
-        problems.append("held tail: by default the frames past the source's end must be unmasked and their steps kept, as before")
+    record = node.execute(frames, mask, grow_pixels=8, keep=keep).args[0]
+    if "held_tail" in record or any(i.id == "held_tail" for i in node.define_schema().inputs) \
+            or any(hasattr(vm, name) for name in ("TAIL_PLATE", "TAIL_OPEN", "TAILS")):
+        problems.append("held tail: the input, its record key or its choices are back; the open tail is the only behaviour")
+    try:
+        node.execute(frames, mask, held_tail="the last frame, as the source's")
+        problems.append("held tail: the node still takes a `held_tail`")
+    except TypeError:
+        pass
+    got = vm.window(record, 0, FRAMES, W, H, *shape)
+    real = vm.window(record, 0, have, W, H, 3, LAT_H, LAT_W) if have == sum(vm.run_lengths(3)) else None
+    if got[4] != FRAMES - have or not torch.equal(got[0][have:], got[0][have - 1:have].expand(FRAMES - have, -1, -1, -1)):
+        problems.append("held tail: the frames past the source's end must be its last frame, held, and counted")
     last = vm.fit_mask(mask[-1:], W, H)[0]
-    if not all(torch.equal(b[3][f], last) for f in range(have, FRAMES)):
-        problems.append("held tail: with its region open the held frames must carry the LAST frame's mask")
+    if not all(torch.equal(got[3][f], last) for f in range(have, FRAMES)):
+        problems.append("held tail: the held frames must carry the LAST frame's mask, so the region stays open on them")
     alone = vm.token_mask(vm.grow(last[None], 8), 1, LAT_H, LAT_W)[0]
     held_keep = vm.token_mask(vm.fit_mask(keep[-1:], W, H), 1, LAT_H, LAT_W)[0]
     want = alone * (1.0 - held_keep)
-    if not bool(want.any()) or not bool(held_keep.any()) or not all(torch.equal(b[2][k], want) for k in range(4, LATENT_T)):
+    if not bool(want.any()) or not bool(held_keep.any()) or not all(torch.equal(got[2][k], want) for k in range(4, LATENT_T)):
         problems.append("held tail: on the steps wholly past the source's end the region must be the last frame's own, with what "
                         "`keep` held on that frame still kept")
-    if torch.equal(a[2][:3], b[2][:3]) is False:
-        problems.append("held tail: the choice changed the region on steps that hold only real frames")
-    each = dict(opened, grow_by=vm.GROW_SUBJECT, subject_area=vm.area_share(mask), feather_pixels=2)
-    m_open = vm.source_margins(each, 0, FRAMES, W * H)
-    m_plate = vm.source_margins(dict(each, held_tail=vm.TAIL_PLATE), 0, FRAMES, W * H)
-    if not torch.is_tensor(m_open) or int(m_open[-1]) != int(m_open[have - 1]) or int(m_plate[-1]) != int(each["grow_pixels"]):
-        problems.append("held tail: under the subject's size the held frames must take the last frame's margin when the region "
-                        "is open, and the cap when it is not")
-    try:
-        node.execute(frames, mask, held_tail="open")
-        problems.append("held tail: an unknown choice was accepted")
-    except ValueError as exc:
-        if "unknown held_tail" not in str(exc):
-            problems.append(f"held tail: the refusal does not name the choices: {exc}")
-    got = _appended("held_tail")
-    if got is None or not got.optional or got.default != vm.TAIL_PLATE:
-        problems.append("held tail: it is not where it was appended (`APPENDED`), optional, defaulting to the plate")
+    del real
+    each = dict(record, grow_by=vm.GROW_SUBJECT, subject_area=vm.area_share(mask), feather_pixels=2)
+    margins = vm.source_margins(each, 0, FRAMES, W * H)
+    if not torch.is_tensor(margins) or int(margins[-1]) != int(margins[have - 1]):
+        problems.append("held tail: under the subject's size the held frames must take the last frame's margin")
+    boxes = vm.window_boxes(dict(record, motion_box=vm.BOX_REPLACED), 0, FRAMES, W, H)
+    if boxes is None or not torch.equal(boxes[have:], boxes[have - 1:have].expand(FRAMES - have, -1)) or int(boxes[-1, 0]) < 0:
+        problems.append("held tail: the held frames must carry the last frame's box, as they carry its mask")
+    # a held frame has a mask of its own, so the composite lays it: the no-mask rule names none of them
+    across, bare = vm.unlaid_frames(got[3], got[2], [], 0)
+    if any(f >= have for f in across + bare):
+        problems.append(f"held tail: the composite would leave held frames {[f for f in across + bare if f >= have]} as the source")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if '"with its region open" if source.get("held_tail") == video_mask.TAIL_OPEN else "unmasked"' not in song \
-            or "held frame(s) are INSIDE the track and are written" not in song:
-        problems.append("held tail: the song node's report does not say which way the held frames were given, or that some "
+    if '"its last frame is held with its region open"' not in song or "held frame(s) are INSIDE the track and are written" not in song:
+        problems.append("held tail: the song node's report does not say the held frames keep their region open, or that some "
                         "of them are inside the track and written")
 
 
@@ -1766,10 +1764,10 @@ def check_others(problems):
              "feather_pixels": 0, "others": torch.cat([torch.zeros_like(others), others])}
     if not torch.equal(vm.window(twice, 0, n, w, h, *shape)[2], plain)             or not torch.equal(vm.window(twice, n, n, w, h, *shape)[2], got):
         problems.append("others: a window did not read its own frames of the mask")
-    # a window past the source's end: the held frames have no mask and no others
+    # a window past the source's end: the held frames carry the last frame's mask, and its others with it
     late = vm.window(dict(base, others=others), n - 5, n, w, h, *shape)
-    if late[4] != n - 5 or float(late[2][-1].max()) != 0.0:
-        problems.append("others: a window past the source's end did not hold its last frame unmasked")
+    if late[4] != n - 5 or not torch.equal(late[3][5:], late[3][4:5].expand(n - 5, -1, -1)):
+        problems.append("others: a window past the source's end did not hold its last frame with its mask")
     # the node: its record, its refusals by name, the key, the schema, the preview
     out = vm.MiniMaxH3MaskedSource.execute(frames, mask, grow_pixels=32, feather_pixels=0, others=others.unsqueeze(-1))
     src = out.args[0] if hasattr(out, "args") else out[0]
@@ -1801,7 +1799,7 @@ def check_others(problems):
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
 APPENDED = ("others", "edge", "motion_video", "motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey",
-            "held_tail", "render_region", "largest_zoom")
+            "render_region", "largest_zoom")
 
 
 def _appended(name: str):
@@ -1954,8 +1952,10 @@ def check_window(problems):
         problems.append(f"a window 12 frames from the source's end reported {held} held frames, expected {FRAMES - 12}")
     elif not torch.equal(pixels[12:], pixels[11:12].expand(FRAMES - 12, -1, -1, -1)):
         problems.append("the frames past the source's end are not its last frame held")
-    elif float(tokens[-1].max()) != 0.0:
-        problems.append("the held frames past the source's end are masked: they would regenerate")
+    elif not torch.equal(_mask[12:], _mask[11:12].expand(FRAMES - 12, -1, -1)) or float(_mask[11].max()) == 0.0 \
+            or float(tokens[-1].max()) == 0.0:
+        problems.append("the held frames past the source's end must carry the last frame's mask, so their steps regenerate "
+                        "(the open tail, the only behaviour since 2026-10-10)")
     try:
         vm.window(source, have, FRAMES, W, H, LATENT_T, LAT_H, LAT_W)
         problems.append("a window starting past the source's end was accepted")

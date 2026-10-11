@@ -355,20 +355,16 @@ MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED,
 #: The choices that show the video on `motion_video`, and those that show a reference in the subject's boxes.
 WIRED = (MOTION_WIRED, MOTION_WIRED_ZOOM)
 ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
-#: What a window is given past the source's last frame (`held_tail`, 2026-10-10). The frame is held either way.
-#: `the last frame, as the source's` gives the held frames an empty mask, so they are plate: what the node has
-#: done since a short source was first held, on the reasoning that a held plate is what a frozen row should
-#: see. But the plate there is the source's last frame with the ORIGINAL subject in it, shown clean for the
-#: rest of the window, and a load capped at its shot's end is mostly that. Measured on one render, one seed
-#: (2026-10-10, the masking board): a short load drew the still's person on its first frames and the original
-#: on its last, with the region open on every step. `the last frame, with its region open` holds the mask
-#: with the frame, so the model draws the new subject standing still there. A held frame past the TRACK's
-#: end is not written in either case; one inside the track (a track longer than the source, usually audio
-#: that was not cut to the load) is written and shows whatever the choice gives it, and the song node's
-#: report says how many. Reasoned, untested on a render when written.
-TAIL_PLATE = "the last frame, as the source's"
-TAIL_OPEN = "the last frame, with its region open"
-TAILS = (TAIL_PLATE, TAIL_OPEN)
+#: THE HELD TAIL (`held_mask`). A window given past its source's last frame holds that frame WITH ITS MASK, so
+#: the region stays open and the model draws the new subject standing still there. Until 2026-10-10 the held
+#: frames had an empty mask (a plate: the source's last frame with the ORIGINAL subject in it, shown clean
+#: for the rest of the window), and for a day an input `held_tail` chose between the two. Measured that day
+#: on three loads of one clip, one seed each (`docs/wiki/window_context.md`): under the plate a short load
+#: drew the still's person on its first frames and the original on its last; with the region held open the
+#: fall at the end was gone on every one, and the owner read the result as swapped on playback. The plate
+#: and the input were removed the same day (`docs/wiki/decisions.md`). A held frame past the TRACK's end is
+#: not written; one inside the track (a track longer than the source, usually audio that was not cut to the
+#: load) is written, and the song node's report says how many.
 #: What a zoomed reference's box, and a blur given as a share, are taken around (`motion_box`, 2026-10-10).
 #: `the tracked subject` is the whole person the tracker follows, whatever part of them is replaced: the box
 #: since 2026-10-06. `what is replaced` is the mask's own box, which on a parts graph is the part: a face
@@ -383,7 +379,7 @@ BOXES = (BOX_SUBJECT, BOX_REPLACED)
 #: frame is a few of the model's tokens. The evidence when written is one clip and mixed (the owner on
 #: playback, 2026-10-10): a face part about 94 px tall on the canvas did not read as replaced where one about
 #: 164 px had, and the same small face then did read as replaced once its load no longer faded at the end
-#: (`TAIL_OPEN`); so how much is size is not settled, and smaller subjects than that one are in the clip.
+#: (the held tail, above); so how much is size is not settled, and smaller subjects than that one are in the clip.
 #: The zoom buys tokens while the region is drawn; the window's video is
 #: still the canvas, so it does not buy delivered pixels there. The laid picture in the zoomed space is
 #: written beside each window for a delivery built at the source's size. Untested on a render when written.
@@ -610,9 +606,9 @@ def source_margins(source: dict, first_frame: int, frames: int, pixels: int):
     each = each[int(first_frame):int(first_frame) + int(frames)]
     short = int(frames) - int(each.shape[0])
     if short > 0:
-        # past the source's end the mask is empty and the cap is as good as any value; with the region held
-        # open there (`held_mask`) the held frames take the last frame's own margin, as they take its mask
-        tail = int(each[-1]) if source.get("held_tail", TAIL_PLATE) == TAIL_OPEN and int(each.shape[0]) else int(source["grow_pixels"])
+        # past the source's end the held frames take the last frame's own margin, as they take its mask
+        # (`held_mask`)
+        tail = int(each[-1]) if int(each.shape[0]) else int(source["grow_pixels"])
         each = torch.cat([each, each.new_full((short,), tail)])
     return each
 
@@ -801,7 +797,7 @@ def unlaid_frames(mask: torch.Tensor, tokens: torch.Tensor, cuts, first_frame: i
     in the step, and whatever the sampler drew there would be laid on a frame nobody asked to change.
     `across` are those of them `cut_gate` names, on the far side of a cut from the subject inside one step.
     `bare` are the rest that a region reaches (their step has a regenerated token): a frame the part node
-    emptied because the subject is turned away, a frame of a held tail, a frame the tracker dropped. Frames
+    emptied because the subject is turned away, a frame the tracker dropped. Frames
     with no mask in a step with no region are not listed: nothing was there to lay. The case met first: a
     subject who ENTERS mid-shot has empty frames before her first masked one, and those that share her first
     latent step are left as the source, as anyone would want.
@@ -1208,10 +1204,8 @@ def window_frames(source: dict, first_frame: int, frames: int, width: int, heigh
     """One window of a source on the render canvas: its fitted frames, its fitted mask, frames held.
 
     The source can run out inside a loop's last window: the missing frames
-    repeat the last one with nothing masked (`window` says why), or, under
-    `held_tail` `the last frame, with its region open`, with the last frame's
-    mask held with it (`held_mask`). A window that starts past the source's
-    end is refused.
+    repeat the last one, with the last frame's mask held with it
+    (`held_mask`). A window that starts past the source's end is refused.
     """
     have = int(source["frames"].shape[0])
     first_frame, frames = int(first_frame), int(frames)
@@ -1224,18 +1218,15 @@ def window_frames(source: dict, first_frame: int, frames: int, width: int, heigh
     short = frames - int(pixels.shape[0])
     if short > 0:
         pixels = torch.cat([pixels, pixels[-1:].expand(short, -1, -1, -1)], dim=0)
-        mask = held_mask(source, mask, short)
+        mask = held_mask(mask, short)
     return pixels, mask, short
 
 
-def held_mask(source: dict, mask: torch.Tensor, short: int) -> torch.Tensor:
+def held_mask(mask: torch.Tensor, short: int) -> torch.Tensor:
     """A window's fitted mask (the subject's, or `keep`'s, or `others`') with `short` frames added for the frames
-    held past the source's end: empty, or under `the last frame, with its region open` the last frame's own.
-    One function for the three masks, so the region, what is kept in it and who is kept out of it stay in step
-    on the held frames."""
-    if source.get("held_tail", TAIL_PLATE) == TAIL_OPEN:
-        return torch.cat([mask, mask[-1:].expand(short, -1, -1)], dim=0)
-    return torch.cat([mask, torch.zeros((short,) + tuple(mask.shape[1:]), dtype=mask.dtype, device=mask.device)], dim=0)
+    held past the source's end: the last frame's own, so the region stays open there. One function for the
+    three masks, so the region, what is kept in it and who is kept out of it stay in step on the held frames."""
+    return torch.cat([mask, mask[-1:].expand(short, -1, -1)], dim=0)
 
 
 def wired_motion(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor:
@@ -1383,8 +1374,7 @@ def window_boxes(source: dict, first_frame: int, frames: int, width: int, height
 
     The box of a shot is taken over the window's own frames of it, so a subject that shrinks through a long
     shot is framed for this window and not for the whole shot. Frames past the source's end, which
-    `window_frames` fills with the last one unmasked, have no subject of their own: they carry their shot's
-    box like any frame the subject is off, and show grey in it.
+    `window_frames` fills with the last one and its mask, carry the last frame's box.
     """
     rows = source.get("region_boxes") if source.get("motion_box", BOX_SUBJECT) == BOX_REPLACED else source.get("subject_boxes")
     if rows is None:
@@ -1393,7 +1383,7 @@ def window_boxes(source: dict, first_frame: int, frames: int, width: int, height
     part = rows[first_frame:first_frame + frames]
     short = frames - int(part.shape[0])
     if short > 0:
-        part = torch.cat([part, torch.full((short, 4), -1, dtype=part.dtype)], dim=0)
+        part = torch.cat([part, part[-1:].expand(short, -1)], dim=0)
     fitted = fit_boxes(part, int(source["frames"].shape[2]), int(source["frames"].shape[1]), width, height)
     return shot_boxes(fitted, shot_ranges(source), width, height, first_frame=first_frame)
 
@@ -2015,9 +2005,8 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
 
     A loop's last window ends at or past the end of its track
     (`loop_plan.py`, "Lengths"), so the source can run out inside it. The
-    missing frames repeat the last one with nothing masked: they are past the
-    track and are not written (`loop_plan.frames_kept`), and a held plate is
-    what a frozen row should see.
+    missing frames repeat the last one with its mask held (`held_mask`): past
+    the track they are not written (`loop_plan.frames_kept`).
     A window that starts past the source's end is refused; that is a source
     that does not belong to this track.
     """
@@ -2028,7 +2017,7 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
     if source.get("others") is not None:
         away = fit_mask(source["others"][int(first_frame):int(first_frame) + int(frames)], width, height)
         if short > 0:
-            away = held_mask(source, away, short)
+            away = held_mask(away, short)
         # In whole tokens, as the region is: a token the others touch is the source's unless the subject's own
         # mask, before any margin, has a pixel in it on one of its frames.
         theirs = token_mask(away, latent_t, lat_h, lat_w, whole)
@@ -2039,7 +2028,7 @@ def window(source: dict, first_frame: int, frames: int, width: int, height: int,
         # `tokens`, so the source's own pixels are what is shown there.
         held = fit_mask(source["keep"][int(first_frame):int(first_frame) + int(frames)], width, height)
         if short > 0:
-            held = held_mask(source, held, short)
+            held = held_mask(held, short)
         tokens = tokens * (1.0 - token_mask(held, latent_t, lat_h, lat_w, whole))
     encode = pixels
     if source.get("paint_out"):
@@ -2314,19 +2303,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                  tooltip=("Shows the motion reference without colour, so hair and clothing "
                                           "colours of the original are not shown to the model. Only the "
                                           "reference; the picture being rendered keeps its colour.")),
-                # appended 2026-10-10: a short load's held tail (`TAIL_PLATE`, `TAIL_OPEN`)
-                io.Combo.Input("held_tail", options=list(TAILS), default=TAIL_PLATE, optional=True,
-                               tooltip=("What a window is shown after the source's last frame, when the source is "
-                                        "shorter than the window (a load that stops at the end of its shot). "
-                                        "The last frame is held either way. Held frames past the end of the "
-                                        "audio are not written; any inside it are, as this choice leaves them.\n\n"
-                                        "the last frame, as the source's (default): the held frames are the "
-                                        "original picture, original subject included, shown to the model as "
-                                        "frames to keep.\n\n"
-                                        "the last frame, with its region open: the region stays open over the "
-                                        "held frames, so the model draws the new subject standing still there "
-                                        "and is not shown the original after the shot. Costs no time. Use it "
-                                        "when a short load goes back to the original's look toward its end.")),
                 # appended 2026-10-10: a small subject rendered zoomed in (`RENDER_REGIONS`, `zoomed_source`)
                 io.Combo.Input("render_region", options=list(RENDER_REGIONS), default=RENDER_WHOLE, optional=True,
                                tooltip=("Where the replaced region is drawn. Use a zoomed choice when the face "
@@ -2397,7 +2373,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
                 edge=EDGE_TOKENS, motion_video=None, motion_box=BOX_SUBJECT, motion_blur_share=MOTION_BLUR_SHARE,
-                motion_blur_pixels=MOTION_BLUR_PIXELS, motion_grey=False, held_tail=TAIL_PLATE,
+                motion_blur_pixels=MOTION_BLUR_PIXELS, motion_grey=False,
                 render_region=RENDER_WHOLE, largest_zoom=ZOOM_LARGEST) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
@@ -2416,8 +2392,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown composite {composite!r}; one of {[COMPOSITE_REGION, COMPOSITE_CHANGED]}")
         if motion_reference not in MOTIONS:
             raise ValueError(f"unknown motion_reference {motion_reference!r}; one of {list(MOTIONS)}")
-        if held_tail not in TAILS:
-            raise ValueError(f"unknown held_tail {held_tail!r}; one of {list(TAILS)}")
         if render_region not in RENDER_REGIONS:
             raise ValueError(f"unknown render_region {render_region!r}; one of {list(RENDER_REGIONS)}")
         if not ZOOM_SMALLEST <= float(largest_zoom) <= ZOOM_LARGEST_MAX:
@@ -2562,8 +2536,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               # the motion reference's look (`motion_look`)
                               "motion_blur_share": float(motion_blur_share),
                               "motion_blur_pixels": int(motion_blur_pixels), "motion_grey": bool(motion_grey),
-                              # what a window is given past the source's last frame (`held_mask`)
-                              "held_tail": held_tail,
                               # where the region is rendered, and the most a zoomed one is enlarged; the box is
                               # made where the canvas is known (`zoomed_source`, called by the song node)
                               "render_region": render_region, "largest_zoom": float(largest_zoom),

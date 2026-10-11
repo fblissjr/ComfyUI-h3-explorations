@@ -749,8 +749,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                     # of the frames the source cannot give, those past the track are sampled on and dropped
                     past = min(int(held), w.frames - (context_frames if i or head else 0) - writes[i])
                     reports.append(f"[{w.number}] the source ends {held} frames before this window does; "
-                                   "its last frame is held, "
-                                   + ("with its region open" if source.get("held_tail") == video_mask.TAIL_OPEN else "unmasked")
+                                   "its last frame is held with its region open"
                                    + (f" ({past} of them are past the track's end and are not written)" if past else "")
                                    + (f"; {int(held) - past} held frame(s) are INSIDE the track and are written: the "
                                       "track is longer than the source (was the audio cut to the load?)"

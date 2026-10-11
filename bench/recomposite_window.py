@@ -163,7 +163,10 @@ def rebuilt_region(vm, capture: Path, run_name: str, shots: str, first: int, fra
     whole = torch.from_numpy(carried[at:])              # bytes of 0 or 1: the whole load, for the margin's steadied area
     mask = whole[first:first + frames].to(torch.float32)
     short = frames - int(mask.shape[0])
-    if short > 0:       # the capture stops before the window does: nothing masked there, as the node holds a short source
+    # the capture stops before the window does: nothing masked there, as the node held a short source when a render
+    # that needs its region rebuilt was made (such a render predates saved regions, and so the open tail of
+    # 2026-10-10, under which the node holds the last frame's mask)
+    if short > 0:
         mask = torch.cat([mask, torch.zeros((short,) + tuple(mask.shape[1:]))], dim=0)
     record = {"grow_pixels": int(node["grow_pixels"]), "grow_by": node.get("grow_by", vm.GROW_FIXED),
               "feather_pixels": int(node["feather_pixels"]), "subject_area": vm.area_share(whole)}
@@ -179,7 +182,10 @@ def rebuilt_region(vm, capture: Path, run_name: str, shots: str, first: int, fra
     region = {"mask": mask, "tokens": tokens, "margin": margin, "first_frame": first, "source": settings}
     how = {"region": "rebuilt from the capture's read-back of the review", "capture": capture.name, "run": run_name,
            "cells_differing": int((made != seen).sum()), "cells_in_region": int(seen.sum()),
-           "frames_compared": int(seen.shape[0])}
+           "frames_compared": int(seen.shape[0]),
+           # an edge accepted and said: the rebuild cannot tell a render from before 2026-10-10 from a later one
+           # whose region file failed to save, and holds the frames past the capture's end empty for both
+           "held_frames_rebuilt_empty": max(int(short), 0)}
     return region, how
 
 
@@ -598,6 +604,10 @@ def report(record: dict) -> None:
         print(f"  LAID FROM A READ-BACK MASK, not the render's own: the token region rebuilt from it differs from the "
               f"region the review shows on {how['cells_differing']} cells of {how['cells_in_region']} in the region, "
               f"over {how['frames_compared']} frames")
+        if how.get("held_frames_rebuilt_empty"):
+            print(f"  {how['held_frames_rebuilt_empty']} held frame(s) past the capture's end are rebuilt EMPTY, as the node held "
+                  "them before 2026-10-10; a render made since held the last frame's mask there, and on its held frames "
+                  "this laying is not that render's")
     differ = [k for k in record["changed"] if record["changed"][k] != record["as_rendered"][k]]
     print("  changed: " + (", ".join(f"{k} {record['as_rendered'][k]} -> {record['changed'][k]}" for k in differ) or "nothing"))
     for name, lines in (("as rendered", record["lines_as_rendered"]), ("changed", record["lines_changed"])):

@@ -340,7 +340,7 @@ def extent_shortfall(track_seconds: float, asked_seconds: float | None, total_fr
       like, since the loader cuts the audio where it cuts the frames: the line gives the
       frames the source holds and the frames the asked extent reads (`asked_reads`).
     - The source's picture is shorter than the track (`source_frames` under `total_frames`):
-      the frames past its end hold the last one, unmasked, to the end of the run. A source
+      the frames past its end hold the last one, with its mask, to the end of the run. A source
       a few frames short of the PLAN but not of the track is not this: those frames are past
       the track and are not written (`frames_kept`).
     """
@@ -357,7 +357,7 @@ def extent_shortfall(track_seconds: float, asked_seconds: float | None, total_fr
     if source_frames is not None and int(source_frames) < int(total_frames):
         short = int(total_frames) - int(source_frames)
         parts.append(f"the source's picture ends early: it holds {int(source_frames)} frames and the track runs "
-                     f"{int(total_frames)}, so the last {short} hold its final frame, unmasked. If the file is "
+                     f"{int(total_frames)}, so the last {short} hold its final frame with its region open. If the file is "
                      "longer than that, raise the loader's frame_load_cap")
     return "; ".join(parts) or None
 
