@@ -69,6 +69,12 @@ Older history lives elsewhere and is not copied here:
     with one going out. Of these only the frame-and-box form and the
     withdrawal exist (`bench/cast_file.py`); the rest is not built, and (4)
     is a habit with no mechanism behind it.
+  - 2026-10-10, the same night: WHOSE LOOK COUNTS (owner, agreeing with a
+    point two sessions raised and nobody contested). The owner's eyes on
+    playback are the real "seen". A session's look is at stills, and is
+    kept apart from it: an answer says which of the two it rests on, and a
+    session's look is never recorded as, or shown as, the owner's. Not
+    built: the cast file records who answered and not on what kind of look.
 
 - **The text is read whole, and never at second hand; and the day's
   handover is corrected by the day's postmortem** (owner, to the session that wrote
