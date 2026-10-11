@@ -209,6 +209,24 @@ that session's record disagree, its record is the nearer one.*
   carries "the singing sentence" to another load says which of the three
   it carries.*
 
+- **A text is written from the side of what is generated, and it names
+  what each reference gives** (owner, 2026-10-11 evening, said to the
+  session that has the page while the two tests on the kitchen shot were
+  read; taken down in substance). What is generated is what lies inside
+  the mask, beside a picture and a sound that are kept as they are, with
+  its reference stills and videos; the text is the caption of that. A
+  reference the text does not speak of is one the model cannot know to
+  use, so the text changes whenever a reference does. And movement and
+  expression are to come from ONE motion video: the body mesh with the
+  pose model's points drawn on its face, with a text that says both are
+  taken from it. Until now the text of a load with a mesh took only the
+  head from it, and the mesh's face is blank, which fits what the two
+  tests found
+  ([`2026-10-11_kitchen_shot_head_and_eyes_two_tests.md`](../../bench/results/2026-10-11_kitchen_shot_head_and_eyes_two_tests.md)):
+  the head follows and the eyes do not. A direction; the overlay is not
+  built, and whether a sentence about her eyes is tried before it is the
+  owner's to say.
+
 ## 2026-10-10
 
 - **What is on a frame of an input video is made once and kept, in
