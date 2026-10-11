@@ -3,6 +3,16 @@
 lane: masked video to video
 verdict: one load of one clip, two named subjects, read from the trackers' own shot tables and one CPU run. Handing the frame's people to all the named subjects at once, by the highest total likeness, gave the known answer on nine looks of nine across the cut, by no margin on the first frame after the cut and by a real one four frames later; asking each subject for its own best person failed, and a gallery read against a line would have put one subject's mask on the other. On that load the likeness the Subject Track uses cannot name a person against a line (a frame of one subject scores over the regain line against the OTHER subject's gallery on 6 of 14 frames) and does say which of the two a person is more like (14 of 14, by as little as 0.023). The shot both trackers left empty was not refused for the reason first reported: one subject fell under an automatic line placed between her own two shots, and what was read as a mislabel was one person returned as three nested detections.
 
+*2026-10-10, the same night, a note on the tools this record names. The
+measurement modes of `bench/who_is_who_across_shots.py` (`galleries`, `looks`,
+`--crops`), the sum over all subjects (`hand_out`), its lead, the evidence
+total and its levels, `--suggest-lead` and `--unsure take` were removed from
+the tree after the last section below was written (`docs/wiki/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"). They were
+the tracker's own likeness arranged again, not further votes. Every figure
+here was made with them and stays as written; the code that made it is in
+git before that commit, and the data is under the untracked `data/`. The
+tool that remains reads the trackers' tables and asks.*
+
 **Read this first.** One load, one clip, two people. Nothing here says the
 same holds in a crowd, and the load has no shot with a stranger in it and a
 named subject away, which is the case a decision by elimination is weakest
@@ -103,12 +113,12 @@ from the first shot.
 - The report says when the automatic line stands above its floor and which
   two scores it was put between (`subject_track.py::moved_by_a_gap`).
 - Deciding a shot for all subjects together is built, to ASK and not to
-  decide: `subject_tracks.py::hand_out` totals every way of handing a
+  decide: `hand_out` (removed 2026-10-10) totals every way of handing a
   shot's people to the subjects over several looks, and
   `bench/who_is_who_across_shots.py corrections` reads the trackers' shot
   tables of one preview and writes one file for the gate, a row per shot,
   with the correction to type filled in. It takes nothing without a person
-  (`subject_tracks.py::TOGETHER_LEAD` is unmeasured). The measurement below
+  (`TOGETHER_LEAD` (removed 2026-10-10) is unmeasured). The measurement below
   says what form it could not take (each subject's best person) and what
   form held on this load (the sum, over more than one look). It has not
   read a real table yet: the tables of this load were written before a
@@ -620,10 +630,10 @@ under each the looks of every shot in which they were confirmed.
   and the picked shot's gallery. The tables are the raw material and stay
   as they are.
 - **Who reads it.** The joint decision
-  (`bench/who_is_who_across_shots.py::settle_tables`): each subject's
+  (`settle_tables` (removed 2026-10-10)): each subject's
   gallery becomes its cast looks, from every earlier shot and load, in
   place of one table's gallery, and the shot is handed out for all named
-  subjects together (`subject_tracks.py::hand_out`). Never one subject's
+  subjects together (`hand_out` (removed 2026-10-10)). Never one subject's
   looks against a line. No node changes for this step.
 - **A subject away for many shots.** Nothing decays and nothing should:
   the score is already the best over the looks, so the nearest look in
@@ -703,7 +713,7 @@ what would set them, because they are the only labelled data a job has:
 
 | the line today | what it rests on | what the job's own confirmed looks give |
 |---|---|---|
-| `subject_tracks.py::TOGETHER_LEAD`, unset | nothing yet | the right hand-out's lead on every confirmed shot, look by look: the smallest is this clip's floor |
+| `TOGETHER_LEAD` (removed 2026-10-10), unset | nothing yet | the right hand-out's lead on every confirmed shot, look by look: the smallest is this clip's floor |
 | `subject_track.py::REGAIN_SAME` and `REGAIN_MARGIN` | one clip, one shot | each subject's looks against their OWN others and against every OTHER subject's: whether any line separates them on this clip, and by how much. On this load there is a hundredth between the lowest own score and the highest other, so the honest per-clip answer can be "no line" |
 | `subject_track.py::MATCH_FLOOR` and `PLAIN_FLOOR` | one clip each | the confirmed person's likeness to the pick against everybody else's on the same looks, which the tables now keep |
 | `subject_tracks.py::SAME_THING` and `subject_track.py::A_PART_UNDER` | one frame; reasoned | how far inside each other this clip's detections lie, pair by pair, and how much of the largest the best scored is: the tracker has the masks while it runs and could write the two figures per join |

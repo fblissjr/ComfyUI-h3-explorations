@@ -303,12 +303,17 @@ docstring is the authority and lists the steps; `follow` is the function.
   The shot table now keeps what a refused shot was judged on
   (`shot_table.py::LOOKS_ARE`, `SIGNATURES_ARE`), and the report says when
   the automatic line was put in a gap between two shots
-  (`subject_track.py::moved_by_a_gap`). A shot is decided for all the
-  subjects together by a tool that ASKS: `bench/who_is_who_across_shots.py
-  corrections` reads the trackers' tables of one preview and writes one
-  file, a row per shot, with the correction to type into each tracker
-  (`subject_tracks.py::hand_out`). It takes nothing without a person, and
-  it is known to hand a stranger to a subject who is away.
+  (`subject_track.py::moved_by_a_gap`). After a preview,
+  `bench/who_is_who_across_shots.py corrections` reads the trackers' tables
+  of one load and writes one file for the gate, a row per shot: `answered`
+  when every tracker's call on it is a person's word (a pick, a typed
+  correction, a seed) or nothing with a head was detected, `ask` otherwise,
+  with the question in the tile's own numbers. It compares nobody with
+  anybody and decides nothing. *2026-10-10: the sum over all the subjects
+  at once, which this tool carried for a few hours and which this bullet
+  described, was removed the day it was built (`docs/wiki/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"): it was the
+  tracker's own likeness arranged again, not a second vote, and it handed a
+  stranger to a subject who was away.*
 
 Why not core's tracker with a text prompt: across a cut it starts new
 objects, it has an object cap that detection stops at for good, and a

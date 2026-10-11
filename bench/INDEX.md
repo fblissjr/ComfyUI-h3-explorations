@@ -434,7 +434,7 @@ this file is only a way to find a script by what it says it does.
 | [`verify_vsa_render.py`](verify_vsa_render.py) | Verify a VSA render actually ran VSA, by its decoded pixels. |
 | [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 | [`voice_spans.py`](voice_spans.py) | Where a voice is on a clip's track, by video frame, on this machine only. |
-| [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | After a cut, which named subject is each person on the frame? Several trackers' shot tables read together. |
+| [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | Who is who across shots: one row a shot of what each tracker called, whose word it is, and the question where it is nobody's. |
 | [`x0_step_frames.py`](x0_step_frames.py) | Where in time each sampling step's x0 prediction still moves. CPU only. |
 
 ## Other files
@@ -562,7 +562,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-254 tracked files: [`results/INDEX.md`](results/INDEX.md).
+255 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

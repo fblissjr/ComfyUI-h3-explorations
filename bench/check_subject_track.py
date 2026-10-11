@@ -1207,11 +1207,12 @@ def check_looks_in_the_table(problems):
         problems.append("looks: with nothing recorded the table still writes looks or signatures")
 
 
-def check_settled_from_tables(problems):
-    """2026-10-10: two trackers each leave a shot empty that holds both their subjects; their tables, read together, name both.
+def check_rows_from_tables(problems):
+    """The trackers' tables of one load read together: a row a shot, answered only by a person's word, a question otherwise.
 
-    The made-up clip is the day's load in small: shot 1 both people, shot 2 both people looking unlike themselves
-    (each tracker alone refuses them), shot 3 the second subject alone.
+    The made-up clip is 2026-10-10's load in small: shot 1 both people, shot 2 both people looking unlike themselves
+    (each tracker alone refuses them), shot 3 the second subject alone. Until that day's cut this tool also summed
+    likenesses over all subjects at once; nothing here compares anybody with anybody.
     """
     import importlib
     tool = importlib.import_module("who_is_who_across_shots")
@@ -1219,7 +1220,7 @@ def check_settled_from_tables(problems):
     e = lambda *v: torch.tensor(v, dtype=torch.float32) / torch.tensor(v, dtype=torch.float32).norm()   # noqa: E731
     def who(f, mask):
         is_lead = torch.equal(mask, lead)
-        if 8 <= f < 16:          # the middle shot: each unlike themselves, and still more like themselves than like the other
+        if 8 <= f < 16:          # the middle shot: each unlike themselves
             return e(1.0, 0.5, 0.6) if is_lead else e(0.5, 1.0, 0.6)
         return e(1.0, 0, 0) if is_lead else e(0, 1.0, 0)
     def detect(f: int):
@@ -1229,322 +1230,115 @@ def check_settled_from_tables(problems):
             return torch.stack([lead, second]), [0.9, 0.8]
         return torch.stack([second]), [0.9]
     sign = lambda f, m: (who(f, m), who(f, m))   # noqa: E731
-    whole = lambda f, m: who(f, m)               # noqa: E731
-    calls = []
-    def track(start, end, seed, mask):
-        calls.append((start, end, "lead" if torch.equal(mask, lead) else "second"))
-        return mask[None].repeat(end - start, 1, 1)
-    def run(detector, corrections=None, held=None):
-        got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.99, detector, sign, track, stride=4, offset=1, sign_whole=whole,
-                        corrections=corrections, held=held)
+    track = lambda start, end, seed, mask: mask[None].repeat(end - start, 1, 1)   # noqa: E731
+    def run(corrections=None, held=None):
+        got = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.99, detect, sign, track, stride=4, offset=1, corrections=corrections, held=held)
         mask = st.assemble(24, H, W, got.pieces)
-        return got, mask, st.shot_table.build(got, detector, mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
-                                              named_frame=True, named_value=True, cuts=[8, 16], held=held)
-    got_lead, mask_lead, table_lead = run(detect)
-    got_second, _, table_second = run(detect, held=st.held_people(detect, mask_lead))
+        table = st.shot_table.build(got, detect, mask, state=st._state, phrase="person", pick=st.PICK_LARGEST,
+                                    named_frame=True, named_value=True, cuts=[8, 16], held=held)
+        return got, mask, json.loads(st.shot_table.as_json(table))
+    got_lead, mask_lead, table_lead = run()
+    got_second, _, table_second = run(held=st.held_people(detect, mask_lead))
     if [s.seed for s in got_lead.shots] != [2, None, None] or [s.seed for s in got_second.shots] != [2, None, 17]:
-        problems.append(f"settled: the control: alone, the lead's tracker should hold shot 1 only and the second's shots 1 and 3; "
+        problems.append(f"rows: the control: alone, the lead's tracker holds shot 1 only and the second's shots 1 and 3; "
                         f"seeds {[s.seed for s in got_lead.shots]}, {[s.seed for s in got_second.shots]}")
-    tables = {"lead": json.loads(st.shot_table.as_json(table_lead)), "second": json.loads(st.shot_table.as_json(table_second))}
-    # the tables carry what the reader needs: whole-mask signatures in the gallery and on a refused shot's looks
-    refused = tables["lead"]["shots"][1]
-    if not tables["lead"]["gallery"]["whole"] or any(v is None for v in tables["lead"]["gallery"]["whole"]) \
-            or len(tables["lead"]["gallery"]["whole"]) != len(tables["lead"]["gallery"]["signatures"]):
-        problems.append("settled: the gallery has no whole-mask signature beside each of its frames")
-    if [look["frame"] for look in refused["looks"]] != [8, 9, 12] \
-            or any("signatures" not in p or p.get("whole_signature") is None for look in refused["looks"] for p in look["people"]):
-        problems.append("settled: the people on a refused shot's looks do not all carry their signatures and whole-mask signature")
-    taken = tables["second"]["shots"][2]
-    if any("signatures" in p for look in taken["looks"] for p in look["people"]) or taken["people"][0].get("whole_signature") is None:
-        problems.append("settled: a shot the tracker took carries signatures on its shown frame's people only, not on its looks")
-    # a weak row suggests nobody (docs/wiki/who_is_who.md, premortem 2): with no lead measured for suggesting, the file
-    # fills in no answer; each tracker gets the people of its own tile and a question, and the status still says it differs
-    weak = tool.settle_tables(tables)["rows"][1]
-    if weak["status"] != "differs" or weak["suggests"] or any(t["correction"] for t in weak["trackers"].values()):
-        problems.append(f"settled: with no lead to suggest at, a differing row must fill in nothing: {weak['suggests']}, {weak['trackers']}")
+    tables = {"lead": table_lead, "second": table_second}
+    out = tool.read_rows(tables, first_source_frame=600)
+    rows = out["rows"]
+    if [r["status"] for r in rows] != ["answered", "ask", "ask"] or out["not_picked"] or out["first_source_frame"] != 600:
+        problems.append(f"rows: both picked in shot 1 is answered; shot 2 (both refused) and shot 3 (the second taken by its own tracker, "
+                        f"the lead called absent by its own) ask: {[r['status'] for r in rows]}, {out['not_picked']}")
+    # the file is exactly the shape the gate reads: nothing of the old arithmetic is in it
+    if sorted(out) != ["first_source_frame", "frames_are", "not_picked", "rows", "status_is", "tables", "what"] \
+            or sorted(rows[1]) != ["frames", "note", "shot", "status", "trackers", "why"] \
+            or sorted(rows[1]["trackers"]["lead"]) != ["answered_by", "ask", "called", "called_person", "numbers_on_its_tile", "tile_frame", "typed_in_this_table"]:
+        problems.append(f"rows: the file's keys moved: {sorted(out)}, {sorted(rows[1])}, {sorted(rows[1]['trackers']['lead'])}")
+    two, three = rows[1]["trackers"], rows[2]["trackers"]
+    if rows[0]["trackers"]["lead"]["answered_by"] != "picked" or any(c["ask"] for c in rows[0]["trackers"].values()):
+        problems.append(f"rows: a pick is a person's word and is asked about by nobody: {rows[0]['trackers']}")
     for label in ("lead", "second"):
-        t = weak["trackers"][label]
-        if [c["person"] for c in t["candidates"]] != [1, 2] or any(c["total"] is None or c["looks"] != 3 for c in t["candidates"]) \
-                or "which numbered person is " + label not in t["ask"] or "1, 2, or none" not in t["ask"] or not t["would_type"]:
-            problems.append(f"settled: {label}'s weak row should offer its tile's two people, in tile order with their totals, and a question: {t}")
-        best = max(t["candidates"], key=lambda c: c["total"])["person"]
-        if f"person {best}" not in t["would_type"]:
-            problems.append(f"settled: {label}'s candidate with the highest total is not the person the top way would type: {t}")
-    if any(t["ask"] or t["correction"] for row in tool.settle_tables(tables)["rows"][::2] for t in row["trackers"].values()):
-        problems.append("settled: a row that agrees asks nothing and suggests nothing")
-    out = tool.settle_tables(tables, suggest_lead=0.5)
-    one, two, three = out["rows"]
-    if not two["suggests"] or tool.settle_tables(tables, suggest_lead=99.0)["rows"][1]["suggests"]:
-        problems.append("settled: a row at or over the lead to suggest at is filled in, and a row under it is not")
-    want = {"lead": ("absent", None, 2, "shot 2: person 2"), "second": ("absent", None, 1, "shot 2: person 1")}
-    for label, (state, person, says, typed) in want.items():
-        t = two["trackers"][label]
-        if (t["called"], t["called_person"], t["the_sum_says"], t["correction"]) != (state, person, says, typed) or t["ask"]:
-            problems.append(f"settled: shot 2, {label}: expected called {state}, the sum says person {says}, to type {typed!r}; got {t}")
-    if two["looks_used"] != 3 or two["people"] != 2 or two["status"] != "differs" or two["lead"] is None or two["lead"] < 1.0:
-        problems.append(f"settled: shot 2 is read over its three looks with two people and a wide lead: {two['looks_used']}, {two['people']}, {two['lead']}")
-    if three["trackers"]["lead"]["the_sum_says"] is not None or three["trackers"]["lead"]["correction"] != "" \
-            or three["trackers"]["second"]["the_sum_says"] != 1 or three["trackers"]["second"]["correction"] != "" or three["status"] != "agrees":
-        problems.append(f"settled: in shot 3 the one person is the second subject's and the lead has nobody, as the trackers said: {three['trackers']}")
-    if one["status"] != "agrees" or "a pick is not decided here" not in one["note"] or any(t["ask"] or t["correction"] or t["would_type"] for t in one["trackers"].values()):
-        problems.append(f"settled: a shot every tracker picked its subject in is not decided and asks nothing: {one['status']}, {one['note']}")
-    # the first real file (2026-10-10): the two pick frames showed different people, nothing could be compared, and the
-    # row blocked the job. It agrees and says why; two trackers that picked ONE person on one frame do not
-    apart = json.loads(json.dumps(tables))
-    apart["second"]["shots"][0]["shown_frame"] = 5
-    for person in apart["second"]["shots"][0]["people"]:      # on its own frame, somebody standing somewhere else
-        person["box"] = [100, 60, 20, 10]
-    row = tool.settle_tables(apart)["rows"][0]
-    if row["status"] != "agrees" or "nothing could be compared" not in row["note"]:
-        problems.append(f"settled: picks on two frames that cannot be compared should agree and say so: {row['status']}, {row['note']}")
-    both = json.loads(json.dumps(tables))
-    both["second"]["shots"][0] = json.loads(json.dumps(tables["lead"]["shots"][0]))
-    row = tool.settle_tables(both)["rows"][0]
-    if row["status"] != "unresolved" or "picked one person on one frame" not in row["why"]:
-        problems.append(f"settled: two trackers that picked one person on one frame must not agree: {row['status']}, {row['why']}")
-    if any(row["verdict"] != "ask" or "measured" not in row["why"] for row in out["rows"]):
-        problems.append(f"settled: with no lead measured every row is a question: {[(r['verdict'], r['why']) for r in out['rows']]}")
-    switched = tool.settle_tables(tables, unsure="take")
-    if any(row["verdict"] != "take" or "UNSURE AND TAKEN BY THE SWITCH" not in row["why"] for row in switched["rows"]):
-        problems.append("settled: the one switch does not turn an unsure row into a take that says it was unsure")
-    if not switched["rows"][1]["suggests"] or switched["rows"][1]["trackers"]["lead"]["correction"] != "shot 2: person 2":
-        problems.append("settled: a row taken by the switch carries the text it takes")
-    if tool.settle_tables(tables, least_lead=0.5)["rows"][1]["verdict"] != "take" or tool.settle_tables(tables, least_lead=99.0)["rows"][1]["verdict"] != "ask":
-        problems.append("settled: with a lead named, a row over it is taken and a row under it is asked")
-    # the text it writes is what the tracker's `corrections` takes, in the numbers of that tracker's own tile
-    calls.clear()
-    fixed, fixed_mask, fixed_lead = run(detect, corrections=st.parse_corrections(two["trackers"]["lead"]["correction"], 3))
-    if (8, 16, "lead") not in calls or fixed.shots[1].seed is None:
-        problems.append(f"settled: the correction written for the lead's tracker, typed back into it, does not seed the lead in shot 2: {calls}")
-    calls.clear()
-    fixed, _, fixed_second = run(detect, corrections=st.parse_corrections(two["trackers"]["second"]["correction"], 3),
-                                 held=st.held_people(detect, fixed_mask))
-    if (8, 16, "second") not in calls:
-        problems.append(f"settled: the correction written for the second tracker does not seed the second subject in shot 2: {calls}")
-    # a second run on the corrected trackers' tables clears itself: the row agrees and says what was typed
-    again = tool.settle_tables({"lead": json.loads(st.shot_table.as_json(fixed_lead)), "second": json.loads(st.shot_table.as_json(fixed_second))})
-    row = again["rows"][1]
-    if row["status"] != "agrees" or row["trackers"]["lead"]["typed_in_this_table"] != "person 2" or any(t["correction"] for t in row["trackers"].values()):
-        problems.append(f"settled: with both corrections typed, shot 2 should agree and say what was typed: {row['status']}, {row['trackers']}")
-    # one tracker corrected and the other not: the weak row asks about the one that would change, and only that one
-    half = tool.settle_tables({"lead": tables["lead"], "second": json.loads(st.shot_table.as_json(fixed_second))})["rows"][1]
-    if half["status"] != "differs" or not half["trackers"]["lead"]["ask"] or half["trackers"]["second"]["ask"] or half["trackers"]["second"]["would_type"]:
-        problems.append(f"settled: with the second tracker already corrected, only the lead's is asked about: {half['trackers']}")
-    if set(out) < {"status_is", "frames_are", "first_source_frame"} or tool.settle_tables(tables, first_source_frame=604)["first_source_frame"] != 604:
-        problems.append("settled: the file does not say what its statuses and frame numbers are")
-    seen = {p["handed_to"]: p for p in two["people_seen"]}
-    if set(seen) != {"lead", "second"} or any(p["looks_seen"] != 3 or p["centre_moved_px"] != 0.0 or p["left_out_as_seldom_seen"] for p in seen.values()):
-        problems.append(f"settled: the row does not list everybody seen in the shot with how far they moved: {two['people_seen']}")
-    # mrcorn's cold read: the lead walks across the shot until she stands beside the second subject. The sum is right;
-    # the NUMBER written must be hers on her tracker's own tile (the first look), not the person she ended up beside.
-    v = lambda *x: [float(a) for a in (torch.tensor(x) / torch.tensor(x).norm()).tolist()]   # noqa: E731
-    def person(number, x, who_is):
-        sig = v(1.0, 0.2, 0.0) if who_is == "lead" else v(0.2, 1.0, 0.0)
-        return {"person": number, "box": [x, 100, 100, 300], "signatures": [sig, sig], "whole_signature": sig}
-    walk = []
-    for k in range(8):
-        x_lead, x_second = 100 + 40 * k, 400
-        order = sorted([(x_lead, "lead"), (x_second, "second")])
-        walk.append({"frame": 10 * k, "people": [person(i + 1, x, name) for i, (x, name) in enumerate(order)]})
-    def table(mine):
-        sig = v(1.0, 0.0, 0.0) if mine == "lead" else v(0.0, 1.0, 0.0)
-        return {"frames": 80, "cuts": [], "size": [1000, 500], "gallery": {"signatures": [[sig, sig]], "whole": [sig]},
-                "shots": [{"shot": 1, "first_frame": 0, "last_frame": 79, "shown_frame": 0, "people": walk[0]["people"], "looks": walk,
-                           "subject": {"state": "absent", "person": None}, "corrected": ""}]}
-    walked = tool.settle_tables({"lead": table("lead"), "second": table("second")}, suggest_lead=0.0)["rows"][0]
-    got = {label: (t["the_sum_says"], t["correction"]) for label, t in walked["trackers"].items()}
-    if got != {"lead": (1, "shot 1: person 1"), "second": (2, "shot 1: person 2")} or walked["status"] != "differs" or walked["looks_used"] != 8:
-        problems.append(f"settled: a subject who walks across the shot must be written by her number on the tile's own frame: {got}")
-    moved = {p["handed_to"]: p["centre_moved_px"] for p in walked["people_seen"]}
-    if moved != {"lead": 280.0, "second": 0.0}:
-        problems.append(f"settled: how far each person moved over the looks: {moved}")
-    # a tracker whose tile frame is not among the looks read gets no number, never a guess from another frame
-    off_tile = table("lead")
-    off_tile["shots"][0]["shown_frame"] = 5
-    off_tile["shots"][0]["people"] = [{"person": 1, "box": [120, 100, 100, 300]}, {"person": 2, "box": [400, 100, 100, 300]}]
-    row = tool.settle_tables({"lead": off_tile, "second": table("second")})["rows"][0]
-    if not str(row["trackers"]["lead"]["the_sum_says"]).startswith("cannot say") or row["trackers"]["lead"]["correction"] or row["status"] != "unresolved":
-        problems.append(f"settled: a tile frame that was not read should give no number and an unresolved row: {row['trackers']['lead']}, {row['status']}")
-    # NOBODY HAS A VALUE (the first three-subject run, 2026-10-10): a tracker had taken ANOTHER named person, alone on
-    # the frame; the sum, always positive, agreed. A load knows looks that are NOT a subject: the other subjects'
-    # galleries. A person no more like the lead than those is nobody's, and the row differs and asks.
-    def one_shot(people, lead_called, third_called, lead_gallery=v(1.0, 0.0, 0.0), third_gallery=v(0.5, 0.0, 0.866)):
-        def tracker(sig, called):
-            return {"frames": 30, "cuts": [], "size": [1000, 500], "gallery": {"signatures": [[sig, sig]], "whole": [sig]},
-                    "shots": [{"shot": 1, "first_frame": 0, "last_frame": 29, "shown_frame": 4, "people": people,
-                               "looks": [{"frame": 4, "people": people}, {"frame": 16, "people": people}],
-                               "subject": {"state": "taken" if called else "absent", "person": called}, "corrected": ""}]}
-        return {"lead": tracker(lead_gallery, lead_called), "third": tracker(third_gallery, third_called)}
-    somebody_else = v(0.4, 0.9, 0.1)             # the second subject, whom neither tracker here is for
-    her = [{"person": 1, "box": [300, 100, 100, 300], "signatures": [somebody_else, somebody_else], "whole_signature": somebody_else}]
-    out2 = tool.settle_tables(one_shot(her, lead_called=1, third_called=None))
-    row = out2["rows"][0]
-    lead_level = out2["levels"]["lead"]
-    if abs(lead_level - 1.0) > 1e-3 or out2["levels_from"]["lead"]["the_highest_is"] != "third's gallery" or not out2["levels_are"]:
-        problems.append(f"settled: the lead's level is the highest score a look known not to be her reaches, here the third's gallery at 1.0: {out2['levels']}, {out2['levels_from']}")
-    t_lead = row["trackers"]["lead"]
-    if t_lead["the_sum_says"] != 1 or t_lead["the_evidence_says"] is not None or row["status"] != "differs" or row["suggests"] or t_lead["correction"] \
-            or "The evidence says NOBODY: person 1 is no more like lead than people known not to be lead" not in t_lead["ask"]:
-        problems.append(f"settled: a tracker's take the sum agrees with and the evidence does not must differ and ask, with nothing filled in: "
-                        f"{row['status']}, {t_lead}")
-    if row["trackers"]["third"]["ask"] or row["trackers"]["third"]["the_evidence_says"] is not None:
-        problems.append(f"settled: the tracker that called nobody, and whom the evidence gives nobody, is not asked: {row['trackers']['third']}")
-    # the control: the lead herself there, well over her level, taken by her tracker: tracker, sum and evidence agree
-    herself = v(1.0, 0.1, 0.0)
-    it_is_her = [{"person": 1, "box": [300, 100, 100, 300], "signatures": [herself, herself], "whole_signature": herself}]
-    row = tool.settle_tables(one_shot(it_is_her, lead_called=1, third_called=None))["rows"][0]
-    if row["status"] != "agrees" or row["trackers"]["lead"]["the_evidence_says"] != 1 or any(t["ask"] for t in row["trackers"].values()):
-        problems.append(f"settled: the control: the lead well over her level, taken by her tracker, should agree: {row['status']}, {row['trackers']['lead']}")
-    # the sum would hand her to the lead and the evidence says nobody, with BOTH trackers calling nobody: the row still
-    # differs (the two totals disagree), nothing is filled in even with `--suggest-lead` met, and the lead's tracker is asked
-    torn = tool.settle_tables(one_shot(her, lead_called=None, third_called=None), suggest_lead=0.0)["rows"][0]
-    if torn["suggests"] or torn["status"] != "differs" or torn["trackers"]["lead"]["would_type"] or torn["trackers"]["lead"]["correction"] \
-            or not torn["trackers"]["lead"]["ask"]:
-        problems.append(f"settled: a row on which the sum and the evidence disagree must differ, ask, and fill in nothing: {torn['status']}, {torn['trackers']['lead']}")
-    # the level is the HIGHEST of the looks known not to be the subject, not any of them
-    three = one_shot(her, lead_called=1, third_called=None)
-    three["fourth"] = json.loads(json.dumps(three["third"]))
-    near = v(0.9, 0.0, 0.436)
-    three["fourth"]["gallery"] = {"signatures": [[near, near]], "whole": [near]}
-    levels3 = tool.settle_tables(three)["levels"]
-    if abs(levels3["lead"] - 1.8) > 2e-3 or tool.settle_tables(three)["levels_from"]["lead"]["the_highest_is"] != "fourth's gallery":
-        problems.append(f"settled: with two looks known not to be the lead, her level is the higher one's: {levels3}")
-    # with one tracker's table alone nothing is known not to be its subject: no level, the evidence cannot say, the sum decides as before
-    alone_table = {"lead": one_shot(her, lead_called=1, third_called=None)["lead"]}
-    solo = tool.settle_tables(alone_table)
-    if solo["levels"]["lead"] is not None or not str(solo["rows"][0]["trackers"]["lead"]["the_evidence_says"]).startswith("cannot say") \
-            or solo["rows"][0]["status"] != "agrees":
-        problems.append(f"settled: with nothing known not to be the subject there is no level and the sum decides alone: {solo['levels']}, {solo['rows'][0]['status']}")
-    # A DETECTION WITH NO HEAD ON ANY LOOK is listed and never handed out (a hand and a bowl the detector called people)
-    thing = [{"person": 1, "box": [300, 100, 100, 300], "signatures": [herself, None], "whole_signature": herself}]
-    row = tool.settle_tables(one_shot(thing, lead_called=None, third_called=None))["rows"][0]
-    if row["status"] != "agrees" or row["trackers"]["lead"]["the_sum_says"] is not None or row["people_seen"][0]["headless"] is not True \
-            or row["people_seen"][0]["handed_to"] is not None:
-        problems.append(f"settled: a detection with no head on any look must not be handed to anybody, though it looks exactly like the lead: "
-                        f"{row['status']}, {row['trackers']['lead']}, {row['people_seen']}")
-    # a head on ONE of its looks is enough: a person whose head was missed once is still a person
-    once = json.loads(json.dumps(one_shot(it_is_her, lead_called=1, third_called=None)))
-    for table_ in once.values():
-        table_["shots"][0]["looks"][1]["people"] = [dict(table_["shots"][0]["looks"][1]["people"][0], signatures=[herself, None])]
-    row = tool.settle_tables(once)["rows"][0]
-    if row["people_seen"][0]["headless"] or row["trackers"]["lead"]["the_sum_says"] != 1:
-        problems.append(f"settled: a person with a head on one look of two is not headless: {row['people_seen']}")
-    # ONLY COMPLETE LOOKS ARE READ (2026-10-10: two previews of one load gave opposite answers for a subject, because
-    # looks from a later tracker's table have the earlier trackers' people removed, and whoever the first tracker did
-    # not hold was then the only person seen on most looks). A list `others` removed anybody from is not the frame.
-    both_there = [{"person": 1, "box": [100, 100, 100, 300], "signatures": [herself, herself], "whole_signature": herself},
-                  {"person": 2, "box": [500, 100, 100, 300], "signatures": [somebody_else, somebody_else], "whole_signature": somebody_else}]
-    only_other = [dict(both_there[1], person=1)]                 # the lead's person removed, as a later tracker's table has it
-    def with_holes(lead_called):
-        made = one_shot(both_there, lead_called=lead_called, third_called=None)
-        made["lead"]["shots"][0]["looks"] = []                   # the first tracker took the shot: its one look is the tile
-        third_shot = made["third"]["shots"][0]
-        third_shot["people"], third_shot["shown_frame"] = only_other, 16
-        third_shot["looks"] = [{"frame": f, "people": only_other} for f in (8, 16, 24)]
-        third_shot["others_left_out"] = {"on_shown_frame": 1, "on_frames_looked_at": 3}
-        return made
-    row = tool.settle_tables(with_holes(1))["rows"][0]
-    if row["looks_with_signatures"] != [4] or row["looks_not_read_as_incomplete"] != [8, 16, 24] or row["trackers"]["lead"]["the_sum_says"] != 1:
-        problems.append(f"settled: looks another tracker's people were removed from must not be read; the lead is person 1 on the one complete look: "
-                        f"read {row['looks_with_signatures']}, unread {row['looks_not_read_as_incomplete']}, lead {row['trackers']['lead']['the_sum_says']}")
-    if not str(row["trackers"]["third"]["the_sum_says"]).startswith("cannot say") and row["trackers"]["third"]["the_sum_says"] is not None:
-        problems.append(f"settled: a tracker whose own tile frame is not a complete look gets no number: {row['trackers']['third']}")
-    if row["status"] == "unresolved" and "third: cannot say: this tracker's tile frame is not among the looks read" not in row["why"]:
-        problems.append(f"settled: an unresolved row's `why` must be the reason it is unresolved, by tracker, not the verdict's sentence: {row['why']!r}")
-    if "not read, because another tracker's people had been removed" not in row["note"] and row["status"] != "agrees":
-        problems.append(f"settled: the row does not say which looks it left unread and why: {row['note']!r}")
-    # A SHOT A PERSON HAS ANSWERED IS NOT ASKED AGAIN: a typed correction and a seed are words, as a pick is
-    answered = one_shot(her, lead_called=1, third_called=None)
-    answered["lead"]["shots"][0]["corrected"] = "person 1"
-    answered["lead"]["shots"][0]["subject"]["state"] = "taken (corrected)"
-    answered["third"]["shots"][0]["corrected"] = "none"
-    answered["third"]["shots"][0]["subject"]["state"] = "absent (corrected)"
-    row = tool.settle_tables(answered)["rows"][0]
-    if row["status"] != "agrees" or any(t["ask"] or t["correction"] for t in row["trackers"].values()) or "corrected by hand" not in row["note"] \
-            or row["trackers"]["lead"]["answered_by"] != "corrected by hand" or row["trackers"]["lead"]["the_evidence_says"] is not None:
-        problems.append(f"settled: a shot both trackers were corrected in by hand agrees and asks nothing, and still says what the evidence makes of it: "
-                        f"{row['status']}, {row['note']}, {row['trackers']['lead']}")
-    seeded_one = one_shot(her, lead_called=1, third_called=None)
-    seeded_one["lead"]["shots"][0]["seeded"] = {"frame": 4, "box": [300, 100, 100, 300], "person": 1, "overlap": 1.0, "refused": False, "nearest_box": [300, 100, 100, 300]}
-    row = tool.settle_tables(seeded_one)["rows"][0]
-    if row["trackers"]["lead"]["answered_by"] != "seeded" or row["trackers"]["lead"]["ask"] or row["status"] != "agrees":
-        problems.append(f"settled: a seeded tracker is not asked about; the other tracker, which called nobody and is given nobody, agrees: {row['status']}, {row['trackers']}")
-    # ...and the tracker nobody answered for is still decided: here the third's uncorrected wrong take
-    mixed = one_shot(her, lead_called=None, third_called=1)
-    mixed["lead"]["shots"][0]["corrected"] = "none"
-    mixed["lead"]["shots"][0]["subject"]["state"] = "absent (corrected)"
-    row = tool.settle_tables(mixed)["rows"][0]
-    if row["status"] != "differs" or row["trackers"]["lead"]["ask"] or not row["trackers"]["third"]["ask"]:
-        problems.append(f"settled: with the lead answered by hand, the third's own take is still decided and asked about: {row['status']}, {row['trackers']}")
-    # ...and in a row that differs for somebody else, the tracker a person answered for is still not asked about
-    mixed2 = one_shot(her, lead_called=1, third_called=1)
-    mixed2["lead"]["shots"][0]["corrected"] = "person 1"
-    mixed2["lead"]["shots"][0]["subject"]["state"] = "taken (corrected)"
-    row = tool.settle_tables(mixed2)["rows"][0]
-    if row["status"] != "differs" or row["trackers"]["lead"]["ask"] or not row["trackers"]["third"]["ask"]:
-        problems.append(f"settled: the lead was corrected by hand to a person the evidence doubts; only the third's own take is asked about: "
-                        f"{row['status']}, lead ask {row['trackers']['lead']['ask']!r}, third ask {row['trackers']['third']['ask'][:40]!r}")
-    # A tracker that picked nobody is a finding, not a refusal (the first three-tracker run, 2026-10-10: an earlier
-    # tracker had taken a later subject on her own pick frame, so she was picked nowhere, and the tool would not run).
-    # It is named first, the others are decided without it, and every row that hands a person out is unresolved.
-    bare = table("lead")
-    bare["gallery"] = {"signatures": [], "whole": []}
-    bare["shots"][0]["others_left_out"] = {"on_shown_frame": 1, "on_frames_looked_at": 1}
-    found = tool.settle_tables({"lead": bare, "second": table("second")}, suggest_lead=0.0)
-    row = found["rows"][0]
-    if list(found["not_picked"]) != ["lead"] or "picked nobody" not in found["not_picked"]["lead"] or "set aside as another tracker's" not in found["not_picked"]["lead"]:
-        problems.append(f"settled: a table with no gallery should be named as a subject nobody picked, with what its table says of why: {found['not_picked']}")
-    if row["status"] != "unresolved" or "lead was never picked" not in row["why"] or any(t["correction"] or t["ask"] for t in row["trackers"].values()) \
-            or not str(row["trackers"]["lead"]["the_sum_says"]).startswith("cannot say") or row["trackers"]["second"]["the_sum_says"] is None:
-        problems.append(f"settled: with a subject never picked, a row that hands a person out is unresolved and suggests nothing, and still "
-                        f"says what the sum makes of the others: {row['status']}, {row['why']}, {row['trackers']}")
-    if found["tables"] != ["lead", "second"]:
-        problems.append("settled: a subject nobody picked is still listed among the tables")
-    both_bare = table("second")
-    both_bare["gallery"] = {"signatures": [], "whole": []}
-    try:
-        tool.settle_tables({"lead": bare, "second": both_bare})
-    except SystemExit as exc:
-        if "no tracker picked anybody" not in str(exc):
-            problems.append(f"settled: tables in which nobody was picked at all are refused without saying so: {exc}")
-    else:
-        problems.append("settled: tables in which no tracker picked anybody were read")
-    # a look whose people do not all carry their signatures is not read, whichever table it is in
-    holed = json.loads(json.dumps(tables))
-    for table in holed.values():
-        for look in table["shots"][1]["looks"]:
-            if look["frame"] == 12:
-                del look["people"][0]["whole_signature"]
-        if table["shots"][1]["shown_frame"] == 12:
-            del table["shots"][1]["people"][0]["whole_signature"]
-    row = tool.settle_tables(holed)["rows"][1]
-    if 12 in row["looks_with_signatures"] or row["looks_used"] != len(row["looks_with_signatures"]) or not row["looks_with_signatures"]:
-        problems.append(f"settled: a look with a person missing a signature was read: {row['looks_with_signatures']}, used {row['looks_used']}")
-    # a shot in which no table lists anybody (a hand and an object) agrees: everybody has nobody, and nothing is asked
+        ask = two[label]["ask"]
+        if two[label]["numbers_on_its_tile"] != [1, 2] or f"which numbered person is {label}? 1, 2, or none" not in ask \
+                or "Its tracker has nobody (absent)" not in ask or f"into {label}'s tracker" not in ask:
+            problems.append(f"rows: shot 2's question for {label} is in its tile's own numbers and says what its tracker called: {ask!r}")
+    if "Its tracker has person 1 (taken)" not in three["second"]["ask"] or "Its tracker has nobody (absent)" not in three["lead"]["ask"] \
+            or "nobody has said who lead, second are in this shot" != rows[2]["why"]:
+        problems.append(f"rows: a tracker's own take and a tracker's own absence are both nobody's word: {rows[2]['why']!r}, {three}")
+    # the answers typed back into the trackers make every row answered, and nothing is asked again
+    n_lead = st.shot_table.person_number(detect(9)[0], 0)
+    n_second = st.shot_table.person_number(detect(9)[0], 1)
+    _, fixed_mask, fixed_lead = run(corrections={2: n_lead, 3: None})
+    _, _, fixed_second = run(corrections={2: n_second, 3: 1}, held=st.held_people(detect, fixed_mask))
+    done = tool.read_rows({"lead": fixed_lead, "second": fixed_second})
+    if [r["status"] for r in done["rows"]] != ["answered"] * 3 or any(c["ask"] for r in done["rows"] for c in r["trackers"].values()):
+        problems.append(f"rows: typed answers are a person's word; the rows are answered and ask nothing: {[(r['status'], r['why']) for r in done['rows']]}")
+    if done["rows"][1]["trackers"]["lead"]["answered_by"] != "corrected by hand" or "lead (corrected by hand)" not in done["rows"][1]["note"] \
+            or done["rows"][2]["trackers"]["lead"]["typed_in_this_table"] != "none":
+        problems.append(f"rows: a corrected shot says whose word it is and what was typed: {done['rows'][1]['note']!r}")
+    # ONE NUMBERING: the second tracker's tile of shot 1 lists the lead too, marked held, and the two trackers' calls
+    # there are different numbers on the same frame
+    held_marks = [p["held_by_another_tracker"] for p in table_second["shots"][0]["people"]]
+    if len(held_marks) != 2 or sum(held_marks) != 1 or rows[0]["trackers"]["lead"]["called_person"] == rows[0]["trackers"]["second"]["called_person"]:
+        problems.append(f"rows: the later tracker's tile lists the held person, and the two picks are two numbers: {held_marks}")
+    # two trackers on ONE person on one frame is asked about even when both are a person's word: here the second
+    # tracker is typed onto the person the lead's tracker picked, whom the lead's holds
+    _, _, on_the_lead = run(corrections={1: rows[0]["trackers"]["lead"]["called_person"]}, held=st.held_people(detect, mask_lead))
+    clash = tool.read_rows({"lead": table_lead, "second": on_the_lead})["rows"][0]
+    if clash["status"] != "ask" or "two trackers on one person" not in clash["why"] \
+            or not all(c["ask"].startswith("TWO TRACKERS ON ONE PERSON: lead and second both have person") for c in clash["trackers"].values()) \
+            or not on_the_lead["shots"][0]["subject"]["also_held_by_another_tracker"]:
+        problems.append(f"rows: two trackers on one person on one frame must ask both, whoever's word each is: {clash['status']}, {clash['why']!r}")
+    # with a THIRD tracker in the clash's shot whose call is its own, all three are asked in one round, and the reason names it
+    third = json.loads(json.dumps(table_second))
+    third["shots"][0]["subject"].update(state="taken", person=2 if rows[0]["trackers"]["lead"]["called_person"] == 1 else 1)
+    three_way = tool.read_rows({"lead": table_lead, "second": on_the_lead, "third": third})["rows"][0]
+    if not all(c["ask"] for c in three_way["trackers"].values()) or "and nobody has said who third is in this shot" not in three_way["why"] \
+            or "TWO TRACKERS" in three_way["trackers"]["third"]["ask"]:
+        problems.append(f"rows: beside two trackers on one person, a third whose call is its own is asked in the same round: {three_way['why']!r}")
+    # nobody detected, and only things with no head, are answers; a tracker that took a thing there is asked about
     empty = json.loads(json.dumps(tables))
-    for table in empty.values():
-        table["shots"][2]["people"], table["shots"][2]["looks"] = [], []
-        table["shots"][2]["subject"] = {"state": "absent", "person": None, "similarity": None, "seed_frame": None, "why": "no detection in this shot"}
-    row = tool.settle_tables(empty)["rows"][2]
-    if row["status"] != "agrees" or "no table lists anybody" not in row["note"] or any(t["the_sum_says"] is not None or t["ask"] or t["correction"] for t in row["trackers"].values()):
-        problems.append(f"settled: a shot with nobody detected should agree with every subject nobody: {row['status']}, {row['note']}, {row['trackers']}")
-    # tables of two different loads are refused, and so is a table from before whole-mask signatures
-    other_load = json.loads(json.dumps(tables["second"]))
-    other_load["cuts"] = [8]
-    older = json.loads(json.dumps(tables["second"]))
-    del older["gallery"]["whole"]
-    for name, pair in (("another load's table", {"lead": tables["lead"], "second": other_load}), ("an older table", {"lead": tables["lead"], "second": older})):
+    for t in empty.values():
+        t["shots"][2]["people"], t["shots"][2]["looks"] = [], []
+        t["shots"][2]["subject"].update(state="absent", person=None)
+    if tool.read_rows(empty)["rows"][2]["status"] != "answered" or "no table lists anybody" not in tool.read_rows(empty)["rows"][2]["note"]:
+        problems.append("rows: a shot with nobody detected is answered: every subject has nobody")
+    things = json.loads(json.dumps(tables))
+    for t in things.values():
+        for person in t["shots"][2]["people"] + [p for look in t["shots"][2]["looks"] for p in look["people"]]:
+            person["has_head"] = False
+    took_a_thing = tool.read_rows(things)["rows"][2]
+    if took_a_thing["status"] != "ask" or "second took a detection in a shot where nothing with a head was found" != took_a_thing["why"] \
+            or took_a_thing["trackers"]["lead"]["ask"]:
+        problems.append(f"rows: a tracker that took a headless detection is asked about, and one that took nothing there is not: {took_a_thing['why']!r}")
+    things["second"]["shots"][2]["subject"].update(state="absent", person=None)
+    if tool.read_rows(things)["rows"][2]["status"] != "answered":
+        problems.append("rows: a shot whose only detections have no head, with nobody taken, is answered")
+    if not all(p["has_head"] is True and tool.headed(p) for p in table_lead["shots"][0]["people"]) or tool.headed({"has_head": False}) \
+            or not tool.headed({"has_head": None}) or not tool.headed({}):
+        problems.append("rows: a detection is a thing only when the table says it has no head; unknown counts as a person, so the shot asks")
+    if any("has_head" not in p for t in tables.values() for shot in t["shots"] for p in shot["people"] + [q for look in shot["looks"] for q in look["people"]]):
+        problems.append("rows: a version 2 table carries `has_head` on every person of every tile and look")
+    # a tracker with its subject on no shot is the first line, and says when held people are on its tiles
+    lost = json.loads(json.dumps(tables))
+    for shot in lost["second"]["shots"]:
+        shot["subject"].update(state="absent", person=None)
+    said = tool.read_rows(lost)["not_picked"]
+    if list(said) != ["second"] or "held by a tracker that runs before it" not in said["second"] or "a typed correction may name a held person" not in said["second"]:
+        problems.append(f"rows: a tracker with its subject on no shot is named first, with the held people on its tiles: {said}")
+    # an older table, and tables of two loads, are refused by name
+    for breaker, need in ((lambda t: t["lead"].update(version=1), "version 1"), (lambda t: t["second"].update(frames=25), "not tables of one load")):
+        bad = json.loads(json.dumps(tables))
+        breaker(bad)
         try:
-            tool.settle_tables(pair)
-        except SystemExit:
-            pass
-        else:
-            problems.append(f"settled: {name} was read without a word")
-    # and the tracker decides nothing on the whole mask: with and without it, the same seeds and the same masks
-    plain = st.follow(24, [8, 16], st.PICK_LARGEST, 2, 0.99, detect, sign, track, stride=4, offset=1)
-    if [s.seed for s in plain.shots] != [s.seed for s in got_lead.shots] or [s.best for s in plain.shots] != [s.best for s in got_lead.shots] \
-            or plain.gallery_whole != [] or not torch.equal(st.assemble(24, H, W, plain.pieces), mask_lead):
-        problems.append("settled: keeping the whole-mask signature changed what the tracker decided")
+            tool.read_rows(bad)
+            problems.append(f"rows: tables that are {need} were read")
+        except SystemExit as err:
+            if need not in str(err):
+                problems.append(f"rows: the refusal does not say `{need}`: {err}")
+    source = (REPO / "bench" / "who_is_who_across_shots.py").read_text(encoding="utf-8")
+    for gone in ("hand_out", "the_sum_says", "the_evidence_says", "suggest", "levels", "signatures\"]["):
+        if gone in source:
+            problems.append(f"rows: the tool still carries `{gone}`, which the cut of 2026-10-10 removed")
 
 
 def check_seeds(problems):
@@ -2156,7 +1950,7 @@ def check_schema(problems):
 def main() -> int:
     problems: list[str] = []
     for check in (check_cuts, check_borders, check_ranges, check_counted, check_choose, check_signature, check_follow, check_corrections,
-                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_settled_from_tables, check_seeds, check_only_person_off_with_others, check_others,
+                  check_automatic, check_alone, check_regain, check_headless_vote, check_two_places, check_empty, check_one_detection_each, check_moved_by_a_gap, check_looks_in_the_table, check_rows_from_tables, check_seeds, check_only_person_off_with_others, check_others,
                   check_track_score, check_schema):
         check(problems)
     for p in problems:

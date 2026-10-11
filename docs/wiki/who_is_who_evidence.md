@@ -83,7 +83,7 @@ wrong for a different reason.
 
 **Vote one: the likeness, as built.** Every way of handing a shot's
 people to the names is totalled over several looks, with "nobody" a valid
-answer (`subject_tracks.py::hand_out`; `who_is_who.md`, section 6).
+answer (`hand_out` (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes"); `who_is_who.md`, section 6).
 
 **Vote two: the seeded tracker (the owner's idea, 2026-10-10).**
 ComfyUI's tracker looks back at three things: the last few frames
@@ -537,7 +537,7 @@ column is the list the next job most needs.
 | a render is queued only behind a verified capture and a clear gate | `bench/masked_job.py`, `queue` | |
 | a shot called absent with people on screen is answered before a render | the gate's `absent_with_people_on_screen` (`bench/capture_masked_run.py::flag_shots`) | |
 | a shot is decided for all named subjects together, and a row that does not agree is answered | the gate's `who_is_who_unanswered` (`bench/capture_masked_run.py::flag_who`), when the decision's file is given to it | giving it the file: a preflight run without one says so in a field and does not block |
-| nothing is taken without a person | `subject_tracks.py::TOGETHER_LEAD` is `None`, so every differing row asks | not passing `--unsure take` to `bench/who_is_who_across_shots.py`; the switch exists and nothing refuses it |
+| nothing is taken without a person | `TOGETHER_LEAD` was `None`, so every differing row asked (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes") | not passing `--unsure take` to `bench/who_is_who_across_shots.py`; the switch exists and nothing refuses it |
 | a weak row suggests nobody | the corrections file (`--suggest-lead` unset); `bench/check_subject_track.py` | |
 | one detection a person; a detection with no head is handed to nobody; only looks nobody was removed from are read; nobody has a value | `subject_tracks.py::one_each` and the corrections tool, each with a check | |
 | no look in the first frames after a cut | for the tracker's own looks, `subject_track.py::PROBE_OFFSET` | for any look taken another way |

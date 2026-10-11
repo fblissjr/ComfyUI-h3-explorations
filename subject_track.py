@@ -956,10 +956,10 @@ def follow(n_frames: int, cuts: list[int], pick: str, pick_frame: int | None, ma
     `sign_whole(frame, mask)`, when given, is a person's signature under
     their WHOLE mask. NOTHING HERE IS DECIDED ON IT: it is kept beside
     everything judged and beside the gallery (`Followed.judged`,
-    `gallery_whole`) for a reader that settles a shot for several trackers'
-    subjects together (`subject_tracks.hand_out`), where on the one shot
-    measured it and the top third failed on different frames
-    (`bench/results/2026-10-10_who_is_who_across_shots.md`).
+    `gallery_whole`). It was measured once, for a reader that settled a shot
+    for several trackers' subjects together: on that shot it and the top third
+    failed on different frames (`bench/results/2026-10-10_who_is_who_across_shots.md`).
+    That reader was cut the same day and nothing reads the signature now.
     """
     corrections = dict(corrections or {})
     # `seeds` is a local name further down (a seed frame's detections), so the argument is held under another

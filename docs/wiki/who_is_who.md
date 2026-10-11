@@ -84,7 +84,7 @@ The design takes six things from that record and builds on nothing else.
   match of every gallery.
 - **All subjects at once held.** Every way of handing the frame's people to
   the subjects is totalled and the highest total wins
-  (`subject_tracks.py::hand_out`). It gave the known answer on every look
+  (`hand_out` (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes")). It gave the known answer on every look
   it could be made on, by no margin on the first frame after the cut and by
   a real one a few frames later. The form was written after the run was
   seen, so that run does not test it.
@@ -99,8 +99,14 @@ bystander on screen while a named subject is away, which `hand_out` is
 known to get wrong; whether more saved looks widen a lead or narrow it;
 anything across a change of outfit; anything about a thing; and anything on
 a sharp picture, since every figure in that record is from soft film.
-`subject_tracks.py::TOGETHER_LEAD` is `None` for those reasons and this
-design leaves it so.
+`TOGETHER_LEAD` was `None` for those reasons and this design left it so.
+
+*2026-10-10, the same night: the built total, its lead and the evidence
+total were removed from the tools. They were the tracker's own likeness
+arranged twice more, not a second and a third vote; what they measured
+stays in the record, and nothing in the tree computes them. The
+corrections tool now only reads: a row is answered by a person's word or
+it asks (`docs/wiki/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes").*
 
 ### 2. The clues, and how far each reaches
 
@@ -115,7 +121,7 @@ owner's model store. **Reach** is the column the owner's constraint adds: a
 | clue | reach | tried here for recognition? | cost on the card | what makes it lie |
 |---|---|---|---|---|
 | trunk features under the top third of the mask | scene-bound in part: see the worked example below | yes: the matching-tops clip and the kitchen load | paid already on every frame looked at | two people with like hair and shoulders; a person of a few feature cells; the first frames after a cut |
-| the same three trunk views from a crop of the person at one scale | as the view | being run (the bench tool's `--crops`; its reading is in the tool's docstring, written first). The result goes here as a dated line, whichever way it falls | one more trunk pass a person a look | not known |
+| the same three trunk views from a crop of the person at one scale | as the view | run the same night (the bench tool's `--crops`, removed 2026-10-10 with the tool's other measurement modes; the reading written first and the result are in the record, `../../bench/results/2026-10-10_who_is_who_across_shots.md`, "One scale"): measured, not adopted | one more trunk pass a person a look | not known |
 | trunk features under the head | steadier against clothes; moves with a hat, hair and the head's angle | yes, the same two clips | paid already | no head found (the record has such looks for both subjects); a head seen from behind (`subject_track.py`, the same section) |
 | trunk features under the whole mask | scene-bound: most of it is clothes | one shot, summed with the top third | paid already (`subject_track.py::follow`, `sign_whole`) | a change of outfit; a shared outfit ([`../research/masking/2026-10-04_mrhf.md`](../research/masking/2026-10-04_mrhf.md), the whole-mask scores of neighbours in one top); a mask that takes in a held thing |
 | the face alone: features under the part model's face classes | stable while the face shows | no | the part model on every person of a look (today it runs on the tracked subject only) | a profile, hair over the face, a face a few tokens tall; nothing says yet whether a face shows ([`state_signals.md`](state_signals.md), "Whether the face shows") |
@@ -124,7 +130,7 @@ owner's model store. **Reach** is the column the owner's constraint adds: a
 | height against the others, and who is nearer, in one camera | a relation, stable while both stand | no (an order on one public frame, no record: `state_signals.md`, "Who is in front of whom") | a pose pass on each of them | sitting, bending; a box that is the whole frame; two people at nearly one distance |
 | colour of hair and of clothing under the part classes | scene-bound | no. Lightness alone ranked one subject first among a crowd on every look of one stretch ([`../../bench/results/2026-10-07_subject_likeness_in_a_group.md`](../../bench/results/2026-10-07_subject_likeness_in_a_group.md)), which is a reason to try it and not a result about it | the part model on every person of a look, then arithmetic | coloured light; a change of outfit; a uniform; a hat over the hair; a subject who does not differ from the people around in lightness (the same record's untried case) |
 | the count: fewer people than names, so somebody is away | a constraint, not a clue about a person | yes: it decided the load's last shot | none | a bystander; a duplicate detection; a thing taken for a person; a person the detector misses |
-| place between two looks of one shot (`subject_tracks.py::same_people`) | one shot | in use, to carry a name between looks | none | two people crossing; a newcomer where somebody stood |
+| place between two looks of one shot (`same_people` (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes")) | one shot | in use, to carry a name between looks | none | two people crossing; a newcomer where somebody stood |
 
 A voice is not on the list. Isolating one by a mask needs an environment of
 its own and is the prompt its authors call the weaker one
@@ -447,7 +453,7 @@ the one-scale run may make size stop mattering.
 
 **Two totals, because a sum of likenesses has no zero.**
 
-- *The built total* (`subject_tracks.py::hand_out`): the scores summed.
+- *The built total* (`hand_out` (removed 2026-10-10: `decisions.md`, "What the owner cut from the tools around the nodes")): the scores summed.
   Every likeness is positive, so handing a subject anybody adds to it and
   a subject is left with nobody only by the count. It says who is most
   like whom and nothing about whether anybody is. Here it says which
@@ -639,7 +645,7 @@ the tool marks as its own fault.
   under every subject's impostor level. One over it is the case this
   design does not solve: Part two, 1.
 - **More people than names.** Today this always asks
-  (`subject_tracks.py::sure`). Here the known bystanders are matched first
+  (`sure` (removed 2026-10-10)). Here the known bystanders are matched first
   and only people still unmatched, over a subject's impostor level, force
   an ask.
 - **Identical clothes.** The cast's audit compares every subject's looks
@@ -1059,7 +1065,7 @@ a constant with its provenance beside it, and leaves this table.
 
 | name | for | starting value | what the clip sets it from |
 |---|---|---|---|
-| the lead's floor (today `subject_tracks.py::TOGETHER_LEAD`, `None`) | the lead a take needs | none: from the clip | above the widest lead a simulated wrong answer reaches on the clip's typed shots |
+| the lead's floor (today `TOGETHER_LEAD` (removed 2026-10-10), `None`) | the lead a take needs | none: from the clip | above the widest lead a simulated wrong answer reaches on the clip's typed shots |
 | the impostor level | where zero is in the evidence total | none: from the clip | per subject and scene, the highest score a look known not to be them reaches |
 | `ASK_SUGGEST_LEAD` | the lead under which a tile suggests nobody | none: from the clip | the clip's own floor for the lead |
 | `SIGN_CELLS_LEAST` | the feature cells under which a signature is not scored | none: from the clip | the size under which a typed look's lead over the other subjects is inside the spread of one person's own looks; the one-scale run gives its first reading |
@@ -1308,7 +1314,7 @@ the answer.
 
 **Mitigation.** Duplicates are joined before anybody is numbered
 (7103e264). A person on few of a shot's looks is left out and the row
-asks (`subject_tracks.py::sure`). No take on the count while such a
+asks (`sure` (removed 2026-10-10)). No take on the count while such a
 detection is on the shot. Decisions read tables the preview wrote on the
 card, never a second run somewhere else.
 
