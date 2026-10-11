@@ -49,6 +49,42 @@ about half land off the face on every frame, on a hand or the table, and
 five of them carry the same low score on every one of the eight frames.
 The eighteen iris points (272 to 289) are on the eyes.
 
+*Added the same hour: a second session looked at the same eight pictures
+and the saved points before opening this record, and found more than the
+paragraph above says. Where the two differ, its reading is the more
+careful one.*
+
+- *The lip points do NOT sit on the lips on a small, soft face. On the
+  four source frames of the second subject the group lies several canvas
+  pixels above the part model's lip pixels (most on frames 30 and 148,
+  where her head is turned or tilted), on lips little more than a dozen
+  pixels tall, and only a small share of the lip points land on a lip
+  pixel. By eye on 30 and 148 the upper points are on the skin between
+  nose and lip. So "the lip points ring the mouth on all eight" was too
+  strong: it holds on the two close-up frames and looks right on the
+  renders, where there was no second reading to test it against. A mouth
+  mask should not be cut from these points on her. The gap between the
+  lips is another matter and still separates open from shut.*
+- *The iris points keep a high score on a shut or lowered eye. The score
+  does not know the eye is shut, so it cannot be used to say an iris is
+  seen.*
+- *The brows cannot be judged on the second subject: her fringe and its
+  shadow cover them. On the close-up with the head tilted, the lid and
+  brow points of one eye lie on the same dark stroke and it could not
+  tell which it is. On the renders the brow points sit a little under
+  the brows.*
+- *The pupil points: it reached the same verdict by its own test (the
+  centres carry the same two scores on every picture, wide eye or shut).*
+- *Its own numbers, made another way (each over the face's height, not
+  the mouth's or the eye's width, which is a poor ruler on a turned
+  head), order the mouths and the eyes as its eye did, with one pair of
+  near-equal eyes swapped. Among the six shut mouths the spread is a
+  pixel or less: that is the floor of the measure, and a shut mouth never
+  reads as nothing. It found the same thing on the render: the eyes about
+  twice as open as the source's on both frames.*
+- *What it would add before trusting the eye number: a blink and a
+  half-open mouth, where the answer is at neither end.*
+
 ## Two numbers against the eye
 
 `lip gap`: the two centre points of the inner lips apart, over the width of
