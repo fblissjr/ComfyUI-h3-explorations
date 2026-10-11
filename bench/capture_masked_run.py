@@ -1676,12 +1676,11 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
             at = who.get("first_source_frame") or 0
             row = next((r for r in who.get("rows", []) if r["frames"][0] + at <= a <= r["frames"][1] + at), None)
             one["who_is_who"] = None if row is None else {
-                "status": row["status"], "suggests": bool(row.get("suggests")), "why": row.get("why"), "note": row.get("note"),
-                # an agreement read on one look is weaker than one read on five: the count goes with the status
-                "looks_used": row.get("looks_used"),
-                "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "answered_by", "ask", "correction", "typed_in_this_table")}
+                "status": row["status"], "why": row.get("why"), "note": row.get("note"),
+                "trackers": {label: {k: t.get(k) for k in ("called", "called_person", "answered_by", "ask", "numbers_on_its_tile",
+                                                           "typed_in_this_table", "tile_frame")}
                              for label, t in row.get("trackers", {}).items()},
-                "people_seen": row.get("people_seen"), "frames_are_source_frames": who.get("first_source_frame") is not None}
+                "frames_are_source_frames": who.get("first_source_frame") is not None}
             if row is None:
                 one["who_is_who_why"] = "the corrections file has no row over this shot's first frame"
         shots.append(one)
@@ -1777,8 +1776,7 @@ def by_shot(record: dict, flags: dict) -> list[dict]:
         here = [f for f in blocking if any(x[0] <= b and x[1] >= a for x in f["source_frames"])]
         one = {"shot": shot["shot"], "source_frames": [a, b], "subjects": {},
                "every_subject": sorted({f["rule"] for f in here if f.get("subject") is None}),
-               "who_is_who": None if shot.get("who_is_who") is None else shot["who_is_who"]["status"],
-               "who_is_who_looks": None if shot.get("who_is_who") is None else shot["who_is_who"].get("looks_used")}
+               "who_is_who": None if shot.get("who_is_who") is None else shot["who_is_who"]["status"]}
         for label, e in shot["subjects"].items():
             share = e.get("share_of_the_frame")
             one["subjects"][label] = {"blocked_by": sorted({f["rule"] for f in here if f.get("subject") == label}),
@@ -1856,8 +1854,7 @@ def shots(a: argparse.Namespace) -> None:
           "`clear` says no rule blocks, not that a take is right: read the state, likeness and size beside it")
     for row in rows:
         print(f"shot {row['shot']}, source frames {row['source_frames'][0]}-{row['source_frames'][1]}"
-              + (f"; who-is-who {row['who_is_who']}" + ("" if row.get("who_is_who_looks") is None else f" on {row['who_is_who_looks']} look(s)")
-                 if row["who_is_who"] else "")
+              + (f"; who-is-who {row['who_is_who']}" if row["who_is_who"] else "")
               + (f"; BLOCKED for every subject: {', '.join(row['every_subject'])}" if row["every_subject"] else ""))
         for label, c in row["subjects"].items():
             said = (c["state"] or "no shot table") + (", typed" if c["typed"] else "" if c["likeness"] is None else f" {c['likeness']:.2f}") \
@@ -2692,40 +2689,39 @@ def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
     return out
 
 
-def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
-    """A shot on which the trackers' calls and the who-is-who sum do not agree, until a person has answered it.
+#: A who-is-who row that needs nobody: `answered` as the tool writes it now, `agrees` as a file made before 2026-10-11 does.
+WHO_SETTLED = ("answered", "agrees")
 
-    `corrections` is what `bench/who_is_who_across_shots.py corrections` writes: it decides each shot for every
-    tracker's subject together. A row whose `status` is not `agrees` is at the top level. The message carries what
-    a person is to be shown: each tracker's `ask` (the question, with that tracker's own numbered people) where
-    there is one, else its `correction` (the text to type), else the row's `why`. It never carries `would_type`:
-    the file keeps that for tools and says not to show it as a suggestion. Once the answer is typed and the
-    preview run again the row agrees, and the flag is gone by itself. Rows outside the capture's span are left
-    out when the file says which source frame its load starts on; when it does not, every row is judged and
-    the flag's frames are the load's own."""
+
+def flag_who(corrections: dict, first: int, frames: int) -> list[dict]:
+    """A shot the who-is-who file asks a person about (a tracker's call that is nobody's word, or two trackers on one
+    person), until it is answered.
+
+    `corrections` is what `bench/who_is_who_across_shots.py corrections` writes: one row a shot of what each
+    tracker called and whose word that is. A row whose `status` is `ask` is at the top level, one flag a shot, so
+    a person answers by looking at one tile. The message is each tracker's own `ask` (the question, in that
+    tracker's tile's numbers) where there is one, else the row's `why`, with the row's `note` beside it. A
+    tracker that has its subject on no shot (`not_picked`) is said first. Once the answers are typed and the
+    preview run again the row is `answered`, and the flag is gone by itself. A file written before the tool
+    was cut to this (statuses `agrees`, `differs`, `unresolved`) is read the same way: only `agrees` is settled.
+    Rows outside the capture's span are left out when the file says which source frame its load starts on;
+    when it does not, every row is judged and the flag's frames are the load's own."""
     out, start = [], corrections.get("first_source_frame")
-    # a tracker that picked nobody is the cause of every unresolved row under it: said first, once per flag
     unpicked = "; ".join(f"{label} picked nobody ({why})" for label, why in (corrections.get("not_picked") or {}).items())
     for row in corrections.get("rows", []):
-        if row.get("status") == "agrees":
+        if row.get("status") in WHO_SETTLED:
             continue
         a, b = (row["frames"][0] + (start or 0), row["frames"][1] + (start or 0))
         if start is not None and (b < first or a > first + frames - 1):
             continue
-        said = []
-        for label, t in row.get("trackers", {}).items():
-            text = t.get("ask") or t.get("correction")
-            if text:
-                said.append(text if t.get("ask") else f"{label}: type `{text}`")
+        said = [t["ask"] for t in row.get("trackers", {}).values() if t.get("ask")]
         out.append({"rule": "who_is_who_unanswered", "level": LEVELS[2], "subject": None, "source_frames": [[a, b]],
                     "why": (f"FIRST: {unpicked}. " if unpicked else "")
-                           + f"shot {row['shot']}: the trackers' calls and the sum over every subject {row['status']}. "
-                           + ("; ".join(said) if said else row.get("why", "no reason given"))
+                           + f"shot {row['shot']}: a person is asked ({row['status']}). "
+                           + ("; ".join(said) if said else row.get("why") or "no reason given")
                            + (f" [{row['note']}]" if row.get("note") else "")
                            + ("" if start is not None else " (frames are the load's own: the file does not say where the load starts)"),
-                    "figures": {"shot": row["shot"], "status": row["status"], "suggests": bool(row.get("suggests")),
-                                "looks_used": row.get("looks_used"),
-                                "lead": row.get("lead"), "frames_are_source_frames": start is not None}})
+                    "figures": {"shot": row["shot"], "status": row["status"], "frames_are_source_frames": start is not None}})
     return out
 
 

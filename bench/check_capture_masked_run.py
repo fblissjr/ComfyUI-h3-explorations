@@ -1104,29 +1104,36 @@ def face_sizes() -> str:
 
 
 def who_is_who() -> str:
-    """A shot the who-is-who sum and the trackers disagree on blocks, and says what a person is to be shown."""
-    def tracker(ask="", correction="", would="") -> dict:
-        return {"called": "absent", "called_person": None, "ask": ask, "correction": correction, "would_type": would}
+    """A shot on which some tracker's call is nobody's word blocks, one flag a shot, and shows the question to ask."""
+    def cell(ask="", word="") -> dict:
+        return {"called": "taken", "called_person": 1, "answered_by": word, "ask": ask, "numbers_on_its_tile": [1, 2], "tile_frame": 406}
 
-    file = {"first_source_frame": 600, "rows": [
-        {"shot": 1, "frames": [0, 405], "status": "agrees", "trackers": {"lead": tracker(), "second": tracker()}},
-        {"shot": 2, "frames": [406, 434], "status": "differs", "suggests": False, "lead": 0.01, "why": "the sum says otherwise",
-         "trackers": {"lead": tracker(ask="shot 2, lead's tile (frame 406): which numbered person is lead? 1, 2, or none", would="shot 2: person 1"),
-                      "second": tracker()}},
-        {"shot": 3, "frames": [435, 446], "status": "differs", "suggests": True,
-         "trackers": {"lead": tracker(), "second": tracker(correction="shot 3: person 1", would="shot 3: person 1")}},
-        {"shot": 4, "frames": [447, 500], "status": "unresolved", "why": "no signature on any look", "trackers": {"lead": tracker(), "second": tracker()}}]}
+    q = "shot 2, lead's tile (frame 406): which numbered person is lead? 1, 2, or none"
+    file = {"first_source_frame": 600, "not_picked": {}, "rows": [
+        {"shot": 1, "frames": [0, 405], "status": "answered", "why": "", "note": "a person's word: lead (picked), second (picked)",
+         "trackers": {"lead": cell(word="picked"), "second": cell(word="picked")}},
+        {"shot": 2, "frames": [406, 434], "status": "ask", "why": "nobody has said who lead, second are in this shot", "note": "",
+         "trackers": {"lead": cell(ask=q), "second": cell(ask=q.replace("lead", "second"))}},
+        {"shot": 3, "frames": [435, 446], "status": "ask", "why": "lead and second have one person on one frame: two trackers on one person",
+         "note": "", "trackers": {"lead": cell(word="picked"), "second": cell(word="corrected by hand")}},
+        {"shot": 4, "frames": [447, 500], "status": "answered", "why": "", "note": "every detection in this shot has no head: things, not people",
+         "trackers": {"lead": cell(), "second": cell()}}]}
     flags = cap.flag_who(file, 1000, 50)             # the capture holds source frames 1000 to 1049: shots 2 and 3, and the start of 4
-    assert [(f["rule"], f["level"], f["source_frames"]) for f in flags] == [
-        ("who_is_who_unanswered", cap.LEVELS[2], [[1006, 1034]]), ("who_is_who_unanswered", cap.LEVELS[2], [[1035, 1046]]),
-        ("who_is_who_unanswered", cap.LEVELS[2], [[1047, 1100]])], flags
-    assert "which numbered person is lead" in flags[0]["why"] and "shot 2: person 1" not in flags[0]["why"], \
-        "a row that suggests nobody showed the tool's own guess as a suggestion"
-    assert "second: type `shot 3: person 1`" in flags[1]["why"] and "no signature on any look" in flags[2]["why"], (flags[1]["why"], flags[2]["why"])
-    cause = cap.flag_who({**file, "not_picked": {"second": "hidden by another tracker's take"},
-                          "rows": [{**file["rows"][3], "note": "3 look(s) not read", "looks_used": 1}]}, 1000, 50)
-    assert cause[0]["why"].startswith("FIRST: second picked nobody (hidden by another tracker's take)") and "[3 look(s) not read]" in cause[0]["why"] \
-        and cause[0]["figures"]["looks_used"] == 1, cause[0]
+    assert [(f["rule"], f["level"], f["source_frames"], f["subject"]) for f in flags] == [
+        ("who_is_who_unanswered", cap.LEVELS[2], [[1006, 1034]], None), ("who_is_who_unanswered", cap.LEVELS[2], [[1035, 1046]], None)], flags
+    assert q in flags[0]["why"] and q.replace("lead", "second") in flags[0]["why"], "one flag a shot did not carry every tracker's question"
+    assert "two trackers on one person" in flags[1]["why"], "a row with no question did not show its reason"
+    assert set(flags[0]["figures"]) == {"shot", "status", "frames_are_source_frames"}, flags[0]["figures"]
+    # a file written before the tool was cut: only `agrees` is settled, and a row with no question shows its why
+    older = {"first_source_frame": 600, "rows": [
+        {"shot": 1, "frames": [406, 434], "status": "agrees", "trackers": {"lead": {"ask": ""}}},
+        {"shot": 2, "frames": [435, 440], "status": "differs", "why": "the sum says otherwise", "trackers": {"lead": {"ask": q, "would_type": "shot 2: person 1"}}},
+        {"shot": 3, "frames": [441, 446], "status": "unresolved", "why": "no look to compare on", "note": "3 look(s) not read", "trackers": {"lead": {"ask": ""}}}]}
+    old = cap.flag_who(older, 1000, 50)
+    assert [f["source_frames"] for f in old] == [[[1035, 1040]], [[1041, 1046]]] and q in old[0]["why"] and "shot 2: person 1" not in old[0]["why"], old
+    assert "no look to compare on" in old[1]["why"] and "[3 look(s) not read]" in old[1]["why"], old[1]["why"]
+    cause = cap.flag_who({**file, "not_picked": {"second": "second's tracker has its subject on no shot of this load"}}, 1000, 50)
+    assert cause[0]["why"].startswith("FIRST: second picked nobody (second's tracker has its subject on no shot of this load)"), cause[0]["why"]
     # several tracked subjects and no file at all is said, and blocks; one tracked subject has nothing to decide jointly
     def tracked(*labels, tables=True) -> dict:
         return {"first_frame": 1000, "frames": 50, "subjects": [{"label": x, "sightings": [{"by": "p", "shots": "t.json" if tables else None}]} for x in labels]}
@@ -1134,13 +1141,13 @@ def who_is_who() -> str:
     assert [(f["rule"], f["level"], f["source_frames"], f["subject"]) for f in unrun] == [("who_is_who_not_run", cap.LEVELS[2], [[1000, 1049]], None)], unrun
     assert cap.flag_who_not_run(tracked("lead")) == [] and cap.flag_who_not_run(tracked("lead", "second", tables=False)) == [], \
         "one tracked subject, or masks with no shot table, was asked for a joint decision"
-    answered = {**file, "rows": [{**r, "status": "agrees"} for r in file["rows"]]}
-    assert cap.flag_who(answered, 1000, 50) == [], "rows that agree were flagged"
+    answered = {**file, "rows": [{**r, "status": "answered"} for r in file["rows"]]}
+    assert cap.flag_who(answered, 1000, 50) == [], "rows that are answered were flagged"
     assert cap.flag_who(file, 100, 50) == [], "rows outside the capture's span were flagged"
     unplaced = cap.flag_who({**file, "first_source_frame": None}, 1000, 50)
-    assert len(unplaced) == 3 and unplaced[0]["source_frames"] == [[406, 434]] and not unplaced[0]["figures"]["frames_are_source_frames"], unplaced[0]
-    return ("a differing or unresolved shot blocks with the question to ask, never the tool's own guess; a typed correction is "
-            "shown when the file suggests one; rows that agree or lie outside the span are not flagged")
+    assert len(unplaced) == 2 and unplaced[0]["source_frames"] == [[406, 434]] and not unplaced[0]["figures"]["frames_are_source_frames"], unplaced[0]
+    return ("a shot with a call that is nobody's word blocks, one flag a shot, with every tracker's question or the row's reason; an "
+            "answered row and one outside the span are not flagged; a file from before the cut is read by the same rule")
 
 
 def gate_by_shot() -> str:
@@ -1151,7 +1158,7 @@ def gate_by_shot() -> str:
 
     crossing = {"frames_on_another_or_contested": 2, "source_frames_on_another_or_contested": [[108, 109]], "most_px_on_one_frame": 40, "shares": {}}
     record = {"shots": [
-        {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "agrees", "looks_used": 1},
+        {"shot": 1, "source_frames": [100, 109], "who_is_who": {"status": "answered"},
          "subjects": {"a": subject("taken", 0.86, 0.48, 10, crossing), "b": subject("absent", None, None, 0)}},
         {"shot": 2, "source_frames": [110, 119], "who_is_who": None,
          "subjects": {"a": subject("absent", 0.7, None, 0), "b": subject("taken", 0.9, 0.2, 10, typed=True)}}]}
@@ -1163,7 +1170,7 @@ def gate_by_shot() -> str:
     one, two = cap.by_shot(record, flags)
     assert one["subjects"]["a"]["blocked_by"] == [] and one["subjects"]["a"]["likeness"] == 0.86 and one["subjects"]["a"]["share_of_the_frame"] == 0.48, one
     assert one["subjects"]["a"]["part_on_another_or_contested"]["source_frames_on_another_or_contested"] == [[108, 109]], one
-    assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "agrees" and one["who_is_who_looks"] == 1, one
+    assert one["subjects"]["b"]["blocked_by"] == ["subject_never_found"] and one["every_subject"] == [] and one["who_is_who"] == "answered", one
     assert two["subjects"]["a"]["blocked_by"] == ["absent_with_people_on_screen"] and two["subjects"]["b"]["blocked_by"] == [], two
     assert two["every_subject"] == ["who_is_who_unanswered"] and two["who_is_who"] is None, two
     assert two["subjects"]["b"]["typed"] and not one["subjects"]["a"]["typed"], "a typed state was not told from the tracker's own"
@@ -1253,7 +1260,7 @@ case("a run's region from the files its windows saved", saved_regions)
 case("a pass read from the node's own plan", planned_regions)
 case("preflight: the original shown in a held tail", held_tails)
 case("preflight: a face only a few tokens tall", face_sizes)
-case("preflight: a shot the who-is-who sum has not settled", who_is_who)
+case("preflight: a shot where a tracker's call is nobody's word", who_is_who)
 case("shots: the gate's answer per shot and subject", gate_by_shot)
 case("looked: one line by somebody who did not make the capture", a_look)
 case("preflight: a load that lays nothing where its subject is", a_load_that_lays_nothing)
