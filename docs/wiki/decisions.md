@@ -399,6 +399,19 @@ that session's record disagree, its record is the nearer one.*
     upstream's files where that checkout is present, and the point names
     to the checkpoint's own left and right pairs. Decided by the owner
     on being shown the options; not built when this was written.
+  - **A layered view of the preprocessing is built as shared library
+    code**, and what it adds goes into an existing smaller tool or node
+    where it fits, with no code duplicated across them. Asked after four
+    sessions had differed on whether it should be a mode of the capture
+    tool or a tool of its own, and had each ended at the same condition:
+    one reader of a source and one set of drawing code, in one place.
+    What follows from it: the capture tool's drawing helpers move into
+    `bench/_lib` first, as a change of their own with a check and a
+    sweep on a started server; a view reads a capture folder and not
+    raw mask paths; it is the look recorded before a plan or says it is
+    extra; one palette and one legend. Not yet: the owner has not
+    answered on the one layered clip that exists, and it is sized
+    together with the capture tool's purpose above.
   What prompted it, the same night: the bench tools' own fit of a source
   to the canvas was found to differ from the loader's by about half a
   row on this video, and nothing recorded how the source came in. The
