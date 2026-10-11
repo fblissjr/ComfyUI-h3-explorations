@@ -97,7 +97,9 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   recorded with who looked. A passing check says no rule failed, never that
   the data is right. What eyes found that no code checks is written down
   as a gap in the code, and what the code found that eyes missed as a gap
-  in the look. (Owner, 2026-10-10.)
+  in the look. A capture records who made it and when, and who verified
+  it and when; one that cannot say both is not verified. (Owner,
+  2026-10-10.)
 - **A rendered clip cannot A/B a numerical change.** The trajectory diverges
   at frame zero under any sampler. Grade on captured activations
   (`bench/grade_sage_on_capture.py`).
@@ -146,6 +148,14 @@ Rules with no other home. The tenet behind each is in `VISION.md`.
   stored mask and is trusted as little: know which text a load is getting,
   read it against that load's frames before it is used, and check after
   the render that it did what was expected. (Owner, 2026-10-10.)
+- **A graph posted by hand is a temporary plan, and its text is assumed
+  wrong until its poster has read the whole of it.** Going round the job
+  builder skips every refusal the builder has. Whoever does it reads the
+  full text the model will get against the load's frames first, and writes
+  the plan down beside the job before posting: which built graph it came
+  from, the one thing changed, by whom, and what the render is meant to
+  decide. A hand-posted render with no such record is not evidence for
+  anything. (Owner, 2026-10-10.)
 - **When a render is wrong, read three things before anything is
   suspected or queued: its text, its mask, and how four timelines line
   up: the input video's frames, the mask's frames, the sampler's frames
