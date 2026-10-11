@@ -362,7 +362,10 @@ runs them in is the masking board's `guide-order-of-operations-masked-job`.
 - **The original's own pixels, degraded (the owner's idea, 2026-10-10):**
   the subject cut out of the source carries facing, hair and hands that a
   grey mesh does not, and brings the original's look with it. A blur and a
-  grey option on the motion reference are being built (mrnemo); the arms
+  grey option on the motion reference were built that day and REMOVED the
+  same evening, never rendered (2026-10-10; `decisions.md`, "What the owner
+  cut from the masked lane's nodes"): the idea stands untested and nothing
+  in the nodes carries it. The arms
   are ranked in mrwolf's notes (later the same day: the ranking is in
   this page, in the line after this one). Noise at the model cannot serve: core has
   one level for every visual reference, the still included
@@ -518,5 +521,5 @@ model that is not in the owner's model store.
 | the columns in the capture (facing, face showing, head lift, hand at the face, front and behind) | mrdeer |
 | the pose table, the marked mesh, depth in the table | mrfrog |
 | the rule from a column to a mark or a sentence, and the test renders | mrwolf |
-| the blur and the grey option on a motion reference | mrnemo |
+| the blur and the grey option on a motion reference (built and removed 2026-10-10, never rendered) | nobody |
 | the job builder that reads the columns | mrpop |

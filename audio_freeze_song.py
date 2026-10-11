@@ -660,17 +660,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             comfy.model_management.throw_exception_if_processing_interrupted()
             lap.clear()
             refs_w = references
-            if motion in video_mask.WIRED:
-                # a video the user wired beside the source: this window's own frames of it, whole or, zoomed
-                # in, laid out in the window's subject boxes (`video_mask.wired_motion`)
+            if motion == video_mask.MOTION_WIRED:
+                # a video the user wired beside the source: this window's own frames of it (`video_mask.wired_motion`)
                 ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
-                if motion == video_mask.MOTION_WIRED_ZOOM:
-                    reports.append(f"[{w.number}] motion reference zoomed in: " + video_mask.zoom_note(
-                        video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height),
-                        height, width, int(source["motion_short_edge"])))
-                looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
-                if looked:
-                    reports.append(f"[{w.number}] motion reference {looked}")
                 refs_w = tuple(references or ()) + (RuntimeVideoReference(
                     frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
                     use_vae=bool(source.get("motion_vae", False))),)
@@ -679,22 +671,16 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             elif motion != video_mask.MOTION_NONE:
                 pixels, mask, _held = video_mask.window_frames(
                     source, int(round(w.start * FPS)), w.frames, width, height)
-                # zoomed in, the window's own box per shot, around the tracked subject (`video_mask.window_boxes`)
-                # also for a blur given as a share of the box, which any choice may carry (`look_boxes`)
+                # zoomed in, the window's own box per shot (`video_mask.window_boxes`)
                 boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
-                         if motion == video_mask.MOTION_ZOOM
-                         else video_mask.look_boxes(source, int(round(w.start * FPS)), w.frames, width, height))
+                         if motion == video_mask.MOTION_ZOOM else None)
                 # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
                 # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
                 ref_frames = video_mask.motion_reference(
-                    pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source),
-                    boxes, **video_mask.motion_look(source))
+                    pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source), boxes)
                 if motion == video_mask.MOTION_ZOOM:
                     reports.append(f"[{w.number}] motion reference zoomed in: "
                                    + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
-                looked = video_mask.window_look_note(source, int(round(w.start * FPS)), w.frames, width, height)
-                if looked:
-                    reports.append(f"[{w.number}] motion reference {looked}")
                 del pixels, mask, boxes
                 refs_w = tuple(references or ()) + (RuntimeVideoReference(
                     frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,

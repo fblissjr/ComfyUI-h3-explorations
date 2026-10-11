@@ -346,15 +346,10 @@ MOTION_ZOOM = "subject only, zoomed in"
 #: way drew an action the same text did not draw from the subject-on-grey reference. Appended, so the choices
 #: before it keep their place.
 MOTION_WIRED = "a video I wire"
-#: The wired video shown in the subject's box of each shot and not in the whole frame, by the layout
-#: `subject only, zoomed in` uses (`zoom_plan`): the same rows, spent on the subject. Nothing is greyed: a
-#: wired video is already only the movement. Lead, 2026-10-10: a body mesh at the frame's size gives a head a
-#: handful of the model's tokens. Reasoned and untested when written. Appended, so the choices keep their place.
-MOTION_WIRED_ZOOM = "a video I wire, zoomed in"
-MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED, MOTION_WIRED_ZOOM)
-#: The choices that show the video on `motion_video`, and those that show a reference in the subject's boxes.
-WIRED = (MOTION_WIRED, MOTION_WIRED_ZOOM)
-ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
+#: Removed on 2026-10-10 with their code (`docs/wiki/decisions.md`): a sixth choice, `a video I wire, zoomed in`
+#: (one render, no difference), and three inputs for the reference's look, a blur by a share of the box, a blur
+#: in pixels and grey (reasoned, never rendered). A saved graph that names the sixth choice is refused by name.
+MOTIONS = (MOTION_NONE, MOTION_SUBJECT, MOTION_ZOOM, MOTION_FRAME, MOTION_WIRED)
 #: THE HELD TAIL (`held_mask`). A window given past its source's last frame holds that frame WITH ITS MASK, so
 #: the region stays open and the model draws the new subject standing still there. Until 2026-10-10 the held
 #: frames had an empty mask (a plate: the source's last frame with the ORIGINAL subject in it, shown clean
@@ -365,13 +360,6 @@ ZOOMED = (MOTION_ZOOM, MOTION_WIRED_ZOOM)
 #: and the input were removed the same day (`docs/wiki/decisions.md`). A held frame past the TRACK's end is
 #: not written; one inside the track (a track longer than the source, usually audio that was not cut to the
 #: load) is written, and the song node's report says how many.
-#: What a zoomed reference's box, and a blur given as a share, are taken around (`motion_box`, 2026-10-10).
-#: `the tracked subject` is the whole person the tracker follows, whatever part of them is replaced: the box
-#: since 2026-10-06. `what is replaced` is the mask's own box, which on a parts graph is the part: a face
-#: pass zoomed on the tracked subject shows a face small in a box the size of a person.
-BOX_SUBJECT = "the tracked subject"
-BOX_REPLACED = "what is replaced"
-BOXES = (BOX_SUBJECT, BOX_REPLACED)
 #: Where the region is rendered (`render_region`, 2026-10-10). `the whole frame` is the render as it has been:
 #: the source fitted to the canvas. The two zoomed choices crop the load to ONE box round the tracked subject
 #: or round what is replaced, scale that box to the canvas, run the whole render on it as if it were the clip,
@@ -409,27 +397,6 @@ NOT_CONTINUED = "not continued"
 #: A zoom's `set_by` when the box is the stored window's own (`zoomed_source`), beside "the box" and "largest_zoom".
 CONTINUED_BOX = "the run it continues"
 NO_REGION_FILE = "no region file"
-#: A motion reference's look, off by default (`motion_blur_share`, `motion_blur_pixels`, `motion_grey`,
-#: 2026-10-10). A reference cut from the source shows the model the original's look with its movement, and the
-#: look has come back on record. A blur takes fine features away and leaves where things are; grey takes the
-#: colour of hair and clothing away. Both act on the reference's frames alone, after it is cropped and
-#: scaled, in its own pixels, before either reader sees it. Reasoned (the lead's and a peer's arithmetic on
-#: one case), untested on a render when written. The two shares proposed for a first arm on a face, by
-#: arithmetic and not by a render (a peer's, in `docs/wiki/state_signals.md`): a sixteenth of the box's width
-#: to take fine features down and leave an open mouth, an eighth as the control that takes the mouth too.
-MOTION_BLUR_SHARE = 0.0
-MOTION_BLUR_PIXELS = 0
-#: Luma weights for the grey. Inherited: BT.709, the matrix this lane's files are written in.
-LUMA = (0.2126, 0.7152, 0.0722)
-#: How many sigmas the blur's kernel reaches each way. Reasoned: a Gaussian's tail past three is under a level.
-BLUR_REACH = 3.0
-#: The widest blur made at the picture's own size, in pixels; a wider one is made on a picture averaged down
-#: by a whole factor so that its sigma there is at least this (`blur_frames`). Reasoned: at four pixels the
-#: reduction's own softening is a small part of the blur asked for. `bench/check_video_mask.py` holds the two
-#: ways to the same picture within a level on a wide blur, away from the border. Measured 2026-10-10, on
-#: three host threads beside a render: a 141-frame window of 1024x768 frames at a sigma of 44 px took 2.3 s
-#: this way; a direct blur at a sigma of 3 px takes about 6 s for the same window.
-BLUR_DIRECT = 4.0
 #: Room left around the subject's box on each side, in canvas pixels, before
 #: it is taken out to the canvas multiple. Reasoned: one of the encoder's
 #: merged tokens (patch 16 by merge 2), so a limb at the edge of the box is
@@ -1236,10 +1203,6 @@ def wired_motion(source: dict, first_frame: int, frames: int, width: int, height
     the wired video from frame k: the same slice `window_frames` takes of the source. It is fitted to the canvas
     as the source's frames are and then scaled to `motion_short_edge`, like every other motion reference; a
     source that runs out inside the last window repeats its last frame, as the source's own frames do.
-
-    Under `a video I wire, zoomed in` it is shown in the window's subject boxes (`window_boxes`, one a shot)
-    by `motion_reference`'s zoom layout, with nothing greyed: every pixel of the wired video inside a box is
-    kept. A source that carries no boxes is refused.
     """
     video = source.get("motion_frames")
     if video is None:
@@ -1253,45 +1216,8 @@ def wired_motion(source: dict, first_frame: int, frames: int, width: int, height
     short = frames - int(pixels.shape[0])
     if short > 0:
         pixels = torch.cat([pixels, pixels[-1:].expand(short, -1, -1, -1)], dim=0)
-    if source.get("motion_reference") == MOTION_WIRED_ZOOM:
-        boxes = window_boxes(source, first_frame, frames, width, height)
-        if boxes is None:
-            raise ValueError(f"motion_reference `{MOTION_WIRED_ZOOM}` needs the subject's box on each frame, and this "
-                             "source carries none: it was not made by a Masked Source that tracked a subject")
-        whole = torch.ones(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
-        return motion_reference(pixels, whole, MOTION_ZOOM, int(source["motion_short_edge"]), 0, boxes,
-                                wired_ground(pixels), **motion_look(source))
     blank = torch.zeros(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
-    # the boxes only for a blur given as a share of them; the whole-frame layout does not read them
-    return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge"]), 0,
-                            look_boxes(source, first_frame, frames, width, height), **motion_look(source))
-
-
-def motion_look(source: dict) -> dict:
-    """A source's look for its motion reference, as `motion_reference` takes it: the blur and the grey."""
-    return {"blur_share": float(source.get("motion_blur_share", MOTION_BLUR_SHARE)),
-            "blur_pixels": int(source.get("motion_blur_pixels", MOTION_BLUR_PIXELS)),
-            "grey": bool(source.get("motion_grey", False))}
-
-
-def look_boxes(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor | None:
-    """The window's boxes when its reference needs them and is not zoomed: for a blur given as a share. None
-    otherwise, so a reference that reads no box is handed none."""
-    if float(source.get("motion_blur_share", MOTION_BLUR_SHARE)) <= 0.0:
-        return None
-    return window_boxes(source, first_frame, frames, width, height)
-
-
-def window_look_note(source: dict, first_frame: int, frames: int, width: int, height: int) -> str:
-    """What a window's motion reference was blurred by and whether it is grey, for the song node's report; empty
-    when the look is off. The sigmas are the ones `motion_reference` used (`blur_sigmas`)."""
-    look = motion_look(source)
-    if look["blur_share"] <= 0.0 and look["blur_pixels"] <= 0 and not look["grey"]:
-        return ""
-    zoomed = source.get("motion_reference") in ZOOMED
-    boxes = window_boxes(source, first_frame, frames, width, height) if (zoomed or look["blur_share"] > 0.0) else None
-    return look_note(blur_sigmas(boxes, int(frames), int(height), int(width), int(source["motion_short_edge"]), zoomed,
-                                 look["blur_share"], look["blur_pixels"]), look["grey"], int(first_frame))
+    return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge"]), 0)
 
 
 def _tracked_boxes(mask: torch.Tensor) -> torch.Tensor:
@@ -1362,13 +1288,6 @@ def shot_boxes(boxes: torch.Tensor, ranges: list[tuple[int, int]], width: int, h
     return out
 
 
-def wired_ground(pixels: torch.Tensor) -> torch.Tensor:
-    """The colour a wired video stands on, [F, 3], one a frame: the lower median of the frame's four corner
-    pixels, so one corner the subject reaches does not move it."""
-    corners = torch.stack([pixels[:, 0, 0, :3], pixels[:, 0, -1, :3], pixels[:, -1, 0, :3], pixels[:, -1, -1, :3]], dim=1)
-    return corners.to(torch.float32).median(dim=1).values
-
-
 def window_boxes(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor | None:
     """`shot_boxes` for one window of a source, on the render canvas; None when the source carries no boxes.
 
@@ -1376,7 +1295,11 @@ def window_boxes(source: dict, first_frame: int, frames: int, width: int, height
     shot is framed for this window and not for the whole shot. Frames past the source's end, which
     `window_frames` fills with the last one and its mask, carry the last frame's box.
     """
-    rows = source.get("region_boxes") if source.get("motion_box", BOX_SUBJECT) == BOX_REPLACED else source.get("subject_boxes")
+    # whose box: a pass that replaces a part frames the part, a whole-subject pass the tracked person. A rule
+    # and not an input since 2026-10-10 (`motion_box` chose between the two for a day; no render showed a
+    # difference, and a face pass framed on the whole person shows a face small in a box the size of a person)
+    whole = source.get("replace", REPLACE_WHOLE) == REPLACE_WHOLE
+    rows = source.get("subject_boxes") if whole else source.get("region_boxes")
     if rows is None:
         return None
     first_frame, frames = int(first_frame), int(frames)
@@ -1460,112 +1383,8 @@ def zoom_note(boxes: torch.Tensor, h: int, w: int, short_edge: int) -> str:
             + f"; the picture is {out_w}x{out_h}")
 
 
-def blur_frames(frames: torch.Tensor, sigma: float) -> torch.Tensor:
-    """[n, h, w, 3] blurred by a Gaussian of `sigma` pixels, its edges replicated. A sigma of 0 returns the frames.
-
-    A wide blur is made small first: above `BLUR_DIRECT` the picture is averaged down by a whole factor, blurred
-    there by the same Gaussian in the smaller picture's pixels, and brought back by bilinear interpolation.
-    A blur that wide has already removed everything the reduction loses, and the cost stops growing with the
-    width (the direct kernel is `BLUR_REACH` sigmas each way, on every pixel of every frame). It runs where the
-    frames are, which in the song node is the host: the loader's frames and every motion reference are host
-    tensors (`audio_freeze_song.py`), so this is CPU time once per window, before sampling.
-    """
-    import math   # here, not at the top: the one use beside `zoom_plan`'s
-    sigma = float(sigma)
-    if sigma <= 0.0:
-        return frames
-    factor = max(1, int(sigma // BLUR_DIRECT)) if sigma > BLUR_DIRECT else 1
-    inner = sigma / factor
-    r = max(1, int(math.ceil(BLUR_REACH * inner)))
-    x = torch.arange(-r, r + 1, dtype=torch.float32, device=frames.device)
-    k = torch.exp(-(x * x) / (2.0 * inner * inner))
-    out = []
-    for i in range(0, int(frames.shape[0]), 16):
-        c = frames[i:i + 16, ..., :3].to(torch.float32).movedim(-1, 1)
-        n, ch, h, w = (int(v) for v in c.shape)
-        c = c.reshape(n * ch, 1, h, w)
-        if factor > 1:
-            # averaged over whole blocks, the last one padded with its own edge so no pixel is dropped
-            c = F.avg_pool2d(F.pad(c, (0, -w % factor, 0, -h % factor), mode="replicate"), factor)
-        # an edge cannot be replicated further than the picture is wide: the reach stops at the picture
-        rw, rh = min(r, int(c.shape[-1]) - 1), min(r, int(c.shape[-2]) - 1)
-        if rw > 0:
-            kw = k[r - rw:r + rw + 1]
-            c = F.conv2d(F.pad(c, (rw, rw, 0, 0), mode="replicate"), (kw / kw.sum()).view(1, 1, 1, -1))
-        if rh > 0:
-            kh = k[r - rh:r + rh + 1]
-            c = F.conv2d(F.pad(c, (0, 0, rh, rh), mode="replicate"), (kh / kh.sum()).view(1, 1, -1, 1))
-        if factor > 1:
-            c = F.interpolate(c, size=(h, w), mode="bilinear", align_corners=False)
-        out.append(c.reshape(n, ch, h, w).movedim(1, -1).clamp(0.0, 1.0))
-    return torch.cat(out, dim=0)
-
-
-def grey_frames(frames: torch.Tensor) -> torch.Tensor:
-    """[n, h, w, 3] with every channel the picture's luma: its shapes and its movement, none of its colour."""
-    y = (frames[..., :3].to(torch.float32) * torch.tensor(LUMA, dtype=torch.float32, device=frames.device)).sum(dim=-1, keepdim=True)
-    return y.expand(-1, -1, -1, 3).contiguous()
-
-
-def blur_sigmas(boxes: torch.Tensor | None, n: int, h: int, w: int, short_edge: int, zoomed: bool,
-                blur_share: float, blur_pixels: int) -> list[float]:
-    """The blur's sigma on each of a window's `n` frames, in the REFERENCE's own pixels.
-
-    `blur_pixels` is that sigma as it stands, on every frame. `blur_share` is a share of the width the
-    subject's box is SHOWN at on the frame's shot: in a zoomed picture the box's scaled width (`zoom_plan`),
-    in a whole-frame one the box's width at the reference's scale. So a share means the same thing at any
-    source size and any `short_edge`. A frame of a shot with no box has nothing to take a share of and is
-    not blurred. Both at once are refused, and a share with no boxes is refused: the caller asked for a
-    share of something this reference does not have.
-    """
-    share, px = float(blur_share), int(blur_pixels)
-    if share > 0.0 and px > 0:
-        raise ValueError("motion_blur_share and motion_blur_pixels are both set: a blur is one or the other")
-    if share <= 0.0:
-        return [float(px)] * int(n)
-    if boxes is None or int(boxes.shape[0]) != int(n):
-        raise ValueError("motion_blur_share is a share of the subject's box, and this reference has no box per "
-                         "frame: give the blur as motion_blur_pixels")
-    out = [0.0] * int(n)
-    plan = zoom_plan(boxes, h, w, short_edge) if zoomed else None
-    if plan is not None:
-        for first, stop, _box, _scale, (_sh, sw) in plan[2]:
-            out[first:stop] = [share * sw] * (stop - first)
-        return out
-    scale = _reference_size(h, w, short_edge)[1] / float(w)
-    for f in range(int(n)):
-        x0, _y0, x1, _y1 = (int(v) for v in boxes[f])
-        if x0 >= 0:
-            out[f] = share * (x1 - x0) * scale
-    return out
-
-
-def look_note(sigmas: list[float], grey: bool, first_frame: int = 0) -> str:
-    """One clause for a report: what `blur_sigmas` came to, by stretch of frames, and whether the reference is grey."""
-    parts, at = [], 0
-    for i in range(1, len(sigmas) + 1):
-        if i == len(sigmas) or abs(sigmas[i] - sigmas[at]) > 1e-9:
-            if sigmas[at] > 0.0:
-                parts.append(f"sigma {sigmas[at]:.1f} px on frames {first_frame + at}-{first_frame + i - 1}")
-            at = i
-    said = ("blurred, " + ", ".join(parts)) if parts else ""
-    return "; ".join(x for x in (said, "luma only, no colour" if grey else "") if x)
-
-
-def _look(frames: torch.Tensor, sigmas: list[float], grey: bool) -> torch.Tensor:
-    """A reference's frames with its blur (each stretch at its own sigma) and its grey applied."""
-    if any(v > 0.0 for v in sigmas):
-        frames, at = frames.clone(), 0
-        for i in range(1, len(sigmas) + 1):
-            if i == len(sigmas) or abs(sigmas[i] - sigmas[at]) > 1e-9:
-                frames[at:i] = blur_frames(frames[at:i], sigmas[at])
-                at = i
-    return grey_frames(frames) if grey else frames
-
-
 def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_edge: int, margin,
-                     boxes: torch.Tensor | None = None, ground: torch.Tensor | None = None,
-                     blur_share: float = MOTION_BLUR_SHARE, blur_pixels: int = MOTION_BLUR_PIXELS, grey: bool = False):
+                     boxes: torch.Tensor | None = None):
     """The window as the model is shown it as a video reference, [F, h, w, 3], or None for `none`.
 
     `subject only` keeps the pixels under the mask widened by `margin` (one
@@ -1577,18 +1396,10 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
     compiler never enlarges a video, so this is what sets its cost.
 
     `subject only, zoomed in` is `subject only` shown in `boxes` (`window_boxes`:
-    one fixed box per shot, around the tracked subject) and not in the whole
+    one fixed box per shot, around the tracked subject or the replaced part) and not in the whole
     frame. `zoom_plan` lays it out and states the rule: never more pixels than
     `subject only` at this `short_edge`, never a smaller subject, the same
     picture when the box is the frame, never enlarged past the canvas.
-
-    `ground` ([F, 3], one colour a frame) is what the zoomed picture is filled with around a box and on a
-    frame with none, in place of the lane's mid grey: a wired video's own ground (`wired_ground`), so a body
-    mesh on black stays on black and a frame with nobody in it reads as nobody, not as another picture.
-
-    `blur_share`, `blur_pixels` and `grey` are the reference's look (`blur_sigmas`, `grey_frames`): applied
-    last, to the picture as it will be shown, so the grey around a subject and a zoomed picture's ground are
-    blurred with it. All three off return the frames this function returned before they existed.
     """
     if mode == MOTION_NONE:
         return None
@@ -1602,13 +1413,12 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
         if boxes is None or int(boxes.shape[0]) != n:
             raise ValueError(
                 f"motion_reference `{MOTION_ZOOM}` needs the subject's box on each of the window's {n} frames "
-                "(`window_boxes`); the source record carries them as `subject_boxes`")
+                "(`window_boxes`); the source record carries them as `subject_boxes`, and as `region_boxes` for a "
+                "pass that replaces a part")
         plan = zoom_plan(boxes, h, w, short_edge)
     if plan is not None:
         out_h, out_w, runs = plan
         shown = torch.full((n, out_h, out_w, 3), 0.5, dtype=torch.float32, device=pixels.device)
-        if ground is not None:
-            shown = ground.to(shown).view(n, 1, 1, 3).expand(n, out_h, out_w, 3).clone()
         for first, stop, (x0, y0, x1, y1), _scale, (sh, sw) in runs:
             top, left = (out_h - sh) // 2, (out_w - sw) // 2
             for i in range(first, stop, CHUNK):
@@ -1620,7 +1430,7 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
                     chunk = F.interpolate(chunk.movedim(-1, 1), size=(sh, sw), mode="bilinear",
                                           align_corners=False, antialias=True).movedim(1, -1)
                 shown[i:j, top:top + sh, left:left + sw] = chunk.clamp(0.0, 1.0)
-        return _look(shown, blur_sigmas(boxes, n, h, w, short_edge, True, blur_share, blur_pixels), grey)
+        return shown
     out = []
     for i in range(0, n, CHUNK):
         chunk = pixels[i:i + CHUNK, ..., :3].to(torch.float32)
@@ -1631,7 +1441,7 @@ def motion_reference(pixels: torch.Tensor, mask: torch.Tensor, mode: str, short_
             chunk = F.interpolate(chunk.movedim(-1, 1), size=(th, tw), mode="bilinear",
                                   align_corners=False, antialias=True).movedim(1, -1)
         out.append(chunk.clamp(0.0, 1.0))
-    return _look(torch.cat(out, dim=0), blur_sigmas(boxes, n, h, w, short_edge, False, blur_share, blur_pixels), grey)
+    return torch.cat(out, dim=0)
 
 
 #: The preview strip: this many frames sampled evenly over the clip, each row this tall. Reasoned.
@@ -1641,7 +1451,7 @@ PREVIEW_HEIGHT = 192
 
 def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion: str, short_edge: int,
                   margin, boxes: torch.Tensor | None = None, others: torch.Tensor | None = None,
-                  wired: torch.Tensor | None = None, look: dict | None = None) -> torch.Tensor:
+                  wired: torch.Tensor | None = None) -> torch.Tensor:
     """[1, H, W, 3]: sampled frames down the strip, the regenerated region tinted red on the plate, and, when a
     motion reference is on, what the encoder is shown beside each. The dry-run review looks at this and the
     tracker's tiles before anything samples.
@@ -1682,19 +1492,12 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
             plate[row, y0:y1, x0:x0 + line] = cyan
             plate[row, y0:y1, max(x1 - line, x0):x1] = cyan
     tiles = [plate]
-    if motion in WIRED:
-        # the wired video's own frames, fitted as the plate is: what the model is shown as movement; zoomed in,
-        # in the boxes the plate carries as outlines, with nothing greyed (`wired_motion`)
+    if motion == MOTION_WIRED:
+        # the wired video's own frames, fitted as the plate is: what the model is shown as movement (`wired_motion`)
         shown_wired = None if wired is None else fit_frames(wired[idx], int(f.shape[2]), int(f.shape[1]))
-        if shown_wired is None:
-            ref = None
-        elif motion == MOTION_WIRED_ZOOM:
-            ref = motion_reference(shown_wired, torch.ones_like(mask[idx], dtype=torch.float32), MOTION_ZOOM,
-                                   short_edge, 0, shown, wired_ground(shown_wired), **(look or {}))
-        else:
-            ref = motion_reference(shown_wired, mask[idx], MOTION_FRAME, short_edge, 0, shown, **(look or {}))
+        ref = None if shown_wired is None else motion_reference(shown_wired, mask[idx], MOTION_FRAME, short_edge, 0, shown)
     else:
-        ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown, **(look or {}))
+        ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown)
     if ref is not None:
         tiles.append(ref.to(f.dtype).to(f.device))
     h = PREVIEW_HEIGHT
@@ -2122,6 +1925,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "grey, so the model sees how the subject moves and nothing of the "
                                         "scene.\n\n"
                                         "subject only, zoomed in: the same, shown in a box around the subject "
+                                        "(around the replaced part, on a pass that replaces a part) "
                                         "and not in the whole frame, so a subject that is small in the frame "
                                         "is seen larger for the same cost or less. The box holds still through "
                                         "a shot and changes only where the video cuts; when a window holds "
@@ -2133,10 +1937,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "source frame for frame: a body mesh, a pose, a map of a mouth. It says "
                                         "how the subject moves without showing the original, and each window "
                                         "is shown its own part of it.\n\n"
-                                        "a video I wire, zoomed in: that video shown in the box around the "
-                                        "tracked subject, as `subject only, zoomed in` shows the source: the "
-                                        "subject is seen larger for the same cost, and nothing is greyed. Use "
-                                        "it when the wired video's subject is small in the frame.\n\n"
                                         "The prompt has to say what the video provides, for example that the "
                                         "subject's motion and timing come from <Video 1>. Costs text-encoder "
                                         "tokens on every window, and with motion_vae on, rows on every "
@@ -2278,31 +2078,6 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "a mouth opens. The prompt has to say what <Video 1> is and what is "
                                         "taken from it. With motion_vae on, the video model gets its own copy "
                                         "at every frame; off, the text encoder sees two frames a second.")),
-                # appended 2026-10-10: what a zoomed reference frames, and the reference's look
-                io.Combo.Input("motion_box", options=list(BOXES), default=BOX_SUBJECT, optional=True,
-                               tooltip=("What a zoomed-in motion reference is framed on, and what a blur given as "
-                                        "a share is a share of.\n\n"
-                                        "the tracked subject (default): the whole person the tracker follows, "
-                                        "whatever part of them is replaced.\n\n"
-                                        "what is replaced: the mask's own box. On a pass that replaces a part, "
-                                        "a face for one, the reference then shows that part large, where the "
-                                        "default shows it small in a box the size of the person. The box "
-                                        "holds still through a shot; a frame where the part is missing shows "
-                                        "the ground and the box does not jump.")),
-                io.Float.Input("motion_blur_share", default=MOTION_BLUR_SHARE, min=0.0, max=0.5, step=0.005, optional=True,
-                               tooltip=("Blurs the motion reference, so the model sees where things are and how "
-                                        "they move and less of what they look like. The width of the blur as a "
-                                        "share of the width the subject's box is shown at (see motion_box): "
-                                        "the larger the share, the more is removed. 0 is no blur. Only the "
-                                        "reference is blurred, never the picture being rendered. Use this or "
-                                        "motion_blur_pixels, not both.")),
-                io.Int.Input("motion_blur_pixels", default=MOTION_BLUR_PIXELS, min=0, max=256, step=1, optional=True,
-                             tooltip=("The same blur given as a width in pixels of the reference itself, for a "
-                                      "reference with no box to take a share of. 0 is no blur.")),
-                io.Boolean.Input("motion_grey", default=False, optional=True,
-                                 tooltip=("Shows the motion reference without colour, so hair and clothing "
-                                          "colours of the original are not shown to the model. Only the "
-                                          "reference; the picture being rendered keeps its colour.")),
                 # appended 2026-10-10: a small subject rendered zoomed in (`RENDER_REGIONS`, `zoomed_source`)
                 io.Combo.Input("render_region", options=list(RENDER_REGIONS), default=RENDER_WHOLE, optional=True,
                                tooltip=("Where the replaced region is drawn. Use a zoomed choice when the face "
@@ -2372,8 +2147,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 motion_short_edge=MOTION_SHORT_EDGE, motion_vae=False, start_from=START_NOISE,
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
-                edge=EDGE_TOKENS, motion_video=None, motion_box=BOX_SUBJECT, motion_blur_share=MOTION_BLUR_SHARE,
-                motion_blur_pixels=MOTION_BLUR_PIXELS, motion_grey=False,
+                edge=EDGE_TOKENS, motion_video=None,
                 render_region=RENDER_WHOLE, largest_zoom=ZOOM_LARGEST) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
@@ -2396,27 +2170,13 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             raise ValueError(f"unknown render_region {render_region!r}; one of {list(RENDER_REGIONS)}")
         if not ZOOM_SMALLEST <= float(largest_zoom) <= ZOOM_LARGEST_MAX:
             raise ValueError(f"largest_zoom {largest_zoom!r} is outside {ZOOM_SMALLEST:g} to {ZOOM_LARGEST_MAX:g}")
-        if motion_box not in BOXES:
-            raise ValueError(f"unknown motion_box {motion_box!r}; one of {list(BOXES)}")
-        if float(motion_blur_share) > 0.0 and int(motion_blur_pixels) > 0:
-            raise ValueError("motion_blur_share and motion_blur_pixels are both set: a blur is one or the other. "
-                             "The share is of the subject's box as shown; the pixels are the reference's own")
-        looked = float(motion_blur_share) > 0.0 or int(motion_blur_pixels) > 0 or bool(motion_grey)
-        if motion_reference == MOTION_NONE and looked:
-            raise ValueError("a blur or grey is set for the motion reference and motion_reference is `none`: turn the "
-                             "reference on or the look off. It is never dropped in silence")
-        if motion_box != BOX_SUBJECT and motion_reference not in ZOOMED and float(motion_blur_share) <= 0.0:
-            raise ValueError(f"motion_box is `{motion_box}` and nothing reads a box: it frames a zoomed reference and "
-                             "sizes a blur given as a share. Choose a zoomed motion_reference, set motion_blur_share, "
-                             f"or leave motion_box at `{BOX_SUBJECT}`")
-        if motion_reference in WIRED and motion_video is None:
+        if motion_reference == MOTION_WIRED and motion_video is None:
             raise ValueError(f"motion_reference is `{motion_reference}` and nothing is wired to `motion_video`: wire the "
                              "video that shows the movement, or choose another motion_reference")
         if motion_video is not None:
-            if motion_reference not in WIRED:
+            if motion_reference != MOTION_WIRED:
                 raise ValueError(f"`motion_video` is wired and motion_reference is `{motion_reference}`: set it to "
-                                 f"`{MOTION_WIRED}` or `{MOTION_WIRED_ZOOM}` to use the video, or unwire it. It is "
-                                 "never used in silence")
+                                 f"`{MOTION_WIRED}` to use the video, or unwire it. It is never used in silence")
             if motion_video.ndim != 4 or int(motion_video.shape[0]) != int(frames.shape[0]):
                 raise ValueError(
                     f"`motion_video` is {tuple(motion_video.shape)} and the source has {int(frames.shape[0])} "
@@ -2487,26 +2247,19 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
             logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s", motion_reference,
                         int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only")
         # The mask's own box per frame: on a parts graph the part's, where `boxes` is the tracked subject's.
-        # `motion_box` chooses which a zoomed reference is framed on and a blur's share is taken of.
+        # A zoomed reference is framed on the part when a part is replaced and on the person otherwise
+        # (`window_boxes` has the rule).
         region_boxes = _tracked_boxes(mask)
-        framed = region_boxes if motion_box == BOX_REPLACED else boxes
         zoomed = None
-        if motion_reference in ZOOMED or float(motion_blur_share) > 0.0:
+        if motion_reference == MOTION_ZOOM:
             # for the preview and the log: each shot's box over the whole clip, at the frames' own size
+            framed, what = (boxes, "the tracked subject") if replace == REPLACE_WHOLE else (region_boxes, "what is replaced")
             zoomed = shot_boxes(framed, shot_ranges({"shot_table": table}), int(frames.shape[2]), int(frames.shape[1]))
-        if motion_reference in ZOOMED:
             sizes = sorted({(x1 - x0, y1 - y0) for x0, y0, x1, y1 in zoomed.tolist() if x0 >= 0})
             logger.info("[h3] MiniMaxH3MaskedSource: zoomed in on %s, one box a shot, %s on %dx%d "
-                        "frames over the clip; each window takes its own from its own frames", motion_box,
+                        "frames over the clip; each window takes its own from its own frames", what,
                         ", ".join(f"{bw}x{bh}" for bw, bh in sizes) or "no box (the subject is in no frame)",
                         int(frames.shape[2]), int(frames.shape[1]))
-        look = {"blur_share": float(motion_blur_share), "blur_pixels": int(motion_blur_pixels), "grey": bool(motion_grey)}
-        if looked:
-            logger.info("[h3] MiniMaxH3MaskedSource: the motion reference is shown %s",
-                        " and ".join(x for x in (
-                            f"blurred by {float(motion_blur_share):g} of the width of {motion_box} as shown" if float(motion_blur_share) > 0.0 else "",
-                            f"blurred by {int(motion_blur_pixels)} px of the reference" if int(motion_blur_pixels) > 0 else "",
-                            "in luma only" if motion_grey else "") if x))
         return io.NodeOutput({"frames": frames, "mask": mask, "grow_pixels": int(grow_pixels),
                               # the margin's rule and what it reads (`source_margins`): [N] in 0..1
                               "grow_by": grow_by, "subject_area": area,
@@ -2532,10 +2285,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "subject_boxes": boxes,
                               # the same for the mask this record carries (the part, on a parts graph), and which
                               # of the two a zoomed reference and a blur's share read (`window_boxes`)
-                              "region_boxes": region_boxes, "motion_box": motion_box,
-                              # the motion reference's look (`motion_look`)
-                              "motion_blur_share": float(motion_blur_share),
-                              "motion_blur_pixels": int(motion_blur_pixels), "motion_grey": bool(motion_grey),
+                              "region_boxes": region_boxes,
                               # where the region is rendered, and the most a zoomed one is enlarged; the box is
                               # made where the canvas is known (`zoomed_source`, called by the song node)
                               "render_region": render_region, "largest_zoom": float(largest_zoom),
@@ -2547,7 +2297,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,
-                                           motion_video, look))
+                                           motion_video))
 
     @classmethod
     def _settle_mask(cls, frames, mask, replace, segmenter, segmenter_clip, part_phrases, part_threshold,

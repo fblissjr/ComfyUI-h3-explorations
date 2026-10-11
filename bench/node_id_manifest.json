@@ -374,10 +374,6 @@
       "others",
       "edge",
       "motion_video",
-      "motion_box",
-      "motion_blur_share",
-      "motion_blur_pixels",
-      "motion_grey",
       "render_region",
       "largest_zoom"
     ],

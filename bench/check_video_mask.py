@@ -616,61 +616,29 @@ def check_wired_motion(problems):
     if int(strip.shape[2]) <= int(plain.shape[2]):
         problems.append("wired motion: the preview strip is no wider than with no motion reference: the wired "
                         "video is not shown beside the plate")
-    # `a video I wire, zoomed in` (2026-10-10): the wired video in the subject's box, by the zoom's own layout,
-    # with nothing greyed. The wired video here carries a bright block where the subject is.
+    # `a video I wire, zoomed in` was removed on 2026-10-10 (one render, no difference): the choice is refused by
+    # name, the list ends on the wired video, and a record that carries boxes changes nothing of the whole-frame one
     marked = video.clone()
-    marked[:, 10:20, 15:25] = 1.0                 # the subject's place, on the wired video's own half-size frames
-    zoom = node.execute(frames, mask, motion_reference=vm.MOTION_WIRED_ZOOM, motion_video=marked, motion_short_edge=SHORT).args[0]
-    whole = dict(zoom, motion_reference=vm.MOTION_WIRED)
-    near, far = vm.wired_motion(zoom, first, count, W, H), vm.wired_motion(whole, first, count, W, H)
-    boxes = vm.window_boxes(zoom, first, count, W, H)
-    fitted = vm.fit_frames(marked[first:first + count], W, H)
-    want = vm.motion_reference(fitted, torch.ones(count, H, W), vm.MOTION_ZOOM, SHORT, 0, boxes, vm.wired_ground(fitted))
-    if boxes is None or not torch.equal(near, want):
-        problems.append("wired motion, zoomed in: the reference is not the wired video laid out in the window's subject boxes")
-    # what is not a box is the wired video's own ground, never the lane's grey: a frame with no subject in its
-    # shot, here made by a record whose boxes say the subject is on no frame, is the video's ground whole
-    two_shots = json.dumps({"shots": [{"first_frame": 0, "last_frame": 3}, {"first_frame": 4, "last_frame": n - 1}]})
-    gone = dict(zoom, subject_boxes=zoom["subject_boxes"].clone(), shot_table=two_shots)
-    gone["subject_boxes"][4:] = -1                                 # the second shot has no subject in it
-    black = marked.clone() * 0.0
-    black[:, 10:20, 15:25] = 1.0
-    empty = vm.wired_motion(dict(gone, motion_frames=black), 0, count, W, H)
-    if float(empty[4:].abs().max()) != 0.0 or bool(((empty[:4] - 0.5).abs() < 1e-6).all(dim=-1).any()) \
-            or float(empty[:4].max()) != 1.0:
-        problems.append("wired motion, zoomed in: around a box and on a frame with no subject the picture must be the wired "
-                        "video's own ground (black here), not the lane's grey")
-    if not torch.equal(vm.wired_ground(black), torch.zeros(n, 3)) or not torch.allclose(vm.wired_ground(video), levels.view(n, 1).expand(n, 3)):
-        problems.append("wired ground: a video's ground is not its corners' colour")
-    else:
-        share = lambda x: float((x > 0.99).float().mean())
-        if not share(near) > 2.0 * share(far) or int(near.shape[1]) * int(near.shape[2]) > int(far.shape[1]) * int(far.shape[2]):
-            problems.append(f"wired motion, zoomed in: the subject's block is {share(near):.3f} of the zoomed picture and "
-                            f"{share(far):.3f} of the whole one; zoomed it must be much more of a picture that is no larger")
-        if bool(((near - 0.5).abs() < 1e-6).all(dim=-1).any()) and tuple(near.shape[1:3]) == tuple(vm.zoom_plan(boxes, H, W, SHORT)[:2]) \
-                and vm.zoom_plan(boxes, H, W, SHORT)[2][0][4] == tuple(near.shape[1:3]):
-            problems.append("wired motion, zoomed in: a box that fills the picture has grey in it; nothing of a wired video is greyed")
-    if not torch.equal(far, vm.wired_motion(dict(src, motion_frames=marked), first, count, W, H)):
+    marked[:, 10:20, 15:25] = 1.0
+    boxed = dict(node.execute(frames, mask, motion_reference=vm.MOTION_WIRED, motion_video=marked, motion_short_edge=SHORT).args[0])
+    if not torch.equal(vm.wired_motion(boxed, first, count, W, H), vm.wired_motion(dict(src, motion_frames=marked), first, count, W, H)):
         problems.append("wired motion: the whole-frame choice changed when the record carries boxes")
-    for label, call, word in (
-            ("the zoomed choice on a source with no boxes",
-             lambda: vm.wired_motion(dict(src, motion_reference=vm.MOTION_WIRED_ZOOM), first, count, W, H), "subject's box"),
-            ("the zoomed choice with nothing wired", lambda: node.execute(frames, mask, motion_reference=vm.MOTION_WIRED_ZOOM), "motion_video")):
-        try:
-            call()
-            problems.append(f"wired motion: {label} was accepted")
-        except ValueError as exc:
-            if word not in str(exc):
-                problems.append(f"wired motion: the refusal of {label} does not say so: {exc}")
-    if vm.MOTIONS[-1] != vm.MOTION_WIRED_ZOOM or vm.MOTIONS[:5] != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME, vm.MOTION_WIRED):
-        problems.append(f"motion_reference: the zoomed wired choice must be appended, the choices before it in place: {vm.MOTIONS}")
+    try:
+        node.execute(frames, mask, motion_reference="a video I wire, zoomed in", motion_video=marked)
+        problems.append("wired motion: the removed zoomed choice was accepted")
+    except ValueError as exc:
+        if "unknown motion_reference" not in str(exc):
+            problems.append(f"wired motion: the refusal of the removed zoomed choice does not name the choices: {exc}")
+    if vm.MOTIONS != (vm.MOTION_NONE, vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME, vm.MOTION_WIRED) \
+            or any(hasattr(vm, name) for name in ("MOTION_WIRED_ZOOM", "wired_ground", "WIRED", "ZOOMED")):
+        problems.append(f"motion_reference: the choices are the five, in place, and the zoomed wired one is gone with its code: {vm.MOTIONS}")
     got = _appended("motion_video")
     if got is None or not got.optional:
         problems.append("motion_video: it is not where it was appended (`APPENDED`) and optional")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
     if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
-            or "if motion in video_mask.WIRED:" not in song:
-        problems.append("wired motion: the song node does not cut the wired video at the window's own start, for both wired choices")
+            or "if motion == video_mask.MOTION_WIRED:" not in song:
+        problems.append("wired motion: the song node does not cut the wired video at the window's own start")
 
 
 def check_subject_boxes(problems):
@@ -1299,159 +1267,56 @@ def check_song_loop(problems):
 
 
 def check_motion_look(problems):
-    """Item 22. A motion reference's blur and grey, and which box a zoom and a blur's share read."""
+    """Item 22, as it stands since 2026-10-10. The blur, the grey and the box choice were removed with their code
+    (reasoned, built, never rendered); what is held is that they are gone and what replaced the box choice: a
+    zoomed reference is framed on the replaced part when a part is replaced, and on the tracked person otherwise."""
     node = vm.MiniMaxH3MaskedSource
-    SHORT = 64
     n = FRAMES
-    torch.manual_seed(20261010)
     frames = torch.rand(n, H, W, 3)
     person = torch.zeros(n, H, W)
-    person[:, 16:112, 40:104] = 1.0                 # the tracked subject: tall
+    person[:, 16:112, 32:96] = 1.0
     face = torch.zeros(n, H, W)
-    face[:, 24:48, 60:84] = 1.0                     # the part that is replaced: small, inside the subject
-    face[3] = 0.0                                   # and missing on one frame, as a turned-away frame is emptied
-
-    # --- the helpers
-    flat = torch.full((2, 16, 16, 3), 0.3)
-    if vm.blur_frames(frames, 0.0) is not frames or not torch.allclose(vm.blur_frames(flat, 5.0), flat, atol=1e-6) \
-            or not torch.allclose(vm.blur_frames(flat, 40.0), flat, atol=1e-6):
-        problems.append("motion look: a blur of 0 must return the frames themselves, and a flat picture must stay flat at any width")
-    spot = torch.zeros(1, 41, 41, 3)
-    spot[0, 20, 20] = 1.0
-    spread = vm.blur_frames(spot, 3.0)[0, ..., 0]
-    xs = torch.arange(41.0) - 20
-    wide = float(((spread.sum(0) * xs * xs).sum() / spread.sum()).sqrt())
-    if abs(wide - 3.0) > 0.1 or abs(float(spread.sum()) - 1.0) > 1e-3:
-        problems.append(f"motion look: a spot blurred by 3 px has a width of {wide:.2f} px and a sum of {float(spread.sum()):.3f}")
-    # a wide blur is made on a reduced picture: it must be the picture the direct blur makes, within a level,
-    # and a wide spot must still be as wide as asked
-    # (compared a kernel's reach in from the border: the two replicate an edge differently, a pixel against a
-    # block, and on noise that is the whole of what they differ by)
-    busy = torch.rand(2, 256, 256, 3)
-    wide_sigma = 4.0 * vm.BLUR_DIRECT
-    inset = int(vm.BLUR_REACH * wide_sigma)
-    real = vm.BLUR_DIRECT
-    try:
-        fast = vm.blur_frames(busy, wide_sigma)
-        vm.BLUR_DIRECT = 1e9                         # never reduce: the direct kernel
-        direct = vm.blur_frames(busy, wide_sigma)
-    finally:
-        vm.BLUR_DIRECT = real
-    apart = float((fast - direct)[:, inset:-inset, inset:-inset].abs().max()) * 255.0
-    if torch.equal(fast, direct) or apart > 1.0:
-        problems.append(f"motion look: a blur of {wide_sigma:g} px made on a reduced picture is {apart:.2f} levels from the direct "
-                        "one at its furthest inside the border (it must be within a level), or the reduction was not used")
-    big = torch.zeros(1, 161, 161, 3)
-    big[0, 80, 80] = 1.0
-    far = vm.blur_frames(big, wide_sigma)[0, ..., 0]
-    xb = torch.arange(161.0) - 80
-    got = float(((far.sum(0) * xb * xb).sum() / far.sum()).sqrt())
-    if abs(got - wide_sigma) > 0.1 * wide_sigma:
-        problems.append(f"motion look: a spot blurred by {wide_sigma:g} px on a reduced picture is {got:.2f} px wide")
-    grey = vm.grey_frames(frames)
-    if not torch.equal(grey[..., 0], grey[..., 2]) or not torch.allclose(
-            grey[..., 0], (frames * torch.tensor(vm.LUMA)).sum(-1), atol=1e-6):
-        problems.append("motion look: grey is not the picture's luma on all three channels")
-
-    # --- off is today's, bit for bit, on every choice
-    boxes = vm.shot_boxes(vm._tracked_boxes(person), [], W, H)
-    for mode in (vm.MOTION_SUBJECT, vm.MOTION_ZOOM, vm.MOTION_FRAME):
-        plain = vm.motion_reference(frames, person, mode, SHORT, 4, boxes)
-        if not torch.equal(plain, vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 0, False)):
-            problems.append(f"motion look: with the blur and the grey off `{mode}` is not the reference it was")
-        soft = vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 3, False)
-        if tuple(soft.shape) != tuple(plain.shape) or not float(soft.std()) < 0.8 * float(plain.std()):
-            problems.append(f"motion look: a blur of 3 px did not soften `{mode}` at the same size")
-        mono = vm.motion_reference(frames, person, mode, SHORT, 4, boxes, None, 0.0, 0, True)
-        if not torch.equal(mono[..., 0], mono[..., 1]) or torch.equal(mono, plain):
-            problems.append(f"motion look: grey did not take the colour out of `{mode}`")
-
-    # --- a share is of the box AS SHOWN: the same share on a subject twice as wide is twice the sigma, and
-    #     a frame of a shot with no box is not blurred
-    two = json.dumps({"shots": [{"first_frame": 0, "last_frame": 3}, {"first_frame": 4, "last_frame": n - 1}]})
-    rows = vm._tracked_boxes(person)
-    rows[4:] = -1
-    per_shot = vm.shot_boxes(rows, vm.shot_ranges({"shot_table": two}), W, H)
-    sig = vm.blur_sigmas(per_shot, n, H, W, SHORT, False, 0.1, 0)
-    shown_w = (int(per_shot[0, 2]) - int(per_shot[0, 0])) * vm._reference_size(H, W, SHORT)[1] / W
-    if any(abs(v - 0.1 * shown_w) > 1e-6 for v in sig[:4]) or any(v != 0.0 for v in sig[4:]):
-        problems.append(f"motion look: a share of 0.1 of a box shown {shown_w:.1f} px wide gave sigmas {sig[:5]}")
-    small = vm.shot_boxes(vm._tracked_boxes(face), [], W, H)        # a box the zoom has room to enlarge
-    zsig, fsig = vm.blur_sigmas(small, n, H, W, SHORT, True, 0.1, 0), vm.blur_sigmas(small, n, H, W, SHORT, False, 0.1, 0)
-    plan = vm.zoom_plan(small, H, W, SHORT)
-    if plan is None or abs(zsig[0] - 0.1 * plan[2][0][4][1]) > 1e-6 or zsig[0] <= fsig[0]:
-        problems.append(f"motion look: zoomed in, the share must be of the box's width in the zoomed picture, which is wider "
-                        f"than in the whole frame: {zsig[0]:.2f} against {fsig[0]:.2f} px")
-    # zoomed, a two-shot window whose second shot has no subject: the plan has no run for it, so a share blurs
-    # nothing there, and the reference's frames of that shot are the ground, untouched
-    one_shot = vm.shot_boxes(vm._tracked_boxes(face), [], W, H).clone()
-    one_shot[4:] = -1
-    zs = vm.blur_sigmas(one_shot, n, H, W, SHORT, True, 0.1, 0)
-    if not all(v > 0.0 for v in zs[:4]) or any(v != 0.0 for v in zs[4:]):
-        problems.append(f"motion look: zoomed, a shot with no box must take no blur from a share: sigmas {zs[:6]}")
-    zref = vm.motion_reference(frames, face, vm.MOTION_ZOOM, SHORT, 0, one_shot, None, 0.1, 0, False)
-    if not bool(((zref[4:] - 0.5).abs() < 1e-6).all()) or bool(((zref[:3] - 0.5).abs() < 1e-6).all()):
-        problems.append("motion look: zoomed with a share, the frames of a shot with no subject are not the plain ground")
-    for bad, word in (((per_shot, n, H, W, SHORT, False, 0.1, 3), "one or the other"), ((None, n, H, W, SHORT, False, 0.1, 0), "no box")):
+    face[:, 20:44, 52:76] = 1.0
+    inputs = {i.id for i in node.define_schema().inputs}
+    gone = ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey")
+    names = ("blur_frames", "grey_frames", "blur_sigmas", "look_note", "motion_look", "look_boxes", "window_look_note",
+             "BOX_SUBJECT", "BOX_REPLACED", "BOXES", "MOTION_BLUR_SHARE", "MOTION_BLUR_PIXELS", "LUMA")
+    if inputs & set(gone) or any(hasattr(vm, name) for name in names):
+        problems.append(f"motion look: a removed input or its code is back: {sorted(inputs & set(gone))}, "
+                        f"{[name for name in names if hasattr(vm, name)]}")
+    for kw in (dict(motion_grey=True), dict(motion_blur_share=0.1), dict(motion_box="what is replaced")):
         try:
-            vm.blur_sigmas(*bad)
-            problems.append(f"motion look: {word}: accepted")
-        except ValueError as exc:
-            if word not in str(exc):
-                problems.append(f"motion look: the refusal does not say `{word}`: {exc}")
-    said = vm.look_note(sig, True, 100)
-    if "frames 100-103" not in said or "luma only" not in said or vm.look_note([0.0] * n, False):
-        problems.append(f"motion look: the note does not say the sigma by stretch and the grey, or says something with both off: {said!r}")
-
-    # --- the node: the record, the refusals, where the inputs sit, what the box choice frames
-    out = node.execute(frames, person, replace=vm.REPLACE_PARTS, parts=face, part_margin=0,
-                       motion_reference=vm.MOTION_ZOOM, motion_short_edge=SHORT, motion_box=vm.BOX_REPLACED,
-                       motion_blur_share=0.0625, motion_grey=True, shot_table=two)
-    record = out.args[0]
-    if (record.get("motion_box"), record.get("motion_blur_share"), record.get("motion_blur_pixels"), record.get("motion_grey")) \
-            != (vm.BOX_REPLACED, 0.0625, 0, True) or record.get("region_boxes") is None:
-        problems.append("motion look: the source record does not carry the box choice, the blur, the grey and the mask's own boxes")
+            node.execute(frames, person, motion_reference=vm.MOTION_SUBJECT, **kw)
+            problems.append(f"motion look: the node still takes {list(kw)[0]}")
+        except TypeError:
+            pass
+    whole = node.execute(frames, person, grow_pixels=8, motion_reference=vm.MOTION_ZOOM, motion_short_edge=64).args[0]
+    part = node.execute(frames, person, grow_pixels=8, replace=vm.REPLACE_PARTS, parts=face, part_margin=0,
+                        motion_reference=vm.MOTION_ZOOM, motion_short_edge=64).args[0]
+    if any(k in whole for k in gone):
+        problems.append("motion look: the record still carries a removed key")
+    on_person, on_part = vm.window_boxes(whole, 0, n, W, H), vm.window_boxes(part, 0, n, W, H)
+    if on_person is None or on_part is None:
+        problems.append("motion look: a record made by the node carries no boxes for a zoomed reference")
         return
-    on_part = vm.window_boxes(record, 0, n, W, H)
-    on_subject = vm.window_boxes(dict(record, motion_box=vm.BOX_SUBJECT), 0, n, W, H)
     area = lambda b: int((b[0, 2] - b[0, 0]) * (b[0, 3] - b[0, 1]))
-    if not area(on_part) < area(on_subject) or not torch.equal(on_part[3], on_part[2]) or int(on_part[3, 0]) < 0:
-        problems.append("motion box: `what is replaced` must frame the part, smaller than the subject's box, and a frame where "
-                        "the part is missing must keep its shot's box")
-    ref = vm.motion_reference(*vm.window_frames(record, 0, n, W, H)[:2], vm.MOTION_ZOOM, SHORT, 4, on_part)
-    whole = vm.motion_reference(*vm.window_frames(record, 0, n, W, H)[:2], vm.MOTION_ZOOM, SHORT, 4, on_subject)
-    if tuple(ref[3].shape) != tuple(ref[2].shape) or not bool(((ref[3] - 0.5).abs() < 1e-6).all()):
-        problems.append("motion box: on the frame where the part is missing the reference must be the ground, at the same size")
-    shown = lambda r: float(((r[0] - 0.5).abs() > 1e-6).any(dim=-1).float().mean())
-    if not shown(ref) > 1.3 * shown(whole):
-        problems.append(f"motion box: the part fills {shown(ref):.3f} of the reference framed on it and {shown(whole):.3f} "
-                        "framed on the subject; framed on itself it must fill more of the picture")
-    for label, kwargs, word in (
-            ("both blurs", dict(motion_reference=vm.MOTION_SUBJECT, motion_blur_share=0.1, motion_blur_pixels=4), "one or the other"),
-            ("a look with no reference", dict(motion_grey=True), "never dropped in silence"),
-            ("a box choice nothing reads", dict(motion_reference=vm.MOTION_SUBJECT, motion_box=vm.BOX_REPLACED), "nothing reads a box"),
-            ("an unknown box", dict(motion_reference=vm.MOTION_ZOOM, motion_box="the frame"), "unknown motion_box")):
-        try:
-            node.execute(frames, person, **kwargs)
-            problems.append(f"motion look: {label} was accepted")
-        except ValueError as exc:
-            if word not in str(exc):
-                problems.append(f"motion look: the refusal of {label} does not say so: {exc}")
-    tail = [(i.id, i.optional, getattr(i, "default", None)) for i in (_appended(name) for name in
-                                                                      ("motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey")) if i is not None]
-    if tail != [("motion_box", True, vm.BOX_SUBJECT), ("motion_blur_share", True, 0.0), ("motion_blur_pixels", True, 0), ("motion_grey", True, False)]:
-        problems.append(f"motion look: the four inputs are not where they were appended (`APPENDED`), optional and off: {tail}")
-
-    # --- the look never reaches the plate or the encode frames: a window of the source is the same with it on
-    off = dict(record, motion_blur_share=0.0, motion_grey=False)
-    shape = (LATENT_T, LAT_H, LAT_W)
-    a, b = vm.window(record, 0, FRAMES, W, H, *shape), vm.window(off, 0, FRAMES, W, H, *shape)
-    if not all(torch.equal(x, y) for x, y in zip(a[:4], b[:4])):
-        problems.append("motion look: the blur or the grey changed a window's frames, its encode frames, its tokens or its mask")
+    if not area(on_part) < area(on_person) or int(on_part[0, 0]) > 52 or int(on_part[0, 2]) < 76 \
+            or int(on_person[0, 0]) > 32 or int(on_person[0, 2]) < 96:
+        problems.append(f"motion look: a pass that replaces a part must frame its zoomed reference on the part "
+                        f"({on_part[0].tolist()}) and a whole-subject pass on the person ({on_person[0].tolist()})")
+    # the reference is the frames it was before the look existed: no argument left that could change them
+    pixels, mask, _held = vm.window_frames(whole, 0, n, W, H)
+    ref = vm.motion_reference(pixels, mask, vm.MOTION_SUBJECT, 64, 4)
+    try:
+        vm.motion_reference(pixels, mask, vm.MOTION_SUBJECT, 64, 4, None, None)
+        problems.append("motion look: `motion_reference` still takes a ground or a look")
+    except TypeError:
+        pass
+    if ref is None or float(ref.min()) < 0.0 or float(ref.max()) > 1.0:
+        problems.append("motion look: the subject-only reference is not a picture in range")
     song = (REPO / "audio_freeze_song.py").read_text(encoding="utf-8")
-    if song.count("**video_mask.motion_look(source))") != 1 or song.count("video_mask.window_look_note(source,") != 2 \
-            or "video_mask.look_boxes(source," not in song:
-        problems.append("motion look: the song node does not hand the reference its look, its boxes for a share, or report it")
+    if "motion_look" in song or "window_look_note" in song or "look_boxes" in song:
+        problems.append("motion look: the song node still reads a look")
 
 
 def check_render_zoom(problems):
@@ -1697,7 +1562,7 @@ def check_held_tail(problems):
     margins = vm.source_margins(each, 0, FRAMES, W * H)
     if not torch.is_tensor(margins) or int(margins[-1]) != int(margins[have - 1]):
         problems.append("held tail: under the subject's size the held frames must take the last frame's margin")
-    boxes = vm.window_boxes(dict(record, motion_box=vm.BOX_REPLACED), 0, FRAMES, W, H)
+    boxes = vm.window_boxes(dict(record, replace=vm.REPLACE_PARTS), 0, FRAMES, W, H)
     if boxes is None or not torch.equal(boxes[have:], boxes[have - 1:have].expand(FRAMES - have, -1)) or int(boxes[-1, 0]) < 0:
         problems.append("held tail: the held frames must carry the last frame's box, as they carry its mask")
     # a held frame has a mask of its own, so the composite lays it: the no-mask rule names none of them
@@ -1798,8 +1663,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "motion_box", "motion_blur_share", "motion_blur_pixels", "motion_grey",
-            "render_region", "largest_zoom")
+APPENDED = ("others", "edge", "motion_video", "render_region", "largest_zoom")
 
 
 def _appended(name: str):
@@ -2350,11 +2214,15 @@ def check_motion_zoom(problems):
         _fail(problems, "zoom: the source record's `subject_boxes` must be the tracker's mask's boxes, not the replaced part's")
     if vm.shot_ranges(record) != [(0, 2), (3, 5)] or vm.shot_ranges({"shot_table": ""}) != [] or vm.shot_ranges({"shot_table": "{"}) != []:
         _fail(problems, "zoom: the cuts must be read from the record's shot table, and an empty or unreadable one is no cuts")
-    win = vm.window_boxes(record, 0, 6, W, H)
-    if win is None or not torch.equal(win, per_shot):
-        _fail(problems, "zoom: a window's boxes on a canvas the size of the frames must be the shots' boxes")
+    # a pass that replaces a part frames the PART (a rule since 2026-10-10, where an input chose for a day); the
+    # same record read as a whole-subject pass frames the tracked person
+    of_part = vm.shot_boxes(record["region_boxes"], [(0, 2), (3, 5)], W, H)
+    win, person = vm.window_boxes(record, 0, 6, W, H), vm.window_boxes(dict(record, replace=vm.REPLACE_WHOLE), 0, 6, W, H)
+    if win is None or not torch.equal(win, of_part) or person is None or not torch.equal(person, per_shot) or torch.equal(of_part, per_shot):
+        _fail(problems, "zoom: on a canvas the size of the frames a part pass's boxes must be the part's shots' boxes and a "
+                        "whole-subject pass's the tracked person's")
     held = vm.window_boxes(record, 4, 6, W, H)
-    if held is None or held[0].tolist() != per_shot[4].tolist() or not (held == held[0]).all():
+    if held is None or held[0].tolist() != of_part[4].tolist() or not (held == held[0]).all():
         _fail(problems, f"zoom: frames past the source's end carry their shot's box; got {None if held is None else held.tolist()}")
     if vm.window_boxes({"frames": frames}, 0, 6, W, H) is not None:
         _fail(problems, "zoom: a source with no boxes must say so with None")
