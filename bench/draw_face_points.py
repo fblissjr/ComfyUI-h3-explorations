@@ -132,9 +132,8 @@ THIN_PX = marks.THIN_PX2
 SLIP_PX = 0.05
 
 #: A pixel is a line's white only where the body model under it was darker than white by at least this many grey
-#: levels. Measured on the first shot drawn (the second subject's short kitchen shot): highlights of 218 to 230 on
-#: the model's head read back over `WHITE` after the encode, three a frame, a hundred pixels from her face.
-NEAR_WHITE = 20
+#: levels. Inherited: the marks tool's, which has the measurement beside it; found here first.
+NEAR_WHITE = marks.NEAR_WHITE
 
 SIDES = fp.SIDES
 RINGS = ("iris", "pupil")

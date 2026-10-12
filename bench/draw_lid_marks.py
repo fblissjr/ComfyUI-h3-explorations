@@ -73,6 +73,13 @@ SUPER = 4
 #: A pixel counts as a mark's white above this on every channel. Reasoned: the body model is mid grey and its
 #: own highlights stay well under it; the encoder leaves a filled mark above it.
 WHITE = 235
+#: A pixel is a mark's white only where the body model under it was darker than white by at least this many grey
+#: levels. The body model has highlights just under `WHITE`, and the encode lifts some of them over it: they were
+#: counted as marks, and on a frame left bare, where the read-back wants no white at all, they failed it.
+#: Measured twice on 2026-10-12: on a run whose bare frames failed with the pixels spread over the body and none at
+#: an eye (`docs/wiki/next_steps.md`), and on the first shot `bench/draw_face_points.py` drew, where highlights of
+#: 218 to 230 on the model's head read back over `WHITE`, three a frame, a hundred pixels from her face.
+NEAR_WHITE = 20
 #: How much better the right frame must fit than a neighbour for the read-back to pass, as a difference of
 #: correlations. Reasoned: on a shot whose eyes move, a one-frame slip costs several times this
 #: (`bench/check_draw_lid_marks.py` holds a slipped file to it).
@@ -123,12 +130,13 @@ def write_video(path: Path, frames: np.ndarray) -> None:
 
 
 def white_in(path: Path, mesh: np.ndarray) -> np.ndarray:
-    """How many pixels a frame are a mark's white in the written video and were not white in the mesh it was drawn on."""
+    """How many pixels a frame are a mark's white in the written video and were well under white in the mesh it was
+    drawn on (`NEAR_WHITE`): a highlight of the body model that the encode lifts over the line is not a mark."""
     n, h, w = mesh.shape[:3]
     got = np.stack(list(stream(str(path), (w, h), 0, n, pix="rgb24")))
     if len(got) != n:
         raise RuntimeError(f"{path} reads back {len(got)} frames, {n} were written")
-    return ((got.min(-1) > WHITE) & ~(mesh.min(-1) > WHITE)).sum((1, 2)).astype(float)
+    return ((got.min(-1) > WHITE) & (mesh.min(-1) <= WHITE - NEAR_WHITE)).sum((1, 2)).astype(float)
 
 
 def fit_by_lag(white: np.ndarray, area: np.ndarray, drawn: np.ndarray) -> dict[int, float]:
@@ -327,7 +335,7 @@ def verify(video: str, mesh_path: str, points_path: str, first: int, count: int,
     got = np.stack(list(stream(video, (w, h), first - (first if video_first is None else video_first), count, pix="rgb24")))
     if len(mesh) != count or len(got) != count:
         raise SystemExit(f"asked for {count} frames; the body-model video gave {len(mesh)} and the marked video {len(got)}")
-    white = ((got.min(-1) > WHITE) & ~(mesh.min(-1) > WHITE)).sum((1, 2)).astype(float)
+    white = ((got.min(-1) > WHITE) & (mesh.min(-1) <= WHITE - NEAR_WHITE)).sum((1, 2)).astype(float)
     area = np.array([white_expected(fp.lid_rings(p, idx), grow) for p in points["keypoints"][off:off + count]])
     drawn = white > 0
     lags = fit_by_lag(white, area, drawn)

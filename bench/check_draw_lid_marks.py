@@ -15,7 +15,8 @@ makes a small body-model video and a points file in which every frame's eye open
 3. **Frames left bare come from a person and are bare.** No white on them, the record names them and who
    looked, and a list with no name is refused.
 4. **The read-back can fail.** The same frames written one out of place fail it; a mark painted on a bare
-   frame fails it.
+   frame fails it. A highlight of the body model that the encode lifts over white is not a mark: a bare frame
+   with one still reads as bare, and the read-back passes.
 5. **`verify` catches points read on the wrong clock.** A second reader who takes the points file to begin a
    frame early or late is told a neighbour fits better; on the right clock it passes.
 6. **A body-model video off the source's clock fails the run.** With a source that moves as the body model
@@ -171,8 +172,21 @@ def the_read_back_can_fail() -> str:
     dm.write_video(WORK / "blank.mp4", blank)
     lost = dm.read_back(WORK / "blank.mp4", mesh, area, drawn)
     assert not lost["passed"] and lost["marked_frames_with_no_white"] == [12], lost["marked_frames_with_no_white"]
+    # a body model with a highlight just under white, which the written video holds just over it (2026-10-12)
+    shiny = mesh.copy(); shiny[:, 150:170, 10:60] = dm.WHITE - 7
+    drawn3 = drawn.copy(); drawn3[5] = False                                        # frame 5 is left bare
+    lifted = dm.draw(shiny, rings, GROW, {5}); lifted[:, 150:170, 10:60] = dm.WHITE + 6
+    written = video(WORK / "lifted.mkv", lifted)
+    counted = dm.white_in(written, shiny)
+    assert counted[5] == 0 and (counted[drawn3] > 0).all(), f"white counted on the bare frame: {counted[5]}"
+    assert abs(counted[4] - dm.white_in(WORK / "good.mp4", mesh)[4]) < dm.THIN_PX2, "the highlight was counted with the marks"
+    shone = dm.read_back(written, shiny, np.where(drawn3, area, 0.0), drawn3)
+    assert shone["passed"] and shone["on_bare"] == 0, (shone["on_bare"], shone["lags"])
+    flat = lifted.copy(); flat[:, 150:170, 10:60] = 255                             # the control: on a mesh that was dark there, it IS white
+    video(WORK / "flat.mkv", flat)
+    assert dm.white_in(WORK / "flat.mkv", mesh)[5] > 0, "control failed: white on a bare frame of a dark mesh was not counted"
     return (f"as drawn it passes ({good['lags'][0]:.3f} against {max(good['lags'][-1], good['lags'][1]):.3f} a frame off); every frame one late fails; "
-            "a mark on a bare frame fails; a marked frame with none fails")
+            "a mark on a bare frame fails; a marked frame with none fails; a highlight the encode lifts over white is not a mark, and a bare frame with one passes")
 
 
 def verify_catches_the_wrong_clock() -> str:

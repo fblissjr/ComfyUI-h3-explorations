@@ -61,7 +61,11 @@ own below the rule.
 - **`bench/draw_lid_marks.py`'s read-back fails on a frame left bare when the
   body model has pixels near white**: the re-encode pushes a few of them over
   its line and the test wants none. Read on one run: the pixels were spread
-  over the body and none was at an eye.
+  over the body and none was at an eye. **Fixed 2026-10-12**: a pixel is a
+  mark's white only where the body model under it was well under white
+  (`bench/draw_lid_marks.py::NEAR_WHITE`, shared with
+  `bench/draw_face_points.py`, which met the same thing); the check holds a
+  bare frame with a lifted highlight to no white.
 - **`bench/capture_masked_run.py video` will not stack a render that starts
   inside the capture's span** ("the render starts after the span's first
   frame; capture the span the render covers"). A run that continues a stored
