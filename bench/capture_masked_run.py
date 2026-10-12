@@ -874,6 +874,12 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     `frames_left_as_source` (the gate on the mask the window is given), and have no region here. All of the
     plan's numbers are the load's; the load's frame 0 is source frame `at`.
 
+    A run that continues a stored window (the plan's `continue_from`, `audio_freeze_song`'s input of that
+    name) writes nothing on its first window's first `trim` frames: they are the stored window's, kept. Those
+    frames are not a gap: they have no region here and are not read, and `kept_from_a_stored_window` names
+    the file and the source frames. Added 2026-10-12, when the first continuation load met this reader and
+    was refused as a gap.
+
     Returns what `read_region` does. Refuses (None) when a window has no region file (the plan says why: it
     starts past the source's end), when a file the plan names is not there, or when the windows' written
     frames leave a gap."""
@@ -889,13 +895,18 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
     carried, read = np.zeros((frames, h, w), bool), np.zeros(frames, bool)
     placed = at is not None
     at = first if at is None else int(at)
-    end, across, bare, windows = 0, [], [], []
+    end, across, bare, windows, stored = 0, [], [], [], None
     for row in plan["windows"]:
         if not row.get("region_file"):
             return None, None, None, {"refused": f"window {row['number']} is not planned: {row.get('why', 'no region file')}"}
         path = plan_path.parent / row["region_file"]
         if not path.is_file():
             return None, None, None, {"refused": f"the plan names {row['region_file']} and it is not beside the plan"}
+        head = int(row.get("trim", 0))
+        if not windows and plan.get("continue_from") and head and row["first_written_frame"] == row["first_frame"] + head:
+            # the first window of a run that continues a stored one: its kept frames are that window's, not written here
+            stored = {"file": plan["continue_from"], "source_frames": [at + row["first_frame"], at + row["first_written_frame"] - 1]}
+            end = row["first_written_frame"]
         if row["first_written_frame"] != end:
             return None, None, None, {"refused": f"window {row['number']} writes from frame {row['first_written_frame']} of the load and "
                                                  f"the window before it ended on {end}"}
@@ -927,7 +938,8 @@ def read_planned_regions(plan_path: Path, first: int, frames: int, size: tuple[i
                                    "files": [r["region_file"] for r in plan["windows"]], "legend_px": None,
                                    "composite": plan["source"].get("composite"), "left_as_the_source_across_a_cut": across,
                                    "left_as_the_source_with_no_mask": bare, "plan_version": plan.get("version"),
-                                   "planned_windows": windows, "frames_written": end, "source_settings": plan["source"]}
+                                   "planned_windows": windows, "frames_written": end, "source_settings": plan["source"],
+                                   **({"kept_from_a_stored_window": stored} if stored else {})}
 
 
 def graph_of(render: str) -> dict | None:

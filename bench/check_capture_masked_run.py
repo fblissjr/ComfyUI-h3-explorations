@@ -954,6 +954,23 @@ def planned_regions() -> str:
         assert "starts past" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
         (folder / "pass_plan.json").write_text(json.dumps({**plan, "windows": [row(1, 0, 0, 9), row(2, 6, 5, 2)]}))
         assert "ended on 9" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
+        # a run that continues a stored window: one window that keeps 5 frames of that window's and writes 4. The kept
+        # frames are not a gap, carry no region and are not read; the same plan with no `continue_from` is a gap, and
+        # so is a continuation whose first window writes from anywhere but the end of its kept frames
+        vm.save_window_region(str(folder / "pass_window_1_planned_region.npz"), *window(96), settings, 16, 0, 5)
+        going_on = {**plan, "continue_from": "stored_window_1.safetensors", "windows": [row(1, 0, 5, 4)]}
+        (folder / "pass_plan.json").write_text(json.dumps(going_on))
+        region, carried, read, how = cap.read_planned_regions(folder / "pass_plan.json", 98, 16, (W, H), at=100)
+        assert read.tolist() == [False] * 7 + [True] * 4 + [False] * 5, "a continuation's kept frames were read, or its written ones were not"
+        assert region[7:11, 2, 6].all() and not region[:7].any(), "the kept frames of a stored window carry a region"
+        assert how["kept_from_a_stored_window"] == {"file": "stored_window_1.safetensors", "source_frames": [100, 104]}, how
+        assert how["frames_written"] == 9 and how["planned_windows"][0]["writes_source_frames"] == [105, 108], how
+        assert how["planned_windows"][0]["kept_frames"] == 5 and how["planned_windows"][0]["first_frame"] == 100, how
+        (folder / "pass_plan.json").write_text(json.dumps({**going_on, "continue_from": ""}))
+        assert "ended on 0" in cap.read_planned_regions(folder / "pass_plan.json", 98, 16, (W, H), at=100)[3]["refused"]
+        (folder / "pass_plan.json").write_text(json.dumps({**going_on, "windows": [{**row(1, 0, 5, 4), "first_written_frame": 6}]}))
+        assert "ended on 0" in cap.read_planned_regions(folder / "pass_plan.json", 98, 16, (W, H), at=100)[3]["refused"]
+        vm.save_window_region(str(folder / "pass_window_1_planned_region.npz"), *window(32), settings, 16, 0, 0)
         (folder / "pass_plan.json").write_text(json.dumps(plan))
         (folder / "pass_window_2_planned_region.npz").unlink()
         assert "not beside the plan" in cap.read_planned_regions(folder / "pass_plan.json", 100, 13, (W, H))[3]["refused"]
@@ -972,8 +989,9 @@ def planned_regions() -> str:
     assert cap.lent_frames(own, step, np.ones(6, bool)) == [2], "the emptied frame inside the step, and only it"
     assert cap.lent_frames(own, step, np.array([1, 1, 0, 1, 1, 1], bool)) == [], "a frame that was not read was called lent"
     return ("the plan says which window writes a frame and which frame is left as the source; a held tail is not read; an "
-            "unplanned window, a missing file, a gap and two plans in one folder are each refused; a frame with no mask "
-            "inside a step that has one is named as lent")
+            "unplanned window, a missing file, a gap and two plans in one folder are each refused; the kept frames of a run "
+            "that continues a stored window are not a gap and carry no region; a frame with no mask inside a step that has "
+            "one is named as lent")
 
 
 def held_tails() -> str:
