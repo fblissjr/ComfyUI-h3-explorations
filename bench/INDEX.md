@@ -533,6 +533,14 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | [`h3_bench_capture/__init__.py`](comfy_capture_nodes/h3_bench_capture/__init__.py) | A bench-only ComfyUI node: save the exact conditioning and latent a sampler would get. |
 | [`h3_bench_prefix_reuse/__init__.py`](comfy_capture_nodes/h3_bench_prefix_reuse/__init__.py) | A bench-only ComfyUI node: can the encoder's work on a reference be kept across prompt edits without changing the conditioning? |
 
+### examples
+
+| file | what it says |
+|---|---|
+| [`masked_job_lid_marks/README.md`](examples/masked_job_lid_marks/README.md) | An example masked job: a face and hair replaced, with eyelids from marks on a body-model video |
+| [`masked_job_lid_marks/job.example.json`](examples/masked_job_lid_marks/job.example.json) | An example of a masked job file (one load: a face and hair replaced, the motion video a body model with lid marks); every media path is a placeholder. README.md beside it explains each key. |
+| [`masked_job_lid_marks/text.example.txt`](examples/masked_job_lid_marks/text.example.txt) | subject_definitions: |
+
 ### fixtures
 
 | file | what it says |

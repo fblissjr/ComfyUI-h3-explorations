@@ -1012,8 +1012,8 @@ What to hold to when it is used on another load:
 
 ### One whole text, as an example
 
-**An example, not a text to copy.** This is the whole text of the render
-the owner picked, kept here so the fragment can be seen in its place. Every
+**An example, not a text to copy.** The whole text of the render the
+owner picked is kept so the fragment can be seen in its place. Every
 sentence about the scene in it was written from that one shot's frames and
 is true of those frames only; a text for another load is written from that
 load's frames (`../../AGENTS.md`, "A scene's text is data"). And it is not
@@ -1024,26 +1024,13 @@ thing changed at a time, and a render of this shot with them deleted came
 out as the same piece (the lid-marks record, the load called `text`). Do
 not carry them to a new text.
 
-```text
-subject_definitions:
-<Subject 1> is the woman in <Picture 1>, with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, who follows the movements and the facial expressions of the figure in <Video 1>.
-<Video 1> is a plain grey body model on a black ground, with shapes drawn on its face that are part of its facial expression; <Subject 1> follows its movements and its facial expressions, and its grey look and the shapes themselves are not drawn.
+The whole text is kept in one place, beside an example of that load's job
+file: [`bench/examples/masked_job_lid_marks/text.example.txt`](../../bench/examples/masked_job_lid_marks/text.example.txt).
+The page beside it
+([`README.md`](../../bench/examples/masked_job_lid_marks/README.md)) goes
+through it section by section: why each part is there, what it speaks of,
+and what had to be made before it was true.
 
-summary:
-[reference generation] <Subject 1> sits at a kitchen table in a scene that is already lit, framed and cut. Her face and her hair are those of <Picture 1>; her clothing, her hands and everything she holds are the scene's own: a white bib apron over a sleeveless patterned blouse.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): partially_preserved - only the woman's face and her long, loose blonde hair are retained, wherever they show; the clothing, the accessories and the background of <Picture 1> are not used.
-<Video 1> (motion source): attribute_transfer - the movements and the facial expressions of the figure are transferred to <Subject 1>; the grey body model's look, the shapes themselves and its black ground are not.
-
-detailed_description:
-The target video is live-action vintage film from the early 1980s, soft and a little grainy, in warm amber tungsten light.
-[Shot 1] In a kitchen with wooden cabinets and a curtained window, <Subject 1>, the woman with long, loose blonde hair parted in the middle, fair skin and blue-grey eyes, sits behind a table in a white bib apron over a sleeveless patterned blouse; the apron, the blouse, her arms and her hands are the scene's own and stay as they are. Her face is the face of <Picture 1> on every frame. She follows the movements and the facial expressions of the figure in <Video 1>. Her blonde hair hangs loose past her shoulders, over the straps of the apron. The wall, the curtained window and the cabinets behind her head are the scene's own and stay as they are. The warm light falls on her face and her hair as it falls on everything around her, from the same direction and in the same amber colour. The framing and every movement of the camera are the scene's own and do not change.
-
-overall_soundscape: The quiet ambience of the scene sits underneath, with the soft brush of clothing as the performer moves.
-
-non_diegetic_music: N/A
-```
 
 ### Why we think it worked, and what is not shown
 
