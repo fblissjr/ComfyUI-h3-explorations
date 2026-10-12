@@ -120,10 +120,39 @@ own below the rule.
   section). First tooling job for the lead; the page's code then goes into
   the tree as `bench/review_page/`.
 - **The lead's four singing loads** (the owner, Open List rows p05 and t66,
-  2026-10-12 17:06-17:07Z): her face only on the three hall shots
-  (1093-1133, 1134-1155, 1156-1188) with the singing sentence where she
-  sings, and the street shot 294-414 with none, built on the record as it
-  stands; the still cut to head and hair rides on one as a one-change test.
+  2026-10-12 17:06-17:07Z): her face only on the three hall shots with
+  the singing sentence, and the street shot 294-414 with none, built on
+  the record as it stands. *Corrected 2026-10-12 about 18:46Z by the
+  lead: the three hall shots are the rows' own, by their times (about
+  47 s, 49 s, 52 s): 1093-1133, 1156-1188 and 1222-1305. The list that
+  stood here (with 1134-1155) came from a session's reply on row p05.
+  The still cut to head and hair is not part of these four: it is row
+  g05's test of the second subject's still on 14-154, a load of its own
+  after them; the lead's still is already a head crop.* Found while
+  building them, each a gap and none fixed:
+  - **1134-1155 is left as the source.** Her face is hidden under her
+    hair for a third of the shot (the preview's part is empty on
+    1145-1146 and a few hundred pixels on 1144 and 1147-1149); sheet on
+    the share, `Video/fun/mrhorn/lead_looked_at/lead_part_1141_1154.jpg`.
+    No face load of this shot is built.
+  - **The voice table has no voice on 1093-1188**
+    (`data/2026-10-10_fun_audio/voice_spans.json`: nothing between 1049
+    and 1201), though her mouth is open in the picture on much of it.
+    What it cannot see: a voice the separator put in the other stem.
+    Each load's note carries the figures.
+  - **On the street shot the body model is not her pose on 316-320**,
+    where a cyclist hides her (sheet beside the one above,
+    `lead_part_0315_0358.jpg`); that load takes no motion video. And her
+    face part is under the capture's least size
+    (`bench/capture_masked_run.py::PART_LEAST_PX`) on about half the
+    frames, so the gate blocks: nothing would be laid there. Waiting on
+    the lead's ruling between a zoomed load, the part as saved, or
+    holding the shot for row p04's zoomed-load work.
+  - **A capture over a preview of several shots asks who is who** on
+    every shot its tracker took by likeness, though the owner answered
+    those shots on the who page (`data/fun/shots.json`). Nothing carries
+    those answers into a preview's corrections; today each such shot got
+    a preview of its own, picked on the owner's frame.
   After the second subject's loads on the card. The zoomed load that keeps
   its motion video (row p04, 17:05Z) is the node change after that, for
   the street walk zoomed and the phone insets, and for the second subject
