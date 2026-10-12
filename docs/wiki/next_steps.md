@@ -150,6 +150,16 @@ own below the rule.
   the page server stamps on each line what it can know of where the click
   came from, and the tool reads that beside `who`. Not started (found by a
   review of the commit that added the shots record, 2026-10-12).
+- **The check that a render's graph is its plan's graph is a session script, and it stops on a hair band.** Before
+  a render is queued the card holder compares the render graph with the plan graph and lets them differ in the
+  song node's preview switch and file prefix only. That comparison lives in an untracked script handed from one
+  card holder to the next, with no check of its own. The builder writes a hair band's cut keep-out once a stage,
+  under the stage's name (`<load>.plan.<label>_less_hair_band.mkv` and `<load>.render.<...>.mkv`,
+  `bench/masked_job.py::hair_band`), so on the first band load the two graphs differed in that one input and the
+  script stopped; the card holder decoded both files, found every frame equal, and queued by hand. The rule to
+  build, as a tracked tool or inside the builder's own `queue` of a render: an input that is a file the build
+  writes per stage is compared by content, equal content passes with both names printed, different content
+  stops, and anything else that differs stops as now. Not started (2026-10-12).
 
 **Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
 - Start from [`handover.md`](handover.md): what not to assume, where the
