@@ -162,7 +162,11 @@ the whole span.
 
 **video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
 source frame number and the render frame number above every row, with the render's audio, or the source's at the
-render's first frame when the render file carries none. Every subject has
+render's first frame when the render file carries none. A render need not begin or end where the capture's span
+does (a load whose first frames are left as the source, a run that continues a stored window): the strip is the
+frames both hold, `render_span` owns the arithmetic, and every frame of it names in the panel the span's frames
+it does not show. The render's frame 0 is the source frame `--render-first` gives, or the one the run that
+wrote the file recorded, or the span's first frame when neither says, and the command prints which. Every subject has
 one colour: an outline for the tracked mask, a solid fill for what was taken from the still, a light fill for
 the margin regenerated round it, and white boxes on margin cells that were given back to somebody else. Under
 the rows is a panel read from the same tables: the frame number large, each subject's mask and part, each
@@ -3937,6 +3941,28 @@ def wrap_text(text: str, width: float, measure) -> list[str]:
     return out
 
 
+def render_span(first: int, frames: int, render_first: int, render_frames: int) -> dict:
+    """The frames a strip of a render shows, on the span's clock and on the render's, and what of the span it leaves out.
+
+    `first` and `frames` are the capture's span in source frames; `render_first` is the source frame the render's
+    frame 0 is on and `render_frames` its length. A render need not begin where its capture does: a load whose
+    first frames are left as the source, and a run that continues a stored window, both write a file that begins
+    inside the span. `lo` is how many of the span's frames lie before the render and `skip` how many of the
+    render's lie before the span (one of the two is 0); `frames` is what both hold from there; `left_out` is the
+    span's source frames the strip does not show, first and last, with why. No frame in both is refused."""
+    skip, lo = max(0, first - render_first), max(0, render_first - first)
+    shown = min(frames - lo, render_frames - skip)
+    if shown <= 0:
+        raise SystemExit(f"the render is source frames {render_first}-{render_first + render_frames - 1} and the capture's span is "
+                         f"{first}-{first + frames - 1}: no frame is in both")
+    left = []
+    if lo:
+        left.append({"frames": [first, first + lo - 1], "why": "before the render"})
+    if lo + shown < frames:
+        left.append({"frames": [first + lo + shown, first + frames - 1], "why": "after the render"})
+    return {"skip": skip, "lo": lo, "frames": shown, "left_out": left}
+
+
 def video(a: argparse.Namespace) -> None:
     import cv2
     from PIL import Image, ImageDraw, ImageFont
@@ -3947,7 +3973,7 @@ def video(a: argparse.Namespace) -> None:
     source, render = a.source, a.render
     if Path(source).name != m["clip"]:
         raise SystemExit(f"--source is {Path(source).name}; this capture was made from {m['clip']}")
-    skip, lo, shown = 0, 0, None
+    skip, lo, shown, left_out = 0, 0, None, []
     if a.load:
         # the look: one load's own frames, every one, with the text it will be given under the picture
         if not a.job or render is not None:
@@ -3965,12 +3991,17 @@ def video(a: argparse.Namespace) -> None:
         shown["region"] = "the node's plan of this load" if runs and runs[0].get("planned") else \
             "this load's render" if runs else "none: the capture holds no plan of this load yet"
     if render is not None:
-        # the render's frame 0 on the span's clock: the run that wrote it says, or --render-first
-        known = next((r["first_source_frame"] for r in runs if r.get("render") == Path(render).name), first)
-        skip = first - (known if a.render_first is None else int(a.render_first))
-        if skip < 0:
-            raise SystemExit("the render starts after the span's first frame; capture the span the render covers")
-        frames = min(frames, probe(render)[2] - skip)
+        # the render's frame 0 on the span's clock: --render-first, or the run that wrote it says, or the span's first frame
+        known = next((r["first_source_frame"] for r in runs if r.get("render") == Path(render).name), None)
+        render_first = int(a.render_first) if a.render_first is not None else first if known is None else known
+        took = "--render-first" if a.render_first is not None else "the run that wrote it" if known is not None else \
+            "NOT SAID: no run of this capture names this file, so the span's first frame"
+        print(f"the render's frame 0 is taken as source frame {render_first} ({took})" + ("" if a.render_first is not None or known is not None else
+              "; the capture's runs begin at " + ", ".join(f"{r['name']}: {r.get('first_source_frame', first)}" for r in runs)), flush=True)
+        span = render_span(first, frames, render_first, probe(render)[2])
+        skip, lo, frames, left_out = span["skip"], span["lo"], span["frames"], span["left_out"]
+        for one in left_out:
+            print(f"not in the strip: span frames {one['frames'][0]}-{one['frames'][1]}, {one['why']}", flush=True)
         # a render that is one of the capture's runs is shown with that run's region alone; any other with all
         own = [r for r in runs if r.get("render") == Path(render).name]
         runs = own if own and not a.all_runs else runs
@@ -4003,7 +4034,8 @@ def video(a: argparse.Namespace) -> None:
         pic = Image.open(path)
         pic = pic.convert("RGB").resize((max(1, round(pic.width * 150 / pic.height)), 150))
         stills.append((label, pic))
-    motions = stream(a.motion, (456, 342), skip + lo, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
+    # the motion video's frame 0 is the run's first frame: on the render's clock with a render, on the load's without
+    motions = stream(a.motion, (456, 342), skip if render else lo, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
                      pix="rgb24") if a.motion else None
     region_px = [cells_up(r["region"]) for r in runs]
     before = None
@@ -4047,7 +4079,7 @@ def video(a: argparse.Namespace) -> None:
         said = ("", DIM) if voiced in (None, "") else (("VOICE", GREEN) if int(float(voiced)) else ("no voice", DIM))
         for k in range(n_rows):
             top = k * row_h
-            d.text((10, top + 6), f"SOURCE FRAME {first + n:05d}  " + (f"RENDER FRAME {skip + n:04d}" if shown is None else
+            d.text((10, top + 6), f"SOURCE FRAME {first + n:05d}  " + (f"RENDER FRAME {skip + n - lo:04d}" if shown is None else
                                                                    f"LOAD FRAME {n - lo:04d}"), font=big, fill=WHITE)
             d.text((w - 250, top + 10), f"{(first + n) / FPS:6.2f} s", font=text, fill=DIM)
             d.text((w - 140, top + 10), said[0], font=text, fill=said[1])
@@ -4066,13 +4098,18 @@ def video(a: argparse.Namespace) -> None:
         d.line([(0, py), (canvas_w, py)], fill=DIM)
         d.text((14, py + 6), f"{first + n:05d}", font=huge, fill=WHITE)
         d.text((16, py + 104), f"source frame     {(first + n) / FPS:.2f} s", font=line, fill=DIM)
-        d.text((16, py + 130), f"render frame {skip + n:04d}" if render else "nothing rendered: a preview" if shown is None else
+        d.text((16, py + 130), f"render frame {skip + n - lo:04d}" if render else "nothing rendered: a preview" if shown is None else
                f"load {a.load}, frame {n - lo + 1} of {frames}", font=text if shown is None else line, fill=WHITE)
         if starts:
-            window = sum(skip + n >= x for x in starts)
+            window = sum(skip + n - lo >= x for x in starts)
             d.text((16, py + 160), f"window {window} of {len(starts)}", font=line, fill=WHITE)
             d.text((16, py + 184), "new frames from " + ", ".join(str(x) for x in starts), font=small, fill=DIM)
         d.text((16, py + 214), said[0] or "no voice table", font=text, fill=said[1])
+        if left_out:
+            # a render that covers part of the span: every frame of the strip says which of the span's frames it does not show
+            d.text((16, py + 250), "span frames not in this strip:", font=small, fill=AMBER)
+            for k, one in enumerate(left_out):
+                d.text((16, py + 274 + 23 * k), f"{one['frames'][0]}-{one['frames'][1]}, {one['why']}", font=small, fill=AMBER)
         inside = np.zeros((h, w), bool)
         for px in region_px:
             inside |= px[n]

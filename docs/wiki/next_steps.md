@@ -94,7 +94,15 @@ own below the rule.
   region on the new frames equals the continuation's. The strip already has
   an offset for a load's own strip (`--load`); a render placed by
   `--render-first` inside the span wants the same, with a case in
-  `bench/check_capture_masked_run.py`. Not started: the tool was in use.
+  `bench/check_capture_masked_run.py`. **Fixed 2026-10-12**: the strip is
+  the frames the span and the render both hold
+  (`bench/capture_masked_run.py::render_span`), every frame of it names in
+  its panel the span's frames it does not show, and the command prints
+  which source frame it took the render's frame 0 to be and on whose word.
+  Run once on a real load's own capture (the hall shot whose first five
+  frames are left as the source); a render that is not one of the
+  capture's runs still needs `--render-first`, and without it is placed on
+  the span's first frame, which the printed line says.
 - **`bench/recomposite_window.py` writes tables and no pictures.** It lays a
   stored window again with one setting changed and prints what moved; to see
   the layings, a session script called the tool's own functions (the saved

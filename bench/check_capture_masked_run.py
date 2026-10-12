@@ -55,6 +55,12 @@ overlaps and margins can be counted by hand and reads the rows back.
    was given; with frames chosen by the caller only those are filled; a part with nothing wrong is not
    touched; and the middle of a gap longer than `HOLD_REACH` is left and listed.
 
+15. **The frames a render's strip shows** (`render_span`). A render that begins on the span's first frame and
+   is as long shows every frame and leaves nothing out; one that begins before the span skips its own frames
+   before it; one that begins inside the span (a load whose first frames are left as the source) is shown from
+   there, on the render's frame 0, with the span's frames before it named; one that ends first has the frames
+   after it named; and a render with no frame inside the span is refused with both ranges.
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -1291,6 +1297,29 @@ def a_load_that_lays_nothing() -> str:
     return "a frame the load reads, with the subject tracked, an empty mask and no region is named; a lent frame, an untracked one and one outside the load are not"
 
 
+def a_strip_of_a_render() -> str:
+    """Which frames the stacked strip shows of a render that does not begin or end where the capture's span does."""
+    whole = cap.render_span(1093, 41, 1093, 41)
+    assert whole == {"skip": 0, "lo": 0, "frames": 41, "left_out": []}, whole
+    early = cap.render_span(1093, 41, 1090, 44)          # the render began three frames before the span
+    assert early == {"skip": 3, "lo": 0, "frames": 41, "left_out": []}, early
+    late = cap.render_span(1093, 41, 1098, 36)           # frames 1093-1097 were left as the source: the render begins at 1098
+    assert late == {"skip": 0, "lo": 5, "frames": 36, "left_out": [{"frames": [1093, 1097], "why": "before the render"}]}, late
+    # the strip's frame k is span frame lo + k and render frame skip + k: the same source frame on both rows
+    assert all(1093 + late["lo"] + k == 1098 + late["skip"] + k for k in range(late["frames"]))
+    assert all(1093 + early["lo"] + k == 1090 + early["skip"] + k for k in range(early["frames"]))
+    short = cap.render_span(1093, 41, 1098, 20)          # and it ends before the span does
+    assert short["frames"] == 20 and short["left_out"] == [{"frames": [1093, 1097], "why": "before the render"},
+                                                           {"frames": [1118, 1133], "why": "after the render"}], short
+    for outside in ((1093, 41, 1134, 10), (1093, 41, 1000, 93)):
+        try:
+            cap.render_span(*outside)
+            raise AssertionError(f"a render with no frame inside the span was taken: {outside}")
+        except SystemExit as e:
+            assert "no frame is in both" in str(e) and "1093-1133" in str(e), e
+    return "a render inside the span is shown from its own frame 0 with the span's frames before and after it named; one outside it is refused"
+
+
 def text_rules() -> str:
     sings = "She is in a room. She performs the main voice on the track as it plays."
     denies = "She is in a room. She does not speak or sing at any point."
@@ -1334,4 +1363,5 @@ case("a pose table as an input", pose_tables)
 case("a pass as a list of loads", loads)
 case("preflight: the gate and its override", the_gate)
 case("preflight: the text against the voice", text_rules)
+case("the strip: the frames a render's strip shows, and the span's frames it leaves out", a_strip_of_a_render)
 sys.exit(finish())
