@@ -109,7 +109,19 @@ def the_lower_edge() -> str:
     render[0, 48:60, 32:96], render[1, 48:60, 32:96], render[2, 48:76, 32:96] = 160, 160, 160
     rows = rb.pictures(rect(32, 48, 96, 80, 3), region, source, render)
     assert [(r["edge_px"], r["edge_step_px"]) for r in rows] == [(12.0, None), (12.0, 0.0), (28.0, 16.0)], rows
-    return "drawn pixels twelve rows into the band read 12; a reach that moves to 28 reads a step of 16; nothing drawn reads 0"
+    # the printout says how much is drawn beside the edge, so the edge is not read alone where little is drawn
+    import contextlib
+    import io
+    out = {"band": "x_band", "pair": "x", "first": 100, "frames": 3, "cell_px": CELL, "regions_are": {}, "the_pair_differs_besides_the_band_in": [],
+           "band_px": [1, 1, 1], "floor_percentile": rb.FLOOR_PERCENTILE,
+           "cause": {name: [{"region_cells": 1, "band_cells": 1, "open": 1, "not_open": 0, "changed": None if n == 0 else 0} for n in range(3)] for name in ("x_band", "x")},
+           "pictures": {"x_band": rows, "x": rows}}
+    said = io.StringIO()
+    with contextlib.redirect_stdout(said):
+        rb.say(out)
+    line = next(text for text in said.getvalue().splitlines() if text.startswith("the lower edge is the lowest"))
+    assert f"about {rb.EDGE_WEAK_UNDER:g}" in line and "x_band 0.375; x 0.375" in line, line
+    return "drawn pixels twelve rows into the band read 12; a reach that moves to 28 reads a step of 16; nothing drawn reads 0; the printout sets the drawn share beside the edge"
 
 
 def besides_the_band() -> str:

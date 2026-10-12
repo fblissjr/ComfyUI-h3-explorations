@@ -31,7 +31,9 @@ which after a plan is the node's.
    noise: with the floor at the 99th percentile about a hundredth of untouched pixels read as drawn, and about
    twice that as switching, with nothing drawn at all.
 4. THE LOWER EDGE: how far down the band the drawn pixels reach, in pixels from the band's top, the median over
-   the band's columns; and its step from the frame before.
+   the band's columns; and its step from the frame before. A weak figure where little is drawn: the lowest of a
+   few scattered pixels is the floor's noise, not an edge. The printout says each load's drawn share beside
+   `EDGE_WEAK_UNDER` so the edge is not read alone.
 
 Then the medians of each, and the frames with the largest switching and the largest edge step, by source frame
 number, so a person can open them on the stacked pair. There is no threshold and no word of verdict.
@@ -63,6 +65,12 @@ from _lib.frames import FIT, read_mask, stream  # noqa: E402
 #: on nothing: at 99 about one untouched pixel in a hundred would read as drawn, which is the figure's own noise
 #: and is printed (`floor`) so a reader can set a figure against it.
 FLOOR_PERCENTILE = 99.0
+#: Under about this share of the band drawn, the lower edge (figure 4) is the floor's noise and not an edge. Seen
+#: on ONE run, the tool's first (2026-10-12, a 16-frame load and its pair): the pair, whose drawn share was the
+#: floor's own noise (a median of 0.018), stepped its edge by the same median, 3 px a frame, as the band load at
+#: 0.057. The lead's ruling of that evening put the line at about a tenth. A starting value; it flags nothing and
+#: changes no figure, it is only printed beside the edge.
+EDGE_WEAK_UNDER = 0.1
 #: Keys of a load that are the band itself, or only name the load: never a "difference besides the band".
 NOT_A_DIFFERENCE = ("name", "hair_band", "hair_band_cuts")
 
@@ -277,6 +285,10 @@ def say(out: dict) -> None:
                     top = sorted(got, reverse=True)[:3]
                     print(f"  {what}, {name}: " + ", ".join(f"frame {f} ({v:.3f})" for v, f in top))
     if "pictures" in out:
+        shares = {name: [r["drawn_share"] for r in out["pictures"][name] if r["drawn_share"] is not None] for name in (b, p)}
+        print(f"\nthe lower edge is the lowest of the drawn pixels in each column: under a drawn share of about {EDGE_WEAK_UNDER:g} it is the "
+              "floor's noise and not an edge (seen on one run). The drawn share here, at the median: "
+              + "; ".join(f"{name} {float(np.median(v)):.3f}" if v else f"{name} nothing to read" for name, v in shares.items()))
         noise = (100.0 - out["floor_percentile"]) / 100.0
         print(f"\nthe floor's own noise: about {noise:g} of pixels a load left alone read as drawn, and about {2 * noise:g} as switching, with nothing "
               "drawn. A drawn share near that is nothing drawn, and its switching and edge are the noise's")
