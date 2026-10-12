@@ -22,6 +22,23 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **Every comment the owner typed on the local page is a record to use,
+  and where a typed comment and a clicked button disagree the words are the
+  source of truth** (the owner, in the lead's terminal, 2026-10-12 between
+  17:10Z and 17:14Z by the clock, having found the page's footer and asked
+  that the 397 saved lines be used and reachable). The 11th's rule "words
+  count over buttons" made general. What was done on it: a ledger tool
+  (`bench/page_answers_ledger.py`) lays every line of theirs beside the
+  record that cites it and lists the rest whole
+  (`data/fun/verdicts/answers_ledger.md`); their typed words on the who
+  page's rows went into `data/fun/shots.json` as shot notes (20 lines, the
+  coverage tool prints them); their words on the joined clip's spots of the
+  11th went into the verdicts record (34 lines); the 11th's part choices
+  and kitchen pick are cited on the plan's subjects. Still uncited by a repo
+  record after that: clicks on who-is-who tiles that a later click of theirs
+  superseded (the cast keeps the latest), and their words on the Open List's
+  own rows, which the list holds; an export of the list into `data/` is the
+  next step so the ledger can count them.
 - **Six answers on the Open List, read late by the lead** (the owner's
   clicks, the store's times): the look before a render is SHOWN and never
   refused (row c22, 15:51:48Z; the builder's refusal to plan or queue a
