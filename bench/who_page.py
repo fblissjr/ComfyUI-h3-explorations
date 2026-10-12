@@ -177,22 +177,23 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             if f:
                 ask = "".join(
                     f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">in the shot, not outlined</button>'
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not in shot">not in the shot</button></div>'
+                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
+                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
                     for sub in shots["subjects"])
                 tiles.append(f'<div class="tile" data-table="plain" data-frame="{mid}" data-tf="0" data-shot="0" '
                              f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{f}" alt="">'
                              f'<div>frame {mid}, the source itself: {'the trackers found nobody on this shot' if covered else 'no preview covers this shot'}, so nothing is outlined</div>'
                              f'{ask}<div class="st"></div></div>')
         if found:
-            t = max(found, key=lambda x: len(x["people"]))
+            mid = (s["first"] + s["last"]) // 2
+            t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
             others = [x for x in found if x is not t]
             part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
             ask = "".join(
                 f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
                 + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}">{n}</button>' for n in t["people"])
-                + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">in the shot, not outlined</button>'
-                + f'<button data-sub="{html.escape(sub)}" data-chosen="not in shot">not in the shot</button></div>'
+                + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
+                + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
                 for sub in shots["subjects"])
             also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
                 f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
@@ -222,8 +223,9 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
     me = ('<p>Answering as <input id="me" value="owner" size="10"> (a click or a save is one line appended to the page\'s '
           'answers file, through the local page\'s server). <b>To answer, open this page as '
           '<code>http://&lt;the page server&gt;:8765/who/index.html</code></b> (the server serves files, not folders, so the '
-          'file name is needed); opened from the share as a file it only shows. On a picture: for each '
-          'subject, which number they are, <b>in the shot, not outlined</b>, or <b>not in the shot</b>.</p>')
+          'file name is needed); opened from the share as a file it only shows. An answer is about THAT FRAME, never about the whole shot: for each '
+          'subject, which number they are, <b>on this frame, not outlined</b>, or <b>not on this frame</b>. Whether they are in the shot at '
+          'all is a word in the box, and the tracker is left to judge the other frames.</p>')
     return (f'<!doctype html><meta charset="utf-8"><title>{html.escape(shots["video"])}</title><style>{CSS}</style>'
             f'<h1>Who is in each shot</h1>{head}{replaced}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
             f'<th>the trackers\' numbered pictures</th><th>the owner\'s words on these frames</th></tr>{"".join(rows)}</table>{SCRIPT}')

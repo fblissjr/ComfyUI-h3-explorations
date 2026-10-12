@@ -16,7 +16,7 @@ outlined people`, the latest line stands.
 **How a line is read.** Only lines whose `who` is `owner` and whose `row` is a who-is-who row (`WHO_ROWS`) are
 taken. Two shapes of click: the first page's (a numbered PERSON and a button naming who they are, `BUTTONS`), and
 the who page's of 2026-10-12 (a SUBJECT and a button: their number on the tile, `not outlined`, or `not in
-shot`; the last two both store as `none of the outlined people`, the cast's one word, and `seeds` decides per
+shot` (the page's label until 2026-10-12 14:45Z) or `not on frame`; all three store as `none of the outlined people`, the cast's one word, and `seeds` decides per
 load how strongly to read it). Otherwise: a session's test clicks are listed as left out. Lines are grouped by tile (the table's file name and the
 source frame it shows); on a tile, the LATEST click for each numbered person is the answer (`taken back` leaves
 that person unanswered). A button is read through `BUTTONS` to a subject's label or to `none of these`; a `not
@@ -132,7 +132,7 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
     for subject, (n, chosen, _at) in sorted(tile["by_subject"].items()):
         if chosen.isdigit():
             named.append((int(chosen), subject))
-        elif chosen not in ("not outlined", "not in shot"):
+        elif chosen not in ("not outlined", "not in shot", "not on frame"):
             raise SystemExit(f"{name} frame {frame}: line {n} has a button this tool does not know: {chosen!r}")
         # `not outlined` and `not in shot` both leave the subject unnamed: the cast file stores `none of the outlined
         # people` for them (its one word for it); `not in shot` is the strong reading, which `seeds` takes per load
