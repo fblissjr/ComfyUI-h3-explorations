@@ -22,6 +22,23 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **A masked load's text is written from the model's side: it generates
+  the hole, and everything frozen round it steers it** (the owner, in the
+  lead's terminal, 2026-10-12 between 16:16Z and 16:20Z by the clock; first
+  said 2026-10-10 at 14:09Z, where the postmortem of that span holds it and
+  the day's texts went the other way). The
+  model is not editing a video it can see; it is generating new pixels in
+  the masked region, steered by what its training makes of the frozen
+  frames and the sound round the hole, by the prompt, and by the references.
+  So the text gives it enough to infer what happens there: each reference
+  asset described and what of it is preserved, partially preserved or
+  transferred (the guide's `retention_analysis`), what is generated (here a
+  face, or a face and hair), and the movements and expressions from the
+  body-model video with its shapes. Now written at the head of the masked
+  lane page's text section ([`masked_v2v.md`](masked_v2v.md), "The text:
+  the fragment"), which had the fragment's rules and not the frame; the same words
+  are the reason a two-subject load (row z09) is written as two pictures
+  each described, one union region, one motion video with both figures.
 - **Windows align with cuts, and a new window never starts within about a
   second of a cut** (the owner, in the lead's terminal, 2026-10-12 between
   15:42Z and 15:50Z by the clock, answering Open List row z07: "if you need to make shorter windows,

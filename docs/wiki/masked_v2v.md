@@ -999,6 +999,19 @@ pass was a one-off script under the untracked `data/`.*
 
 ### The text: the fragment
 
+**The frame every masked text is written in** (the owner, 2026-10-10, in
+the postmortem of that day's span, and again 2026-10-12 to the lead): the
+model is not editing a video it can see. It generates new pixels in the
+masked region, and nothing is replaced from its side. What steers it is
+what its training makes of the frozen frames and the sound round the hole,
+the prompt, and the references. So the text gives it enough to infer what
+happens there: each reference asset described, and what of it is preserved,
+partially preserved or transferred (`retention_analysis`); what is
+generated (a face, or a face and hair); and the movements and expressions
+from the body-model video with its shapes. A sentence that describes the
+scene as already lit, framed and cut, or a thing as "the scene's own", is
+addressed to an editor, not to this model, and was ruled out on the 10th.
+
 A reference the text does not speak of is one the model cannot know to
 use, and a text that says what her face does leaves a render unable to say
 whether the text or the reference did it (the rulings). So the text says
