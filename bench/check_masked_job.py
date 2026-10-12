@@ -825,13 +825,25 @@ def a_text_is_of_its_frames():
         (tmp / "output").mkdir()
         one, two = {**WHOLE, "motion": "none"}, {**WHOLE, "name": "b_0800", "first": 800, "frames": 60, "motion": "none"}
         made = lambda stage: tool.build_loads(_loads_file(tmp, capture, loads=(one, two)), stage, [], **where)  # noqa: E731
+        # the look is shown and never refused (the owner, 2026-10-12, row c22): a plan on a capture nobody looked
+        # at is built; its record says so and why, with the strip's path when one is drawn and the command when not
         (capture / "looks.json").unlink()
-        try:
-            made("plan")
-            raise AssertionError("a plan was built on a capture nobody looked at")
-        except tool.Refused as e:
-            assert "2 load(s)" in str(e) and "'b_0700'" in str(e) and "'b_0800'" in str(e), str(e)
-        assert not (tmp / "data" / "2026-01-01_check_job").exists(), "a plan refused for its look left a folder behind"
+        (capture / "looks").mkdir(exist_ok=True)
+        (capture / "looks" / "b_0700.mp4").write_bytes(b"a strip")
+        unseen = [json.loads(p.with_suffix(".built.json").read_text()) for p in made("plan")]
+        assert [r["load"]["name"] for r in unseen] == ["b_0700", "b_0800"], [r["load"]["name"] for r in unseen]
+        for r in unseen:
+            assert r["look"]["recorded"] is False and "nobody has looked" in r["look"]["why"], r["look"]
+            line = next(i for i, l in enumerate(r["shown"]) if l.startswith("NO LOOK IS RECORDED FOR THIS BUILD"))
+            assert "nobody has looked" in r["shown"][line] and "to record one:" in r["shown"][line + 1], r["shown"][line:]
+        drawn, undrawn = unseen[0]["look"], unseen[1]["look"]
+        assert drawn["strip"] == str(capture / "looks" / "b_0700.mp4") and drawn["strip_drawn"] and "looked" in drawn["how"], drawn
+        assert undrawn["strip"] is None and undrawn["strip_drawn"] is None and "video" in undrawn["how"], undrawn
+        after = [r["shown"][next(i for i, l in enumerate(r["shown"]) if l.startswith("NO LOOK")) + 1] for r in unseen]
+        assert "the strip is " in after[0] and "no strip is drawn" in after[1], after
+        assert unseen[0]["shown"][-1] == "  | the words", "the look's lines go before the text, which a build prints last"
+        shutil.rmtree(tmp / "data" / "2026-01-01_check_job")
+        (capture / "looks" / "b_0700.mp4").unlink()
         words = hashlib.sha256(b"the words").hexdigest()
         rows = [{"load": "b_0700", "frames": [700, 799], "text_frames": [690, 899], "text_sha256": words},
                 {"load": "b_0800", "frames": [800, 859], "text_frames": [690, 899], "text_sha256": words}]
@@ -844,12 +856,15 @@ def a_text_is_of_its_frames():
         at = next(i for i, line in enumerate(said) if line.startswith("text `w` (words.txt), written from source frames 690-899 by a check; this load is 700-799"))
         assert said[at + 1:] == ["  | the words"], f"the build does not print the text in full: {said[at:]}"
         assert not any("characters" in line for line in said), "the build still prints a text's length"
-        # a render is built without a look and queued only with one, on the text it was built with
+        # a render is built without a look; at queue the look is shown, never refused, on the text it was built with
         (capture / "looks.json").unlink()
         renders = made("render")
         built, graph = json.loads(renders[0].with_suffix(".built.json").read_text()), json.loads(renders[0].read_text())
         assert built["look"] is None
-        _refused(lambda: tool.text_and_look(built, graph), "nobody has looked")
+        unseen = tool.text_and_look(built, graph)
+        assert unseen["recorded"] is False and "nobody has looked" in unseen["why"] and unseen["strip"] is None, unseen
+        assert tool.look_lines(unseen)[0].startswith("NO LOOK IS RECORDED FOR THIS BUILD"), tool.look_lines(unseen)
+        assert tool.look_lines({"by": "p", "at": "t"}) == ["looked at by p at t"] and tool.look_lines(None) == []
         looks({"by": "p", "at": "2026-01-01T10:00:01", "note": "both", "shown": rows})
         assert tool.text_and_look(built, graph)["by"] == "p"
         (tmp / "words.txt").write_text("the words, and a sentence more\n")

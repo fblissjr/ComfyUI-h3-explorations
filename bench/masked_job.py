@@ -88,12 +88,8 @@ only an "absent" on every row of a table nobody opens.
   2026-10-10, included); a load whose frames do not lie inside its text's; a text whose frames hold a cut of the
   capture's shot tables or reach outside the frames the capture saw; the same words served under two labels.
   Every chosen load is tested before anything is written and the refusal lists them all (`texts_for`);
-- at `build plan` and at `queue` of a render, a load nobody looked at: the capture's `looks.json` must hold a
-  look later than the capture's own `written` whose row for the load has this build's frames, text frames and
-  text hash (`looked_at`; the strip and the record are `bench/capture_masked_run.py video` and `looked`). The
-  capture is written again when it reads the plans, so a job is looked at twice. At `queue` of a render also a
-  text file that no longer reads as the text in the built graph. `--override` lets neither of these through: it
-  answers uncommitted node code and nothing else;
+- at `queue` of a render, a text file that no longer reads as the text in the built graph. `--override` does not
+  let it through: it answers uncommitted node code and nothing else;
 - at `queue`: a graph that was queued before; an input the server does not serve; and node code in the tree
   that is not committed, unless `--override "WHO: WHY"` is given, which is written into the record. The server
   serves a commit, and a graph built beside uncommitted node code can describe a server nobody is running;
@@ -106,6 +102,16 @@ only an "absent" on every row of a table nobody opens.
 What the builder sets so that a flag does not fire: a load's audio is cut to the load. (A load shorter than its
 window keeps its region open over the held frames by the node's own rule since 2026-10-10; the builder set it
 until then.)
+
+**What is shown and never refused: the look.** Until 2026-10-12 `build plan` and `queue` of a render refused a
+load nobody had looked at; the owner ruled that the look is shown and never refused (Open List row c22,
+15:51:48Z). The record's `look` now holds the look that matches this build (`looked_at`: later than the capture's
+own `written`, its `shown` row for the load with this build's frames, text frames and text hash; the strip and
+the record are `bench/capture_masked_run.py video` and `looked`), or says that none is recorded and why, with
+the strip's path when one is drawn and the command when none is (`look_or_shown`); the same lines are printed
+with the build's and before a render is queued (`look_lines`). The capture is written again when it reads the
+plans, so a job is looked at twice; a session's look is still asked for by the lane's rules, and nothing here
+refuses on it.
 
 **What refuses nothing.** Every refusal above stands in `build` and `queue` and nowhere else. A built graph
 posted to the server by any other road (a session's own script, the canvas) meets none of them: no look, no
@@ -485,9 +491,39 @@ def looked_at(capture: Path, one: dict, told: dict) -> dict:
                   + ": that look is of something else than this build." + how)
 
 
+def look_or_shown(capture: Path, one: dict, told: dict, look=looked_at) -> dict:
+    """The look a load is built on, as `looked_at` finds it, or a record that none is recorded for this build:
+    shown and never refused (the owner, 2026-10-12, Open List row c22). The record says why in `looked_at`'s own
+    words, names the strip when one is drawn under the capture's `looks/` (with when), and gives the command that
+    records a look on it, or draws one when none is."""
+    try:
+        return look(capture, one, told)
+    except Refused as e:
+        strip = capture / "looks" / f"{one['name']}.mp4"
+        drawn = strip.is_file()
+        return {"recorded": False, "why": str(e).split(" To look: ")[0], "strip": str(strip) if drawn else None,
+                "strip_drawn": (datetime.datetime.fromtimestamp(strip.stat().st_mtime).isoformat(timespec="seconds")
+                                if drawn else None),
+                "how": (f"bench/capture_masked_run.py looked {capture} --by WHO --loads {one['name']} --note WHAT_WAS_SEEN"
+                        if drawn else
+                        f"bench/capture_masked_run.py video {capture} --source CLIP --job JOB.json --load {one['name']}, "
+                        f"then `looked`")}
+
+
+def look_lines(look) -> list[str]:
+    """What `build` prints and `queue` prints about a load's look: one line when a look matches this build, two
+    when none is recorded (why; the strip's path and when it was drawn, or the command that draws one)."""
+    if not isinstance(look, dict):
+        return []
+    if look.get("recorded", True):
+        return [f"looked at by {look.get('by')} at {look.get('at')}" + (f", strip {look['strip']}" if look.get("strip") else "")]
+    strip = f"the strip is {look['strip']} (drawn {look['strip_drawn']})" if look.get("strip") else "no strip is drawn"
+    return [f"NO LOOK IS RECORDED FOR THIS BUILD: {look['why']}", f"  {strip}; to record one: {look['how']}"]
+
+
 def text_and_look(built: dict, graph: dict) -> dict:
-    """Before a render is queued: the text in the built graph is still the text its file serves, and the load
-    was looked at with that text since the capture was last written (`looked_at`)."""
+    """Before a render is queued: the text in the built graph is still the text its file serves (refused when
+    not), and the look the load was built on, or that none is recorded (`look_or_shown`; never a refusal)."""
     name, told = built["load"]["name"], built.get("text")
     if not isinstance(told, dict):
         raise Refused(f"load {name!r} was built before a text carried its frames and its writer: build it again. {TEXT_RULE}")
@@ -497,7 +533,7 @@ def text_and_look(built: dict, graph: dict) -> dict:
         raise Refused(f"the text of load {name!r} changed after it was built: {path} no longer reads as the text in the "
                       f"built graph. A graph is a product of the job and never where a text is kept: build the load again "
                       f"under a new `name`, and it is looked at with the text it now has.")
-    return looked_at(Path(built["capture"]), built["load"], told)
+    return look_or_shown(Path(built["capture"]), built["load"], told)
 
 
 def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
@@ -689,8 +725,8 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
 def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data: Path, output: Path,
                 inputs: Path, repo: Path = REPO, analysis=analysed, look=looked_at) -> list[Path]:
     """Write the plan or render graph of each chosen load into the job folder; returns the graph files. Every
-    chosen load's text is held to its frames first (`texts_for`), and a plan is built only on a capture
-    somebody looked at with that text (`look`)."""
+    chosen load's text is held to its frames first (`texts_for`), and a plan records the look it is built on,
+    or that none is recorded (`look`, through `look_or_shown`: shown, never refused)."""
     given = json.loads(job_file.read_text())
     if "job" not in given:
         raise Refused(f"{job_file} has no `job` block")
@@ -731,7 +767,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
             text = told["text"]
             files = capture_files(job, one, capture, preview_mesh(folder, job, output))
             graph = graphs.load(base, job, one, files, text, windows=windows, plan=stage == "plan")
-            says = shown(job, one, files, graph, inputs) + text_shown(one, told)
+            says, text_lines = shown(job, one, files, graph, inputs), text_shown(one, told)
             seen = measured(job, one, capture, graph)
         except ValueError as e:
             raise Refused(f"{job_file}: {e}") from e
@@ -743,18 +779,12 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         for path, what in ((graph_file, "graph"), (saves_to, "output folder")):
             if path.exists():
                 raise Refused(f"the {what} {path} exists. A run never reuses a name: give the load a new `name`.")
-        todo.append((one, graph, graph_file, saves_to, files, told, says, seen))
-    looks, unseen = {}, []
-    for one in chosen if stage == "plan" else ():
-        try:
-            looks[one["name"]] = look(capture, one, texts[one["name"]])
-        except Refused as e:
-            unseen.append(str(e))
-    if unseen:
-        raise Refused(f"{len(unseen)} load(s) of this plan were not looked at:\n  - " + "\n  - ".join(unseen))
+        todo.append((one, graph, graph_file, saves_to, files, told, says, text_lines, seen))
+    looks = {one["name"]: look_or_shown(capture, one, texts[one["name"]], look)
+             for one in (chosen if stage == "plan" else ())}
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"job.{stage}.json").write_bytes(job_file.read_bytes())
-    for one, graph, graph_file, saves_to, files, told, says, seen in todo:
+    for one, graph, graph_file, saves_to, files, told, says, text_lines, seen in todo:
         graph_file.write_text(json.dumps(graph, indent=1) + "\n")
         (folder / f"{one['name']}.{stage}.txt").write_text(told["text"] + "\n")
         record = {"stage": stage, "load": one, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -763,7 +793,8 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "capture": str(capture), "files": files, "text": told, "look": looks.get(one["name"]),
                   "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
-                  "shown": says, "settings": settings_of(one, graph), "left_out_on_purpose": on_purpose,
+                  "shown": says + look_lines(looks.get(one["name"])) + text_lines, "settings": settings_of(one, graph),
+                  "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")
         written.append(graph_file)
@@ -976,6 +1007,8 @@ def before_queue(folder: Path, stage: str, served: dict, *, load: str = "", over
 
 def queue(folder: Path, stage: str, *, host: str, load: str = "", override: str = "", wait: bool = False) -> int:
     graph, record = before_queue(folder, stage, call(host, "/object_info"), load=load, override=override)
+    for line in look_lines(record.get("look")):
+        print(line)
     answer = call(host, "/prompt", {"prompt": graph, "client_id": "masked_job"})
     record |= {"prompt_id": answer.get("prompt_id"), "host": host,
                "queued_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}

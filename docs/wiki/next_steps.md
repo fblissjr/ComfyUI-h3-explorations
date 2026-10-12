@@ -114,11 +114,6 @@ own below the rule.
   After the second subject's loads on the card. The zoomed load that keeps
   its motion video (row p04, 17:05Z) is the node change after that, for
   the street walk zoomed and the phone insets.
-- **The look before a render is shown, never refused** (the owner, Open
-  List row c22, 2026-10-12 15:51:48Z): `bench/masked_job.py` refuses to
-  plan or queue a load until a look is recorded on its capture; it is to
-  print the strip's path and that no look is recorded, and go on. A check
-  case. Queued by the lead; not started.
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,

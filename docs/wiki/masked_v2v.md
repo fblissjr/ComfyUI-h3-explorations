@@ -161,13 +161,17 @@ session starting a job needs to know:
   (`bench/masked_job.py::ONE_SHOT`).
 - **Somebody looks before a plan and before a render** (the owner,
   2026-10-10: a passing check never says the masks are on the right person
-  or the text is of these frames). `build plan` and `queue` of a render
-  refuse a load unless the capture's `looks.json` holds a look, later than
-  the capture was last written, that showed this load's frames with this
-  text (`bench/masked_job.py::looked_at`). The strip with the whole text
-  beside the frames, and the record of the look, are
-  `bench/capture_masked_run.py` `video` and `looked`. The capture is
-  written again when it reads the plans, so a job is looked at twice.
+  or the text is of these frames), **and the look is shown, never refused**
+  (the owner, 2026-10-12, Open List row c22). `build plan` and `queue` of a
+  render record the look the capture's `looks.json` holds for the load,
+  later than the capture was last written, that showed this load's frames
+  with this text (`bench/masked_job.py::looked_at`), or that none is
+  recorded, with why and the strip's path (`look_or_shown`), printed with
+  the build's lines and before the queue; until 2026-10-12 they refused the
+  load instead. The strip with the whole text beside the frames, and the
+  record of the look, are `bench/capture_masked_run.py` `video` and
+  `looked`. The capture is written again when it reads the plans, so a job
+  is looked at twice.
 - **Not built, added 2026-10-10:** the one-window patch (until it is,
   `bench/patch_render_window.py build` and the session script the masking
   board's `note-do-not-build-on-these-2026-10-10` names are the only route,

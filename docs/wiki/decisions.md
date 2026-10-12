@@ -49,6 +49,16 @@ writer, and the row or commit named is the nearer record.*
   lane keeps `exact_kv_and_rows` (z06, 15:50:41Z; nothing changes in code);
   the four reds of the census are cut (z08, 15:52:12Z; queued); the
   two-subject load is built next (z09, 16:19:02Z; queued).
+- **The look is shown and never refused, in code** (row c22; done by the
+  lead on 2026-10-12, after 17:30Z by the clock; the owner's word on the
+  patch, in the terminal: apply it, and remove the test if it is broken and
+  causing friction). `bench/masked_job.py` used to refuse `build plan` and
+  `queue` of a render for a load with no look recorded on its capture
+  (`looked_at`, since 2026-10-10); now `look_or_shown` puts the matching
+  look, or that none is recorded with why and the strip's path, into the
+  build record and the printout, and nothing refuses on it. The check's
+  cases on the refusal became cases on the record. The lane's rule that
+  somebody looks stands as a rule of practice, not of the tool.
 - **What each subject carries is unchanged and holds for every shot**: the
   lead, the face only; the second subject, the face and hair only; the third
   subject, the face only (the owner, in the lead's terminal, 2026-10-12
