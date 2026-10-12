@@ -1138,8 +1138,9 @@ def check_song_loop(problems):
         # is what that render wrote
         ask = song.MiniMaxH3AudioFreezeSong.check_lazy_status
         if ask(preview=True, source=None, model=None, vae=None, clip=None) != ["source"] or ask(preview=True, model=None) != [] \
-                or "source" not in ask(preview=False, source=None, model=None):
-            _fail(problems, "song loop: a preview must ask for the source when it is wired, and for nothing else")
+                or "source" not in ask(preview=False, source=None, model=None) \
+                or ask(preview=True, source=None, references=None, model=None, clip=None, sigmas=None) != ["source", "references"]:
+            _fail(problems, "song loop: a preview must ask for the source and the reference chain when they are wired, and for nothing else")
         rendered = {n: (folder / f"run_window_{n}_region.npz").read_bytes() for n in (1, 2)}
         (folder / "run_window_9_planned_region.npz").write_bytes(b"left by an earlier plan")
         Sampler.masks.clear()
@@ -1150,6 +1151,40 @@ def check_song_loop(problems):
             return
         if Sampler.masks or "plan written with nothing sampled: 2 planned region file(s)" not in said:
             _fail(problems, f"song loop: a preview sampled, or does not say what it wrote: {said.splitlines()[-2:]}")
+        # what each window's references will cost, in the plan (2026-10-12): counted, not encoded
+        if "costs:" in said or "the references in all" in said:
+            _fail(problems, "song loop: a plan with no reference of any kind prints a reference's cost")
+        have = int(source["frames"].shape[0])
+        level = torch.linspace(0.1, 0.9, have).view(have, 1, 1, 1)
+        both = dict(source, motion_reference=vm.MOTION_WIRED, motion_vae=True, motion_short_edge=64, motion_short_edge_2=32,
+                    motion_frames=level.expand(have, height // 2, width // 2, 3).contiguous(),
+                    motion_frames_2=(1.0 - level).expand(have, height // 4, width // 4, 3).contiguous())
+        try:
+            planned = run(tmp, "costs/run", record=both, preview=True)[1].splitlines()
+        except Exception as exc:  # noqa: BLE001
+            _fail(problems, f"song loop: a preview of a load with two wired videos raised: {type(exc).__name__}: {exc}")
+            planned = []
+        if planned:
+            windows_planned = sorted({int(line[1:line.index("]")]) for line in planned if line.startswith("[") and "costs:" in line})
+            lone = types.SimpleNamespace(start=0.0, frames=window, number=1)
+            want = [f"[1] {line}" for line in song.reference_costs(song.window_references(both, None, lone, width, height)[0], width, height, window, planned=True)]
+            got = [line for line in planned if line.startswith("[1] ") and ("costs:" in line or "the references in all" in line)]
+            if windows_planned != [1, 2] or got != want or len(want) != 3:
+                _fail(problems, f"song loop: a plan must print, for each window, what each of its references costs and the sum: windows "
+                                f"{windows_planned}, window 1 said {got}, the count is {want}")
+            elif "<Video 1> costs" not in want[0] or "<Video 2> costs" not in want[1] or "A PLAN'S COUNT" not in want[2] \
+                    or "A PLAN'S COUNT" in " ".join(song.reference_costs(song.window_references(both, None, lone, width, height)[0], width, height, window)):
+                _fail(problems, f"song loop: a plan's cost lines must name each video and say they are a plan's count, and a render's must not: {want}")
+            if Sampler.masks:
+                _fail(problems, "song loop: counting what the references cost sampled something")
+        short = dict(both, motion_frames=both["motion_frames"][:window // 2], motion_frames_2=None)
+        try:
+            uncounted = run(tmp, "short/run", record=short, preview=True)[1]
+        except Exception as exc:  # noqa: BLE001
+            _fail(problems, f"song loop: a plan whose second window has no frames of the wired video raised: {type(exc).__name__}: {exc}")
+            uncounted = ""
+        if "[2] what the references cost was not counted:" not in uncounted or "[1] <Video 1> costs" not in uncounted:
+            _fail(problems, "song loop: a window whose references cannot be counted must say so in one line and leave the rest of the plan standing")
         if (folder / "run_window_9_planned_region.npz").exists() or any(
                 (folder / f"run_window_{n}_region.npz").read_bytes() != rendered[n] for n in (1, 2)):
             _fail(problems, "song loop: a preview left an earlier plan's file in place, or touched a render's region file")

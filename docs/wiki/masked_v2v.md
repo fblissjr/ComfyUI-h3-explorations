@@ -956,7 +956,18 @@ prompt's tokens and the window's own rows
 `reference_report.py`, the arithmetic the reference report node shows
 before a run: nothing is encoded for it, and a count that fails is one
 line and never a stopped render. `bench/check_video_mask.py` item 17 holds
-it.
+it. **A plan prints the same lines** (later on 2026-10-12, after the first
+plan on the new node printed none: the count sat in the render's
+conditioning loop, which a preview never reaches). A preview now asks for
+the reference chain as well as the source (`PREVIEW_ASKS`: still no model,
+a chain being pictures from loaders) and counts each window's references
+through the one function a render builds them with
+(`audio_freeze_song.window_references`). A plan's count is made with no
+text encoder loaded, so the prompt is not counted and the encoder's bounds
+on a picture's size are core's defaults where a render reads the loaded
+encoder's own; its last line says so, and the render's lines are the ones
+to keep. A window whose references cannot be counted says so in one line
+and the plan stands.
 
 ## Nothing is kept between runs by a key
 

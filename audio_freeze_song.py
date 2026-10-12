@@ -147,10 +147,13 @@ logger = logging.getLogger(__name__)
 
 #: The inputs a preview does not ask for: every one runs a loader or a model.
 LAZY = ("model", "clip", "vae", "audio_vae", "sampler", "sigmas", "references", "source")
-#: The one lazy input a preview does ask for, since 2026-10-10: the source, so the plan can be written from the
-#: mask a render will be given. What that costs is whatever is wired into the Masked Source: nothing for masks
+#: The lazy inputs a preview does ask for. The source, since 2026-10-10, so the plan can be written from the
+#: mask a render will be given: what that costs is whatever is wired into the Masked Source, nothing for masks
 #: loaded from files, a tracker pass for a tracker wired live (which a render of the same graph then reuses).
-PREVIEW_ASKS = ("source",)
+#: And the reference chain, since 2026-10-12, so a plan can say what each reference will cost before anything
+#: renders (`reference_costs`): a chain is pictures, videos and audio from loaders, appended by nodes that take
+#: no model, so a preview still loads none. Whatever a graph wires ahead of a reference's picture does run.
+PREVIEW_ASKS = ("source", "references")
 
 
 def _write_pieces_mp4(path: str, pieces, width: int, height: int, crf: int) -> int:
@@ -355,13 +358,63 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
     return lines
 
 
-def reference_costs(records, width: int, height: int, frames: int, clip=None, prompt: str = "") -> list[str]:
+def window_references(source, references, w, width: int, height: int):
+    """One window's references as the model is given them: (the records, the motion video's label, a second
+    wired video's label, notes for the report). The chain's own references first, then what the Masked Source
+    asks to be shown of this window: nothing, the window's own frames (`video_mask.motion_reference`), or the
+    window's frames of one or two wired videos (`video_mask.wired_motion`).
+
+    One function for a render and for a preview's plan, so that what a plan counts is what a render will
+    encode. It encodes nothing: the records are pictures, cut and scaled on the processor."""
+    motion = source.get("motion_reference", video_mask.MOTION_NONE) if source is not None else video_mask.MOTION_NONE
+    refs_w, motion_label, motion_label_2, notes = references, None, None, []
+    if motion == video_mask.MOTION_WIRED:
+        # a video the user wired beside the source: this window's own frames of it (`video_mask.wired_motion`)
+        ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
+        wired = [RuntimeVideoReference(
+            frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+            use_vae=bool(source.get("motion_vae", False)))]
+        if source.get("motion_frames_2") is not None:
+            # the second wired video, after the first: the next video label (`video_mask`, "A second wired video")
+            wired.append(RuntimeVideoReference(
+                frames=video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height, which=2),
+                loaded_fps=float(FPS), soundtrack=None, use_vae=bool(source.get("motion_vae", False))))
+        refs_w = tuple(references or ()) + tuple(wired)
+        labels = assign_labels(_order_records(refs_w))
+        motion_label = labels[-len(wired)]
+        motion_label_2 = labels[-1] if len(wired) == 2 else None
+    elif motion != video_mask.MOTION_NONE:
+        pixels, mask, _held = video_mask.window_frames(
+            source, int(round(w.start * FPS)), w.frames, width, height)
+        # zoomed in, the window's own box per shot (`video_mask.window_boxes`)
+        boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
+                 if motion == video_mask.MOTION_ZOOM else None)
+        # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
+        # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
+        ref_frames = video_mask.motion_reference(
+            pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source), boxes)
+        if motion == video_mask.MOTION_ZOOM:
+            notes.append("motion reference zoomed in: "
+                         + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
+        del pixels, mask, boxes
+        refs_w = tuple(references or ()) + (RuntimeVideoReference(
+            frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
+            use_vae=bool(source.get("motion_vae", False))),)
+        motion_label = assign_labels(_order_records(refs_w))[-1]
+    return refs_w, motion_label, motion_label_2, notes
+
+
+def reference_costs(records, width: int, height: int, frames: int, clip=None, prompt: str = "", planned: bool = False) -> list[str]:
     """What each reference of one window costs: a line a reference, then one for all of them.
 
     For each: the tokens the text encoder is given for it, which sit ahead of the prompt, and the rows of the
     video model's own copy, which every step attends to, or that it has none. Counted from the sizes by
     `reference_report.price_references`, the arithmetic the reference report node shows before a run: nothing is
     encoded for it and nothing here can change a render. A count that fails is one line, never a stopped render.
+
+    `planned` is a preview's count, made with no text encoder loaded: the prompt's own tokens are not counted,
+    and the bounds the encoder puts on a picture's size are core's defaults where a render reads the loaded
+    encoder's own. The last line says so, since a render's lines are the ones to keep.
     """
     if not records:
         return []
@@ -386,7 +439,9 @@ def reference_costs(records, width: int, height: int, frames: int, clip=None, pr
     lines.append(f"the references in all: {priced.vision_tokens:,} tokens to the text encoder"
                  + ("" if priced.prompt_tokens is None else f" beside a prompt of {priced.prompt_tokens:,}")
                  + f", and {priced.dit_reference_rows:,} rows to the video model"
-                 + ("" if own is None else f" beside the window's own {own:,}"))
+                 + ("" if own is None else f" beside the window's own {own:,}")
+                 + (". A PLAN'S COUNT: no text encoder is loaded, so the prompt is not counted and the encoder's bounds on a picture's "
+                    "size are core's defaults; the render's own lines are the ones to keep" if planned else ""))
     return lines
 
 
@@ -625,9 +680,9 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 lines.append("    " + w.text.replace("\n", "\n    "))
         lines += list(list_lines)
 
-        # In a preview every lazy input but the source arrives as None: nothing above
-        # this line may read model, clip, vae, audio_vae, sampler, sigmas or
-        # references, or a preview raises instead of reporting.
+        # In a preview every lazy input but the source and the reference chain arrives as None
+        # (`PREVIEW_ASKS`): nothing above this line may read model, clip, vae, audio_vae, sampler or
+        # sigmas, or a preview raises instead of reporting.
         if preview:
             if source is not None:
                 lines += write_plan(source, windows, writes, context_frames, bool(continue_from), width, height,
@@ -635,6 +690,13 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                                     {"window_frames": int(window_frames), "frames_covered": int(total),
                                      "frames_written": int(kept_frames - head), "continue_from": os.path.basename(continue_from),
                                      "seed": int(seed), "context_noise": float(context_noise)})
+            # what each window's references will cost, counted from their sizes: nothing is encoded in a preview
+            for w in windows:
+                try:
+                    planned_refs = window_references(source, references, w, width, height)[0]
+                    lines += [f"[{w.number}] {line}" for line in reference_costs(planned_refs, width, height, w.frames, planned=True)]
+                except Exception as exc:  # noqa: BLE001 -- a plan that cannot count says so and is still a plan
+                    lines.append(f"[{w.number}] what the references cost was not counted: {exc}")
             report = "preview, nothing rendered: " + "\n".join(lines)
             logger.info("[h3] MiniMaxH3AudioFreezeSong: %s", report.splitlines()[0])
             return io.NodeOutput("", report, (True, []), ui=ui.PreviewText(report))
@@ -699,41 +761,10 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 continue
             comfy.model_management.throw_exception_if_processing_interrupted()
             lap.clear()
-            refs_w = references
-            if motion == video_mask.MOTION_WIRED:
-                # a video the user wired beside the source: this window's own frames of it (`video_mask.wired_motion`)
-                ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
-                wired = [RuntimeVideoReference(
-                    frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
-                    use_vae=bool(source.get("motion_vae", False)))]
-                if source.get("motion_frames_2") is not None:
-                    # the second wired video, after the first: the next video label (`video_mask`, "A second wired video")
-                    wired.append(RuntimeVideoReference(
-                        frames=video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height, which=2),
-                        loaded_fps=float(FPS), soundtrack=None, use_vae=bool(source.get("motion_vae", False))))
-                refs_w = tuple(references or ()) + tuple(wired)
-                labels = assign_labels(_order_records(refs_w))
-                motion_label = labels[-len(wired)]
-                motion_label_2 = labels[-1] if len(wired) == 2 else None
-                mark("motion reference")
-            elif motion != video_mask.MOTION_NONE:
-                pixels, mask, _held = video_mask.window_frames(
-                    source, int(round(w.start * FPS)), w.frames, width, height)
-                # zoomed in, the window's own box per shot (`video_mask.window_boxes`)
-                boxes = (video_mask.window_boxes(source, int(round(w.start * FPS)), w.frames, width, height)
-                         if motion == video_mask.MOTION_ZOOM else None)
-                # The subject widened by half of `grow_pixels`, whatever `grow_by` is: a margin taken from
-                # the subject's size greys a limb that leaves the part's edge (`video_mask.MOTION_WIDEN`).
-                ref_frames = video_mask.motion_reference(
-                    pixels, mask, motion, int(source["motion_short_edge"]), video_mask.motion_widening(source), boxes)
-                if motion == video_mask.MOTION_ZOOM:
-                    reports.append(f"[{w.number}] motion reference zoomed in: "
-                                   + video_mask.zoom_note(boxes, height, width, int(source["motion_short_edge"])))
-                del pixels, mask, boxes
-                refs_w = tuple(references or ()) + (RuntimeVideoReference(
-                    frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
-                    use_vae=bool(source.get("motion_vae", False))),)
-                motion_label = assign_labels(_order_records(refs_w))[-1]
+            refs_w, label, label_2, notes = window_references(source, references, w, width, height)
+            if motion != video_mask.MOTION_NONE:
+                motion_label, motion_label_2 = label, label_2
+                reports.extend(f"[{w.number}] {note}" for note in notes)
                 mark("motion reference")
             if refs_w is None:
                 out = MiniMaxH3Conditioning.execute(clip, vae, w.text, width, height, w.frames,
