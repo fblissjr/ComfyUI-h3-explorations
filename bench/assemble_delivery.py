@@ -371,14 +371,11 @@ def audio_rate(path) -> int | None:
 
 
 def class_names() -> tuple[str, ...]:
-    """The part model's class names, read from `sapiens2_parts.py` beside this folder without importing it (it
-    imports the models' libraries); a class's index in a class map is its place in this table."""
-    import ast
-    tree = ast.parse((Path(__file__).resolve().parents[1] / "sapiens2_parts.py").read_text())
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "CLASS_NAMES" for t in node.targets):
-            return tuple(ast.literal_eval(node.value))
-    raise SystemExit("sapiens2_parts.py has no CLASS_NAMES")
+    """The part model's class names, read from the table the Subject Parts node reads
+    (`vendor/meta_sapiens2/seg_classes29.json`), without importing the node (it imports the models' libraries); a
+    class's index in a class map is its place in this table."""
+    table = json.loads((Path(__file__).resolve().parents[1] / "vendor" / "meta_sapiens2" / "seg_classes29.json").read_text())
+    return tuple(str(name) for name in table["names"])
 
 
 def read_table(path) -> list[dict]:

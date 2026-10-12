@@ -125,26 +125,21 @@ MATTE_ARCH = "Sapiens2ForImageMatting"
 #: The `matting` choice that loads no matting model.
 NO_MATTING = "none"
 
+#: Meta's table of the segmentation classes, `vendor/meta_sapiens2/seg_classes29.json`
+#: (`vendor/meta_sapiens2/README.md` says where it was read from and what holds it). Read once, when the
+#: module is imported.
+_TABLE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor", "meta_sapiens2", "seg_classes29.json")
+with open(_TABLE_FILE, encoding="utf-8") as _f:
+    _TABLE = json.load(_f)
 #: The segmentation classes by index. Inherited: upstream's `DOME_CLASSES_29`
 #: (`coderef/sapiens2/sapiens/dense/src/datasets/seg/seg_utils.py`), the same
-#: list as `coderef/sapiens2/docs/SEG.md`. The checkpoint's config carries no
+#: list as `coderef/sapiens2/docs/SEG.md`, read from the file above (a
+#: literal here until 2026-10-11). The checkpoint's config carries no
 #: names, so the order is checked against a frame, not read from a file:
 #: `bench/results/2026-10-05_sapiens2_first_frame.md`.
-CLASS_NAMES = (
-    "Background", "Apparel", "Eyeglass", "Face_Neck", "Hair", "Left_Foot", "Left_Hand", "Left_Lower_Arm",
-    "Left_Lower_Leg", "Left_Shoe", "Left_Sock", "Left_Upper_Arm", "Left_Upper_Leg", "Lower_Clothing",
-    "Right_Foot", "Right_Hand", "Right_Lower_Arm", "Right_Lower_Leg", "Right_Shoe", "Right_Sock",
-    "Right_Upper_Arm", "Right_Upper_Leg", "Torso", "Upper_Clothing", "Lower_Lip", "Upper_Lip", "Lower_Teeth",
-    "Upper_Teeth", "Tongue",
-)
-#: The preview's colour for each class. Inherited: the same upstream table.
-PALETTE = (
-    (50, 50, 50), (255, 218, 0), (14, 204, 182), (128, 200, 255), (255, 0, 109), (189, 0, 204), (255, 0, 218),
-    (0, 160, 204), (0, 255, 145), (204, 0, 131), (182, 0, 255), (255, 109, 0), (0, 255, 255), (72, 0, 255),
-    (204, 131, 0), (255, 0, 0), (72, 255, 0), (189, 204, 0), (182, 255, 0), (102, 0, 204), (32, 72, 204),
-    (0, 145, 255), (14, 204, 0), (0, 128, 72), (235, 205, 119), (115, 227, 112), (157, 113, 143), (132, 93, 50),
-    (82, 21, 114),
-)
+CLASS_NAMES = tuple(str(n) for n in _TABLE["names"])
+#: The preview's colour for each class. Inherited: the same upstream table, the same file.
+PALETTE = tuple(tuple(int(v) for v in c) for c in _TABLE["colors"])
 BACKGROUND = 0
 
 _MOUTH = ("Lower_Lip", "Upper_Lip", "Lower_Teeth", "Upper_Teeth", "Tongue")
