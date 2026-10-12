@@ -17,6 +17,25 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
+**Masked video to video, 2026-10-12: three gaps in the tools, each found by a run and none fixed.**
+- **Nothing prints whether a body model is on its subject.** A preview posed
+  the person behind the subject for half a second and every table read the
+  same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
+  the figure that would have shown it is not built: the body model's head
+  against the subject's own part or track, a column a frame in the capture's
+  pose rows, printed with what it was measured on. Body-model videos made
+  before 2026-10-12 on shots where two people overlap have not been measured.
+- **`bench/capture_masked_run.py files --overwrite` leaves a subject's files
+  from the build before** when the new build gives that subject fewer inputs
+  (a class map, a part), and the gate's last step then reads them: it crashed
+  on a class map of another length after writing `flags.json`, and before
+  that it raised flags about a part the build no longer had. Until it clears
+  what it no longer writes, build a changed capture in a new folder.
+- **`bench/draw_lid_marks.py`'s read-back fails on a frame left bare when the
+  body model has pixels near white**: the re-encode pushes a few of them over
+  its line and the test wants none. Read on one run: the pixels were spread
+  over the body and none was at an eye.
+
 **Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
 - Start from [`handover.md`](handover.md): what not to assume, where the
   day's folders, tools and one-offs are, and the order for the next day.
