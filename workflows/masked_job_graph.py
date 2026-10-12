@@ -52,7 +52,7 @@ with a pose pass takes the mesh and any other load takes none), `continue_from`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
 place of the capture's own), `motion_edge` (the motion video's short edge), `motion_file_2` with `motion_first_2`
 and `motion_edge_2` (a second motion video beside the first, shown to the model as the next video reference: for a
-load whose text gives each video a subject of its own), `hair_band` (for a part pass: a share of the part's
+load whose text gives each video a subject of its own), `subjects` (a load of TWO subjects in one pass, below), `hair_band` (for a part pass: a share of the part's
 height left open under it for the still's hair, cut out of one keep-out, which `hair_band_cuts` names when it is
 not the clothing; `bench/masked_job.py::hair_band`, `h3_config.MASKED_JOB_HAIR_BAND`), and `render_region`: `part` renders the load zoomed in on what is
 replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame), where `frame`, the
@@ -304,6 +304,89 @@ SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "contex
 RENDER_REGIONS = {"frame": None, "part": "zoomed in on what is replaced"}
 #: What a load's `carried` may say (the capture's words): the whole tracked subject, or its part.
 CARRIED = ("track", "held")
+#: What a subject of a two-subject load may say is replaced, in the plan's words (`bench/shot_coverage.py::REGIONS`),
+#: and what the load carries of that subject for each.
+PAIR_REGIONS = {"face": "held", "face and hair": "held", "whole": "track"}
+#: The keys one subject of a two-subject load may hold.
+PAIR_KEYS = ("subject", "region", "parts_mask", "parts_first", "still", "motion_file", "motion_first", "motion_edge", "others",
+             "hair_band", "hair_band_cuts")
+#: The keys of a load that a two-subject load does not set itself, since each is read off its `subjects`.
+PAIR_READS = ("subject", "others", "carried", "parts_mask", "parts_first", "still", "motion", "motion_file", "motion_first", "motion_edge",
+              "motion_file_2", "motion_first_2", "motion_edge_2", "hair_band", "hair_band_cuts", "also")
+
+
+def one_subject_view(one: dict) -> dict:
+    """A load of two subjects as the one-subject load every reader of a job file takes, with the second beside it.
+
+    **A two-subject load** replaces two people in one pass: `subjects` is a list of two, in the order the model
+    is given them, each `{"subject", "region"}` with what else that subject brings: its part (`parts_mask`,
+    `parts_first`; the capture's own part when left out), its `still`, its reference video (`motion_file`,
+    `motion_first`, `motion_edge`), the keep-outs it needs (`others`), and for the first a `hair_band`. The first
+    subject's still is `<Picture 1>` and its reference `<Video 1>`; the second's are `<Picture 2>` and
+    `<Video 2>`: the order the song node emits them, stills in the chain's order and then the two wired videos
+    (`reference_order.py`).
+
+    What the load is, to everything that reads one subject a load (the capture, its gate, this builder's own
+    rules): the FIRST subject's load, with the second carried in `also` and its reference in `motion_file_2`.
+    So put first the subject whose region is larger. The region is the union of the two parts and the tracked
+    mask the union of the two tracks (`load`); the keep-outs are both subjects' together, and neither subject is
+    ever one of them. There is ONE margin, the load's `margin`: the node grows its region by one number.
+
+    **What tells the model which still is whose: the text, and nothing else.** A reference still is tokens and
+    rows the model attends to from everywhere; nothing ties one to a place in the picture. The text's two
+    subject definitions, where each person is, and each reference video being that person's own head are all
+    there is. A load without `subjects` is returned as it is."""
+    if "subjects" not in one:
+        return one
+    name, pair = one.get("name", "?"), one["subjects"]
+    if not isinstance(pair, list) or len(pair) != 2 or not all(isinstance(s, dict) for s in pair):
+        raise ValueError(f"load {name!r}: `subjects` is a list of two, each a subject's own keys; a load of one subject names it with `subject`")
+    set_twice = [k for k in PAIR_READS if k in one]
+    if set_twice:
+        raise ValueError(f"load {name!r} has `subjects` and also sets {', '.join(set_twice)}: in a two-subject load each of those is "
+                         f"read off the list")
+    for n, s in enumerate(pair, 1):
+        unknown = [k for k in s if k not in PAIR_KEYS]
+        if unknown or "subject" not in s or s.get("region") not in PAIR_REGIONS:
+            raise ValueError(f"load {name!r}: subject {n} of `subjects` needs `subject` and a `region` of {tuple(PAIR_REGIONS)}"
+                             + (f"; it also holds {', '.join(unknown)}, which a subject does not take ({', '.join(PAIR_KEYS)})" if unknown else ""))
+    first, second = pair
+    labels = [first["subject"], second["subject"]]
+    if labels[0] == labels[1]:
+        raise ValueError(f"load {name!r}: both of its `subjects` are {labels[0]!r}")
+    kept = [x for s in pair for x in (s.get("others") or ())]
+    if set(kept) & set(labels):
+        raise ValueError(f"load {name!r}: {sorted(set(kept) & set(labels))} is one of its two subjects and is listed among `others`: "
+                         f"neither subject of a two-subject load is kept out of it")
+    if "motion_file" in second and "motion_file" not in first:
+        raise ValueError(f"load {name!r}: its second subject names a `motion_file` and its first does not: <Video 1> is the first subject's")
+    for key in ("hair_band", "hair_band_cuts"):
+        if key in second:
+            raise ValueError(f"load {name!r}: `{key}` is the first subject's: the band is cut under the first subject's part. Put the "
+                             f"subject that needs it first")
+    out = {k: v for k, v in one.items()}
+    out.update(subject=labels[0], others=list(dict.fromkeys(kept)), carried=PAIR_REGIONS[first["region"]],
+               motion="mesh" if "motion_file" in first else "none")
+    for key in ("parts_mask", "parts_first", "still", "motion_file", "motion_first", "motion_edge", "hair_band", "hair_band_cuts"):
+        if key in first:
+            out[key] = first[key]
+    for key in ("motion_file", "motion_first", "motion_edge"):
+        if key in second:
+            out[f"{key}_2"] = second[key]
+    out["also"] = {"subject": labels[1], "region": second["region"], "carried": PAIR_REGIONS[second["region"]],
+                   **{k: second[k] for k in ("parts_mask", "parts_first", "still") if k in second}}
+    return out
+
+
+def stills_of(g: dict) -> list[tuple[str, str]]:
+    """The stills of a load's graph in the order the model is given them, as (the append node, its image loader):
+    the chain the song node's `references` ends, read back to its start."""
+    chain, at = [], g[_the(g, SONG)]["inputs"].get("references")
+    while isinstance(at, list) and g.get(str(at[0]), {}).get("class_type") == STILL:
+        node = g[str(at[0])]["inputs"]
+        chain.append((str(at[0]), str(node["image"][0])))
+        at = node.get("references")
+    return chain[::-1]
 SONG, SOURCE, STILL = "MiniMaxH3AudioFreezeSong", "MiniMaxH3MaskedSource", "MiniMaxH3AppendRefImage"
 #: Ids a load adds to the shipped graph, where it uses none: the mask and motion loaders, the audio.
 MASK_FILES, AUDIO_FILE, AUDIO_CUT = 150, "145", "146"
@@ -392,6 +475,15 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r}: motion {one['motion']!r}; one of {tuple(MOTIONS)}")
     if one.get("edge", "tokens") not in MASKED_JOB_EDGE:
         raise ValueError(f"load {name!r}: edge {one['edge']!r}; one of {tuple(MASKED_JOB_EDGE)}")
+    also = one.get("also")
+    if also is not None:
+        if also.get("subject") not in labels or also["subject"] == one["subject"] or also["subject"] in (one.get("others") or ()):
+            raise ValueError(f"load {name!r}: its second subject {also.get('subject')!r} must be one of the job's {labels}, not its "
+                             f"first subject and not among its `others`")
+        if also.get("carried") not in CARRIED:
+            raise ValueError(f"load {name!r}: its second subject's carried {also.get('carried')!r}; one of {CARRIED}")
+        if one.get("render_region", "frame") != "frame":
+            raise ValueError(f"load {name!r} is of two subjects and is rendered zoomed in: one box round one part is a one-subject load")
     if "hair_band" in one:
         band, cuts = one["hair_band"], one.get("hair_band_cuts", MASKED_JOB_HAIR_BAND["cuts"])
         if isinstance(band, bool) or not isinstance(band, (int, float)) or not 0 < band <= MASKED_JOB_HAIR_BAND["most"]:
@@ -494,6 +586,26 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
                feather_pixels=one.get("feather", MASKED_SOURCE["feather_pixels"]))
     if part:
         src["parts"] = from_file(*files["parts"])
+    also, theirs = one.get("also"), files.get("also")
+    if also is not None:
+        # a second subject in the same pass: the tracked mask is the union of the two tracks and the region the
+        # union of the two parts, a whole subject's track standing for its part; one region, one margin
+        if not theirs or not theirs.get("track"):
+            raise ValueError(f"load {one['name']!r}: no track was found for its second subject {also['subject']!r}")
+        second_part = also["carried"] == "held"
+        if second_part and not theirs.get("parts"):
+            raise ValueError(f"load {one['name']!r}: its second subject {also['subject']!r} takes a part and no part mask was found for it")
+
+        def union(a: list, b: list) -> list:
+            nid = str(next(counter))
+            g[nid] = {"class_type": "MaskComposite", "inputs": {"destination": a, "source": b, "x": 0, "y": 0, "operation": "add"}}
+            return [nid, 0]
+
+        track_1, track_2 = src["mask"], from_file(*theirs["track"])
+        src["mask"] = union(track_1, track_2)
+        if part or second_part:
+            src["parts"] = union(src["parts"] if part else track_1, from_file(*theirs["parts"]) if second_part else track_2)
+            src["replace"] = MASKED_PARTS_SOURCE["replace"]
     if "edge" in one:
         src["edge"] = MASKED_JOB_EDGE[one["edge"]]
     joined = None
@@ -537,6 +649,15 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
     for key in [k for k in view if k.startswith("qwen_view")]:
         view.pop(key)
     view["qwen_view"] = MASKED_JOB_STILL_VIEW
+    if also is not None:
+        # the second subject's still, after the first in the chain: <Picture 2>, shown as the first is shown
+        if not plan and not also.get("still"):
+            raise ValueError(f"load {one['name']!r}: its second subject {also['subject']!r} names no `still`: a render needs both pictures")
+        first_still = _the(g, STILL)
+        load_2, append_2 = str(next(counter)), str(next(counter))
+        g[load_2] = {"class_type": "LoadImage", "inputs": {**g[still]["inputs"], "image": also.get("still") or g[still]["inputs"]["image"]}}
+        g[append_2] = {"class_type": STILL, "inputs": {**view, "image": [load_2, 0], "references": [first_still, 0]}}
+        g[song]["inputs"]["references"] = [append_2, 0]
     sink = [nid for nid, n in g.items() if "sink_conditioning" in n["inputs"]]
     if len(sink) != 1:
         raise ValueError(f"the base graph holds {len(sink)} nodes with a `sink_conditioning`; a load sets exactly one")

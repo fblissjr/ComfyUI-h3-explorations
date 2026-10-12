@@ -222,6 +222,16 @@ def _apply(out: dict, source: dict, kind: str, part: dict, folder: Path) -> tupl
                     used.add(one["subject"])
                 if one["subject"] in used:
                     touched.append(one["name"])
+            # a load of two subjects (`subjects`, `workflows/masked_job_graph.py::one_subject_view`): each one's own still
+            for j, each in enumerate(one.get("subjects") or ()):
+                label = each.get("subject")
+                if label in values:
+                    if "still" in each and each["still"] != values[label]:
+                        each["still"] = values[label]
+                        made.append(f"loads[{i}].subjects[{j}].still")
+                        used.add(label)
+                    if label in used and one["name"] not in touched:
+                        touched.append(one["name"])
     elif kind == "text":
         for label, name in values.items():
             entry = (job.get("texts") or {}).get(label)

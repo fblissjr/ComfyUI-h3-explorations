@@ -985,8 +985,15 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
     everything else a `--plan` takes may be given in a load or once in the defaults. Names must differ."""
     given = json.loads(Path(path).read_text())
     out, seen = [], set()
+    sys.path.insert(0, str(REPO / "workflows"))
+    import masked_job_graph                                         # the one reading of a two-subject load, the job builder's
     for n, load in enumerate(given.get("loads", [])):
-        one = {**given.get("defaults", {}), **load}
+        try:
+            # a load of two subjects is this tool's FIRST subject's load: its region then lies over the second, and
+            # the rule about a region over another subject says so, to be answered by a person (`outcome`)
+            one = masked_job_graph.one_subject_view({**given.get("defaults", {}), **load})
+        except ValueError as e:
+            raise SystemExit(f"{path}: {e}") from e
         lacking = [k for k in ("first", "frames", "subject") if k not in one]
         if lacking:
             raise SystemExit(f"{path}: load {n} lacks {', '.join(lacking)}")
@@ -995,7 +1002,8 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
             raise SystemExit(f"{path}: two loads are named {name!r}; give one a `name`")
         seen.add(name)
         one["at"] = one.pop("first")
-        out.append((name, {k: "+".join(v) if isinstance(v, list) else str(v) for k, v in one.items() if v is not None}))
+        out.append((name, {k: ("+".join(v) if isinstance(v, list) and all(isinstance(x, str) for x in v) else
+                               json.dumps(v) if isinstance(v, (list, dict)) else str(v)) for k, v in one.items() if v is not None}))
     return out
 
 

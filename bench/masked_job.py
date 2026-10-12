@@ -272,7 +272,11 @@ def loads_of(given: dict) -> list[dict]:
     """A job file's loads with its defaults under each, named as `bench/capture_masked_run.py` names them."""
     out, seen = [], set()
     for n, load in enumerate(given.get("loads", [])):
-        one = {**given.get("defaults", {}), **load}
+        try:
+            # a load of two subjects is read as its first subject's, with the second beside it (`one_subject_view`)
+            one = graphs.one_subject_view({**given.get("defaults", {}), **load})
+        except ValueError as e:
+            raise Refused(str(e)) from e
         lacking = [k for k in ("first", "frames", "subject") if k not in one]
         if lacking:
             raise Refused(f"load {n} lacks {', '.join(lacking)}")
@@ -584,6 +588,17 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
         else:
             # the part as the capture filled and graded it; the part as saved only when nothing was doubted
             files["parts"] = of(one["subject"], ("parts_held", "parts"))
+    also = one.get("also")
+    if also:
+        # the second subject of a two-subject load: its track, and its part where it takes one
+        files["also"] = {"track": of(also["subject"], ("track",)), "parts": None}
+        if also["carried"] == "held":
+            if also.get("parts_mask"):
+                if not Path(also["parts_mask"]).is_file():
+                    raise Refused(f"load {one['name']!r}: its second subject's parts_mask {also['parts_mask']} is not a file")
+                files["also"]["parts"] = (str(also["parts_mask"]), also.get("parts_first", at))
+            else:
+                files["also"]["parts"] = of(also["subject"], ("parts_held", "parts"))
     motion = graphs.motion_of(job, one)
     if motion != "none":
         path = one.get("motion_file") or mesh_of(one["subject"])
@@ -743,11 +758,46 @@ def still_seen(name: str, shown_at: int, upscale: bool, inputs: Path) -> str:
     return f"the still {name} is {width}x{height}: the video model is shown it {how}"
 
 
+def pair_of(one: dict, files: dict) -> list[dict] | None:
+    """Which picture and which video went to which subject of a two-subject load, with each one's files; None for one subject."""
+    also = one.get("also")
+    if not also:
+        return None
+    first, second = one["subjects"]
+    return [{"subject": one["subject"], "region": first["region"], "is": "<Subject 1>", "still": one.get("still"), "picture": "<Picture 1>",
+             "reference": files["motion"][0] if files.get("motion") else None, "video": "<Video 1>" if files.get("motion") else None,
+             "track": files["track"][0], "part": files["parts"][0] if files.get("parts") else None},
+            {"subject": also["subject"], "region": second["region"], "is": "<Subject 2>", "still": also.get("still"), "picture": "<Picture 2>",
+             "reference": files["motion_2"][0] if files.get("motion_2") else None, "video": "<Video 2>" if files.get("motion_2") else None,
+             "track": files["also"]["track"][0], "part": files["also"]["parts"][0] if files["also"].get("parts") else None}]
+
+
+def pair_lines(one: dict, files: dict, src: dict, text: str, ref: dict, inputs: Path) -> list[str]:
+    """What is shown of a two-subject load beyond a one-subject load's lines; nothing for one subject."""
+    pair = pair_of(one, files)
+    if pair is None:
+        return []
+    lines = ["TWO SUBJECTS IN ONE PASS: " + "; ".join(
+        f"{p['subject']} ({p['region']}) is {p['is']}, its still {p['picture']}" + (f", its reference {p['video']}" if p["video"] else ", no reference video")
+        for p in pair)]
+    second = pair[1]
+    lines.append((still_seen(second["still"], ref["size_policy.dit_short_edge"], ref["size_policy.allow_upscale"], inputs)
+                  if second["still"] else f"no still named for {second['subject']}: a plan samples nothing") + f" (the second subject's, {second['picture']})")
+    wanted = [label for p in pair for label in (p["is"], p["picture"], p["video"]) if label]
+    lines.append("the text names " + ", ".join(f"{label}: {'yes' if label in text else 'NO'}" for label in wanted))
+    lines.append("which still is whose is told to the model by the TEXT ALONE (its two subject definitions and where each person is), and by each "
+                 "reference being that person's own head: nothing ties a still to a place in the picture. A swap or a blend of the two faces is what "
+                 "this load's first render is read for")
+    lines.append(f"one margin for both subjects, {src['grow_pixels']} px (the node grows its region by one number), and the keep-outs are both "
+                 f"subjects' together; the region is the union of the two parts")
+    return lines
+
+
 def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[str]:
     """What each model will be shown for a load, one line a thing (the order's step 6), read from the graph."""
     src = graph[graphs._the(graph, graphs.SOURCE)]["inputs"]
     run = graph[graphs._the(graph, graphs.SONG)]["inputs"]
-    ref = graph[graphs._the(graph, graphs.STILL)]["inputs"]
+    ref = graph[graphs.stills_of(graph)[0][0]]["inputs"]              # the first still's; a second is shown as the first is
     lines = [f"frames {one['first']}..{one['first'] + one['frames'] - 1} of the copy at {h3_config.FPS:g} fps, canvas "
              f"{run['width']}x{run['height']}, window {run['window_frames']}, context {run['context_frames']}"
              + (f", its last frame held for {run['window_frames'] - one['frames']} frames with the region open"
@@ -769,6 +819,7 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
                          + ("names <Video 2>" if named else "DOES NOT NAME <Video 2>"))
     else:
         lines.append("no motion video")
+    lines += pair_lines(one, files, src, str(run.get("prompt", "")), ref, inputs)
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
     lines.append(f"seed {run['seed']}"
                  + (f"; continues {run['continue_from']} with its kept frames at noise {run['context_noise']}"
@@ -861,6 +912,8 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         # a subject's still, given once in the job block, is every load's of that subject unless a load names its own
         if "still" not in one and one["subject"] in stills:
             one["still"] = stills[one["subject"]]
+        if one.get("also") and "still" not in one["also"] and one["also"]["subject"] in stills:
+            one["also"]["still"] = stills[one["also"]["subject"]]
     chosen = [one for one in every if not names or one["name"] in names]
     unknown = set(names) - {one["name"] for one in every}
     if unknown or not chosen:
@@ -915,7 +968,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says + look_lines(looks.get(one["name"])) + text_lines, "settings": settings_of(one, graph),
-                  "hair_band": cut,
+                  "hair_band": cut, "subjects": pair_of(one, files),
                   "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")

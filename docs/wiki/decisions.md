@@ -25,6 +25,27 @@ writer, and the row or commit named is the nearer record.*
 - **The whole fun video is in scope, not the first 1919 frames alone** (the owner, 2026-10-12, about 20:27Z, in the lead's terminal, asked whether the rest of the source should be worked: "having the whole thing in scope would be good cuz I'd like to just see if we can apply everything we have all the way through at some point"). Until now every shot table, plan, render and delivery was of the working copy `fun_0000_1919_24p.mov` (frames 0-1919 of the 6395-frame source `fun.mp4`; `data/fun/shots.json` says so), and nothing past 1919 had a cut, a track or a plan. From here: a second working copy of frames 1920-6395 made the same way, its cuts by scene detection as a starting table for the owner's who-is-in-each-shot answers, then the trackers' previews on it, then the loads in the settled form (the crop with the face points), after the first 1919 frames are done. Logged by mrforest, 2026-10-12T20:27:27Z.
 - **The reference for a head (or head and hair) replacement is always cropped to the head, with the face points drawn on it** (the owner, 2026-10-12, about 20:12Z, in the lead's terminal, after the two cropped-reference tests on 1039-1060 were read: the crop alone (second_hf_1039_g, the lid marks on the head crop) opened her eyes as the face points on the crop (second_hf_1039_f) did, 0.57 against 0.61 of the original's fall, where the same marks at full-frame size gave 0.29: "We should probably still crop when doing just head (or head+hair) replacements anyway - always - and also add the eye dots to cover cases where they look left and right or around"). So the form from here: the body model cut to one box round the head (`bench/crop_reference_to_head.py`; the whole frame when the face already fills it, as on the lead's close-up), then the pose model's face points drawn on the cut video (`bench/draw_face_points.py`: the eye outlines with the iris, the brows, the nose; the mouth left out), and the text saying exactly what that video is. Before this the marked body model at full-frame size was the form (the owner's word of 17:35Z), and it never opened her eyes on seven renders. The owner's own words on the page at 20:18:36Z, under second_hf_1039_g after clicking 'keep this one': "All methods used here should be a standard going forward if it holds up for everything else. **ONLY** for face/head/hair/etc though. I think." So the form is the standard for face, head and hair replacements only, and it is provisional on holding up across the rest of the video. Logged by mrforest, 2026-10-12T20:12:17Z; the page words added 2026-10-12T20:19:10Z.
 - **A clip's title on the local page starts with the load's name** (the owner, 2026-10-12, about 20:07Z, in the lead's terminal, after looking for 1039_f on the page and not finding it: "going forward can we label that as the title - what u refer to it as"). The name the sessions use for a render in the terminal and on the Open List (the load's name, the page item's `id`, e.g. `second_hf_1039_f`) is the first thing in the item's heading and in the page's nav, with the plain description after it. Before this the heading was the description alone and the name was nowhere the owner could read it. The page renders the id first (its rebuild of this evening); new items carry `title` as "<load name>: <description>". Logged by mrforest, 2026-10-12T20:08:48Z.
+- **A two-subject load is built: two stills and two references in one
+  pass, the model told which is whose by the text alone** (the owner's
+  click on Open List row z09, "yes, build it next", and their word of
+  20:33Z to integrate what exists before the bigger batches, both as the
+  lead relayed them; the three rulings on its shape are the lead's, given
+  to the session that built it before it wrote any of it). A load's
+  `subjects` is a list of two; the builder joins their tracks, parts and
+  keep-outs, chains the two stills and wires the two references, so the
+  first subject is `<Picture 1>` and `<Video 1>` and the second
+  `<Picture 2>` and `<Video 2>`. Ruled: text-only binding IS the
+  two-subject load by the owner's meaning, and a swap or blend of the two
+  faces is what the first render is read for; ONE margin for the load,
+  the larger need's, with the other subject's wider ring written down as
+  the load's known cost and a second margin in the node named as what
+  would end it; the capture reads the load as its first subject's, the
+  subject with the larger region, and its flag about a region over
+  another subject is answered there by hand. What it used to be: one
+  subject a load, two passes over a shot with both people in it, and the
+  second pass's keep-out of the first where the two overlap. Builder code
+  only: no node code, no restart. No render had been made of one.
+  [`masked_v2v.md`](masked_v2v.md), "Running a job".
 - **A hair band is built into the job builder, and it is read by a session
   that did not build it** (the owner, 2026-10-12, as the lead relayed it to
   the session that built it: at about 18:52Z "the issue that caused the

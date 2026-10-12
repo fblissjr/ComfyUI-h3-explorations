@@ -387,6 +387,43 @@ session starting a job needs to know:
   that holds a cut cannot be built for now: one load a shot, each with its
   own text. That last part is an edge accepted, not a rule of the model
   (`bench/masked_job.py::ONE_SHOT`).
+- **A load of two subjects in one pass** (2026-10-12, the owner's "yes,
+  build it next" on Open List row z09; a load's `subjects`, a list of two).
+  Each entry is one subject's own: its label, its `region` in the plan's
+  words (`face`, `face and hair`, `whole`), its part where it takes one,
+  its still, its reference video with the frame it begins on and its short
+  edge, and the keep-outs it needs. The order of the list is the order the
+  model is given them: the first subject's still is `<Picture 1>` and its
+  reference `<Video 1>`, the second's `<Picture 2>` and `<Video 2>`
+  (`../../workflows/masked_job_graph.py::one_subject_view`). The builder
+  makes the tracked mask the union of the two tracks and the region the
+  union of the two parts, joins both subjects' keep-outs with neither
+  subject ever among them, chains the two stills and wires the two
+  references to the Masked Source's two inputs. Every file is a path the
+  load gives; the build record says which picture and which video went to
+  which subject, and the shown lines say which of the six labels the text
+  names. What a reader has to know before the first one renders:
+  - **The text alone tells the model which still is whose.** A reference
+    still is tokens and rows the model attends to from everywhere; nothing
+    in H3 or in this pack ties one to a place in the picture, with one
+    region or with two. What there is: the text's two subject definitions
+    and where each person is, and each reference being that person's own
+    head. A swap or a blend of the two faces is what the first render of
+    such a load is read for.
+  - **One margin for both**, the load's `margin`: the node grows its
+    region by one number. A subject whose own loads ran at a smaller margin
+    carries the wider ring here (the lead's face at the second subject's
+    margin, on the first use). A second part and margin in the node would
+    end that; it is node code and is not built.
+  - **The capture and its gate read it as the first subject's load**, so
+    put first the subject whose region is larger. The region then lies over
+    the second subject and the capture's rule about a region over another
+    subject says so; that flag is answered in the capture by a person, with
+    the tool's own `outcome`. Teaching the capture a two-subject load is a
+    row in [`next_steps.md`](next_steps.md).
+  - A hair band is the first subject's. A two-subject load is not rendered
+    zoomed in.
+  No render had been made of one when this was written.
 - **A hair band under a head-and-hair part** (2026-10-12; a load's
   `hair_band`, a share of the part's height, with no default: a load that
   does not ask has none). A still whose hair falls past the original's jaw

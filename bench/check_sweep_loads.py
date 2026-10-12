@@ -143,7 +143,22 @@ def a_still() -> str:
     assert order == [["build", "plan"], ["queue", "data/<the"], ["build", "render"], ["queue", "data/<the"]] * 2, order
     assert sum("between plan and render" in c for c in cmds) == 2 and all("--load lead_0" in c for c in cmds if "masked_job.py" in c)
     assert sorted(p.name for p in (folder / "data").iterdir()) == [f"{DATE}_sweep_{t}" for t in "bcd"]
-    return "two subjects' stills over two job files, one subject of two, and the commands for the touched loads only"
+    # a load of two subjects carries each one's still in its `subjects`: both change there, and nothing else does
+    pair = {"job": {**KITCHEN["job"], "name": "pair"}, "defaults": {},
+            "loads": [{"name": "pair_0600", "first": 600, "frames": 100, "text": "t1", "margin": 64,
+                       "subjects": [{"subject": "second", "region": "face and hair", "still": "mom_own.jpg", "others": ["clothes"]},
+                                    {"subject": "lead", "region": "face", "still": "lead_own.jpg", "others": []}]}]}
+    (folder / "jobs" / "pair.json").write_text(json.dumps(pair, indent=1) + "\n")
+    two = run(folder, (folder / "jobs" / "pair.json",), "e", still=["lead=lead_e.jpg", "second=mom_e.jpg"])["copies"][0]
+    assert sorted(two["changed_at"]) == ["job.subjects[0].still", "job.subjects[1].still", "loads[0].subjects[0].still", "loads[0].subjects[1].still"], two["changed_at"]
+    assert two["touched"] == ["pair_0600_e"]
+    copied = json.loads((folder / "jobs" / "pair__e.json").read_text())
+    assert [x["still"] for x in copied["loads"][0]["subjects"]] == ["mom_e.jpg", "lead_e.jpg"], "each subject of a two-subject load did not get its own still"
+    back = undone(copied, pair, "e")
+    back["job"]["subjects"][0]["still"], back["job"]["subjects"][1]["still"] = "lead_a.jpg", "mom_a.jpg"
+    back["loads"][0]["subjects"][0]["still"], back["loads"][0]["subjects"][1]["still"] = "mom_own.jpg", "lead_own.jpg"
+    assert back == pair, "the copy of a two-subject load differs from it beyond the stills and the names"
+    return "two subjects' stills over two job files, one subject of two, a load of two subjects, and the commands for the touched loads only"
 
 
 def a_text() -> str:

@@ -38,6 +38,14 @@ own below the rule.
   capture, where the lane keeps one capture a load, so `--capture JOB=FOLDER` names the copy's own and a copy
   without one is told what a build there can write over; and a new reference that begins on another frame is
   given as `FILE@N`. A copy on other frames (`first`, `frames`, `left_out`) is another load and stays by hand.
+- **The capture tool reads a two-subject load as one subject's** (2026-10-12, when the load was built). A
+  load's `subjects` reaches `bench/capture_masked_run.py` as its FIRST subject's load
+  (`workflows/masked_job_graph.py::one_subject_view`): the second subject's part is inside the region and is no
+  subject of the plan, so the rule about a region over another subject fires on it and is answered by hand,
+  and nothing the capture measures of a region (what is inside it that is not its subject, the part's
+  coverage, the pose rows) is taken for the second subject. To build: a plan with two subjects, each rule read
+  per subject of the load, and the strip drawn with both. Starts at `loads_from_file` and the roughly sixty
+  places that take a plan's `subject` as one label.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but

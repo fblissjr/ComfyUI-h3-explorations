@@ -43,6 +43,19 @@ Claims, i.e. what breaks if a case is deleted:
                         job with no pick; a stage queued twice; node code not
                         committed, with and without an override; an input the
                         server does not serve
+  a load of two subjects    `subjects`, a list of two: read as its first subject's load with the second beside
+                        it (`one_subject_view`); the tracked mask is the union of the two tracks and the region
+                        the union of the two parts, a whole subject's track standing for its part; the
+                        keep-outs are both subjects' and never either subject; the two stills are chained in
+                        the list's order and the two references sit on the node's two inputs, so the static
+                        label plan gives <Picture 1>, <Picture 2>, <Video 1>, <Video 2>; one margin; the
+                        nodes' schemas accept it; from a capture the record says which picture and which video
+                        went to which subject and the shown lines say what the text names and that the text
+                        alone tells the model which still is whose; the capture tool reads the same file as
+                        its first subject's load; three subjects, one label twice, a subject among the
+                        keep-outs, a key set both ways, a key a subject does not take, a second reference
+                        with no first, a band on the second subject and a zoomed two-subject load are each
+                        refused
   a hair band under a part    a load with `hair_band`, built from a capture whose masks are real videos: the
                         keep-out it names is wired from a file of the build's own, empty inside the band
                         (under the part's box, as deep as the share asked, a little wider) and the capture's
@@ -579,6 +592,115 @@ def _a_capture(tmp: Path) -> Path:
     (capture / "status.json").write_text(json.dumps({"state": "done", "written": "2026-01-01T10:00:00"}))
     (capture / "verify.json").write_text(json.dumps({"failed": 0, "not_made": 0}))
     return capture
+
+
+PAIR = {"name": "pair_0700", "first": 700, "frames": 100, "margin": 64, "feather": 8, "edge": "cells", "text": "w", "seed": 11,
+        "subjects": [{"subject": "a", "region": "face and hair", "still": "a.png", "motion_file": "/output/a_ref.mp4", "motion_first": 700,
+                      "motion_edge": 768, "others": ["c"]},
+                     {"subject": "b", "region": "face", "parts_mask": "/masks/b_face.mkv", "parts_first": 700, "still": "b.png",
+                      "motion_file": "/output/b_ref.mp4", "motion_first": 690, "others": []}]}
+FILES_PAIR = {"track": ("/capture/a/track.mkv", CAPTURE_FIRST), "parts": ("/capture/a/parts_held.mkv", CAPTURE_FIRST),
+              "motion": ("/output/a_ref.mp4", 700), "motion_2": ("/output/b_ref.mp4", 690), "others": [("/capture/c/track.mkv", CAPTURE_FIRST)],
+              "also": {"track": ("/capture/b/track.mkv", CAPTURE_FIRST), "parts": ("/masks/b_face.mkv", 700)}}
+
+
+def a_load_of_two_subjects():
+    import importlib
+    import build_workflows
+    one = graphs.one_subject_view(PAIR)
+    assert (one["subject"], one["others"], one["carried"], one["motion"]) == ("a", ["c"], "held", "mesh"), "the first subject's view"
+    assert one["also"] == {"subject": "b", "region": "face", "carried": "held", "parts_mask": "/masks/b_face.mkv", "parts_first": 700, "still": "b.png"}
+    assert (one["motion_file"], one["motion_first"], one["motion_edge"]) == ("/output/a_ref.mp4", 700, 768)
+    assert (one["motion_file_2"], one["motion_first_2"]) == ("/output/b_ref.mp4", 690) and "motion_edge_2" not in one and one["subjects"] == PAIR["subjects"]
+    assert graphs.one_subject_view(WHOLE) is WHOLE, "a load of one subject is changed by the view"
+    g = _a_load(one, FILES_PAIR)
+    src, run = g[graphs._the(g, graphs.SOURCE)]["inputs"], g[graphs._the(g, graphs.SONG)]["inputs"]
+    both_tracks = _read(one, FILES_PAIR["track"]) | _read(one, FILES_PAIR["also"]["track"])
+    assert g[src["mask"][0]]["class_type"] == "MaskComposite" and g[src["mask"][0]]["inputs"]["operation"] == "add" and _files_behind(g, src["mask"]) == both_tracks, \
+        f"the tracked mask is not the union of the two tracks: {_files_behind(g, src['mask'])}"
+    assert _files_behind(g, src["parts"]) == _read(one, FILES_PAIR["parts"]) | _read(one, FILES_PAIR["also"]["parts"]), \
+        f"the region is not the union of the two parts: {_files_behind(g, src['parts'])}"
+    assert src["replace"] == cfg.MASKED_PARTS_SOURCE["replace"] and src["grow_pixels"] == 64, "the region's kind or its one margin"
+    assert _files_behind(g, src["others"]) == _read(one, FILES_PAIR["others"]), f"the keep-outs: {_files_behind(g, src['others'])}"
+    assert _files_behind(g, src["motion_video"]) == _read(one, FILES_PAIR["motion"]) and _files_behind(g, src["motion_video_2"]) == _read(one, FILES_PAIR["motion_2"]), \
+        "the two references are not on the node's two inputs, each from its own file and clock"
+    stills = graphs.stills_of(g)
+    assert [g[load]["inputs"]["image"] for _, load in stills] == ["a.png", "b.png"], f"the stills, in order: {[g[load]['inputs']['image'] for _, load in stills]}"
+    (first, _), (second, _) = stills
+    assert run["references"] == [second, 0] and g[second]["inputs"]["references"] == [first, 0] and "references" not in g[first]["inputs"], "the chain of stills"
+    same = {k: v for k, v in g[first]["inputs"].items() if k != "image"}
+    assert {k: v for k, v in g[second]["inputs"].items() if k not in ("image", "references")} == same, "the second still is not shown as the first is"
+    order = importlib.import_module(f"{REPO.name}.reference_order")
+    assert order.assign_labels(order.plan_for(run, g)) == ["<Picture 1>", "<Picture 2>", "<Video 1>", "<Video 2>"], \
+        f"the labels the model is given: {order.assign_labels(order.plan_for(run, g))}"
+    oi = declared()
+    errors = build_workflows.validate_api(ours_only(g, oi), oi, "two subjects")
+    assert not errors, "\n      ".join(errors)
+    assert len(graphs.stills_of(_a_load())) == 1, "a load of one subject has more than its own still"
+    # a whole subject beside a part: its track stands for its part; two whole subjects: no parts at all
+    mixed = graphs.one_subject_view({**PAIR, "subjects": [PAIR["subjects"][0], {"subject": "b", "region": "whole", "still": "b.png"}]})
+    gm = _a_load(mixed, {**FILES_PAIR, "motion_2": None, "also": {"track": FILES_PAIR["also"]["track"], "parts": None}})
+    sm = gm[graphs._the(gm, graphs.SOURCE)]["inputs"]
+    assert _files_behind(gm, sm["parts"]) == _read(mixed, FILES_PAIR["parts"]) | _read(mixed, FILES_PAIR["also"]["track"]) and "motion_video_2" not in sm
+    whole = graphs.one_subject_view({**PAIR, "subjects": [{"subject": "a", "region": "whole", "still": "a.png"}, {"subject": "b", "region": "whole", "still": "b.png"}]})
+    gw = _a_load(whole, {"track": FILES_PAIR["track"], "parts": None, "motion": None, "others": [], "also": {"track": FILES_PAIR["also"]["track"], "parts": None}})
+    sw_ = gw[graphs._the(gw, graphs.SOURCE)]["inputs"]
+    assert "parts" not in sw_ and sw_["replace"] == cfg.MASKED_SOURCE["replace"] and _files_behind(gw, sw_["mask"]) == both_tracks, "two whole subjects"
+    first, second = PAIR["subjects"]
+    for words, bad in (("list of two", {**PAIR, "subjects": [first, second, second]}), ("list of two", {**PAIR, "subjects": [first]}),
+                       ("both of its", {**PAIR, "subjects": [first, {**second, "subject": "a"}]}),
+                       ("is listed among `others`", {**PAIR, "subjects": [{**first, "others": ["b"]}, second]}),
+                       ("also sets|subject", {**PAIR, "subject": "a"}),
+                       ("also sets|motion_file_2", {**PAIR, "motion_file_2": "/x.mp4"}),
+                       ("does not take|margin", {**PAIR, "subjects": [{**first, "margin": 16}, second]}),
+                       ("`region`", {**PAIR, "subjects": [{**first, "region": "head"}, second]}),
+                       ("<Video 1> is the first", {**PAIR, "subjects": [{k: v for k, v in first.items() if not k.startswith("motion")}, second]}),
+                       ("first subject's", {**PAIR, "subjects": [first, {**second, "hair_band": 0.5}]})):
+        try:
+            graphs.one_subject_view(bad)
+        except ValueError as e:
+            assert all(w in str(e) for w in words.split("|")), f"refused without saying {words!r}: {e}"
+        else:
+            raise AssertionError(f"a two-subject load that should be refused for {words!r} was read")
+    _unbuildable("zoomed in", {**one, "render_region": "part"}, FILES_PAIR)
+    _unbuildable("second subject", {**one, "also": {**one["also"], "subject": "z"}}, FILES_PAIR)
+    _unbuildable("second subject|no part mask", one, {**FILES_PAIR, "also": {"track": FILES_PAIR["also"]["track"], "parts": None}})
+    _unbuildable("still", {**one, "also": {k: v for k, v in one["also"].items() if k != "still"}}, FILES_PAIR)
+    # from a capture: the files of both, the record, what is shown; and the capture tool reads the same file
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture = _a_capture(tmp)
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"},
+                     look=lambda capture, one, told: {"by": "nobody: this case is about something else"})
+        (tmp / "output").mkdir()
+        refs = [tmp / "a_ref.mp4", tmp / "b_ref.mp4"]
+        for ref in refs:
+            ref.write_bytes(b"")
+        load = {**PAIR, "subjects": [{**first, "motion_file": str(refs[0])},
+                                     {"subject": "b", "region": "face and hair", "still": "b.png", "motion_file": str(refs[1]), "motion_first": 690}]}
+        job_file = _loads_file(tmp, capture, loads=(load,))
+        written = tool.build_loads(job_file, "plan", [], **where)
+        built = json.loads(written[0].with_suffix(".built.json").read_text())
+        assert built["files"]["also"] == {"track": [str(capture / "subjects/b/track__p.mkv"), CAPTURE_FIRST],
+                                          "parts": [str(capture / "subjects/b/parts__p.mkv"), CAPTURE_FIRST]}, built["files"]["also"]
+        assert built["files"]["parts"][0].endswith("subjects/a/parts_held__p.mkv") and built["files"]["others"] == [[str(capture / "subjects/c/track__p.mkv"), CAPTURE_FIRST]]
+        who = built["subjects"]
+        assert [(w["subject"], w["region"], w["is"], w["picture"], w["video"], w["still"]) for w in who] == \
+            [("a", "face and hair", "<Subject 1>", "<Picture 1>", "<Video 1>", "a.png"), ("b", "face and hair", "<Subject 2>", "<Picture 2>", "<Video 2>", "b.png")], who
+        assert who[0]["reference"] == str(refs[0]) and who[1]["reference"] == str(refs[1]) and who[1]["part"].endswith("subjects/b/parts__p.mkv")
+        said = "\n".join(built["shown"])
+        for words in ("TWO SUBJECTS IN ONE PASS", "a (face and hair) is <Subject 1>, its still <Picture 1>, its reference <Video 1>",
+                      "b (face and hair) is <Subject 2>, its still <Picture 2>, its reference <Video 2>", "<Subject 2>: NO", "<Video 1>: NO",
+                      "TEXT ALONE", "swap or a blend", "one margin for both subjects, 64 px", "the still b.png is 512x640"):
+            assert words in said, f"what is shown of a two-subject load lacks {words!r}:\n{said}"
+        import capture_masked_run as cap
+        (name, plan), = cap.loads_from_file(str(job_file))
+        assert name == "pair_0700" and plan["subject"] == "a" and plan["others"] == "c" and plan["carried"] == "held" and plan["at"] == "700", plan
+        assert json.loads(plan["subjects"]) == load["subjects"] and json.loads(plan["also"])["subject"] == "b", "the capture tool does not carry the two subjects"
+        single = tool.build_loads(_loads_file(tmp, capture, loads=({**{k: v for k, v in PART.items() if k != "continue_from"}, "name": "a_single"},)), "plan", [], **where)
+        assert json.loads(single[0].with_suffix(".built.json").read_text())["subjects"] is None, "a load of one subject is recorded as two"
+    return "the union of two tracks and of two parts, both subjects' keep-outs, two stills and two references in the list's order, one margin"
 
 
 def a_hair_band_under_a_part():
@@ -1220,7 +1342,8 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_hair_band_under_a_part, a_text_is_of_its_frames,
+               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_load_of_two_subjects, a_hair_band_under_a_part,
+               a_text_is_of_its_frames,
                the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
