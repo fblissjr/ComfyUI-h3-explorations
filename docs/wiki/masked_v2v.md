@@ -409,7 +409,15 @@ session starting a job needs to know:
   `seeds` in a job file (the tracker has the input, section 1 below); a
   cheap variant of a built load for a test that changes one thing, and a
   load over several shots with a text that describes each shot (both on
-  the same card).
+  the same card). *2026-10-12: the first of those two is half built.
+  `bench/sweep_loads.py` writes copies of job files with one named change
+  (a subject's still, a text, a load's motion video, or one setting of
+  every load) and new names, proves each copy differs from its source in
+  that and the names only, records the sweep and prints the builder's
+  commands in order; `bench/check_sweep_loads.py` holds it. It builds and
+  queues nothing, so a copy still goes through plan, the capture, the look
+  and the gate like any load: it is not cheaper to run, only harder to get
+  wrong.*
 
 ## Seeing what the tracker and the masks did
 

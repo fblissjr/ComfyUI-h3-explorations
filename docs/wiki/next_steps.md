@@ -27,6 +27,11 @@ own below the rule.
   looked at and queued through `bench/masked_job.py` on the same captures, with a record that says which
   loads, which change, and where each render landed. `bench/sweep_loads.py`, with a check that the copies
   differ from their sources in the named key only. About one afternoon. Not started; after the forms settle.
+  **Built 2026-10-12, its first cut**, at the lead's go once the owner had set the form: `bench/sweep_loads.py make`
+  writes the copies beside their sources and the sweep's record under `data/<date>_sweep_<tag>/`, and prints
+  `bench/masked_job.py`'s commands in order for the loads the change touches; `landed` reads where each render
+  landed into the record. It builds and queues nothing: the queue is the card holder's and a look sits between a
+  build and a queue. Held by `bench/check_sweep_loads.py`. Not yet run on a real sweep; what is left is to use it.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but

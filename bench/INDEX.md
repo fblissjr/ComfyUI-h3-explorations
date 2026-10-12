@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 114 |
+| [`check_*`](#check) | 115 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 151 |
+| [the rest](#the-rest) | 152 |
 
 ## check
 
@@ -126,6 +126,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_subject_track.py`](check_subject_track.py) | Following one person across cuts: the node's own logic, with stand-ins for SAM 3. |
 | [`check_subject_tracks.py`](check_subject_tracks.py) | The model-free judgements about a tracked subject (`subject_tracks.py`), on made-up masks. No model, no card. |
 | [`check_subject_yaw.py`](check_subject_yaw.py) | The turn metric's arithmetic: angles across the seam, the verdict, and the comparison with the eye. |
+| [`check_sweep_loads.py`](check_sweep_loads.py) | `bench/sweep_loads.py` against job files made here: a copy differs from its source in the named change and the names only. |
 | [`check_token_routing.py`](check_token_routing.py) | `token_routing` on MiniMaxH3Sol becomes a {block: budget} map; assert which. |
 | [`check_typed_reference_consumers.py`](check_typed_reference_consumers.py) | Static consumers understand the typed ordered-reference chain. |
 | [`check_vae_precision_quantized.py`](check_vae_precision_quantized.py) | `MiniMaxH3VAEPrecision` refuses to cast a quantized half, and only that. |
@@ -434,6 +435,7 @@ this file is only a way to find a script by what it says it does.
 | [`subject_likeness_in_a_group.py`](subject_likeness_in_a_group.py) | Is a track that still has a plausible mask still on the SUBJECT? The likeness of each track to the subject's own seed. |
 | [`subject_regain_looks.py`](subject_regain_looks.py) | At each look after a loss: is the subject among the people the detector returns, and would a rule take them back? |
 | [`subject_track_under_nudge.py`](subject_track_under_nudge.py) | Does the Subject Track decide each shot the same way when every input pixel moves by one level of 255? |
+| [`sweep_loads.py`](sweep_loads.py) | The same loads again with one thing changed: copies of masked job files, a record of the sweep, the commands in order. |
 | [`sweep_routing_density.py`](sweep_routing_density.py) | Per-head routed density across the capture grid: where the routing structure is. |
 | [`sweep_sol_block_size_on_capture.py`](sweep_sol_block_size_on_capture.py) | Is 64 tokens per block the limit? Float reference, on captures. |
 | [`tally_judge_verdicts.py`](tally_judge_verdicts.py) | How often does the judge call a pair "same" or "can't tell", and does the slot order pull? |
