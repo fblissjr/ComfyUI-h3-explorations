@@ -79,7 +79,15 @@ writer, and the row or commit named is the nearer record.*
   built on it (second_hf_1039_b, second_hf_0859d) stand, since their
   reference is the marked mesh and those lines fit it. The marks stay on
   every load of her. [`masked_v2v.md`](masked_v2v.md), "The text: the
-  fragment", carries the ruling beside the fragment.
+  fragment", carries the ruling beside the fragment. The owner, minutes
+  later, restating the frame every masked text is written in: "we're
+  generating faces (and hair i guess) from the perspective of a FROZEN
+  video in h3. when youre making a prompt, h3 has no idea whats around
+  that little hole/mask of noise we're creating. All it knows is we're
+  generating something from a ref image and from a ref video. We're not
+  video editing. We're using references." And what the marked video IS:
+  "the sam3d body mesh + the sapiens2 parts" (`masked_v2v.md`, "How it was
+  made: the nodes and the code").
 - **No video clip under `data/`, the tools included** (the owner,
   2026-10-12, in the lead's terminal at about 17:39Z: "All videos we agreed
   go in output folder Video/fun somewhere"; AGENTS.md has the rule).
