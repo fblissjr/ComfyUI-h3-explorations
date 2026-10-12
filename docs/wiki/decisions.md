@@ -22,6 +22,7 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **A clip's title on the local page starts with the load's name** (the owner, 2026-10-12, about 20:07Z, in the lead's terminal, after looking for 1039_f on the page and not finding it: "going forward can we label that as the title - what u refer to it as"). The name the sessions use for a render in the terminal and on the Open List (the load's name, the page item's `id`, e.g. `second_hf_1039_f`) is the first thing in the item's heading and in the page's nav, with the plain description after it. Before this the heading was the description alone and the name was nowhere the owner could read it. The page renders the id first (its rebuild of this evening); new items carry `title` as "<load name>: <description>". Logged by mrforest, 2026-10-12T20:08:48Z.
 - **`masked_v2v.md` was reorganized, and held to the clips, the files and
   the code it names** (the owner, 2026-10-12, in the lead's terminal,
   offering a session for it: "Its a mess right now"; and on top of the
