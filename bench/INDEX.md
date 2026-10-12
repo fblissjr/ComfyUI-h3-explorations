@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 107 |
+| [`check_*`](#check) | 108 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 144 |
+| [the rest](#the-rest) | 145 |
 
 ## check
 
@@ -75,6 +75,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
 | [`check_override_routing.py`](check_override_routing.py) | Check which calls the attention override sends to sage, and which it declines. |
+| [`check_page_answers_to_cast.py`](check_page_answers_to_cast.py) | `bench/page_answers_to_cast.py` takes the owner's clicks on the review page into the cast file; each case is a way a click could be stored wrongly, twice, or when the owner had not decided. |
 | [`check_patch_render_window.py`](check_patch_render_window.py) | `bench/patch_render_window.py join` against a render and a patch whose answers are known by construction. |
 | [`check_pdd_bank_encoding.py`](check_pdd_bank_encoding.py) | The converter refuses a delta-encoded head stack, and takes a verbatim one. |
 | [`check_pdd_head_selection.py`](check_pdd_head_selection.py) | The PDD node's runtime guards do what they claim, on real artifacts. |
@@ -365,6 +366,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
+| [`page_answers_to_cast.py`](page_answers_to_cast.py) | The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`. |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
 | [`pdd_artifact_inventory.py`](pdd_artifact_inventory.py) | The PDD artifact record and the generated regions of `docs/pdd_artifacts.md`, derived from the files, from git, and from the node's source -- never typed. |
 | [`pose_along_shot.py`](pose_along_shot.py) | Run the pose model on every frame of a shot and keep its points: what the eye marks and the reader are made from. |
