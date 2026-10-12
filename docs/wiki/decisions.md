@@ -87,7 +87,19 @@ writer, and the row or commit named is the nearer record.*
   generating something from a ref image and from a ref video. We're not
   video editing. We're using references." And what the marked video IS:
   "the sam3d body mesh + the sapiens2 parts" (`masked_v2v.md`, "How it was
-  made: the nodes and the code").
+  made: the nodes and the code"). And at about 18:00Z, the condition on
+  the pattern, so that nobody makes it a rule: "don't take that fragment
+  of text as a 'paste this onto EVERY prompt' verbatim. If you use a body
+  mesh and you use a sapiens2 overlay data, and youre just doing face
+  replacements. it makes sense. If you're doing something else, it doesn't
+  anymore, because the reference video may have changed, or maybe its not
+  about the face. In our video, I think its always about the face and
+  head... but just an fyi. Don't make it a rule that ends up getting
+  inserted into things that causes future debugging hell." No tool inserts
+  those sentences (the ruling of 2026-10-11 that the form stays a
+  documented practice and is not put into code stands; a grep of the
+  code for its words finds none); a session writes each load's text from
+  its frames and its own reference.
 - **No video clip under `data/`, the tools included** (the owner,
   2026-10-12, in the lead's terminal at about 17:39Z: "All videos we agreed
   go in output folder Video/fun somewhere"; AGENTS.md has the rule).

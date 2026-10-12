@@ -113,7 +113,19 @@ own below the rule.
   stands; the still cut to head and hair rides on one as a one-change test.
   After the second subject's loads on the card. The zoomed load that keeps
   its motion video (row p04, 17:05Z) is the node change after that, for
-  the street walk zoomed and the phone insets.
+  the street walk zoomed and the phone insets, and for the second subject
+  on 1010-1038 (the owner's row 11, 17:47Z: wait for the zoomed load).
+  Part of that change, found 2026-10-12 about 18:00Z: the preview stage
+  (tracker, part model, class map, pose, body model) has no zoom; on
+  1010-1038 the part model at whole-frame size calls her hands face from
+  about 1025 (`data/2026-10-12_second_c_1010/subjects/second/segments.csv`),
+  so a zoomed render alone cannot separate them. The preview run on an
+  enlarged picture of the subject, with every table mapped back to the
+  frame's coordinates, is a tool to write with that change; a cropped
+  copy as its own clip would leave the tables in the crop's coordinates.
+  The plan of a zoomed load (`render_region: part`) is cheap today and
+  says the box the node would take; it was run on 1010-1038 as
+  `second_hf_1010_z` (mrhorn).
 - **The four reds of the green-and-red census are cut** (the owner, row
   z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
   cosine and peak, `check_channel_balance`'s fragile-selection red,
