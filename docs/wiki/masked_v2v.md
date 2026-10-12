@@ -1247,6 +1247,15 @@ The file is untracked and is not shown here:
    size. A reference cut this way no longer lies over the source pixel for
    pixel, and the line of text that says what `<Video 1>` is has to say
    so.
+   **One command for that form** (2026-10-12, after the owner made it
+   the form of every head or head-and-hair replacement:
+   [`decisions.md`](decisions.md)): `bench/head_reference.py` cuts the
+   plain body model, cuts the source by the same box, draws the face on
+   the cut body model with no dots and the mouth left out, and writes the
+   reference, its sheet and one record that names every input by path and
+   the commits it ran on; `bench/check_head_reference.py` holds the
+   joining. Its width, no dots and the left-out mouth are the first
+   references' own, from one look, and each can be set aside.
 4. **The load.** A job file's load names the marked video: `motion: mesh`,
    `motion_file`, `motion_first` (`../../workflows/masked_job_graph.py`),
    and its `text` names a text file. It goes through `bench/masked_job.py`

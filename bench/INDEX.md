@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 115 |
+| [`check_*`](#check) | 116 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 152 |
+| [the rest](#the-rest) | 153 |
 
 ## check
 
@@ -59,6 +59,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_graph_discovery.py`](check_graph_discovery.py) | No check may find graphs by globbing. Discovery goes through `graph_paths()`. |
 | [`check_graph_values.py`](check_graph_values.py) | A static reader must follow a linked widget, or it goes red on a good graph. |
 | [`check_h3_encoder_loader.py`](check_h3_encoder_loader.py) | Prove the guarded H3 encoder loader guards what it claims to. |
+| [`check_head_reference.py`](check_head_reference.py) | `bench/head_reference.py` against a face whose every line is known by construction, read from the files it wrote. |
 | [`check_keyframe_canvas.py`](check_keyframe_canvas.py) | Keyframe geometry: does the canvas we hand H3 avoid distorting the keyframe? |
 | [`check_literal_widgets.py`](check_literal_widgets.py) | A numeric widget must mean the quantity it names, not a mode. |
 | [`check_loader_fit.py`](check_loader_fit.py) | `bench/_lib/frames.py::FIT` against what the graphs' video loader does to a source that is not the canvas's shape. |
@@ -356,6 +357,7 @@ this file is only a way to find a script by what it says it does.
 | [`gen_phaseb_grid.py`](gen_phaseb_grid.py) | CLOSED RECORD since 2026-09-18. This grid pairs full-length bank prompts with fixed lengths of 243, 311 and 362 frames (all on the grid; 362 is the trained ceiling), which bench/run_graph_arms.py now refuses for a 345-frame prompt. Kept ... |
 | [`generate_capture_manifest.py`](generate_capture_manifest.py) | Generate an auditable, fully dynamic manifest.json for an activation capture directory. |
 | [`h3_producer_provenance.py`](h3_producer_provenance.py) | Which version of a producer wrote a result. Pure stdlib, either virtualenv. |
+| [`head_reference.py`](head_reference.py) | The reference video of a head replacement, in one command: the body model cut to the head, with the face drawn on it. |
 | [`hwinfo.py`](hwinfo.py) | The host this repo's numbers were measured on, printed rather than written down. |
 | [`instrument_render_occupancy.py`](instrument_render_occupancy.py) | Phase-resolved GPU occupancy of one render, bracketed per node. |
 | [`join_panel_verdicts.py`](join_panel_verdicts.py) | Join a scored blind PANEL with its sealed key, and apply the panel's stop rules. |
@@ -530,6 +532,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 | file | what it says |
 |---|---|
 | [`__init__.py`](_lib/__init__.py) | The three things a `bench/` check kept writing for itself. |
+| [`face_lines_fixture.py`](_lib/face_lines_fixture.py) | A whole face made of points whose every line is known by construction, for the checks of the tools that draw it. |
 | [`face_points.py`](_lib/face_points.py) | What is read off the pose model's face points: one definition of each figure, for every tool that uses them. |
 | [`face_points_fixture.py`](_lib/face_points_fixture.py) | A face made of points whose every figure is known by construction, for the checks of the tools that read them. |
 | [`frames.py`](_lib/frames.py) | Frames and masks in and out of video files, by frame number, for the tools that read renders. |
