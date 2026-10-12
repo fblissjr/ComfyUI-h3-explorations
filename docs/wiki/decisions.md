@@ -22,6 +22,16 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **Her whole-person render stands on the kitchen scene 604-1009** (the
+  owner, in the lead's terminal, 2026-10-12 at about 16:40Z by the clock:
+  "the glitching was not in that segment"). What it narrows: the 2026-10-11
+  ruling that the second subject's whole-person renders are not used, which
+  rests on the segments where she glitched (14-167, and 1042-1049 by the
+  blind reader's tie-back). On 604-1009 the 10th's piece
+  (`mom_kitchen_mesh`, in that day's table a with a patch on 752-780) is a
+  usable form beside today's face-and-hair render; the owner compares the
+  two on the same frames before the plan's region for the stretch is
+  settled. `data/fun/plan.json`, the 604-1060 departure, carries the words.
 - **A masked load's text is written from the model's side: it generates
   the hole, and everything frozen round it steers it** (the owner, in the
   lead's terminal, 2026-10-12 between 16:16Z and 16:20Z by the clock; first
