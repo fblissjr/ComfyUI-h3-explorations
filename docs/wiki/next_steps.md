@@ -32,6 +32,12 @@ own below the rule.
   `bench/masked_job.py`'s commands in order for the loads the change touches; `landed` reads where each render
   landed into the record. It builds and queues nothing: the queue is the card holder's and a look sits between a
   build and a queue. Held by `bench/check_sweep_loads.py`. Not yet run on a real sweep; what is left is to use it.
+  **Its first real run, 2026-10-12** (the card holder, the lead's three hall loads into the cut-reference form)
+  met three things, each answered in the tool the same evening: a new reference always needs the text that
+  describes it changed with it, so `--motion-file` with `--text` is now one change; a copy kept its source's
+  capture, where the lane keeps one capture a load, so `--capture JOB=FOLDER` names the copy's own and a copy
+  without one is told what a build there can write over; and a new reference that begins on another frame is
+  given as `FILE@N`. A copy on other frames (`first`, `frames`, `left_out`) is another load and stays by hand.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but

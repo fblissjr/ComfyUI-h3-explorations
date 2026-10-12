@@ -23,7 +23,13 @@ which uses none of the tool's own comparison.
 6. **A difference outside the change is found.** `differences` names a changed value, an added key, a removed
    key, a list of another length and a number that became a string; a copy edited after the sweep is said by
    `landed`, with where.
-7. **Where each render landed.** From the records the job builder leaves: not built, built and not queued, and
+7. **A reference and the text that describes it are one change.** A motion video and a text given together
+   make one copy with both, of the kind `reference`; undoing both gives the source back; a still with a text is
+   still two changes and refused. `LOAD=FILE@N` sets the load's `motion_first` with the file.
+8. **The capture a copy is built on.** With `--capture` for its job the copy names that folder, the record says
+   it is its own and the difference is accounted for; without it the copy keeps its source's and the tool says
+   so, in what it prints and beside the commands; a job that was not given is refused with nothing written.
+9. **Where each render landed.** From the records the job builder leaves: not built, built and not queued, and
    queued with what the server said and the files, each beside its source load's name.
 
 No model, no card, no server, no ffmpeg.
@@ -78,7 +84,8 @@ def room(name: str) -> tuple[Path, Path, Path]:
 
 def run(folder: Path, files, tag: str, **change) -> dict:
     spec = sw.change_of(change.get("still", []), change.get("text", []), change.get("text_by", ""), change.get("motion_file", []), change.get("setting", ""))
-    return json.loads(sw.make(list(files), spec, tag, "the check", data=folder / "data", date=DATE, say=quiet).read_text())
+    return json.loads(sw.make(list(files), spec, tag, "the check", captures=change.get("captures"), data=folder / "data", date=DATE,
+                              say=change.get("say", quiet)).read_text())
 
 
 def undone(copied: dict, source: dict, tag: str) -> dict:
@@ -189,6 +196,51 @@ def a_setting() -> str:
     return "every load gets the setting over the defaults; a load already at the value is not touched; a number stays a number"
 
 
+def a_reference_and_its_text() -> str:
+    folder, kitchen, street = room("reference")
+    new = folder / "reference.mp4"
+    new.write_bytes(b"")
+    rec = run(folder, (kitchen,), "fp", motion_file=[f"lead_0600={new}@604"], text=["t1=t1_new.txt"], text_by="the check")
+    k = json.loads((folder / "jobs" / "kitchen__fp.json").read_text())
+    assert rec["change"]["kind"] == "reference" and "and with it" in rec["change_in_words"] and "from source frame 604" in rec["change_in_words"]
+    assert k["loads"][0]["motion_file"] == str(new) and k["loads"][0]["motion_first"] == 604 and k["job"]["texts"]["t1"]["file"] == "t1_new.txt"
+    assert sorted(rec["copies"][0]["changed_at"]) == ["job.texts.t1.by", "job.texts.t1.file", "loads[0].motion_file", "loads[0].motion_first"], rec["copies"][0]["changed_at"]
+    assert rec["copies"][0]["touched"] == ["lead_0600_fp"], rec["copies"][0]["touched"]
+    back = undone(k, KITCHEN, "fp")
+    back["loads"][0].update(motion_file="/share/lead_ref.mp4", motion_first=600)
+    back["job"]["texts"]["t1"].update(file="t1.txt", by="a session")
+    assert back == KITCHEN, "undoing the reference and its text does not give the source back"
+    refused(lambda: run(folder, (kitchen,), "two", still=["lead=lead_b.jpg"], text=["t1=t1_new.txt"], text_by="x"), "one thing")
+    refused(lambda: run(folder, (kitchen,), "three", motion_file=[f"lead_0600={new}"], setting="seed=1"), "one thing")
+    refused(lambda: run(folder, (kitchen, street), "half", motion_file=[f"lead_0600={new}", f"nobody_0000={new}"], text=["t1=t1_new.txt"], text_by="x"), "touches nothing")
+    plain = run(folder, (street,), "at", motion_file=[f"lead_0000={new}@12"])["copies"][0]["changed_at"]
+    assert plain == ["loads[0].motion_file (absent on one side)", "loads[0].motion_first (absent on one side)"], plain
+    return "a motion video and its text make one copy with both; the frame the new video begins on goes with the file; a still with a text is still refused"
+
+
+def the_capture_a_copy_is_built_on() -> str:
+    folder, kitchen, street = room("capture")
+    said = []
+    rec = run(folder, (kitchen, street), "own", still=["lead=lead_b.jpg"], captures={"kitchen": "data/2026-01-01_kitchen_own"}, say=said.append)
+    k, s = (json.loads((folder / "jobs" / f"{stem}__own.json").read_text()) for stem in ("kitchen", "street"))
+    assert k["job"]["capture"] == "data/2026-01-01_kitchen_own" and s["job"]["capture"] == STREET["job"]["capture"]
+    first, second = rec["copies"]
+    assert first["capture"] == "data/2026-01-01_kitchen_own" and first["capture_is_its_own"] is True and second["capture_is_its_own"] is False
+    assert "job.capture" in {d["where"] for d in first["differs_at"]} and "job.capture" not in first["changed_at"], "the capture is counted as the change"
+    back = undone(k, KITCHEN, "own")
+    back["job"]["subjects"][0]["still"], back["job"]["capture"] = "lead_a.jpg", KITCHEN["job"]["capture"]
+    assert back == KITCHEN
+    notes = [c for c in rec["commands"] if "between plan and render" in c]
+    assert "KEEPS ITS SOURCE'S CAPTURE" not in notes[0] and "data/2026-01-01_kitchen_own" in notes[0], notes[0]
+    assert "KEEPS ITS SOURCE'S CAPTURE" in notes[1] and "--capture street=PATH" in notes[1], notes[1]
+    assert any("ITS SOURCE'S" in line and STREET["job"]["capture"] in line for line in said) and any("its own, by --capture" in line for line in said), said
+    assert sw.landed(folder / "data" / f"{DATE}_sweep_own" / "sweep.json", data=folder / "data", say=quiet)["landed"]["copies_edited_since"] == [], \
+        "a copy with a capture of its own reads as edited"
+    refused(lambda: run(folder, (kitchen,), "nojob", still=["lead=lead_c.jpg"], captures={"hall": "data/x"}), "--capture", "hall")
+    assert not (folder / "jobs" / "kitchen__nojob.json").exists() and not (folder / "data" / f"{DATE}_sweep_nojob").exists()
+    return "a copy names the capture given for its job and it is accounted for; one that keeps its source's is told so twice; an unknown job is refused"
+
+
 def nothing_is_half_written() -> str:
     folder, kitchen, street = room("half")
     for what, call, words in (
@@ -263,6 +315,8 @@ case("a still: the copy is its source with the stills and the names changed, and
 case("a text: the file and who wrote it", a_text)
 case("a motion video: the named load's only", a_motion_video)
 case("a setting of every load", a_setting)
+case("a reference and the text that describes it are one change", a_reference_and_its_text)
+case("the capture a copy is built on", the_capture_a_copy_is_built_on)
 case("nothing is half written", nothing_is_half_written)
 case("a difference outside the change is found", a_difference_outside_the_change)
 case("where each render landed", where_each_render_landed)
