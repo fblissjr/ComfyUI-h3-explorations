@@ -33,6 +33,14 @@ A ring closes on itself; a line does not.
   lip ring (the two inner corners with the `..._of_upper_inner_lip` and `..._of_lower_inner_lip` points).
 - dots alone: `center_of_glabella`, `center_of_labiomental_groove`, `tip_of_chin`.
 
+THE POINTS DRAWN ALONE are those three and, with the nose, `tip_of_nose` and each nostril's outer and upper
+corner: eight points that belong to no line. They are dots, so `--no-dots` leaves them out with the dots on the
+lines: lines only means lines only. Until the evening of 2026-10-12 `--no-dots` took the dot off each point of a
+line and still drew these eight, each a speck as wide as a line, between the brows, under the lip, at the chin
+(over the jaw or the neck on a tilted head) and round the nose. The references drawn that day before the change
+carry them: the second subject's short kitchen shot (`second_mesh_head_crop_then_face_points_no_mouth_1039`, the
+reference of the load `1039_f`). The record lists the points drawn alone on a run, or none.
+
 Not the ears and not the body: the body model carries those.
 
 A PART CAN BE LEFT OUT by name (`--leave-out`, any of `eyes`, `brows`, `nose`, `mouth`, `dots`), for a shot
@@ -213,6 +221,11 @@ def parts_arg(text: str) -> frozenset:
     if asked - set(PARTS):
         raise SystemExit(f"--leave-out takes any of {', '.join(PARTS)}; got {', '.join(sorted(asked - set(PARTS)))}")
     return asked
+
+
+def lines_only(drawing: list[tuple[str, np.ndarray, bool]]) -> list[tuple[str, np.ndarray, bool]]:
+    """A frame's drawing without the points that belong to no line: what `--no-dots` draws."""
+    return [shape for shape in drawing if len(shape[1]) > 1]
 
 
 def segments(drawing: list[tuple[str, np.ndarray, bool]]) -> np.ndarray:
@@ -410,6 +423,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     mesh = np.stack(list(stream(mesh_path, (w, h), skip, count, pix="rgb24")))
     line = h3_config.POSE_READING["eye_ring_score_at_least"]
     drawings = [shapes(p, s, idx, line, leave_out) for p, s in zip(points["keypoints"], points["scores"])]
+    if not dots:
+        drawings = [lines_only(d) for d in drawings]                # no dots is no dots: the points that belong to no line go too
     wide, face, wide_by = width_for(points, width)
     left = {f - first for f in (bare or []) if first <= f < first + count}
     pictures = draw(mesh, drawings, wide, left, dots)
@@ -433,6 +448,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
         "made_from": {"body_model_video": str(mesh_path), "its_first_frame_is_source_frame": first - skip, "points": str(points_path),
                       "their_first_row_is_source_frame": pf},
         "line_width_px": wide, "width_set_by": wide_by, "a_dot_at_every_point": dots, "face_height_px_median": round(face, 1),
+        "points_drawn_alone": sorted({n for d in drawings for n, pts, _ in d if len(pts) == 1}),
         "parts_left_out": sorted(leave_out),
         "lines_px_a_frame_median": round(float(np.median([length(d) for d in drawings])), 1),
         "eye_rings": {"score_at_least": line, "that_line_is": "a starting value from one shot: under it a ring's points lay far off the face",
@@ -540,7 +556,7 @@ def main() -> int:
     a.add_argument("--mesh-first", type=int, help="the source frame of the body-model video's frame 0; the shot's first when left out")
     a.add_argument("--points-first", type=int, help="the source frame of the points file's row 0; the file's own when it says")
     a.add_argument("--width", type=float, help="set the lines' width in pixels by hand in place of the size rule")
-    a.add_argument("--no-dots", action="store_true", help="lines only: no dot at each point")
+    a.add_argument("--no-dots", action="store_true", help="lines only: no dot at each point of a line, and none of the points that belong to no line")
     a.add_argument("--leave-out", default="", help=f"parts not to draw, as a person saw their points are off her face: any of {', '.join(PARTS)}")
     a.add_argument("--bare", default="", help="source frames to leave with nothing drawn, as a person saw them: 1045-1047,1060")
     a.add_argument("--bare-by", default="", help="who looked")

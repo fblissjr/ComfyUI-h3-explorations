@@ -11,7 +11,8 @@ The fixture names its midpoints out of order along each line, as the pose model 
 1. **The lines run through their points in order, and are as long as they say.** Every line and ring the tool
    makes of a frame is the one built here, point for point, whatever the numbers in the names; an iris ring
    encloses what a ring of its points encloses. The white in the written video is the lines' length, worked
-   out here, times their width less the edge, and with dots on there is white at every point.
+   out here, times their width less the edge, and with dots on there is white at every point. With no dots
+   the points that belong to no line are not drawn either, and the record lists the points drawn alone.
 2. **The lines are where the points are.** The face stands somewhere else on every frame; the white found on
    a frame lies on that frame's lines and nowhere else, and its middle moves as the face does.
 3. **Asked for frames from the middle of both files, it draws those frames.** The body-model video starts on
@@ -251,9 +252,17 @@ def in_order_and_as_long() -> str:
         if "pupil" not in name and "iris" not in name and not name.endswith("inner_lip"):
             assert got[0, int(round(y)), int(round(x))], f"no white at {name} with dots on"
     assert got.sum((1, 2)).mean() > white(WORK / "long_3.mp4", 4).sum((1, 2)).mean()
+    # no dots is no dots: a point that belongs to no line is drawn with the dots and not without them
+    bare, cx, cy = white(WORK / "long_3.mp4", 4), *CENTRES[0]
+    for name, (x, y) in (("center_of_glabella", (cx, cy - 10)), ("center_of_labiomental_groove", (cx, cy + 54)), ("tip_of_chin", (cx, cy - 10 + FACE_PX))):
+        spot = (slice(int(round(y)) - 2, int(round(y)) + 3), slice(int(round(x)) - 2, int(round(x)) + 3))
+        assert got[0][spot].any() and not bare[:, spot[0], spot[1]].any(), f"{name}: drawn alone with dots {got[0][spot].sum()}, without {bare[:, spot[0], spot[1]].sum()}"
+    plain = json.loads((WORK / "long_3.json").read_text())
+    assert plain["points_drawn_alone"] == [] and plain["a_dot_at_every_point"] is False, plain["points_drawn_alone"]
+    assert dotted["points_drawn_alone"] == alone, dotted["points_drawn_alone"]
     assert abs(dotted["read_back"]["white_px_expected_a_frame"]["median"] - got.sum((1, 2)).mean()) < 0.12 * got.sum((1, 2)).mean(), dotted["read_back"]
     return (f"every line runs through its points in the order built here, {by_hand:.0f} px of line; white by width with no dots: " + "; ".join(said)
-            + "; with dots there is white at every point")
+            + "; with dots there is white at every point, and without them none at the points that belong to no line")
 
 
 def where_the_points_are() -> str:
