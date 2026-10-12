@@ -18,6 +18,15 @@ Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
 **Masked video to video, 2026-10-12: gaps in the tools, each found by a run and none fixed.**
+- **A sweep tool: the same loads again with one thing changed** (the owner, 2026-10-12,
+  19:35Z on the Open List's inbox and 19:40Z in the lead's terminal: once the windows are settled, run the
+  same windows on the same input with only the two stills changed; "make sure we have on the backlog a tool
+  to build that repeatable process"). Every load is already a job file naming its stills, capture, motion
+  video, seed and settings by path, so the sweep is: a list of job files, one change named (a subject's
+  still, a text, a motion video), each copied under a new name with that change and nothing else, built,
+  looked at and queued through `bench/masked_job.py` on the same captures, with a record that says which
+  loads, which change, and where each render landed. `bench/sweep_loads.py`, with a check that the copies
+  differ from their sources in the named key only. About one afternoon. Not started; after the forms settle.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but
