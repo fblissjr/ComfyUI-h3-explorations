@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -98,6 +99,15 @@ def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
     return out
 
 
+def plain_frame(source: str, frame: int, out: Path) -> str | None:
+    """The source's own frame, cut with ffmpeg at the page's width, for a shot with no numbered picture."""
+    (out / "tiles").mkdir(parents=True, exist_ok=True)
+    name = f"{frame:04d}_plain.jpg"
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-vf", f"select=eq(n\\,{frame}),scale=768:-2",
+                        "-frames:v", "1", str(out / "tiles" / name)], capture_output=True, text=True)
+    return f"tiles/{name}" if r.returncode == 0 and (out / "tiles" / name).is_file() else None
+
+
 CSS = """:root{color-scheme:dark}body{font:17px/1.45 system-ui,sans-serif;margin:16px;background:#14161a;color:#e6e6e6}
 table{border-collapse:collapse;width:100%}td,th{border-top:1px solid #333;padding:10px;vertical-align:top;text-align:left}
 th{background:#1e2127;position:sticky;top:0}.f{font-family:ui-monospace,monospace;white-space:nowrap;font-size:18px}
@@ -142,7 +152,7 @@ SCRIPT = """<script>
 </script>"""
 
 
-def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None) -> str:
+def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None) -> str:
     rows = []
     for s in shots["shots"]:
         who = []
@@ -161,6 +171,19 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
         # outlined is shown; ties go to the first preview and the first tracker listed.
         tiles = []
+        if not found and covered and source:
+            mid = (s["first"] + s["last"]) // 2
+            f = plain_frame(source, mid, out)
+            if f:
+                ask = "".join(
+                    f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
+                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">in the shot, not outlined</button>'
+                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not in shot">not in the shot</button></div>'
+                    for sub in shots["subjects"])
+                tiles.append(f'<div class="tile" data-table="plain" data-frame="{mid}" data-tf="0" data-shot="0" '
+                             f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{f}" alt="">'
+                             f'<div>frame {mid}, the source itself: the trackers found nobody on this shot, so nothing is outlined</div>'
+                             f'{ask}<div class="st"></div></div>')
         if found:
             t = max(found, key=lambda x: len(x["people"]))
             others = [x for x in found if x is not t]
@@ -210,6 +233,7 @@ def main() -> int:
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR")
     ap.add_argument("--answers")
     ap.add_argument("--plan", help="the video's plan file; its per-subject region is printed in the header so the outline is not read as the region")
+    ap.add_argument("--source", help="the source copy the frame numbers are of; with it, a shot the trackers found nobody on shows its own middle frame")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -217,7 +241,7 @@ def main() -> int:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     plan = json.load(open(a.plan)) if a.plan else None
-    text = page(shots, previews(a.preview), answers, out, plan)
+    text = page(shots, previews(a.preview), answers, out, plan, a.source)
     (out / "index.html").write_text(text)
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
     print(f"written: {out / 'index.html'}; {len(shots['shots'])} shot(s); {len(tiles)} tile(s) under {out / 'tiles'}")

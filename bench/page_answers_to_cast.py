@@ -160,11 +160,19 @@ def main() -> int:
     left_out = [(n, d.get("who")) for n, d in answers if d.get("row") in WHO_ROWS and d.get("who") != "owner"]
     if left_out:
         print(f"left out, not the owner's: {len(left_out)} line(s) by " + ", ".join(sorted({str(w) for _, w in left_out})))
-    stored = waiting = already = refused = 0
+    stored = waiting = already = refused = plain = 0
     grouped = tiles(answers)
     for key in sorted(grouped, key=lambda k: (k[1], k[0])):
         tile = grouped[key]
         name, frame = key
+        if name == "plain":
+            # the who page's plain-frame row (no tracker outlined anybody): there is no table and no box, so these go to
+            # the shots record by a session's hand, not into the cast file
+            plain += 1
+            said = ", ".join(f"{sub}: {chosen}" for sub, (n, chosen, _at) in sorted(tile["by_subject"].items()))
+            print(f"PLAIN FRAME, for shots.json by hand: source frame {frame}, lines {tile['lines'][0]}-{tile['lines'][-1]}: {said}"
+                  + "".join(f"\n    words (line {n}): {w.strip()}" for n, w in tile["words"]))
+            continue
         if name not in tables:
             raise SystemExit(f"{name}: no --preview holds this table (line {tile['lines'][0]} of {a.answers})")
         p = plan(key, tile, tables[name], loaded[name])
@@ -204,7 +212,7 @@ def main() -> int:
               + (f" (replaces: {'; '.join(replaced)})" if replaced else "") + words)
         stored += 1
     print(f"\n{'would store' if a.dry_run else 'stored'} {stored} tile(s); already there {already}; waiting on the owner {waiting}; "
-          f"refused by the cast file {refused}; cast file {a.cast}")
+          f"refused by the cast file {refused}; plain-frame answers for the shots record {plain}; cast file {a.cast}")
     return 0
 
 
