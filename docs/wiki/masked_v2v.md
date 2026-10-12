@@ -481,7 +481,10 @@ session starting a job needs to know:
   goes into her face-and-hair loads from here and is read on the first of
   them that renders, by a session that did not build it. No render had been
   made with a band when this was written, and this page says nothing of
-  what one does.
+  what one does. *2026-10-12: `bench/read_hair_band.py` prints a band as
+  figures a frame, for the band load and a pair without it, from the plans
+  alone or with the two renders; it says what the pair differs in besides
+  the band and gives no verdict.*
 - **Somebody looks before a plan and before a render** (the owner,
   2026-10-10: a passing check never says the masks are on the right person
   or the text is of these frames), **and the look is shown, never refused**

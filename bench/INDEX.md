@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 116 |
+| [`check_*`](#check) | 117 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 153 |
+| [the rest](#the-rest) | 154 |
 
 ## check
 
@@ -96,6 +96,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_prompt_lists.py`](check_prompt_lists.py) | The prompt list contract, and the controls that show each rule can fail. |
 | [`check_prompt_rule_controls.py`](check_prompt_rule_controls.py) | Controls for the prompt grader's rules, and its copies of the guide's closed sets. |
 | [`check_provenance_stamp.py`](check_provenance_stamp.py) | Check that `provenance.py` records the knobs that actually ran. |
+| [`check_read_hair_band.py`](check_read_hair_band.py) | `bench/read_hair_band.py` prints a hair band as figures; each case is a way a figure could say something the frames do not. |
 | [`check_read_render_against_original.py`](check_read_render_against_original.py) | `bench/read_render_against_original.py` against faces whose every figure is chosen here. |
 | [`check_recomposite_window.py`](check_recomposite_window.py) | `bench/recomposite_window.py` on a window made for the purpose: the frames it says a change moves are the frames it moves. |
 | [`check_ref_prompt_labels.py`](check_ref_prompt_labels.py) | Check every ref graph's prompt declares exactly the labels it wires. |
@@ -393,6 +394,7 @@ this file is only a way to find a script by what it says it does.
 | [`profile_sol_stages.py`](profile_sol_stages.py) | Where a `comfy_kitchen.sol_attn` call spends its device time, by stage, on captured q/k/v. |
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
+| [`read_hair_band.py`](read_hair_band.py) | A hair band read as figures, frame by frame, on the band's own pixels: for the load that has it and a load of the same frames that does not. |
 | [`read_render_against_original.py`](read_render_against_original.py) | Set a render's face beside its original's, frame by frame, from the pose model's points of each. |
 | [`read_sol_probe.py`](read_sol_probe.py) | Controls for the Sol-versus-fallback probe (`sol_block_probe.py`), and the reader that turns its record into a per-block table. |
 | [`recomposite_window.py`](recomposite_window.py) | Lay a saved window of a masked render again, with the song node's own composite, and say what a change moves. |
