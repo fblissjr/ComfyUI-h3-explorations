@@ -558,6 +558,9 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 | file | what it says |
 |---|---|
+| [`masked_job_face_points/README.md`](examples/masked_job_face_points/README.md) | An example masked job: a face replaced, with the face points drawn on the body model cut to the head |
+| [`masked_job_face_points/job.example.json`](examples/masked_job_face_points/job.example.json) | An example of a masked job file (one load: a face replaced, the motion video the body model cut to the head with the pose model's face points drawn on it); every media path is a placeholder. README.md beside it explains each key and how ... |
+| [`masked_job_face_points/text.example.txt`](examples/masked_job_face_points/text.example.txt) | subject_definitions: |
 | [`masked_job_lid_marks/README.md`](examples/masked_job_lid_marks/README.md) | An example masked job: a face and hair replaced, with eyelids from marks on a body-model video |
 | [`masked_job_lid_marks/job.example.json`](examples/masked_job_lid_marks/job.example.json) | An example of a masked job file (one load: a face and hair replaced, the motion video a body model with lid marks); every media path is a placeholder. README.md beside it explains each key. |
 | [`masked_job_lid_marks/text.example.txt`](examples/masked_job_lid_marks/text.example.txt) | subject_definitions: |

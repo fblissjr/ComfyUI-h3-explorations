@@ -1,0 +1,68 @@
+{
+ "what": "An example of a masked job file (one load: a face replaced, the motion video the body model cut to the head with the pose model's face points drawn on it); every media path is a placeholder. README.md beside it explains each key and how the reference is made.",
+ "job": {
+  "name": "example_face_points_1222",
+  "note": "AN EXAMPLE, not a job to run as it stands: the shape of one load that rendered on 2026-10-12 (the lead's face replaced on one hall shot, source frames 1222 to 1305, with the body model cut to her head and the pose model's face points drawn on it as the motion video, and a text that says exactly what that video is), the load the owner judged on playback that evening as having the correct eyes against the same load with lid marks. Every path of that day's media is replaced by a placeholder. bench/examples/masked_job_face_points/README.md says what each key is and what has to be made before each path exists. A real job's note says the one thing the load changes and what its render is meant to decide.",
+  "source": "/path/to/your_source_video.mov",
+  "first": 1222,
+  "frames": 84,
+  "canvas": [
+   1024,
+   768
+  ],
+  "output": "Video/your_session",
+  "subjects": [
+   {
+    "label": "third",
+    "phrase": "person",
+    "pick": "largest",
+    "pick_at": 1264,
+    "pose": false
+   },
+   {
+    "label": "lead",
+    "phrase": "person",
+    "pick": "largest",
+    "pick_at": 1264,
+    "parts": [
+     "face_and_neck"
+    ],
+    "still": "your_reference_still.png"
+   }
+  ],
+  "left_out": [],
+  "capture": "data/2026-01-01_example_face_points_1222",
+  "texts": {
+   "example": {
+    "file": "text.example.txt",
+    "frames": [
+     1222,
+     1305
+    ],
+    "by": "whoever wrote the text from the frames of this window; the two reference sentences are the form's (what the video is, and that the drawn outlines are not used)"
+   }
+  }
+ },
+ "defaults": {},
+ "loads": [
+  {
+   "name": "example_lead_face_1222",
+   "first": 1222,
+   "frames": 84,
+   "subject": "lead",
+   "others": [
+    "third"
+   ],
+   "text": "example",
+   "carried": "held",
+   "motion": "mesh",
+   "margin": 16,
+   "feather": 8,
+   "edge": "cells",
+   "seed": 730451892,
+   "motion_file": "/path/to/your_head_reference.mp4   (made by bench/head_reference.py from the subject's body model and points; README.md)",
+   "motion_first": 1222,
+   "motion_edge": 768
+  }
+ ]
+}
