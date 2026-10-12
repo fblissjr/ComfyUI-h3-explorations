@@ -70,6 +70,16 @@ was made from, so they need no weights:
                                  gets no body, is drawn black and is named in
                                  the table; a speck of mask gets no box from
                                  the boxes node. Red on the day it was written.
+  the_persons_mask_reaches_the_model   with a mask wired, each crop carries
+                                 its own frame's mask with a score of one,
+                                 lying where ComfyUI's own warp of the same
+                                 mask lies, and is taken from a frame whose
+                                 picture away from the mask is the model's
+                                 mean colour; unwired, an empty mask, a
+                                 score of zero and the frame as it came; a mask of another size, or
+                                 two boxes on a frame that has one, is
+                                 refused; the table and the report say which
+                                 it was. Red before the input existed.
 
 With the DINOv3 file on disk (skipped without it, exit 2; about two minutes
 of CPU):
@@ -514,9 +524,12 @@ class _SaysBack(bp._MetaHandCrops):
     def memory_used_forward(crops, hands):
         return 0
 
+    given: list = []     # (mask, mask_score) of every body batch, for `the_persons_mask_reaches_the_model`
+
     def run_inference(self, img, batch, inference_type="full", thresh_wrist_angle=1.4):
         n = batch["img"].shape[1]
         assert isinstance(img, list) and len(img) == n, "one frame is handed beside each crop"
+        _SaysBack.given.append((batch["mask"][0, :, 0].clone(), batch["mask_score"][0].clone()))
         frame_value = torch.stack([i.float().mean() for i in img])
         crop_value = batch["img"][0].flatten(1).max(dim=1).values * 255
         z = lambda *s: torch.zeros(n, *s)  # noqa: E731
@@ -620,6 +633,69 @@ def a_box_that_is_not_a_person_draws_nothing():
     assert sb.too_small(mask) == [0, 2] and sb.frame_boxes(mask, 0, 1)[0] == [{"x": 60, "y": 50, "width": 1, "height": 1}]
     text = sb.MiniMaxH3SubjectBoxes.execute(mask, 0).args[1]
     assert "1 of 3 frames have a box" in text and "under 2048 px on 2" in text and "frame(s) 0, 2" in text, text
+
+
+def the_persons_mask_reaches_the_model():
+    """A box says where and not who (2026-10-12: a preview posed the person standing behind the subject). The
+    mask is read back from what the model was handed, and placed by ComfyUI's own warp, not by ours."""
+    from comfy.ldm.sam3d_body.utils import prepare_batch as comfy_prepare
+    boxes = [[_A], [_A], []]
+    mask = torch.zeros(3, _H, _W)
+    mask[0, 20:80, 25:50] = 1.0          # frame 0: the left part of box A
+    mask[1, 40:95, 55:78] = 1.0          # frame 1: another part of it, so a swapped frame shows
+    mask[2, :, :] = 1.0                  # frame 2 has no box: its mask must reach nothing
+    _SaysBack.given.clear()
+    _, _, notes = _predict(boxes, hands=False)
+    (empty, score), = _SaysBack.given
+    assert float(empty.abs().sum()) == 0 and float(score.sum()) == 0, "unwired, the model was handed a mask or a score"
+    assert notes["subject_mask_given"] is False
+    for step in (1, 64):
+        _SaysBack.given.clear()
+        pose, extras, notes = _predict(boxes, hands=False, batch_size=step, subject_mask=mask)
+        got = torch.cat([m for m, _ in _SaysBack.given])
+        scores = torch.cat([s for _, s in _SaysBack.given])
+        assert got.shape[0] == 2 and scores.tolist() == [1.0, 1.0], f"two crops, each with a score of one; got {scores.tolist()} (batch {step})"
+        assert set(got.unique().tolist()) <= {0.0, 1.0}, "the mask handed over is not of 0 and 1"
+        h, w = _SaysBack.image_size
+        for i in range(2):
+            theirs = comfy_prepare(torch.zeros(_H, _W, 3), torch.tensor([[20.0, 10.0, 80.0, 100.0]]), input_size=(w, h),
+                                   masks=[(mask[i] > 0.5).to(torch.uint8).numpy()])["mask"][0, 0, 0]
+            other = comfy_prepare(torch.zeros(_H, _W, 3), torch.tensor([[20.0, 10.0, 80.0, 100.0]]), input_size=(w, h),
+                                  masks=[(mask[1 - i] > 0.5).to(torch.uint8).numpy()])["mask"][0, 0, 0]
+            off = float((got[i] != theirs).float().mean())
+            swapped = float((got[i] != other).float().mean())
+            # ComfyUI floors its warp where Meta's rounds, so the two differ along the mask's edge and nowhere else
+            assert off < 0.05 < swapped, (f"frame {i}: our mask differs from ComfyUI's warp of the same mask on {off:.3f} of the "
+                                          f"crop and from the other frame's on {swapped:.3f} (batch {step})")
+        assert notes["subject_mask_given"] is True
+        # the stand-in says back each crop's brightest value: with a mask the picture away from it is the model's
+        # mean colour, brighter than these frames; without one it is the frame's own value (the case above this)
+        flat = max(bp.IMAGE_MEAN) * 255.0
+        for f in (0, 1):
+            crop_value = float(pose["frames"][f][0]["body_pose_params"][1])
+            assert abs(crop_value - flat) < 1.0, f"frame {f}: the crop's brightest value is {crop_value:.1f}, and the mean colour is {flat:.1f}: the person was not shown alone"
+    plain, _, _ = _predict(boxes, hands=False)
+    assert abs(float(plain["frames"][0][0]["body_pose_params"][1]) - 10.0) < 0.6, "unwired, the frame was changed before the crop"
+    table = bp.pose_table(pose, extras, notes, camera="image diagonal", fov_degrees=55.0, hands=False)
+    assert table["subject_mask_given"] is True and "given the person's mask" in bp.table_report(table)
+    bare = bp.pose_table(pose, extras, {}, camera="image diagonal", fov_degrees=55.0, hands=False)
+    assert bare["subject_mask_given"] is False and "a box and no mask" in bp.table_report(bare)
+    for wrong, why in ((torch.zeros(3, _H, _W + 2), "the frames are"), (torch.zeros(2, _H, _W), "the frames are")):
+        try:
+            _predict(boxes, hands=False, subject_mask=wrong)
+        except ValueError as e:
+            assert why in str(e), e
+        else:
+            raise AssertionError(f"a mask of {list(wrong.shape)} was taken for frames of {[3, _H, _W]}")
+    try:
+        _predict([[_A, _B], [_A], []], hands=False, subject_mask=mask)
+    except ValueError as e:
+        assert "more than one box" in str(e), e
+    else:
+        raise AssertionError("one person's mask was taken for a frame with two boxes")
+    schema = {i.id: i for i in bp.MiniMaxH3BodyPose.define_schema().inputs}
+    assert list(schema)[-1] == "subject_mask" and schema["subject_mask"].optional, "the mask input is not the last input, or not optional"
+    return "unwired: empty, zero and the frame as it came; wired: each crop its own frame's mask, score one, the person alone, at two batch sizes"
 
 
 # ----------------------------------------------------------------------------- with the weights
@@ -836,7 +912,7 @@ def main() -> int:
                no_comfy_sam_node_is_called, opencv_missing_is_said, marks_are_read_from_the_rig, marks_file_reads_back,
                hand_crops_are_still_ours,
                every_person_is_from_its_own_frame_and_box, as_many_frames_out_as_in_and_black_where_nobody_is,
-               a_box_that_is_not_a_person_draws_nothing)
+               a_box_that_is_not_a_person_draws_nothing, the_persons_mask_reaches_the_model)
     with_weights = (bodies_are_metas_within_floor, hands_decide_as_metas, nobody_is_nobody,
                     mesh_is_where_the_camera_puts_it, marked_is_the_mesh_with_parts_painted)
     for fn in ((where_it_ran,) + with_weights) if ON_CARD else (without + with_weights):

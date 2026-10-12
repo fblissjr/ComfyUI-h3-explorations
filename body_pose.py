@@ -41,8 +41,25 @@ it, and whether its colours leak into a render, is not known.
 
 OpenCV is needed when a crop is made, not when the pack loads: `_cv2` raises with the package's name.
 
-Not here: mask conditioning (Meta's default is off), a field of view estimated from the picture, smoothing over
-time, and a face (the model's own head sets expression and jaw to zero).
+The person's own mask (`subject_mask`, 2026-10-12): a box says where a person is and not which one, and with
+two people in a box the model poses whichever it likes. On a job's preview it posed the person standing behind
+the subject for half a second (`bench/results/2026-10-12_body_model_posed_the_other_person.md`, which has every
+figure below). With the mask wired the node does two things, and unwired neither:
+
+- The model's own mask prompt (`mask_crop`), a mask of the person meant with a score of one. Both upstreams feed
+  it whenever a track exists: Meta's estimator when `masks` is given
+  (coderef/sam-3d-body/sam_3d_body/sam_3d_body_estimator.py:138) and ComfyUI's own node from a SAM 3 track
+  (comfy_extras/nodes_sam3d_body.py, "SAM3 track (masks + boxes)"). Tried alone on that preview it put the two
+  ends of the stretch right and left the middle on the other person: it is a hint the model can pass over.
+- The person shown alone: before a crop is taken, the picture further than `ALONE_MARGIN_PX` from the mask is
+  replaced by the model's mean colour, as this pack's part node shows its model a subject
+  (`sapiens2_parts.alone`, the same function). **This is ours and neither upstream's.** On that preview it put
+  the body on the subject on every frame, and on the frames the box alone had right it moved the head a few
+  pixels and moved most the joints the picture does not show. One shot, one person, a load that takes only a
+  head from the body; not judged for a whole person's hands.
+
+Not here: a field of view estimated from the picture, smoothing over time, and a face (the model's own head sets
+expression and jaw to zero).
 """
 from __future__ import annotations
 
@@ -62,10 +79,11 @@ import comfy.ops
 import comfy.storage
 import comfy.utils
 import folder_paths
-from comfy.ldm.sam3d_body.model.model import SAM3DBody
+from comfy.ldm.sam3d_body.model.model import IMAGE_MEAN, SAM3DBody
 from comfy_api.latest import io
 
 from .sam3d_body_vith import VITH_MARKER_KEY, SAM3DBodyModel, SAM3DBodyViTH, loader_view
+from .sapiens2_parts import alone
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +93,10 @@ MHRPoseData = io.Custom("MHR_POSE_DATA")
 TABLE_SCHEMA = "h3_body_pose_table/1"
 #: The body crop's padding. Inherited: `GetBBoxCenterScale`'s default, coderef/sam-3d-body/sam_3d_body/data/transforms/common.py:110.
 BODY_PADDING = 1.25
+#: With a mask wired, how far from the person's mask the picture is kept; past it the model is shown its own mean
+#: colour. **Inherited** from the part node (`sapiens2_parts.ALONE_MARGIN`), and **measured** to be enough on the
+#: one shot it was needed on (`bench/results/2026-10-12_body_model_posed_the_other_person.md`): a starting value.
+ALONE_MARGIN_PX = 8
 #: The hand crop's padding. Inherited: `transform_hand`, coderef/sam-3d-body/sam_3d_body/sam_3d_body_estimator.py:57.
 HAND_PADDING = 0.9
 #: The width over height a box is first widened to. Inherited: `TopdownAffine`'s default, common.py:229.
@@ -211,8 +233,20 @@ def intrinsics(height: int, width: int, camera: str, fov_degrees: float) -> torc
     return torch.tensor([[[focal, 0.0, width / 2.0], [0.0, focal, height / 2.0], [0.0, 0.0, 1.0]]], dtype=torch.float32)
 
 
-def _batch(crops, centers, scales, mats, boxes, cam_int: torch.Tensor, out_wh, device) -> dict:
-    """The dict the model's forward reads, for N crops of one kind. The keys are `prepare_batch`'s (prepare_batch.py:46)."""
+def mask_crop(mask: np.ndarray, mat: np.ndarray, out_wh: tuple[int, int]) -> np.ndarray:
+    """One person's mask as the model's mask prompt, [h, w] of 0 and 1: warped by the crop's own affine.
+
+    `mask` is [H, W] uint8, 1 on the person. Meta warps the 8-bit mask as it warps the picture (`cv2.warpAffine`,
+    linear, common.py:319), so a pixel at the edge rounds to the nearer of the two."""
+    cv2 = _cv2()
+    return cv2.warpAffine(np.ascontiguousarray(mask), mat, (int(out_wh[0]), int(out_wh[1])), flags=cv2.INTER_LINEAR)
+
+
+def _batch(crops, centers, scales, mats, boxes, cam_int: torch.Tensor, out_wh, device, masks=None) -> dict:
+    """The dict the model's forward reads, for N crops of one kind. The keys are `prepare_batch`'s (prepare_batch.py:46).
+
+    `masks` is one `mask_crop` a crop, or None: with it every crop's mask score is one, as `prepare_batch` sets it
+    for a mask it is given (prepare_batch.py:31); without it the mask is empty and its score zero."""
     n = len(crops)
     w, h = int(out_wh[0]), int(out_wh[1])
     img = torch.from_numpy(np.stack(crops)).permute(0, 3, 1, 2).float().div(255.0)
@@ -224,8 +258,9 @@ def _batch(crops, centers, scales, mats, boxes, cam_int: torch.Tensor, out_wh, d
         "bbox_scale": f32(scales).unsqueeze(0),
         "bbox": f32(boxes).unsqueeze(0),
         "affine_trans": f32(mats).unsqueeze(0),
-        "mask": torch.zeros((1, n, 1, h, w), dtype=torch.float32),
-        "mask_score": torch.zeros((1, n), dtype=torch.float32),
+        "mask": (torch.zeros((1, n, 1, h, w), dtype=torch.float32) if masks is None
+                 else torch.from_numpy(np.stack(masks).astype(np.float32)).reshape(1, n, 1, h, w)),
+        "mask_score": (torch.zeros if masks is None else torch.ones)((1, n), dtype=torch.float32),
         "person_valid": torch.ones((1, n), dtype=torch.float32),
         "cam_int": cam_int.to(torch.float32),
     }
@@ -443,10 +478,13 @@ def _crop_bbox(center, scale) -> list[float]:
 
 
 def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera: str = CAMERAS[0],
-            fov_degrees: float = FOV_DEFAULT, batch_size: int = BATCH_DEFAULT):
+            fov_degrees: float = FOV_DEFAULT, batch_size: int = BATCH_DEFAULT, subject_mask: torch.Tensor | None = None):
     """The pose data for a clip, and per frame per person what the table adds.
 
-    `images` is [N, H, W, 3] in 0..1. Returns `(pose_data, extras, notes)`: `pose_data` in the layout ComfyUI's
+    `subject_mask` is [N, H, W], over 0.5 on the one person these boxes follow, or None. With it each crop carries
+    the model's mask prompt and is taken from the frame with the picture away from the mask replaced by the
+    model's mean colour (the module's note). It is one person's, so a frame that has it and more than one box is
+    refused. `images` is [N, H, W, 3] in 0..1. Returns `(pose_data, extras, notes)`: `pose_data` in the layout ComfyUI's
     own predict node writes; `extras[frame][i]` for the i-th body of a frame, with which box of that frame's list
     it came from (`person`), the crop's box and each hand's box, crop side and whether its decoder was used;
     `notes` with the boxes dropped as unusable, whether one box list served every frame, and the seconds taken.
@@ -462,6 +500,14 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
                for f, row in enumerate(rows) for k, box in enumerate(row) if (why := unusable(box, height, width))]
     dropped = {(r["frame"], r["person"]) for r in refused}
     todo = [(f, k) for f, row in enumerate(rows) for k in range(len(row)) if (f, k) not in dropped]
+    if subject_mask is not None:
+        if tuple(subject_mask.shape) != (frames, height, width):
+            raise ValueError(f"subject_mask is {list(subject_mask.shape)} and the frames are {[frames, height, width]}: "
+                             "wire the mask made from these frames, at their size")
+        crowded = sorted({f for f, _ in todo if sum(1 for g, _ in todo if g == f) > 1})
+        if crowded:
+            raise ValueError(f"subject_mask is one person's mask and frame(s) {crowded[:8]} hold more than one box: "
+                             "wire one MiniMax H3 Body Pose for each person, each with that person's boxes and mask")
     pose_frames: list[list[dict]] = [[] for _ in range(frames)]
     extras: list[list[dict]] = [[] for _ in range(frames)]
     if todo:
@@ -474,12 +520,17 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
             chunk = todo[start:start + step]
             for f, _ in chunk:
                 if f not in pixels:
+                    shown = images[f] if subject_mask is None else alone(
+                        images[f:f + 1], subject_mask[f:f + 1], ALONE_MARGIN_PX, IMAGE_MEAN)[0]
                     # rounded, not truncated: Meta reads an 8-bit file, and a frame that was resized sits between
                     # levels, where truncating reads half a level dark on average (mrcorn's cold read)
-                    pixels[f] = (images[f] * 255.0).round().clamp(0.0, 255.0).to(dtype=torch.uint8, device="cpu")
+                    pixels[f] = (shown * 255.0).round().clamp(0.0, 255.0).to(dtype=torch.uint8, device="cpu")
             made = [crop(pixels[f].numpy(), np.asarray(rows[f][k], dtype=np.float32), BODY_PADDING, out_wh) for f, k in chunk]
             crops, centers, scales, mats = zip(*made)
-            batch = _batch(crops, centers, scales, mats, [rows[f][k] for f, k in chunk], cam_int, out_wh, device)
+            masks = None if subject_mask is None else [
+                mask_crop((subject_mask[f] > 0.5).to(dtype=torch.uint8, device="cpu").numpy(), mat, out_wh)
+                for (f, _), mat in zip(chunk, mats)]
+            batch = _batch(crops, centers, scales, mats, [rows[f][k] for f, k in chunk], cam_int, out_wh, device, masks)
             result = inner.run_inference([pixels[f] for f, _ in chunk], batch,
                                          inference_type="full" if hands else "body",
                                          thresh_wrist_angle=WRIST_ANGLE_THRESHOLD)
@@ -534,7 +585,7 @@ def predict(patcher, images: torch.Tensor, boxes, *, hands: bool = True, camera:
                 del pixels[f]
     pose_data = {"frames": pose_frames, "faces": inner.head_pose.faces_np(), "image_size": (height, width)}
     notes = {"refused": refused, "one_box_list_for_every_frame": repeated, "crops": len(todo),
-             "seconds": time.perf_counter() - began}
+             "subject_mask_given": subject_mask is not None, "seconds": time.perf_counter() - began}
     return pose_data, extras, notes
 
 
@@ -592,6 +643,8 @@ def pose_table(pose_data: dict, extras, notes: dict | None = None, *, camera: st
         # a box that could not be a person's crop: no body was predicted for it (`unusable`)
         "boxes_refused": [dict(r, source_frame=r["frame"] + int(first_source_frame)) for r in notes.get("refused", [])],
         "one_box_list_for_every_frame": bool(notes.get("one_box_list_for_every_frame", False)),
+        # whether the model was told which person in each box is meant and shown them alone; False is a box only
+        "subject_mask_given": bool(notes.get("subject_mask_given", False)),
         "frames": frames,
     }
 
@@ -609,6 +662,9 @@ def table_report(table: dict, seconds: float | None = None) -> str:
     people = [p for frame in table["frames"] for p in frame["people"]]
     with_body = sum(1 for frame in table["frames"] if frame["people"])
     lines = [f"{len(people)} bodies on {with_body} of {len(table['frames'])} frames"]
+    lines.append("the model was given the person's mask with each box, and shown the person alone"
+                 if table.get("subject_mask_given") else
+                 "the model was given a box and no mask: where a box holds two people it can pose the other one")
     if table.get("one_box_list_for_every_frame"):
         lines.append(f"one box list was used for all {len(table['frames'])} frames: wire boxes made from these frames "
                      "unless the person does not move")
@@ -852,6 +908,12 @@ class MiniMaxH3BodyPose(io.ComfyNode):
                                          "is on the second output either way.")),
                 io.Int.Input("batch_size", default=BATCH_DEFAULT, min=1, max=BATCH_MAX, advanced=True,
                              tooltip="How many crops go through the model at once. Lower it if memory runs out."),
+                # appended 2026-10-12: which person in the box is meant (the module's note on `subject_mask`)
+                io.Mask.Input("subject_mask", optional=True,
+                              tooltip=("The mask of the person these boxes follow, one for each frame: the Subject "
+                                       "Track's `mask`. With it the model is told which person in the box to pose "
+                                       "and is shown that person alone. Wire it whenever somebody else can be in "
+                                       "the box; without it the model may pose the other person.")),
             ],
             outputs=[
                 MHRPoseData.Output(display_name="pose_data"),
@@ -863,9 +925,10 @@ class MiniMaxH3BodyPose(io.ComfyNode):
 
     @classmethod
     def execute(cls, body_model, frames, boxes, hand_refinement=True, camera=CAMERAS[0], fov_degrees=FOV_DEFAULT,
-                subject="", first_source_frame=0, table_prefix="", batch_size=BATCH_DEFAULT) -> io.NodeOutput:
+                subject="", first_source_frame=0, table_prefix="", batch_size=BATCH_DEFAULT,
+                subject_mask=None) -> io.NodeOutput:
         pose_data, extras, notes = predict(body_model, frames, boxes, hands=bool(hand_refinement), camera=camera,
-                                           fov_degrees=fov_degrees, batch_size=batch_size)
+                                           fov_degrees=fov_degrees, batch_size=batch_size, subject_mask=subject_mask)
         table = pose_table(pose_data, extras, notes, camera=camera, fov_degrees=fov_degrees,
                            hands=bool(hand_refinement), subject=str(subject).strip(),
                            first_source_frame=int(first_source_frame))

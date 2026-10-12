@@ -275,7 +275,7 @@ def preview(job: dict) -> dict:
         _shown(g, block + 41, _out(g, at(40), "report"))
         g[at(42)] = {"class_type": "MiniMaxH3BodyPose",
                      "inputs": {"body_model": [BODY_MODEL, 0], "frames": frames, "boxes": _out(g, at(40), "boxes"),
-                                **MASKED_JOB_BODY_POSE, "subject": subject["label"],
+                                "subject_mask": track, **MASKED_JOB_BODY_POSE, "subject": subject["label"],
                                 "first_source_frame": job["first"], "table_prefix": save["pose"]}}
         _shown(g, block + 43, _out(g, at(42), "report"))
         g[at(44)] = {"class_type": "MiniMaxH3BodyMeshVideo",

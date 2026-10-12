@@ -1417,7 +1417,13 @@ MASKED_JOB_BODY_MODEL = "sam_3d_body_dinov3.safetensors"
 #: (`subject_boxes.SMALLEST_MASK_PX`, which has its provenance).
 MASKED_JOB_BOXES = dict(margin=16, smallest_mask=2048)
 #: `MiniMaxH3BodyPose` in a job, equal to the node's defaults. `subject`,
-#: `first_source_frame` and `table_prefix` come from the job file.
+#: `first_source_frame` and `table_prefix` come from the job file, and the
+#: graph wires the subject's own track to `subject_mask`, so that a box
+#: holding two people poses the one tracked. Wired, the node gives the model
+#: its mask prompt (**inherited**: Meta's estimator and ComfyUI's own node
+#: both do when a track exists) and shows it the person alone (**measured**
+#: on one shot, and ours: `body_pose.py`, the module's note on
+#: `subject_mask`).
 MASKED_JOB_BODY_POSE = dict(hand_refinement=True, camera="image diagonal", fov_degrees=55.0, batch_size=64)
 #: The mesh a job's preview draws for each subject: the plain lit body, at the
 #: canvas's width and height, which the graph adds. `marked` is committed and
