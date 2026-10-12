@@ -68,6 +68,12 @@ overlaps and margins can be counted by hand and reads the rows back.
    own colour, the one margin in the first's, a pixel both tracks claim stays the first's, and the legend has a
    line each; a run told one subject is drawn as before (the control).
 
+17. **Neither subject of a load of two is another subject to it.** The cross table makes no column for the
+   run's region on either; the rule about a region over another subject and the rule about another subject's
+   segment inside the region flag neither and still flag a third subject; the second subject's own part is not
+   a segment "inside the region", and what else of theirs is inside it is their own, to name in the text; and
+   told one subject, the second is flagged as before (the control).
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -1144,6 +1150,16 @@ def face_sizes() -> str:
             nobody = manifest(24)
             nobody["runs"] = []
             assert cap.flag_face_size(nobody, folder) == [], "a subject no run replaces was sized"
+            # a load of two subjects: the SECOND subject's small face is named too (a fact about a subject is read once per subject)
+            pair = manifest(24)
+            (folder / "subjects" / "z").mkdir(parents=True, exist_ok=True)
+            big = rect(100, 8, 140, 8 + int(cap.FACE_TOKENS * 16), 6)
+            np.savez_compressed(folder / "subjects" / "z" / "masks__p.npz", parts=np.packbits(big, axis=-1), track=np.packbits(big, axis=-1))
+            pair["subjects"].insert(0, {"label": "z", "sightings": [{"by": "p", "part_is_made_of": ["Face_Neck"]}]})
+            pair["runs"] = [{"name": "r", "subject": "z"}]
+            assert cap.flag_face_size(pair, folder) == [], "the control: told one subject, the other's face is nobody's to size"
+            pair["runs"] = [{"name": "r", "subject": "z", "subjects": ["z", "a"]}]
+            assert [f["subject"] for f in cap.flag_face_size(pair, folder)] == ["a"], cap.flag_face_size(pair, folder)
         finally:
             cap.TOKEN_PX = token
     # a part in pieces: the head, and a sliver somewhere else that carries the part's class
@@ -1365,6 +1381,57 @@ def a_strip_of_two_subjects() -> str:
     return "each subject's part is filled in its own colour and the margin in the first's; told one subject the picture is as before; a legend line each"
 
 
+def neither_is_another() -> str:
+    """No subject of a load of two is "another subject" to it: the cross table, the region rule and the segments rule."""
+    import tempfile
+    third = rect(96, 32, 128, 64)
+    seen = {"a": {"p": (A, ALL, None)}, "b": {"p": (rect(64, 32, 96, 64), ALL, None)}, "c": {"p": (third, ALL, None)}}
+    region = np.zeros((N, H // CELL, W // CELL), bool)
+    region[:, 2:4, 2:8] = True                                        # over a, b and c alike
+    run = {"subject": "a", "others": [], "region": region, "carried": A | rect(64, 32, 96, 64), "read": ALL, "reached": {}, "back": {}}
+    alone = cap.cross_rows(0, N, seen, {"ab": run})[0]
+    assert alone["region_on__ab__b"] > 0 and alone["region_on__ab__c"] > 0 and "region_on__ab__a" not in alone, "the control: one subject, and b is another"
+    pair = cap.cross_rows(0, N, seen, {"ab": {**run, "subjects": ["a", "b"]}})[0]
+    assert "region_on__ab__b" not in pair and "region_cells_holding__ab__b" not in pair and pair["region_on__ab__c"] == alone["region_on__ab__c"], pair
+    assert cap.subjects_of({"subject": "a"}) == ["a"] and cap.subjects_of({"subject": "a", "subjects": ["a", "b"]}) == ["a", "b"]
+    # a rule that is a fact about a subject walks each run once per subject; a run of one subject is the very same run
+    single = {"name": "r", "subject": "a"}
+    walked = cap.by_subject([single, {"name": "ab", "subject": "a", "subjects": ["a", "b"], "load": {"first_frame": 5}}])
+    assert walked[0] is single and [(r["name"], r["subject"]) for r in walked] == [("r", "a"), ("ab", "a"), ("ab", "b")], walked
+    assert walked[2]["load"] == {"first_frame": 5} and walked[2]["subjects"] == ["a", "b"], walked[2]
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / "runs" / "ab").mkdir(parents=True)
+        frames = [{"source_frame": 100 + n, "region_on__ab__b": 0.5, "region_on__ab__c": 0.5} for n in range(N)]     # a capture made before the change
+        (folder / "frames.json").write_text(json.dumps({"rows": frames}))
+        (folder / "runs" / "ab" / "per_frame.json").write_text(json.dumps({"rows": [
+            {"source_frame": 100 + n, "region_share": 0.2, "margin_share": 0.15} for n in range(N)]}))
+        px = cap.SEGMENT_PX
+        (folder / "runs" / "ab" / "segments_in_region.json").write_text(json.dumps({"rows": [
+            {"frame": n, "source_frame": 100 + n, "b.Face__px": px, "b.Face__cells": 2, "b.Hand__px": px, "b.Hand__cells": 1,
+             "c.Hand__px": px, "c.Hand__cells": 1} for n in range(N)]}))
+        def manifest(**more) -> dict:
+            return {"subjects": [{"label": "a", "sightings": [{"by": "p", "part_is_made_of": ["Face"]}]},
+                                 {"label": "b", "sightings": [{"by": "p", "part_is_made_of": ["Face", "Hair"]}]},
+                                 {"label": "c", "sightings": [{"by": "p"}]}],
+                    "runs": [{"name": "ab", "subject": "a", "planned": True, **more}]}
+        def named(flags, rule):
+            return sorted((f.get("other") or f.get("segment"), f["subject"]) for f in flags if f["rule"] == rule)
+        one, two = cap.flag_runs(manifest(), folder), cap.flag_runs(manifest(subjects=["a", "b"]), folder)
+        assert named(one, "region_over_another_subject") == [("b", "a"), ("c", "a")], "the control: told one subject, the region over b is flagged"
+        assert named(two, "region_over_another_subject") == [("c", "a")], named(two, "region_over_another_subject")
+        mostly = [f["why"] for f in two if f["rule"] == "region_mostly_not_the_subject"]
+        assert len(mostly) == 1 and "is not a and b " in mostly[0], mostly
+        one, two = cap.flag_segments(manifest(), folder), cap.flag_segments(manifest(subjects=["a", "b"]), folder)
+        assert named(one, "segment_inside_region") == [("b.Face", "a"), ("b.Hand", "a"), ("c.Hand", "a")], named(one, "segment_inside_region")
+        # the second subject's own part is what is replaced; what else is theirs inside the region is their own, to name in the text
+        assert named(two, "segment_inside_region") == [("b.Hand", "b"), ("c.Hand", "a")], named(two, "segment_inside_region")
+        why = {f["segment"]: f["why"] for f in two if f["rule"] == "segment_inside_region"}
+        assert "name it in the text or keep it out" in why["b.Hand"] and "c's own pass must win there" in why["c.Hand"], why
+    return ("told two subjects, the cross table has no column for the region on either, the region rule and the segments rule flag "
+            "neither as another and still flag a third; told one, the second is flagged as before")
+
+
 def a_load_that_lays_nothing() -> str:
     """Where the subject is tracked and a load's own mask is empty with no region on the frame, nothing is laid: named per load."""
     carried = rect(32, 32, 64, 64, 6)
@@ -1446,4 +1513,5 @@ case("preflight: the gate and its override", the_gate)
 case("preflight: the text against the voice", text_rules)
 case("the strip: the frames a render's strip shows, and the span's frames it leaves out", a_strip_of_a_render)
 case("the strip: a load of two subjects, each in its own colour", a_strip_of_two_subjects)
+case("a load of two subjects: neither is another subject to it", neither_is_another)
 sys.exit(finish())

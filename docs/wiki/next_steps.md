@@ -48,10 +48,31 @@ own below the rule.
   places that take a plan's `subject` as one label. **Partly built 2026-10-12** (the first real two-subject
   load met it: the look's strip refused the load, and the capture's own plan was the first subject's alone):
   the plan the capture works out is from both parts, the run records `subjects`, and the look's strip takes
-  the load, says which label is whose and draws both. STILL TO BUILD, in the shape the lead ruled (a run keeps
-  `subject` and gains `subjects`): a rule that is a fact about a subject runs once per subject of the load;
-  no subject of the load is "another subject"; a fact about the region as a whole is read once with both
-  labels. Until then the second subject's flag is answered by hand.
+  the load, says which label is whose and draws both. **The rules, the same day**, in the shape the lead ruled
+  (a run keeps `subject` and gains `subjects`; `subjects_of`, `by_subject`): no subject of the load is "another
+  subject" to it, so the rule about a region over another subject and the rule about another subject's segment
+  inside the region no longer fire on the second subject and are no longer answered by hand; and a rule that is
+  a fact about a subject runs once per subject of the load (a shot of the load without them, their size over
+  the load and at its start, a face a few tokens tall, an open mouth with no voice, the pose ahead of kept
+  frames, the class map for a planned part, a statement that excuses frames a load covers). A capture has to be
+  built with the tool as it is now for any of it to apply: the rules read `subjects` off the run. Met no real
+  pair but one trial capture of the long kitchen shot's load, built and gated in a session's scratchpad.
+- **A few rules still read a two-subject load as its first subject's** (2026-10-12, named when the rest was
+  built), in three groups. Each reads the ONE mask the node is given, both parts together, and cannot say whose a missing part
+  is without splitting that mask by track, which nobody has decided how to do where the two tracks overlap.
+  (1) `load_lays_nothing_on_frames` and the lent-frame rule: a frame where the second subject's part is empty
+  and the first's is not is named by neither, since something is carried on it; the per-subject rule
+  `part_empty_on_the_subject` does name it. (2) `original_shown_in_the_held_tail`: read for the first subject's
+  mask on the load's last frame only. (3) `region_carried_across_a_cut` and `kept_pixels_inside_the_part`: the
+  first subject's shot table and part. To build when a real pair shows which of them matters; start at
+  `bench/capture_masked_run.py::by_subject`, whose docstring says why these do not walk it.
+- **Three people in one pass has no route** (the lead, 2026-10-12; frames 1920 to 6394 have shots with all
+  three subjects briefly). The Masked Source has two reference inputs (`motion_video`, `motion_video_2`) and
+  the builder's `subjects` list takes two. Two routes, neither started: a third reference input and a third
+  entry in the list, which is node code and a restart, with one margin for three; or a two-subject pass and a
+  single pass on the same frames, merged by the delivery, which is what the tools already do and costs a
+  second render and a join inside one picture. Nothing is built before the previews of those frames say which
+  shots hold three and for how long.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but

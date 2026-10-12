@@ -668,7 +668,7 @@ def cross_rows(first: int, frames: int, sightings: dict, runs: dict, voice: dict
                 continue
             up = cells_up(r["region"][n])
             for b in labels:
-                if b == r["subject"] or not lead[b][1][n]:
+                if b in subjects_of(r) or not lead[b][1][n]:
                     continue
                 tb = lead[b][0][n]
                 row[f"region_on__{name}__{b}"] = round(float((up & tb).sum()) / max(float(tb.sum()), 1.0), 4)
@@ -1012,6 +1012,24 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
     return out
 
 
+def subjects_of(run: dict) -> list[str]:
+    """The subjects a run replaces: one, or both of a load of two subjects (`subjects`; its first is `subject`).
+
+    The rule every reader of a run holds to (2026-10-12): NO SUBJECT OF THE LOAD IS "ANOTHER SUBJECT" TO IT. A
+    region over the second subject of a pair is the load doing what it was asked, not a pass drawing over
+    somebody else; until then the rule about a region over another subject fired on every two-subject load and
+    was answered by hand."""
+    return list(run.get("subjects") or [run["subject"]])
+
+
+def by_subject(runs: list[dict]) -> list[dict]:
+    """Each run once for each subject it replaces, with `subject` that one: what a rule that is a FACT ABOUT A SUBJECT
+    walks (a shot of the load without them, their size, their face, their mouth, their pose ahead of kept frames).
+    A run of one subject comes back as it is. A rule that reads the mask the load carries does not walk this: that
+    mask is both subjects' parts as one, and whose a missing part is cannot be read off it (`docs/wiki/next_steps.md`)."""
+    return [run if len(subjects_of(run)) == 1 else {**run, "subject": who} for run in runs for who in subjects_of(run)]
+
+
 def second_carried(also: dict, track: np.ndarray, parts: np.ndarray | None, held: np.ndarray | None) -> np.ndarray:
     """The second subject's share of the mask a two-subject load carries, from the capture's own masks.
 
@@ -1285,7 +1303,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                     how["saved_regions_refused"] = refused
         folder = out / "runs" / name
         folder.mkdir(parents=True, exist_ok=True)
-        entry = {"subject": label, "others": others, "region": region, "carried": carried, "read": read, "reached": {}, "back": {}}
+        entry = {"subject": label, **({"subjects": both} if also else {}), "others": others, "region": region, "carried": carried,
+                 "read": read, "reached": {}, "back": {}}
         margin = r.get("margin", settings.get("grow_pixels"))
         fixed = settings.get("grow_by") in (None, "a fixed margin")
         if margin is not None and fixed and others:
@@ -1492,7 +1511,7 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
         add("track_where_the_shot_table_says_taken", ", ".join(tables) or "no subject", True if tables else None,
             "no track is empty inside a shot it was taken in" if tables else "no sighting has a shot table: nothing says where a track should be")
     # a statement excuses frames no load covers. A load of that subject over frames it excused is the two said at once
-    for run in manifest["runs"]:
+    for run in by_subject(manifest["runs"]):
         at, count = (run["load"]["first_frame"], run["load"]["frames"]) if run.get("load") else (run.get("first_source_frame"), run.get("frames_read"))
         if at is None or not count:
             continue
@@ -1508,7 +1527,7 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
                         f"(\"{st['why']}\"); load {run['name']} regenerates {st['subject']} on {at}-{at + count - 1} and {len(hit)} of those frames "
                         "have no mask: end the load before them or take the statement back", source_frames=frame_spans(hit, join=1))
     classed = {s["label"] for s in manifest["subjects"] if any(x.get("classes") for x in s["sightings"])}
-    for run in manifest["runs"]:
+    for run in by_subject(manifest["runs"]):
         if run.get("planned") and run.get("carried_is") in ("the part", "the held part"):
             add("class_map_for_a_planned_part", run["name"], run["subject"] in classed,
                 f"{run['subject']} has a class map" if run["subject"] in classed else
@@ -1744,9 +1763,9 @@ def rules_input(folder: Path, not_in: dict | None = None) -> dict:
                 hit = [(r["source_frame"], r[key + "__cells"]) for r in rows if r.get(key + "__cells")]
                 if hit:
                     inside[key] = {"frames": len(hit), "source_frames": frame_spans([f for f, _ in hit]), "most_cells": int(max(c for _, c in hit)),
-                                   "whose": "the subject's own, not the part" if key.startswith(run["subject"] + ".") else "another subject's"}
+                                   "whose": "the subject's own, not the part" if key.split(".", 1)[0] in subjects_of(run) else "another subject's"}
         others = {}
-        for other in [s["label"] for s in m["subjects"] if s["label"] != run["subject"]]:
+        for other in [s["label"] for s in m["subjects"] if s["label"] not in subjects_of(run)]:
             key = f"region_on__{run['name']}__{other}"
             hit = [(r["source_frame"], r[key]) for r in cross if r.get(key)]
             if hit:
@@ -2323,7 +2342,10 @@ def flag_runs(manifest: dict, folder: Path) -> list[dict]:
     out = []
     for run in manifest["runs"]:
         name, kind = run["name"], "plan" if run.get("planned") else "run"
+        whom = " and ".join(subjects_of(run))
         for other in labels:
+            if other in subjects_of(run):
+                continue                               # a subject of the load is not another subject to it
             col = f"region_on__{name}__{other}"
             hit = [(r["source_frame"], r[col]) for r in cross if r.get(col) is not None and r[col] > REGION_ON_OTHER]
             if hit:
@@ -2332,7 +2354,7 @@ def flag_runs(manifest: dict, folder: Path) -> list[dict]:
                 out.append({"rule": "region_over_another_subject", "level": LEVELS[2] if worst > 5 * REGION_ON_OTHER else LEVELS[1],
                             "subject": run["subject"], "run": name, "other": other, "source_frames": frame_spans([f for f, _ in hit]),
                             "why": f"{kind} {name} regenerates up to {100 * worst:.0f}% of {other}'s mask: {other} is drawn again "
-                                   f"there by {run['subject']}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""),
+                                   f"there by {whom}'s pass" + (f" (margin cells were given back on {held} frames)" if held else ""),
                             "figures": {"frames": len(hit), "worst_share": round(worst, 3)}, "threshold": {"REGION_ON_OTHER": REGION_ON_OTHER}})
         rows = json.loads((folder / "runs" / name / "per_frame.json").read_text())["rows"]
         outside = [(r["source_frame"], r["margin_share"] / r["region_share"]) for r in rows if r.get("region_share")]
@@ -2341,7 +2363,7 @@ def flag_runs(manifest: dict, folder: Path) -> list[dict]:
             typical = float(np.median([v for _, v in outside]))
             out.append({"rule": "region_mostly_not_the_subject", "level": LEVELS[1], "subject": run["subject"], "run": name,
                         "source_frames": frame_spans([f for f, _ in hit], join=RECENT),
-                        "why": f"{100 * typical:.0f}% of what {kind} {name} regenerates on a typical frame is not {run['subject']} "
+                        "why": f"{100 * typical:.0f}% of what {kind} {name} regenerates on a typical frame is not {whom} "
                                f"(over half on {len(hit)} of {len(outside)} frames): background and things near them are drawn "
                                "again from the text, so name them in it or keep them out",
                         "figures": {"frames": len(hit), "of": len(outside), "median_share_not_subject": round(typical, 3)},
@@ -2408,18 +2430,20 @@ def flag_segments(manifest: dict, folder: Path) -> list[dict]:
         if not path.is_file():
             continue
         rows = json.loads(path.read_text())["rows"]
-        own = next((s["sightings"][0].get("part_is_made_of") or [] for s in manifest["subjects"] if s["label"] == run["subject"]), [])
+        # each subject of the load has its own part: a load of two subjects carries both
+        own = {who: next((s["sightings"][0].get("part_is_made_of") or [] for s in manifest["subjects"] if s["label"] == who), [])
+               for who in subjects_of(run)}
         kind = "plan" if run.get("planned") else "run"
         for key in sorted({k[:-len("__cells")] for r in rows for k in r if k.endswith("__cells")}):
             label, cls = key.split(".", 1)
-            if label == run["subject"] and cls in own:
+            if cls in own.get(label, ()):
                 continue                               # the carried part's own classes just outside its mask: the edge
             cells = [(r["source_frame"], r.get(f"{key}__cells", 0), r.get(f"{key}__px", 0)) for r in rows]
             hit = [(f, c, p) for f, c, p in cells if p >= SEGMENT_PX]
             if not hit:
                 continue
-            other = label != run["subject"]
-            out.append({"rule": "segment_inside_region", "level": LEVELS[1], "subject": run["subject"], "run": run["name"],
+            other = label not in own
+            out.append({"rule": "segment_inside_region", "level": LEVELS[1], "subject": run["subject"] if other else label, "run": run["name"],
                         "segment": key, "source_frames": frame_spans([f for f, _, _ in hit], join=RECENT),
                         "why": f"{key} lies inside what {kind} {run['name']} regenerates on {len(hit)} frame(s), up to "
                                f"{max(c for _, c, _ in hit)} cells: it is drawn again without being what is replaced"
@@ -2599,7 +2623,7 @@ def flag_kept(manifest: dict, folder: Path) -> list[dict]:
     on the window's new frames against the last kept frame. Iffy at `KEPT_TURN` or more, with the chin and
     the wrists as figures. Without a pose table that carries 3D keypoints it cannot be checked, and says so."""
     out = []
-    for run in manifest["runs"]:
+    for run in by_subject(manifest["runs"]):
         wins = [x for x in run.get("planned_windows") or [] if x.get("kept_frames")]
         if not run.get("planned") or not wins:
             continue
@@ -2639,7 +2663,7 @@ def flag_mouth(manifest: dict, folder: Path) -> list[dict]:
     cross = json.loads((folder / "frames.json").read_text())["rows"]
     voiced = np.array([np.nan if r.get("voiced") in (None, "") else float(r["voiced"]) for r in cross])
     names = _pack("sapiens2_parts").CLASS_NAMES
-    for label in sorted({run["subject"] for run in manifest["runs"]}):
+    for label in sorted({who for run in manifest["runs"] for who in subjects_of(run)}):
         seen = next(s for s in manifest["subjects"] if s["label"] == label)["sightings"][0]["by"]
         classes = folder / "subjects" / label / f"classes__{seen}.npz"
         if not classes.is_file() or not (voiced == 0).any():
@@ -2715,7 +2739,7 @@ def flag_face_size(manifest: dict, folder: Path) -> list[dict]:
     subject whose part is made of the face class: its height per frame in tokens, the median over the frames
     that have one. Iffy under `FACE_TOKENS`."""
     out, w = [], manifest["size"][0]
-    for label in sorted({run["subject"] for run in manifest["runs"]}):
+    for label in sorted({who for run in manifest["runs"] for who in subjects_of(run)}):
         seen = next(s for s in manifest["subjects"] if s["label"] == label)["sightings"][0]
         if "Face_Neck" not in (seen.get("part_is_made_of") or []):
             continue
@@ -2934,7 +2958,7 @@ def flag_loads(manifest: dict, folder: Path, not_in: dict | None = None) -> list
             table = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
             if table.is_file() and not cuts:
                 cuts = [seen.get("shots_first_source_frame", seen["first_source_frame"]) + c for c in json.loads(table.read_text())["cuts"]]
-    for run in manifest["runs"]:
+    for run in by_subject(manifest["runs"]):
         load = run.get("load")
         if not load:
             continue
@@ -4224,9 +4248,9 @@ def video(a: argparse.Namespace) -> None:
         for r_ in runs:
             r = run_table[r_["name"]][n]
             if r.get("region_share"):
-                own = table[r_["subject"]][n].get("track_share") or 0
+                own = sum(table[who][n].get("track_share") or 0 for who in subjects_of(r_))
                 d.text((tx, ty), f"{'plan' if r_.get('planned') else 'run'} {r_['name']}: region {100 * r['region_share']:.1f}% of the frame"
-                       + (f", {r['region_share'] / own:.1f}x {r_['subject']}'s mask" if own else "")
+                       + (f", {r['region_share'] / own:.1f}x {' and '.join(subjects_of(r_))}'s mask" if own else "")
                        + f"; {100 * r['margin_share'] / r['region_share']:.0f}% of it margin", font=line, fill=WHITE)
             else:
                 d.text((tx, ty), f"{r_['name']}: nothing regenerates on this frame", font=line, fill=AMBER)

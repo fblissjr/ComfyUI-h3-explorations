@@ -437,12 +437,16 @@ session starting a job needs to know:
     carries the wider ring here (the lead's face at the second subject's
     margin, on the first use). A second part and margin in the node would
     end that; it is node code and is not built.
-  - **The capture's gate reads it as the first subject's load**, so
-    put first the subject whose region is larger. The region then lies over
-    the second subject and the capture's rule about a region over another
-    subject says so; that flag is answered in the capture by a person, with
-    the tool's own `outcome`. Teaching the capture's rules a two-subject load
-    is a row in [`next_steps.md`](next_steps.md). *Since 2026-10-12 the
+  - **The capture reads it as a load of both** (since 2026-10-12; until
+    then it was the first subject's, the rule about a region over another
+    subject fired on the second and was answered by a person). No subject
+    of the load is another subject to it, and a rule that is a fact about a
+    subject is read once for each. A few rules still read the first subject
+    only, named in [`next_steps.md`](next_steps.md): they read the one mask
+    the node is given and cannot say whose a missing part is. Put first the
+    subject whose region is larger: a hair band and those rules are
+    the first subject's. A capture must be built with the tool as it is now
+    for this to apply. *Since 2026-10-12 the
     capture knows this much of the pair:* a plan it works out itself, before
     the node's plan is read, is worked out from both subjects' parts as one
     mask (until then it was the first subject's alone, and a look before
