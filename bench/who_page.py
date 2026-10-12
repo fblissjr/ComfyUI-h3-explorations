@@ -151,23 +151,33 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             cls = {"yes": "", "no": "no", "unsure": "un"}[w["present"]]
             who.append(f'<div class="{cls}"><b>{html.escape(label)}</b>: {PRESENT_WORD[w["present"]]}'
                        f'<div class="how">{html.escape(w.get("how", ""))} <i>({html.escape(w.get("by", ""))})</i></div></div>')
-        tiles, covered = [], False
+        found, covered = [], False
         for pv in previews_:
             if pv["last"] < s["first"] or pv["first"] > s["last"]:
                 continue
             covered = True
-            for t in tiles_for(s, pv, out):
-                part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
-                ask = "".join(
-                    f'<div class="ask"><span class="lab">{html.escape(sub)}</span>'
-                    + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}">{n}</button>' for n in t["people"])
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">not outlined</button>'
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not in shot">not in shot</button></div>'
-                    for sub in shots["subjects"])
-                tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
-                             f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
-                             f'<div>{html.escape(t["label"])}\'s tracker, {html.escape(t["preview"])} shot {t["shot"]}, frame {t["shown"]} shown, '
-                             f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div></div>')
+            found.extend(tiles_for(s, pv, out))
+        # ONE picture a shot: every tracker of a preview drew its own picture of the same shot with its own numbering,
+        # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
+        # outlined is shown; ties go to the first preview and the first tracker listed.
+        tiles = []
+        if found:
+            t = max(found, key=lambda x: len(x["people"]))
+            others = [x for x in found if x is not t]
+            part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
+            ask = "".join(
+                f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
+                + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}">{n}</button>' for n in t["people"])
+                + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">in the shot, not outlined</button>'
+                + f'<button data-sub="{html.escape(sub)}" data-chosen="not in shot">not in the shot</button></div>'
+                for sub in shots["subjects"])
+            also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
+                f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
+                + '); not shown, one question a shot</div>') if others else ""
+            tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
+                         f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
+                         f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}), '
+                         f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}</div>')
         words = owner_words(answers, s["first"], s["last"])
         wtxt = "".join(f'<div class="w">frame {w["frame"]} ({w["at"]}): {html.escape(w["words"])}</div>' for w in words)
         note = f'<div class="how">{html.escape(s["note"])}</div>' if s.get("note") else ""
