@@ -322,6 +322,19 @@ session cannot work around; these are the lane's own habits, each earned on
   full text first and writes beside the job which built graph it came from,
   the one thing changed, by whom, and what the render is meant to decide.
   (Since the builder landed, nobody has; the job's `note` holds the same.)
+- **The reference for a face, head or hair replacement is the body model cut
+  to the head with the face points drawn on it, and the text says exactly
+  what that video is** (the owner, 2026-10-12, about 20:12Z, after the two
+  cropped-reference tests on 1039-1060; made with `bench/head_reference.py`,
+  the three steps as "Running a job" has them). On the lead's three hall
+  shots that evening the owner judged this form better than the lid marks
+  on playback (the eyes on 1222, the mouth on 1156, the gaze on 1093;
+  `data/fun/verdicts/verdicts.jsonl`, 21:25-21:28Z), where the readings from
+  frames had called the eyes a draw: what shows in motion is the owner's to
+  see. A face too small or too turned for the lines (the lead on 604-948, 65
+  px, 379 of 406 frames under the drawing line) takes the plain body model,
+  and the note says why. The standard is provisional on holding up across
+  the rest of the video (the owner's own words, 20:18Z).
 - **A rule that depends on the picture takes its value from the input video,
   up front** (`subject_track.auto_cuts`, `auto_match`); a constant measured on
   another clip is a marked starting value, and the tool says when this
