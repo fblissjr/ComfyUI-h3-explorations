@@ -66,7 +66,7 @@ edge:
 The first row is the current artifact's ceiling costing roughly 25x the visual
 detail of a reference sized the way the release serves it — independently
 reproducing what
-[`still_policy_token_cost.md`](qwen3-vl-special-tokens-post-training/canonical/2026-08-24_still_policy_token_cost.md)
+`still_policy_token_cost.md`
 measured. The third row is the **floor**, which the retired `keep_towers_matched`
 never modelled at all: it clamped a ceiling and had no opinion about a
 reference too small for the declared policy.

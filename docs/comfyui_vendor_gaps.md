@@ -118,8 +118,9 @@ on 2026-08-23. `MiniMaxH3AWQEncoderLoader` was this repo's local adapter for
 that representation, and it never supplied or implied generic AWQ support in
 core. **The adapter, its check (`bench/check_h3_awq_encoder.py`), its
 document (`docs/h3_awq_encoder.md`) and the `config/` snapshots were deleted
-on 2026-09-13** with the closed lane (`docs/wiki/decisions.md`); the records
-under `docs/research/qwen3-vl-special-tokens-post-training/` stay. The
+on 2026-09-13** with the closed lane (`docs/wiki/decisions.md`); the lane's
+records under `docs/research/qwen3-vl-special-tokens-post-training/` stayed
+until 2026-10-12 and are in git history. The
 generator refuses any encoder file outside
 `workflows/h3_config.py::CORE_LOADED_ENCODERS`.
 
@@ -533,7 +534,7 @@ artifact. Its adapter binds a separately snapshotted 200,704--301,056-pixel
 still-image processor to that CLIP instance. The layer-49 benchmark measured
 the resulting large reduction in reference visual rows and rejected widening
 that already-calibrated artifact as a config-only repair; see
-[`2026-08-24_layer50_processor_policy_benchmark.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_layer50_processor_policy_benchmark.md).
+`2026-08-24_layer50_processor_policy_benchmark.md`.
 
 ---
 
@@ -1054,9 +1055,10 @@ rendered clip cannot A/B a numerical change.
 Deleted on 2026-09-13 with the closed AWQ lane (`docs/wiki/decisions.md`):
 the adapter `h3_awq_encoder.py` (`MiniMaxH3AWQEncoderLoader`), its check
 `bench/check_h3_awq_encoder.py`, its document `docs/h3_awq_encoder.md` and
-the `config/` snapshot directories. Git history has them; the lane's records
-under `docs/research/qwen3-vl-special-tokens-post-training/` and
-`bench/results/` stay. The loader every graph wires is
+the `config/` snapshot directories. Git history has them, and since
+2026-10-12 the lane's records too (they were under
+`docs/research/qwen3-vl-special-tokens-post-training/` and
+`bench/results/archive/v2_encoder/`). The loader every graph wires is
 [`h3_encoder_loader.py`](../h3_encoder_loader.py) (`MiniMaxH3EncoderLoader`),
 controlled by [`bench/check_h3_encoder_loader.py`](../bench/check_h3_encoder_loader.py).
 

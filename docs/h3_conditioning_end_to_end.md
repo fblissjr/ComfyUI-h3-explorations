@@ -71,7 +71,7 @@ read the graph rather than the default (until 2026-09-13 the default itself
 was off). Reference video is sized by its own separate policy again. Never
 quote a single number for reference geometry; read
 [`h3_references.md`](h3_references.md) for the knobs and
-[`2026-08-24_serving_geometry_composes.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_serving_geometry_composes.md)
+`2026-08-24_serving_geometry_composes.md`
 for how upstream sizing and the encoder cap compose.
 
 For Qwen's reference-video view, the shipped graphs run the native path.
@@ -330,7 +330,7 @@ artifact the split came from the opposite direction -- its snapshot capped
 stage two at 200,704--301,056 px, below a single 1344x768 canvas, so the
 reduction happened whether or not anyone asked for it. That
 composition is owned by
-[`2026-08-24_serving_geometry_composes.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_serving_geometry_composes.md).
+`2026-08-24_serving_geometry_composes.md`.
 
 Reference video is also **truncated to the generated frame count** and snapped
 *down* to the `17n+5` grid before encoding, so a short render can only ever be
@@ -428,7 +428,7 @@ different nodes.
 - Read from installed code and this repo's nodes. Nothing here was executed
   against a running model, and no claim is a numerical or perceptual result.
 - The cross-implementation corroboration for the packing rule lives in
-  [`2026-08-24_keyframe_vs_reference_positioning.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_keyframe_vs_reference_positioning.md);
+  `2026-08-24_keyframe_vs_reference_positioning.md`;
   this file does not restate its evidence.
 - Nothing here establishes what any of it is *worth*. Whether a larger reference
   conditions better, whether keyframe prose matters to output quality, and

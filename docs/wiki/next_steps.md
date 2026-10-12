@@ -1185,9 +1185,6 @@ none of it is done.
 - Reference audio now end-padded to the audio VAE's hop in our path
   (`reference_conditioning.py::_encode_ref_audio_aligned`), closing gap 16 for
   this pack; core's own nodes still crop until Comfy-Org/ComfyUI#15972 lands.
-- A doc pointer drifted with today's sglang pull and fails
-  `bench/check_doc_links.py`:
-  `docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-serving-stacks-survey.md:53`.
 
 - **Owner decisions 2026-09-05 evening** (`docs/roadmap.md`, the decisions
   block): composition counts as prompt adherence; PDD parked; the turbo

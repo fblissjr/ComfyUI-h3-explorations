@@ -443,6 +443,36 @@ An entry asserts that someone looked and the target is *deliberately* gone. It
 is not a way to silence a broken link.
 
 ```doc-link-absent
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/owner_authored_marker_corpus.md
+WHY: the brief the marker corpus was compiled to, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_layer50_processor_policy_benchmark.md
+WHY: a note on the encoder's processor policies at one layer, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_serving_geometry_composes.md
+WHY: a note on how the serving geometry composes, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_keyframe_vs_reference_positioning.md
+WHY: a note on how keyframes and references are positioned, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/active_plan.md
+WHY: the plan of the encoder calibration work, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
+PATH: docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_still_policy_token_cost.md
+WHY: a note on what each still policy costs in tokens, in the research folder of the encoder calibration work; that work is not
+     carried on and the owner had the folder removed on 2026-10-12, last present at commit
+     9f892833. Pages that drew on it keep citing it by name.
+
 PATH: bench/check_calibration_selector.py
 WHY: a check of the calibration row selector's selection paths; the encoder calibration work it belonged to is not
      carried on, and the owner had it removed on 2026-10-12, last present at commit a78ae801.

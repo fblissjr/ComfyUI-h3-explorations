@@ -2,7 +2,7 @@
 
 **Status:** Seed set, not the frozen evaluation corpus. Freezing is the owner's
 act and requires coverage this does not yet have.
-**Brief:** [`owner_authored_marker_corpus.md`](../../docs/research/qwen3-vl-special-tokens-post-training/canonical/owner_authored_marker_corpus.md).
+**Brief:** `owner_authored_marker_corpus.md`.
 It is the authority; nothing here restates a rule it owns.
 
 ## What is here

@@ -926,7 +926,7 @@ Four things to read off it:
 **OWNER-DECISION, 2026-08-25:** v2 calibrates reference stills at B, the
 vendor's 2048 upscale, as the primary policy, cost accepted; `max` with no
 upscale stays as a comparison stratum. Recorded in
-[`canonical/active_plan.md`](research/qwen3-vl-special-tokens-post-training/canonical/active_plan.md).
+`canonical/active_plan.md`.
 The consequence for graphs: a v2 parity graph needs the upscale at stage one
 (`allow_upscale=True` on the fit or append) and `video_policy=release` for
 video references, in addition to the encoder contract the loader stamps. On
@@ -935,7 +935,7 @@ video references, in addition to the encoder contract the loader stamps. On
 scales chosen from B-sized activations applied to A-sized inputs. That is the
 same class of mismatch measured for v1 in the other direction (vision cosine
 0.966 at its calibration geometry, 0.832 served wider;
-[`2026-08-24_layer50_processor_policy_benchmark.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_layer50_processor_policy_benchmark.md)),
+`2026-08-24_layer50_processor_policy_benchmark.md`),
 not yet measured in this one. Which graphs flip, and when, is the owner's
 call at v2 acceptance. The paragraph above this one still stands: none of
 this says the 2048 version looks better; it says which distribution the

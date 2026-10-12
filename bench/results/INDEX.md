@@ -220,7 +220,7 @@ Data files dated this month and not listed: 9.
 | directory | tracked files | what its README says |
 |---|---|---|
 | [`2026-09-27_render_dataset/`](2026-09-27_render_dataset/README.md) | 6 | The 2026-09-26 render dataset |
-| [`archive/`](archive/README.md) | 52 | Archived results |
+| [`archive/`](archive/README.md) | 3 | Archived results |
 
 ## Not dated
 
