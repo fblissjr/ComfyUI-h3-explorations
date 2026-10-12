@@ -161,7 +161,8 @@ region out from that mask. The manifest lists the frames filled, the doubted fra
 the whole span.
 
 **video** stacks the source, the masks and a render, each with a zoom on the region beside it, and burns the
-source frame number and the render frame number above every row, with the render's audio. Every subject has
+source frame number and the render frame number above every row, with the render's audio, or the source's at the
+render's first frame when the render file carries none. Every subject has
 one colour: an outline for the tracked mask, a solid fill for what was taken from the still, a light fill for
 the margin regenerated round it, and white boxes on margin cells that were given back to somebody else. Under
 the rows is a panel read from the same tables: the frame number large, each subject's mask and part, each
@@ -3972,9 +3973,15 @@ def video(a: argparse.Namespace) -> None:
     if shown is not None and not a.out:
         (folder / "looks").mkdir(exist_ok=True)
         out = str(folder / "looks" / f"{a.load}.mp4")
-    audio = ["-i", render] if render else ["-ss", f"{(first + lo) / FPS:.6f}", "-i", str(source)]
-    if render and skip:
-        audio = ["-ss", f"{skip / FPS:.6f}"] + audio
+    # the sound: the render's own when it carries one; else the source's at the render's first frame (a render saved
+    # without an audio stream, as the first window of a two-window run and a joined viewing copy were on 2026-10-12,
+    # gave the owner a silent clip; the source has the sound on every frame)
+    has_audio = bool(render) and subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type",
+                                                 "-of", "csv=p=0", render], capture_output=True, text=True).stdout.strip() != ""
+    if has_audio:
+        audio = (["-ss", f"{skip / FPS:.6f}"] if skip else []) + ["-i", render]
+    else:
+        audio = ["-ss", f"{(first + lo) / FPS:.6f}", "-i", str(source)]
     enc = subprocess.Popen(
         ["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-threads", "4", "-f", "rawvideo", "-pix_fmt", "rgb24",
          "-s", f"{canvas_w}x{canvas_h}", "-r", str(FPS), "-i", "-", *audio, "-map", "0:v:0", "-map", "1:a:0?",
