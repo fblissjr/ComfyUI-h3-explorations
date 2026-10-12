@@ -139,6 +139,11 @@ def one_box_and_its_scale() -> str:
     assert saved["points_in_this_picture"]["file"] == "a_points.npz"
     assert saved["box"] == rec["box"] and saved["frames"] == [0, N - 1] and saved["made_from"]["reference_video"] == str(REF)
     assert (WORK / "a_sheet.jpg").exists() and len(saved["sheet"]["frames"]) == 6 and saved["sheet"]["looked_at_by"] == ""
+    assert "no record beside the points file" in saved["made_from"]["the_points_own_record_says"], saved["made_from"]
+    POINTS.with_suffix(".json").write_text(json.dumps({"made_by": "a session", "made_at": "then", "made_from": {"box_mask": "track.mkv"}, "frames": N}))
+    told = cr.run(str(REF), str(POINTS), 0, N, WORK / "told.mp4", "the check", say=quiet)["made_from"]["the_points_own_record_says"]
+    POINTS.with_suffix(".json").unlink()
+    assert told == {"made_by": "a session", "made_at": "then", "made_from": {"box_mask": "track.mkv"}}, told   # which track the points follow, as their record has it
     assert abs(saved["face_height_px_in_this_video"] - FACE_PX * sy) < 0.5
     tight = cr.run(str(REF), str(POINTS), 0, N, WORK / "tight.mp4", "the check", room=0.5, say=quiet)
     assert tight["scale"][0] > sx and tight["room_set_by"] == "--room" and rec["room_set_by"].startswith("HEAD_ROOM"), (tight["scale"], sx)

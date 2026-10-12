@@ -41,7 +41,8 @@ new size.
 
 WHAT IT CANNOT KNOW, and says:
 - Whether the points are on her. It takes the points file it is given, and a box round the wrong person is a
-  box round the wrong person: open the sheet.
+  box round the wrong person: open the sheet. The record carries what the points file's own record says it was
+  made from (the video, and the track whose box the pose model was given), when that record is beside it.
 - Whether the reference video and the points are on one clock. It is told which source frame each begins on.
 - What a model makes of a reference that is not the frame's own size any more: the picture no longer lies over
   the source pixel for pixel. That is a render's question.
@@ -109,6 +110,19 @@ def one_box(points: dict, size: tuple[int, int], room: float) -> dict:
     inside = (min(max(x0, 0), w - box_w), min(max(y0, 0), h - box_h))
     return dict(said, box=[inside[0], inside[1], inside[0] + box_w, inside[1] + box_h], set_by="the faces with their room, grown to the canvas's shape",
                 moved_to_lie_inside=bool(inside != (x0, y0)))
+
+
+def points_say(points_path: str) -> dict | str:
+    """What a points file's own record says it was made from: who made it, when, from which video and which track's
+    box (`bench/pose_along_shot.py` writes it beside the file). This tool reads the points and no track."""
+    record = Path(points_path).with_suffix(".json")
+    if not record.is_file():
+        return f"no record beside the points file ({record.name}): which track they follow is not known here"
+    try:
+        said = json.loads(record.read_text())
+    except ValueError:
+        return f"the record beside the points file ({record.name}) could not be read"
+    return {key: said[key] for key in ("made_by", "made_at", "model", "made_from") if key in said}
 
 
 def cut(frames: np.ndarray, box: list[int]) -> np.ndarray:
@@ -199,7 +213,7 @@ def run(video: str, points_path: str, first: int, count: int, out: Path, by: str
         "video": out.name, "made_by": by, "made_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "frames": [first, first + count - 1], "size": [w, h],
         "made_from": {"reference_video": str(video), "its_first_frame_is_source_frame": first - skip, "points": str(points_path),
-                      "their_first_row_is_source_frame": pf,
+                      "their_first_row_is_source_frame": pf, "the_points_own_record_says": points_say(points_path),
                       "fitted": (f"a source of {own[0]} by {own[1]}, fitted to the canvas as the loader fits it before the cut" if fit else "no: already the canvas's size")},
         "box": box, "box_is": "[x0, y0, x1, y1] in the canvas's pixels, the far side not included; one box for every frame",
         "box_set_by": found["set_by"], "moved_to_lie_inside_the_canvas": found["moved_to_lie_inside"],
