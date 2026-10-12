@@ -74,9 +74,7 @@ def h3_markers() -> list[str]:
     one the release adds past the last stock Qwen id. That is the observable --
     the release's own two lists disagreeing -- rather than a name, a count or a
     hardcoded string list, so a release that renames one or adds an eighth is
-    read correctly instead of matching what somebody expected. The same
-    derivation is what `bench/check_native_h3_presentation.py` uses to compute
-    the ids; this is the token list half of it.
+    read correctly instead of matching what somebody expected.
     """
     cfg = _load("tokenizer_config.json")
     decoder = cfg.get("added_tokens_decoder") or {}

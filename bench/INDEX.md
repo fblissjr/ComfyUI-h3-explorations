@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 113 |
+| [`check_*`](#check) | 106 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
-| [`build_*`](#build) | 19 |
+| [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 145 |
+| [the rest](#the-rest) | 143 |
 
 ## check
 
@@ -28,8 +28,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_bench_matches_shipped.py`](check_bench_matches_shipped.py) | Check the e2e bench measures the configuration the graphs actually ship. |
 | [`check_body_pose.py`](check_body_pose.py) | Hold `body_pose.py` to Meta's SAM 3D Body code: the crop bit for bit, the bodies within Meta's own precision, and no ComfyUI SAM node. |
 | [`check_break_checks.py`](check_break_checks.py) | `bench/break_checks.py` tells a break a check sees from one it does not, and from a run that was red for no reason. |
-| [`check_calibration_model_mapping.py`](check_calibration_model_mapping.py) | Prove the released checkpoint maps and loads strictly into the calibration model. |
-| [`check_calibration_selector.py`](check_calibration_selector.py) | Hold `bench/select_v2_calibration_rows.py`'s new selection paths to a standard. |
 | [`check_camera_vocabulary.py`](check_camera_vocabulary.py) | Camera motion in every shipped prompt comes from base_en 4.3's closed sets. |
 | [`check_capture_manifest.py`](check_capture_manifest.py) | Check that activation captures contain valid, conforming manifest.json files. |
 | [`check_capture_manifest_controls.py`](check_capture_manifest_controls.py) | Red controls for the capture-manifest contract: each case is a fixture built to violate one rule, and the run is green only when every violation is caught and the two legitimate fixtures pass. |
@@ -66,7 +64,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_lora_branch.py`](check_lora_branch.py) | `MiniMaxH3LoRABranch` computes the merged LoRA exactly, on every module an H3 LoRA targets. |
 | [`check_lowvram_handoff.py`](check_lowvram_handoff.py) | Check that the sage forward survives KJNodes' low-VRAM block patch. |
 | [`check_marker_arms.py`](check_marker_arms.py) | A marker-corpus arm that was declared and not applied must go red. |
-| [`check_marker_corpus.py`](check_marker_corpus.py) | Hold the compiled marker corpus to the assertions its brief names. |
 | [`check_masked_job.py`](check_masked_job.py) | Check the masked job builder: the graphs it writes and what it refuses. |
 | [`check_masked_prompt.py`](check_masked_prompt.py) | The masked lane's prompt node: what it writes, and that the graders read the same text. |
 | [`check_meta_sam3_copy.py`](check_meta_sam3_copy.py) | `meta_sam3/` differs from Meta's code by the rule and the declared edits, and by nothing else. |
@@ -74,7 +71,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_model_contents.py`](check_model_contents.py) | What is INSIDE each shipped model file, asserted against a committed baseline. |
 | [`check_model_files.py`](check_model_files.py) | No graph or constant may name a model file its real loader cannot use. |
 | [`check_mutant_parity.py`](check_mutant_parity.py) | The standalone `H3ExactLoRA` node computes what this pack's two nodes compute. |
-| [`check_native_h3_presentation.py`](check_native_h3_presentation.py) | Grade the calibration bundle against an independent arm, and make it fail. |
 | [`check_no_owner_paths.py`](check_no_owner_paths.py) | Reject machine-owner home paths in repository text artifacts. |
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
@@ -87,7 +83,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_pdd_unmerged.py`](check_pdd_unmerged.py) | Grade the un-merged backbone path against the merged one it replaces. |
 | [`check_pipeline_telemetry.py`](check_pipeline_telemetry.py) | Controls for `pipeline_telemetry.py` and `bench/telemetry_report.py`. |
 | [`check_plate_restore.py`](check_plate_restore.py) | A masked render split across two samplers ends on the clean plate, and resumes where it stopped. |
-| [`check_pool_media_integrity.py`](check_pool_media_integrity.py) | Hold the candidate pool's media verification to a standard it can fail. |
 | [`check_pose_along_shot.py`](check_pose_along_shot.py) | `bench/pose_along_shot.py` with the model replaced by a function whose answer is known: everything round the model. |
 | [`check_prompt_bank.py`](check_prompt_bank.py) | The prompt bank's gate, where the sweep can see it. |
 | [`check_prompt_docs_sync.py`](check_prompt_docs_sync.py) | Fail when a prompt DOCUMENT drifts from the source that owns what it quotes. |
@@ -104,7 +99,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_reference_runtime.py`](check_reference_runtime.py) | CPU acceptance checks for the typed MiniMax H3 reference runtime. |
 | [`check_region_against_plate.py`](check_region_against_plate.py) | `bench/region_against_plate.py` against a clip and pieces whose answers are known by construction. |
 | [`check_release_qwen_grid.py`](check_release_qwen_grid.py) | The release Qwen video grid, pinned at the boundaries that were got wrong. |
-| [`check_released_encoder_is_stock.py`](check_released_encoder_is_stock.py) | Is the released H3 text encoder the stock Qwen3-VL-32B-Instruct, byte for byte? |
 | [`check_reload_invariance.py`](check_reload_invariance.py) | Is a render bit-identical across a full model unload? |
 | [`check_retraction_consumers.py`](check_retraction_consumers.py) | Fail when a retracted claim reaches a file nobody signed off on. |
 | [`check_sam31_corrections.py`](check_sam31_corrections.py) | The SAM 3.1 Corrections node on stand-in modules, through ComfyUI's real ModelPatcher. No SAM weights, no card. |
@@ -118,7 +112,6 @@ this file is only a way to find a script by what it says it does.
 | [`check_sol_kernel.py`](check_sol_kernel.py) | Check the installed `comfy_kitchen` still carries the Sol-Attn CUDA kernel. |
 | [`check_sol_node_equivalence.py`](check_sol_node_equivalence.py) | Grade our Sol node's DISPATCH against the algorithm's own eager reference. |
 | [`check_sol_observe.py`](check_sol_observe.py) | Grade the Sol route observer before it is given a render. |
-| [`check_sol_probe.py`](check_sol_probe.py) | Controls for the Sol-versus-fallback probe (`sol_block_probe.py`), and the reader that turns its record into a per-block table. |
 | [`check_solattn_correctness.py`](check_solattn_correctness.py) | Check Sol-Attn's CUDA kernel against the algorithm's own eager reference. |
 | [`check_speaker_id_control.py`](check_speaker_id_control.py) | Red control for `preflight_graph.py::speaker_id_rules`. |
 | [`check_step_x0_observer.py`](check_step_x0_observer.py) | `step_x0_observer.py` saves each step's prediction and changes nothing. |
@@ -264,7 +257,6 @@ this file is only a way to find a script by what it says it does.
 | [`build_changelog.py`](build_changelog.py) | Build the top of `CHANGELOG.md` from one fragment file per entry, and number the entries when it is built. |
 | [`build_checkpoint_overlay.py`](build_checkpoint_overlay.py) | Write an exact overlay of one int8 H3 checkpoint on another, piece by piece. |
 | [`build_gate_transplant.py`](build_gate_transplant.py) | Add FastH3's VSA gates to a checkpoint, or take them out. CPU only. |
-| [`build_h3_calibration_pool.py`](build_h3_calibration_pool.py) | Build the deterministic candidate pool for AWQ v2 calibration and holdout. |
 | [`build_hybrid.py`](build_hybrid.py) | Build an fl2va/ref2va hybrid checkpoint by copying tensors, and prove the builder first. |
 | [`build_index.py`](build_index.py) | Write the generated indexes: one way in for every tracked area of the repo. |
 | [`build_meta_sam3.py`](build_meta_sam3.py) | Make `meta_sam3/sam3` from `coderef/sam3`: Meta's files, one rule, the declared edits. |
@@ -386,6 +378,7 @@ this file is only a way to find a script by what it says it does.
 | [`quality_metrics.py`](quality_metrics.py) | Rank two renders of the same brief: pixel metrics, no model deps. |
 | [`rank_dense_blocks.py`](rank_dense_blocks.py) | Rank blocks by the error `dense_blocks` actually REMOVES, not by Sol's error. |
 | [`read_render_against_original.py`](read_render_against_original.py) | Set a render's face beside its original's, frame by frame, from the pose model's points of each. |
+| [`read_sol_probe.py`](read_sol_probe.py) | Controls for the Sol-versus-fallback probe (`sol_block_probe.py`), and the reader that turns its record into a per-block table. |
 | [`recomposite_window.py`](recomposite_window.py) | Lay a saved window of a masked render again, with the song node's own composite, and say what a change moves. |
 | [`record_capture_inventory.py`](record_capture_inventory.py) | Write down what a capture CONTAINED, so the capture can be deleted. |
 | [`record_render_substrate.py`](record_render_substrate.py) | What each render RAN UNDER, so a time or memory number can be checked. |
@@ -395,8 +388,6 @@ this file is only a way to find a script by what it says it does.
 | [`render_postmortem_html.py`](render_postmortem_html.py) | Render a postmortem markdown file to the self-contained HTML the plugin specifies. |
 | [`repro_token_aug_nondeterminism.py`](repro_token_aug_nondeterminism.py) | Standalone repro: comfy_kitchen `sol_attn` is not deterministic with `token_aug`. |
 | [`restart_comfy.sh`](restart_comfy.sh) | DISABLED 2026-09-02, owner's call: this script hangs on every run and is |
-| [`review_pool_near_duplicates.py`](review_pool_near_duplicates.py) | Pool-wide near-duplicate review, and the component map it implies. |
-| [`review_v2_calibration_bundle.py`](review_v2_calibration_bundle.py) | Independent data review of a native-H3 AWQ calibration bundle. |
 | [`run_audio_carry_arms.py`](run_audio_carry_arms.py) | Render the audio-carry ablation and grade it on ENERGY, not on rel L2. |
 | [`run_capture.py`](run_capture.py) | Submit and track the production reference capture workflow. |
 | [`run_checks.py`](run_checks.py) | Run every `bench/check_*.py` with the card masked, and say what is red that should not be. |
@@ -418,7 +409,6 @@ this file is only a way to find a script by what it says it does.
 | [`score_session.py`](score_session.py) | Join an exported blind scoring file with the sealed key into a verdict. |
 | [`score_shot_ablation.py`](score_shot_ablation.py) | Score the two-shot ablation arms on both candidate axes: delta and spatial detail. |
 | [`score_sol_dense_blocks_panel.py`](score_sol_dense_blocks_panel.py) | Score the Sol dense_blocks panel: each arm's saved latents against the all-dense arm at the same scene and seed, with each arm's sampler time. |
-| [`select_v2_calibration_rows.py`](select_v2_calibration_rows.py) | Pick the v2 calibration rows and a component-disjoint holdout from the pool. |
 | [`simulate_track_b_lite.py`](simulate_track_b_lite.py) | Priority 3d: Track B-Lite Eager FP16-PV Simulation. |
 | [`smoke_h3.py`](smoke_h3.py) | Confirm the H3 chain composes and runs, after any node-pack update. |
 | [`sol_duckdb_analyzer.py`](sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |

@@ -11,7 +11,7 @@ Environment-gated like every capture instrument here:
 `trajectory=sol` (default) returns Sol's output and computes the fallback as
 the counterfactual -- the shipping measurement; `trajectory=sage` returns the
 fallback's output -- the control. The record is `sol_probe_<stamp>.jsonl` in
-`dir`; `bench/check_sol_probe.py --record` reads it, validates every
+`dir`; `bench/read_sol_probe.py --record` reads it, validates every
 invariant and prints the per-block table, and `--controls` proves the
 behaviour on fixtures. Timings from an armed render are void: every Sol call
 also ran the fallback.

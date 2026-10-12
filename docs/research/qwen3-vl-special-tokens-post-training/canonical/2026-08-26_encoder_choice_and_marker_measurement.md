@@ -411,7 +411,7 @@ layer's activations; that is how AWQ's scale search and GPTQ's Hessian are both
 fed. So "calibrate on trace data" reduces, in its cheapest form, to **replacing
 the pool with real H3 render inputs** -- our own prompts and reference stills,
 in schema, at graph geometry -- and changing no code in the recipe at all.
-[`bench/select_v2_calibration_rows.py`](../../../../bench/select_v2_calibration_rows.py)'s stratified draw would be replaced by an enumeration
+`bench/select_v2_calibration_rows.py`'s stratified draw would be replaced by an enumeration
 of shipped graphs rather than a stratified draw from a public dataset.
 
 The stronger reading -- per-layer solve against that layer's own observed input

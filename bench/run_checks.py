@@ -76,9 +76,8 @@ from _lib import SWEEP_ENV  # noqa: E402
 
 BASELINE = BENCH / "checks_baseline.json"
 
-# reasoned: the slowest check in the 2026-10-05 sweep took well under a minute
-# (`check_calibration_selector`, which shells out to the selector several
-# times), so ten minutes only ever ends a hang.
+# reasoned: the slowest check in the 2026-10-05 sweep took well under a
+# minute, so ten minutes only ever ends a hang.
 TIMEOUT_S = 600
 
 GREEN, NOT_GRADED = 0, 2

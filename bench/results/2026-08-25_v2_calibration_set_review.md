@@ -7,7 +7,7 @@ recorded per row) and its two holdout bundles (the same 12 rows built under
 `upscale_2048` and under `max_no_upscale`), all produced out of tree by
 `bench/build_native_h3_calibration_batch.py` from rows chosen by
 `bench/select_v2_calibration_rows.py`.
-**Harness:** [`bench/review_v2_calibration_bundle.py`](../review_v2_calibration_bundle.py),
+**Harness:** `bench/review_v2_calibration_bundle.py`,
 CPU only, no CUDA, no server.
 **Adjudication:** [`2026-08-25_v2_split_near_duplicate_adjudication.json`](../../data/results/2026-08-25_v2_split_near_duplicate_adjudication.json).
 

@@ -4904,7 +4904,7 @@ def main():
         # the steps outside Sol's window and every call Sol declines run sage;
         # here they run ComfyUI's stock attention. Two uses: a blind arm, and,
         # on an armed server, a probe record whose counterfactual is stock
-        # attention rather than sage (bench/check_sol_probe.py), which is the
+        # attention rather than sage (bench/read_sol_probe.py), which is the
         # first direct Sol-against-near-exact measurement the repo would hold.
         ("h3_probe_t2v_sol_nosage.json", "t2v-sol-nosage", "t2v", LONG_T2V_PROMPT,
          dict(dense_attn="sol", out_prefix="Video/h3_probe_t2v_sol_nosage"),

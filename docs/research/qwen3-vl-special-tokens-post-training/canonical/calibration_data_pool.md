@@ -82,7 +82,7 @@ approved authoring plan. It is not part of this accepted pool.
 ## Provenance
 
 Producer:
-[`bench/build_h3_calibration_pool.py`](../../../../bench/build_h3_calibration_pool.py),
+`bench/build_h3_calibration_pool.py`,
 SHA-256 `2b609c96114791837c075eea2252be252eb01c22c7245d68eb2ee8450fbbae1a`.
 
 Outputs:
@@ -99,7 +99,7 @@ SHA-256-verifies every declared image and video against the pinned snapshot
 before a row can enter the pool. Each output row carries its per-file
 `media_verification` record. The rebuilt pool contains 3,121 verified media
 references across 1,651 distinct files; no media-kind or primary-role exemption
-remains. [`check_pool_media_integrity.py`](../../../../bench/check_pool_media_integrity.py)
+remains. `check_pool_media_integrity.py`
 re-verifies the emitted artifacts and demonstrates red controls for a deleted
 file, a corrupted file, a missing declared hash, and a mismatched video file.
 

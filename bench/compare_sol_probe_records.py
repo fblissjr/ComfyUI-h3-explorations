@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Set two Sol probe records side by side, block by block.
 
-Input: two summaries written by `bench/check_sol_probe.py --record --json`
+Input: two summaries written by `bench/read_sol_probe.py --record --json`
 (the schema is `data/results/2026-09-03_sol_probe_base16_standoff.json`;
 read its `how_to_read` and `header.metric` first). Each carries, per block,
 the mean rel_l2 of Sol's output against the chained fallback over the
@@ -81,7 +81,7 @@ def _scrub(node, where="record"):
 def load(path: Path) -> dict:
     rec = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(rec.get("blocks"), list) or not rec["blocks"]:
-        sys.exit(f"{Path(path).name}: no `blocks` list; expected a check_sol_probe --json summary")
+        sys.exit(f"{Path(path).name}: no `blocks` list; expected a read_sol_probe --json summary")
     return rec
 
 
@@ -372,7 +372,7 @@ def controls(path: Path) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
-    ap.add_argument("a", nargs="?", type=Path, help="probe summary A (check_sol_probe --json)")
+    ap.add_argument("a", nargs="?", type=Path, help="probe summary A (read_sol_probe --json)")
     ap.add_argument("b", nargs="?", type=Path, help="probe summary B")
     ap.add_argument("--json", type=Path, default=None, help="also write the comparison as a tracked record")
     ap.add_argument("--controls", action="store_true",

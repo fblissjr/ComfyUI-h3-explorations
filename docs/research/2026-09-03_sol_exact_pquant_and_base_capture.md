@@ -356,7 +356,7 @@ The probe's two controls passed before the record was read.
 `data/results/2026-09-03_probe_replay_base16.txt`: the online metric
 reproduces the offline `exact_all_routed` numbers on every retained Base16
 cell, so this record and the offline ones are one footing.
-`bench/check_sol_probe.py --record ... --n-blocks 50`: every invariant holds
+`bench/read_sol_probe.py --record ... --n-blocks 50`: every invariant holds
 (550 cells, no skips, every step-by-block cell compared once, segments tile
 every call).
 

@@ -275,7 +275,7 @@ was deleted on 2026-08-16 (`docs/SOLATTN.md`, "The Triton node").
 **Per-block Sol error** — the Triton pack's `SolAttnBlockProbe` went with it.
 Its successor is `sol_block_probe.py`, armed by the `H3_SOL_PROBE` environment
 variable rather than wired as a node and read by
-`bench/check_sol_probe.py --record`. Every Sol call on an armed render also
+`bench/read_sol_probe.py --record`. Every Sol call on an armed render also
 runs the fallback, so its timings are void.
 
 ### Use from KJNodes

@@ -42,7 +42,7 @@
   every tensor, the embedding table included, is the stock release and no
   post-training of the encoder shipped. What MiniMax runs behind its API is
   not observable from the release. Producer and record:
-  [`check_released_encoder_is_stock.py`](../../../../bench/check_released_encoder_is_stock.py),
+  `check_released_encoder_is_stock.py`,
   [`2026-08-25_released_encoder_is_stock.json`](../../../../data/results/2026-08-25_released_encoder_is_stock.json).
 - **MEASURED:** Those seven embedding rows match the corresponding unused stock
   Qwen3-VL tail rows and fall on the untrained control distribution. The

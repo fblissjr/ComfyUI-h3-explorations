@@ -384,7 +384,7 @@ def main() -> int:
         rc |= 1 if bad else 0
         if args.json:
             summary = {
-                "produced_by": "bench/check_sol_probe.py --record --json",
+                "produced_by": "bench/read_sol_probe.py --record --json",
                 "record": str(args.record.relative_to(REPO)) if args.record.is_relative_to(REPO) else args.record.name,
                 "header": header,
                 "renders": [r for r in rows if r.get("kind") == "render"],

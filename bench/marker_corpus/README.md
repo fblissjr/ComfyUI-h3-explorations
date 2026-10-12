@@ -10,8 +10,6 @@ It is the authority; nothing here restates a rule it owns.
 `scenes/` holds one JSON scene specification per scene.
 [`compile_marker_corpus.py`](../compile_marker_corpus.py) turns each into every
 marker arm; `compiled.json` is that output.
-[`check_marker_corpus.py`](../check_marker_corpus.py) holds the result to the
-assertions the brief names and carries its own violation arm.
 
 ```
 bench/compile_marker_corpus.py     # scene spec -> arms, deterministic
