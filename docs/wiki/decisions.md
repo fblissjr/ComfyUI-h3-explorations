@@ -23,8 +23,8 @@ from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
 - **Windows align with cuts, and a new window never starts within about a
-  second of a cut** (the owner, in the lead's terminal, 2026-10-12 about
-  15:44Z, answering Open List row z07: "if you need to make shorter windows,
+  second of a cut** (the owner, in the lead's terminal, 2026-10-12 between
+  15:42Z and 15:50Z by the clock, answering Open List row z07: "if you need to make shorter windows,
   thats fine. Just try to align them with cuts. Dont start a new window a
   second right before a 5 second cut is about to make a new cut a few frames
   later"). A standing rule for the builder's window choice: shorter windows
