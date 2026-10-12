@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 111 |
+| [`check_*`](#check) | 112 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 148 |
+| [the rest](#the-rest) | 149 |
 
 ## check
 
@@ -75,6 +75,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_node_ids.py`](check_node_ids.py) | Guard the one rule that matters, against a baseline the schema cannot move. |
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
 | [`check_override_routing.py`](check_override_routing.py) | Check which calls the attention override sends to sage, and which it declines. |
+| [`check_page_answers_ledger.py`](check_page_answers_ledger.py) | `bench/page_answers_ledger.py` lays each owner line beside the record that cites it; each case is a way a citation could be missed or invented. |
 | [`check_page_answers_to_cast.py`](check_page_answers_to_cast.py) | `bench/page_answers_to_cast.py` takes the owner's clicks on the review page into the cast file; each case is a way a click could be stored wrongly, twice, or when the owner had not decided. |
 | [`check_page_answers_to_verdicts.py`](check_page_answers_to_verdicts.py) | `bench/page_answers_to_verdicts.py` copies the owner's clip verdicts from the page's raw file into the record; each case is a way a line could be lost, doubled, reworded or put on the wrong render. |
 | [`check_patch_render_window.py`](check_patch_render_window.py) | `bench/patch_render_window.py join` against a render and a patch whose answers are known by construction. |
@@ -369,6 +370,7 @@ this file is only a way to find a script by what it says it does.
 | [`masked_render_time_breakdown.py`](masked_render_time_breakdown.py) | Where a masked song render's seconds go: by node, and by stage inside the song node. |
 | [`minimise_token_aug_repro.py`](minimise_token_aug_repro.py) | How small can the `token_aug` nondeterminism repro get? |
 | [`o1_lossless_blocking.py`](o1_lossless_blocking.py) | O1's own test: is dark-region blocking the model's or the video encoder's? |
+| [`page_answers_ledger.py`](page_answers_ledger.py) | Every line the owner saved on the local page, beside the record that carries it, and the lines no record cites yet. |
 | [`page_answers_to_cast.py`](page_answers_to_cast.py) | The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`. |
 | [`page_answers_to_verdicts.py`](page_answers_to_verdicts.py) | The owner's verdicts and notes on the review page's clips, copied from the page's raw file into the video's record, one line each, with the render they are about. |
 | [`patch_render_window.py`](patch_render_window.py) | Redo one stretch of a finished masked render: build the one-window graph that patches it, and join the patch back. |
