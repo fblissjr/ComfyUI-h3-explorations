@@ -89,6 +89,19 @@ own below the rule.
   generated workflow for the lid-marks form, after the close-up's next
   render is read. What exists in its place:
   `../../bench/examples/masked_job_lid_marks/`.
+- **A two-subject load, both stills referenced per the vendor guide**
+  (the owner, 2026-10-12, in the lead's terminal: several people at once
+  have been changed before, whole frame; it needs the references specified
+  per `vendor_guides/ref_en.md`; Open List, today's row 9). The guide: one
+  subject per picture, pictures and videos numbered independently. The
+  masked lane builds one subject a load today (`bench/masked_job.py`,
+  `one["subject"]`, one still, one region, one motion video); the reference
+  chain already takes several pictures in order. The shape: two subjects in
+  one load, the region the union of the two, one motion video with both
+  body models on the black ground, the text with `<Subject 1>` and
+  `<Subject 2>`; first test on the kitchen shot 604-1009 beside the two
+  single passes that exist for it. Queued for the owner's word on the row;
+  not started.
 - **The builder's window choice reads the cuts** (the owner's rule of
   2026-10-12, [`decisions.md`](decisions.md)): shorter windows are fine,
   boundaries align with cuts where one is near, and no window begins within
