@@ -28,7 +28,7 @@ writer, and the row or commit named is the nearer record.*
   ruling that the second subject's whole-person renders are not used, which
   rests on the segments where she glitched: the page's rows 2a and 2b,
   1015-1085 and 1042-1049, the two shots after this scene (the owner's
-  correction at about 16:45Z; an earlier line here said 14-167, which was
+  correction between 16:41Z and 16:43Z by the clock; an earlier line here said 14-167, which was
   the egg, not a glitch). The owner's reading of the cause, a hypothesis:
   a whole person forced into a small mask glitched there, and face and
   hair should not; the face-and-hair render of 1010-1060 is its test. On 604-1009 the 10th's piece
