@@ -116,8 +116,11 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
     shot = next((s for s in table["shots"] if table_info["first"] + int(s["shown_frame"]) == frame), None)
     if shot is None:
         raise SystemExit(f"{name}: no shot shows source frame {frame} (first frame {table_info['first']})")
-    named, unsure, none = [], [], []
-    for person, (n, chosen, _at) in sorted(tile["buttons"].items()):
+    # Both shapes of click can be on one tile (the first page answered by number, the who page by subject). The
+    # latest click about a subject wins, whichever shape it came in; a number that two subjects still claim is refused.
+    claims: dict[str, tuple[str, int, str]] = {}      # subject -> (at, number, chosen)
+    unsure, none = [], []
+    for person, (n, chosen, at) in sorted(tile["buttons"].items()):
         if chosen not in BUTTONS:
             raise SystemExit(f"{name} frame {frame}: line {n} has a button this tool does not know: {chosen!r}")
         meaning = BUTTONS[chosen]
@@ -127,15 +130,26 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
             unsure.append(person)
         elif meaning is None:
             none.append(person)
-        else:
-            named.append((person, meaning))
-    for subject, (n, chosen, _at) in sorted(tile["by_subject"].items()):
+        elif at >= claims.get(meaning, ("", 0, ""))[0]:
+            claims[meaning] = (at, person, chosen)
+    for subject, (n, chosen, at) in sorted(tile["by_subject"].items()):
         if chosen.isdigit():
-            named.append((int(chosen), subject))
-        elif chosen not in ("not outlined", "not in shot", "not on frame"):
+            if at >= claims.get(subject, ("", 0, ""))[0]:
+                claims[subject] = (at, int(chosen), chosen)
+        elif chosen in ("not outlined", "not in shot", "not on frame"):
+            if at >= claims.get(subject, ("", 0, ""))[0]:
+                claims.pop(subject, None)          # the later word: they are none of the outlined people on this frame
+                claims[subject + "\x00none"] = (at, 0, chosen)
+        else:
             raise SystemExit(f"{name} frame {frame}: line {n} has a button this tool does not know: {chosen!r}")
-        # `not outlined` and `not in shot` both leave the subject unnamed: the cast file stores `none of the outlined
-        # people` for them (its one word for it); `not in shot` is the strong reading, which `seeds` takes per load
+    named = sorted((num, sub) for sub, (at, num, _c) in claims.items() if "\x00" not in sub)
+    by_number: dict[int, list[str]] = {}
+    for num, sub in named:
+        by_number.setdefault(num, []).append(sub)
+    clash = {k: v for k, v in by_number.items() if len(v) > 1}
+    if clash:
+        raise SystemExit(f"{name} frame {frame}: one number is claimed for two subjects by the owner's latest clicks: {clash}; "
+                         f"a person settles it with cast_file.py withdraw and answer")
     return {"table": name, "frame": frame, "shot": int(shot["shot"]), "named": named, "none_of_these": none,
             "unsure": unsure, "words": tile["words"], "lines": tile["lines"],
             "last_at": max((at for _, _, at in tile["buttons"].values()), default="")}
