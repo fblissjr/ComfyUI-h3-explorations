@@ -1,15 +1,15 @@
 # The body model posed the other person for half a second, and what was changed
 
 lane: masked video to video
-verdict: no render; three previews of one shot. Given a box alone, the body model was posed as the person standing behind the subject on twelve frames. The model's own mask prompt, which both upstreams feed, put the two ends of that stretch right and left the middle wrong. Shown the subject alone it is on her on every frame, and where the box alone had been right her head moved a few pixels and the joints the picture does not show moved most. Not run twice, so no floor; not judged for a whole person's hands.
+verdict: no render; three previews of one shot. Given a box alone, the body model was posed as the person standing behind the subject on twelve frames. The model's own mask prompt, which both upstreams feed, put the two ends of that stretch right and left the middle wrong. Shown the subject alone it is on her on every frame, and where the box alone had been right her head moved a few pixels and the joints the picture does not show moved most. Run twice since (the dated note): two runs of one form agree to a fraction of a pixel, so the forms' differences are real. Not judged for a whole person's hands.
 
 2026-10-12, session mroh; the fault and each form of the fix were looked
 at by a second session, mrf, on its own cut of frames before it read
 mroh's reading. One video (`fun_0000_1919_24p.mov`), one shot (source
 frames 604 to 1009), one subject. No render was made: everything here is
 a job's preview, which samples nothing. Nothing was run twice when this
-was written, so no figure below has a floor; the dated note at the end is
-where the floor goes.
+was first written; the dated note under the tables has the floor, from
+a second run made after the commit.
 
 ## What it buys
 
@@ -109,6 +109,21 @@ brackets. Canvas pixels.
 Her hips and legs are behind a table on every frame of this shot, so
 those points are the model's guess in all three forms.
 
+*Dated note, 2026-10-12, 14:19Z, mroh: the floor.* The alone form was
+run a second time, as the preview the loads are built from (job
+`second_k_0604_b`, on commit e5242d8a; the first run is `t2`, the same
+code before it was committed). Between the two runs the tracks, the
+part and the held-things mask decode equal on every frame, and the
+body model's points agree to a fraction of a pixel: over the 392 control
+frames the head's points moved 0.000 px at the median and 0.220 px at
+most, the hands' 0.002 and 0.341, and the largest single move of any
+part is 2.149 px, at the hips on one frame
+(`data/2026-10-12_body_model_mask_test/second_0604_alone_two_runs.csv`).
+So every figure in "The price" above is outside the floor: the forms
+really differ by those amounts, and two runs of one form do not. This
+is a floor for two makes of one preview on one machine; it says nothing
+about which form is nearer the truth.
+
 ## What the figures cannot say
 
 - **Which body model is nearer the truth** on the frames where the forms
@@ -120,8 +135,8 @@ those points are the model's guess in all three forms.
   away. This shot's load takes only a head from the body model.
 - **Whether the margin is right.** `ALONE_MARGIN_PX` is the part node's
   own margin and it was enough here; no other value was tried.
-- **A floor.** Two runs of one preview have not been compared, so a
-  difference of a pixel or two between forms may be nothing.
+- *When first written this list ended: no floor, two runs of one
+  preview not compared. The dated note above has the floor.*
 
 ## What was changed
 
