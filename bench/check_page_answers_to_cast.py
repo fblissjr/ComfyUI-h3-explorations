@@ -18,6 +18,24 @@ only worth having if what it stores is what the owner last said, once, through t
   a_subjects_click_names_their_number        the who page's line shape: a subject and their number, or not outlined / not in shot
   dry_run_writes_nothing
 
+A plain frame (the who page's tile of the source itself: table `plain`, no number), into a `--shots` record and
+never into the cast file:
+
+  a_plain_frame_reaches_the_record_and_not_the_cast   `present` is yes or no, `how` names the frame, `by` the lines; no cast line
+  the_latest_plain_click_stands                       a subject clicked twice on one frame is read as the later click
+  a_subject_on_any_answered_frame_is_yes              on one frame and not on another of the same shot is `yes`, both frames named
+  a_subject_not_answered_is_left                      a subject no plain click names keeps the entry it had
+  a_plain_run_needs_no_preview                        and the numbered pictures' tiles are counted and left, not refused
+  a_plain_dry_run_writes_neither_file                 the record's bytes are the ones it had and no cast file is made
+  a_run_that_wrote_says_so_in_written_by              after the words that were there: the lines, and the shots whose words were not read
+  a_second_plain_run_writes_nothing                   the record is not written again, so `written_by` is not added to twice
+  a_changed_plain_button_rewrites_the_tools_own_entry an entry this tool wrote is written again by the later click
+  a_shot_the_record_does_not_have_is_refused          the page's shot and the record's differ in a frame: by name, nothing written
+  another_hands_entry_is_not_replaced                 the same word is left, another word is printed DISAGREES, neither is written
+  a_standing_box_in_the_shot_makes_it_yes             a box in the cast file inside the shot outweighs `not on this frame` elsewhere in it
+  a_plain_frame_with_no_record_stores_nothing         with `--preview` only, a plain tile is listed and nothing of it is stored
+  the_owners_words_are_printed_beside_the_shot        whole, with their line, and copied nowhere
+
     <python> bench/check_page_answers_to_cast.py
 
 No model, no card; the cast file module is imported from its file, no ComfyUI.
@@ -65,6 +83,37 @@ def run(p: dict, dry=False) -> subprocess.CompletedProcess:
     if dry:
         cmd.append("--dry-run")
     return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def record(entries: dict | None = None) -> dict:
+    """A shots record of two shots, every `present` unsure unless `entries` gives {(first, subject): entry}."""
+    unsure = {"present": "unsure", "how": "nobody has looked", "by": "nobody"}
+    shots = [{"first": first, "last": last, "who": {sub: dict((entries or {}).get((first, sub), unsure)) for sub in ("lead", "second")}}
+             for first, last in ((2000, 2099), (2100, 2299))]
+    return {"schema": "h3_shots/1", "video": "v.mp4", "span": [2000, 2299], "subjects": ["lead", "second"], "written_by": "a hand, earlier",
+            "shots": shots}
+
+
+def plain(n, frame, subject, chosen, shot=(2000, 2099), **kw):
+    return line(n, table="plain", source_frame=frame, subject=subject, chosen=chosen, person=None, table_frame=0, shot=0,
+                frames=list(shot), video="v.mp4", **kw)
+
+
+def setup_plain(folder: Path, lines: list[dict], entries: dict | None = None) -> dict:
+    p = setup(folder, lines)
+    p["shots"] = folder / "shots.json"
+    p["shots"].write_text(json.dumps(record(entries), indent=1))
+    return p
+
+
+def run_plain(p: dict, dry=False, preview=False) -> subprocess.CompletedProcess:
+    cmd = [sys.executable, str(TOOL), "--answers", str(p["answers"]), "--cast", str(p["cast"]), "--shots", str(p["shots"])]
+    cmd += ["--preview", p["preview"]] if preview else []
+    return subprocess.run(cmd + (["--dry-run"] if dry else []), capture_output=True, text=True)
+
+
+def who(p: dict, first: int, subject: str) -> dict:
+    return next(s for s in json.loads(Path(p["shots"]).read_text())["shots"] if s["first"] == first)["who"][subject]
 
 
 def cast_lines(p: dict) -> list[dict]:
@@ -145,6 +194,95 @@ def main() -> int:
         p3 = setup(folder3, [line(1, source_frame=1042, person=1, chosen="the lead")])
         r = run(p3)
         case("a_frame_no_shot_shows_is_refused", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr, r.stdout + r.stderr)
+
+        # --- a plain frame: the cast file and the shots record -------------------------------------------------------
+        f7 = Path(tempfile.mkdtemp(dir=d))
+        p7 = setup_plain(f7, [
+            plain(1, 2050, "lead", "not on frame"),
+            plain(2, 2050, "lead", "not outlined"),                          # the later click on the same frame stands
+            plain(3, 2050, "second", "not on frame"),
+            plain(4, 2150, "lead", "not outlined", shot=(2100, 2299)),
+            plain(5, 2250, "lead", "not on frame", shot=(2100, 2299)),       # on one answered frame of the shot, not on another
+            line(6, source_frame=1010, person=1, chosen="the lead"),         # a numbered picture's tile, and no --preview
+            {"at": "2026-10-12T10:00:07Z", "who": "owner", "row": "who", "what": "words", "words": "she is small, on the left",
+             "source_frame": 2100, "frames": [2100, 2299], "video": "v.mp4"},
+        ])
+        before = Path(p7["shots"]).read_bytes()
+        r = run_plain(p7, dry=True)
+        case("a_plain_dry_run_writes_neither_file", r.returncode == 0 and Path(p7["shots"]).read_bytes() == before
+             and not Path(p7["cast"]).exists() and "would write 3 entries (yes 2, no 1) from 3 plain frame(s) in 2 shot(s)" in r.stdout,
+             r.stdout + r.stderr)
+        r = run_plain(p7)
+        case("a_plain_frame_reaches_the_record_and_not_the_cast", r.returncode == 0 and not cast_lines(p7)
+             and who(p7, 2000, "lead")["present"] == "yes" and who(p7, 2000, "second")["present"] == "no"
+             and who(p7, 2000, "second")["how"] == "frame 2050 (the source itself): not on this frame"
+             and "answers.jsonl lines 3-3" in who(p7, 2000, "second")["by"] and "entered by page_answers_to_cast" in who(p7, 2000, "second")["by"],
+             r.stdout + r.stderr + json.dumps(cast_lines(p7)) + json.dumps(who(p7, 2000, "second")))
+        case("the_latest_plain_click_stands", who(p7, 2000, "lead")["how"] == "frame 2050 (the source itself): on this frame, not outlined",
+             json.dumps(who(p7, 2000, "lead")))
+        case("a_subject_on_any_answered_frame_is_yes", who(p7, 2100, "lead") == {
+            "present": "yes", "how": "frame 2150 (the source itself): on this frame, not outlined; frame 2250 (the source itself): not on this frame",
+            "by": "owner, on the who page at 2026-10-12T10:00:05Z (answers.jsonl lines 4-5), entered by page_answers_to_cast"},
+            json.dumps(who(p7, 2100, "lead")))
+        case("a_subject_not_answered_is_left", who(p7, 2100, "second") == {"present": "unsure", "how": "nobody has looked", "by": "nobody"},
+             json.dumps(who(p7, 2100, "second")))
+        case("a_plain_run_needs_no_preview", "left for a run that names their previews (no --preview was given): 1 tile(s)" in r.stdout, r.stdout)
+        case("the_owners_words_are_printed_beside_the_shot", "words on 2100-2299 (line 7): she is small, on the left" in r.stdout
+             and "she is small" not in Path(p7["shots"]).read_text(), r.stdout)
+        said = json.loads(Path(p7["shots"]).read_text())["written_by"]
+        case("a_run_that_wrote_says_so_in_written_by", said.startswith("a hand, earlier; `present` entries written by bench/page_answers_to_cast.py at 20")
+             and f"plain-frame answers in {p7['answers']} (lines 2-5); the owner's words on 1 shot(s) stay in that file" in said, said)
+        written = Path(p7["shots"]).read_bytes()
+        stamp = Path(p7["shots"]).stat().st_mtime_ns
+        r2 = run_plain(p7)
+        case("a_second_plain_run_writes_nothing", r2.returncode == 0 and not cast_lines(p7) and Path(p7["shots"]).read_bytes() == written
+             and Path(p7["shots"]).stat().st_mtime_ns == stamp and "written 0 entries" in r2.stdout and "already there 3" in r2.stdout,
+             r2.stdout + r2.stderr)
+        with open(p7["answers"], "a") as f:
+            f.write(json.dumps(plain(8, 2050, "second", "not outlined")) + "\n")
+        r3 = run_plain(p7)
+        case("a_changed_plain_button_rewrites_the_tools_own_entry", r3.returncode == 0 and not cast_lines(p7)
+             and who(p7, 2000, "second")["present"] == "yes" and "second: yes" in r3.stdout and "(was no)" in r3.stdout
+             and "written 1 entry" in r3.stdout, r3.stdout + r3.stderr)
+
+        f8 = Path(tempfile.mkdtemp(dir=d))
+        p8 = setup_plain(f8, [plain(1, 2050, "lead", "not outlined", shot=(2000, 2120))])     # the page's shot ended at 2120
+        before = Path(p8["shots"]).read_bytes()
+        r = run_plain(p8)
+        case("a_shot_the_record_does_not_have_is_refused", r.returncode != 0 and "under shot [2000, 2120]" in r.stdout + r.stderr
+             and "has shot 2000-2099" in r.stdout + r.stderr and Path(p8["shots"]).read_bytes() == before and not cast_lines(p8),
+             r.stdout + r.stderr)
+
+        f9 = Path(tempfile.mkdtemp(dir=d))
+        hand = {(2000, "lead"): {"present": "no", "how": "frame 2050: not on this frame", "by": "owner, by hand"},
+                (2000, "second"): {"present": "yes", "how": "frame 2010: 1 is the second subject", "by": "owner, by hand"}}
+        p9 = setup_plain(f9, [plain(1, 2050, "lead", "not on frame"), plain(2, 2050, "second", "not on frame")], hand)
+        before = Path(p9["shots"]).read_bytes()
+        r = run_plain(p9)
+        case("another_hands_entry_is_not_replaced", r.returncode == 0 and Path(p9["shots"]).read_bytes() == before
+             and "left as it is, another hand's and the same word" in r.stdout and "lead: no (owner, by hand)" in r.stdout
+             and "DISAGREES, not written, for a person to settle" in r.stdout and "second is `yes` in the record" in r.stdout
+             and "left 1; DISAGREES, not written 1" in r.stdout, r.stdout + r.stderr)
+
+        f10 = Path(tempfile.mkdtemp(dir=d))
+        p10 = setup_plain(f10, [line(1, source_frame=1010, person=1, chosen="the lead"),
+                                plain(2, 1050, "lead", "not on frame", shot=(1000, 1099)), plain(3, 1050, "second", "not on frame", shot=(1000, 1099))])
+        rec = record()
+        rec["span"], rec["shots"][0]["first"], rec["shots"][0]["last"] = [1000, 2299], 1000, 1099
+        rec["shots"][1]["first"] = 1100
+        Path(p10["shots"]).write_text(json.dumps(rec, indent=1))
+        r = run_plain(p10, preview=True)
+        lead10 = who(p10, 1000, "lead")
+        case("a_standing_box_in_the_shot_makes_it_yes", r.returncode == 0 and lead10["present"] == "yes"
+             and lead10["how"] == "frame 1050 (the source itself): not on this frame; frame 1010: a box in the cast file (pv_lead_shots_00001_shots.json)"
+             and who(p10, 1000, "second")["present"] == "no" and len(cast_lines(p10)) == 2, r.stdout + r.stderr + json.dumps(lead10))
+
+        f11 = Path(tempfile.mkdtemp(dir=d))
+        p11 = setup(f11, [plain(1, 2050, "lead", "not outlined")])
+        r = run(p11)
+        case("a_plain_frame_with_no_record_stores_nothing", r.returncode == 0 and not cast_lines(p11)
+             and "PLAIN FRAME, no --shots file holds it, nothing stored: plain frame 2050" in r.stdout
+             and "plain frames no --shots file holds 1" in r.stdout, r.stdout + r.stderr)
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0

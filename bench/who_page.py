@@ -23,7 +23,8 @@ when the preview ran, so a later correction is not on them. The numbered picture
 table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
 own frame at its first and last quarter, with the two frame buttons and no numbers, so a subject who walks
 in after the shown frame can be said to be on THAT frame (the owner's ask, 2026-10-12: late entrances were
-not labelled); the cast tool lists such answers for the shots record instead of storing them. Parts in
+not labelled); `bench/page_answers_to_cast.py --shots` takes such answers into the shots record's `present`, and
+nothing of them into the cast file. Parts in
 colour and the pose model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
 """
 from __future__ import annotations
