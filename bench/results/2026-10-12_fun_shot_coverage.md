@@ -39,6 +39,11 @@ graph's kind only (parts or whole): face against face and hair is not in a saved
 | the second subject | 0 | 154 | 0 | 616 | 0 | 319 |
 | the third subject | 0 | 377 | 84 | 47 | 0 | 406 |
 
+*Later the same day (mrf, from the contact sheets of 604-1009, a tile every six frames): the third subject is
+not in that shot, two women and nobody else on every tile; `shots.json` says so with the sheets named, and
+his `presence unsure` row is gone. The table above is left as first printed; the printout beside the JSON
+is the current one.*
+
 A frame counts under a subject only on the shots that subject is in (or is unsure on). The video is 6395
 frames; everything here stops at 1919, where the working copy, the cuts, the answers and every render stop.
 
@@ -65,7 +70,7 @@ reading says a hand and an object; put to the owner.
 **The third subject (face only, his own hair).** Every render of him is a whole-person one: 1222-1305 (not
 as planned), 1306-1410 and 1466-1631 (partly, and whole). The owner's words on the joined clip: his face
 from the reference still, nothing else, and singing where his mouth moves. No face-only render of him
-exists. Unsure whether he is in 604-1009 (nobody has said; those previews tracked two subjects).
+exists. *He is not in 604-1009 (the dated note under the table).*
 
 **Not about a region, from the owner's rows on the joined clip:** the lead's mouth is shut where the
 original's sings on 1063-1306 (text, not mask), and the dad's too.
