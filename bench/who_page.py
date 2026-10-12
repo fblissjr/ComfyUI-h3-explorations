@@ -220,8 +220,10 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                     + "; ".join(f'{html.escape(k)}: {html.escape(v["region"])}' for k, v in plan["subjects"].items())
                     + '. The outline on a picture is the tracker\'s whole-person mask, which says who the person is and nothing about what is replaced.</p>')
     me = ('<p>Answering as <input id="me" value="owner" size="10"> (a click or a save is one line appended to the page\'s '
-          'answers file, through the local page\'s server; on the share as a file this page only shows). On a picture: for each '
-          'subject, which number they are, <b>not outlined</b> (they are in the shot but have no number), or <b>not in shot</b>.</p>')
+          'answers file, through the local page\'s server). <b>To answer, open this page as '
+          '<code>http://&lt;the page server&gt;:8765/who/index.html</code></b> (the server serves files, not folders, so the '
+          'file name is needed); opened from the share as a file it only shows. On a picture: for each '
+          'subject, which number they are, <b>in the shot, not outlined</b>, or <b>not in the shot</b>.</p>')
     return (f'<!doctype html><meta charset="utf-8"><title>{html.escape(shots["video"])}</title><style>{CSS}</style>'
             f'<h1>Who is in each shot</h1>{head}{replaced}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
             f'<th>the trackers\' numbered pictures</th><th>the owner\'s words on these frames</th></tr>{"".join(rows)}</table>{SCRIPT}')
