@@ -142,7 +142,7 @@ SCRIPT = """<script>
 </script>"""
 
 
-def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path) -> str:
+def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None) -> str:
     rows = []
     for s in shots["shots"]:
         who = []
@@ -181,11 +181,16 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path) -> 
             + f'. Record: {html.escape(shots.get("written_by", ""))}</p>'
             f'<p>A numbered picture is the tracker\'s own at the time of its preview: outlines and numbers as it drew them, '
             f'one frame a shot. Previews: {", ".join(html.escape(p["name"]) + " (" + str(p["first"]) + "-" + str(p["last"]) + ")" for p in previews_)}.</p>')
+    replaced = ""
+    if plan:
+        replaced = ('<p><b>What is replaced, per subject (the plan, not the outline):</b> '
+                    + "; ".join(f'{html.escape(k)}: {html.escape(v["region"])}' for k, v in plan["subjects"].items())
+                    + '. The outline on a picture is the tracker\'s whole-person mask, which says who the person is and nothing about what is replaced.</p>')
     me = ('<p>Answering as <input id="me" value="owner" size="10"> (a click or a save is one line appended to the page\'s '
           'answers file, through the local page\'s server; on the share as a file this page only shows). On a picture: for each '
           'subject, which number they are, <b>not outlined</b> (they are in the shot but have no number), or <b>not in shot</b>.</p>')
     return (f'<!doctype html><meta charset="utf-8"><title>{html.escape(shots["video"])}</title><style>{CSS}</style>'
-            f'<h1>Who is in each shot</h1>{head}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
+            f'<h1>Who is in each shot</h1>{head}{replaced}{me}<table><tr><th>frames</th><th>who, and on whose word</th>'
             f'<th>the trackers\' numbered pictures</th><th>the owner\'s words on these frames</th></tr>{"".join(rows)}</table>{SCRIPT}')
 
 
@@ -194,13 +199,15 @@ def main() -> int:
     ap.add_argument("--shots", required=True)
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR")
     ap.add_argument("--answers")
+    ap.add_argument("--plan", help="the video's plan file; its per-subject region is printed in the header so the outline is not read as the region")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     shots = json.load(open(a.shots))
     answers = [json.loads(t) for t in Path(a.answers).read_text().splitlines() if t.strip()] if a.answers else []
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    text = page(shots, previews(a.preview), answers, out)
+    plan = json.load(open(a.plan)) if a.plan else None
+    text = page(shots, previews(a.preview), answers, out, plan)
     (out / "index.html").write_text(text)
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
     print(f"written: {out / 'index.html'}; {len(shots['shots'])} shot(s); {len(tiles)} tile(s) under {out / 'tiles'}")

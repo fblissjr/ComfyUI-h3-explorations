@@ -258,6 +258,54 @@ at risk. It does not say what the model will draw inside the region; that
 still takes a render, and the flags say which shot to render first and which
 frames to look at.
 
+## Rules of the lane
+
+Moved here from `AGENTS.md` on 2026-10-12, when that file was cut to what a
+session cannot work around; these are the lane's own habits, each earned on
+2026-10-10 or 2026-10-11, and the two sections above hold the reasoning.
+
+- **A masked render is run on data, before and after.** A no-sampling
+  capture and its flags before it samples (`bench/capture_masked_run.py`);
+  the same capture read first when it goes wrong; a "why" cites a row, a
+  frame range or a measured figure. Captured data lives under the untracked
+  `data/<video>/`.
+- **Preprocessing data is looked at the moment it is made**, by the tool's
+  `verify` and by a reader who did not make it (a subagent counts): the mask
+  on the right subject on every frame, the part, the motion video, each
+  file's frame offset. A passing check says no rule failed, never that the
+  data is right; a capture records who made it and who looked.
+- **A scene's text is data, served by whatever plans the shots**, never
+  stored verbatim in code or in a workflow. It is written from the frames of
+  one window and is true of that window only; it is a plain caption of the
+  finished shot (what is seen and heard), never a statement of what is kept,
+  and it says nothing about sound, action or expression not known from the
+  frames or the track. Know which text a load gets, read it whole against
+  that load's frames before it is used, and check after the render that it
+  did what was expected.
+- **When a render is wrong, read four things together before anything is
+  suspected or queued**: its text, its mask, and how the four timelines line
+  up (the input video's frames, the mask's frames, the sampler's frames and
+  the audio). The owner's count is that it is one of those about half the
+  time; on 2026-10-10 three renders went to a kernel setting and an audio
+  file before the text was read, and one sentence fixed it. The text is read
+  whole by whoever reasons about the load, never as a summary; when the
+  cause is not obvious, the owner is shown the whole text. "Reading one
+  window whole", above, is where each of the four is.
+- **A graph posted by hand is a temporary plan**: whoever posts one reads the
+  full text first and writes beside the job which built graph it came from,
+  the one thing changed, by whom, and what the render is meant to decide.
+  (Since the builder landed, nobody has; the job's `note` holds the same.)
+- **A rule that depends on the picture takes its value from the input video,
+  up front** (`subject_track.auto_cuts`, `auto_match`); a constant measured on
+  another clip is a marked starting value, and the tool says when this
+  clip's own figures disagree with it.
+- **Nothing an earlier run made is reused by a key** ("Nothing is kept
+  between runs by a key", above): a mask is preprocessing data for the job
+  that reads it, rebuilt when preprocessing runs again.
+- **What is on a frame of an input video is already in `contact_sheets/`**
+  (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
+  sampling a video again.
+
 ## The pieces, in the order a render meets them
 
 ### 1. `MiniMaxH3SubjectTrack` (`subject_track.py`): which pixels are the person

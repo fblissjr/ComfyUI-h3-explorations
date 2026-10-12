@@ -1,227 +1,131 @@
 # ComfyUI-h3-explorations
 
 MiniMax H3 research hub for ComfyUI: attention kernels, keyframe and
-provenance nodes, benchmarks, and workflows. `README.md` is what ships and why.
-`VISION.md` is what this repo holds itself to and rarely changes. This file is
-the operative form: one line per rule, and a pointer to what owns the rest.
-
-## A tinkering repo
-
-This repo is the owner's own experiments, shared with the community, and it is
-not research-grade. Rigour is proportional: the heavier rules below (blind
-seed distributions, captures, the baseline comparison) apply to a finding we
-publish, not to a practical choice. **When sglang and ComfyUI's own node or
-comfy-kitchen agree on a default and ours differs, adopt theirs** in
-`workflows/h3_config.py` and the generator, rebuild, and say in the commit
-message what it replaced. Our own evals do not gate that; a later eval showing ours was
-better reverses it. One upstream alone, upstreams that disagree, or a knob no
-upstream has is an ordinary judgement call. (Owner, 2026-09-11.) **A
-distill runs on its trainer's contract**, not a downstream template:
-`docs/wiki/references.md`, "A distill's reference is its trainer's contract".
+provenance nodes, benchmarks, workflows, and a masked video-to-video lane.
+`README.md` is what ships; `VISION.md` is what the repo holds itself to.
+This file is the operative form: short, and every rule here is one a
+session cannot work around without noticing. A rule that is easily worked
+around is friction, not a rule, and goes.
 
 ## Do not trust prose, including this file's
 
-When prose and code disagree, the code is right. Every sentence here that
-names a default, a shipped artifact, or what "every graph" does is a cache
-with no invalidation. Cite the observable: `h3_config.MODELS["clip"]` over
-"the shipped encoder is"; a node's `define_schema` over "the default is"; a
-walk of `graph_paths` over "every graph". When you find prose that lost,
-correct it and log what it used to claim in
-`docs/wiki/decisions.md`. This file and `VISION.md` carry no history notes;
-another doc may also keep a dated note in place where a reader would
-otherwise trust the stale text.
+When prose and code disagree, the code is right. Every sentence that names
+a default, a shipped artifact or what "every graph" does is a cache with no
+invalidation. Cite the observable: `h3_config.MODELS["clip"]` over "the
+shipped encoder is"; a node's `define_schema` over "the default is"; a walk
+of `graph_paths` over "every graph". When prose has lost, correct it and
+log what it used to claim in `docs/wiki/decisions.md`.
 
 ## Settled about H3
 
-Before establishing anything about the text encoder, the marker tokens,
-prompt structure, PDD quality or reference sizing, read `docs/evidence.md`
-"Settled about H3": each was measured or decided and has been re-derived as
-news at least once. Three facts every session acts on:
+Each was measured or decided and has been re-derived as news at least
+once; `docs/evidence.md`, "Settled about H3", has the rest.
 
-- **Sol-Attn is on by default in every shipped video workflow**
-  (`MiniMaxH3Sol`, `sol_attn_h3.py`). The exempt set is
-  `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`; read the constant,
-  never a sentence about it.
-- **The baseline is `workflows/bench/h3_text_to_video_dense_stamped_api.json`**:
-  stock attention, no sage, Sol or LoRA, the base step count. `VISION.md`
-  defines it in words. The older `_stamped` graphs wire sage and are a
-  different comparison.
-- **1344x768 is a trained canvas.** Probes run at 1152x768 or 1344x768 with
-  345 frames, which is how the owner renders; a cheaper canvas only proves a
-  harness runs. `docs/h3_resolutions.md`.
+- Sol-Attn is on by default in every shipped video workflow; the exempt set
+  is `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`.
+- The baseline is `workflows/bench/h3_text_to_video_dense_stamped_api.json`:
+  stock attention, no sage, Sol or LoRA, the base step count.
+- 1344x768 is a trained canvas; probes run at 1152x768 or 1344x768 with 345
+  frames (`docs/h3_resolutions.md`).
+- Two models live here and "attention" and "capture" each name something at
+  the DiT and at the encoder: check what a node takes before carrying a
+  claim across.
 
 ## Operative rules
 
-Rules with no other home. The tenet behind each is in `VISION.md`.
-
-- **Closed lanes stay closed** unless the owner reopens them. `docs/roadmap.md`
-  "Closed lanes" lists them. **TaoMate-H3 is deprecated** (owner, 2026-09-27,
-  said again 2026-09-29): cite it as history only, never as a live reference, a
-  target or a source of evidence for a choice here.
-- **Every walker goes through `workflows/h3_config.py::graph_paths`** and the
-  set it walks is `GRAPH_DIRS`. Enforced by `bench/check_graph_discovery.py`.
+- **A tinkering repo.** When sglang and ComfyUI's own node or comfy-kitchen
+  agree on a default and ours differs, adopt theirs in `workflows/h3_config.py`
+  and the generator, rebuild, and say in the commit what it replaced. One
+  upstream alone, or a knob no upstream has, is a judgement call. Closed lanes
+  stay closed unless the owner reopens them (`docs/roadmap.md`, "Closed lanes").
 - **Never hand-edit `workflows/*.json`.** `workflows/build_workflows.py`
-  generates them, and nothing is true of a graph until it is rebuilt. Rebuild
-  before you claim and before you commit.
-- **Nothing in this pack patches ComfyUI core**, and the checkout is stock.
-  `bench/check_vsa_core_patch.py` is the observable, because the patch is one
-  command away from being back.
-- **The server process is the resource, not the GPU.** An idle server can be
-  an armed one: read `/proc/<pid>/environ` for `H3_*` keys and ask before
-  killing it. `bench/restart_comfy.sh` is disabled; restart by hand with the
-  recipe in `docs/comfy_notes.md`, finding the port owner rather than the
-  first matching pid.
-- **ComfyUI caches.** A wall time or VRAM figure is a statement about cache
-  state; say which state you measured in. `/history` is the observable for
-  which arm ran; a log line can belong to someone else's run.
-- **Nothing an earlier run made is reused by a key.** A store that hands
-  back a mask, a window, a latent or an encoding because a key matched is
-  never reliable: the key cannot see everything the result depends on. A
-  result is made again, or it is handed in explicitly as a named file or
-  wired input that the job says it reads. A mask is preprocessing data for
-  the job that reads it, temporary, and rebuilt when preprocessing runs
-  again. A store that keeps rows inside one run for that run's later steps
-  is not this. (Owner, 2026-10-10.)
-- **A masked render is run on data, before and after.** A no-sampling
-  capture and its flags before it samples; the same capture read first when
-  it goes wrong; a "why" cites a row, a frame range or a measured figure;
-  every flag gets its outcome. `docs/wiki/masked_v2v.md`, "The rule: data
-  before a render, and the same data after"; the tool is
-  `bench/capture_masked_run.py`, and captured data lives under the untracked
-  `data/`.
-- **Preprocessing data is verified the moment it is made, by code and by
-  eyes.** Straight after a preview's data is captured, and before anything
-  is planned or rendered from it: the tool's `verify`, and a look at what
-  was made (the mask on the right subject on every frame, the part, the
-  motion video, each file's frame offset) by someone who did not make it,
-  recorded with who looked. A passing check says no rule failed, never that
-  the data is right. What eyes found that no code checks is written down
-  as a gap in the code, and what the code found that eyes missed as a gap
-  in the look. A capture records who made it and when, and who verified
-  it and when; one that cannot say both is not verified. (Owner,
-  2026-10-10.)
-- **A rendered clip cannot A/B a numerical change.** The trajectory diverges
-  at frame zero under any sampler. Grade on captured activations
-  (`bench/grade_sage_on_capture.py`).
-- **Two models live here and the words do not disambiguate the stage.**
-  "Attention" and "capture" each name something at the DiT and at the encoder.
-  Check what input a node takes or what a module name starts with before
-  carrying a claim across.
-- **Write the provenance of a constant beside it**: measured, inherited, or
-  reasoned. Three words that stop the next reader re-deriving it.
-- **Prose carries pointers; records carry numbers.** `docs/prose_measurements.md`
-  is the rule and the migration plan; `bench/list_prose_measurements.py` is
-  the worklist.
-- **A record under `bench/results/` is its `.md`; data goes under `data/`.**
-  The record holds the tables a reader needs. The file of figures it was
-  made from lives under the untracked `data/`, and the record points at it.
-  The one exception is a small file a tracked check or tool reads, named in
-  that check. (Owner, 2026-10-10.)
-- **Checks**: `docs/checks.md` is the standard and the index; add one only
-  when something escapes the existing ones.
-- **This checkout is shared with other agents, one of them not Claude.**
-  `git status` before editing, and commit promptly with
+  generates them, and nothing is true of a graph until it is rebuilt.
+  Every walker goes through `workflows/h3_config.py::graph_paths`.
+- **Nothing in this pack patches ComfyUI core**; `bench/check_vsa_core_patch.py`
+  is the observable.
+- **The server process is the resource, not the GPU.** An idle server can
+  be an armed one: read `/proc/<pid>/environ` for `H3_*` keys and ask before
+  killing it. Start and stop it by the recipe in `docs/comfy_notes.md`.
+  ComfyUI caches: a wall time or VRAM figure says which cache state it was
+  measured in; `/history` is the observable for which arm ran.
+- **The shared tree.** `git status` before editing, and commit promptly with
   `git commit -F <msg> -- <paths>`. Never `git add`, `commit -a`, a bare
   `git commit` or `--amend`: each has swept a peer's work into another
   commit. The one exception is `git add -- <file>` for a new file you
   created. A file holding a peer's uncommitted hunk is theirs to commit.
-  Every subagent prompt says the tree is shared and that the agent must not
-  run git.
-- **The changelog is written once a day, from the commits.** A commit
-  carries no changelog entry, no fragment and no version bump: its message
-  is the record, so write the message to be read later. At the end of a
-  working day one session reads the day's `git log`, summarises it into one
-  fragment, and builds `CHANGELOG.md` once (`changelog.d/README.md`). The
-  detail of what happened and why belongs in a postmortem.
-- **Prompt timing, shot counts and dialogue length fit each scene, never a
-  template.** `docs/prompting.md` section 5.10.
-- **A scene's text is data, served by whatever plans the shots; it is never
-  stored verbatim in code or in a workflow.** A text is written from the
-  frames of one window and is true of that window only: kept in a constant
-  or a graph it gets used again after the window has changed, and nobody
-  remembers it was there. It lives with the job's data beside the frames it
-  was written from, and a load takes the text of its own frames. The model
-  does not know it is editing: a text is a plain caption of the finished
-  shot (what is seen and heard), never a statement of what stays or is
-  kept, and it says nothing about sound, action or expression that is not
-  known from the frames or the track. A served text is an input like a
-  stored mask and is trusted as little: know which text a load is getting,
-  read it against that load's frames before it is used, and check after
-  the render that it did what was expected. (Owner, 2026-10-10.)
-- **A graph posted by hand is a temporary plan, and its text is assumed
-  wrong until its poster has read the whole of it.** Going round the job
-  builder skips every refusal the builder has. Whoever does it reads the
-  full text the model will get against the load's frames first, and writes
-  the plan down beside the job before posting: which built graph it came
-  from, the one thing changed, by whom, and what the render is meant to
-  decide. A hand-posted render with no such record is not evidence for
-  anything. (Owner, 2026-10-10.)
-- **When a render is wrong, read three things before anything is
-  suspected or queued: its text, its mask, and how four timelines line
-  up: the input video's frames, the mask's frames, the sampler's frames
-  and the audio.** The text the model was given, against the frames, for
-  what it says and does not say about the thing that is wrong; the mask on
-  the frames that are wrong; and, frame by frame there, which source frame,
-  which mask frame, which latent step (shared, held, with no mask of its
-  own) and which stretch of audio the model had together. The owner's
-  count is that it is one of those three about half the time. On
-  2026-10-10 three test renders went to a kernel setting and an audio file
-  before the text was read; one sentence fixed it. **The text is
-  read whole by whoever reasons about the load, never as a summary or at
-  second hand, and when the cause is not obvious the session shows the
-  owner the whole text.** Where each of the four is for a window:
-  `docs/wiki/masked_v2v.md`, "Reading one window whole". **A load that built and
-  passed its gate has had none of the three checked for being right.** The
-  builder holds a text to its frames and its writer, never to the truth,
-  and what is already in the tree was not made good by being there. More
-  refusals do not change that, and a wall of them invites the reader to
-  stop looking: when something is broken, assume one of the text, the
-  window's frames, the mask or the audio is out of step, and look at them
-  together. (Owner, 2026-10-10.)
-- **A rule that depends on the picture takes its value from the input
-  video, up front.** A likeness line, a size line, a cut score, a margin:
-  the preview measures this clip and the rule is set from that, as
-  `subject_track.auto_cuts` and `auto_match` do. A constant measured on
-  another clip is a starting value, marked as one, and the tool says when
-  this clip's own figures disagree with it. Sharp modern video and soft old
-  film do not share thresholds.
+  Subagents never run git. The owner pushes from their own terminal, so
+  every commit message is written as already public.
+- **The changelog is written once a day, from the commits**
+  (`changelog.d/README.md`). A commit carries no changelog entry.
+- **Nothing an earlier run made is reused by a key.** A result is made
+  again, or handed in explicitly as a named file the job says it reads.
+- **A record under `bench/results/` is its `.md`; data goes under the
+  untracked `data/<video>/`; video files go under the share's
+  `output/Video/<video>/`, never under `data/`.**
+- **A constant carries its provenance beside it**: measured, inherited, or
+  reasoned. A rule that depends on the picture takes its value from the
+  input video, up front; a constant from another clip is a marked starting
+  value.
+- **Green or red only for a hard failure**: a node a graph names that does
+  not exist, a tracked tool with no index row, a link that does not resolve.
+  Anything of degree is data printed with what it was measured on and what
+  it cannot see, and the reading is left to whoever runs it. No fuzzy red.
+- **A rendered clip cannot A/B a numerical change**; grade on captured
+  activations (`bench/grade_sage_on_capture.py`).
+- **No render that does not decide something.** One clip, one seed, one
+  shot is not a result; a repeat and a different shot are two tests.
+- **Checks**: `docs/checks.md` is the standard and the index; add one only
+  when something escapes the existing ones, and every tool worth keeping is
+  tracked with one, never parked in `internal/` or a scratchpad.
 
-## Reference implementations
+## Where state lives
 
-`coderef/` (gitignored) holds the sister checkouts, and
-[`docs/wiki/references.md`](docs/wiki/references.md) says what each is for.
-**Do not import Python from it.** A check may run a coderef file as a
-one-off numeric reference to compare against (owner, 2026-10-05: "just
-dont write code that relies on it here - just one offs"); nothing shipped
-depends on it. The Sol-Attn kernel is built by
-`vendor/rebuild_kernel.sh`, whose `--check` says whether the source is
-current, and `bench/check_sol_kernel.py` reports the build that is installed.
-Read those, never a sentence naming a build.
+One home per kind of fact. Not two.
 
-## Where things are
+| the fact | its one home |
+|---|---|
+| decisions waiting on the owner, their answers, and their passing thoughts | the H3 Open List (the owner's page with Claude): one card a decision; the "Tell Claude anything" box is the owner's inbox |
+| what a video still needs | `bench/shot_coverage.py` on `data/<video>/shots.json`, `plan.json` and the delivery table; regenerated, never typed |
+| who is in each shot, and the owner's answers on the pictures | `data/<video>/shots.json` and `cast/cast.jsonl`; `bench/who_page.py` is the page the owner answers on |
+| the owner's verdicts on renders | `data/<video>/verdicts/verdicts.jsonl`, printed under each render by the coverage table |
+| the day boundary | `docs/wiki/handover.md` (about 80 lines, four headings: state when closed; what not to assume; tomorrow, in order; where things are) and the top block of `docs/wiki/next_steps.md` |
+| what was decided or reversed, and when | `docs/wiki/decisions.md` |
+| everything else | `docs/wiki/index.md`, the router |
 
-**Before anything else, if `internal/claude/OWNER_MORNING.md` exists and has
-open items, read its short list to the owner** and ask which they want to
-do now. It is the owner's own list of things waiting for their eyes or
-their word, kept untracked; its contents are never copied into a commit
-message, a tracked file or the board. (Owner, 2026-10-10.)
+## How the owner and the sessions talk
 
-**What is on a frame of an input video is already in
-[`contact_sheets/`](contact_sheets/AGENTS.md)**: one folder a video, named by
-its file name, sheets of its raw frames named by first and last frame. Open
-a sheet before sampling a video again; make something else only for a closer
-look, a mask, or what a frame number and the raw frame cannot answer.
-(Owner, 2026-10-10.) **Starting a working day, read
-[`docs/wiki/handover.md`](docs/wiki/handover.md) before anything else**: what
-the last day left and did not, what is not certain, and what not to assume.
-The session that leads a day rewrites it that evening.
-[`docs/wiki/index.md`](docs/wiki/index.md) is the router: what to read
-before you start, which document answers which question, and the rule for
-each code directory. [`docs/wiki/next_steps.md`](docs/wiki/next_steps.md) is
-what to work on next, and [`docs/wiki/decisions.md`](docs/wiki/decisions.md)
-is what was decided or reversed, and when. Read [`VISION.md`](VISION.md)
-first if you are new. Three directory rules every agent needs:
-`workflows/h3_config.py` holds every shared constant, one copy each;
-`vendor_config/` holds the release's own config files verbatim, read through
-`vendor_config.py` and never retyped; `internal/` is gitignored and never
-shipped.
+- **One inbox.** The owner's thoughts go in the Open List's box as they come,
+  with a time. Nothing there is a go. The lead reads it at its next natural
+  stop and writes one of three words under each: done (with where), queued
+  (as a row, with where in the order), or parked (with why).
+- **The terminal is for a go and for an answer to a question a session
+  asked.** A session that receives a thought in the terminal writes it to
+  the inbox and carries on. A go is a row on the Open List or a line in the
+  lead's terminal; a session that is not the lead takes the lead's relay as
+  the go and writes the relay's time in the job's note.
+- **Two sessions during the day**: one holds the card and builds, one reads
+  cold and builds tooling. A third only as a blind reader on a finished
+  result, briefed with file paths and no conclusions; a subagent counts.
+- **One look per load, by a reader who did not build it**, who writes what
+  it expects the render to show before it samples. The owner, when
+  available, takes the cheap looks first (who is in a shot, what is
+  replaced), before anything is built on them.
+- **A render is handed over stacked** (the masked input with its segments
+  and ids on top, the render below, frame numbers burned in), never bare;
+  a thing seen on playback is reported with the file and the frame.
+- **Handoff over compaction**: a session near its limit writes its notes,
+  the rows it owes and the job's note, and the next session starts from
+  files. Sessions hand off staggered, never both at once.
+
+## The lanes
+
+- Masked video to video: `docs/wiki/masked_v2v.md` ("The rule: data before
+  a render, and the same data after"; "Reading one window whole"; "Rules
+  of the lane").
+- Prompts: `docs/prompting.md`; a scene's text is data served beside its
+  frames, never stored in code or a graph.
+- Reference implementations: `coderef/` (gitignored) is read, never
+  imported; `docs/wiki/references.md`.
+- `workflows/h3_config.py` holds every shared constant, one copy each;
+  `vendor_config/` holds the release's own config files verbatim;
+  `internal/` is gitignored and never shipped.
