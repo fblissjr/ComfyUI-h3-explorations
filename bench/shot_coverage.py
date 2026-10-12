@@ -2,7 +2,8 @@
 """Where a masked video stands: one row a shot and a subject, with what the plan wants there, what the delivery
 table lays there, and what else has been rendered on those frames.
 
-    <python> bench/shot_coverage.py --shots SHOTS.json --plan PLAN.json --table TABLE.txt [--renders RENDERS.json] [--json OUT.json]
+    <python> bench/shot_coverage.py --shots SHOTS.json --plan PLAN.json --table TABLE.txt [--renders RENDERS.json] \\
+        [--verdicts VERDICTS.jsonl] [--json OUT.json]
 
 **What it buys.** On 2026-10-11 nobody could say, per shot and per subject, what the owner had ruled, what
 render existed and what was missing: the delivery table was the nearest thing and it is typed by hand, and
@@ -25,6 +26,9 @@ three files that already hold those facts and prints them side by side, so "fini
   (`data/<stem>/poc/renders.json` today, written by that page's builder). With it, each piece's region is
   read from its graph (`whole subject` or `the wired parts`), and the renders on a shot that the table does
   not use are listed, so a session sees that eleven renders of one shot exist before making a twelfth.
+- `--verdicts` (optional): the owner's lines on renders, as `bench/page_answers_to_verdicts.py` copies them
+  from the review page into `data/<stem>/verdicts/verdicts.jsonl`; each is printed under the render it is
+  about, oldest first, unreworded, so the table carries the owner's eye beside the files' facts.
 
 **What it prints, a row a shot and a subject present or unsure:** the frames, the subject, what the plan
 wants, what the table lays there (a piece and its region, or the `source` line's own words, or nothing), and
@@ -140,7 +144,20 @@ def overlap(a, b, c, d) -> tuple[int, int] | None:
     return (lo, hi) if lo <= hi else None
 
 
-def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], renders: list[dict]) -> dict:
+def owner_said(render_file: str | None, verdicts: list[dict]) -> list[str]:
+    """The owner's lines on a render from the verdicts record, oldest first, as `at: what they said`."""
+    if not render_file:
+        return []
+    out = []
+    for v in sorted((v for v in verdicts if v.get("render") and render_file.endswith(v["render"])), key=lambda v: v["at"]):
+        said = v["chosen"] if v.get("what") == "choice" else str(v.get("words") or "").strip().replace("\n", " / ")
+        where = f" at frame {v['frame']}" if v.get("frame") not in (None, "") else ""
+        out.append(f"{v['at'][:16]}{where}: {said}")
+    return out
+
+
+def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], renders: list[dict], verdicts: list[dict] | None = None) -> dict:
+    verdicts = verdicts or []
     span = shots["span"]
     for row in rows:
         if row["first"] < span[0] or row["last"] > span[1]:
@@ -172,7 +189,8 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
                 lo, hi = overlap(s["first"], s["last"], p["first"], p["last"]) or (0, -1)
                 row["laid"].append({"frames": [lo, hi], "piece": p["piece"], "region": p["region"],
                                     "named_by": p["label_how"],
-                                    "crosses_a_cut": p["first"] < s["first"] or p["last"] > s["last"]})
+                                    "crosses_a_cut": p["first"] < s["first"] or p["last"] > s["last"],
+                                    "owner_said": owner_said(p["piece"], list(verdicts))})
             for it in intents:
                 both = overlap(s["first"], s["last"], it["first"], it["last"])
                 if alias(it["subject"], plan) == label and both:
@@ -187,7 +205,8 @@ def coverage(shots: dict, plan: dict, rows: list[dict], intents: list[dict], ren
                 row["others"].append({"name": r["name"], "frames": [r["first"], r["last"]],
                                       "region": r.get("as_the_graph_says", {}).get("replace"),
                                       "motion": bool(r.get("motion_wired")),
-                                      "in_table": any(p["render"] is r for p in mine)})
+                                      "in_table": any(p["render"] is r for p in mine),
+                                      "owner_said": owner_said(r["file"], list(verdicts))})
             row["state"] = state_of(row)
             out["rows"].append(row)
     out["frames_by_state"] = totals(out["rows"])
@@ -237,6 +256,8 @@ def print_report(out: dict) -> None:
             cut = "; crosses a cut" if p["crosses_a_cut"] else ""
             print(f"    laid {frames(*p['frames'])}: {Path(p['piece']).name}  region: {p['region'] or 'not read (no renders entry)'}"
                   f"  subject by {p['named_by']}{cut}")
+            for said in p.get("owner_said", []):
+                print(f"        the owner, {said}")
         for it in r["left"]:
             print(f"    source {frames(*it['frames'])}: {it['why']}")
         for n in r["notes"]:
@@ -247,6 +268,9 @@ def print_report(out: dict) -> None:
         if others:
             print(f"    other renders of this subject here, not in the table: "
                   + "; ".join(f"{o['name']} {frames(*o['frames'])} {o['region']}{' +motion' if o['motion'] else ''}" for o in others))
+            for o in others:
+                for said in o.get("owner_said", []):
+                    print(f"        the owner on {o['name']}, {said}")
     print()
     print("Frames by state, a subject at a time (a subject's shots where they are present or unsure):")
     for label, t in out["frames_by_state"].items():
@@ -264,6 +288,7 @@ def main() -> int:
     ap.add_argument("--plan", required=True)
     ap.add_argument("--table", required=True)
     ap.add_argument("--renders", help="the renders inventory read from saved graphs; without it no region is read")
+    ap.add_argument("--verdicts", help="the owner's lines on renders (bench/page_answers_to_verdicts.py's record); printed under each render")
     ap.add_argument("--json", help="write the same rows as JSON here")
     a = ap.parse_args()
     read_table, read_intents = _delivery()
@@ -273,8 +298,9 @@ def main() -> int:
     if a.renders:
         d = json.load(open(a.renders))
         renders = d["renders"] if isinstance(d, dict) else d
-    out = coverage(shots, plan, read_table(a.table), read_intents(a.table), renders)
-    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "renders": a.renders}
+    verdicts = [json.loads(t) for t in Path(a.verdicts).read_text().splitlines() if t.strip()] if a.verdicts else []
+    out = coverage(shots, plan, read_table(a.table), read_intents(a.table), renders, verdicts)
+    out["read_from"] = {"shots": a.shots, "plan": a.plan, "table": a.table, "renders": a.renders, "verdicts": a.verdicts}
     print_report(out)
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1))
