@@ -195,6 +195,17 @@ day closed there with one render proposed.
   part mask, track and held-things mask equal to the evening's on every
   frame. Stopped again at 00:46Z. The figures and the sweep's own line
   are in the message of the commit that placed this paragraph.
+- **The last start of the night**, at the owner's word, once every
+  session's commits were in: started on `9f892833` (the last commit that
+  touched code; the ones after it are docs and data), the pack imported,
+  its nodes registered, and every node type the shipped and bench graphs
+  name was on the server. A full sweep with the server up read no check
+  red; the checks that want the card stayed not graded, since a sweep
+  masks it, and nothing was rendered on that head. No preview was made
+  again: nothing committed after the smoke test above touches the part
+  node or what it reads. Stopped at 01:10Z, and it stays stopped. The
+  sweep's own line and the names it did not grade are in the message of
+  the commit that placed this paragraph.
 - **A sweep found what a search had missed.** The first sweep on that
   node change was red on one check: the delivery tool read the class
   names out of the node's source as text and needed a literal there.
@@ -324,6 +335,63 @@ Every step is a tracked tool; every bench tool here wants
 ## Tomorrow, in the writer's suggested order, and why
 
 The owner decides the order.
+
+**Changed at the close, after this list was first written. Read these
+before the numbered list.**
+
+- **Read first**: the day's postmortem
+  ([`2026-10-11_span_fun-lid-marks-one-shot.md`](../research/postmortems/2026-10-11_span_fun-lid-marks-one-shot.md))
+  with its dated notes. It was written before the last hour and a half of
+  the night and does not cover what happened after about 23:50Z: the
+  names folder under `vendor/`, the node change and its smoke test, the
+  checks and tools removed, and the example below. Those are in this
+  page, in [`decisions.md`](decisions.md) and in the commits.
+- **Read second**: the example of the picked load,
+  `../../bench/examples/masked_job_lid_marks/` (its job file with
+  placeholders, its text, and a page that takes the text section by
+  section). It is what was built in place of a generated workflow.
+- **The first two things to BUILD, in this order**, both wanted by the
+  owner and neither started:
+  1. **The layered view of the preprocessing.** First the capture tool's
+     drawing helpers and its reader of a source move into `bench/_lib`,
+     as a change of their own with a check and a sweep on a started
+     server. Then the view on them, in an existing smaller tool where it
+     fits, with nothing duplicated: it reads a capture folder, a points
+     file comes in as a named input of the capture, and it is the look
+     recorded before a plan or says it is extra. The one-off that drew
+     the clip the owner liked is
+     `data/2026-10-11_mrtie_layered_view/build_layers.py`.
+  2. **A generated workflow for the lid-marks form**, AFTER the close-up
+     has been rendered with the marks at three times and read (step 3
+     below): that render is about the size rule the graph would hold.
+     What it takes was sized the night of 2026-10-11: the parts graph and
+     a wired motion video together, one new entry in the generator, a
+     rebuild of every graph against a live server; the marked video is a
+     file made beforehand by the two bench tools; and its text cannot be
+     the form's unless the Masked Prompt node learns words for a wired
+     reference video, which is node code. A graph that has never rendered
+     gets one render and a reading before anybody is told it works.
+- **Made and not watched by anybody**: a joined clip of the first target
+  and its stacked form, under `Video/fun/joined/` on the share, both
+  named as not reviewed; `data/2026-10-11_fun_joined_b/README.md` says
+  what the stacked form does not show, and the joining tool's flags for
+  it are unread.
+- **Out of the tree that night**: six checks and four calibration tools
+  the owner no longer uses, the closed calibration lane's notes and pool
+  data, five old masking notes and four files under `vendor/`; the Sol
+  probe's reader is `bench/read_sol_probe.py`. Kept and waiting for the
+  owner's word, as a set: the marker corpus with its compiler,
+  `marker_arms.py`'s library and its check.
+- **Agreed and not done**: `bench/check_sol_kernel.py` slimmed, and the
+  comments in code that cite the Sol reference file removed from
+  `vendor/` ("State when the day closed").
+- **Open with the owner**: whether green and red only for a hard failure
+  reaches the existing checks (the names the server-up sweep did not
+  grade are the starting list); `meta_sam3/` under `vendor/`, whose copy
+  check has not graded since the reference checkout moved; whether a
+  capture's own mask copies under `data/` fall under the rule that video
+  files go to the share.
+- **Local commits wait for the owner's push.** No session pushed.
 
 1. **The owner sees the close-up render** (it is on the page, stacked,
    after the kitchen clips). Three sessions read it as a null for her

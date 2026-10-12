@@ -53,6 +53,12 @@ own below the rule.
   says up front whether the source's shape is the canvas's. Not sized.
   First step: list what the saved graph, the plan, the saved region and
   the tables already hold.
+- **The first two things to build, both wanted and neither started**
+  ([`handover.md`](handover.md), "Tomorrow", has each in full): the
+  layered view of the preprocessing, shared helpers first; then a
+  generated workflow for the lid-marks form, after the close-up's next
+  render is read. What exists in its place:
+  `../../bench/examples/masked_job_lid_marks/`.
 - **A layered view of the preprocessing** (the same entry): shared
   library code first (the capture tool's drawing helpers into
   `bench/_lib`, their own change), then the view where it fits an
