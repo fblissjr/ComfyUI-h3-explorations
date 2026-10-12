@@ -32,14 +32,20 @@ own below the rule.
   motion choice and a generated workflow for it.
 - Owed and not started: the record of a video on the share with the tool
   that takes the page's raw answers into it; trial 2 of
-  [`meta_perception_models.md`](meta_perception_models.md), "The trials";
-  a tracked home for the pose model's list of point names, without which
-  a fresh checkout cannot run `bench/pose_along_shot.py` (decided:
-  `vendor/meta_sapiens2/`, with the part model's class names and colours
-  and Meta's licence file; then the part node reads its table from
-  there, with a restart and a smoke test). *The pose pass
-  along a shot, listed here as owed when this block was written, landed
-  the same night.*
+  [`meta_perception_models.md`](meta_perception_models.md), "The trials".
+  *The pose pass along a shot and a tracked home for the pose model's
+  point names (`vendor/meta_sapiens2/`), both listed here as owed when
+  this block was written, landed the same night.*
+- Owed after the owner's cleanup of `vendor/`: the comments in code
+  that cite the removed Sol reference file
+  ([`handover.md`](handover.md), "State when the day closed").
+- **`bench/check_sol_kernel.py` is to be slimmed**, agreed with the owner
+  and not done: it keeps its printout of which kernel build answered,
+  `observable` and `schema`; its other cases go, with the tables and
+  header paragraphs only they used (two of them read the reference file
+  that is no longer in the tree). A node-adjacent check: whoever does it
+  reads each case before it goes, and does the stale comments above in
+  the same stretch.
 - **The direction for the capture tool, from the owner at the close**
   ([`decisions.md`](decisions.md), 2026-10-11, the last entry): the whole
   path of each thing a node uses, source to target, every change with

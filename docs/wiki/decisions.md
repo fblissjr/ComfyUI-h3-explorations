@@ -398,7 +398,9 @@ that session's record disagree, its record is the nearer one.*
     class map equal array for array). The lists are held two ways: to
     upstream's files where that checkout is present, and the point names
     to the checkpoint's own left and right pairs. Decided by the owner
-    on being shown the options; not built when this was written.
+    on being shown the options. Built the same night at
+    `vendor/meta_sapiens2/` (`58e49dd1`, then the node in `5054d39a`),
+    with the restart and the smoke test.
   - **Meta's folders live under `vendor/`.** The Sapiens2 names go to
     `vendor/meta_sapiens2/` from the start; `meta_sam3/` moves under
     `vendor/` later as a change of its own, since node code imports from

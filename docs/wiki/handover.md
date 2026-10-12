@@ -120,16 +120,15 @@ day had finished.
   `bench/_lib/face_points.py`; their starting values:
   `h3_config.POSE_READING` and `LID_MARKS`. The one-offs under
   `data/2026-10-11_sapiens2_pose_consecutive/` are superseded and stay as
-  what the day's tables were made by. One thing still open: the list of
-  the pose model's point names is an untracked file
-  (`data/2026-10-11_sapiens2_pose_consecutive/names308.json`, read out of
-  Meta's keypoint config), so a fresh checkout cannot run the pose tool
-  until it has a tracked home. *Decided at the close and not built when
-  this was written: Meta's Sapiens2 names (the pose points and the part
-  model's classes and colours) go into `vendor/meta_sapiens2/` with Meta's
-  licence file beside them, and the part node reads its names and
-  colours from there, which is a node change with a restart and a smoke
-  test ([`decisions.md`](decisions.md), 2026-10-11, the last entry).* [`masked_v2v.md`](masked_v2v.md), "How it
+  what the day's tables were made by. The pose model's list of point
+  names, which the tools need because the checkpoint names none, is
+  tracked in `vendor/meta_sapiens2/` with the part model's class names
+  and colours, so the pose tool runs from a fresh checkout
+  (`bench/check_meta_sapiens2.py` holds the folder). The Subject Parts
+  node reads its class table from there, and so does the delivery tool;
+  that was the day's one node change, made after midnight, and the
+  restart and the smoke test for it are under "State when the day
+  closed". [`masked_v2v.md`](masked_v2v.md), "How it
   was made", names both tools and says nothing joins them up: no node, no
   shipped graph, and the builder is handed a marked video and cannot make
   one.
@@ -182,12 +181,32 @@ day closed there with one render proposed.
   terminal through the day and no session pushed. The day's commits are
   docs and records, plus three bench tools with their checks, three
   constants and the correction of the bench tools' fit (the section
-  above). **No node and no generated workflow changed today**, on
+  above), and after midnight the one node change named below. **No
+  generated workflow changed, and nothing of the lid-marks form went
+  into a node**, on
   purpose: the form was not to be built into a graph on one shot.
-- **The ComfyUI server is stopped** (by this page's writer, 22:28Z, at the
+- **The ComfyUI server is stopped** (by this page's writer, at the
   owner's ask; the port's owner was killed with an empty queue). Start it
-  with the recipe in [`../comfy_notes.md`](../comfy_notes.md). It had run
-  all day on the code of `9de6210d`.
+  with the recipe in [`../comfy_notes.md`](../comfy_notes.md). It ran all
+  day on the code of `9de6210d` and was stopped at 22:28Z. It was started
+  once more after midnight, on `5054d39a`, for the smoke test of the one
+  node change (the part node's class table read from a file): the
+  evening's preview of the lead's close-up made again, its class map,
+  part mask, track and held-things mask equal to the evening's on every
+  frame. Stopped again at 00:46Z. The figures and the sweep's own line
+  are in the message of the commit that placed this paragraph.
+- **A sweep found what a search had missed.** The first sweep on that
+  node change was red on one check: the delivery tool read the class
+  names out of the node's source as text and needed a literal there.
+  The change was not committed until that tool read the same file and a
+  second sweep was clean. Search for what reads a file as text, not only
+  for what imports it.
+- **Owed after the owner's cleanup of `vendor/`**: comments in code that
+  still cite the removed Sol reference file by line as where a thing was
+  read, and the header of `sol_attn_h3.py`, which says that file stays
+  as a reference. Comments only; nothing imports it, and
+  `bench/check_sol_kernel.py` reads its absence as two cases not graded.
+  Each comment is read before it is touched.
 - **The owner's page is up** on port 8765 (`data/fun/poc/`, untracked,
   never hosted; `data/fun/poc/README.md` ends with a list of where
   everything is). The owner answers there; every answer is one raw line in
