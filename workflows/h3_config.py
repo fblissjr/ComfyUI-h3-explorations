@@ -1339,7 +1339,17 @@ POSE_MODEL = "facebook_sapiens2-pose-1b"
 #: for a mark to be drawn from them. **Reasoned**: between the median of the
 #: one shot whose marks carried and those of shots whose lids are under a
 #: pixel apart (the tables under `data/2026-10-11_sapiens2_pose_consecutive/`).
-POSE_READING = dict(eyes_shut_under=0.020, eyes_open_over=0.045, lip_score_at_least=0.8, lid_gap_px_to_draw=1.6)
+#: `eye_ring_score_at_least`: under it an iris or a pupil ring is not drawn
+#: (`bench/draw_face_points.py`), taken at the median over the ring's points.
+#: **Reasoned**, from one shot (the second subject's short kitchen shot,
+#: source frames 1039 to 1060): the pupil points scored 0.20 to 0.28 a frame
+#: and lay hundreds of pixels off her face, the iris points scored 0.93 to
+#: 0.96 and lay on her eyes, and the line is put between. Meta's own demo
+#: drops a point under 0.3 (`coderef/sapiens2`, `pose_render_utils.py`,
+#: `kpt_thr`), which sits at the top of the bad group on that shot and was
+#: not taken.
+POSE_READING = dict(eyes_shut_under=0.020, eyes_open_over=0.045, lip_score_at_least=0.8, lid_gap_px_to_draw=1.6,
+                    eye_ring_score_at_least=0.5)
 #: The eye marks `bench/draw_lid_marks.py` draws on a body-model video: each
 #: eye's outline is grown about its own centre by `face_px` over the shot's
 #: median face height, so a frontal face's marks come out one size whatever
@@ -1348,6 +1358,15 @@ POSE_READING = dict(eyes_shut_under=0.020, eyes_open_over=0.045, lip_score_at_le
 #: a starting value. A rule by the marks' own width was tried first and
 #: failed on a face in profile, whose far eye is narrow.
 LID_MARKS = dict(face_px=318.0, fill=(255, 255, 255), edge=(0, 0, 0))
+#: The face lines `bench/draw_face_points.py` draws on a body-model video, at
+#: the face's true size: a line is the shot's median face height over
+#: `face_over_width` wide and never under `least_px`, with a black edge of
+#: `edge_px` on each side. **Reasoned**, and a starting value: no render has
+#: been made with these lines. The width is the lead's brief for a first
+#: drawing (a line that scales with the face); `least_px` is where a line
+#: stops leaving any white the tool can read back; the colours are the lid
+#: marks'. The tool and its check are in progress when this is committed.
+FACE_POINTS = dict(face_over_width=60.0, least_px=1.0, edge_px=0.5, line=(255, 255, 255), edge=(0, 0, 0))
 #: The parts graph's Masked Source and prompt: the region is the part node's
 #: mask, and since that can be any part, the prompt node is told what the
 #: still provides (`masked_prompt_text.resolve_gives` refuses to guess).
