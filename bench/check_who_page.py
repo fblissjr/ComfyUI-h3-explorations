@@ -11,20 +11,27 @@ own words beside it, and each of those can be off by one.
   empty_bands_collapse_to_one           bands with nobody on them are said in words, never shown as black pictures
   the_owners_words_are_on_their_frames  a words line whose source frame is inside the shot is on that row and no other
   a_missing_table_is_refused            by path
+  a_long_shot_asks_at_its_quarters      with --source, a shot longer than --long-shot-frames shows its first- and last-quarter
+                                        frames plain with the two frame buttons, beside the numbered picture; a shorter shot does not
+  quarter_frames_are_the_shots_own      the pure rule: nothing under the line, the quarters of the shot's own length over it
 
     <python> bench/check_who_page.py
 
-No model, no card; PIL only.
+No model, no card; PIL, and ffmpeg for the one case that cuts a frame from a source (not graded without it).
 """
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from who_page import quarter_frames  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 TOOL = HERE / "who_page.py"
@@ -106,6 +113,27 @@ def main() -> int:
              and "NOT THE OWNER" not in page, "")
         r = run(p, "--preview", f"{Path(d) / 'pv.json'}={Path(d) / 'nowhere'}")
         case("a_missing_table_is_refused", r.returncode != 0 and "no table" in r.stdout + r.stderr, r.stdout + r.stderr)
+        case("quarter_frames_are_the_shots_own",
+             quarter_frames({"first": 102, "last": 129}, 20) == [109, 123] and quarter_frames({"first": 102, "last": 129}, 28) == []
+             and quarter_frames({"first": 604, "last": 1009}) == [705, 908], str(quarter_frames({"first": 102, "last": 129}, 20)))
+        if shutil.which("ffmpeg"):
+            src = Path(d) / "src.mp4"      # 160 frames of flat colour, so every frame the page asks for exists
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=64x48:r=24:d=7", "-frames:v", "160",
+                            "-pix_fmt", "yuv420p", str(src)], check=True)
+            r = run(p, "--preview", p["pv"], "--source", str(src), "--long-shot-frames", "20")
+            assert r.returncode == 0, r.stdout + r.stderr
+            page = (p["out"] / "index.html").read_text()
+            tiles = sorted(x.name for x in (p["out"] / "tiles").glob("*_plain.jpg"))
+            row2, row3 = page.split("<tr>")[3], page.split("<tr>")[4]
+            case("a_long_shot_asks_at_its_quarters",
+                 {"0109_plain.jpg", "0123_plain.jpg", "0137_plain.jpg", "0152_plain.jpg"} <= set(tiles)
+                 and row2.count('data-table="plain"') == 2 and 'data-frame="109"' in row2 and 'data-frame="123"' in row2
+                 and 'data-frame="110"' in row2 and "first quarter" in row2 and "last quarter" in row3, str(tiles))
+            r = run(p, "--preview", p["pv"], "--source", str(src))
+            page = (p["out"] / "index.html").read_text()
+            case("a_short_shot_asks_once", page.split("<tr>")[3].count('data-table="plain"') == 0, "")
+        else:
+            print("not graded: a_long_shot_asks_at_its_quarters (no ffmpeg on the path)")
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0

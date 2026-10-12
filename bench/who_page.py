@@ -19,9 +19,12 @@ the owner's typed words on any numbered picture of those frames (the page's `ans
 `who`, unreworded). A shot no preview covers says so.
 
 **What it does not do.** It draws nothing: the numbers and outlines are the table's own, made by the tracker
-when the preview ran, so a later correction is not on them. It shows one frame a shot, the table's shown
-frame; a subject who walks in later is not on it (the cast file's rule). Parts in colour and the pose
-model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
+when the preview ran, so a later correction is not on them. The numbered picture is one frame a shot, the
+table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
+own frame at its first and last quarter, with the two frame buttons and no numbers, so a subject who walks
+in after the shown frame can be said to be on THAT frame (the owner's ask, 2026-10-12: late entrances were
+not labelled); the cast tool lists such answers for the shots record instead of storing them. Parts in
+colour and the pose model's points are the layered view's job (`docs/wiki/next_steps.md`), not this page's.
 """
 from __future__ import annotations
 
@@ -35,6 +38,17 @@ from pathlib import Path
 from PIL import Image
 
 PRESENT_WORD = {"yes": "yes", "no": "no", "unsure": "UNSURE"}
+#: A shot longer than this shows its first- and last-quarter frames as well as the shown one. Reasoned, a
+#: starting value: four seconds at 24 frames a second; a person can walk into a shot and settle inside a
+#: second, so a shot this long has room for an entrance the one shown frame misses, and a shorter one shows
+#: little that its middle frame does not. Change it when the owner says the extra frames of a shot were noise.
+LONG_SHOT_FRAMES = 96
+
+
+def quarter_frames(shot: dict, long_frames: int = LONG_SHOT_FRAMES) -> list[int]:
+    """The first- and last-quarter frames of a shot longer than `long_frames`; nothing for a shorter one."""
+    n = shot["last"] - shot["first"] + 1
+    return [shot["first"] + n // 4, shot["first"] + (3 * n) // 4] if n > long_frames else []
 
 
 def previews(specs: list[str]) -> list[dict]:
@@ -152,7 +166,20 @@ SCRIPT = """<script>
 </script>"""
 
 
-def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None) -> str:
+def plain_tile(shots: dict, s: dict, frame: int, file: str, why: str) -> str:
+    """A source frame with the two frame buttons a subject: nothing outlined, so no numbers to choose from."""
+    ask = "".join(
+        f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
+        + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
+        + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
+        for sub in shots["subjects"])
+    return (f'<div class="tile" data-table="plain" data-frame="{frame}" data-tf="0" data-shot="0" '
+            f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{file}" alt="">'
+            f'<div>frame {frame}, the source itself: {why}, so nothing is outlined</div>{ask}<div class="st"></div></div>')
+
+
+def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
+         long_frames: int = LONG_SHOT_FRAMES) -> str:
     rows = []
     for s in shots["shots"]:
         who = []
@@ -175,15 +202,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             mid = (s["first"] + s["last"]) // 2
             f = plain_frame(source, mid, out)
             if f:
-                ask = "".join(
-                    f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
-                    + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
-                    for sub in shots["subjects"])
-                tiles.append(f'<div class="tile" data-table="plain" data-frame="{mid}" data-tf="0" data-shot="0" '
-                             f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{f}" alt="">'
-                             f'<div>frame {mid}, the source itself: {'the trackers found nobody on this shot' if covered else 'no preview covers this shot'}, so nothing is outlined</div>'
-                             f'{ask}<div class="st"></div></div>')
+                tiles.append(plain_tile(shots, s, mid, f, "the trackers found nobody on this shot" if covered else "no preview covers this shot"))
         if found:
             mid = (s["first"] + s["last"]) // 2
             t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
@@ -202,6 +221,11 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                          f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
                          f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}), '
                          f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}</div>')
+        if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
+            for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
+                f = plain_frame(source, q, out)
+                if f:
+                    tiles.append(plain_tile(shots, s, q, f, f"the {which} quarter of a shot of {s['last'] - s['first'] + 1} frames, shown because one frame can miss an entrance"))
         words = owner_words(answers, s["first"], s["last"])
         wtxt = "".join(f'<div class="w">frame {w["frame"]} ({w["at"]}): {html.escape(w["words"])}</div>' for w in words)
         note = f'<div class="how">{html.escape(s["note"])}</div>' if s.get("note") else ""
@@ -214,7 +238,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             + (f' of {shots["source_frames"]} frames' if shots.get("source_frames") else "")
             + f'. Record: {html.escape(shots.get("written_by", ""))}</p>'
             f'<p>A numbered picture is the tracker\'s own at the time of its preview: outlines and numbers as it drew them, '
-            f'one frame a shot. Previews: {", ".join(html.escape(p["name"]) + " (" + str(p["first"]) + "-" + str(p["last"]) + ")" for p in previews_)}.</p>')
+            f'one frame a shot; a shot longer than {long_frames} frames also shows its first- and last-quarter frames plain. Previews: {", ".join(html.escape(p["name"]) + " (" + str(p["first"]) + "-" + str(p["last"]) + ")" for p in previews_)}.</p>')
     replaced = ""
     if plan:
         replaced = ('<p><b>What is replaced, per subject (the plan, not the outline):</b> '
@@ -238,6 +262,8 @@ def main() -> int:
     ap.add_argument("--answers")
     ap.add_argument("--plan", help="the video's plan file; its per-subject region is printed in the header so the outline is not read as the region")
     ap.add_argument("--source", help="the source copy the frame numbers are of; with it, a shot the trackers found nobody on shows its own middle frame")
+    ap.add_argument("--long-shot-frames", type=int, default=LONG_SHOT_FRAMES,
+                    help=f"a shot longer than this also shows its first- and last-quarter source frames (needs --source); {LONG_SHOT_FRAMES} by default, a starting value")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -245,7 +271,7 @@ def main() -> int:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     plan = json.load(open(a.plan)) if a.plan else None
-    text = page(shots, previews(a.preview), answers, out, plan, a.source)
+    text = page(shots, previews(a.preview), answers, out, plan, a.source, a.long_shot_frames)
     (out / "index.html").write_text(text)
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
     print(f"written: {out / 'index.html'}; {len(shots['shots'])} shot(s); {len(tiles)} tile(s) under {out / 'tiles'}")
