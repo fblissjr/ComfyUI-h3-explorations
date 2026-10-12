@@ -26,8 +26,12 @@ writer, and the row or commit named is the nearer record.*
   owner, in the lead's terminal, 2026-10-12 at about 16:40Z by the clock:
   "the glitching was not in that segment"). What it narrows: the 2026-10-11
   ruling that the second subject's whole-person renders are not used, which
-  rests on the segments where she glitched (14-167, and 1042-1049 by the
-  blind reader's tie-back). On 604-1009 the 10th's piece
+  rests on the segments where she glitched: the page's rows 2a and 2b,
+  1015-1085 and 1042-1049, the two shots after this scene (the owner's
+  correction at about 16:45Z; an earlier line here said 14-167, which was
+  the egg, not a glitch). The owner's reading of the cause, a hypothesis:
+  a whole person forced into a small mask glitched there, and face and
+  hair should not; the face-and-hair render of 1010-1060 is its test. On 604-1009 the 10th's piece
   (`mom_kitchen_mesh`, in that day's table a with a patch on 752-780) is a
   usable form beside today's face-and-hair render; the owner compares the
   two on the same frames before the plan's region for the stretch is
