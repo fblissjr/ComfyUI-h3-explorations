@@ -22,6 +22,19 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **Her face and hair for everything; no whole-person replacement of the
+  second subject anywhere; the earlier renders are not reused, the shots
+  are rendered fresh with the tools, and the faults seen are fixed first**
+  (the owner, in the lead's terminal, 2026-10-12 between 16:43Z and 16:46Z
+  by the clock, on being shown that the 10th's whole-person piece of the
+  kitchen scene could stand). This supersedes the line below it from a few
+  minutes earlier: the 10th's piece is not used on 604-1009 either. The
+  first fault to fix is the mottled patch at her shoulder (the margin round
+  her hair redrawing her blouse at every latent step): the next loads keep
+  her upper clothing out of the region (load B of the cutaways; the same
+  keep-out on 604-1009 and her tail shots); what that does to her long hair
+  at the shoulder line is read on the first render. This is the go for
+  those renders, written in each job's note with these words and times.
 - **Her whole-person render stands on the kitchen scene 604-1009** (the
   owner, in the lead's terminal, 2026-10-12 at about 16:40Z by the clock:
   "the glitching was not in that segment"). What it narrows: the 2026-10-11
