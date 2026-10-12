@@ -22,6 +22,48 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **`masked_v2v.md` was reorganized, and held to the clips, the files and
+  the code it names** (the owner, 2026-10-12, in the lead's terminal,
+  offering a session for it: "Its a mess right now"; and on top of the
+  lead's brief: "Have them validate against actual clips where theyre
+  referenced". Session mrprompt, from 17:56Z by the clock; this entry is
+  that session's own). An index is at the page's top, and the order it had
+  is in its last section, "How this page grew". No heading another file
+  cites changed its words. Moved, word for word: the frame every masked
+  text is written in, from the head of "The text: the fragment" to a
+  section of its own, with "Say the least first" from under the prompt
+  node; "Nothing is kept between runs by a key" and "Three things called a
+  version", from under the Masked Source to a section after the pieces;
+  "Seeing what the tracker and the masks did", to follow "Running a job".
+  Cut: the delivery tool's paragraph, down to what a session needs and a
+  pointer to `bench/assemble_delivery.py`'s docstring, which says the rest;
+  the bullet "No kept mask", folded into the section that said it at
+  length. Added from what the page already said: the table "What is known
+  from renders, by form", and the owner's condition on the fragment beside
+  "A pattern, not a paste". What the page used to claim and no longer does,
+  each with the old words kept beside the new:
+  - of `edge`, "Nothing has rendered with it", true when written on
+    2026-10-09. The kitchen shot's picked render carries `latent cells`
+    (`data/2026-10-11_gate_p4_0014_job/second_hf_0014_p4.render.json`);
+    no render with it has been read beside one without.
+  - a preview of the song node tracks the subject "the first time; the mask
+    is kept and the render that follows tracks nothing". No mask is kept
+    since 2026-10-10 (`masked_prompt.py`, its docstring).
+  - the `MASK_VERSION` numbers were listed on `video_mask.py` too, which
+    has had none since 2026-10-10.
+  - "None of the captures or tools above carries a field for which person a
+    file is about". `bench/capture_masked_run.py files` puts a `subject` on
+    every row and file.
+  - the composite's hold was "measured,
+    `bench/results/2026-10-10_saved_windows_laid_again.json`". That file
+    left the tree at a3aeab08; the page names the record's `.md`.
+  - "Two more graphs since 2026-10-06, neither rendered yet", which now
+    reads as of the day it was written.
+  - the statement of who is in each window was pointed at `handover.md`,
+    "After the close", a section that page no longer has; said beside the
+    sentence, with where the fact lives now.
+  The table of every clip and file opened, with the frames looked at:
+  [`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md).
 - **Every comment the owner typed on the local page is a record to use,
   and where a typed comment and a clicked button disagree the words are the
   source of truth** (the owner, in the lead's terminal, 2026-10-12 between
@@ -160,7 +202,9 @@ writer, and the row or commit named is the nearer record.*
   face, or a face and hair), and the movements and expressions from the
   body-model video with its shapes. Now written at the head of the masked
   lane page's text section ([`masked_v2v.md`](masked_v2v.md), "The text:
-  the fragment"), which had the fragment's rules and not the frame; the same words
+  the fragment"; moved later the same day, when the page was reorganized,
+  to its own section "The frame every masked text is written in"), which
+  had the fragment's rules and not the frame; the same words
   are the reason a two-subject load (row z09) is written as two pictures
   each described, one union region, one motion video with both figures.
 - **Windows align with cuts, and a new window never starts within about a

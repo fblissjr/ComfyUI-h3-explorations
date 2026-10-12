@@ -1,6 +1,6 @@
 # Masked video to video: how it works, what it cannot do, where to go next
 
-last updated: 2026-10-11 (at the close, how to read the section on the body model with marks: patterns with their conditions, not a recipe; later the same evening, a dated note that the practice did not repeat on a second shot, and the marks tool named where a one-off was; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
+last updated: 2026-10-12 (reorganized: an index at the top, the sections in the order a reader meets the lane, and every clip, file and function the page names opened and held to its sentence; what moved, what was cut and what was corrected is in [`decisions.md`](decisions.md) under that date, the table of what was opened is [`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md), and the page's earlier edits are listed in "How this page grew" at the end)
 
 Written by hand. This is the lane's map for a reader who has not followed
 it: the pieces in the order a render meets them, the limits each one has
@@ -12,6 +12,36 @@ The dated account, with the owner's words, is
 [`../h3_audio_freeze.md`](../h3_audio_freeze.md) section 4. What was
 decided is in [`decisions.md`](decisions.md) under 2026-10-04. Each session's
 working notes are in [`../research/masking/`](../research/masking/).
+
+*2026-10-12: "the masking board" below names a board that was retired that
+day ([`decisions.md`](decisions.md), 2026-10-12: the Open List is the one
+place a decision is asked and answered). A card's name is kept where a
+finding was filed under it. Whether each card was carried to the Open List
+was not checked when this note was written.*
+
+## Index
+
+One line a section, in the page's order, with the question it answers.
+
+| | section | the question it answers |
+|---|---|---|
+| the lane | "What it is" | what the lane does, which graphs ship, and what the mechanism is in core |
+| | "The frame every masked text is written in" | whose side a text is written from, and how little a first text says |
+| the rules | "The rule: data before a render, and the same data after" | what has to exist before a render and what is read first after one |
+| | "Reading one window whole: its text, its frames, its mask, its audio" | what to put side by side before building on a load or diagnosing a render |
+| | "Rules of the lane" | the lane's habits in one list, each with where its reasoning is |
+| a job | "Running a job: one tool, on the video's analysis folder" | how a job is built and queued, stage by stage, and what the builder refuses or shows |
+| | "Seeing what the tracker and the masks did" | which file or command holds what a run was given, what it wrote, and the file that gets watched |
+| the pieces | "The pieces, in the order a render meets them" | what each of the four nodes does, with its inputs and their dated notes |
+| | "Nothing is kept between runs by a key" | what was once reused by a key, what became of each, and what "version" means in three places |
+| | "A latent step is several frames, and its grid is fixed for a whole load" | why a frame cannot be treated alone, what a cut inside a step does, and why a window follows its context |
+| what renders showed | "What is known from renders, by form" | which forms have rendered, on what, and where each result is written |
+| | "The motion video as a body model, with marks drawn on its face" | what the marked body-model reference is, how it is made, its text, and what it carried on one shot and not on a second |
+| | "A small subject, rendered zoomed in" | what `render_region` does, what it buys, and what its one render showed |
+| limits and directions | "Known limits" | what the lane cannot do, each with where the evidence is |
+| | "Directions" | what is worth trying and what is known about each |
+| where to look | "Where to look" | which file answers a question this page does not |
+| | "How this page grew" | what was added on which day, and how the page was reordered |
 
 ## What it is
 
@@ -32,7 +62,8 @@ Why ref2va and why that count is measured, not reasoned:
 reference at any step count, distilled or not; ref2va loses it at eight). It
 costs the step count over the PDD8 graph, which stays the default for a
 shot that needs no movement from the source.
-Two more graphs since 2026-10-06, neither rendered yet:
+Two more graphs since 2026-10-06, neither rendered when that was written,
+and a third since 2026-10-07:
 
 - `workflows/h3_video_to_video_masked_review_api.json` is the look before a
   render. It is the default graph with the song node on `preview`, so
@@ -57,7 +88,6 @@ Two more graphs since 2026-10-06, neither rendered yet:
   until 2026-10-07 that no shipped graph ticked them.) What the part node was seen to find,
   on which clips:
   `../../bench/results/2026-10-05_sapiens2_first_frame.md`.
-
 - `workflows/h3_video_to_video_masked_upper_song_ref2va_motion_api.json`
   (2026-10-07) is the ref2va motion graph with the region cut to the head
   and upper body: the part node at `h3_config.MASKED_UPPER_PARTS` (hair,
@@ -69,7 +99,9 @@ Two more graphs since 2026-10-06, neither rendered yet:
   rendered a typed text; this graph renders the node's wording for the same
   region. That wording rendered the same day on the same window and seed,
   beside the typed arm, and the two are stacked on the output share
-  (`Video/compare_stacked/body_345_p7_typed_beside_node_over_mask.mp4`).
+  (`Video/compare_stacked/body_345_p7_typed_beside_node_over_mask.mp4`:
+  the typed arm on the left, the node's on the right, each over its own
+  mask, titles burned in and no frame numbers).
   The owner watched the pair on 2026-10-07: both good, and not told apart.
   (Said for a few hours that day that the wording had not been watched,
   which was this page not knowing that arm existed.) Start here for a still that shows the
@@ -104,6 +136,202 @@ means that. How vllm-omni's mask editing and the third-party masking packs
 compare with this lane, and what they do that it has not tried:
 [`references.md`](references.md), "Masks and edited video upstream, beside
 the masked lane".*
+
+## The frame every masked text is written in
+
+*Moved here on 2026-10-12, word for word: the first paragraph from the head
+of "The text: the fragment", where it was written earlier that day, and "Say
+the least first" from under the Masked Prompt node. Both are about every text of
+the lane and not about one node or one form of reference.*
+
+**The frame every masked text is written in** (the owner, 2026-10-10, in
+the postmortem of that day's span, and again 2026-10-12 to the lead): the
+model is not editing a video it can see. It generates new pixels in the
+masked region, and nothing is replaced from its side. What steers it is
+what its training makes of the frozen frames and the sound round the hole,
+the prompt, and the references. So the text gives it enough to infer what
+happens there: each reference asset described, and what of it is preserved,
+partially preserved or transferred (`retention_analysis`); what is
+generated (a face, or a face and hair); and the movements and expressions
+from the body-model video with its shapes. A sentence that describes the
+scene as already lit, framed and cut, or a thing as "the scene's own", is
+addressed to an editor, not to this model, and was ruled out on the 10th.
+
+**Say the least first, and add a sentence only when a render asks for it**
+(the owner, 2026-10-10: "let the model guide and infer until you need to get
+more specific", "just like progressive disclosure"). It is the rule "The
+text says nothing it cannot know" (under the Masked Prompt node, below)
+carried to a text written by hand for one window. The frozen picture round
+the hole and the frozen audio already tell the model most of what a text
+would: the setting, the light, the framing, the pose where the region is
+small, and whether a voice is on the track. So a first text discloses in this
+order and stops:
+
+1. **Who is drawn and from which reference, and this part is never
+   minimal**: the subject's definition, what `<Picture 1>` provides, and the
+   vendor guide's marker for it (`vendor_guides/ref_en.md`, section 4.1):
+   `fully_preserved` for a whole person; `partially_preserved` when only a
+   part of the still is taken, with what is kept and what is not used said
+   in the line; `attribute_transfer` for a motion video.
+2. **Where the subject is, and what on them is the scene's own** (the hair
+   or clothing the plate keeps), in a sentence.
+3. **Nothing about action, expression or voice.**
+
+Then render, look, and add one sentence for what was missing: only what is
+plainly visible in the source at the frames the sentence is about, or
+measured. A voice is measured (a separation of the track says where one
+is); an open mouth in a still is not a voice. An added sentence is checked
+as a default is, against the source, and it is the first thing deleted when
+a render misbehaves.
+
+What the first day of this showed, on one clip, one seed each, read from
+stills and not judged on playback, so a direction and not a record: a
+whole-person swap with hands inside the hole did not draw a two-handed
+action until one sentence named it; a sentence placing a gesture "near the
+end" of a window was drawn through most of the window; and a sentence
+saying the subject performs the voice was written for shots where the track
+has no voice. Two of the three are a sentence added before a render asked
+for it.
+
+Where the rest about a text is:
+
+- what the Masked Prompt node writes, and "The text says nothing it cannot
+  know": piece 3 of "The pieces, in the order a render meets them".
+- the lines for a body model with marks on its face, and the condition they
+  hold under: "The text: the fragment".
+- reading a load's text whole against its frames: "Reading one window
+  whole" and "Rules of the lane".
+- the reference format and the vendor's guides: [`../prompting.md`](../prompting.md).
+
+## The rule: data before a render, and the same data after
+
+Set by the owner on 2026-10-10 for every session on this lane: "take a data
+driven approach to all of this". It is a rule, not advice, because the lane's
+earlier jobs spent their card time finding out what a few minutes of looking
+at masks would have said, and explained failures by a session's reading that
+the next render refuted.
+
+1. **Before a render: capture, flags, a look, then the render.** A
+   no-sampling run saves what every tracker and part node made, for every
+   person and object in the load (`bench/capture_masked_run.py`, "Seeing what
+   the tracker and the masks did" below). Its `preflight` lists what is at
+   risk, each flag with its reason and its frames: a person taken in a shot
+   they are not in, a part mask off its person, one person's region over
+   another, things inside a region that are not its subject, a text that
+   disagrees with a measured fact. The flagged frames are looked at. The
+   render then loads the masks that were checked and does not track again.
+   Nothing renders on a guess about what the tracker took.
+2. **After a render: the capture is read first.** When a render is wrong,
+   the first step is a lookup, not a probe: on the frames in question, was
+   the mask on the right person, what else was inside the region, what was
+   the model shown as movement and as text, was there a voice. A new probe
+   comes only after the tables have been read and found silent.
+3. **A "why" cites a row, a frame range or a measured figure.** A cause
+   stated without one is labelled a reading, and gets a control before
+   anything is built on it.
+4. **Every flag gets its outcome, and every surprise becomes a flag or a
+   gap.** What happened on the flagged frames is written beside the flag, so
+   a threshold's provenance can move from reasoned to measured. A fault no
+   flag predicted is a new rule in the preflight, or an entry in
+   `data/CAPTURE_GAPS.md` saying what was not captured, too coarse, filtered
+   wrongly or resting on a one-person assumption.
+5. **Captured data lives under `data/`**, which is not tracked. A tool
+   worth running twice lives in the tracked tree with a check, never in a
+   scratchpad: the 2026-10-07 captures were made by scripts that were not
+   kept.
+
+What the upfront data can and cannot say: it says where and why a render is
+at risk. It does not say what the model will draw inside the region; that
+still takes a render, and the flags say which shot to render first and which
+frames to look at.
+
+## Reading one window whole: its text, its frames, its mask, its audio
+
+How the lane got to work, written down so nobody has to find it again
+(owner, 2026-10-10). It is a habit and not a gate: nothing checks that it
+was done, and no more refusals are wanted for it. On that day a wrong
+render was put down to a signal four times, renders were spent, and the
+cause was in the text each time; the other sessions had never seen the
+texts, only one session's description of them. The account is
+[`2026-10-10_span_fun-three-people.md`](../research/postmortems/2026-10-10_span_fun-three-people.md),
+section 1.1.
+
+**When.** Before building on a load somebody else made, or you made on
+another day. And first, before any test render, when a render is wrong in a
+way that is not obvious.
+
+**What.** Take ONE window of ONE load and put four things side by side for
+the same frames. Assume one of them is out of step until you have looked.
+
+| what | where it is today |
+|---|---|
+| **The text**, whole, as the model gets it | `bench/masked_job.py build` prints each load's text in full with the frames it was written from. The look's strip draws it under the frames: `bench/capture_masked_run.py video <capture> --source CLIP --job JOB.json --load LOAD`. The texts are short. Read the text itself; hand another session the file, never a sentence about it; and when a cause is not obvious, show the owner the whole text |
+| **The window's frames**: which source frames, which are held, which share a latent step | the raw frames themselves are already laid out by frame number in [`contact_sheets/`](../../contact_sheets/AGENTS.md), one folder a video (`bench/contact_sheets.py find <video> <frame>`): open a sheet before sampling the video again. Which of them a window gets: the plan the song node's preview writes, `<name>_plan.json`, and each window's `<name>_window_N_planned_region.npz` ("Seeing what the tracker and the masks did", below); "A latent step is several frames", below, for why a frame can be drawn with no mask of its own. For a finished render, `bench/recomposite_window.py --read-files` reads the window's own files with nothing decoded |
+| **The mask** on those frames, and whose it is | the capture's stacked, frame-numbered video (`bench/capture_masked_run.py video`), its per-frame tables, and the region each window was really given, `<name>_window_N_region.npz` |
+| **The audio** the load was given, and whether a voice is on those frames | `build` prints an `audio:` line for each load (a sentence, not yet data: the audio in a load's record is not landed). The capture's voice table, and `bench/capture_masked_run.py shots --loads`, which says how many of a load's frames have a voice and where the source's mouth is open with none |
+
+**What it is for.** Every fault of 2026-10-10 that cost a render was two of
+these four disagreeing: a text written from one shot on a load of another;
+a frame drawn with no mask of its own; one sample of audio deciding a
+frame; a text saying the scene is quiet over a song. Each was gated on its
+own and passed.
+
+**Not built.** One command that shows the four together for a window (the
+masking board, `build-why-command-text-mask-four-timelines-first`), and the
+statement of who is in each window with what it rests on
+([`handover.md`](handover.md), "After the close"). Until they are, the four
+places above are the route. *2026-10-12: `handover.md` no longer has a
+section of that name. Who is in each shot is now `data/<video>/shots.json`,
+answered on the page `bench/who_page.py` makes (`AGENTS.md`, "Where state
+lives"); the one command is still not built.*
+
+## Rules of the lane
+
+Moved here from `AGENTS.md` on 2026-10-12, when that file was cut to what a
+session cannot work around; these are the lane's own habits, each earned on
+2026-10-10 or 2026-10-11, and the two sections above hold the reasoning.
+
+- **A masked render is run on data, before and after.** A no-sampling
+  capture and its flags before it samples (`bench/capture_masked_run.py`);
+  the same capture read first when it goes wrong; a "why" cites a row, a
+  frame range or a measured figure. Captured data lives under the untracked
+  `data/<video>/`.
+- **Preprocessing data is looked at the moment it is made**, by the tool's
+  `verify` and by a reader who did not make it (a subagent counts): the mask
+  on the right subject on every frame, the part, the motion video, each
+  file's frame offset. A passing check says no rule failed, never that the
+  data is right; a capture records who made it and who looked.
+- **A scene's text is data, served by whatever plans the shots**, never
+  stored verbatim in code or in a workflow. It is written from the frames of
+  one window and is true of that window only; it is a plain caption of the
+  finished shot (what is seen and heard), never a statement of what is kept,
+  and it says nothing about sound, action or expression not known from the
+  frames or the track. Know which text a load gets, read it whole against
+  that load's frames before it is used, and check after the render that it
+  did what was expected.
+- **When a render is wrong, read four things together before anything is
+  suspected or queued**: its text, its mask, and how the four timelines line
+  up (the input video's frames, the mask's frames, the sampler's frames and
+  the audio). The owner's count is that it is one of those about half the
+  time; on 2026-10-10 three renders went to a kernel setting and an audio
+  file before the text was read, and one sentence fixed it. The text is read
+  whole by whoever reasons about the load, never as a summary; when the
+  cause is not obvious, the owner is shown the whole text. "Reading one
+  window whole", above, is where each of the four is.
+- **A graph posted by hand is a temporary plan**: whoever posts one reads the
+  full text first and writes beside the job which built graph it came from,
+  the one thing changed, by whom, and what the render is meant to decide.
+  (Since the builder landed, nobody has; the job's `note` holds the same.)
+- **A rule that depends on the picture takes its value from the input video,
+  up front** (`subject_track.auto_cuts`, `auto_match`); a constant measured on
+  another clip is a marked starting value, and the tool says when this
+  clip's own figures disagree with it.
+- **Nothing an earlier run made is reused by a key** ("Nothing is kept
+  between runs by a key", below): a mask is preprocessing data for the job
+  that reads it, rebuilt when preprocessing runs again.
+- **What is on a frame of an input video is already in `contact_sheets/`**
+  (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
+  sampling a video again.
 
 ## Running a job: one tool, on the video's analysis folder
 
@@ -183,132 +411,138 @@ session starting a job needs to know:
   load over several shots with a text that describes each shot (both on
   the same card).
 
-## Reading one window whole: its text, its frames, its mask, its audio
+## Seeing what the tracker and the masks did
 
-How the lane got to work, written down so nobody has to find it again
-(owner, 2026-10-10). It is a habit and not a gate: nothing checks that it
-was done, and no more refusals are wanted for it. On that day a wrong
-render was put down to a signal four times, renders were spent, and the
-cause was in the text each time; the other sessions had never seen the
-texts, only one session's description of them. The account is
-[`2026-10-10_span_fun-three-people.md`](../research/postmortems/2026-10-10_span_fun-three-people.md),
-section 1.1.
+Written 2026-10-10, after a session had to be told this tooling existed. It
+is in four places and none of them is one command. Read this before writing
+a probe.
 
-**When.** Before building on a load somebody else made, or you made on
-another day. And first, before any test render, when a render is wrong in a
-way that is not obvious.
+**What a render will be given, before it renders, and what it was given,
+after.** The song node writes both itself, into `<prefix>_windows/`
+(2026-10-10). A render leaves `<name>_window_N_region.npz` beside each
+window's latent: the fitted mask, the token region per latent step, the
+margin, the window's first frame, its trim and the composite's settings and
+cuts (`video_mask.save_window_region`, read with `load_window_region`). A
+PREVIEW of the same graph (`preview` on, a source wired) samples nothing and
+writes `<name>_window_N_planned_region.npz`, the same file made by the same
+calls, and `<name>_plan.json`: each window's frames, what it writes, the
+latent steps a cut splits and the frames the composite will leave as the
+source (`audio_freeze_song.write_plan`). Neither is read by a node. A plan
+is replaced by the next preview and left alone by a render, so the two sit
+side by side. What a plan cannot hold is what `only what changed` will
+keep; that needs the decode, and `bench/recomposite_window.py` lays a saved
+window again from its stored latent and its region.
 
-**What.** Take ONE window of ONE load and put four things side by side for
-the same frames. Assume one of them is out of step until you have looked.
+**One command for the masks of a run, any number of people**:
+`bench/capture_masked_run.py files` reads the mask videos a preview saved and
+a render's own review, and writes `data/<date>_<name>/` with a `subject` on
+every row and file, the rows across subjects (`frames.csv`: each pair's
+overlap, a run's region on another subject, the margin cells given back) and
+a README of what it does not hold; `preflight` lists what is at risk before a
+render; `video` draws the stacked, frame-numbered picture from those same
+files. Its docstring is the schema; `bench/check_capture_masked_run.py` is its
+check; what is still missing is in `data/CAPTURE_GAPS.md`. What the models
+behind the lane's signals do and do not give (a body mesh has no mouth; no
+model here scores lip sync) is in
+[`meta_perception_models.md`](meta_perception_models.md).
 
-| what | where it is today |
-|---|---|
-| **The text**, whole, as the model gets it | `bench/masked_job.py build` prints each load's text in full with the frames it was written from. The look's strip draws it under the frames: `bench/capture_masked_run.py video <capture> --source CLIP --job JOB.json --load LOAD`. The texts are short. Read the text itself; hand another session the file, never a sentence about it; and when a cause is not obvious, show the owner the whole text |
-| **The window's frames**: which source frames, which are held, which share a latent step | the raw frames themselves are already laid out by frame number in [`contact_sheets/`](../../contact_sheets/AGENTS.md), one folder a video (`bench/contact_sheets.py find <video> <frame>`): open a sheet before sampling the video again. Which of them a window gets: the plan the song node's preview writes, `<name>_plan.json`, and each window's `<name>_window_N_planned_region.npz` ("Seeing what the tracker and the masks did", below); "A latent step is several frames", below, for why a frame can be drawn with no mask of its own. For a finished render, `bench/recomposite_window.py --read-files` reads the window's own files with nothing decoded |
-| **The mask** on those frames, and whose it is | the capture's stacked, frame-numbered video (`bench/capture_masked_run.py video`), its per-frame tables, and the region each window was really given, `<name>_window_N_region.npz` |
-| **The audio** the load was given, and whether a voice is on those frames | `build` prints an `audio:` line for each load (a sentence, not yet data: the audio in a load's record is not landed). The capture's voice table, and `bench/capture_masked_run.py shots --loads`, which says how many of a load's frames have a voice and where the source's mouth is open with none |
+**One command for the file that gets watched**: `bench/assemble_delivery.py`
+takes a table of renders by source frame range and writes one file at the
+source's own rate with the source's own audio packets, the frames no render
+covers taken from the original, and passes over the same frames merged by
+what each changed. It proves by decode that no frame was dropped, doubled or
+moved and that the audio is the source's, and it raises its own flags from
+the per-frame table of what each render changed. Its docstring is the
+account of the table's rows, of each proof and of each flag, and
+`bench/check_assemble_delivery.py` is its check. What each proof shows and
+does not, the files built with the tool and every change to it by date:
+[`bench/results/2026-10-10_delivery_files_and_their_records.md`](../../bench/results/2026-10-10_delivery_files_and_their_records.md).
+*Cut on 2026-10-12 from a paragraph that restated the docstring flag by
+flag.* What a session needs from it here:
 
-**What it is for.** Every fault of 2026-10-10 that cost a render was two of
-these four disagreeing: a text written from one shot on a load of another;
-a frame drawn with no mask of its own; one sample of audio deciding a
-frame; a text saying the scene is quiet over a song. Each was gated on its
-own and passed.
+- Cut a render's rows on the source's cuts.
+- Given capture folders (`--capture`) it settles shared pixels by whose
+  they are, and where two tracked masks claim the same pixel (an arm
+  reaching across somebody) the capture's `owners.npz` says whose it is. A
+  patch has no run in a capture, so its row says whose it is
+  (`subject=<label>`).
+- A row can give a class of a subject back to the source
+  (`restore=<subject>.<Class>`, read from the capture's class map): a thing
+  inside a region that should not have been redrawn, an earring inside a
+  face, is put back here and not by asking the sampler to keep it, which
+  changes what the sampler draws beside it. With no class
+  (`restore=<subject>`) a row gives back the whole of another subject, and
+  `restore=<subject>:whole` takes nothing out.
+- A shot left as the source on purpose is written in the table, as a
+  `source first-last subject=<label> why` line.
+- With `--size source` the file is at the source's own size: every frame is
+  the source's picture, never scaled, and only what a render changed is
+  scaled up and put back over it.
+- `--compare A.check.json B.check.json` prints two records side by side:
+  the same stretch with and without a restore is the before and after a "by
+  class" question asks for.
+- Judge a render's colour on this file: it is BT.709 and says so, as
+  renders are since the song node's writer converts and tags, and a render
+  written before that plays off in a player that guesses the matrix from
+  the size.
+- A file listed in its folder's `LOCKED.md` is never built over.
+- How a region SITS in its plate (its detail, grain, tone and cast against
+  the plate just outside it and against what stood there before) is
+  `bench/region_against_plate.py`, which needs no mask either; run it
+  before tuning a look by eye.
 
-**Not built.** One command that shows the four together for a window (the
-masking board, `build-why-command-text-mask-four-timelines-first`), and the
-statement of who is in each window with what it rests on
-([`handover.md`](handover.md), "After the close"). Until they are, the four
-places above are the route.
+**What every masked render already wrote beside itself** (the song node,
+`audio_freeze_song.py`):
 
-## The rule: data before a render, and the same data after
+- `<prefix>_NNNNN_shots.json` and `.md`: the Subject Track's shot table
+  (`shot_table.py`, whose docstring is the schema). Per shot: its frames, the
+  people found on the frame shown with a number each, who was taken and why,
+  the frames with and without the subject, each loss and what was looked at
+  after it. A person's number is theirs on that shot's shown frame only; it
+  is not an id that holds across shots.
+- `<prefix>_NNNNN_with_mask.mp4`: the render over the source with the
+  regenerated region coloured, drawn from the token mask the sampler was
+  given ("The song node" below).
+- The song node's report, in `/history` and on the graph's text preview: the
+  window plan, what share of each window regenerated, the Masked Source's
+  warnings about a part mask it doubts, the seconds by stage.
 
-Set by the owner on 2026-10-10 for every session on this lane: "take a data
-driven approach to all of this". It is a rule, not advice, because the lane's
-earlier jobs spent their card time finding out what a few minutes of looking
-at masks would have said, and explained failures by a session's reading that
-the next render refuted.
+**The look before a render**, nothing sampled: the review graph ("What it
+is"). To keep the masks themselves, wire a mask-to-image node and a video
+save node onto the Subject Track's `mask`, the Subject Parts' mask and the
+Masked Source's `mask`: no shipped graph does, and a session's own preview
+graph is the usual way. `MiniMaxH3SaveShotTable` saves the table and the
+numbered tiles.
 
-1. **Before a render: capture, flags, a look, then the render.** A
-   no-sampling run saves what every tracker and part node made, for every
-   person and object in the load (`bench/capture_masked_run.py`, "Seeing what
-   the tracker and the masks did" below). Its `preflight` lists what is at
-   risk, each flag with its reason and its frames: a person taken in a shot
-   they are not in, a part mask off its person, one person's region over
-   another, things inside a region that are not its subject, a text that
-   disagrees with a measured fact. The flagged frames are looked at. The
-   render then loads the masks that were checked and does not track again.
-   Nothing renders on a guess about what the tracker took.
-2. **After a render: the capture is read first.** When a render is wrong,
-   the first step is a lookup, not a probe: on the frames in question, was
-   the mask on the right person, what else was inside the region, what was
-   the model shown as movement and as text, was there a voice. A new probe
-   comes only after the tables have been read and found silent.
-3. **A "why" cites a row, a frame range or a measured figure.** A cause
-   stated without one is labelled a reading, and gets a control before
-   anything is built on it.
-4. **Every flag gets its outcome, and every surprise becomes a flag or a
-   gap.** What happened on the flagged frames is written beside the flag, so
-   a threshold's provenance can move from reasoned to measured. A fault no
-   flag predicted is a new rule in the preflight, or an entry in
-   `data/CAPTURE_GAPS.md` saying what was not captured, too coarse, filtered
-   wrongly or resting on a one-person assumption.
-5. **Captured data lives under `data/`**, which is not tracked. A tool
-   worth running twice lives in the tracked tree with a check, never in a
-   scratchpad: the 2026-10-07 captures were made by scripts that were not
-   kept.
+**The inside of the tracker** (each tracker call, where it stopped, every
+look after a loss with its candidates): `bench/subject_regain_looks.py`,
+whose docstring has the commands (`run`, `render`, `replay`). A separate
+process on the card, outside the server. It takes one of the pick rules and
+cannot yet follow a person named by a frame or a correction.
 
-What the upfront data can and cannot say: it says where and why a render is
-at risk. It does not say what the model will draw inside the region; that
-still takes a render, and the flags say which shot to render first and which
-frames to look at.
+**A finished render against its source**:
+`bench/masked_render_against_source.py` (`align`, `timing`, `flicker`,
+`landing`; run `align` first), `bench/measure_subject_motion.py`,
+`bench/measure_subject_yaw.py`.
 
-## Rules of the lane
+**The captures of 2026-10-07** are under `data/` (untracked), each folder
+with a README that gives its layout: per-frame tables of the track, the
+part and the region, and every node's report, for several windows. The
+scripts that made them were a session's own and were not kept, so the
+folders are a format to copy, not a tool to run.
 
-Moved here from `AGENTS.md` on 2026-10-12, when that file was cut to what a
-session cannot work around; these are the lane's own habits, each earned on
-2026-10-10 or 2026-10-11, and the two sections above hold the reasoning.
-
-- **A masked render is run on data, before and after.** A no-sampling
-  capture and its flags before it samples (`bench/capture_masked_run.py`);
-  the same capture read first when it goes wrong; a "why" cites a row, a
-  frame range or a measured figure. Captured data lives under the untracked
-  `data/<video>/`.
-- **Preprocessing data is looked at the moment it is made**, by the tool's
-  `verify` and by a reader who did not make it (a subagent counts): the mask
-  on the right subject on every frame, the part, the motion video, each
-  file's frame offset. A passing check says no rule failed, never that the
-  data is right; a capture records who made it and who looked.
-- **A scene's text is data, served by whatever plans the shots**, never
-  stored verbatim in code or in a workflow. It is written from the frames of
-  one window and is true of that window only; it is a plain caption of the
-  finished shot (what is seen and heard), never a statement of what is kept,
-  and it says nothing about sound, action or expression not known from the
-  frames or the track. Know which text a load gets, read it whole against
-  that load's frames before it is used, and check after the render that it
-  did what was expected.
-- **When a render is wrong, read four things together before anything is
-  suspected or queued**: its text, its mask, and how the four timelines line
-  up (the input video's frames, the mask's frames, the sampler's frames and
-  the audio). The owner's count is that it is one of those about half the
-  time; on 2026-10-10 three renders went to a kernel setting and an audio
-  file before the text was read, and one sentence fixed it. The text is read
-  whole by whoever reasons about the load, never as a summary; when the
-  cause is not obvious, the owner is shown the whole text. "Reading one
-  window whole", above, is where each of the four is.
-- **A graph posted by hand is a temporary plan**: whoever posts one reads the
-  full text first and writes beside the job which built graph it came from,
-  the one thing changed, by whom, and what the render is meant to decide.
-  (Since the builder landed, nobody has; the job's `note` holds the same.)
-- **A rule that depends on the picture takes its value from the input video,
-  up front** (`subject_track.auto_cuts`, `auto_match`); a constant measured on
-  another clip is a marked starting value, and the tool says when this
-  clip's own figures disagree with it.
-- **Nothing an earlier run made is reused by a key** ("Nothing is kept
-  between runs by a key", above): a mask is preprocessing data for the job
-  that reads it, rebuilt when preprocessing runs again.
-- **What is on a frame of an input video is already in `contact_sheets/`**
-  (`bench/contact_sheets.py find <video> <frame>`): open a sheet before
-  sampling a video again.
+**What does not exist**: a trace the workflow writes itself
+([`next_steps.md`](next_steps.md), "Asked for and not done"), and any id for
+a person that holds across shots or across nodes. **One node follows one
+person** (`subject_track.py`'s docstring; the tracker is seeded with one
+mask). Two people are two Subject Track nodes in one graph, which share
+nothing, each with its own table; the second person's mask goes to the
+Masked Source's `others` when the two stand close. *Until 2026-10-12 this
+paragraph ended "None of the captures or tools above carries a field for
+which person a file is about", written before the capture tool had one:
+`bench/capture_masked_run.py files` puts a `subject` on every row and file
+(its docstring), and a delivery table's row can say whose it is. The node's
+own files, the shot table and the mask review, still carry none.*
 
 ## The pieces, in the order a render meets them
 
@@ -443,9 +677,13 @@ where in core.
   puts the source back cell by cell, so a kept cell inside a regenerated token
   is the source's in the result (`video_mask.EDGES` has the provenance). It is
   aimed at the rounding that keeps the region near twice a small subject's own
-  area with no margin at all. Nothing has rendered with it;
-  `bench/check_video_mask.py` item 15 holds that it loses no subject pixel and
-  moves no label.
+  area with no margin at all. `bench/check_video_mask.py` item 15 holds that
+  it loses no subject pixel and moves no label. *Until 2026-10-12 this said
+  nothing had rendered with it, which was true when it was written on
+  2026-10-09. The kitchen shot's picked render carries it (the graph saved
+  beside its job, named under "How it was made"), and the built graphs that do are listed by
+  `grep -l '"edge": "latent cells"' data/*_job/*.render.json`. No render with it has been read beside the same render without it, so
+  what it changes in a picture is still not known.*
 - **`keep`** (optional, 2026-10-07). A second mask, from any node, of what
   must stay the original even inside the region: something the subject
   holds, a person standing close, anything passing in front. The part node's
@@ -512,42 +750,8 @@ where in core.
   the region. `only what changed` (`changed_alpha`) keeps the render where
   it differs from the source or where the old subject stood, and restores
   the source in the rest of the margin, so the margin can be generous.
-- **No kept mask.** Until 2026-10-10 `mask_store.py` kept the finished mask
-  on disk under a key (`reuse_mask`), and on a hit the tracker did not run.
-  It is removed: a mask is temporary data, made by the preprocessing step
-  for the job that reads it. See the next paragraph.
-
-**Nothing is kept between runs by a key (2026-10-10).** The owner's rule:
-nothing an earlier run made is reused by a key; a result is made again, or
-handed in explicitly as a named file or a wired input (`AGENTS.md`,
-"Operative rules"; [`decisions.md`](decisions.md), 2026-10-10). What this
-lane had, and what became of each:
-
-| what | where it was | what it was keyed on | now |
-|---|---|---|---|
-| the finished mask | `output/masks/` (`mask_store.py`, `reuse_mask`) | the queued graph, a sample of the frames, the files' stats, a hand-bumped number per node | REMOVED with its input, module and check. The key could not see a change to the code that makes a mask; a stale mask hid a fix on 2026-10-07 and the store was off in code from that day |
-| a rendered window, reused | beside the render (`loop_resume.py`, `reuse_windows`) | the queued graph upstream of the song node, the track, the window's text, length, start and seed, the window before it | REMOVED: the keys and the reuse. The window FILES stay: a window's video and its sampled latent are written on every run, and read again only when a person names them (`continue_from`, `bench/recomposite_window.py`) |
-| a window's source encode and prompt encode | the server's memory (`window_keep.py`) | the identity of the live objects they were made from | REMOVED with its module and check. It was switched by `reuse_windows` on the node and not by the code switch, so it was live in any graph that set that input |
-| the shot table | `<prefix>_NNNNN_shots.json`, and the Subject Track's `shot_table` output | `TABLE_VERSION`, the file's format | unchanged: a file a person wires into `subject_from`, which is the explicit form the rule allows |
-
-A mask made once and used many times is a mask VIDEO a job's graph loads
-from a file its capture wrote: named, visible, and replaced when the
-capture is made again.
-
-**Three things called a version, and none is the other.** The pack's
-version is the newest heading in `CHANGELOG.md`, assigned by
-`bench/build_changelog.py` from fragments (semver; `pyproject.toml`'s
-`version` is what ComfyUI's registry reads and is kept equal to it by the
-same build). `MASK_VERSION` is not a version of a node: it is one integer
-per node class that goes into the kept mask's key, bumped only when that
-node's code would make a different mask from the same inputs, so the
-numbers on different nodes (`subject_track.py`, `sapiens2_parts.py`,
-`video_mask.py`) are unrelated and never compared. The kept mask it keyed
-was removed on 2026-10-10 and the Masked Source's own number went with it;
-the trackers keep theirs because the job builder reads the Subject Track's
-for its corrections rule. `TABLE_VERSION` (`shot_table.py`) is
-the shot table's file format, checked on read. A node's identity is its
-`node_id` in `bench/node_id_manifest.json`, which has no number at all.
+- **No kept mask.** "Nothing is kept between runs by a key", after the
+  four pieces.
 
 ### 3. `MiniMaxH3MaskedPrompt` (`masked_prompt.py`): the prompt
 
@@ -603,39 +807,9 @@ that day it stays a documented practice for now and is not put into the
 node.*
 
 **Say the least first, and add a sentence only when a render asks for it**
-(the owner, 2026-10-10: "let the model guide and infer until you need to get
-more specific", "just like progressive disclosure"). It is the rule above
-carried to a text written by hand for one window. The frozen picture round
-the hole and the frozen audio already tell the model most of what a text
-would: the setting, the light, the framing, the pose where the region is
-small, and whether a voice is on the track. So a first text discloses in this
-order and stops:
-
-1. **Who is drawn and from which reference, and this part is never
-   minimal**: the subject's definition, what `<Picture 1>` provides, and the
-   vendor guide's marker for it (`vendor_guides/ref_en.md`, section 4.1):
-   `fully_preserved` for a whole person; `partially_preserved` when only a
-   part of the still is taken, with what is kept and what is not used said
-   in the line; `attribute_transfer` for a motion video.
-2. **Where the subject is, and what on them is the scene's own** (the hair
-   or clothing the plate keeps), in a sentence.
-3. **Nothing about action, expression or voice.**
-
-Then render, look, and add one sentence for what was missing: only what is
-plainly visible in the source at the frames the sentence is about, or
-measured. A voice is measured (a separation of the track says where one
-is); an open mouth in a still is not a voice. An added sentence is checked
-as a default is, against the source, and it is the first thing deleted when
-a render misbehaves.
-
-What the first day of this showed, on one clip, one seed each, read from
-stills and not judged on playback, so a direction and not a record: a
-whole-person swap with hands inside the hole did not draw a two-handed
-action until one sentence named it; a sentence placing a gesture "near the
-end" of a window was drawn through most of the window; and a sentence
-saying the subject performs the voice was written for shots where the track
-has no voice. Two of the three are a sentence added before a render asked
-for it.
+(the owner, 2026-10-10) is the rule above carried to a text written by hand
+for one window. It is in "The frame every masked text is written in", near
+the top of this page, since 2026-10-12.
 
 - **Set `subject` to match the still.** The shipped graphs say "person"
   because their still is a placeholder. On the one pair rendered, the motion
@@ -658,8 +832,11 @@ for it.
 - **`the wired parts`** can be any part of the subject, so the node asks
   for `picture_gives` to be set and writes nothing until it is.
 - **A `preview` run of the song node tracks the subject** when this node's
-  `source` is wired, the first time; the mask is kept and the render that
-  follows tracks nothing. `masked_prompt.py` says why.
+  `source` is wired. `masked_prompt.py` says why. *Until 2026-10-12 this
+  said "the first time; the mask is kept and the render that follows tracks
+  nothing". No mask has been kept since 2026-10-10: whether a render tracks
+  again is core's own node cache's to say (that file's docstring), and a
+  job's render loads the mask videos its preview wrote.*
 - **The graders read what the encoder reads**: `workflows/prompts.py::carriers`
   resolves the node's text from the graph.
 
@@ -679,6 +856,49 @@ names the mask for what the Masked Source's `replace` makes it (the tracked
 subject, the head and hair, or the parts taken), since on a parts graph the
 mask and the tracked subject are not the same thing. `video_mask.overlay_pieces`
 and `window_layers` own the picture; `bench/check_video_mask.py` item 12 holds it.
+
+## Nothing is kept between runs by a key
+
+*A section of its own since 2026-10-12; until then these two paragraphs
+stood under the Masked Source, below a bullet "No kept mask" that said the
+same in short: until 2026-10-10 `mask_store.py` kept the finished mask on
+disk under a key (`reuse_mask`), and on a hit the tracker did not run; it
+is removed, a mask being temporary data made by the preprocessing step for
+the job that reads it.*
+
+**Nothing is kept between runs by a key (2026-10-10).** The owner's rule:
+nothing an earlier run made is reused by a key; a result is made again, or
+handed in explicitly as a named file or a wired input (`AGENTS.md`,
+"Operative rules"; [`decisions.md`](decisions.md), 2026-10-10). What this
+lane had, and what became of each:
+
+| what | where it was | what it was keyed on | now |
+|---|---|---|---|
+| the finished mask | `output/masks/` (`mask_store.py`, `reuse_mask`) | the queued graph, a sample of the frames, the files' stats, a hand-bumped number per node | REMOVED with its input, module and check. The key could not see a change to the code that makes a mask; a stale mask hid a fix on 2026-10-07 and the store was off in code from that day |
+| a rendered window, reused | beside the render (`loop_resume.py`, `reuse_windows`) | the queued graph upstream of the song node, the track, the window's text, length, start and seed, the window before it | REMOVED: the keys and the reuse. The window FILES stay: a window's video and its sampled latent are written on every run, and read again only when a person names them (`continue_from`, `bench/recomposite_window.py`) |
+| a window's source encode and prompt encode | the server's memory (`window_keep.py`) | the identity of the live objects they were made from | REMOVED with its module and check. It was switched by `reuse_windows` on the node and not by the code switch, so it was live in any graph that set that input |
+| the shot table | `<prefix>_NNNNN_shots.json`, and the Subject Track's `shot_table` output | `TABLE_VERSION`, the file's format | unchanged: a file a person wires into `subject_from`, which is the explicit form the rule allows |
+
+A mask made once and used many times is a mask VIDEO a job's graph loads
+from a file its capture wrote: named, visible, and replaced when the
+capture is made again.
+
+**Three things called a version, and none is the other.** The pack's
+version is the newest heading in `CHANGELOG.md`, assigned by
+`bench/build_changelog.py` from fragments (semver; `pyproject.toml`'s
+`version` is what ComfyUI's registry reads and is kept equal to it by the
+same build). `MASK_VERSION` is not a version of a node: it is one integer
+per node class that goes into the kept mask's key, bumped only when that
+node's code would make a different mask from the same inputs, so the
+numbers on different nodes (`subject_track.py`, `sapiens2_parts.py`) are
+unrelated and never compared. *Until 2026-10-12 this list named
+`video_mask.py` too, which has had no such number since 2026-10-10, as the
+next sentence says.* The kept mask it keyed
+was removed on 2026-10-10 and the Masked Source's own number went with it;
+the trackers keep theirs because the job builder reads the Subject Track's
+for its corrections rule. `TABLE_VERSION` (`shot_table.py`) is
+the shot table's file format, checked on read. A node's identity is its
+`node_id` in `bench/node_id_manifest.json`, which has no number at all.
 
 ## A latent step is several frames, and its grid is fixed for a whole load
 
@@ -771,7 +991,7 @@ row says so.
 |---|---|---|---|
 | `video_mask.token_mask` (the region) | the maximum of the subject's cells over the step's frames | the region lies on the other shot's frames and the sampler regenerates them | the preflight's `region_carried_across_a_cut` (`loop_plan.split_steps`); the song node's report |
 | `pixel_alpha`, the composite's weight | the step's region on each of its frames | the render is laid on the other shot's frames | fixed: `cut_gate` in `lay_window` |
-| `changed_alpha`'s hold | the maximum over the step of "changed, or the old subject stood here" | the far frames differ from the source over the whole region, so the subject's own frames keep the whole region and less of the margin is restored (measured, `bench/results/2026-10-10_saved_windows_laid_again.json`) | nothing; `data/CAPTURE_GAPS.md` U6 |
+| `changed_alpha`'s hold | the maximum over the step of "changed, or the old subject stood here" | the far frames differ from the source over the whole region, so the subject's own frames keep the whole region and less of the margin is restored (measured, [`2026-10-10_saved_windows_laid_again.md`](../../bench/results/2026-10-10_saved_windows_laid_again.md); *until 2026-10-12 this row named that record's `.json`, which left the tree when the record took its own tables and is under the untracked `data/2026-10-10_recomposite_decodes/`*) | nothing; `data/CAPTURE_GAPS.md` U6 |
 | `keep` in `window` | a token with a kept pixel on any frame of the step is kept on all of them | with the subject on both sides, one shot's keep leaves the source showing inside the other shot's subject | the preflight's flag for a subject on both sides of a cut in one step |
 | `others` in `window` | the same hold, taken out unless the subject's own mask has a pixel in the token on a frame of the step | the same | the same flag |
 | `cut_gate` | which side of each cut the subject is on, per step | with the subject on both sides it gates nothing: each side has the other's region | the same flag; open (a region per side) |
@@ -816,6 +1036,23 @@ every render so far was made with; any other value is untested.
 [`window_context.md`](window_context.md) is the ledger for this question:
 the mechanism, every lever with its kind and status, and each result as a
 dated line.
+
+## What is known from renders, by form
+
+A router and not a result: each row says in a line what this page and its
+records already say, and where. One shot or one seed is said as that. A
+form with no row has not rendered, or its render was not read.
+
+| the form | what it was seen on | what it carried | what it did not show | where it is written |
+|---|---|---|---|---|
+| a whole subject on the fast chain, the generic prompt | the first clips, 2026-10-04 | the person replaced from the still, in the hole the mask gives | movement: the new subject faces the camera when the original turns, and a late start carries the turn with the original's hair and clothes | "Known limits", "Replacing the person"; `../../bench/results/2026-10-04_masked_v2v_first_run.md`, `../../bench/results/2026-10-04_masked_v2v_band.md` |
+| the subject's own frames on grey as `<Video 1>` (`motion_reference`), on ref2va | the arms of 2026-10-05 | the subject's movement, at `h3_config.MASKED_MOTION_STEPS` | fl2va ignores the reference at any step count; ref2va loses it at eight | "What it is"; `../../bench/results/2026-10-05_masked_v2v_motion_arms.md` |
+| the head and upper body on the ref2va motion graph | one window of one clip at two lengths and one seed; a typed text beside the node's wording | the owner called it solid on playback, and the two wordings both good and not told apart | the same region on the fast chain was called broken | "What it is"; `../../bench/results/2026-10-06_masked_v2v_body_window_arms.md`; the stacked pair on the share |
+| `keep` | once on 2026-10-07; inside a face-only region on 2026-10-10 (one clip, one window, one seed) | on 2026-10-10 the jewellery that was kept was held | the 2026-10-07 render was not judged; inside a face the kept tokens held the skin beside the jewellery too, and the face moved back toward the original's | piece 2, `keep` |
+| a body mesh as the motion video | one window, one shot and seed, as an appended video before the input existed | the action, with no action words | things inside the region came back as other things until one sentence named them | piece 2, `motion_video` |
+| a body model with lid marks as the motion video | the second subject's kitchen shot, her face and hair, one seed a render; then the lead's sung close-up, her face only | on the kitchen shot her head following the source's, and her lids at the source's level with the marks enlarged | following in time; a second seed; and on the close-up it did not repeat | "The motion video as a body model, with marks drawn on its face" |
+| a small subject rendered zoomed in | one street shot, one load, one seed | it ran clean and the face is replaced where it shows, in stills | not judged on playback; whether it reads as the reference at that zoom is open | "A small subject, rendered zoomed in" |
+| a continuation window after its context | renders of 2026-10-08 and 2026-10-10 | the context's pose | the motion video's pose where it had moved on | "A latent step is several frames", the paragraph on what "frozen" is; [`window_context.md`](window_context.md) |
 
 ## The motion video as a body model, with marks drawn on its face
 
@@ -1003,18 +1240,10 @@ pass was a one-off script under the untracked `data/`.*
 
 ### The text: the fragment
 
-**The frame every masked text is written in** (the owner, 2026-10-10, in
-the postmortem of that day's span, and again 2026-10-12 to the lead): the
-model is not editing a video it can see. It generates new pixels in the
-masked region, and nothing is replaced from its side. What steers it is
-what its training makes of the frozen frames and the sound round the hole,
-the prompt, and the references. So the text gives it enough to infer what
-happens there: each reference asset described, and what of it is preserved,
-partially preserved or transferred (`retention_analysis`); what is
-generated (a face, or a face and hair); and the movements and expressions
-from the body-model video with its shapes. A sentence that describes the
-scene as already lit, framed and cut, or a thing as "the scene's own", is
-addressed to an editor, not to this model, and was ruled out on the 10th.
+*The frame this text is written in stood at the head of this section for
+part of 2026-10-12 and is a section of its own since the page was
+reorganized that day: "The frame every masked text is written in", near
+the top of this page. Read it first.*
 
 A reference the text does not speak of is one the model cannot know to
 use, and a text that says what her face does leaves a render unable to say
@@ -1076,6 +1305,19 @@ What to hold to when it is used on another load:
   and a text does not inventory what is behind her. And whoever builds or
   diagnoses a load reads its text in full, with its inputs seen: never a
   summary, never secondhand.
+- **The condition the pattern holds under, in the owner's words**
+  (2026-10-12, about 18:00Z, in the lead's terminal; logged in
+  [`decisions.md`](decisions.md) that day): "don't take that fragment of
+  text as a 'paste this onto EVERY prompt' verbatim. If you use a body mesh
+  and you use a sapiens2 overlay data, and youre just doing face
+  replacements. it makes sense. If you're doing something else, it doesn't
+  anymore, because the reference video may have changed, or maybe its not
+  about the face. In our video, I think its always about the face and
+  head... but just an fyi. Don't make it a rule that ends up getting
+  inserted into things that causes future debugging hell." So the four
+  places fit a load whose reference video is the marked mesh and whose
+  region is a face, or a face and head. On any other load they are not
+  assumed, and no tool inserts them (the next bullet).
 - **It is not what the Masked Prompt node writes.** The node's lines for a
   motion video (`masked_prompt_text.VIDEO_DEFINITION`, `VIDEO_RETENTION`,
   `MOVES`) call the video a person and take only body movement from it. By
@@ -1104,7 +1346,6 @@ The page beside it
 ([`README.md`](../../bench/examples/masked_job_lid_marks/README.md)) goes
 through it section by section: why each part is there, what it speaks of,
 and what had to be made before it was true.
-
 
 ### Why we think it worked, and what is not shown
 
@@ -1443,159 +1684,6 @@ wider set, with what each would buy and what is known about it.
 
 - The mask through two samplers, with the plate restored between them.
 
-## Seeing what the tracker and the masks did
-
-Written 2026-10-10, after a session had to be told this tooling existed. It
-is in four places and none of them is one command. Read this before writing
-a probe.
-
-**What a render will be given, before it renders, and what it was given,
-after.** The song node writes both itself, into `<prefix>_windows/`
-(2026-10-10). A render leaves `<name>_window_N_region.npz` beside each
-window's latent: the fitted mask, the token region per latent step, the
-margin, the window's first frame, its trim and the composite's settings and
-cuts (`video_mask.save_window_region`, read with `load_window_region`). A
-PREVIEW of the same graph (`preview` on, a source wired) samples nothing and
-writes `<name>_window_N_planned_region.npz`, the same file made by the same
-calls, and `<name>_plan.json`: each window's frames, what it writes, the
-latent steps a cut splits and the frames the composite will leave as the
-source (`audio_freeze_song.write_plan`). Neither is read by a node. A plan
-is replaced by the next preview and left alone by a render, so the two sit
-side by side. What a plan cannot hold is what `only what changed` will
-keep; that needs the decode, and `bench/recomposite_window.py` lays a saved
-window again from its stored latent and its region.
-
-**One command for the masks of a run, any number of people**:
-`bench/capture_masked_run.py files` reads the mask videos a preview saved and
-a render's own review, and writes `data/<date>_<name>/` with a `subject` on
-every row and file, the rows across subjects (`frames.csv`: each pair's
-overlap, a run's region on another subject, the margin cells given back) and
-a README of what it does not hold; `preflight` lists what is at risk before a
-render; `video` draws the stacked, frame-numbered picture from those same
-files. Its docstring is the schema; `bench/check_capture_masked_run.py` is its
-check; what is still missing is in `data/CAPTURE_GAPS.md`. What the models
-behind the lane's signals do and do not give (a body mesh has no mouth; no
-model here scores lip sync) is in
-[`meta_perception_models.md`](meta_perception_models.md).
-
-**One command for the file that gets watched**: `bench/assemble_delivery.py`
-takes a table of renders by source frame range and writes one file at the
-source's own rate with the source's own audio packets, the frames no render
-covers taken from the original, and passes over the same frames merged by
-what each changed. It proves by decode that no frame was dropped, doubled or
-moved and that the audio is the source's, and it raises its own flags from
-the per-frame table of what each render changed: a pass that redrew
-something on frames its subject has no mask on, far from its subject, with
-an area that steps at some frame (a cut, a change of framing, or another
-person), a frame or two just across a cut of the source and no further (a
-pass whose region ran over the cut; found from the source's own
-frame-to-frame change, with no capture), or the same pixels as another
-pass. Cut a render's rows on the source's cuts. Given capture
-folders (`--capture`) it settles shared pixels by whose they are: of the
-rows that changed a pixel, those whose subject holds it can take it and the
-latest of them does, so a render and a patch of it are settled by the
-table's order between themselves and neither loses its own subject to
-another person's pass; a row whose subject is not known is never ruled out
-by a mask. A patch has no run in a capture, so its row says whose it is
-(`subject=<label>`). It writes its table and flags into the capture
-folders. Two of its proofs exist because a file passed without them: every
-row must show on the pixels it was meant to (`rows_shown`), and no small
-square of a decoded frame may sit far from the frame the table makes, which
-is what fails a file built from another table or by an older rule. Three
-more exist because a delivered file showed the source's own picture where
-it was not meant to and nothing failed (added 2026-10-10). The span is cut
-into shots, by a capture's shot table where one covers the frames, and a
-shot with nothing laid for a subject a row names fails when the subject is
-tracked there or unaccounted people are detected; the table answers it with
-a `source first-last subject=<label> why` line, which is where "left on
-purpose" is written. A row lays nothing on a frame the mask its run carried
-is empty on (a latent step lends such a frame a region). And a row whose
-last or first frame in a shot is the source's own picture under the mask
-its run carried fails by its frames, the last net behind the capture's gate
-and an open tail. A file listed in its folder's `LOCKED.md` is never built
-over. What each of these proves and does not, the files built with the tool
-and every change to it by date:
-[`bench/results/2026-10-10_delivery_files_and_their_records.md`](../../bench/results/2026-10-10_delivery_files_and_their_records.md).
-Where two tracked masks claim the same pixel (an arm reaching
-across somebody) a mask does not say whose it is: the capture's
-`owners.npz` does, from the class maps, and the assembler reads it for the
-shared pixels and for `restore=<subject>`, leaving what it marks contested
-to the later row. Its record also says what the file did to every subject a
-capture knows (`subjects`: tracked pixels off the source, in all and by
-class, inside the track and outside it, beside the floor), and
-`--compare A.check.json B.check.json` prints two records side by side: the
-same stretch with and without a restore is the before and after a "by
-class" question asks for. How a region SITS in its plate (its detail, grain,
-tone and cast against the plate just outside it and against what stood
-there before) is `bench/region_against_plate.py`, which needs no mask
-either; run it before tuning a look by eye. With `--size source` the file is at the source's own size: every
-frame is the source's picture, never scaled, and only what a render changed
-is scaled up and put back over it, so nothing outside the regenerated region
-is resampled and the rows the loader's crop dropped are kept. A row can
-give a class of a subject back to the source (`restore=<subject>.<Class>`,
-read from the capture's class map): a thing inside a region that should not
-have been redrawn, an earring inside a face, is put back here and not by
-asking the sampler to keep it, which changes what the sampler draws beside
-it. With no class (`restore=<subject>`) a row gives back the whole of
-another subject: wherever that subject's tracked mask is and the piece's own
-subject's is not, so a pass on one person never shows what it changed of
-another; `restore=<subject>:whole` takes nothing out, for a pass that has no
-business inside the other's mask whoever is in front. Judge a
-render's colour on this file: it is BT.709 and says so,
-as renders are since the song node's writer converts and tags, and a render
-written before that plays off in a player that guesses the matrix from the
-size. Its docstring is the account; `bench/check_assemble_delivery.py` is
-its check.
-
-**What every masked render already wrote beside itself** (the song node,
-`audio_freeze_song.py`):
-
-- `<prefix>_NNNNN_shots.json` and `.md`: the Subject Track's shot table
-  (`shot_table.py`, whose docstring is the schema). Per shot: its frames, the
-  people found on the frame shown with a number each, who was taken and why,
-  the frames with and without the subject, each loss and what was looked at
-  after it. A person's number is theirs on that shot's shown frame only; it
-  is not an id that holds across shots.
-- `<prefix>_NNNNN_with_mask.mp4`: the render over the source with the
-  regenerated region coloured, drawn from the token mask the sampler was
-  given ("The song node" above).
-- The song node's report, in `/history` and on the graph's text preview: the
-  window plan, what share of each window regenerated, the Masked Source's
-  warnings about a part mask it doubts, the seconds by stage.
-
-**The look before a render**, nothing sampled: the review graph ("What it
-is"). To keep the masks themselves, wire a mask-to-image node and a video
-save node onto the Subject Track's `mask`, the Subject Parts' mask and the
-Masked Source's `mask`: no shipped graph does, and a session's own preview
-graph is the usual way. `MiniMaxH3SaveShotTable` saves the table and the
-numbered tiles.
-
-**The inside of the tracker** (each tracker call, where it stopped, every
-look after a loss with its candidates): `bench/subject_regain_looks.py`,
-whose docstring has the commands (`run`, `render`, `replay`). A separate
-process on the card, outside the server. It takes one of the pick rules and
-cannot yet follow a person named by a frame or a correction.
-
-**A finished render against its source**:
-`bench/masked_render_against_source.py` (`align`, `timing`, `flicker`,
-`landing`; run `align` first), `bench/measure_subject_motion.py`,
-`bench/measure_subject_yaw.py`.
-
-**The captures of 2026-10-07** are under `data/` (untracked), each folder
-with a README that gives its layout: per-frame tables of the track, the
-part and the region, and every node's report, for several windows. The
-scripts that made them were a session's own and were not kept, so the
-folders are a format to copy, not a tool to run.
-
-**What does not exist**: a trace the workflow writes itself
-([`next_steps.md`](next_steps.md), "Asked for and not done"), and any id for
-a person that holds across shots or across nodes. **One node follows one
-person** (`subject_track.py`'s docstring; the tracker is seeded with one
-mask). Two people are two Subject Track nodes in one graph, which share
-nothing, each with its own table; the second person's mask goes to the
-Masked Source's `others` when the two stand close. None of the captures or
-tools above carries a field for which person a file is about.
-
 ## Where to look
 
 | question | where |
@@ -1607,3 +1695,22 @@ tools above carries a field for which person a file is about.
 | how the prompts are written | `../../masked_prompt_text.py` (the node's sentences), `../../prompt_bank/` (`ref2va_masked_*`), [`../prompting.md`](../prompting.md) |
 | what was measured on which clip | `../../bench/results/2026-10-04_subject_track_three_clips.md` |
 | what the tracker and the masks did on a run | "Seeing what the tracker and the masks did" above |
+
+## How this page grew
+
+Reorganized on 2026-10-12, in one commit. The order until then, as the
+page had grown: "What it is"; "Running a job"; "Reading one window whole";
+"The rule: data before a render, and the same data after"; "Rules of the
+lane"; "The pieces, in the order a render meets them" (with "Nothing is
+kept between runs by a key" and "Say the least first" inside it); "A latent
+step is several frames"; "The motion video as a body model, with marks
+drawn on its face"; "A small subject, rendered zoomed in"; "Known limits";
+"Directions"; "Seeing what the tracker and the masks did"; "Where to look".
+No heading another file cites changed its words. What was cut, moved and
+corrected is in [`decisions.md`](decisions.md) under 2026-10-12, and the
+table of the clips and files that were opened is
+[`2026-10-12_masked_v2v_page_held_to_its_clips.md`](../../bench/results/2026-10-12_masked_v2v_page_held_to_its_clips.md).
+
+The header's list of edits as it stood before that day:
+
+2026-10-11 (at the close, how to read the section on the body model with marks: patterns with their conditions, not a recipe; later the same evening, a dated note that the practice did not repeat on a second shot, and the marks tool named where a one-off was; the section "The motion video as a body model, with marks drawn on its face": what the reference video was, how it was made, the lines of text for it and one whole text as an example; with a dated note under `motion_video` and under the prompt node); 2026-10-10 (a section on latent steps, the grid a load fixes, and cuts; a dated note under `keep`; `MiniMaxH3SubjectBoxes` named under `motion_video`; the rule "data before a render, and the same data after"; "Seeing what the tracker and the masks did" with the capture tool; "Say the least first" under the prompt; a setting the Masked Source refuses is refused at queue time; `motion_video`); 2026-10-09 (the `edge` input; a dated note on what "clean" means in a kept token, and a pointer to the upstream cross-check); 2026-10-06 (a loss inside a shot is searched and `subject_from`; the prompt node; the review and parts graphs); 2026-10-05 (the ref2va motion graph; the Sapiens2 nodes named); 2026-10-04 (first written, after the Subject Track's third clip)
