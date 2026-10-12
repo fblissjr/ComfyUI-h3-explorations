@@ -395,7 +395,7 @@ session starting a job needs to know:
   edge, and the keep-outs it needs. The order of the list is the order the
   model is given them: the first subject's still is `<Picture 1>` and its
   reference `<Video 1>`, the second's `<Picture 2>` and `<Video 2>`
-  (`../../workflows/masked_job_graph.py::one_subject_view`). The builder
+  (`workflows/masked_job_graph.py::one_subject_view`). The builder
   makes the tracked mask the union of the two tracks and the region the
   union of the two parts, joins both subjects' keep-outs with neither
   subject ever among them, chains the two stills and wires the two
