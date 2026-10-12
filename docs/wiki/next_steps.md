@@ -98,6 +98,14 @@ own below the rule.
   generated workflow for the lid-marks form, after the close-up's next
   render is read. What exists in its place:
   `../../bench/examples/masked_job_lid_marks/`.
+- **The lead's four singing loads** (the owner, Open List rows p05 and t66,
+  2026-10-12 17:06-17:07Z): her face only on the three hall shots
+  (1093-1133, 1134-1155, 1156-1188) with the singing sentence where she
+  sings, and the street shot 294-414 with none, built on the record as it
+  stands; the still cut to head and hair rides on one as a one-change test.
+  After the second subject's loads on the card. The zoomed load that keeps
+  its motion video (row p04, 17:05Z) is the node change after that, for
+  the street walk zoomed and the phone insets.
 - **The look before a render is shown, never refused** (the owner, Open
   List row c22, 2026-10-12 15:51:48Z): `bench/masked_job.py` refuses to
   plan or queue a load until a look is recorded on its capture; it is to
