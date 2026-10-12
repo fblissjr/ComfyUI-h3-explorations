@@ -3393,3 +3393,19 @@ that session's record disagree, its record is the nearer one.*
   the edge moves with the clothes mask. The change queued: a region that
   keeps out only the strap's cells and leaves a still-edged band for the
   hair below the jaw (`next_steps.md`, the 2026-10-12 gaps).
+- **A text says exactly what the reference video is, then references it**
+  (the owner, 2026-10-12, between about 18:50Z and 18:56Z by the clock,
+  in the lead's terminal, after five renders of the second subject with
+  the lid overlay never widened her eyes where the original's open): "say
+  the shapes are what they are. tell the prompt exactly what the reference
+  video is"; "h3 needs to know what the ref video is and what its looking
+  at. then after that we can reference it properly." So the line that
+  describes `<Video 1>` says what is in it as the model sees it (a grey
+  body model of a person on a black ground, posed as the person moves, its
+  eyes drawn as white shapes edged in black that open and close as the
+  person's do), and the subject's clause then references it (the movements
+  of the head and the facial expressions of the figure); nothing says what
+  her own face does. The first load under it: `second_hf_1039_d`, one
+  change from `second_hf_1039_c`, its text. The texts before it called the
+  marks "shapes drawn on its face that are part of its facial expression"
+  and never said they were eyes (Open List row 14).
