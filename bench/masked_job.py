@@ -589,6 +589,11 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
                           f"found: queue the preview with a pose pass for that subject and `collect` it, name a "
                           f"`motion_file`, or give the load `motion: none`")
         files["motion"] = (str(path), one.get("motion_first", job["first"]))
+        if one.get("motion_file_2"):
+            # a second motion video is always named: nothing the preview saves is one
+            if not Path(one["motion_file_2"]).is_file():
+                raise Refused(f"load {one['name']!r}: its motion_file_2 {one['motion_file_2']} is not a file")
+            files["motion_2"] = (str(one["motion_file_2"]), one.get("motion_first_2", job["first"]))
     return files
 
 
@@ -653,6 +658,11 @@ def shown(job: dict, one: dict, files: dict, graph: dict, inputs: Path) -> list[
     if files["motion"]:
         lines.append(f"motion video {files['motion'][0]} ({src['motion_reference']}) at a short edge of "
                      f"{src['motion_short_edge']}: every frame to the video model, one picture a second to the text encoder")
+        if files.get("motion_2"):
+            named = "<Video 2>" in str(run.get("prompt", ""))
+            lines.append(f"second motion video {files['motion_2'][0]} at a short edge of {src['motion_short_edge_2']}, the next video "
+                         f"reference after the first: the text has to say what each one is, and this load's text "
+                         + ("names <Video 2>" if named else "DOES NOT NAME <Video 2>"))
     else:
         lines.append("no motion video")
     lines.append(f"audio: {one['audio']} cut to the load" if one.get("audio") else "audio: the source's own, as the loader cuts it")
@@ -671,6 +681,7 @@ def settings_of(one: dict, graph: dict) -> dict:
             "edge": src.get("edge", "the node's own"), "window": run["window_frames"], "context": run["context_frames"],
             "context_noise": run.get("context_noise", "none: the load keeps no frames"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
+            "motion_edge_2": src["motion_short_edge_2"] if "motion_video_2" in src else "no second motion video",
             "render_region": src.get("render_region", "the node's own: the whole frame"),
             "seed": run["seed"]}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}

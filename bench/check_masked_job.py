@@ -436,6 +436,21 @@ def a_load_lands_on_the_inputs_it_names():
     assert run["seed"] == BASE[graphs._the(BASE, graphs.SONG)]["inputs"]["seed"], "a load with no seed does not take the row's"
     plate = _a_load({**WHOLE, "motion_edge": 512})
     assert plate[graphs._the(plate, graphs.SOURCE)]["inputs"]["motion_short_edge"] == 512, "a load's own motion_edge is not used"
+    # a second motion video (2026-10-12): its own file on its own clock, the node's second input, at its own short edge
+    assert "motion_video_2" not in src and "motion_short_edge_2" not in src, "a load that names one motion video is given a second"
+    face = ("/output/b_face.mp4", 690)
+    two = _a_load({**WHOLE, "motion_file_2": face[0], "motion_first_2": face[1]}, {**FILES_WHOLE, "motion_2": face})
+    both = two[graphs._the(two, graphs.SOURCE)]["inputs"]
+    assert _files_behind(two, both["motion_video_2"]) == _read(WHOLE, face), f"the second motion video: {_files_behind(two, both['motion_video_2'])}"
+    assert _files_behind(two, both["motion_video"]) == _read(WHOLE, FILES_WHOLE["motion"]), "a second motion video moved the first"
+    assert two[both["motion_video_2"][0]]["class_type"] == cfg.MASKED_JOB_LOADER, "the second motion video is read as a mask"
+    assert both["motion_short_edge_2"] == min(LOAD_JOB["canvas"]) and both["motion_vae"] is True, f"the second goes in at {both['motion_short_edge_2']}"
+    small = _a_load({**WHOLE, "motion_file_2": face[0], "motion_edge_2": 384}, {**FILES_WHOLE, "motion_2": face})
+    assert small[graphs._the(small, graphs.SOURCE)]["inputs"]["motion_short_edge_2"] == 384, "a load's own motion_edge_2 is not used"
+    stale = copy.deepcopy(BASE)
+    stale[graphs._the(stale, graphs.SOURCE)]["inputs"].update(motion_video_2=["1", 0], motion_short_edge_2=96)
+    clean = graphs.load(stale, LOAD_JOB, WHOLE, FILES_WHOLE, "the words", windows=WINDOWS)
+    assert "motion_video_2" not in clean[graphs._the(clean, graphs.SOURCE)]["inputs"], "a base graph's second motion video reached a load that names none"
     own_run = {k: v for k, v in PART.items() if k != "continue_from"}
     close = _a_load({**own_run, "render_region": "part"}, FILES_PART)
     src = close[graphs._the(close, graphs.SOURCE)]["inputs"]
@@ -444,7 +459,10 @@ def a_load_lands_on_the_inputs_it_names():
     quieter = _a_load({**PART, "context_noise": 0.5}, FILES_PART)
     assert quieter[graphs._the(quieter, graphs.SONG)]["inputs"]["context_noise"] == 0.5, "a load's own context_noise is not used"
     _unbuildable("motion", {**PART, "motion": "mesh zoomed"}, {**FILES_PART, "motion": ("/output/a_mesh.mp4", 604)})
-    return "a whole-subject load and a part load"
+    _unbuildable("motion_file_2|after a first", {**PART, "motion": "none", "motion_file_2": face[0]}, FILES_PART)
+    _unbuildable("motion_edge_2|motion_file_2", {**WHOLE, "motion_edge_2": 384})
+    _unbuildable("motion_first_2|motion_file_2", {**WHOLE, "motion_first_2": 700})
+    return "a whole-subject load, a part load, and a load with a second motion video"
 
 
 def a_plan_is_the_render_with_nothing_sampled():
@@ -617,6 +635,19 @@ def loads_from_a_capture():
         part = json.loads(written[1].with_suffix(".built.json").read_text())
         assert part["files"]["parts"][0].endswith("parts_held__p.mkv"), f"a part load takes {part['files']['parts']}, not the capture's filled part"
         assert part["files"]["motion"] is None and any("no motion video" in line for line in part["shown"]), "the part load's motion"
+        # a load that names a second motion video: found by its path, on the clock the load gives, shown and recorded
+        face = tmp / "b_face.mp4"
+        face.write_bytes(b"")
+        second = {**WHOLE, "name": "b_two", "motion_file_2": str(face), "motion_first_2": 690, "motion_edge_2": 384}
+        two = tool.build_loads(_loads_file(tmp, capture, loads=(second,)), "plan", [], **where)
+        built = json.loads(two[0].with_suffix(".built.json").read_text())
+        assert built["files"]["motion_2"] == [str(face), 690], f"the second motion video's file: {built['files'].get('motion_2')}"
+        assert any("second motion video" in line and "384" in line and "DOES NOT NAME <Video 2>" in line for line in built["shown"]), \
+            "what is shown of a load does not say its second motion video, or that its text leaves it unnamed"
+        assert built["settings"]["motion_edge_2"] == {"value": 384, "set_by": "the job file"}, built["settings"].get("motion_edge_2")
+        assert json.loads(written[0].with_suffix(".built.json").read_text())["settings"]["motion_edge_2"]["value"] == "no second motion video"
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**second, "name": "b_gone", "motion_file_2": str(tmp / "nothing.mp4")},)),
+                                          "plan", [], **where), "motion_file_2", "is not a file")
         assert any("held" in line and "open" in line for line in json.loads(written[0].with_suffix(".built.json").read_text())["shown"]), \
             "what a short load is shown does not say its held tail"
         assert (folder / "b_0700.plan.txt").read_text().strip() == "the words", "the text was not kept beside the graph"

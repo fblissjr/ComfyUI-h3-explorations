@@ -737,6 +737,19 @@ where in core.
   *2026-10-11: a body model with the source's eye openings drawn on its
   face, and the text that goes with it, is the section "The motion video as
   a body model, with marks drawn on its face" below.*
+  *2026-10-12: a second wired video. `motion_video_2`, with its own
+  `motion_short_edge_2`, is shown to the model as the next video reference
+  after the first (`<Video 2>` when the chain holds no video of its own),
+  for a load whose text gives each video something of its own to carry, as
+  the vendor guide writes several references
+  ([`../prompting.md`](../prompting.md), section 9). `motion_vae` is one
+  switch for both, and a second with no first is refused. In a job it is
+  the load's `motion_file_2`, with `motion_first_2` and `motion_edge_2`
+  (`../../workflows/masked_job_graph.py`); the builder shows whether the
+  load's text names `<Video 2>`, and the prompt node says above its text
+  that it writes nothing about one. Built at the owner's word (Open List
+  row 16) and not rendered with when this was written; it reaches the card
+  at the server's next restart.*
 - **A setting it will refuse is refused when the graph is queued**
   (2026-10-10): a feather wider than the margin, or a softened start with
   `paint_out` (`video_mask.settings_refusal`, called by the node's
@@ -856,6 +869,18 @@ names the mask for what the Masked Source's `replace` makes it (the tracked
 subject, the head and hair, or the parts taken), since on a parts graph the
 mask and the tracked subject are not the same thing. `video_mask.overlay_pieces`
 and `window_layers` own the picture; `bench/check_video_mask.py` item 12 holds it.
+
+**What a reference costs** is in the song node's report since 2026-10-12
+(the owner asked, and nothing in a render's report said). For each window
+it encodes, a line a reference: the tokens the text encoder is given for
+it, which sit ahead of the prompt, and the rows of the video model's own
+copy, or that it has none; then one line for all of them, beside the
+prompt's tokens and the window's own rows
+(`audio_freeze_song.reference_costs`). It is counted from sizes by
+`reference_report.py`, the arithmetic the reference report node shows
+before a run: nothing is encoded for it, and a count that fails is one
+line and never a stopped render. `bench/check_video_mask.py` item 17 holds
+it.
 
 ## Nothing is kept between runs by a key
 

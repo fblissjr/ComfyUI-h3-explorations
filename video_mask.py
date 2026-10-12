@@ -140,6 +140,17 @@ builds it per window from the source it already holds (`window_frames`,
 prompt names the relationship, never the action: the masking board's route
 1, `docs/research/masking/2026-10-05_mryellow.md` section 7.
 
+**A second wired video** (`motion_video_2`, 2026-10-12). Under `a video I
+wire` the node takes a second video beside the first, with its own short
+edge (`motion_short_edge_2`), and the song node shows it to the model as the
+next video reference after the first: `<Video 2>` when the reference chain
+holds no video of its own. It is for a load whose text gives each reference
+a subject of its own, the way the vendor guide writes several references
+(`docs/prompting.md`, section 9): a body for the movement and a closer view
+of a face, say. It is cut window by window as the first is (`wired_motion`),
+and `motion_vae` is one switch for both. A second video with no first is
+refused. No render had been made with it when this was written.
+
 **Zoomed in on the subject** (`subject only, zoomed in`, 2026-10-06). `subject
 only` scales the whole frame down and greys the rest, so a subject that is
 small in the frame is a handful of the encoder's tokens and most of the
@@ -1197,17 +1208,22 @@ def held_mask(mask: torch.Tensor, short: int) -> torch.Tensor:
     return torch.cat([mask, mask[-1:].expand(short, -1, -1)], dim=0)
 
 
-def wired_motion(source: dict, first_frame: int, frames: int, width: int, height: int) -> torch.Tensor:
+def wired_motion(source: dict, first_frame: int, frames: int, width: int, height: int, which: int = 1) -> torch.Tensor:
     """One window of the video wired as the motion reference, [F, h, w, 3], cut where the window is cut.
 
     The wired video runs beside the source, frame for frame, so a window that starts at source frame k is shown
     the wired video from frame k: the same slice `window_frames` takes of the source. It is fitted to the canvas
     as the source's frames are and then scaled to `motion_short_edge`, like every other motion reference; a
     source that runs out inside the last window repeats its last frame, as the source's own frames do.
+
+    `which` is 1 for `motion_video` and 2 for `motion_video_2`, which has its own short edge and is cut the same way.
     """
-    video = source.get("motion_frames")
+    if which not in (1, 2):
+        raise ValueError(f"a source carries two wired videos, 1 and 2; asked for {which!r}")
+    tail = "" if which == 1 else "_2"
+    video = source.get("motion_frames" + tail)
     if video is None:
-        raise ValueError(f"motion_reference `{source.get('motion_reference', MOTION_WIRED)}` and no `motion_video` "
+        raise ValueError(f"motion_reference `{source.get('motion_reference', MOTION_WIRED)}` and no `motion_video{tail}` "
                          "on the source: wire one")
     have = int(video.shape[0])
     first_frame, frames = int(first_frame), int(frames)
@@ -1218,7 +1234,7 @@ def wired_motion(source: dict, first_frame: int, frames: int, width: int, height
     if short > 0:
         pixels = torch.cat([pixels, pixels[-1:].expand(short, -1, -1, -1)], dim=0)
     blank = torch.zeros(tuple(pixels.shape[:3]), dtype=torch.float32, device=pixels.device)
-    return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge"]), 0)
+    return motion_reference(pixels, blank, MOTION_FRAME, int(source["motion_short_edge" + tail]), 0)
 
 
 def _tracked_boxes(mask: torch.Tensor) -> torch.Tensor:
@@ -1452,7 +1468,8 @@ PREVIEW_HEIGHT = 192
 
 def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion: str, short_edge: int,
                   margin, boxes: torch.Tensor | None = None, others: torch.Tensor | None = None,
-                  wired: torch.Tensor | None = None) -> torch.Tensor:
+                  wired: torch.Tensor | None = None, wired_2: torch.Tensor | None = None,
+                  short_edge_2: int | None = None) -> torch.Tensor:
     """[1, H, W, 3]: sampled frames down the strip, the regenerated region tinted red on the plate, and, when a
     motion reference is on, what the encoder is shown beside each. The dry-run review looks at this and the
     tracker's tiles before anything samples.
@@ -1501,6 +1518,11 @@ def preview_strip(frames: torch.Tensor, mask: torch.Tensor, grow_pixels, motion:
         ref = motion_reference(frames[idx], mask[idx], motion, short_edge, margin, shown)
     if ref is not None:
         tiles.append(ref.to(f.dtype).to(f.device))
+    if motion == MOTION_WIRED and wired_2 is not None:
+        # the second wired video, beside the first, at its own short edge
+        second = motion_reference(fit_frames(wired_2[idx], int(f.shape[2]), int(f.shape[1])), mask[idx], MOTION_FRAME,
+                                  short_edge if short_edge_2 is None else short_edge_2, 0)
+        tiles.append(second.to(f.dtype).to(f.device))
     h = PREVIEW_HEIGHT
     scaled = []
     for t in tiles:
@@ -2074,6 +2096,20 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                                         "wires a motion video. Costs no sampling time. The zoomed picture is "
                                         "also written beside each window. grow_pixels and feather_pixels are "
                                         "then pixels of the zoomed picture.")),
+                # appended 2026-10-12 (the owner: more than one reference video, each with a subject of its own)
+                io.Image.Input("motion_video_2", optional=True,
+                               tooltip=("Optional: a second video beside `motion_video`, for motion_reference "
+                                        "`a video I wire`. One frame per source frame, any size. The model is "
+                                        "shown it as the next video after the first: <Video 2> when no other "
+                                        "video reference is wired into the song node. Use it when the prompt "
+                                        "gives each video something of its own to carry, a body for the "
+                                        "movement and a closer view of a face, say; the prompt has to say what "
+                                        "each one is. It costs as the first does, at its own short edge, and "
+                                        "motion_vae switches the video model's copy of both. Needs "
+                                        "`motion_video` wired too.")),
+                io.Int.Input("motion_short_edge_2", default=MOTION_SHORT_EDGE, min=32, max=1024, step=32, optional=True,
+                             tooltip=("Shorter side, in pixels, of the second motion video as the model is "
+                                      "shown it. Does nothing unless `motion_video_2` is wired.")),
             ],
             outputs=[H3MaskedSource.Output(display_name="source"),
                      io.Mask.Output(display_name="mask",
@@ -2122,7 +2158,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                 start_top=START_TOP_SHARE, start_blur=START_BLUR, start_knots=START_KNOTS,
                 shot_table=None, parts=None, keep=None, grow_by=GROW_FIXED, others=None,
                 edge=EDGE_TOKENS, motion_video=None,
-                render_region=RENDER_WHOLE) -> io.NodeOutput:
+                render_region=RENDER_WHOLE, motion_video_2=None,
+                motion_short_edge_2=MOTION_SHORT_EDGE) -> io.NodeOutput:
         if frames.ndim != 4:
             raise ValueError(f"frames must be [N, H, W, C]; got {tuple(frames.shape)}")
         if grow_by not in GROW_BY:
@@ -2154,6 +2191,14 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                     f"`motion_video` is {tuple(motion_video.shape)} and the source has {int(frames.shape[0])} "
                     "frames: it needs one frame per source frame, made from the same `frames`, so that a window "
                     "is shown the movement of its own frames")
+        if motion_video_2 is not None:
+            if motion_video is None:
+                raise ValueError("`motion_video_2` is wired and `motion_video` is not: a second video comes after a "
+                                 "first. Wire the one video to `motion_video`")
+            if motion_video_2.ndim != 4 or int(motion_video_2.shape[0]) != int(frames.shape[0]):
+                raise ValueError(
+                    f"`motion_video_2` is {tuple(motion_video_2.shape)} and the source has {int(frames.shape[0])} "
+                    "frames: it needs one frame per source frame, as `motion_video` does")
         if keep is not None:
             if keep.ndim == 4 and int(keep.shape[-1]) == 1:
                 keep = keep[..., 0]
@@ -2216,8 +2261,9 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                         "frames; those tokens stay the source's unless the subject's own mask is in them",
                         int(reach.flatten(1).any(dim=1).sum()), int(frames.shape[0]))
         if motion_reference != MOTION_NONE:
-            logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s", motion_reference,
-                        int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only")
+            logger.info("[h3] MiniMaxH3MaskedSource: motion reference %s at a %d short edge, %s%s", motion_reference,
+                        int(motion_short_edge), "with the video model's copy" if motion_vae else "text encoder only",
+                        "" if motion_video_2 is None else f"; a second wired video at a {int(motion_short_edge_2)} short edge")
         # The mask's own box per frame: on a parts graph the part's, where `boxes` is the tracked subject's.
         # A zoomed reference is framed on the part when a part is replaced and on the person otherwise
         # (`window_boxes` has the rule).
@@ -2243,6 +2289,8 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                               "motion_vae": bool(motion_vae),
                               # [N, h, w, 3] or None: the video wired as the movement (`wired_motion`)
                               "motion_frames": motion_video,
+                              # the second wired video and its own short edge, or None (`wired_motion`, `which=2`)
+                              "motion_frames_2": motion_video_2, "motion_short_edge_2": int(motion_short_edge_2),
                               # [N, H, W] of 0 or 1, or None: what stays the source's inside the region (`window`)
                               "keep": keep,
                               # [N, H, W] of 0 or 1, or None: people the margin does not grow over (`window`)
@@ -2269,7 +2317,7 @@ class MiniMaxH3MaskedSource(io.ComfyNode):
                              mask.to(torch.float32),
                              preview_strip(frames, mask, each, motion_reference,
                                            int(motion_short_edge), int(grow_pixels) // 2, zoomed, others,
-                                           motion_video))
+                                           motion_video, motion_video_2, int(motion_short_edge_2)))
 
     @classmethod
     def _settle_mask(cls, frames, mask, replace, segmenter, segmenter_clip, part_phrases, part_threshold,

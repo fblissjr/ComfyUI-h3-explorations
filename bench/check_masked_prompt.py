@@ -327,6 +327,14 @@ def node_reads_the_source():
     assert "the Masked Source warns: the part mask is in doubt on 3 of 9 frames" in shown_loud, shown_loud
     assert "the Masked Source warns" not in shown_quiet, shown_quiet
     assert shown_loud.index("the Masked Source warns") < shown_loud.index(m.assemble()[:40]), "the warning is not above the prompt"
+    # a second wired video is said above the prompt, since the node writes nothing for it; the prompt itself does not change
+    video = torch.zeros(int(frames.shape[0]), 8, 8, 3)
+    one, two = (vm.MiniMaxH3MaskedSource.execute(frames, mask, motion_reference=vm.MOTION_WIRED, motion_video=video, **extra).args[0]
+                for extra in ({}, {"motion_video_2": video}))
+    out_one, out_two = node.execute(source=one), node.execute(source=two)
+    assert out_one.args[0] == out_two.args[0], "a second wired video changed the prompt"
+    said_one, said_two = ("\n".join(str(v) for v in out.ui.as_dict()["text"]) for out in (out_one, out_two))
+    assert "<Video 2>" in said_two[:said_two.index(out_two.args[0][:40])] and "<Video 2>" not in said_one, "a second wired video is not said above the prompt"
     schema = node.define_schema()
     defaults = {i.id: getattr(i, "default", None) for i in schema.inputs if i.id != "source"}
     assert defaults == h3_config.MASKED_PROMPT, defaults

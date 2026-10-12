@@ -50,7 +50,9 @@ entry as a plan (`first`, `frames`, `subject`, `others`, `margin`, `edge`, `carr
 `context`, `feather`, `motion` (`mesh` or `none`; without it a whole-subject pass of a subject
 with a pose pass takes the mesh and any other load takes none), `continue_from`, `context_noise`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
-place of the capture's own), `motion_edge` (the motion video's short edge), and `render_region`: `part` renders the load zoomed in on what is
+place of the capture's own), `motion_edge` (the motion video's short edge), `motion_file_2` with `motion_first_2`
+and `motion_edge_2` (a second motion video beside the first, shown to the model as the next video reference: for a
+load whose text gives each video a subject of its own), and `render_region`: `part` renders the load zoomed in on what is
 replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame), where `frame`, the
 default, renders the whole frame. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
@@ -292,7 +294,7 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "render_region", "seed")
+            "motion_edge_2", "render_region", "seed")
 #: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
 #: `frame` is the node's own default and sets nothing; `part` renders the load zoomed in on what is replaced.
 #: A zoomed load must be one shot (the node refuses a cut inside the loaded frames, and the tool refuses it
@@ -388,6 +390,12 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r}: motion {one['motion']!r}; one of {tuple(MOTIONS)}")
     if one.get("edge", "tokens") not in MASKED_JOB_EDGE:
         raise ValueError(f"load {name!r}: edge {one['edge']!r}; one of {tuple(MASKED_JOB_EDGE)}")
+    if one.get("motion_file_2") and motion_of(job, one) == "none":
+        raise ValueError(f"load {name!r} names a second motion video (`motion_file_2`) and takes no motion video: a second "
+                         f"comes after a first. Give the load `motion: mesh`, or take the key out")
+    for key in ("motion_first_2", "motion_edge_2"):
+        if key in one and not one.get("motion_file_2"):
+            raise ValueError(f"load {name!r} sets `{key}` and names no `motion_file_2`")
     region = one.get("render_region", "frame")
     if region not in RENDER_REGIONS:
         raise ValueError(f"load {name!r}: render_region {region!r}; one of {tuple(RENDER_REGIONS)}")
@@ -431,7 +439,8 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
 
     `files` is what the tool found for this load, each a `(path, the source frame its frame 0 is on)`: `track`,
     the subject's mask from the capture; `parts`, the part to take, or None for the whole subject; `others`,
-    the masks of the people kept out of the margin; `motion`, the saved motion video, or None. `text` is the
+    the masks of the people kept out of the margin; `motion`, the saved motion video, or None; `motion_2`, a second
+    one the load names, or absent. `text` is the
     load's own text: the builder writes none.
 
     What it changes in the base, and nothing else: the loader (the source by path, on the load's frames); the
@@ -458,7 +467,8 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         return [str(nid + 1), 0]
 
     src = g[source]["inputs"]
-    for gone in ("segmenter", "segmenter_clip", "shot_table", "parts", "others", "keep", "motion_video"):
+    for gone in ("segmenter", "segmenter_clip", "shot_table", "parts", "others", "keep", "motion_video", "motion_video_2",
+                 "motion_short_edge_2"):
         src.pop(gone, None)
     part = one.get("carried", "track") == "held"
     if part and not files.get("parts"):
@@ -492,6 +502,10 @@ def load(base: dict, job: dict, one: dict, files: dict, text: str, *, windows: t
         # as the text encoder: the encoder reads one picture of it a second
         src.update(motion_video=from_file(*files["motion"], as_mask=False),
                    motion_short_edge=one.get("motion_edge", min(canvas)))
+        if files.get("motion_2"):
+            # a second video beside the first, the next video reference; at the canvas's short edge unless the load says
+            src.update(motion_video_2=from_file(*files["motion_2"], as_mask=False),
+                       motion_short_edge_2=one.get("motion_edge_2", min(canvas)))
     window = one.get("window", window_for(frames, windows))
     for theirs in ("render_region", "largest_zoom"):
         src.pop(theirs, None)

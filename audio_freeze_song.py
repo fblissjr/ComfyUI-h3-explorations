@@ -64,6 +64,11 @@ or without the video model's copy, so the model is shown the original's
 movement through the channel it was trained to take motion from; the window's
 conditioning key then carries the window number, since each window's
 reference differs (`video_mask.motion_reference` says what the reference is).
+A second wired video (`motion_video_2`, 2026-10-12) follows the first in the
+chain and takes the next video label. **What a reference costs** is in the
+report since that day, a line a reference for each window encoded
+(`reference_costs`): the text encoder's tokens for it and, when the video
+model gets its own copy, the rows of that copy.
 
 **Sampling** is what SamplerCustomAdvanced does, per window: a BasicGuider on
 the model with the window's conditioning, prepared noise at `seed + i`, the
@@ -347,6 +352,41 @@ def write_plan(source: dict, windows, writes: list[int], context_frames: int, co
         if named:
             lines.append(f"{len(named)} frame(s) {why} and will be left as the source: frame(s) "
                          + ", ".join(str(f) for f in named))
+    return lines
+
+
+def reference_costs(records, width: int, height: int, frames: int, clip=None, prompt: str = "") -> list[str]:
+    """What each reference of one window costs: a line a reference, then one for all of them.
+
+    For each: the tokens the text encoder is given for it, which sit ahead of the prompt, and the rows of the
+    video model's own copy, which every step attends to, or that it has none. Counted from the sizes by
+    `reference_report.price_references`, the arithmetic the reference report node shows before a run: nothing is
+    encoded for it and nothing here can change a render. A count that fails is one line, never a stopped render.
+    """
+    if not records:
+        return []
+    try:
+        from .reference_report import StillPricing, VideoPricing, price_references
+        priced = price_references(tuple(records), width, height, frames, clip=clip, prompt=prompt)
+    except Exception as exc:  # a report must not gate a render
+        return [f"what the references cost was not counted: {exc}"]
+    lines = []
+    for it in priced.items:
+        if isinstance(it, VideoPricing):
+            copy = (f"the video model's copy is {it.vae[0]}x{it.vae[1]} over {it.latent_t} latent frames, {it.dit_rows:,} rows"
+                    if it.dit_rows else "no copy for the video model")
+            lines.append(f"{it.label} costs: the text encoder is shown {it.sampled} pictures of {it.qwen[0]}x{it.qwen[1]}, "
+                         f"{it.qwen_tokens:,} tokens; {copy}")
+        elif isinstance(it, StillPricing):
+            copy = f"the video model's copy is {it.vae[0]}x{it.vae[1]}, {it.dit_rows:,} rows" if it.dit_rows else "no copy for the video model"
+            lines.append(f"{it.label} costs: the text encoder is shown {it.qwen[0]}x{it.qwen[1]}, {it.qwen_tokens:,} tokens; {copy}")
+        else:
+            lines.append(f"{it.label} costs: {it.audio_rows:,} audio rows (an estimate)")
+    own = priced.segments.get("video")
+    lines.append(f"the references in all: {priced.vision_tokens:,} tokens to the text encoder"
+                 + ("" if priced.prompt_tokens is None else f" beside a prompt of {priced.prompt_tokens:,}")
+                 + f", and {priced.dit_reference_rows:,} rows to the video model"
+                 + ("" if own is None else f" beside the window's own {own:,}"))
     return lines
 
 
@@ -650,7 +690,7 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
         # A motion reference is built per window from the source (`video_mask.motion_reference`):
         # the window's own frames, so its key carries the window number.
         motion = source.get("motion_reference", video_mask.MOTION_NONE) if source is not None else video_mask.MOTION_NONE
-        motion_label = None
+        motion_label = motion_label_2 = None
         for w in windows:
             with_refs = references is not None or motion != video_mask.MOTION_NONE
             ck = (w.text, w.frames if with_refs else None, w.number if motion != video_mask.MOTION_NONE else None)
@@ -663,10 +703,18 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             if motion == video_mask.MOTION_WIRED:
                 # a video the user wired beside the source: this window's own frames of it (`video_mask.wired_motion`)
                 ref_frames = video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)
-                refs_w = tuple(references or ()) + (RuntimeVideoReference(
+                wired = [RuntimeVideoReference(
                     frames=ref_frames, loaded_fps=float(FPS), soundtrack=None,
-                    use_vae=bool(source.get("motion_vae", False))),)
-                motion_label = assign_labels(_order_records(refs_w))[-1]
+                    use_vae=bool(source.get("motion_vae", False)))]
+                if source.get("motion_frames_2") is not None:
+                    # the second wired video, after the first: the next video label (`video_mask`, "A second wired video")
+                    wired.append(RuntimeVideoReference(
+                        frames=video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height, which=2),
+                        loaded_fps=float(FPS), soundtrack=None, use_vae=bool(source.get("motion_vae", False))))
+                refs_w = tuple(references or ()) + tuple(wired)
+                labels = assign_labels(_order_records(refs_w))
+                motion_label = labels[-len(wired)]
+                motion_label_2 = labels[-1] if len(wired) == 2 else None
                 mark("motion reference")
             elif motion != video_mask.MOTION_NONE:
                 pixels, mask, _held = video_mask.window_frames(
@@ -694,6 +742,8 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
                 out = MiniMaxH3ReferenceConditioning.execute(clip, refs_w, w.text, width, height,
                                                              w.frames, vae=vae, audio_vae=audio_vae)
             conds[ck] = getattr(out, "args", out)[0]
+            # what each reference of this window costs, counted from its size and not from the encode
+            reports.extend(f"[{w.number}] {line}" for line in reference_costs(refs_w, width, height, w.frames, clip, w.text))
             del refs_w
             mark("conditioning")
             # per window: the first carries the encoder coming onto the card, the later ones are warm
@@ -704,6 +754,10 @@ class MiniMaxH3AudioFreezeSong(io.ComfyNode):
             reports.append(f"motion reference: {motion} at a {int(source['motion_short_edge'])} short edge, "
                            + ("with the video model's copy" if source.get("motion_vae") else "text encoder only")
                            + f", named {motion_label} in the prompt, built per window from the source")
+            if motion_label_2 is not None:
+                reports.append(f"second motion video: at a {int(source['motion_short_edge_2'])} short edge, "
+                               + ("with the video model's copy" if source.get("motion_vae") else "text encoder only")
+                               + f", named {motion_label_2} in the prompt, cut per window as the first is")
         reports.append(f"{len(conds)} conditioning(s) encoded for {n_windows} window(s)"
                        + (" with references" if references is not None else ""))
 

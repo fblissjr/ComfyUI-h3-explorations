@@ -105,5 +105,9 @@ class MiniMaxH3MaskedPrompt(io.ComfyNode):
         warned = record_line(source)
         if warned:
             did = f"{did}\n{warned}"
+        if source is not None and source.get("motion_frames_2") is not None:
+            # said, since an unnamed reference is one the model cannot know to use; the text itself is not changed
+            did = (f"{did}\na second motion video is wired to the Masked Source: this node writes nothing about <Video 2>. "
+                   "Say what it is and what is taken from it in `add_to_shot`, or write the prompt by hand")
         logger.info("[h3] MiniMaxH3MaskedPrompt: %s", did.replace("\n", "; "))
         return io.NodeOutput(prompt, ui=ui.PreviewText(f"{did}\n\n{prompt}"))

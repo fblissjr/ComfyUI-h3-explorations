@@ -330,7 +330,9 @@ def motion_records(inputs, graph=None) -> list:
         return []
     if node.get("inputs", {}).get("motion_reference", MOTION_NONE) == MOTION_NONE:
         return []
-    return [VideoRef(name="motion reference")]
+    # a second wired video follows the first and takes the next video label (`video_mask`, "A second wired video")
+    second = [VideoRef(name="second motion video")] if node.get("inputs", {}).get("motion_video_2") is not None else []
+    return [VideoRef(name="motion reference")] + second
 
 
 def resolve_chain_entries(graph: dict, node_id: str) -> list[tuple[str, dict, str]]:

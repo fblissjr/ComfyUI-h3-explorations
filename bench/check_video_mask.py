@@ -142,7 +142,16 @@ that could happen.
     wired under another choice, and a video of another length are each
     refused by name; the preview strip shows the wired video beside the
     plate; `motion_video` is where it was appended and optional; and the song
-    node takes the wired branch.
+    node takes the wired branch. **A second wired video** (2026-10-12) is
+    carried with its own short edge, is cut by the window as the first is and
+    leaves the first as it was; it widens the preview strip; one with no
+    first, or of another length, is refused by name; its two inputs are on
+    the end and optional; the static label plan gives the two videos
+    `<Video 1>` and `<Video 2>` in order. **What a reference costs**
+    (`audio_freeze_song.reference_costs`): a line a reference, named in
+    order, with the tokens and rows the pricing module gives for it, "no copy
+    for the video model" where there is none, a last line that is their sum,
+    nothing for no references, and one line and no error when the count fails.
 18. **A tracked mask becomes one box a frame, and none where the subject is
     not.** `subject_boxes.frame_boxes` (2026-10-10), for a node that takes
     boxes: the box is the mask's own bounds, widened by the margin and held
@@ -639,6 +648,68 @@ def check_wired_motion(problems):
     if "video_mask.wired_motion(source, int(round(w.start * FPS)), w.frames, width, height)" not in song \
             or "if motion == video_mask.MOTION_WIRED:" not in song:
         problems.append("wired motion: the song node does not cut the wired video at the window's own start")
+    # a second wired video (2026-10-12): its own frames, its own short edge, cut by the window as the first is
+    SHORT_2 = 32
+    video_2 = (1.0 - levels).view(n, 1, 1, 1).expand(n, H // 4, W // 4, 3).contiguous()
+    out = node.execute(frames, mask, motion_reference=vm.MOTION_WIRED, motion_video=video, motion_short_edge=SHORT,
+                       motion_video_2=video_2, motion_short_edge_2=SHORT_2)
+    both, strip_2 = out.args[0], out.args[2]
+    if both.get("motion_frames_2") is not video_2 or both.get("motion_short_edge_2") != SHORT_2 or both.get("motion_frames") is not video:
+        problems.append("second wired video: the source record does not carry both videos and the second's own short edge")
+    second = vm.wired_motion(both, first, count, W, H, which=2)
+    if tuple(second.shape) != (count, *vm._reference_size(H, W, SHORT_2), 3):
+        problems.append(f"second wired video: a window's second reference is {tuple(second.shape)}, not at its own short edge")
+    elif not torch.allclose(second.mean(dim=(1, 2, 3)), 1.0 - levels[first:first + count], atol=1e-4):
+        problems.append("second wired video: a window starting at frame 5 is not shown the second video from frame 5")
+    if not torch.equal(vm.wired_motion(both, first, count, W, H), vm.wired_motion(src, first, count, W, H)):
+        problems.append("second wired video: wiring it changed what the first shows")
+    if int(strip_2.shape[2]) <= int(strip.shape[2]):
+        problems.append("second wired video: the preview strip is no wider than with one wired video")
+    for label, kwargs, word in (
+            ("a second video with no first", dict(motion_reference=vm.MOTION_NONE, motion_video_2=video_2), "comes after a first"),
+            ("a second video of another length", dict(motion_reference=vm.MOTION_WIRED, motion_video=video, motion_video_2=video_2[:-1]),
+             "one frame per source frame")):
+        try:
+            node.execute(frames, mask, **kwargs)
+            problems.append(f"second wired video: {label} was accepted")
+        except ValueError as exc:
+            if word not in str(exc):
+                problems.append(f"second wired video: the refusal of {label} does not say so: {exc}")
+    try:
+        vm.wired_motion(src, first, count, W, H, which=2)
+        problems.append("second wired video: a source with one video gave a second")
+    except ValueError as exc:
+        if "motion_video_2" not in str(exc):
+            problems.append(f"second wired video: asking a one-video source for the second does not name the input: {exc}")
+    for name in ("motion_video_2", "motion_short_edge_2"):
+        where = _appended(name)
+        if where is None or not where.optional:
+            problems.append(f"{name}: it is not where it was appended (`APPENDED`) and optional")
+    if "which=2)" not in song or 'source.get("motion_frames_2") is not None' not in song:
+        problems.append("second wired video: the song node does not cut it at the window's own start, after the first")
+    # what a reference costs, as the song node's report prints it: a line a reference, and one for all
+    afs = importlib.import_module("_h3pack.audio_freeze_song")
+    rc = importlib.import_module("_h3pack.reference_conditioning")
+    report = importlib.import_module("_h3pack.reference_report")
+    refs = tuple(rc.RuntimeVideoReference(frames=vm.wired_motion(both, first, count, W, H, which=k), loaded_fps=24.0, soundtrack=None,
+                                          use_vae=copy) for k, copy in ((1, True), (2, False)))
+    said = afs.reference_costs(refs, W, H, count)
+    priced = report.price_references(refs, W, H, count)
+    if len(said) != 3 or not said[0].startswith("<Video 1> costs") or not said[1].startswith("<Video 2> costs"):
+        problems.append(f"reference costs: two wired videos must give a line each, named in order, and one for all: {said}")
+    else:
+        one, two = priced.items
+        if f"{one.qwen_tokens:,} tokens" not in said[0] or f"{one.dit_rows:,} rows" not in said[0] or one.dit_rows <= 0:
+            problems.append(f"reference costs: the first video's line does not carry its tokens and its rows: {said[0]}")
+        if f"{two.qwen_tokens:,} tokens" not in said[1] or "no copy for the video model" not in said[1] or two.dit_rows != 0:
+            problems.append(f"reference costs: a video with no copy for the video model must say so: {said[1]}")
+        if f"{priced.vision_tokens:,} tokens" not in said[2] or f"{priced.dit_reference_rows:,} rows" not in said[2]:
+            problems.append(f"reference costs: the last line is not the sum over the references: {said[2]}")
+    if afs.reference_costs((), W, H, count) != [] or afs.reference_costs(None, W, H, count) != []:
+        problems.append("reference costs: no references must print nothing")
+    broken = afs.reference_costs(("not a reference",), W, H, count)
+    if len(broken) != 1 or "was not counted" not in broken[0]:
+        problems.append(f"reference costs: a count that fails must be one line and never an error: {broken}")
 
 
 def check_subject_boxes(problems):
@@ -1455,7 +1526,7 @@ def check_render_zoom(problems):
             or vm.RENDER_REGIONS != (vm.RENDER_WHOLE, vm.RENDER_ZOOM_REPLACED) \
             or any(i.id == "largest_zoom" for i in node.define_schema().inputs) \
             or any(hasattr(vm, name) for name in ("RENDER_ZOOM_SUBJECT", "ZOOM_LARGEST_MAX", "CONTINUED_BOX")):
-        _fail(problems, "render zoom: `render_region` must be the node's last input (`APPENDED`), optional, the whole frame by "
+        _fail(problems, "render zoom: `render_region` must be where it was appended (`APPENDED`), optional, the whole frame by "
                         "default, with one zoomed choice; the largest zoom is a constant and no input")
     try:
         node.execute(frames, mask, shot_table=table, largest_zoom=3.0)
@@ -1663,7 +1734,7 @@ def check_others(problems):
 #: The Masked Source's last inputs, in the order they were appended. A saved workflow stores a widget's value
 #: by position, so a new input goes on the end and none of these moves: each case below that owns one of them
 #: asks `_appended` for it, and adding an input is one name on the end of this tuple.
-APPENDED = ("others", "edge", "motion_video", "render_region")
+APPENDED = ("others", "edge", "motion_video", "render_region", "motion_video_2", "motion_short_edge_2")
 
 
 def _appended(name: str):
@@ -2059,7 +2130,10 @@ def check_motion_reference(problems):
     g = {"9": {"class_type": "MiniMaxH3MaskedSource", "inputs": {"motion_reference": vm.MOTION_SUBJECT}}}
     if ro.assign_labels(ro.plan_for(song_inputs, g)) != ["<Video 1>"]:
         _fail(problems, "a Masked Source with a motion reference must add one <Video N> to the song node's static label plan")
-    g["9"]["inputs"]["motion_reference"] = vm.MOTION_NONE
+    g["9"]["inputs"].update(motion_reference=vm.MOTION_WIRED, motion_video=["3", 0], motion_video_2=["4", 0])
+    if ro.assign_labels(ro.plan_for(song_inputs, g)) != ["<Video 1>", "<Video 2>"]:
+        _fail(problems, "a Masked Source with a second wired video must add two <Video N> to the static label plan, in order")
+    g["9"]["inputs"] = {"motion_reference": vm.MOTION_NONE}
     if ro.assign_labels(ro.plan_for(song_inputs, g)) != []:
         _fail(problems, "a Masked Source with no motion reference must add nothing to the static label plan")
 
