@@ -22,6 +22,16 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **Six answers on the Open List, read late by the lead** (the owner's
+  clicks, the store's times): the look before a render is SHOWN and never
+  refused (row c22, 15:51:48Z; the builder's refusal to plan or queue a
+  load with no look recorded goes, a change queued in `bench/masked_job.py`);
+  frames 0 to 1919 are finished first, the rest prepared alongside (z03,
+  15:50:07Z); today's order A to E stands (z04, 15:50:31Z); the Sol sink
+  default stays `exact_kv_and_all_rows` for every graph and the masked
+  lane keeps `exact_kv_and_rows` (z06, 15:50:41Z; nothing changes in code);
+  the four reds of the census are cut (z08, 15:52:12Z; queued); the
+  two-subject load is built next (z09, 16:19:02Z; queued).
 - **What each subject carries is unchanged and holds for every shot**: the
   lead, the face only; the second subject, the face and hair only; the third
   subject, the face only (the owner, in the lead's terminal, 2026-10-12

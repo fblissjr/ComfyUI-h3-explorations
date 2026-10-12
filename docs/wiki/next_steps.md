@@ -98,6 +98,17 @@ own below the rule.
   generated workflow for the lid-marks form, after the close-up's next
   render is read. What exists in its place:
   `../../bench/examples/masked_job_lid_marks/`.
+- **The look before a render is shown, never refused** (the owner, Open
+  List row c22, 2026-10-12 15:51:48Z): `bench/masked_job.py` refuses to
+  plan or queue a load until a look is recorded on its capture; it is to
+  print the strip's path and that no look is recorded, and go on. A check
+  case. Queued by the lead; not started.
+- **The four reds of the green-and-red census are cut** (the owner, row
+  z08, 2026-10-12 15:52:12Z): `check_correctness`'s bar, `check_sol_chunked`'s
+  cosine and peak, `check_channel_balance`'s fragile-selection red,
+  `draw_lid_marks`' fit verdict; each its own commit with its docstring and
+  `docs/checks.md` row; `draw_lid_marks` on a day it is not on the card.
+  Queued by the lead; not started.
 - **A two-subject load, both stills referenced per the vendor guide**
   (the owner, 2026-10-12, in the lead's terminal: several people at once
   have been changed before, whole frame; it needs the references specified
