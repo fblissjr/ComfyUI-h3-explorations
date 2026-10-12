@@ -18,6 +18,15 @@ Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
 **Masked video to video, 2026-10-12: gaps in the tools, each found by a run and none fixed.**
+- **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
+  about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
+  and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but
+  its not awful"). Seen on the render's masked copy at 693, 698 and 703
+  (`second_hf_0604_b_window_1_with_mask.mp4`): the still's hair falls past the jaw on the viewer's left, the
+  region's lower edge there is the clothes keep-out giving the margin's cells back, and that edge moves with the
+  clothes mask's pieces frame to frame, so the hair is drawn where the region reaches and cut where it does not.
+  The cost row z10 named (hair to the shoulder line) made visible in motion. Not fixed; a form that keeps out
+  the strap's cells and leaves a band for the hair below the jaw is a builder change nobody has designed.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
