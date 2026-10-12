@@ -98,6 +98,14 @@ own below the rule.
   generated workflow for the lid-marks form, after the close-up's next
   render is read. What exists in its place:
   `../../bench/examples/masked_job_lid_marks/`.
+- **The local page reorganized** (the owner, 2026-10-12 about 17:23Z, in
+  the lead's terminal: it is impossible to find what is important and what
+  is stale). Three sections and nothing else: look at now; the video a
+  shot at a time over the whole span with each shot's plan, renders and
+  verdicts; the stale kept folded and dated. The shape is in the lead's
+  handoff (`internal/claude/2026-10-12_mrfern_handoff.md`, the last
+  section). First tooling job for the lead; the page's code then goes into
+  the tree as `bench/review_page/`.
 - **The lead's four singing loads** (the owner, Open List rows p05 and t66,
   2026-10-12 17:06-17:07Z): her face only on the three hall shots
   (1093-1133, 1134-1155, 1156-1188) with the singing sentence where she
