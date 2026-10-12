@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-12 | green | [Green and red: a census of what goes red in this repo, and on what kind of failure](2026-10-12_green_red_census.md) |  |
 | 2026-10-12 | fun | [Where the fun clip stands, a shot and a subject at a time: what is laid, what is left, what is unsure](2026-10-12_fun_shot_coverage.md) |  |
 | 2026-10-12 | masked video to video | [The body model posed the other person for half a second, and what was changed](2026-10-12_body_model_posed_the_other_person.md) | no render; three previews of one shot. Given a box alone, the body model was posed as the person standing behind the subject on twelve frames. The model's own mask prompt, which both upstreams feed, put the two ends of that stretch right and left the middle wrong. Shown the subject alone it is on her on every frame, and where the box alone had been right her head moved a few pixels and the joints the picture does not show moved most. Run twice since (the dated note): two runs of one form agree to a fraction of a pixel, so the forms' differences are real. Not judged for a whole person's hands. |
 | 2026-10-11 | sapiens2 | [The Sapiens2 pose model, first run: eight frames where the answer is plain by eye](2026-10-11_sapiens2_pose_first_frames.md) |  |
