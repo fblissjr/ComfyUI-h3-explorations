@@ -387,6 +387,28 @@ session starting a job needs to know:
   that holds a cut cannot be built for now: one load a shot, each with its
   own text. That last part is an edge accepted, not a rule of the model
   (`bench/masked_job.py::ONE_SHOT`).
+- **A hair band under a head-and-hair part** (2026-10-12; a load's
+  `hair_band`, a share of the part's height, with no default: a load that
+  does not ask has none). A still whose hair falls past the original's jaw
+  is drawn into the margin under the part, and there every cell was the
+  clothing keep-out's to give back; that mask's pieces change frame to
+  frame, so the region's lower edge moved and the hair was drawn where it
+  reached and cut where it did not (the long kitchen shot, source frames
+  693 to 703, on playback). With the key the builder writes a copy of that
+  keep-out with a band cut out under the part and wires the copy
+  (`bench/masked_job.py::hair_band`): the part's box, each side the median
+  over neighbouring frames so the edge holds still, a little wider, as deep
+  as the share asked. It adds nothing to the region; the margin still
+  bounds what is regenerated, and the other keep-outs still give their
+  cells back inside the band. The constants and their provenance are
+  `h3_config.MASKED_JOB_HAIR_BAND`; the copy is a file of the build, named
+  in the build record with the band's figures, and the capture's own mask
+  is not touched. **How it was taken in:** not tested on that shot by
+  itself (the owner, 2026-10-12: not worth testing that scene alone). It
+  goes into her face-and-hair loads from here and is read on the first of
+  them that renders, by a session that did not build it. No render had been
+  made with a band when this was written, and this page says nothing of
+  what one does.
 - **Somebody looks before a plan and before a render** (the owner,
   2026-10-10: a passing check never says the masks are on the right person
   or the text is of these frames), **and the look is shown, never refused**

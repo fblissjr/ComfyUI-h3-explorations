@@ -140,8 +140,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _lib import COMFY, REPO  # noqa: E402
+from _lib.frames import FPS as MASK_FPS, probe, stream  # noqa: E402
 
 sys.path.insert(0, str(REPO))
 import clip_folder  # noqa: E402
@@ -597,6 +600,107 @@ def capture_files(job: dict, one: dict, capture: Path, mesh_of) -> dict:
     return files
 
 
+def hair_band(one: dict, files: dict, target: Path) -> tuple[dict, dict | None]:
+    """A load's files with a band cut out of one keep-out, and what the band is; (files, None) for a load that asks for none.
+
+    **What it is for.** A part pass of a head and hair regenerates the part and a margin round it, less what the
+    keep-outs give back (`video_mask.window`: a cell a keep-out touches is the source's unless the subject's own
+    mask has a pixel in it). The part ends at the original's jaw. A still whose hair falls further is drawn into
+    the margin below, and there every cell is the clothing keep-out's to give back; that mask's pieces change
+    frame to frame, so the region's lower edge moved and the hair was drawn where it reached and cut where it did
+    not. A band under the part, taken out of that keep-out, leaves the margin open there with an edge that holds
+    still.
+
+    **The band, a frame.** The part mask's box on that frame, each side the median of the boxes
+    `h3_config.MASKED_JOB_HAIR_BAND["smooth_frames"]` frames before and after it (frames with no part are left out
+    of the median, and a frame with none near it has no band); from the box's bottom DOWN by `hair_band` times the
+    box's height; as wide as the box and `wider` of its width more on each side; cut at the picture's edges.
+
+    **What it does not do.** It adds nothing to the region: the margin still bounds what is regenerated, and hair
+    longer than the margin needs a larger margin. Only the one keep-out is cut; the others give their cells back
+    as before, inside the band too. It reads masks and decides nothing about a picture.
+
+    `target` is the mask video the cut keep-out will be written to, by the returned band's `write`, which the
+    caller runs once every load of the build has been tested: the build writes nothing until then. Its frame 0 is
+    the load's first frame. Nothing here is kept between builds: a plan and a render each make their own."""
+    if "hair_band" not in one:
+        return files, None
+    rule = h3_config.MASKED_JOB_HAIR_BAND
+    share, cuts = float(one["hair_band"]), one.get("hair_band_cuts", rule["cuts"])
+    where = list(one.get("others") or ()).index(cuts)
+    (part, part_at), (keep, keep_at) = files["parts"], files["others"][where]
+    first, frames, reach = one["first"], one["frames"], int(rule["smooth_frames"])
+    w, h, _ = probe(keep)
+    if first < part_at or first < keep_at:
+        raise Refused(f"load {one['name']!r}: the hair band reads the part from source frame {part_at} and the keep-out "
+                      f"{cuts!r} from {keep_at}, and the load begins on {first}")
+    boxes = np.full((frames, 4), np.nan)
+    for f, frame in enumerate(stream(part, (w, h), first - part_at, frames, vf=f"scale={w}:{h}:flags=neighbor")):
+        on = frame > 127
+        rows, cols = np.nonzero(on.any(1))[0], np.nonzero(on.any(0))[0]
+        if len(rows):
+            boxes[f] = (cols[0], rows[0], cols[-1] + 1, rows[-1] + 1)
+    seen = ~np.isnan(boxes[:, 0])
+    if not seen.any():
+        raise Refused(f"load {one['name']!r}: the part mask {part} is empty on every frame of the load: there is no head "
+                      f"to put a hair band under")
+    bands = np.full((frames, 4), -1, int)
+    for f in range(frames):
+        near = boxes[max(f - reach, 0):f + reach + 1]
+        near = near[~np.isnan(near[:, 0])]
+        if len(near):
+            x0, y0, x1, y1 = np.median(near, axis=0)
+            bands[f] = (max(int(np.floor(x0 - rule["wider"] * (x1 - x0))), 0), min(int(round(y1)), h),
+                        min(int(np.ceil(x1 + rule["wider"] * (x1 - x0))), w), min(int(np.ceil(y1 + share * (y1 - y0))), h))
+    has = bands[:, 0] >= 0
+    figures = {"share_of_the_parts_height": share, "cut_out_of": cuts, "file": str(target), "its_first_frame_is_source_frame": first,
+               "made_from": {"part": part, "its_first_frame_is_source_frame": part_at, "keep_out": keep, "keep_outs_first_frame_is_source_frame": keep_at},
+               "mask_size": [w, h],
+               "part_height_px_median": float(np.median(boxes[seen, 3] - boxes[seen, 1])),
+               "band_px_median": {"deep": float(np.median(bands[has, 3] - bands[has, 1])), "wide": float(np.median(bands[has, 2] - bands[has, 0]))},
+               "the_box_is_the_median_over_frames": 2 * reach + 1, "wider_each_side_by_share_of_width": rule["wider"],
+               "frames_with_a_band": int(has.sum()), "frames_with_no_part_within_reach": [first + int(f) for f in np.nonzero(~has)[0]][:40],
+               "frames_with_no_part_of_their_own": int((~seen).sum()),
+               "what_it_does_not_do": "it adds nothing to the region: the margin still bounds what is regenerated, and the other keep-outs give their cells back inside the band too",
+               "tested_on_a_render": "not when the band was built into this tool (2026-10-12): the first load that carries one is read by a session that did not build it"}
+
+    def write() -> dict:
+        """Write the cut keep-out: the keep-out's own frames of the load, with the band emptied. Returns what was taken out."""
+        enc = subprocess.Popen(["nice", "-n", "19", "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", f"{w}x{h}",
+                                "-r", str(MASK_FPS), "-i", "-", "-c:v", "ffv1", "-level", "3", str(target)], stdin=subprocess.PIPE)
+        taken, wrote = [], 0
+        for f, frame in enumerate(stream(keep, (w, h), first - keep_at, frames, vf=f"scale={w}:{h}:flags=neighbor")):
+            on = frame > 127
+            if has[f]:
+                x0, y0, x1, y1 = bands[f]
+                taken.append(int(on[y0:y1, x0:x1].sum()))
+                on[y0:y1, x0:x1] = False
+            enc.stdin.write((on.astype(np.uint8) * 255).tobytes())
+            wrote += 1
+        for _ in range(frames - wrote):                             # a keep-out that ends before the load does is empty from there, as the loader reads it
+            enc.stdin.write(np.zeros((h, w), np.uint8).tobytes())
+        enc.stdin.close()
+        if enc.wait():
+            raise Refused(f"ffmpeg could not write {target}")
+        return {"keep_out_px_taken_out_a_frame": {"median": float(np.median(taken)) if taken else 0.0, "most": max(taken, default=0)},
+                "keep_out_frames_read": wrote, "frames_written": frames}
+
+    cut = dict(files, others=[(str(target), first) if i == where else entry for i, entry in enumerate(files["others"])])
+    return cut, {"figures": figures, "write": write}
+
+
+def band_lines(band: dict | None) -> list[str]:
+    """What is shown of a load's hair band, one line."""
+    if band is None:
+        return []
+    fig = band["figures"]
+    return [f"hair band: the keep-out `{fig['cut_out_of']}` is cut by a band under the part, {fig['band_px_median']['deep']:.0f} px deep "
+            f"({fig['share_of_the_parts_height']:g} of the part's height of {fig['part_height_px_median']:.0f} px) and "
+            f"{fig['band_px_median']['wide']:.0f} px wide at the median, on {fig['frames_with_a_band']} of the load's frames, its box the median over "
+            f"{fig['the_box_is_the_median_over_frames']} frames; the mask's own pixels ({fig['mask_size'][0]}x{fig['mask_size'][1]}); "
+            f"written to {Path(fig['file']).name}. {fig['tested_on_a_render']}"]
+
+
 def preview_mesh(folder: Path, job: dict, output: Path):
     """A finder for the mesh a job's preview saved for a subject, from the record `collect` wrote.
 
@@ -682,6 +786,7 @@ def settings_of(one: dict, graph: dict) -> dict:
             "context_noise": run.get("context_noise", "none: the load keeps no frames"),
             "motion": src["motion_reference"], "motion_edge": src["motion_short_edge"] if "motion_video" in src else "no motion video",
             "motion_edge_2": src["motion_short_edge_2"] if "motion_video_2" in src else "no second motion video",
+            "hair_band": one.get("hair_band", "none: the keep-outs as the capture has them"),
             "render_region": src.get("render_region", "the node's own: the whole frame"),
             "seed": run["seed"]}
     return {key: {"value": used[key], "set_by": "the job file" if key in one else "the builder's default"}
@@ -780,8 +885,9 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
             told = texts[one["name"]]
             text = told["text"]
             files = capture_files(job, one, capture, preview_mesh(folder, job, output))
+            files, band = hair_band(one, files, folder / f"{one['name']}.{stage}.{one.get('hair_band_cuts', h3_config.MASKED_JOB_HAIR_BAND['cuts'])}_less_hair_band.mkv")
             graph = graphs.load(base, job, one, files, text, windows=windows, plan=stage == "plan")
-            says, text_lines = shown(job, one, files, graph, inputs), text_shown(one, told)
+            says, text_lines = shown(job, one, files, graph, inputs) + band_lines(band), text_shown(one, told)
             seen = measured(job, one, capture, graph)
         except ValueError as e:
             raise Refused(f"{job_file}: {e}") from e
@@ -793,13 +899,14 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         for path, what in ((graph_file, "graph"), (saves_to, "output folder")):
             if path.exists():
                 raise Refused(f"the {what} {path} exists. A run never reuses a name: give the load a new `name`.")
-        todo.append((one, graph, graph_file, saves_to, files, told, says, text_lines, seen))
+        todo.append((one, graph, graph_file, saves_to, files, told, says, text_lines, seen, band))
     looks = {one["name"]: look_or_shown(capture, one, texts[one["name"]], look)
              for one in (chosen if stage == "plan" else ())}
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"job.{stage}.json").write_bytes(job_file.read_bytes())
-    for one, graph, graph_file, saves_to, files, told, says, text_lines, seen in todo:
+    for one, graph, graph_file, saves_to, files, told, says, text_lines, seen, band in todo:
         graph_file.write_text(json.dumps(graph, indent=1) + "\n")
+        cut = None if band is None else {**band["figures"], **band["write"]()}
         (folder / f"{one['name']}.{stage}.txt").write_text(told["text"] + "\n")
         record = {"stage": stage, "load": one, "built_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
                   "commit": head(repo), "builder_not_committed": builder_not_committed(repo), "analysis": made_from,
@@ -808,6 +915,7 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
                   "output_folder": str(saves_to),
                   "windows_folder": str(output / (graphs.run_prefix(job, one, stage == "plan") + "_windows")),
                   "shown": says + look_lines(looks.get(one["name"])) + text_lines, "settings": settings_of(one, graph),
+                  "hair_band": cut,
                   "left_out_on_purpose": on_purpose,
                   "what_this_clips_preview_measured": seen}
         graph_file.with_suffix(".built.json").write_text(json.dumps(record, indent=1) + "\n")

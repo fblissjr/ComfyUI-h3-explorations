@@ -52,7 +52,9 @@ with a pose pass takes the mesh and any other load takes none), `continue_from`,
 `audio_first` (the source frame an audio file starts on), `parts_mask` (a mask video to take as the part, in
 place of the capture's own), `motion_edge` (the motion video's short edge), `motion_file_2` with `motion_first_2`
 and `motion_edge_2` (a second motion video beside the first, shown to the model as the next video reference: for a
-load whose text gives each video a subject of its own), and `render_region`: `part` renders the load zoomed in on what is
+load whose text gives each video a subject of its own), `hair_band` (for a part pass: a share of the part's
+height left open under it for the still's hair, cut out of one keep-out, which `hair_band_cuts` names when it is
+not the clothing; `bench/masked_job.py::hair_band`, `h3_config.MASKED_JOB_HAIR_BAND`), and `render_region`: `part` renders the load zoomed in on what is
 replaced and lays it back (`RENDER_REGIONS`; for a part that is small in the frame), where `frame`, the
 default, renders the whole frame. A default that was measured on one clip is a starting value for
 another: every one of them can be set in a load or in the file's `defaults`, and the build record says
@@ -71,7 +73,7 @@ import re
 
 from h3_config import (
     FPS, SEGMENTER, SUBJECT_TRACK, SAPIENS2, MASKED_SOURCE, MASKED_PARTS_SOURCE,
-    MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION,
+    MASKED_JOB_CONTEXT, MASKED_JOB_CONTEXT_NOISE, MASKED_JOB_SOL_SINK, MASKED_JOB_MOTION, MASKED_JOB_HAIR_BAND,
     MASKED_JOB_CRF, MASKED_JOB_EDGE, MASKED_JOB_STILL_VIEW,
     MASKED_JOB_LOADER, MASKED_JOB_FORCE_RATE, MASKED_JOB_SEEK_BACK, MASKED_JOB_SAM_CORRECTIONS,
     MASKED_JOB_PARTS, MASKED_JOB_BODY_MODEL, MASKED_JOB_BOXES, MASKED_JOB_BODY_POSE, MASKED_JOB_MESH,
@@ -294,7 +296,7 @@ MOTIONS = {"none": MASKED_JOB_MOTION["none"], "mesh": MASKED_JOB_MOTION["wired"]
 #: The settings of a load a job file may set in place of the builder's default; a build record says, for
 #: each, the value used and whether the job set it.
 SETTINGS = ("carried", "margin", "feather", "edge", "window", "context", "context_noise", "motion", "motion_edge",
-            "motion_edge_2", "render_region", "seed")
+            "motion_edge_2", "hair_band", "render_region", "seed")
 #: What a load's `render_region` may say, and the Masked Source's choice for each (`video_mask.RENDER_REGIONS`).
 #: `frame` is the node's own default and sets nothing; `part` renders the load zoomed in on what is replaced.
 #: A zoomed load must be one shot (the node refuses a cut inside the loaded frames, and the tool refuses it
@@ -390,6 +392,19 @@ def check_load(job: dict, one: dict, windows: tuple[int, ...]) -> None:
         raise ValueError(f"load {name!r}: motion {one['motion']!r}; one of {tuple(MOTIONS)}")
     if one.get("edge", "tokens") not in MASKED_JOB_EDGE:
         raise ValueError(f"load {name!r}: edge {one['edge']!r}; one of {tuple(MASKED_JOB_EDGE)}")
+    if "hair_band" in one:
+        band, cuts = one["hair_band"], one.get("hair_band_cuts", MASKED_JOB_HAIR_BAND["cuts"])
+        if isinstance(band, bool) or not isinstance(band, (int, float)) or not 0 < band <= MASKED_JOB_HAIR_BAND["most"]:
+            raise ValueError(f"load {name!r}: hair_band {band!r}; a share of the part's height, over 0 and up to "
+                             f"{MASKED_JOB_HAIR_BAND['most']:g}. A load with no band leaves the key out")
+        if one.get("carried", "track") != "held":
+            raise ValueError(f"load {name!r} asks for a hair band and takes the whole subject: the band is read off "
+                             f"a part (`carried: held`)")
+        if cuts not in (one.get("others") or ()):
+            raise ValueError(f"load {name!r}: the hair band is cut out of the keep-out {cuts!r}, which is not among "
+                             f"the load's `others` {list(one.get('others') or ())}; name one of them with `hair_band_cuts`")
+    elif "hair_band_cuts" in one:
+        raise ValueError(f"load {name!r} sets `hair_band_cuts` and asks for no `hair_band`")
     if one.get("motion_file_2") and motion_of(job, one) == "none":
         raise ValueError(f"load {name!r} names a second motion video (`motion_file_2`) and takes no motion video: a second "
                          f"comes after a first. Give the load `motion: mesh`, or take the key out")

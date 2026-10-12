@@ -45,6 +45,10 @@ own below the rule.
   jaw on both sides, with the band's edge held still across frames so the hair is not drawn and undrawn at
   it; a builder change in `bench/masked_job.py` and the region's rules, with a check case and a one-change
   test on 604-948 beside form B. Not designed yet; the lead owns the design.
+  **Built 2026-10-12** from the lead's design, as a load's `hair_band` (`bench/masked_job.py::hair_band`; a case in
+  `bench/check_masked_job.py`); the strap's patch is not part of it, the band cuts the one keep-out and nothing
+  else. Not tested on 604-948 alone, at the owner's word: it goes into her face-and-hair loads from here and is
+  read on the first that renders, by a session that did not build it. UNTESTED on a render as of its commit.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);

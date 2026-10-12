@@ -43,6 +43,15 @@ Claims, i.e. what breaks if a case is deleted:
                         job with no pick; a stage queued twice; node code not
                         committed, with and without an override; an input the
                         server does not serve
+  a hair band under a part    a load with `hair_band`, built from a capture whose masks are real videos: the
+                        keep-out it names is wired from a file of the build's own, empty inside the band
+                        (under the part's box, as deep as the share asked, a little wider) and the capture's
+                        own everywhere else, on the load's frames; the band's edge does not move on a frame
+                        whose part mask shrinks, where the part's own box does; the capture's file is not
+                        touched; a load without the key wires the capture's; the record and the shown line
+                        carry the band's figures and say no render had tested it; a band of 0, a band on a
+                        whole-subject load, a keep-out the load does not have and a `hair_band_cuts` with
+                        no band are each refused
   a job is built on its video's analysis folder    no folder for the file the job renders from, a file that
                         changed since the folder was made and a folder that is another video's are each
                         refused with the command that makes one, for a preview and for loads; a build
@@ -114,6 +123,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import numpy as np
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -568,6 +579,76 @@ def _a_capture(tmp: Path) -> Path:
     (capture / "status.json").write_text(json.dumps({"state": "done", "written": "2026-01-01T10:00:00"}))
     (capture / "verify.json").write_text(json.dumps({"failed": 0, "not_made": 0}))
     return capture
+
+
+def a_hair_band_under_a_part():
+    from _lib.frames import read_mask, write_mask_video
+    w, h, n = 128, 96, 300                                    # the capture's masks, small; its frames are source frames 650 on
+    rule = cfg.MASKED_JOB_HAIR_BAND
+    part = np.zeros((n, h, w), bool)
+    part[:, 20:50, 40:80] = True                              # a head and hair: 40 wide, 30 tall, its bottom at row 50
+    shrunk = 705 - CAPTURE_FIRST                              # on ONE frame of the load the part model loses the lower half
+    part[shrunk] = False
+    part[shrunk, 20:35, 40:80] = True
+    keep = np.zeros((n, h, w), bool)
+    keep[:, 50:, :] = True                                    # clothing: everything under the jaw
+    keep[:, 5:10, 100:120] = True                             # and a piece nowhere near the band
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        capture = _a_capture(tmp)
+        write_mask_video(capture / "subjects/a/parts_held__p.mkv", part)
+        write_mask_video(capture / "subjects/b/track__p.mkv", keep)
+        untouched = (capture / "subjects/b/track__p.mkv").read_bytes()
+        where = dict(date="2026-01-01", data=tmp / "data", output=tmp / "output", inputs=tmp / "input",
+                     analysis=lambda job, data: {"folder": "check", "fingerprint": "none: this case is about something else"},
+                     look=lambda capture, one, told: {"by": "nobody: this case is about something else"})
+        (tmp / "output").mkdir()
+        base = {k: v for k, v in PART.items() if k != "continue_from"}
+        banded = {**base, "name": "a_band", "hair_band": 0.5, "hair_band_cuts": "b"}
+        plain = {**base, "name": "a_plain"}
+        written = tool.build_loads(_loads_file(tmp, capture, loads=(banded, plain)), "plan", [], **where)
+        built, other = (json.loads(p.with_suffix(".built.json").read_text()) for p in written)
+        made = Path(built["files"]["others"][0][0])
+        assert made.name == "a_band.plan.b_less_hair_band.mkv" and made.parent == written[0].parent and built["files"]["others"][0][1] == banded["first"], built["files"]["others"]
+        graph = json.loads(written[0].read_text())
+        assert _files_behind(graph, graph[graphs._the(graph, graphs.SOURCE)]["inputs"]["others"]) == {(str(made), graphs.seek(0), banded["frames"])}, \
+            "the Masked Source's keep-out is not the build's own file, read from its first frame"
+        assert other["files"]["others"] == [[str(capture / "subjects/b/track__p.mkv"), CAPTURE_FIRST]] and other["hair_band"] is None, \
+            "a load that asks for no band does not wire the capture's own keep-out"
+        assert (capture / "subjects/b/track__p.mkv").read_bytes() == untouched, "the capture's own keep-out was written over"
+        got, covered = read_mask(str(made), (w, h), banded["first"], banded["first"], banded["frames"])
+        assert covered.all(), "the cut keep-out has fewer frames than the load"
+        at = banded["first"] - CAPTURE_FIRST
+        x0, x1 = 40 - int(rule["wider"] * 40), 80 + int(rule["wider"] * 40)          # the box and a tenth of its width each side
+        y0, y1 = 50, 50 + 15                                                          # from the box's bottom, half its height down
+        want = keep[at:at + banded["frames"]].copy()
+        want[:, y0:y1, x0:x1] = False
+        assert x0 < 40 and x1 > 80, "the band is no wider than the part's box: nothing is left for hair that falls outward"
+        assert not got[:, y0:y1, x0:x1].any(), "the keep-out is not empty inside the band"
+        assert np.array_equal(got, want), f"outside the band the keep-out is not the capture's own: {int((got != want).sum())} pixels differ"
+        j = shrunk - at
+        assert 0 < j < banded["frames"] - 1 and np.array_equal(got[j], got[j - 1]) and np.array_equal(got[j], got[j + 1]), \
+            "the band's edge moved on the frame whose part mask shrank"
+        assert part[shrunk].any(1).nonzero()[0][-1] + 1 == 35, "control failed: the part's own box did not move on that frame"
+        fig = built["hair_band"]
+        assert fig["share_of_the_parts_height"] == 0.5 and fig["cut_out_of"] == "b" and fig["part_height_px_median"] == 30.0, fig
+        assert fig["band_px_median"] == {"deep": 15.0, "wide": float(x1 - x0)} and fig["the_box_is_the_median_over_frames"] == 2 * rule["smooth_frames"] + 1
+        assert fig["frames_with_a_band"] == banded["frames"] and fig["frames_written"] == banded["frames"] and fig["keep_out_px_taken_out_a_frame"]["median"] == 15.0 * (x1 - x0)
+        assert "not when the band was built" in fig["tested_on_a_render"] and fig["made_from"]["keep_out"].endswith("subjects/b/track__p.mkv")
+        assert any(line.startswith("hair band:") and "15 px deep" in line and "not when the band was built" in line for line in built["shown"]), built["shown"]
+        assert built["settings"]["hair_band"] == {"value": 0.5, "set_by": "the job file"} and other["settings"]["hair_band"]["value"].startswith("none")
+        rendered = tool.build_loads(_loads_file(tmp, capture, loads=(banded, plain)), "render", ["a_band"], **where)
+        again = Path(json.loads(rendered[0].with_suffix(".built.json").read_text())["files"]["others"][0][0])
+        assert again.name == "a_band.render.b_less_hair_band.mkv" and np.array_equal(read_mask(str(again), (w, h), 700, 700, banded["frames"])[0], got), \
+            "the render's cut keep-out is not the plan's"
+        for words, change in (("hair_band|over 0", {"hair_band": 0}), ("hair_band|over 0", {"hair_band": True}), ("hair_band|up to", {"hair_band": rule["most"] + 1}),
+                              ("not among", {"hair_band_cuts": "c"}), ("whole subject", {"carried": "track"})):
+            _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_no", **change},)), "plan", [], **where), *words.split("|"))
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**plain, "name": "a_no", "hair_band_cuts": "b"},)), "plan", [], **where), "hair_band_cuts", "no `hair_band`")
+        write_mask_video(capture / "subjects/a/parts_held__p.mkv", np.zeros((n, h, w), bool))
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_none"},)), "plan", [], **where), "empty on every frame")
+        assert not list(written[0].parent.glob("a_no*")) and not list(written[0].parent.glob("a_none*")), "a refused load left a file"
+    return "the keep-out is cut under the part and nowhere else, its edge holds on a frame whose part shrinks, and the capture's own file is untouched"
 
 
 def _loads_file(tmp: Path, capture: Path, loads=(WHOLE, PART), **job) -> Path:
@@ -1139,7 +1220,7 @@ def main() -> int:
                build_refuses_what_it_must, queue_refuses_what_it_must, a_job_is_built_on_its_videos_analysis_folder,
                a_load_lands_on_the_inputs_it_names, a_plan_is_the_render_with_nothing_sampled,
                a_load_leaves_the_rows_model_alone, the_nodes_schemas_accept_a_load,
-               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_text_is_of_its_frames,
+               a_load_the_graph_cannot_be_built_from, loads_from_a_capture, a_hair_band_under_a_part, a_text_is_of_its_frames,
                the_gate_before_a_render):
         case(fn.__name__.replace("_", " "), fn)
     return finish()

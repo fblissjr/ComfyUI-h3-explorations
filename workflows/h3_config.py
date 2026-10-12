@@ -1488,6 +1488,19 @@ MASKED_JOB_SOL_SINK = "exact_kv_and_rows"
 #: adopted and not shown to be a gain (the node's own default, `video_mask.MOTION_SHORT_EDGE`, is smaller). A
 #: load's own `motion_edge` replaces it.
 MASKED_JOB_MOTION = dict(none="none", wired="a video I wire")
+#: A band left open under a head-and-hair part, for a still whose hair falls past the original's jaw
+#: (`bench/masked_job.py::hair_band`; a load asks for it with `hair_band`, a share of the part's height, and
+#: there is no default: a load that does not ask has none). The fault it answers: below the part every cell is
+#: a keep-out's to give back to the source, and the clothing mask's pieces change frame to frame, so the
+#: region's lower edge moved and the drawn hair was cut where it moved (the long kitchen shot, source frames
+#: 693 to 703, on playback). `cuts`: the keep-out the band is taken out of, by its label in a load's `others`.
+#: `wider`: how far the band reaches past the part's box on each side, as a share of the box's width.
+#: `smooth_frames`: the box is the median of the boxes this many frames either side, so the band's edge does
+#: not move with one frame's mask. `most`: the deepest band a load may ask for, in part heights.
+#: **Reasoned**, all four: the lead's design of 2026-10-12, built that day. No render had been made with a
+#: band when this was written, and none of these was measured on one; the first face-and-hair load that
+#: carries a band is read by a session that did not build it.
+MASKED_JOB_HAIR_BAND = dict(cuts="clothes", wider=0.1, smooth_frames=4, most=2.0)
 #: What the text encoder is shown of a load's still: the video model's own copy, not a smaller one of its
 #: own. **Decided** by the owner, 2026-10-08, for the reference stills of this lane (the largest size, enlarged
 #: to it, one copy for both models); the 2026-10-08 final and every render of 2026-10-10 ran so. The shipped
