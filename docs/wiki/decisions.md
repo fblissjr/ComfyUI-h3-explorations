@@ -59,6 +59,39 @@ writer, and the row or commit named is the nearer record.*
   build record and the printout, and nothing refuses on it. The check's
   cases on the refusal became cases on the record. The lane's rule that
   somebody looks stands as a rule of practice, not of the tool.
+- **The fragment is a pattern, not a paste; a prompt is read in full** (the
+  owner, 2026-10-12, in the lead's terminal at about 17:41Z by the clock,
+  correcting the lead's relay of their 17:33Z word "make sure the prompt
+  aligns"). Their words: "I didn't say every prompt has to use that
+  fragment. I said thats how we solved one specific one. Its not a copy
+  paste, its a pattern that worked. And we need to follow the vendor guide
+  prompting for refs. If our ref video is a gray mesh dude with a shape on
+  him, part of that fragment works, because its following those things. So
+  for the mom with the overlay of the mesh and the sapiens2 data for
+  capturing eye/expressions and the mesh for turns, you can keep it simple
+  and refer to that part of the prompt. You dont need to get super specific
+  about the scene itself. You let the ref video and frozen video/audio guide
+  it by the prompt." And: "every prompt needs to be read in full, not
+  summarized or heard secondhand. If youre trying to build or diagnose a
+  scene - you better know what inputs went into it, what they look like,
+  and what the prompt says EXACTLY." What the lead had relayed at 17:35Z
+  (the four places verbatim on every load) is withdrawn; the two loads
+  built on it (second_hf_1039_b, second_hf_0859d) stand, since their
+  reference is the marked mesh and those lines fit it. The marks stay on
+  every load of her. [`masked_v2v.md`](masked_v2v.md), "The text: the
+  fragment", carries the ruling beside the fragment.
+- **No video clip under `data/`, the tools included** (the owner,
+  2026-10-12, in the lead's terminal at about 17:39Z: "All videos we agreed
+  go in output folder Video/fun somewhere"; AGENTS.md has the rule).
+  `bench/capture_masked_run.py video --load` wrote a load's strip beside
+  its capture under `looks/` since 2026-10-10 (42 strips by 17:40Z); it now
+  writes to the share's `Video/<video>/looks/<capture>/` (`strip_home`), the
+  record beside the capture naming the full path, and the 42 were moved
+  with their records rewritten. The local page's own viewing copies under
+  `data/fun/poc/media` and `data/fun/review/media` (252 files) are the next
+  move, after the long shot's reading. The tracked masks (`.mkv` under a
+  capture's `subjects/`) are the tracker's data and stay unless the owner
+  says they count.
 - **What each subject carries is unchanged and holds for every shot**: the
   lead, the face only; the second subject, the face and hair only; the third
   subject, the face only (the owner, in the lead's terminal, 2026-10-12

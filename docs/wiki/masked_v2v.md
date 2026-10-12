@@ -1067,6 +1067,15 @@ What to hold to when it is used on another load:
   ([`../prompting.md`](../prompting.md), section 9.4). The same content
   laid out the guide's way was rendered once, with marks at true size; the
   lid-marks record has what it did.
+- **A pattern, not a paste** (the owner, 2026-10-12, about 17:41Z; the
+  words are in [`decisions.md`](decisions.md)): this is how one shot was
+  solved, in the vendor guide's form for a reference. When the reference
+  video is the marked grey mesh, the lines that say what it is and that she
+  follows its movements and expressions apply; a plain mesh gets a plainer
+  line. The scene is kept simple: the frozen frames and the sound carry it,
+  and a text does not inventory what is behind her. And whoever builds or
+  diagnoses a load reads its text in full, with its inputs seen: never a
+  summary, never secondhand.
 - **It is not what the Masked Prompt node writes.** The node's lines for a
   motion video (`masked_prompt_text.VIDEO_DEFINITION`, `VIDEO_RETENTION`,
   `MOVES`) call the video a person and take only body movement from it. By

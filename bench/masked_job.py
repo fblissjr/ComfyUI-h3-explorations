@@ -494,12 +494,15 @@ def looked_at(capture: Path, one: dict, told: dict) -> dict:
 def look_or_shown(capture: Path, one: dict, told: dict, look=looked_at) -> dict:
     """The look a load is built on, as `looked_at` finds it, or a record that none is recorded for this build:
     shown and never refused (the owner, 2026-10-12, Open List row c22). The record says why in `looked_at`'s own
-    words, names the strip when one is drawn under the capture's `looks/` (with when), and gives the command that
+    words, names the strip when one is drawn (where the record beside the capture, `looks/<load>.shown.json`, says
+    it is: on the share since 2026-10-12, beside the capture before; with when), and gives the command that
     records a look on it, or draws one when none is."""
     try:
         return look(capture, one, told)
     except Refused as e:
-        strip = capture / "looks" / f"{one['name']}.mp4"
+        record = capture / "looks" / f"{one['name']}.shown.json"
+        named = json.loads(record.read_text()).get("strip") if record.is_file() else None
+        strip = Path(named) if named and Path(named).is_absolute() else capture / "looks" / (named or f"{one['name']}.mp4")
         drawn = strip.is_file()
         return {"recorded": False, "why": str(e).split(" To look: ")[0], "strip": str(strip) if drawn else None,
                 "strip_drawn": (datetime.datetime.fromtimestamp(strip.stat().st_mtime).isoformat(timespec="seconds")

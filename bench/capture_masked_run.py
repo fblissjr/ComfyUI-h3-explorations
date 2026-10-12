@@ -3105,6 +3105,37 @@ def look_entry(status: dict, shown: list[dict], by: str, note: str, now: str) ->
             "capture_written": status.get("written"), "maker": status.get("made_by") or "not recorded"}
 
 
+def strip_home(folder: Path) -> Path:
+    """Where a look's strip is written: the share's `Video/<video>/looks/<capture>/`, never under `data/` (the
+    owner, 2026-10-12, in the lead's terminal: a video clip goes under the share's output folder, where they can
+    see it; AGENTS.md has the rule). The video's name is its analysis folder's (`clip_folder`, from the capture's
+    `clip`) and the output folder the server's (`h3_config.output_dir`, which on this box needs `H3_OUTPUT_DIR`).
+    Until 2026-10-12 the strip went beside the capture under `looks/`; the record of what it showed stays there
+    (`looks/<load>.shown.json`) and names the strip's full path, so `looked` and the job builder find it in
+    either place."""
+    sys.path.insert(0, str(REPO))
+    import clip_folder  # noqa: E402
+    sys.path.insert(0, str(REPO / "workflows"))
+    import h3_config  # noqa: E402
+    clip = json.loads((folder / "manifest.json").read_text())["clip"]
+    home = h3_config.output_dir() / "Video" / clip_folder.folder_of_file(clip, REPO / "data").name / "looks" / folder.name
+    home.mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def strip_of(folder: Path, name: str) -> Path | None:
+    """The strip drawn for a load, where its record says it is (`looks/<load>.shown.json`, `strip`: a full path
+    since 2026-10-12, a bare file name beside the capture before), or beside the capture when no record was written;
+    None when none is drawn."""
+    record = folder / "looks" / f"{name}.shown.json"
+    named = json.loads(record.read_text()).get("strip") if record.is_file() else None
+    for path in ((Path(named) if named and Path(named).is_absolute() else folder / "looks" / (named or f"{name}.mp4")),
+                 folder / "looks" / f"{name}.mp4"):
+        if path.is_file():
+            return path
+    return None
+
+
 def looked(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     status = json.loads((folder / "status.json").read_text())
@@ -3113,7 +3144,7 @@ def looked(a: argparse.Namespace) -> None:
     # with no --loads: every strip drawn since the capture was last written; an older strip is of an earlier capture
     names = sorted(n for n, r in rows.items() if r.get("made", "") > str(status.get("written", ""))) if not a.loads or a.loads == "all" \
         else a.loads.split("+")
-    unrecorded = [n for n in names if n not in have and (folder / "looks" / f"{n}.mp4").is_file()]
+    unrecorded = [n for n in names if n not in have and strip_of(folder, n) is not None]
     if unrecorded:
         raise SystemExit(f"a strip of {', '.join(unrecorded)} was drawn and nothing was recorded for it: the job file does not say which "
                          "frames its text was written from, or by whom, so no look of it can be recorded")
@@ -3971,8 +4002,8 @@ def video(a: argparse.Namespace) -> None:
     lines = legend_lines(subjects, runs)
     out = a.out or str(folder / f"{m['name']}_diag.mp4")
     if shown is not None and not a.out:
-        (folder / "looks").mkdir(exist_ok=True)
-        out = str(folder / "looks" / f"{a.load}.mp4")
+        (folder / "looks").mkdir(exist_ok=True)       # the record of what was shown stays beside the capture
+        out = str(strip_home(folder) / f"{a.load}.mp4")   # the strip itself goes to the share, never under data/
     # the sound: the render's own when it carries one; else the source's at the render's first frame (a render saved
     # without an audio stream, as the first window of a two-window run and a joined viewing copy were on 2026-10-12,
     # gave the owner a silent clip; the source has the sound on every frame)
@@ -4132,7 +4163,7 @@ def video(a: argparse.Namespace) -> None:
     if shown is not None and shown["recorded"] and not a.out:
         # what this strip showed, for `looked` to copy: a look is held by what was shown, not by a time alone
         row = {"load": a.load, "frames": shown["frames"], "text_label": shown["text_label"], "text_frames": shown["text_frames"],
-               "text_by": shown["text_by"], "text_sha256": shown["text_sha256"], "region": shown["region"], "strip": Path(out).name,
+               "text_by": shown["text_by"], "text_sha256": shown["text_sha256"], "region": shown["region"], "strip": out,
                "made": datetime.datetime.now().isoformat(timespec="seconds")}
         (folder / "looks" / f"{a.load}.shown.json").write_text(json.dumps(row, indent=1) + "\n")
         print("wrote", folder / "looks" / f"{a.load}.shown.json")
