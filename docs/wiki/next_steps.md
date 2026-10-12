@@ -46,6 +46,15 @@ own below the rule.
   an offset for a load's own strip (`--load`); a render placed by
   `--render-first` inside the span wants the same, with a case in
   `bench/check_capture_masked_run.py`. Not started: the tool was in use.
+- **`bench/recomposite_window.py` writes tables and no pictures.** It lays a
+  stored window again with one setting changed and prints what moved; to see
+  the layings, a session script called the tool's own functions (the saved
+  region, the kept decode, `video_mask.lay_window`) and wrote the frames.
+  Run once, on the first window of the long kitchen shot, for three layings
+  of 33 frames and a box of them side by side with frame numbers; it will be
+  run again. Wanted as an option of the tool: write the frames of a laying
+  as a video, and several layings side by side over a box, with the source
+  frame number burned in. Not started.
 
 **Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
 - Start from [`handover.md`](handover.md): what not to assume, where the
