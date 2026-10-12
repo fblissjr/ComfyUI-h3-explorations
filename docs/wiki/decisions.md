@@ -22,6 +22,13 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **What each subject carries is unchanged and holds for every shot**: the
+  lead, the face only; the second subject, the face and hair only; the third
+  subject, the face only (the owner, in the lead's terminal, 2026-10-12
+  between 16:44Z and 16:48Z by the clock, restating the defaults of
+  2026-10-11 after the kitchen scene's whole-person question). No shot
+  departs from these by region; `data/fun/plan.json` carries the words on
+  each subject.
 - **Her face and hair for everything; no whole-person replacement of the
   second subject anywhere; the earlier renders are not reused, the shots
   are rendered fresh with the tools, and the faults seen are fixed first**
