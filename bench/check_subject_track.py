@@ -1207,6 +1207,14 @@ def check_looks_in_the_table(problems):
         problems.append("looks: with nothing recorded the table still writes looks or signatures")
 
 
+def _refusal(call) -> str:
+    try:
+        call()
+    except SystemExit as err:
+        return str(err)
+    return ""
+
+
 def check_rows_from_tables(problems):
     """The trackers' tables of one load read together: a row a shot, answered only by a person's word, a question otherwise.
 
@@ -1335,6 +1343,60 @@ def check_rows_from_tables(problems):
         except SystemExit as err:
             if need not in str(err):
                 problems.append(f"rows: the refusal does not say `{need}`: {err}")
+    # tables of TWO previews (2026-10-12: one of 457 frames and one of 406 for one load of two subjects): with the frames to cut to,
+    # each table is cut to them and read; the lead's here is a preview of shot 1 only, the second's the whole clip
+    short = {**json.loads(json.dumps(table_lead)), "frames": 8, "cuts": []}
+    short["shots"] = short["shots"][:1]
+    two = {"lead": short, "second": table_second}
+    try:
+        tool.read_rows(two, first_source_frame=600)
+        problems.append("rows: tables of two previews were read with no frames to cut them to")
+    except SystemExit as err:
+        if "not tables of one load" not in str(err) or "--frames" not in str(err):
+            problems.append(f"rows: the refusal of two previews' tables does not say how to cut them: {err}")
+    cut = tool.read_rows(two, first_source_frame=600, frames=8)
+    if [(r["frames"], r["status"]) for r in cut["rows"]] != [([0, 7], "answered")] or cut["cut_to"]["frames"] != 8 or "across_previews" not in cut:
+        problems.append(f"rows: two previews' tables cut to the frames both hold give one answered row over them: {cut['rows']}")
+    # a cut that begins inside the tables: shots clipped and renumbered from the cut's frame 0, a tile before the cut kept and marked,
+    # and a question typed by the shot's number in the tracker's OWN table
+    late = tool.read_rows(tables, first_source_frame=604, frames=8, firsts={"lead": 600, "second": 600})
+    cells = late["rows"][0]["trackers"]
+    if [r["frames"] for r in late["rows"]] != [[0, 3], [4, 7]] or cells["lead"]["tile_frame"] != -2 or not cells["lead"]["tile_outside_the_frames"] \
+            or late["rows"][1]["trackers"]["lead"]["shot_in_its_table"] != 2 or "shot 2, lead's tile" not in late["rows"][1]["trackers"]["lead"]["ask"]:
+        problems.append(f"rows: a cut from frame 4 for 8 frames is shots 1 and 2 clipped to 0-3 and 4-7, the first shot's tile marked outside: "
+                        f"{[r['frames'] for r in late['rows']]}, {cells['lead']}")
+    # a preview of the middle shot alone numbers it 1, where the whole clip's table numbers it 2: each tracker's question
+    # is typed by the number in ITS table
+    middle = json.loads(json.dumps(table_lead["shots"][1]))
+    middle.update(shot=1, first_frame=0, last_frame=7, shown_frame=middle["shown_frame"] - 8)
+    mid = tool.read_rows({"second": table_second, "lead": {**table_lead, "frames": 8, "cuts": [], "shots": [middle]}},
+                         first_source_frame=608, frames=8, firsts={"second": 600})["rows"]
+    if len(mid) != 1 or mid[0]["shot"] != 2 or "shot 1, lead's tile" not in mid[0]["trackers"]["lead"]["ask"] \
+            or "shot 2, second's tile" not in mid[0]["trackers"]["second"]["ask"]:
+        problems.append(f"rows: a tracker's question names the shot by its number in that tracker's own table: {mid}")
+    # a table that begins on another source frame says so, and is cut by its own clock
+    if tool.read_rows(two, first_source_frame=600, frames=8, firsts={"second": 600})["rows"] != cut["rows"]:
+        problems.append("rows: a table told its own first frame, the same as the load's, read differently")
+    moved_cut = json.loads(json.dumps(tables))
+    moved_cut["lead"].update(cuts=[10, 16])
+    moved_cut["lead"]["shots"][0]["last_frame"], moved_cut["lead"]["shots"][1]["first_frame"] = 9, 10
+    for bad, need, kw in ((two, "does not cover", dict(first_source_frame=600, frames=12)),
+                          (two, "does not cover", dict(first_source_frame=600, frames=8, firsts={"lead": 604})),
+                          (moved_cut, "the cuts differ", dict(first_source_frame=600, frames=24)),
+                          ({"lead": short, "second": {**table_second, "size": [8, 8]}}, "two picture sizes", dict(first_source_frame=600, frames=8)),
+                          (two, "give --first-frame", dict(frames=8))):
+        try:
+            tool.read_rows(bad, **kw)
+            problems.append(f"rows: two previews' tables were cut and read where the refusal `{need}` was due")
+        except SystemExit as err:
+            if need not in str(err):
+                problems.append(f"rows: the refusal does not say `{need}`: {err}")
+    if "[608, 616]" not in _refusal(lambda: tool.read_rows(moved_cut, first_source_frame=600, frames=24)) \
+            or "[610, 616]" not in _refusal(lambda: tool.read_rows(moved_cut, first_source_frame=600, frames=24)):
+        problems.append("rows: cuts that differ inside the frames are not named in source frames for both tables")
+    # a cut that leaves the differing cut outside is read: only cuts INSIDE the frames must agree
+    if len(tool.read_rows(moved_cut, first_source_frame=600, frames=8)["rows"]) != 1:
+        problems.append("rows: tables whose cuts differ only after the frames asked for were not read")
     source = (REPO / "bench" / "who_is_who_across_shots.py").read_text(encoding="utf-8")
     for gone in ("hand_out", "the_sum_says", "the_evidence_says", "suggest", "levels", "signatures\"]["):
         if gone in source:

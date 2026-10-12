@@ -29,10 +29,22 @@ The tables must be version 2 (`shot_table.py::TABLE_VERSION`): every tracker lis
 numbering, so a person's number means the same on every tracker's tile of that frame. An older table is refused.
 
     <python> bench/who_is_who_across_shots.py corrections --table lead=<_shots.json> --table second=<_shots.json> ... \\
-        [--first-frame N] --out FILE
+        [--first-frame N] [--frames COUNT] --out FILE
 
 `--first-frame` is the frame of the source copy the load's frame 0 is on; it is written into the file for the
-gate and changes nothing else. No model, no card.
+gate and, without `--frames`, changes nothing else.
+
+**Tables of two previews** (2026-10-12: the first load of two subjects took each subject's track from its own
+preview, one of 457 frames and one of 406 from the same first frame, and this tool refused them as not one
+load). With `--frames COUNT` each table is cut to COUNT frames from `--first-frame`: its shots that overlap
+them, clipped, in the cut's own frame numbers. A table that begins on another source frame says so as
+`--table LABEL=PATH@FIRST`. Refused by name: a table that does not cover those frames, tables of two picture
+sizes, and cuts INSIDE those frames that differ between tables (the rows are a shot of each table side by side,
+so the shots must be the same ones). A tracker's tile frame outside the cut is kept and marked. What it cannot
+know then: a person's number is the K-th detection on a tile's frame as THAT preview detected it, so the test
+for two trackers on one person (one number on one tile frame) is only as good as the two previews' detections
+of that frame being the same; the capture's own columns of how far two masks overlap are what show two masks on
+one person. No model, no card.
 """
 from __future__ import annotations
 
@@ -60,17 +72,56 @@ def word(shot: dict) -> str:
             "seeded" if shot.get("seeded") else "")
 
 
-def read_rows(tables: dict[str, dict], first_source_frame: int | None = None) -> dict:
-    """The file for the gate, from the trackers' tables of one load, {label: table} in the job's order."""
+def cut_to(label: str, table: dict, table_first: int, first: int, frames: int) -> dict:
+    """A table cut to `frames` frames from source frame `first`: its shots that overlap them, clipped, renumbered from the cut's frame 0.
+
+    `table_first` is the source frame the table's own frame 0 is on. A shot keeps its number in its own table
+    (a correction is typed into that tracker by that number) and its tile's frame, marked when it lies outside
+    the cut. A table that does not hold every frame asked for is refused."""
+    lead = int(first) - int(table_first)
+    if lead < 0 or lead + frames > int(table["frames"]):
+        raise SystemExit(f"{label}'s table holds source frames {table_first}-{table_first + int(table['frames']) - 1} and the frames asked for "
+                         f"are {first}-{first + frames - 1}: it does not cover them")
+    shots = []
+    for shot in table["shots"]:
+        a, b = int(shot["first_frame"]) - lead, int(shot["last_frame"]) - lead
+        if b < 0 or a >= frames:
+            continue
+        tile = int(shot["shown_frame"]) - lead
+        shots.append({**shot, "first_frame": max(a, 0), "last_frame": min(b, frames - 1), "shown_frame": tile,
+                      "tile_outside_the_frames": not 0 <= tile < frames})
+    return {**table, "frames": int(frames), "cuts": [int(c) - lead for c in table["cuts"] if 0 < int(c) - lead < frames], "shots": shots}
+
+
+def read_rows(tables: dict[str, dict], first_source_frame: int | None = None, frames: int | None = None,
+              firsts: dict[str, int] | None = None) -> dict:
+    """The file for the gate, from the trackers' tables of one load, {label: table} in the job's order.
+
+    With `frames`, each table is first cut to that many frames from `first_source_frame` (`cut_to`); `firsts` is
+    {label: the source frame its table's frame 0 is on} for a table that begins elsewhere."""
     labels = list(tables)
-    first = tables[labels[0]]
     for label, t in tables.items():
         if t.get("version") != TABLES:
             raise SystemExit(f"{label}: this shot table is version {t.get('version')!r}; this tool reads version {TABLES}, in which every "
                              "tracker lists everybody on a frame. Run the preview again")
-        if t["frames"] != first["frames"] or list(t["cuts"]) != list(first["cuts"]) or list(t.get("size", [])) != list(first.get("size", [])):
+    if frames is not None:
+        if first_source_frame is None:
+            raise SystemExit("--frames cuts each table to that many frames from --first-frame: give --first-frame")
+        tables = {label: cut_to(label, t, (firsts or {}).get(label, first_source_frame), first_source_frame, int(frames)) for label, t in tables.items()}
+    first = tables[labels[0]]
+    for label, t in tables.items():
+        if list(t.get("size", [])) != list(first.get("size", [])):
+            raise SystemExit(f"{label} and {labels[0]} are tables of two picture sizes ({t.get('size')} and {first.get('size')}): "
+                             "not tables of one load")
+        if frames is not None and list(t["cuts"]) != list(first["cuts"]):
+            at = lambda cuts: [first_source_frame + c for c in cuts]  # noqa: E731
+            raise SystemExit(f"inside source frames {first_source_frame}-{first_source_frame + frames - 1} the cuts differ: {labels[0]}'s table "
+                             f"has them at {at(first['cuts'])} and {label}'s at {at(t['cuts'])} (source frames). A row is one shot of each "
+                             "table side by side, so the shots must be the same: run the previews on the same cuts")
+        if t["frames"] != first["frames"] or list(t["cuts"]) != list(first["cuts"]):
             raise SystemExit(f"{label} and {labels[0]} are not tables of one load (frames, size or cuts differ): each tracker "
-                             "must be given the same frames")
+                             "must be given the same frames. For tables of two previews that both hold the load's frames, give "
+                             "--frames COUNT with --first-frame: each is cut to them")
     # a tracker with its subject on no shot is a finding and the first line, not a reason to stop (the first
     # three-tracker run, 2026-10-10: an earlier tracker's wrong take held a later subject on her own pick frame)
     not_picked = {}
@@ -90,6 +141,8 @@ def read_rows(tables: dict[str, dict], first_source_frame: int | None = None) ->
             cells[label] = {"called": shot["subject"]["state"], "called_person": shot["subject"]["person"], "answered_by": word(shot),
                             "typed_in_this_table": str(shot.get("corrected", "") or ""), "tile_frame": int(shot["shown_frame"]),
                             "numbers_on_its_tile": [p["person"] for p in shot["people"]], "ask": ""}
+            if frames is not None:                    # a cut table: the shot's number in its own table, and a tile outside the cut
+                cells[label].update(shot_in_its_table=int(shot["shot"]), tile_outside_the_frames=bool(shot["tile_outside_the_frames"]))
         # one numbering on every tracker's tile of a frame: the same number on the same frame is the same person
         same = [(a, b) for i, a in enumerate(labels) for b in labels[i + 1:]
                 if cells[a]["called_person"] is not None and cells[a]["called_person"] == cells[b]["called_person"]
@@ -119,8 +172,9 @@ def read_rows(tables: dict[str, dict], first_source_frame: int | None = None) ->
             # a reader may show only the questions: the clash is said in each of the pair's own, not in `why` alone
             clash = next((f"TWO TRACKERS ON ONE PERSON: {a} and {b} both have person {c['called_person']} on frame {c['tile_frame']}. "
                           for a, b in same if label in (a, b)), "")
-            c["ask"] = (clash + f"shot {number}, {label}'s tile (frame {c['tile_frame']}): which numbered person is {label}? {numbers}, or none. "
-                        f"Its tracker has {took} ({c['called']}). Type `shot {number}: person K` or `shot {number}: none` into {label}'s tracker")
+            own = c.get("shot_in_its_table", number)      # a correction is typed into a tracker by the shot's number in ITS table
+            c["ask"] = (clash + f"shot {own}, {label}'s tile (frame {c['tile_frame']}): which numbered person is {label}? {numbers}, or none. "
+                        f"Its tracker has {took} ({c['called']}). Type `shot {own}: person K` or `shot {own}: none` into {label}'s tracker")
         answered = {label: c["answered_by"] for label, c in cells.items() if c["answered_by"]}
         if answered and not note:
             note = "a person's word: " + ", ".join(f"{label} ({how})" for label, how in answered.items())
@@ -132,7 +186,13 @@ def read_rows(tables: dict[str, dict], first_source_frame: int | None = None) ->
                          f"with a head was detected in it. {ASK}: at least one call is the tracker's own, or two trackers have one "
                          "person, and a person is asked. A row is answered once its corrections are typed and the preview run again",
             "frames_are": "the load's own frame numbers" + ("" if first_source_frame is None else f"; the load's first frame is the source's {int(first_source_frame)}, as given"),
-            "first_source_frame": first_source_frame, "not_picked": not_picked, "tables": labels, "rows": rows}
+            "first_source_frame": first_source_frame, "not_picked": not_picked, "tables": labels, "rows": rows,
+            **({} if frames is None else {
+                "cut_to": {"frames": int(frames), "from_source_frame": int(first_source_frame),
+                           "why": "the tables were of different frames (two previews), and each was cut to these"},
+                "across_previews": "a person's number is the K-th detection on a tile's frame as that table's own preview detected it: "
+                                   "one number on one tile frame in two tables is the same person only if the two previews detected "
+                                   "that frame alike. Two masks on one person is shown by the capture's own mask-overlap columns"})}
 
 
 def render(out: dict) -> None:
@@ -154,18 +214,25 @@ def main() -> int:
     p = argparse.ArgumentParser(description=str(__doc__).splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("corrections", help="the rows for one load, from its trackers' shot tables")
-    c.add_argument("--table", action="append", required=True, metavar="LABEL=PATH", help="one a tracker, in the job's order")
+    c.add_argument("--table", action="append", required=True, metavar="LABEL=PATH[@FIRST]",
+                   help="one a tracker, in the job's order; @FIRST when its table begins on another source frame than --first-frame")
     c.add_argument("--first-frame", type=int, help="the source-copy frame the load's frame 0 is on")
+    c.add_argument("--frames", type=int, help="cut every table to this many frames from --first-frame: for tables of two previews")
     c.add_argument("--out", required=True)
     a = p.parse_args()
-    tables = {}
+    tables, firsts, names = {}, {}, {}
     for pair in a.table:
         label, _, path = pair.partition("=")
+        path, at, begins = path.rpartition("@") if path.rpartition("@")[2].isdigit() else (path, "", "")
         if not label or not path or label in tables:
-            raise SystemExit(f"--table takes LABEL=PATH, each label once: `{pair}`")
-        tables[label] = json.loads(Path(path).read_text())
-    out = read_rows(tables, a.first_frame)
-    out["files"] = {label: Path(pair.partition("=")[2]).name for label, pair in zip(tables, a.table)}
+            raise SystemExit(f"--table takes LABEL=PATH or LABEL=PATH@FIRST, each label once: `{pair}`")
+        tables[label], names[label] = json.loads(Path(path).read_text()), Path(path).name
+        if at:
+            firsts[label] = int(begins)
+    if firsts and a.frames is None:
+        raise SystemExit("--table LABEL=PATH@FIRST says where a table begins so that it can be cut: give --frames too")
+    out = read_rows(tables, a.first_frame, a.frames, firsts)
+    out["files"] = names
     Path(a.out).write_text(json.dumps(out, indent=1) + "\n")
     render(out)
     return 0

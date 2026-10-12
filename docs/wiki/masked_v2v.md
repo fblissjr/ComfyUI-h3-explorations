@@ -753,7 +753,12 @@ docstring is the authority and lists the steps; `follow` is the function.
   when every tracker's call on it is a person's word (a pick, a typed
   correction, a seed) or nothing with a head was detected, `ask` otherwise,
   with the question in the tile's own numbers. It compares nobody with
-  anybody and decides nothing. *2026-10-10: the sum over all the subjects
+  anybody and decides nothing. *2026-10-12: tables of two previews (a
+  load of two subjects whose tracks come from different previews) are cut
+  to the load's frames with `--frames`, and refused by name when a table
+  does not cover them or the cuts inside them differ; a person's number
+  is then each preview's own detection of a tile's frame, which the
+  file says.* *2026-10-10: the sum over all the subjects
   at once, which this tool carried for a few hours and which this bullet
   described, was removed the day it was built (`docs/wiki/decisions.md`, 2026-10-10, "What the owner cut from the tools around the nodes"): it was the
   tracker's own likeness arranged again, not a second vote, and it handed a
