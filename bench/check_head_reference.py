@@ -101,6 +101,9 @@ def one_run_makes_the_form() -> str:
     made = hr.outputs(out)
     assert all(p.is_file() for p in made.values()), [k for k, p in made.items() if not p.is_file()]
     assert rec["passed"] and json.loads(made["record"].read_text()) == rec and any(line.startswith("PASSED") for line in said)
+    # the body model against the source is printed on a line of its own, as figures: it is no step's PASSED or FAILED
+    assert any(line.strip().startswith("the body model against the source") and "no part of PASSED" in line for line in said), said
+    assert "decides" in rec["body_model_against_the_source"] and "a_neighbour_fits_better" not in rec["body_model_against_the_source"]
     box, scale = np.array(rec["box"], float), np.array(rec["scale"])
     assert scale[0] > 1.05 and json.loads(made["source_cut_record"].read_text())["box"] == rec["box"] == json.loads(made["plain_cut_record"].read_text())["box"]
     got, plain = read(out, N), read(made["plain_cut"], N)

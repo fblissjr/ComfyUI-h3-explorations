@@ -23,7 +23,9 @@ The fixture names its midpoints out of order along each line, as the pose model 
    fails it; a drawn frame with none fails it. A face that never moves passes, and is said to be untellable.
 6. **`verify` catches points read on the wrong clock.** A second reader who takes the points file to begin a
    frame early or late is told a neighbour fits better; on the right clock it passes.
-7. **A body-model video off the source's clock fails the run.**
+7. **A body-model video off the source's clock: figures, not a failure.** The three figures, their difference,
+   the box and frames they were read on and what the measure cannot see are recorded and printed, and the run
+   still passes (until 2026-10-12 it failed the run).
 8. **An iris or a pupil ring is left out under the score line and drawn over it**, per eye and per frame, in
    the picture and in the record.
 9. **The width rule, and lines too thin to read back.** With no width given it is the face's height over
@@ -289,20 +291,29 @@ def off_the_sources_clock() -> str:
     src, mesh = moving()
     source = video(WORK / "source.mkv", src)
     on = df.run(str(video(WORK / "mesh_on.mkv", mesh)), str(POINTS), 0, N, WORK / "on.mp4", "the check", width=WIDE, source=str(source), say=quiet)
-    assert on["passed"] and on["body_model_against_the_source"]["a_neighbour_fits_better"] is False, on["body_model_against_the_source"]
+    clock = on["body_model_against_the_source"]
+    assert on["passed"] and clock["best_neighbour_less_no_slip"] < 0, clock
+    # the figures say what they were read on and what they cannot see, and decide nothing
+    assert clock["measured_on"]["frames"] == [0, N - 1] and len(clock["measured_on"]["box"]) == 4 and "a second person" in clock["cannot_see"], clock
+    assert "no part of `passed`" in clock["decides"], clock
     assert (WORK / "on_sheet.jpg").exists() and on["sheet"]["looked_at_by"] == "" and len(on["sheet"]["frames"]) == 6
     said = []
     for name, frames in (("late", np.concatenate([mesh[:1], mesh[:-1]])), ("early", np.concatenate([mesh[1:], mesh[-1:]]))):
         rec = df.run(str(video(WORK / f"mesh_{name}.mkv", frames)), str(POINTS), 0, N, WORK / f"{name}.mp4", "the check", width=WIDE, source=str(source), say=said.append)
-        assert not rec["passed"] and rec["read_back"]["passed"], (name, rec["body_model_against_the_source"], rec["read_back"])
-        assert rec["body_model_against_the_source"]["a_neighbour_fits_better"] is True
-        assert "NOT on the source's clock" in rec["body_model_against_the_source"]["says"]
-    assert any("A NEIGHBOUR FITS BETTER" in line for line in said) and any(line.startswith("FAILED") for line in said), said
+        # a body model a frame off the source: the figures show it, and the run is NOT failed on them (a figure of degree is data)
+        assert rec["passed"] and rec["read_back"]["passed"], (name, rec["body_model_against_the_source"], rec["read_back"])
+        assert rec["body_model_against_the_source"]["best_neighbour_less_no_slip"] > 0, (name, rec["body_model_against_the_source"])
+        assert "a_neighbour_fits_better" not in rec["body_model_against_the_source"] and "says" not in rec["body_model_against_the_source"]
+    lines = [line for line in said if line.startswith("the body model against the source")]
+    assert len(lines) == 2 and all("no part of PASSED" in line and "the best neighbour less no slip 1." in line and "anything else that moves counts too" in line
+                                   for line in lines), said
+    assert not any(line.startswith("FAILED") for line in said), said
     none = df.run(str(WORK / "mesh_on.mkv"), str(POINTS), 0, N, WORK / "nosrc.mp4", "the check", width=WIDE, say=quiet)
     assert none["passed"] and none["body_model_against_the_source"] == "not looked at: no --source"
     part = video(WORK / "source_from_4.mkv", src[4:])                               # a source cut from the original: its frame 0 is source frame 4
     cut = df.run(str(WORK / "mesh_on.mkv"), str(POINTS), 4, N - 4, WORK / "cut.mp4", "the check", width=WIDE, mesh_first=0, source=str(part), source_first=4, say=quiet)
-    assert cut["passed"] and cut["body_model_against_the_source"]["a_neighbour_fits_better"] is False and cut["sheet"]["frames"][0] == 4, cut["body_model_against_the_source"]
+    assert cut["passed"] and cut["body_model_against_the_source"]["best_neighbour_less_no_slip"] < 0 and cut["sheet"]["frames"][0] == 4, cut["body_model_against_the_source"]
+    assert cut["body_model_against_the_source"]["measured_on"]["frames"] == [4, N - 1]
     try:
         df.run(str(WORK / "mesh_on.mkv"), str(POINTS), 4, N - 4, WORK / "cut2.mp4", "the check", width=WIDE, mesh_first=0, source=str(part), say=quiet)
     except SystemExit as exc:
@@ -413,7 +424,7 @@ case("frames from the middle of both files", frames_from_the_middle)
 case("frames left bare come from a person and are bare", bare_frames)
 case("the read-back can fail", the_read_back_can_fail)
 case("verify catches points read on the wrong clock", verify_catches_the_wrong_clock)
-case("a body-model video off the source's clock fails the run", off_the_sources_clock)
+case("a body-model video off the source's clock: the figures are printed and recorded, and decide nothing", off_the_sources_clock)
 case("an iris or a pupil ring is left out under the score line", eye_rings_by_score)
 case("the width rule, and lines too thin to read back", the_width_rule)
 case("a part left out is not drawn, and a highlight is not a line", left_out_and_highlights)

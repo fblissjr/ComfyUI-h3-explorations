@@ -72,7 +72,8 @@ WHAT IT CANNOT KNOW, and says:
   well. Frames to leave bare come from a person, by name (`--bare`, `--bare-by`).
 - Whether the points and the body-model video are on the source's clock. It is told which source frame each
   begins on and believes it. With `--source` it sets how much the body-model video changes from frame to frame
-  against how much the source does, a frame early and a frame late, and fails if a neighbour fits better; the
+  against how much the source does, a frame early and a frame late, and prints the three figures with the box
+  they were read in (data, no part of PASSED: whatever else moves in that box counts too); the
   sheet lays the drawn frames over the original for a person; and `verify`, below, is for a second reader.
 - Whether the lines can be seen by a model at this size. On a small face a whole eye is a few pixels across
   and its lines and dots run together: open the sheet.
@@ -434,9 +435,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     back = read_back(out, mesh, drawings, expected, drawn, wide)
     white, lags = back["white"], back["lags"]
     src = marks.source_frames(source, (w, h), first, count, source_first) if source else None
-    moves = marks.moves_with(src, mesh) if src is not None else None
-    off_clock = bool(moves and marks.slipped(moves))
-    passed = bool(back["passed"] and not off_clock)
+    clock = marks.against_the_source(src, mesh, first) if src is not None else None
+    passed = bool(back["passed"])
     rings = {f"{side}_{kind}": [first + f for f in range(count) if not any(n == f"{side}_{kind}_ring" for n, _, _ in drawings[f])]
              for side in SIDES for kind in RINGS} if "eyes" not in leave_out else {}
     scores = {k: [round(float(v), 2) for v in np.percentile([ring_scores(s, idx)[k] for s in points["scores"]], [0, 50, 100])] for k in rings}
@@ -468,11 +468,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                                                              "which_are": f"frames whose lines should leave under {THIN_PX:g} pixels of white"},
                       "passed": back["passed"],
                       "what_it_cannot_catch": "points or a body-model video given on the wrong clock: the drawing and the lines it is read against come from the same rows"},
-        "body_model_against_the_source": ("not looked at: no --source" if moves is None else {
-            "its_change_a_frame_against_the_sources_by_frames_of_slip": {str(k): (None if np.isnan(v) else round(v, 4)) for k, v in moves.items()},
-            "a_neighbour_fits_better": off_clock,
-            "says": ("a neighbouring frame fits better: the body-model video is NOT on the source's clock as told" if off_clock else
-                     "no neighbour fits better" + ("" if not np.isnan(moves[0]) else "; nothing moves enough to tell"))}),
+        "body_model_against_the_source": "not looked at: no --source" if clock is None else clock,
     }
     if source:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
@@ -489,9 +485,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     say("read back: white a frame %d to %d (expected %d to %d); mean distance of the white from its own frame's lines %s px, from the frame before's %s, from the frame after's %s; white on a bare frame %d" % (
         white.min(), white.max(), record["read_back"]["white_px_expected_a_frame"]["least"], record["read_back"]["white_px_expected_a_frame"]["most"],
         *(("n/a" if np.isnan(lags[k]) else f"{lags[k]:.3f}") for k in (0, 1, -1)), back["on_bare"]))
-    if moves is not None:
-        say("the body model against the source, change a frame: fit at no slip %s, one frame early %s, one late %s%s" % (
-            *(("n/a" if np.isnan(moves[k]) else f"{moves[k]:.3f}") for k in (0, -1, 1)), "  <- A NEIGHBOUR FITS BETTER" if off_clock else ""))
+    if clock is not None:
+        say(marks.against_the_source_line(clock))
     say(("PASSED" if passed else "FAILED") + ": the video " + ("holds" if back["passed"] else "does NOT hold") + " the lines its points describe on the frames they describe"
         + ("; the face moves too little between frames here for a slip of a frame to be told" if back["cannot_tell"] and passed else ""))
     say(f"wrote {out} and {out.with_suffix('.json').name}" + (f" and {record['sheet']['file']}: look at it before the video is used" if source else "; no sheet (give --source)"))

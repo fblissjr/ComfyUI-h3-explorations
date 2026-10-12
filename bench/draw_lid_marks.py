@@ -29,7 +29,8 @@ WHAT IT CANNOT KNOW, and says:
 - Whether the points and the body-model video are on the source's clock. It is told which source frame each
   begins on and believes it. Three looks stand against a wrong answer, none of them this run's own word:
   with `--source` it sets how much the body-model video changes from frame to frame against how much the
-  source does, a frame early and a frame late, and fails if a neighbour fits better; the sheet lays the
+  source does, a frame early and a frame late, and prints the three figures with the box they were read in
+  (data, no part of PASSED: whatever else moves in that box counts too); the sheet lays the
   marked frames over the original for a person; and `verify`, below, is for a second reader.
 
 WHAT THE READ-BACK IS. After writing, the tool reads the video back and sets the white it finds on each frame
@@ -169,6 +170,38 @@ def moves_with(source: np.ndarray, mesh: np.ndarray) -> dict[int, float]:
     return out
 
 
+def against_the_source(source: np.ndarray, mesh: np.ndarray, first: int) -> dict:
+    """The body-model video's change a frame beside the source's, as figures with what they were measured on.
+
+    Data, and no part of `passed` (2026-10-12): until then a neighbouring frame fitting better by `LAG_MARGIN`
+    failed the run. On a shot with a second person moving in the body model's box the figures stood a hundredth
+    apart with the neighbour ahead, while the body model's outline lay best on its subject's own mask at no slip:
+    a figure of degree, measured on more than its subject, had been reported as a hard failure."""
+    moves = moves_with(source, mesh)
+    ys, xs = np.nonzero((mesh.max(-1) > 24).any(0))
+    other = [v for k, v in moves.items() if k != 0 and not np.isnan(v)]
+    return {"its_change_a_frame_against_the_sources_by_frames_of_slip": {str(k): (None if np.isnan(v) else round(v, 4)) for k, v in moves.items()},
+            "best_neighbour_less_no_slip": None if np.isnan(moves[0]) or not other else round(max(other) - moves[0], 4),
+            "measured_on": {"what": "the correlation, over these frames, of how much the picture changes from frame to frame in the "
+                                    "body-model video and in the source",
+                            "box": [int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1] if len(ys) else None,
+                            "box_is": "where the body model ever is (left, top, right, bottom, in this video's pixels); none when it is nowhere, "
+                                      "and then the whole picture is read",
+                            "frames": [int(first), int(first) + len(mesh) - 1]},
+            "cannot_see": "whose movement it is: anything else that moves in that box (a second person, the camera) counts as the source's; "
+                          "and a subject who barely moves gives figures too close to tell apart",
+            "decides": "nothing: it is no part of `passed`. A body model on the wrong clock is seen on the sheet and on the strip"}
+
+
+def against_the_source_line(block: dict) -> str:
+    """The same figures as one printed line."""
+    fit, on = block["its_change_a_frame_against_the_sources_by_frames_of_slip"], block["measured_on"]
+    told = lambda v: "n/a" if v is None else f"{v:.3f}"  # noqa: E731
+    return (f"the body model against the source, change a frame (figures, no part of PASSED): no slip {told(fit['0'])}, one frame early "
+            f"{told(fit['-1'])}, one late {told(fit['1'])}; the best neighbour less no slip {told(block['best_neighbour_less_no_slip'])}; "
+            f"read in the box {on['box']} over frames {on['frames'][0]}-{on['frames'][1]}, where anything else that moves counts too")
+
+
 def source_frames(source: str, size: tuple[int, int], first: int, count: int, source_first: int = 0) -> np.ndarray:
     """The original's frames `first` on, fitted to the canvas as the loader fits them. `source_first` is the source
     frame of the video's frame 0: 0 for the original itself, the span's first for a video cut from it."""
@@ -235,7 +268,8 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, marked: np.ndarray,
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, grow: float | None = None, bare: list[int] | None = None,
         bare_by: str = "", source: str = "", source_first: int = 0, say=print) -> dict:
-    """Draw, write, read back, record. Returns the record; `passed` is False when the read-back fits a neighbour."""
+    """Draw, write, read back, record. Returns the record; `passed` is the read-back's alone: the file holds what was
+    drawn on the frames it was told. The body model against the source is figures beside it (`against_the_source`)."""
     if bare and not bare_by:
         raise SystemExit("--bare names frames a person looked at: say who with --bare-by")
     points = fp.load(points_path, names)
@@ -267,9 +301,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     back = read_back(out, mesh, area, drawn)
     white, lags, on_bare, no_change = back["white"], back["lags"], back["on_bare"], back["no_change"]
     src = source_frames(source, (w, h), first, count, source_first) if source else None
-    moves = moves_with(src, mesh) if src is not None else None
-    off_clock = bool(moves and slipped(moves))
-    passed = bool(back["passed"] and not off_clock)
+    clock = against_the_source(src, mesh, first) if src is not None else None
+    passed = bool(back["passed"])
     size = [float(np.median([np.ptp(r[:, k]) for f in range(count) for r in rings[f]]) * factor) for k in (0, 1)]
     line = h3_config.POSE_READING["lid_gap_px_to_draw"]
     record = {
@@ -292,11 +325,7 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
                                                               "which_are": f"frames whose marks should leave under {THIN_PX2:g} square pixels of white, both eyes: the outline's area less about a pixel of its length"},
                       "eyes_never_change": no_change, "passed": back["passed"],
                       "what_it_cannot_catch": "points or a body-model video given on the wrong clock: the drawing and the area come from the same rows"},
-        "body_model_against_the_source": ("not looked at: no --source" if moves is None else {
-            "its_change_a_frame_against_the_sources_by_frames_of_slip": {str(k): (None if np.isnan(v) else round(v, 4)) for k, v in moves.items()},
-            "a_neighbour_fits_better": off_clock,
-            "says": ("a neighbouring frame fits better: the body-model video is NOT on the source's clock as told" if off_clock else
-                     "no neighbour fits better" + ("" if not np.isnan(moves[0]) else "; nothing moves enough to tell"))}),
+        "body_model_against_the_source": "not looked at: no --source" if clock is None else clock,
     }
     if source:
         sheet_path = out.with_name(out.stem + "_sheet.jpg")
@@ -309,9 +338,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     say(f"frames left bare: {len(left)}" + (f", by {bare_by}" if left else " (none named; a head turned away is not found by this tool)"))
     say("read back: white a frame %d to %d; fit at no slip %s, one frame early %s, one late %s; white on a bare frame %d" % (
         white.min(), white.max(), *(("n/a" if np.isnan(lags[k]) else f"{lags[k]:.3f}") for k in (0, -1, 1)), on_bare))
-    if moves is not None:
-        say("the body model against the source, change a frame: fit at no slip %s, one frame early %s, one late %s%s" % (
-            *(("n/a" if np.isnan(moves[k]) else f"{moves[k]:.3f}") for k in (0, -1, 1)), "  <- A NEIGHBOUR FITS BETTER" if off_clock else ""))
+    if clock is not None:
+        say(against_the_source_line(clock))
     say(("PASSED" if passed else "FAILED") + ": the video " + ("holds" if back["passed"] else "does NOT hold") + " the marks its points describe on the frames they describe"
         + ("; the eyes never change in this shot, so a slip of a frame could not be told" if no_change and passed else ""))
     say(f"wrote {out} and {out.with_suffix('.json').name}" + (f" and {record['sheet']['file']}: look at it before the video is used" if source else "; no sheet (give --source)"))

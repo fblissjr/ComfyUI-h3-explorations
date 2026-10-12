@@ -119,6 +119,7 @@ def run(mesh: str, points: str, source: str, first: int, count: int, out: Path, 
     fit = drawn["read_back"]["white_from_the_lines_px_mean_by_frames_of_slip"]
     say(f"    white {fit['0']} px from its own frame's lines, {fit['1']} and {fit['-1']} from the neighbours'; "
         + ("PASSED" if drawn["passed"] else "FAILED"))
+    say("    " + faces.marks.against_the_source_line(drawn["body_model_against_the_source"]))
     passed = bool(cut["passed"] and under["passed"] and drawn["passed"])
     record = {
         "video": out.name, "what": "the reference of a head replacement: the body model cut to the head, with the face drawn on it",
