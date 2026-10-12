@@ -437,12 +437,22 @@ session starting a job needs to know:
     carries the wider ring here (the lead's face at the second subject's
     margin, on the first use). A second part and margin in the node would
     end that; it is node code and is not built.
-  - **The capture and its gate read it as the first subject's load**, so
+  - **The capture's gate reads it as the first subject's load**, so
     put first the subject whose region is larger. The region then lies over
     the second subject and the capture's rule about a region over another
     subject says so; that flag is answered in the capture by a person, with
-    the tool's own `outcome`. Teaching the capture a two-subject load is a
-    row in [`next_steps.md`](next_steps.md).
+    the tool's own `outcome`. Teaching the capture's rules a two-subject load
+    is a row in [`next_steps.md`](next_steps.md). *Since 2026-10-12 the
+    capture knows this much of the pair:* a plan it works out itself, before
+    the node's plan is read, is worked out from both subjects' parts as one
+    mask (until then it was the first subject's alone, and a look before
+    the plan showed nothing of what is replaced on the second); the run
+    records both subjects; and the look's strip (`video --load`) takes such
+    a load, says under the picture which `<Subject N>`, `<Picture N>` and
+    `<Video N>` is whose in the list's order, shows the two reference
+    videos side by side each under its label (`--motion` twice), and fills
+    each subject's part in that subject's colour. That binding is in the
+    text alone, so the look is where a crossed pair is caught.
   - A hair band is the first subject's. A two-subject load is not rendered
     zoomed in.
   No render had been made of one when this was written.

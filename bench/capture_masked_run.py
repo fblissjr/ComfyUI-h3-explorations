@@ -12,6 +12,7 @@
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP [--render R.mp4] [--out NAME_diag.mp4]
     <python> bench/capture_masked_run.py shots data/<date>_<NAME> [--loads]   # the gate per shot and subject, or per load
     <python> bench/capture_masked_run.py video data/<date>_<NAME> --source CLIP --job JOB.json --load LOAD     # the look's strip, one a load
+                                                    # a load of two subjects: --motion twice, in the list's order, and the heading says which label is whose
     <python> bench/capture_masked_run.py looked data/<date>_<NAME> --by WHO --note "every frame of each load and its text, as the strips show them"
     <python> bench/capture_masked_run.py outcome data/<date>_<NAME> f003 yes --render R.mp4 --note "what was seen"
     <python> bench/capture_masked_run.py diagnose data/<date>_<NAME> --frames 758-778     # after a render went wrong
@@ -1011,6 +1012,23 @@ def loads_from_file(path: str) -> list[tuple[str, dict]]:
     return out
 
 
+def second_carried(also: dict, track: np.ndarray, parts: np.ndarray | None, held: np.ndarray | None) -> np.ndarray:
+    """The second subject's share of the mask a two-subject load carries, from the capture's own masks.
+
+    `also` is the load's second subject as the builder's `one_subject_view` gives it: its `carried` is `held` for
+    a face or a face and hair (the held part where the capture has one, else the part) and `track` for the whole
+    person. The node is given both subjects' parts as ONE mask, so a plan worked out here is worked out from the
+    two together. A part file the load names itself (`parts_mask`) is the builder's to wire and is not read here:
+    this is the capture's own part of that subject."""
+    if also.get("carried") == "track":
+        return track
+    part = held if held is not None else parts
+    if part is None:
+        raise SystemExit(f"a load's second subject {also.get('subject')!r} is replaced by a part ({also.get('region')}) and the capture has "
+                         f"no part mask of that subject: give its --mask a parts= video")
+    return part
+
+
 def load_frames(first: int, frames: int, at: int, count: int | None) -> np.ndarray:
     """Which of a span's frames (from source frame `first`) a load holds: `count` frames from source frame `at`."""
     n = first + np.arange(frames)
@@ -1206,10 +1224,13 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
     for name, r in [(n, {**x, "planned": False}) for n, x in runs] + [(n, {**x, "planned": True}) for n, x in plans]:
         label, others = r["subject"], [o for o in r.get("others", "").split("+") if o]
         kept_labels = [o for o in r.get("keep", "").split("+") if o] if r["planned"] else []
-        for who in [label] + others + kept_labels:
+        # a load of two subjects (`loads_from_file`): the first is `subject`, the second comes beside it in `also`
+        also = json.loads(r["also"]) if r.get("also") else None
+        both = [label] + ([also["subject"]] if also else [])
+        for who in both + others + kept_labels:
             if who not in sightings:
                 raise SystemExit(f"run {name!r} names subject {who!r}, which no --mask gives")
-        lead = {who: next(iter(sightings[who].values())) for who in [label] + others + kept_labels}
+        lead = {who: next(iter(sightings[who].values())) for who in both + others + kept_labels}
         if r["planned"] and r.get("preview"):
             where = plan_file(r["preview"])
             region, carried, read, how = read_planned_regions(where, first, frames, size, r.get("at"))
@@ -1230,6 +1251,8 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
                 if label not in held_masks:
                     raise SystemExit(f"plan {name!r} asks for carried=held and {label!r} has no parts_held mask")
                 carried = held_masks[label]
+            if also:
+                carried = carried | second_carried(also, lead[also["subject"]][0], lead[also["subject"]][2], held_masks.get(also["subject"]))
             region = planned_region(carried, [lead[o][0] for o in others], int(r["margin"]), _pack("video_mask").grow,
                                     whole_tokens=r.get("edge") != "cells", keep=[lead[o][0] for o in kept_labels])
             read, how = covered.copy(), {"read_from": "worked out from the saved masks: a plan, nothing rendered", "legend_px": None}
@@ -1281,7 +1304,7 @@ def _files(a: argparse.Namespace, out: Path, masks: list, runs: list, plans: lis
             (folder / "graph.json").write_text(json.dumps(graph, indent=1) + "\n")
         captured[name] = entry
         manifest["runs"].append({"name": name, "planned": r["planned"], "render": None if r["planned"] else Path(r["render"]).name,
-                                 "subject": label, "others": others, "keep": kept_labels,
+                                 "subject": label, **({"subjects": both} if also else {}), "others": others, "keep": kept_labels,
                                  "windows": ({"window_frames": int(r["window"]), "context_frames": int(r.get("context", 0))}
                                              if r["planned"] and r.get("window") else window_settings(graph)),
                                  "carried_is": ("the held part" if r.get("carried") == "held" else "the part" if lead[label][2] is not None
@@ -3861,12 +3884,18 @@ def draw_masks(plate: np.ndarray, n: int, subjects: list, runs: list) -> np.ndar
     import cv2
     img = (plate.astype(np.float32) * 0.45)
     colour = {s["label"]: np.array(s["colour"], np.float32) for s in subjects}
+    track = {s["label"]: s["track"][n] for s in subjects}
     for r in runs:
         c = colour[r["subject"]]
         region, carried = cells_up(r["region"][n]), r["carried"][n]
         margin = region & ~carried
         img[margin] = img[margin] * (1 - LIGHT) + c * LIGHT
         img[carried] = img[carried] * (1 - SOLID) + c * SOLID
+        # a load of two subjects carries both parts as one mask: what lies on the second's track and not on the first's is
+        # drawn in the second's colour, over the first's. A pixel both tracks claim stays the first's; the margin is one, the first's
+        for other in (r.get("subjects") or [])[1:]:
+            theirs = carried & track[other] & ~track[r["subject"]]
+            img[theirs] = plate.astype(np.float32)[theirs] * 0.45 * (1 - SOLID) + colour[other] * SOLID
     img = img.astype(np.uint8)
     for s in subjects:
         contours, _ = cv2.findContours(s["track"][n].astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -3883,10 +3912,13 @@ def legend_lines(subjects: list, runs: list) -> list[tuple[tuple, str, str]]:
     for s in subjects:
         lines.append((s["colour"], "outline", f"{s['label']}: the tracked mask"))
         for r in runs:
-            if r["subject"] == s["label"]:
-                will = "would be " if r.get("planned") else ""
+            both = r.get("subjects") or [r["subject"]]
+            will = "would be " if r.get("planned") else ""
+            if s["label"] in both:
                 lines.append((s["colour"], "solid", f"{s['label']}: {will}taken from the still ({'plan' if r.get('planned') else 'run'} {r['name']})"))
-                lines.append((s["colour"], "light", f"{s['label']}: margin {will}regenerated round it"))
+            if r["subject"] == s["label"]:
+                lines.append((s["colour"], "light", f"{s['label']}: margin {will}regenerated round it" if len(both) == 1 else
+                              f"one margin {will}regenerated round {' and '.join(both)}"))
     if any(r["back"] for r in runs):
         lines.append((WHITE, "outline", "margin cells given back to another subject"))
     return lines
@@ -3901,16 +3933,42 @@ def load_and_text(job_path: Path, name: str) -> dict:
     string the builder puts in the graph: the builder's rule, restated here so that a strip can be drawn for a
     job its build refuses. A job file with no such entry (every one made before 2026-10-11) is shown with the
     built text found beside it and `recorded` false: where the text was written from and by whom is not known,
-    and no look of it can be recorded."""
+    and no look of it can be recorded.
+
+    A load of two subjects is read by the builder's own `one_subject_view`, as `files` reads it: `subject` is its
+    first subject, and `pair` lists both in the list's order with which label is whose (`<Subject N>`, the still
+    `<Picture N>`, the reference `<Video N>`), by the builder's rule (`bench/masked_job.py::pair_of`). Nothing but
+    the text tells the model that binding, so the look's strip prints it. `motion` is each reference video the
+    load names with the source frame its frame 0 is on (`motion_first`, else the job's `first`, the builder's
+    rule; none when neither is given), in the same order."""
     import hashlib
+    sys.path.insert(0, str(REPO / "workflows"))
+    import masked_job_graph                                         # the one reading of a two-subject load, the job builder's
     file = json.loads(job_path.read_text())
     named = [x.get("name") for x in file.get("loads", [])]
     if name not in named:
         raise SystemExit(f"no load named {name} in {job_path.name}; it has {', '.join(str(x) for x in named) or 'none'}")
-    load = {**(file.get("defaults") or {}), **next(x for x in file["loads"] if x.get("name") == name)}
+    try:
+        load = masked_job_graph.one_subject_view({**(file.get("defaults") or {}), **next(x for x in file["loads"] if x.get("name") == name)})
+    except ValueError as e:
+        raise SystemExit(f"{job_path.name}: {e}") from e
     first, count, label = int(load["first"]), int(load["frames"]), load.get("text")
     out = {"load": name, "frames": [first, first + count - 1], "subject": load.get("subject"), "text_label": label, "recorded": False,
-           "text": "", "text_from": None}
+           "text": "", "text_from": None,
+           "motion": []}
+    job_first = (file.get("job") or {}).get("first")              # the builder's rule: a reference with no `motion_first` begins on the job's first frame
+    for x in ("", "_2"):
+        if load.get(f"motion_file{x}"):
+            begins = load.get(f"motion_first{x}", job_first)
+            out["motion"].append({"file": str(load[f"motion_file{x}"]), "first": None if begins is None else int(begins)})
+    also = load.get("also")
+    if also:
+        # a subject's still, given once in the job block, is every load's of that subject unless the load names its own (the builder's rule)
+        stills = {s_["label"]: s_["still"] for s_ in (file.get("job") or {}).get("subjects", []) if s_.get("still")}
+        out["pair"] = [{"subject": who, "region": given["region"], "is": f"<Subject {k}>", "picture": f"<Picture {k}>",
+                        "still": own.get("still", stills.get(who)), "video": f"<Video {k}>" if load.get(key) else None}
+                       for k, (who, given, own, key) in enumerate(((load["subject"], load["subjects"][0], load, "motion_file"),
+                                                                   (also["subject"], load["subjects"][1], also, "motion_file_2")), 1)]
     entry = ((file.get("job") or {}).get("texts") or {}).get(label)      # in the job block, where the builder reads it
     if isinstance(entry, dict) and entry.get("file") and entry.get("frames") and entry.get("by"):
         text = (job_path.parent / entry["file"]).read_text().strip()
@@ -3983,10 +4041,17 @@ def video(a: argparse.Namespace) -> None:
         if lo < 0 or lo + frames > m["frames"]:
             raise SystemExit(f"load {a.load} is source frames {shown['frames'][0]}-{shown['frames'][1]}; this capture holds "
                              f"{first}-{first + m['frames'] - 1}")
-        if shown["subject"] not in [s_["label"] for s_ in subjects]:
-            raise SystemExit(f"load {a.load} replaces {shown['subject']!r}, and this capture has no subject of that name: it was not made "
-                             f"for this job (it has {', '.join(s_['label'] for s_ in subjects)})")
-        runs = [r for r in runs if r["name"] == a.load]
+        replaced = [p_["subject"] for p_ in shown["pair"]] if shown.get("pair") else [shown["subject"]]
+        for who in replaced:
+            if who not in [s_["label"] for s_ in subjects]:
+                raise SystemExit(f"load {a.load} replaces {who!r}, and this capture has no subject of that name: it was not made "
+                                 f"for this job (it has {', '.join(s_['label'] for s_ in subjects)})")
+        # a run of a two-subject load is the first subject's in the capture: the strip is told both, from the job file
+        runs = [{**r, "subjects": replaced} if len(replaced) > 1 else r for r in runs if r["name"] == a.load]
+        for r in runs:
+            if r.get("planned") and not r.get("files") and len(replaced) > 1 and "subjects" not in next(x for x in m["runs"] if x["name"] == r["name"]):
+                print(f"this capture's plan of {a.load} was worked out for {r['subject']} alone (it was made before the capture read a load of two "
+                      "subjects): the region drawn is not the second subject's. Build the capture again", flush=True)
         # before a plan the capture holds no run of the load: the look is then of its frames, masks and text, and says so
         shown["region"] = "the node's plan of this load" if runs and runs[0].get("planned") else \
             "this load's render" if runs else "none: the capture holds no plan of this load yet"
@@ -4011,6 +4076,8 @@ def video(a: argparse.Namespace) -> None:
     if not focus.any():
         # nothing regenerates in what is drawn: zoom on the subject the load replaces, or the first when no load is named
         focus = cells_any(next((s_ for s_ in subjects if shown is not None and s_["label"] == shown["subject"]), subjects[0])["track"])
+        for p_ in (shown or {}).get("pair", [])[1:]:       # both subjects of a two-subject load are zoomed on
+            focus = focus | cells_any(next(s_ for s_ in subjects if s_["label"] == p_["subject"])["track"])
     boxes = zoom_boxes(focus, (w, h))
     z = h                                             # the zoom tile is the row's height, square
     row_h, n_rows = h + HEADER, 3 if render else 2
@@ -4019,6 +4086,11 @@ def video(a: argparse.Namespace) -> None:
     huge, line = ImageFont.truetype(MONO, 92), ImageFont.truetype(FONT, 19)
     text_lines = [] if shown is None else wrap_text(shown["text"] or "(no text was found for this load)", canvas_w - 32, line.getlength)
     notice = 26 if shown is not None and not runs else 0   # one more line when the capture holds no plan of the load
+    # a load of two subjects: which label is whose, in the list's order. Only the text tells the model, so the look says it
+    whose = [] if shown is None or not shown.get("pair") else wrap_text("TWO SUBJECTS IN ONE PASS, IN THE LIST'S ORDER: " + "; ".join(
+        f"{p_['subject']} ({p_['region']}) is {p_['is']}, its still {p_['picture']}" + (f" ({Path(p_['still']).name})" if p_.get("still") else " (none named)")
+        + (f", its reference {p_['video']}" if p_["video"] else ", no reference video") for p_ in shown["pair"]), canvas_w - 32, line.getlength)
+    notice += 24 * len(whose) + (6 if whose else 0)
     band = 0 if shown is None else 2 * ((74 + notice + 24 * len(text_lines)) // 2 + 1)   # even: the encoder's pixel format needs it
     canvas_h = row_h * n_rows + PANEL + band
     # the panel's numbers come from the same tables the folder holds, so the picture and the tables agree
@@ -4034,9 +4106,27 @@ def video(a: argparse.Namespace) -> None:
         pic = Image.open(path)
         pic = pic.convert("RGB").resize((max(1, round(pic.width * 150 / pic.height)), 150))
         stills.append((label, pic))
-    # the motion video's frame 0 is the run's first frame: on the render's clock with a render, on the load's without
-    motions = stream(a.motion, (456, 342), skip if render else lo, frames, vf="scale=456:342:force_original_aspect_ratio=decrease,pad=456:342:(ow-iw)/2:(oh-ih)/2",
-                     pix="rgb24") if a.motion else None
+    # the motion video's frame 0 is the run's first frame: on the render's clock with a render, on the load's without.
+    # A load that says which source frame its reference begins on (`motion_first`) is read from there. One video fills
+    # the tile; two (a load of two subjects) stand side by side at half its size, each under its own label.
+    given = a.motion or []
+    if len(given) > 2:
+        raise SystemExit("--motion: one reference video, or two for a load of two subjects")
+    motion_tile = (456, 342) if len(given) < 2 else (228, 171)
+    told, pair = (shown or {}).get("motion") or [], (shown or {}).get("pair") or []
+    motions, motion_names = [], []
+    for path in given:
+        j = next((j for j, m_ in enumerate(told) if Path(m_["file"]).name == Path(path).name), None)
+        begins = None if j is None else told[j]["first"]
+        start = skip if render else lo if begins is None else max(0, shown["frames"][0] - begins)
+        if begins is not None and begins > shown["frames"][0]:
+            print(f"--motion {Path(path).name} begins on source frame {begins}, after the load's first ({shown['frames'][0]}): shown from its frame 0", flush=True)
+        mw, mh = motion_tile
+        motions.append(stream(path, motion_tile, start, frames, pix="rgb24",
+                              vf=f"scale={mw}:{mh}:force_original_aspect_ratio=decrease,pad={mw}:{mh}:(ow-iw)/2:(oh-ih)/2"))
+        # the load's k-th reference is its k-th subject's (a second reference without a first is refused by the builder)
+        motion_names.append(f"{pair[j]['video']} {pair[j]['subject']}" if pair and j is not None else
+                            Path(path).name[:26] if len(given) > 1 else "")
     region_px = [cells_up(r["region"]) for r in runs]
     before = None
     lines = legend_lines(subjects, runs)
@@ -4098,8 +4188,11 @@ def video(a: argparse.Namespace) -> None:
         d.line([(0, py), (canvas_w, py)], fill=DIM)
         d.text((14, py + 6), f"{first + n:05d}", font=huge, fill=WHITE)
         d.text((16, py + 104), f"source frame     {(first + n) / FPS:.2f} s", font=line, fill=DIM)
-        d.text((16, py + 130), f"render frame {skip + n - lo:04d}" if render else "nothing rendered: a preview" if shown is None else
-               f"load {a.load}, frame {n - lo + 1} of {frames}", font=text if shown is None else line, fill=WHITE)
+        if shown is None:
+            d.text((16, py + 130), f"render frame {skip + n - lo:04d}" if render else "nothing rendered: a preview", font=text, fill=WHITE)
+        else:                                             # two lines: a load's name is as long as the column is wide
+            d.text((16, py + 126), f"load {a.load}", font=small, fill=WHITE)
+            d.text((16, py + 144), f"frame {n - lo + 1} of {frames}", font=small, fill=WHITE)
         if starts:
             window = sum(skip + n - lo >= x for x in starts)
             d.text((16, py + 160), f"window {window} of {len(starts)}", font=line, fill=WHITE)
@@ -4165,10 +4258,13 @@ def video(a: argparse.Namespace) -> None:
                 ty += 23
         mx = PANEL_TEXT + 12
         d.text((mx, py + 8), "movement, as the model was shown it", font=small, fill=AMBER)
-        if motions is not None:
-            moving = next(motions, None)
-            if moving is not None:
-                img.paste(Image.fromarray(moving), (mx, py + 34))
+        if motions:
+            for at, (one_motion, label) in enumerate(zip(motions, motion_names)):
+                moving = next(one_motion, None)
+                if moving is not None:
+                    img.paste(Image.fromarray(moving), (mx + at * motion_tile[0], py + 34))
+                if label:
+                    d.text((mx + at * motion_tile[0] + 4, py + 36 + motion_tile[1]), label, font=small, fill=WHITE)
         else:
             d.text((mx, py + 150), "none: this run has no motion video" if not a.motion_note else a.motion_note, font=line, fill=DIM)
         sx = mx + 456 + 14
@@ -4185,8 +4281,10 @@ def video(a: argparse.Namespace) -> None:
             d.line([(0, by_), (canvas_w, by_)], fill=DIM)
             d.text((16, by_ + 8), f"THE TEXT OF LOAD {a.load} (source frames {shown['frames'][0]}-{shown['frames'][1]}), label "
                    f"{shown['text_label']!r}, from {shown['text_from'] or 'nowhere'}", font=text, fill=AMBER)
-            if notice:
+            if not runs:
                 d.text((16, by_ + 64), "NO PLAN OF THIS LOAD IN THE CAPTURE YET: ITS REGION IS NOT DRAWN", font=line, fill=AMBER)
+            for k, one_line in enumerate(whose):
+                d.text((16, by_ + 64 + (26 if not runs else 0) + 24 * k), one_line, font=line, fill=AMBER)
             if shown["recorded"]:
                 covers = shown["text_frames"][0] <= shown["frames"][0] and shown["frames"][1] <= shown["text_frames"][1]
                 d.text((16, by_ + 38), f"written from source frames {shown['text_frames'][0]}-{shown['text_frames'][1]} by {shown['text_by']}"
@@ -4210,6 +4308,8 @@ def video(a: argparse.Namespace) -> None:
         row = {"load": a.load, "frames": shown["frames"], "text_label": shown["text_label"], "text_frames": shown["text_frames"],
                "text_by": shown["text_by"], "text_sha256": shown["text_sha256"], "region": shown["region"], "strip": out,
                "made": datetime.datetime.now().isoformat(timespec="seconds")}
+        if shown.get("pair"):
+            row["pair"] = shown["pair"]               # which label the strip said is whose: a look of a two-subject load is of this too
         (folder / "looks" / f"{a.load}.shown.json").write_text(json.dumps(row, indent=1) + "\n")
         print("wrote", folder / "looks" / f"{a.load}.shown.json")
     elif shown is not None:
@@ -4251,7 +4351,8 @@ def main() -> None:
     v.add_argument("--render", help="the render shown in the bottom row; two rows without one")
     v.add_argument("--render-first", type=int, help="the source frame that is the render's frame 0, when the render "
                    "is not one of the capture's runs (a merged file, say); a run's own is in the manifest")
-    v.add_argument("--motion", help="the motion video the run was given, frame 0 its first frame, shown in the panel")
+    v.add_argument("--motion", action="append", help="the motion video the run was given, frame 0 its first frame, shown in the panel; "
+                   "twice for a load of two subjects, in the list's order")
     v.add_argument("--motion-note", default="", help="words for the panel when there is no motion video file to show")
     v.add_argument("--still", action="append", default=[], metavar="LABEL=IMAGE", help="a reference still and the subject "
                    "it belongs to, shown small in the panel; repeatable")

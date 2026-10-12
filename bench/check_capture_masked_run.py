@@ -61,6 +61,13 @@ overlaps and margins can be counted by hand and reads the rows back.
    there, on the render's frame 0, with the span's frames before it named; one that ends first has the frames
    after it named; and a render with no frame inside the span is refused with both ranges.
 
+16. **The look of a load of two subjects.** The load is read by the builder's own rule: its first subject's, with
+   which label is whose in the list's order (`<Subject N>`, the still `<Picture N>`, the reference `<Video N>`)
+   and where each reference begins (the load's `motion_first`, else the job's first frame); a load whose two
+   subjects are one is refused in the builder's words. In the masks row each subject's part is filled in its
+   own colour, the one margin in the first's, a pixel both tracks claim stays the first's, and the legend has a
+   line each; a run told one subject is drawn as before (the control).
+
 No video, no model, no card, no server.
 
     CUDA_VISIBLE_DEVICES= <comfy venv python> bench/check_capture_masked_run.py
@@ -831,6 +838,29 @@ def loads() -> str:
                 assert word in str(stop), stop
             else:
                 raise AssertionError(f"a pass file with {word} was read")
+        # a load of two subjects reaches the capture as its first subject's, with the second beside it for the plan
+        path.write_text(json.dumps({"loads": [{"name": "ab", "first": 1, "frames": 9, "margin": 16, "subjects": [
+            {"subject": "a", "region": "face and hair", "others": ["c"]}, {"subject": "b", "region": "whole"}]}]}))
+        (name, spec), = cap.loads_from_file(str(path))
+        assert name == "ab" and spec["subject"] == "a" and spec["others"] == "c" and spec["carried"] == "held", spec
+        assert json.loads(spec["also"]) == {"subject": "b", "region": "whole", "carried": "track"}, spec["also"]
+    # the second subject's share of what a two-subject load carries: its track when it is replaced whole, else its held part, else its part
+    track, part, held = rect(96, 16, 144, 80), rect(104, 24, 120, 40), rect(104, 24, 124, 44)
+    assert (cap.second_carried({"subject": "b", "carried": "track"}, track, part, held) == track).all()
+    assert (cap.second_carried({"subject": "b", "carried": "held"}, track, part, held) == held).all()
+    assert (cap.second_carried({"subject": "b", "carried": "held"}, track, part, None) == part).all()
+    try:
+        cap.second_carried({"subject": "b", "region": "face", "carried": "held"}, track, None, None)
+    except SystemExit as stop:
+        assert "no part mask" in str(stop), stop
+    else:
+        raise AssertionError("a second subject replaced by a part it has no mask of was planned")
+    # the plan is worked out from both parts as one mask, as the node is given them: no cell holding either is left out
+    first_part = rect(32, 32, 48, 48)
+    union = cap.planned_region(first_part | held, [], MARGIN, _grow())
+    alone = cap.planned_region(first_part, [], MARGIN, _grow())
+    assert union[cap.cells_any(first_part)].all() and union[cap.cells_any(held)].all() and not alone[cap.cells_any(held)].any(), \
+        "the plan of two subjects' parts did not cover both, or the plan of one covered the other's"
     # a span of 20 frames from source frame 100; a load of 6 frames from 104, one from 96, one with no end
     assert np.nonzero(cap.load_frames(100, 20, 104, 6))[0].tolist() == [4, 5, 6, 7, 8, 9]
     assert np.nonzero(cap.load_frames(100, 20, 96, 6))[0].tolist() == [0, 1]
@@ -1276,12 +1306,63 @@ def a_look() -> str:
             pass
         else:
             raise AssertionError("a load the job does not have was shown")
+        # a load of two subjects, in the builder's shape: read by the builder's own rule, the first subject's, with which label is whose
+        two = {"job": {"name": "j", "first": 90, "subjects": [{"label": "b", "still": "b_job.png"}],
+                       "texts": {"hall": {"file": "hall.txt", "frames": [100, 140], "by": "writer"}}},
+               "loads": [{"name": "ab", "first": 100, "frames": 33, "text": "hall", "margin": 32, "subjects": [
+                   {"subject": "a", "region": "face and hair", "still": "a.png", "motion_file": "/x/a_ref.mp4", "motion_first": 96, "others": ["hands"]},
+                   {"subject": "b", "region": "face", "motion_file": "/x/b_ref.mp4"}]}]}
+        (folder / "two.json").write_text(json.dumps(two))
+        got = cap.load_and_text(folder / "two.json", "ab")
+        assert got["subject"] == "a" and got["frames"] == [100, 132] and got["recorded"], got
+        assert got["pair"] == [
+            {"subject": "a", "region": "face and hair", "is": "<Subject 1>", "picture": "<Picture 1>", "still": "a.png", "video": "<Video 1>"},
+            {"subject": "b", "region": "face", "is": "<Subject 2>", "picture": "<Picture 2>", "still": "b_job.png", "video": "<Video 2>"}], got["pair"]
+        # where each reference begins: the load's own word, else the job's first frame (the builder's rule)
+        assert got["motion"] == [{"file": "/x/a_ref.mp4", "first": 96}, {"file": "/x/b_ref.mp4", "first": 90}], got["motion"]
+        assert "pair" not in cap.load_and_text(folder / "job.json", "a_1") and cap.load_and_text(folder / "job.json", "a_1")["motion"] == []
+        two["loads"][0]["subjects"][1]["subject"] = "a"                      # both subjects the same: the builder's refusal, by name
+        (folder / "same.json").write_text(json.dumps(two))
+        try:
+            cap.load_and_text(folder / "same.json", "ab")
+        except SystemExit as e:
+            assert "both of its `subjects` are 'a'" in str(e), e
+        else:
+            raise AssertionError("a load whose two subjects are one was shown")
     lines = cap.wrap_text("one two three four\n\nfive", 9, len)
     assert lines == ["one two", "three", "four", "", "five"] and " ".join(x for x in lines if x).split() == "one two three four five".split(), lines
     return ("a look holds what each strip showed; the maker's own, a look of no strip, a strip older than the capture and an empty note "
             "are refused; a load's text is shown whole with the frames it was written from, or marked not recorded; "
             + ("the builder's hash of one file equals the capture's" if compared else
                "THE BUILDER'S HASH WAS NOT COMPARED (its text_of does not give one in this tree)"))
+
+
+def a_strip_of_two_subjects() -> str:
+    """The strip's masks row for a load of two subjects: each subject's part in its own colour, one margin, a legend line each."""
+    red, blue = (255, 0, 0), (0, 0, 255)
+    a_track, b_track = rect(16, 16, 64, 80, 1), rect(96, 16, 144, 80, 1)
+    subjects = [{"label": "a", "colour": red, "track": a_track}, {"label": "b", "colour": blue, "track": b_track}]
+    carried = rect(32, 32, 48, 48, 1) | rect(112, 32, 128, 48, 1)           # both parts as one mask, as the node is given them
+    region = np.zeros((1, H // CELL, W // CELL), bool)
+    region[0, 1:4, 1:9] = True
+    run = {"name": "ab", "subject": "a", "planned": True, "region": region, "carried": carried, "back": {}}
+    plate = np.full((H, W, 3), 100, np.uint8)
+    one = cap.draw_masks(plate, 0, subjects, [run]).astype(int)
+    two = cap.draw_masks(plate, 0, subjects, [{**run, "subjects": ["a", "b"]}]).astype(int)
+    in_a, in_b, margin = (40, 40), (40, 120), (40, 72)                      # (y, x): inside a's part, inside b's part, between them
+    assert one[in_a][0] > one[in_a][2] and one[in_b][0] > one[in_b][2], "the control: told one subject, both parts are drawn in its colour"
+    assert two[in_a][0] > two[in_a][2] and two[in_b][2] > two[in_b][0], (two[in_a], two[in_b])
+    assert (two[margin] == one[margin]).all() and two[margin][0] > two[margin][2], "the one margin is the first subject's colour"
+    assert (two[in_a] == one[in_a]).all(), "the first subject's part changed colour when the second was named"
+    both = rect(32, 32, 48, 48, 1)                                          # a pixel both tracks claim stays the first's
+    overlap = cap.draw_masks(plate, 0, [subjects[0], {**subjects[1], "track": b_track | both}], [{**run, "subjects": ["a", "b"]}]).astype(int)
+    assert overlap[in_a][0] > overlap[in_a][2], overlap[in_a]
+    words = [text for _, _, text in cap.legend_lines(subjects, [{**run, "subjects": ["a", "b"]}])]
+    assert words == ["a: the tracked mask", "a: would be taken from the still (plan ab)", "one margin would be regenerated round a and b",
+                     "b: the tracked mask", "b: would be taken from the still (plan ab)"], words
+    alone = [text for _, _, text in cap.legend_lines(subjects, [run])]
+    assert alone == ["a: the tracked mask", "a: would be taken from the still (plan ab)", "a: margin would be regenerated round it", "b: the tracked mask"], alone
+    return "each subject's part is filled in its own colour and the margin in the first's; told one subject the picture is as before; a legend line each"
 
 
 def a_load_that_lays_nothing() -> str:
@@ -1364,4 +1445,5 @@ case("a pass as a list of loads", loads)
 case("preflight: the gate and its override", the_gate)
 case("preflight: the text against the voice", text_rules)
 case("the strip: the frames a render's strip shows, and the span's frames it leaves out", a_strip_of_a_render)
+case("the strip: a load of two subjects, each in its own colour", a_strip_of_two_subjects)
 sys.exit(finish())

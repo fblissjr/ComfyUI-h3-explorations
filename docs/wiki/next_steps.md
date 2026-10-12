@@ -45,7 +45,13 @@ own below the rule.
   and nothing the capture measures of a region (what is inside it that is not its subject, the part's
   coverage, the pose rows) is taken for the second subject. To build: a plan with two subjects, each rule read
   per subject of the load, and the strip drawn with both. Starts at `loads_from_file` and the roughly sixty
-  places that take a plan's `subject` as one label.
+  places that take a plan's `subject` as one label. **Partly built 2026-10-12** (the first real two-subject
+  load met it: the look's strip refused the load, and the capture's own plan was the first subject's alone):
+  the plan the capture works out is from both parts, the run records `subjects`, and the look's strip takes
+  the load, says which label is whose and draws both. STILL TO BUILD, in the shape the lead ruled (a run keeps
+  `subject` and gains `subjects`): a rule that is a fact about a subject runs once per subject of the load;
+  no subject of the load is "another subject"; a fact about the region as a whole is read once with both
+  labels. Until then the second subject's flag is answered by hand.
 - **Her long hair flickers at the region's edge on the long kitchen shot in form B** (the owner, 2026-10-12,
   about 18:49Z, on playback of the joined clip: "look at frame 693 and then 703. you can see its disappearing
   and filling in, like the mask isnt big enough", and "ghosting artifacts on the left side of mom's hair but
