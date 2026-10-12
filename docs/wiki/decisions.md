@@ -381,6 +381,93 @@ writer, and the row or commit named is the nearer record.*
   made again by the session that wrote it up. The stores' own timestamps
   count; the machine-written times in the job records
   (`data/2026-10-12_second_hf_0604_job/*.queued.json`) are right.
+- **The owner's eye on playback stands beside the frame readings and can
+  overturn them** (the owner, 2026-10-12, 21:25Z to 21:28Z by the clock, on
+  the three hall pairs `lead_g_1222_fp_cv`, `lead_g_1156_fp_cv` and
+  `lead_g_1093_fp_cv` against the lid-marks renders of the same shots: the
+  readers from frames and the pose figures had called the eyes a draw; the
+  owner on playback saw the gain in motion on all three, eyes, mouth and
+  gaze, and kept them: "keep those they're good to go"). From here a render
+  is told with both: what the frames and figures say, and what the owner saw
+  in motion; neither argues the other (`data/fun/verdicts/verdicts.jsonl`).
+- **604-948 stays as `second_hf_0604_b`; nothing is rendered there** (the
+  owner's click on Open List row 17 at 21:43:20Z and their words "leave it
+  be"). The two-subject pass could not be rendered on that shot (the lead's
+  face under the capture's floor on 151 of 345 frames; `data/2026-10-12_second_lead_0604`),
+  and the two statements it rested on (row 13: made once in the form that
+  wins; 20:34Z: not worth testing alone) pulled apart; the owner chose the
+  piece that exists. The lead's piece there stays the 10th's `face_kitchen`.
+  The two-subject load's first render moves to the hall shot 1222-1305.
+- **The owner's go for the night: keep pushing through the video, the rough
+  edges later** (the owner, 2026-10-12, 22:00Z by the clock, in the lead's
+  terminal, leaving for the night: "Just keep pushing as far as you can get
+  in the video and we'll see where the rough edges land later"; at 22:19Z:
+  "have mrham wrap up when convenient and you and mrsnow finish up"; at
+  22:21Z: mrham hands off to one of the two). So from 22:00Z no render waits
+  on a row; form choices are the lead's on the record, reversible by the
+  owner's look; rows written for the owner stay open (18 and 19).
+- **Her kitchen opening 14-154 stands in the one form, `second_hf_0014_p4_headref`,
+  on the owner's eye** (the owner on playback, 21:58:32Z: "looks good btw",
+  before the readings were told; `verdicts.jsonl` line 169). What the frames
+  say, both readers blind to each other (`data/2026-10-12_gate_p4_0014_headref/reading_mrfancy.md`,
+  `reading_blind/`): outside the eyes it is p4's picture; the eyes follow the
+  original in time on 14-80 (p4 dropped them twelve frames early) and open at
+  the camera on 81-154 while hers stay down (p4 kept them down). So on this
+  shot the drawn outline carried WHEN the eyes move and the marks carried HOW
+  FAR the lid is down; one seed each. Row 18 asks the owner which stands in
+  the end; p4 is kept beside it.
+- **The hair band's first render drew nothing in the band, and the band is
+  carried into her other face-and-hair loads** (`second_hf_0278_b_hr_band`,
+  the lead's ruling, 2026-10-12, 22:12Z by the clock, on the owner's word of
+  20:37Z). The band opened 7-46 cells a frame under her jaw that the pair
+  kept out; the model drew the original's apron there (about 1 grey level
+  from the pair; no patch, seam or flicker beyond the floor, by two readers
+  and `bench/read_hair_band.py`'s first run). Her hair was drawn as a bob
+  that never reaches the band, shorter than the pair's, so the band is
+  untested as a fix for the 693-703 fault, which needs a render where the
+  hair is drawn long. The pair without the band (`second_hf_0278_b_hr`) was
+  planned and not rendered: a like-for-like would show the same nothing
+  (`data/2026-10-12_second_hf_0278_b_hr_job/NOT_RENDERED.txt`). The eyes on
+  that render: lowered on 278-289 where the marks' render had none lowered,
+  open at the camera on 290-293 in both.
+- **The owner's typed words on the 1920-6394 shots were parsed and confirmed
+  before any preview is planned there** (the owner, 2026-10-12, 22:15Z by
+  the clock: "we need to have this parsed and confirmed by someone before we
+  get further along"). A cold reader's parse (`data/fun/who_1920_words_read.md`)
+  and mrham's confirmation as the second reader (its section at the file's
+  foot, 22:17Z): no shot disagrees with the buttons; 23 shots carry a place
+  usable to seed a tracker; nine lines are unclear and are Open List row 19.
+  The caution for the seeds: 19 of the 29 seed rows carry the shot's first
+  frame, which the owner was never shown; only 10 rows on 7 shots carry a
+  frame the owner named.
+- **Her three cutaways and the lead's 1466-1534 are rendered in the one form;
+  the hair band's three renders drew nothing in the band** (the lead's
+  readings with a blind reader each, 2026-10-12, 22:12Z to 23:05Z by the
+  clock: `data/2026-10-12_second_hf_0415_b_hr_band/`, `..._0484_b_hr_band/`,
+  `data/2026-10-12_lead_fp_1466/`). 415-437: the drawn form carried the
+  lowered lids at the start and the opening's timing (0.52 of the original's
+  fall where the marks' render carried 0.08) and neither form carried her
+  widening or her lowering at the end; 484-515: the lids open at the camera
+  on every frame where hers are down at the egg (the marks' render down for
+  five frames, then the same); 1466-1534: the mouth sings on the sung phrases
+  and the eyes narrow where hers do (0.55 of the fall), the 10th's render of
+  the same frames having a still mouth. The band opened 8-23 cells a frame
+  on 484's bib and the model drew the apron; the one strand that reached a
+  strap tonight was drawn by the no-band pair of 484 and held still. Each is
+  her or the lead's piece on its shot on the standing goes; which of her
+  pieces stands on each cutaway in the end is the owner's (the eyes are the
+  rough edge, named on the page).
+- **The night ends at a stopping point: no load is built after 23:03Z; the
+  last card job is a joined clip of 0-1919** (the owner, 2026-10-12, 23:03Z
+  by the clock, in the lead's terminal: end the night when the Open List and
+  everything local is set for tomorrow; "an end of day joined clip across our
+  best shots of the day in a linear frames sequence in one video file in
+  output folder Video/fun"). mrsnow, back after a usage-limit stop at
+  22:48Z, assembles it from mrham's dry run; the lead's 1061-1092 (ruled:
+  the plain body model, ending at 1079) and 1306-1402 (ruled: the capture on
+  the load's own frames, ending at 1396) are tomorrow's first loads, their
+  rulings in their captures' `looks.json`; the servers are stopped after the
+  join. The first two-subject render waits for a day the owner can look.
 
 ## 2026-10-11
 

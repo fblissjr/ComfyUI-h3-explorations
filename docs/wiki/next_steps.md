@@ -17,7 +17,36 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**Masked video to video, 2026-10-12: gaps in the tools, each found by a run and none fixed.**
+**The queue, 2026-10-12 night (the lead, mrfancy), in order; the reasoning is in
+[`handover.md`](handover.md) and [`decisions.md`](decisions.md), the day's section.**
+1. The owner's looks on the local page (the four renders of the second subject and
+   the lead's 1466-1534 in the one form; the joined clip of 0-1919) and the two Open
+   List rows written for them (18: 14-154, headref or p4; 19: their words on the
+   1920-6394 shots, nine lines unclear).
+2. The lead's 1061-1092 (the plain body model cut, ending at 1079) and 1306-1402
+   (the capture on the load's own frames, ending at 1396): the rulings are in
+   `data/2026-10-12_lead_fp_1061/looks.json` and `data/2026-10-12_lead_fp_1306/looks.json`;
+   each to its first strip, the plan, the render, the readings.
+3. The lead's 168-185 and 516-603 after their part sizes are counted against the
+   capture's floor (`PART_LEAST_PX`); under it they join the zoomed-load list (row p04).
+4. The third subject's three shots, face only (his track, body model and points
+   first); 1222-1305 as the first two-subject render only on a day the owner can
+   look (a swap or a blend of the faces is what it is read for).
+5. The delivery of 0-1919 from `internal/claude/2026-10-12_delivery_dry_run.md`
+   (its five things first: 0859d's piece starts at 949; the 10th's aliases; 438-483's
+   zoomed piece; 294-414 and 1010-1038 held as the source; the `restore=` rows where
+   two passes meet).
+6. The previews on 1920-6394, seeded by a builder rule on a sampled frame the record
+   marks the subject on (`data/fun/who_1920_words_read.md`'s caution: 19 of 29 seed
+   rows carry a frame the owner never saw); the nine unclear shots last.
+7. The hair band stays untested as a fix for the 693-703 fault until a render draws
+   her hair long enough to reach the keep-out; `bench/read_hair_band.py` reads it.
+8. Rows, not code: a capture over a whole-shot preview fails on frames outside its
+   load (1306); the builder records no look when a load's frames change after the
+   look (1466); the date -u rule is in no tracked file.
+
+**Masked video to video, 2026-10-12: gaps in the tools, each found by a run; several
+fixed the same day, said inline below.**
 - **A sweep tool: the same loads again with one thing changed** (the owner, 2026-10-12,
   19:35Z on the Open List's inbox and 19:40Z in the lead's terminal: once the windows are settled, run the
   same windows on the same input with only the two stills changed; "make sure we have on the backlog a tool
