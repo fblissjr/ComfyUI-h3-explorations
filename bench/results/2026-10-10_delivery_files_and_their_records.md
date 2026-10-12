@@ -460,6 +460,51 @@ flag reads the source's own frame-to-frame change for it.
   tool already had: the third's row runs through with the plain restore
   and is looked at, or it stops at 1402 and those frames are the source.
   The capture session's counts above stay as the measurement they are.
+- 2026-10-12: **a whole-clip file of the day's standing pieces**
+  (`fun_0000_1919_joined_2026-10-12.mp4`, on the share under `Video/fun/`,
+  with its record and a text listing of its rows beside it). Source frames
+  0-1919 at the source's size and rate, built once to a scratch name,
+  copied byte for byte and read again with `--check-only`. Not locked and
+  not played by a session: the owner asked for one file to watch. The
+  table is
+  `data/2026-10-12_fun_delivery_tables/t_fun_0000_1919_joined_2026-10-12.txt`
+  (untracked; the captures list, the build's note and what the record was
+  expected to say, written before the build, are beside it): 20 piece rows
+  and 37 `source` lines. Twelve rows are renders of 2026-10-12, a face or
+  a face and hair each: the second subject on 14-154, 278-293, 415-437,
+  484-515, 604-948, 949-1009 and 1039-1060; the lead on 1098-1133,
+  1156-1188, 1222-1305, 1466-1534 and 1575-1729. Eight are rows of the
+  2026-10-10 table unchanged: the lead's face on 438-483, 604-1009,
+  1010-1038, 1061-1092 and 1306-1402, and the third subject's
+  whole-person renders on 1222-1305, 1306-1410 and 1466-1631. That
+  table's whole-person rows of the second subject and their patch are
+  not in this one, and two shots it laid a piece on are the source here:
+  the lead on 294-414 and the second subject on 1010-1038 (one new
+  `source` line). No capture holds the day's renders as a run with a
+  render, so each of the twelve carries `subject=` and is laid as it
+  rendered: no class is given back on them, and a whole-subject restore
+  is kept only where two passes meet.
+  What the record says: passes; 1920 frames, none off its place; all 20
+  rows shown at a share of 1; `squares_apart` 0; `pieces_with_no_capture`
+  empty; the audio a run of the source's packets with no sample
+  differing. Shots where a named subject is the source's own: 66 (37 by
+  intent, 26 not known, 3 where the people detected are other subjects').
+  Two pieces changed the same pixel on 187 frames, at most 12,157 px on a
+  frame: 108,342 px went to the piece whose subject's mask holds them and
+  95,906 px to the later row, on scattered frames of 688-816 and on
+  1222-1355, 1475-1508 and 1575-1588, the places two passes meet. For
+  scale, the record of the 2026-10-10 whole clip has 3,801,131 px to the
+  later row; that table laid whole-person rows of the second subject and
+  this one does not. The file written before the build expected the order
+  count to be small beside the mask count; they are about equal, and
+  nobody has looked at where those pixels are. 31 flags, all iffy, none
+  given an outcome: 10 restored pixels beside a large change, 8 a piece
+  changing away from its subject, 5 a change up to the loader's crop, 3
+  steps in a changed area, 2 frames a run carried no mask on (left as the
+  source), 2 a piece changing nothing on frames a row gives it, and the
+  shared pixels. What this cannot see: the flags that need a run were not
+  read on the twelve rows that have none, and nothing here says a piece
+  looks right.
 
 ## What refuses when a step is skipped (2026-10-10, end of day)
 
