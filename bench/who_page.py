@@ -171,7 +171,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
         # outlined is shown; ties go to the first preview and the first tracker listed.
         tiles = []
-        if not found and covered and source:
+        if not found and source:          # nobody outlined, or no preview at all: the frame itself
             mid = (s["first"] + s["last"]) // 2
             f = plain_frame(source, mid, out)
             if f:
@@ -182,7 +182,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                     for sub in shots["subjects"])
                 tiles.append(f'<div class="tile" data-table="plain" data-frame="{mid}" data-tf="0" data-shot="0" '
                              f'data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{f}" alt="">'
-                             f'<div>frame {mid}, the source itself: the trackers found nobody on this shot, so nothing is outlined</div>'
+                             f'<div>frame {mid}, the source itself: {'the trackers found nobody on this shot' if covered else 'no preview covers this shot'}, so nothing is outlined</div>'
                              f'{ask}<div class="st"></div></div>')
         if found:
             t = max(found, key=lambda x: len(x["people"]))
