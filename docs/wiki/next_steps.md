@@ -78,6 +78,13 @@ own below the rule.
   generated workflow for the lid-marks form, after the close-up's next
   render is read. What exists in its place:
   `../../bench/examples/masked_job_lid_marks/`.
+- **The builder's window choice reads the cuts** (the owner's rule of
+  2026-10-12, [`decisions.md`](decisions.md)): shorter windows are fine,
+  boundaries align with cuts where one is near, and no window begins within
+  about a second of a cut. `bench/masked_job.py` leaves the window length
+  to the node today and reads no cuts; the change gives it
+  `data/<video>/shots.json` and a guard of about 24 frames, with a case in
+  its check. Queued by the lead (mrfern); not started.
 - **A layered view of the preprocessing** (the same entry): shared
   library code first (the capture tool's drawing helpers into
   `bench/_lib`, their own change), then the view where it fits an

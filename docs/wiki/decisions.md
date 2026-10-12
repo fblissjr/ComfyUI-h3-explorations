@@ -22,6 +22,22 @@ Older history lives elsewhere and is not copied here:
 from the morning lead's handoff; nothing here was heard first hand by the
 writer, and the row or commit named is the nearer record.*
 
+- **Windows align with cuts, and a new window never starts within about a
+  second of a cut** (the owner, in the lead's terminal, 2026-10-12 about
+  15:44Z, answering Open List row z07: "if you need to make shorter windows,
+  thats fine. Just try to align them with cuts. Dont start a new window a
+  second right before a 5 second cut is about to make a new cut a few frames
+  later"). A standing rule for the builder's window choice: shorter windows
+  are allowed; a window boundary sits on a cut where one is near; a window
+  that would begin within about 24 frames of a cut is not begun there. Loads
+  are one shot each today (row c24), so inside a shot it binds the choice
+  near the shot's end and any long load that spans cuts. The builder
+  (`bench/masked_job.py`) does not read the cuts (`data/<video>/shots.json`)
+  when it chooses windows yet; that change is on
+  [`next_steps.md`](next_steps.md). The same answer gave the go on the
+  continuation load `second_hf_0859c` (949-1009 from the stored first
+  window of `second_hf_0604`, which failed after its first window at
+  15:13Z), until then the lead's go on the owner's 14:57Z sentence.
 - **`AGENTS.md` is the operative rulebook, about 110 lines, and every rule in
   it is one a session cannot work around without noticing** (the owner's
   word; commit 7bac71e9). What it used to be: the longer file with the
