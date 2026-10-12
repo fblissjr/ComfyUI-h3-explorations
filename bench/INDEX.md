@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 106 |
+| [`check_*`](#check) | 107 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 143 |
+| [the rest](#the-rest) | 144 |
 
 ## check
 
@@ -106,6 +106,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_sam3d_body_conversion.py`](check_sam3d_body_conversion.py) | Hold `bench/convert_sam3d_body_checkpoint.py`'s mapping to core's SAM 3D Body model, without weights. |
 | [`check_sam3d_body_vith.py`](check_sam3d_body_vith.py) | Hold `sam3d_body_vith.py` to Meta's ViT-H SAM 3D Body: the key set, the six geometry rules, and the backbone's forward. |
 | [`check_schema_defaults.py`](check_schema_defaults.py) | Check every node's schema defaults match its `execute` signature defaults. |
+| [`check_shot_coverage.py`](check_shot_coverage.py) | `bench/shot_coverage.py` lays a plan, a delivery table and a renders inventory side by side, a shot and a subject at a time; each case is a way a row could say the wrong thing. |
 | [`check_shot_table.py`](check_shot_table.py) | The per-shot table says what the tracker did, and its person numbers mean one thing everywhere. |
 | [`check_skill_routes.py`](check_skill_routes.py) | Fail when a skill routes an agent to a path that does not exist. |
 | [`check_sol_chunked.py`](check_sol_chunked.py) | Grade the chunked-producer forward before it is given a render. |
@@ -409,6 +410,7 @@ this file is only a way to find a script by what it says it does.
 | [`score_session.py`](score_session.py) | Join an exported blind scoring file with the sealed key into a verdict. |
 | [`score_shot_ablation.py`](score_shot_ablation.py) | Score the two-shot ablation arms on both candidate axes: delta and spatial detail. |
 | [`score_sol_dense_blocks_panel.py`](score_sol_dense_blocks_panel.py) | Score the Sol dense_blocks panel: each arm's saved latents against the all-dense arm at the same scene and seed, with each arm's sampler time. |
+| [`shot_coverage.py`](shot_coverage.py) | Where a masked video stands: one row a shot and a subject, with what the plan wants there, what the delivery table lays there, and what else has been rendered on those frames. |
 | [`simulate_track_b_lite.py`](simulate_track_b_lite.py) | Priority 3d: Track B-Lite Eager FP16-PV Simulation. |
 | [`smoke_h3.py`](smoke_h3.py) | Confirm the H3 chain composes and runs, after any node-pack update. |
 | [`sol_duckdb_analyzer.py`](sol_duckdb_analyzer.py) | DuckDB ingest and static dashboard for Sol probe and observer captures. |
@@ -570,7 +572,7 @@ Arm manifests and the like; a manifest's line is its own `what`.
 
 ### results
 
-212 tracked files: [`results/INDEX.md`](results/INDEX.md).
+213 tracked files: [`results/INDEX.md`](results/INDEX.md).
 
 ### rubrics
 

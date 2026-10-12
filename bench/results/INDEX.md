@@ -16,6 +16,7 @@ replaces `docs/evidence.md`, which says what the records established.
 
 | date | lane | record | verdict |
 |---|---|---|---|
+| 2026-10-12 | fun | [Where the fun clip stands, a shot and a subject at a time: what is laid, what is left, what is unsure](2026-10-12_fun_shot_coverage.md) |  |
 | 2026-10-11 | sapiens2 | [The Sapiens2 pose model, first run: eight frames where the answer is plain by eye](2026-10-11_sapiens2_pose_first_frames.md) |  |
 | 2026-10-11 | lead | [The lid marks on a second shot: on the lead's singing close-up her eyes did not follow](2026-10-11_lead_closeup_lid_marks_did_not_carry.md) |  |
 | 2026-10-11 | kitchen | [Lid marks drawn on the body-model video, and the words that go with them: renders of the kitchen shot](2026-10-11_kitchen_shot_lid_marks_on_the_body_model.md) |  |
