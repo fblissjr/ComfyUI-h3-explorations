@@ -17,7 +17,7 @@ pointer goes; this list is stale the moment the roadmap disagrees with it.
 Items from the `mrpink` helper lane first; `evalman`'s render lane appends its
 own below the rule.
 
-**Masked video to video, 2026-10-12: three gaps in the tools, each found by a run and none fixed.**
+**Masked video to video, 2026-10-12: gaps in the tools, each found by a run and none fixed.**
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);
@@ -35,6 +35,17 @@ own below the rule.
   body model has pixels near white**: the re-encode pushes a few of them over
   its line and the test wants none. Read on one run: the pixels were spread
   over the body and none was at an eye.
+- **`bench/capture_masked_run.py video` will not stack a render that starts
+  inside the capture's span** ("the render starts after the span's first
+  frame; capture the span the render covers"). A run that continues a stored
+  window saves only the frames it writes, so its file starts where its kept
+  frames end, while its capture spans the frames its text was written from.
+  Every continuation meets this. For the first one the two renders were
+  joined into a viewing copy and stacked on the first load's capture, whose
+  region on the new frames equals the continuation's. The strip already has
+  an offset for a load's own strip (`--load`); a render placed by
+  `--render-first` inside the span wants the same, with a case in
+  `bench/check_capture_masked_run.py`. Not started: the tool was in use.
 
 **Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
 - Start from [`handover.md`](handover.md): what not to assume, where the
