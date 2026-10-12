@@ -112,6 +112,17 @@ own below the rule.
   run again. Wanted as an option of the tool: write the frames of a laying
   as a video, and several layings side by side over a box, with the source
   frame number burned in. Not started.
+- **A line of the page's answers file is the owner's because it says so.**
+  `bench/page_answers_to_cast.py` takes a line whose `who` is `owner`, and
+  `who` is whatever the page's "Answering as" box held when the click was
+  posted; the page server does not know who clicked. A session's test click
+  left with the box saying `owner` would be stored as the owner's, in the
+  cast file and, since 2026-10-12, as `present` in a shots record. Nothing
+  such is known to have happened; sessions' test clicks have carried a
+  `who` of their own, which the tool lists as left out. What would close it:
+  the page server stamps on each line what it can know of where the click
+  came from, and the tool reads that beside `who`. Not started (found by a
+  review of the commit that added the shots record, 2026-10-12).
 
 **Masked video to video, 2026-10-11: eyelids from marks on the body-model video held on one shot and did not repeat on a second.**
 - Start from [`handover.md`](handover.md): what not to assume, where the

@@ -16,7 +16,8 @@ cast's: a tile is stored whole or not at all, a number becomes a box, a subject 
 outlined people`, the latest line stands.
 
 **How a line is read.** Only lines whose `who` is `owner` and whose `row` is a who-is-who row (`WHO_ROWS`) are
-taken. Two shapes of click: the first page's (a numbered PERSON and a button naming who they are, `BUTTONS`), and
+taken. `who` is the page's "Answering as" box as it stood when the click was posted, not a proof of who clicked:
+the page server does not know, so a session testing the page sets the box to its own name first. Two shapes of click: the first page's (a numbered PERSON and a button naming who they are, `BUTTONS`), and
 the who page's of 2026-10-12 (a SUBJECT and a button: their number on the tile, `not outlined`, or `not in
 shot` (the page's label until 2026-10-12 14:45Z) or `not on frame`; all three store as `none of the outlined people`, the cast's one word, and `seeds` decides per
 load how strongly to read it). Otherwise: a session's test clicks are listed as left out. Lines are grouped by tile (the table's file name and the
