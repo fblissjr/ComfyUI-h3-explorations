@@ -402,7 +402,16 @@ session starting a job needs to know:
   references to the Masked Source's two inputs. Every file is a path the
   load gives; the build record says which picture and which video went to
   which subject, and the shown lines say which of the six labels the text
-  names. What a reader has to know before the first one renders:
+  names. **What its text must name:** `<Subject 1>` and `<Subject 2>`, one
+  definition each, the first saying it is the person in `<Picture 1>` and
+  the second the person in `<Picture 2>`, and where each of them is in the
+  picture; and, for each subject that has a reference, `<Video 1>` or
+  `<Video 2>`, with the sentence that says what that video is and the line
+  that says what is taken from it, in the vendor guide's form
+  ([`../prompting.md`](../prompting.md), section 9). The numbers follow the
+  list's order and nothing else. The builder writes none of it and refuses
+  none of it: it prints yes or NO for each label. What a reader has to
+  know before the first one renders:
   - **The text alone tells the model which still is whose.** A reference
     still is tokens and rows the model attends to from everywhere; nothing
     in H3 or in this pack ties one to a place in the picture, with one
