@@ -15,6 +15,75 @@ Older history lives elsewhere and is not copied here:
   decisions" and forward-plan sections.
 - `bench/results/`: the verdict records, each with its conditions.
 
+## 2026-10-12
+
+*Written by the afternoon's lead session (mrfern) from the operative files
+(`AGENTS.md` as rewritten this morning, the Open List's rows, the commits) and
+from the morning lead's handoff; nothing here was heard first hand by the
+writer, and the row or commit named is the nearer record.*
+
+- **`AGENTS.md` is the operative rulebook, about 110 lines, and every rule in
+  it is one a session cannot work around without noticing** (the owner's
+  word; commit 7bac71e9). What it used to be: the longer file with the
+  routes, which now live only in [`index.md`](index.md). The owner's
+  housekeeping rulings of the morning are in it: two sessions during the day
+  (one holds the card and builds, one reads cold and builds tooling; a third
+  only as a blind reader of a finished result, a subagent counting as one);
+  handoff over compaction, staggered, never both sessions at once; one
+  inbox (the Open List's box) answered done / queued / parked; the terminal
+  only for a go or an answer to a session's question; a rule easily worked
+  around is friction, not a rule, and goes.
+- **Green and red are for a hard failure, everywhere, not only in what is
+  built from here on.** The 2026-10-11 line below left the scope open; the
+  owner closed it this morning (to the morning lead, in the terminal): a
+  check or a gate level that goes red on a matter of degree is to print its
+  figure with its context instead. The code cuts are owed and none is made
+  yet; `AGENTS.md`, "Green or red only for a hard failure", is the rule. The
+  look before a render (Open List row c22: refuse, show, or drop) is still
+  the owner's to answer and is not changed by this.
+- **No video under `data/`**: a capture's mask copies and every video file
+  go under the share's `output/Video/<video>/`; the data (tables, points,
+  records) stays local under `data/<video>/` (the owner, this morning; the
+  rule is in `AGENTS.md`, "A record under `bench/results/`"). What it used
+  to say: the 2026-10-11 handover left the mask copies' home open.
+- **The review page's code goes into the tree as `bench/review_page/` when
+  it is built** (Open List row t72, decided this morning); until then the
+  page lives untracked under `data/fun/poc/`. The old boards are retired;
+  the Open List (the owner's page with Claude) is the one place a decision
+  is asked and answered, and the local page on 8765 is where the owner
+  looks at pictures and clips.
+- **Plan state has three homes and no more**: what a video still needs is
+  `bench/shot_coverage.py` run on `data/<video>/shots.json`, `plan.json`
+  and the delivery table (regenerated, never typed;
+  `../../bench/results/2026-10-12_fun_shot_coverage.md` is the first
+  record); the day boundary is [`handover.md`](handover.md) and the top of
+  [`next_steps.md`](next_steps.md); decisions are this page. What it used
+  to be: Open List row z01 was a typed reading of where the clip stood, by
+  stretch; it now points at the tool and the record (row rewritten
+  2026-10-12).
+- **The owner's clicks on the who page reach the cast file through one
+  tool** (`bench/page_answers_to_cast.py`; commits b20de77c to 2f035c5b):
+  the latest button per numbered person stands, a `not sure` stores nothing,
+  typed words are printed beside the tile and never parsed, and an answer on
+  a plain source frame (no tracker outlined anybody) is listed for
+  `data/<video>/shots.json` by hand, not stored. A click is about the frame
+  shown, never the whole shot. The who page shows a long shot's first- and
+  last-quarter frames plain as well, so a late entrance has a frame to be
+  said on (f5d5c417); a renders page on the share lays every render in frame
+  order with the owner's verdict lines under it (4ee6d450).
+- **The sessions' memory folder was cut from 55 notes to 16** at the owner's
+  word, after a fresh reader's friction audit: it holds the owner's
+  preferences about how to work, facts about things outside this repo and
+  how sessions coordinate, and never project state.
+- **Corrected claim: every time the morning lead typed as Z from about
+  14:00Z on this day is about five hours ahead** (its Open List write-backs
+  on rows z01, z05, z06 and g01, its reply in the inbox, the note times in
+  `data/fun/plan.json`): the local offset was added to a time that was
+  already UTC, the slip the 2026-10-11 postmortem's section 1.7 names,
+  made again by the session that wrote it up. The stores' own timestamps
+  count; the machine-written times in the job records
+  (`data/2026-10-12_second_hf_0604_job/*.queued.json`) are right.
+
 ## 2026-10-11
 
 *Written by the session that took the build over (mrfire) from what the
