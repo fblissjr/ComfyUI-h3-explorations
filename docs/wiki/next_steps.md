@@ -25,8 +25,12 @@ own below the rule.
   (`second_hf_0604_b_window_1_with_mask.mp4`): the still's hair falls past the jaw on the viewer's left, the
   region's lower edge there is the clothes keep-out giving the margin's cells back, and that edge moves with the
   clothes mask's pieces frame to frame, so the hair is drawn where the region reaches and cut where it does not.
-  The cost row z10 named (hair to the shoulder line) made visible in motion. Not fixed; a form that keeps out
-  the strap's cells and leaves a band for the hair below the jaw is a builder change nobody has designed.
+  The cost row z10 named (hair to the shoulder line) made visible in motion. QUEUED by the owner's word
+  (2026-10-12, about 18:52Z, in the lead's terminal: "the issue that caused the error - yes, we should build
+  that"): a region for her that keeps out the strap's cells (the patch) and leaves a band for the hair below the
+  jaw on both sides, with the band's edge held still across frames so the hair is not drawn and undrawn at
+  it; a builder change in `bench/masked_job.py` and the region's rules, with a check case and a one-change
+  test on 604-948 beside form B. Not designed yet; the lead owns the design.
 - **Nothing prints whether a body model is on its subject.** A preview posed
   the person behind the subject for half a second and every table read the
   same. The node is fixed (`../../bench/results/2026-10-12_body_model_posed_the_other_person.md`);

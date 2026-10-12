@@ -3384,3 +3384,12 @@ that session's record disagree, its record is the nearer one.*
   on every graph, adopting sglang's and core's default. It used to stop short
   so the last step ran dense; the retired values are in the comments beside
   `workflows/h3_config.py::SOL_END_PERCENT_BY_STEPS` and `SOL_PDD_OVERRIDES`.
+- **A region for her hair, built** (the owner, 2026-10-12, about 18:52Z by
+  the clock, in the lead's terminal, after seeing her hair disappear and
+  fill in at frames 693 and 703 of the long kitchen shot in form B: "the
+  issue that caused the error - yes, we should build that"). Form B keeps
+  her clothing out of the region and gives the margin's cells back at the
+  shoulder line, so the still's long hair is cut where the region ends and
+  the edge moves with the clothes mask. The change queued: a region that
+  keeps out only the strap's cells and leaves a still-edged band for the
+  hair below the jaw (`next_steps.md`, the 2026-10-12 gaps).
