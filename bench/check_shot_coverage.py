@@ -9,7 +9,7 @@ subjects, a table and an inventory made here, so the expected rows are known by 
   a_piece_of_the_plans_kind_is_as_planned        parts where the plan says face and hair
   the_other_kind_is_not_as_planned               a whole-subject piece where the plan says face
   a_piece_the_inventory_lacks_has_no_region      the state says so instead of guessing
-  a_piece_on_some_frames_is_partly               and the row says which frames
+  a_piece_on_some_frames_is_partly               and the row says which frames, and still says the piece's kind
   a_source_line_is_said_why                      and its words are on the row
   nothing_on_a_present_subject_is_no_line        the gap the table is silent on
   unsure_presence_plans_nothing                  the row is `presence unsure` whatever the table says
@@ -63,7 +63,9 @@ def fixture(folder: Path, *, shots=None, plan=None, table=None, renders=True) ->
         {"name": "b_two", "file": "Video/x/b_two/b_two_00001.mp4", "first": 30, "last": 59, "motion_wired": True,
          "as_the_graph_says": {"replace": "whole subject"}},
         {"name": "a_spare", "file": "Video/x/a_spare/a_spare_00001.mp4", "first": 0, "last": 29, "motion_wired": False,
-         "as_the_graph_says": {"replace": "whole subject"}}]}
+         "as_the_graph_says": {"replace": "whole subject"}},
+        {"name": "a_three", "file": "Video/x/a_three/a_three_00001.mp4", "first": 30, "last": 44, "motion_wired": False,
+         "as_the_graph_says": {"replace": "the wired parts"}}]}
     paths = {"shots": write(folder, "shots.json", shots), "plan": write(folder, "plan.json", plan),
              "table": write(folder, "t.txt", table)}
     if renders:
@@ -105,7 +107,7 @@ def main() -> int:
         case("a_piece_of_the_plans_kind_is_as_planned", row(out, 0, "a")["state"] == "as planned", row(out, 0, "a")["state"])
         case("the_other_kind_is_not_as_planned", row(out, 30, "b")["state"] == "not as planned", row(out, 30, "b")["state"])
         r = row(out, 30, "a")
-        case("a_piece_on_some_frames_is_partly", r["state"] == "partly" and r["laid"][0]["frames"] == [30, 44], json.dumps(r["laid"]))
+        case("a_piece_on_some_frames_is_partly", r["state"] == "partly, as planned" and r["laid"][0]["frames"] == [30, 44], json.dumps(r["laid"]))
         r = row(out, 60, "b")
         case("a_source_line_is_said_why", r["state"] == "source, said why" and r["left"][0]["why"] == "too small to track", r["state"])
         case("unsure_presence_plans_nothing", row(out, 60, "a")["state"] == "presence unsure", row(out, 60, "a")["state"])

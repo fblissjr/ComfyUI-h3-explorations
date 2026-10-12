@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""`bench/who_page.py` lays the shots record beside each tracker's numbered picture; each case is a way a row could show the wrong band, the wrong words or nothing.
+
+Why it exists: the owner asked for one simple page of who is in each shot with the masks and identifiers on the
+input; its only work is cutting the right band of a table's picture for the right shot and putting the record's
+own words beside it, and each of those can be off by one.
+
+  a_row_a_shot                          the page has one row per shot of the record, with its frames and each subject's line
+  the_band_cut_is_the_shots_own         band k of the picture, by colour, for the table shot that overlaps the record's shot
+  a_band_from_another_preview_is_not_cut   a preview whose job does not span the shot gives no tile
+  empty_bands_collapse_to_one           bands with nobody on them are said in words, never shown as black pictures
+  the_owners_words_are_on_their_frames  a words line whose source frame is inside the shot is on that row and no other
+  a_missing_table_is_refused            by path
+
+    <python> bench/check_who_page.py
+
+No model, no card; PIL only.
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+from PIL import Image
+
+HERE = Path(__file__).resolve().parent
+TOOL = HERE / "who_page.py"
+COLOURS = [(200, 0, 0), (0, 200, 0), (0, 0, 200), (200, 200, 0)]
+
+
+def table(shots):
+    return {"version": 2, "size": [64, 48], "shots": shots}
+
+
+def picture(path: Path, n: int):
+    im = Image.new("RGB", (64, 48 * n))
+    for k in range(n):
+        im.paste(COLOURS[k], (0, 48 * k, 64, 48 * (k + 1)))
+    im.save(path)
+
+
+def fixture(folder: Path) -> dict:
+    tables = folder / "t"
+    tables.mkdir()
+    # preview pv: first 100, two subjects; its table: four shots, the first two with nobody (a lead-in), then two with people
+    shots = [{"shot": 1, "first_frame": 0, "last_frame": 0, "shown_frame": 0, "people": []},
+             {"shot": 2, "first_frame": 1, "last_frame": 1, "shown_frame": 1, "people": []},
+             {"shot": 3, "first_frame": 2, "last_frame": 29, "shown_frame": 10, "people": [{"person": 1, "box": [1, 1, 5, 5]}]},
+             {"shot": 4, "first_frame": 30, "last_frame": 59, "shown_frame": 40, "people": [{"person": 1, "box": [1, 1, 5, 5]}, {"person": 2, "box": [9, 9, 5, 5]}]}]
+    for label in ("a", "b"):
+        (tables / f"pv_{label}_shots_00001_shots.json").write_text(json.dumps(table(shots)))
+        picture(tables / f"pv_{label}_shots_00001_shots.png", 4)
+    job = folder / "pv.json"
+    job.write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "subjects": [{"label": "a"}, {"label": "b"}]}}))
+    # a second preview that spans other frames entirely
+    (tables / "far_a_shots_00001_shots.json").write_text(json.dumps(table(shots[2:3])))
+    picture(tables / "far_a_shots_00001_shots.png", 1)
+    far = folder / "far.json"
+    far.write_text(json.dumps({"job": {"name": "far", "first": 900, "frames": 30, "subjects": [{"label": "a"}]}}))
+    rec = folder / "shots.json"
+    rec.write_text(json.dumps({"schema": "h3_shots/1", "video": "t.mp4", "span": [100, 159], "subjects": ["a", "b"], "shots": [
+        {"first": 100, "last": 101, "who": {"a": {"present": "no", "how": "lead-in", "by": "x"}, "b": {"present": "no", "how": "lead-in", "by": "x"}}},
+        {"first": 102, "last": 129, "who": {"a": {"present": "yes", "how": "tile 110", "by": "owner"}, "b": {"present": "no", "how": "", "by": "x"}}},
+        {"first": 130, "last": 159, "who": {"a": {"present": "unsure", "how": "two say", "by": "x"}, "b": {"present": "yes", "how": "tile 140", "by": "owner"}}}]}))
+    ans = folder / "answers.jsonl"
+    ans.write_text("".join(json.dumps(d) + "\n" for d in [
+        {"who": "owner", "row": "who", "what": "words", "source_frame": 110, "at": "2026-10-12T10:00:00Z", "words": "WORDS ON 110"},
+        {"who": "owner", "row": "who", "what": "words", "source_frame": 140, "at": "2026-10-12T10:00:01Z", "words": "WORDS ON 140"},
+        {"who": "mrx", "row": "who", "what": "words", "source_frame": 110, "at": "2026-10-12T10:00:02Z", "words": "NOT THE OWNER"}]))
+    return {"shots": rec, "pv": f"{job}={tables}", "far": f"{far}={tables}", "answers": ans, "out": folder / "out"}
+
+
+def run(p, *extra):
+    cmd = [sys.executable, str(TOOL), "--shots", str(p["shots"]), "--answers", str(p["answers"]), "--out", str(p["out"]), *extra]
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def main() -> int:
+    fails = 0
+
+    def case(name, ok, why=""):
+        nonlocal fails
+        print(("ok   " if ok else "FAIL ") + name + ("" if ok else f": {why}"))
+        fails += not ok
+
+    with tempfile.TemporaryDirectory() as d:
+        p = fixture(Path(d))
+        r = run(p, "--preview", p["pv"], "--preview", p["far"])
+        assert r.returncode == 0, r.stdout + r.stderr
+        page = (p["out"] / "index.html").read_text()
+        rows = page.count("<tr>") - 1
+        case("a_row_a_shot", rows == 3 and "100-101" in page and "130-159" in page and "<b>a</b>: UNSURE" in page, str(rows))
+        tiles = sorted(x.name for x in (p["out"] / "tiles").glob("*.jpg"))
+        band3 = Image.open(p["out"] / "tiles" / "0102_pv_a_shot3.jpg").getpixel((32, 24))
+        band4 = Image.open(p["out"] / "tiles" / "0130_pv_b_shot4.jpg").getpixel((32, 24))
+        near = lambda c, want: all(abs(int(x) - y) < 20 for x, y in zip(c, want))
+        case("the_band_cut_is_the_shots_own", near(band3, COLOURS[2]) and near(band4, COLOURS[3]), f"{band3} {band4}")
+        case("a_band_from_another_preview_is_not_cut", not any("far" in t for t in tiles), str(tiles))
+        case("empty_bands_collapse_to_one", not any(t.startswith("0100_") for t in tiles) and "found nobody" in page.split("<tr>")[2], str(tiles))
+        row2 = page.split("<tr>")[3]   # [1] is the header row, [2] the lead-in
+        row3 = page.split("<tr>")[4]
+        case("the_owners_words_are_on_their_frames", "WORDS ON 110" in row2 and "WORDS ON 140" not in row2 and "WORDS ON 140" in row3
+             and "NOT THE OWNER" not in page, "")
+        r = run(p, "--preview", f"{Path(d) / 'pv.json'}={Path(d) / 'nowhere'}")
+        case("a_missing_table_is_refused", r.returncode != 0 and "no table" in r.stdout + r.stderr, r.stdout + r.stderr)
+
+    print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

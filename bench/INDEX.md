@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 108 |
+| [`check_*`](#check) | 110 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 146 |
+| [the rest](#the-rest) | 147 |
 
 ## check
 
@@ -76,6 +76,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_output_dir_resolution.py`](check_output_dir_resolution.py) | No script derives the render output directory by counting `..`. |
 | [`check_override_routing.py`](check_override_routing.py) | Check which calls the attention override sends to sage, and which it declines. |
 | [`check_page_answers_to_cast.py`](check_page_answers_to_cast.py) | `bench/page_answers_to_cast.py` takes the owner's clicks on the review page into the cast file; each case is a way a click could be stored wrongly, twice, or when the owner had not decided. |
+| [`check_page_answers_to_verdicts.py`](check_page_answers_to_verdicts.py) | `bench/page_answers_to_verdicts.py` copies the owner's clip verdicts from the page's raw file into the record; each case is a way a line could be lost, doubled, reworded or put on the wrong render. |
 | [`check_patch_render_window.py`](check_patch_render_window.py) | `bench/patch_render_window.py join` against a render and a patch whose answers are known by construction. |
 | [`check_pdd_bank_encoding.py`](check_pdd_bank_encoding.py) | The converter refuses a delta-encoded head stack, and takes a verbatim one. |
 | [`check_pdd_head_selection.py`](check_pdd_head_selection.py) | The PDD node's runtime guards do what they claim, on real artifacts. |
@@ -128,6 +129,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_video_mask.py`](check_video_mask.py) | The masked-source reduction and composite, and the ways each could keep the old subject. |
 | [`check_voice_spans.py`](check_voice_spans.py) | `bench/voice_spans.py`'s frame arithmetic and span rule, on a signal made for the purpose. |
 | [`check_vsa_core_patch.py`](check_vsa_core_patch.py) | Report whether this ComfyUI builds H3's VSA gate, and whether consistently. |
+| [`check_who_page.py`](check_who_page.py) | `bench/who_page.py` lays the shots record beside each tracker's numbered picture; each case is a way a row could show the wrong band, the wrong words or nothing. |
 | [`check_widget_deviations.py`](check_widget_deviations.py) | Every shipped widget value that differs from its node's own default is declared. |
 
 ## measure
@@ -438,6 +440,7 @@ this file is only a way to find a script by what it says it does.
 | [`visualize_token_routing.py`](visualize_token_routing.py) | Simulate, measure, and visually export Sol-Attn with Token Routing (ON vs OFF). |
 | [`voice_spans.py`](voice_spans.py) | Where a voice is on a clip's track, by video frame, on this machine only. |
 | [`who_is_who_across_shots.py`](who_is_who_across_shots.py) | Who is who across shots: one row a shot of what each tracker called, whose word it is, and the question where it is nobody's. |
+| [`who_page.py`](who_page.py) | One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it. |
 | [`x0_step_frames.py`](x0_step_frames.py) | Where in time each sampling step's x0 prediction still moves. CPU only. |
 
 ## Other files

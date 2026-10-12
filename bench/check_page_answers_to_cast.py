@@ -15,6 +15,7 @@ only worth having if what it stores is what the owner last said, once, through t
   words_are_printed_and_not_read             the owner's typed words appear beside the tile, unparsed
   another_persons_clicks_are_left_out        a session's test click stores nothing and is listed
   a_frame_no_shot_shows_is_refused           by table name and frame
+  a_subjects_click_names_their_number        the who page's line shape: a subject and their number, or not outlined / not in shot
   dry_run_writes_nothing
 
     <python> bench/check_page_answers_to_cast.py
@@ -127,6 +128,18 @@ def main() -> int:
                              line(2, source_frame=1010, person=1, chosen="taken back")])
         r = run(p2)
         case("taken_back_leaves_the_person_unanswered", r.returncode == 0 and "no button stands" in r.stdout and not cast_lines(p2), r.stdout)
+
+        folder6 = Path(tempfile.mkdtemp(dir=d))
+        p6 = setup(folder6, [line(1, source_frame=1010, subject="lead", chosen="2"),
+                             line(2, source_frame=1010, subject="second", chosen="not outlined"),
+                             line(3, source_frame=1150, subject="lead", chosen="not in shot"),
+                             line(4, source_frame=1150, subject="second", chosen="1")])
+        r = run(p6)
+        got6 = cast_lines(p6)
+        lead6 = {x["frame"]: x for x in got6 if x["subject"] == "lead"}
+        case("a_subjects_click_names_their_number", r.returncode == 0 and lead6[1010]["answer"] == "here" and lead6[1010]["box"] == [200.0, 20.0, 60.0, 90.0]
+             and lead6[1150]["answer"] == "none of the outlined people"
+             and [x for x in got6 if x["subject"] == "second" and x["frame"] == 1150][0]["answer"] == "here", r.stdout + r.stderr + json.dumps(got6))
 
         folder3 = Path(tempfile.mkdtemp(dir=d))
         p3 = setup(folder3, [line(1, source_frame=1042, person=1, chosen="the lead")])

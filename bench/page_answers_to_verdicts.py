@@ -71,6 +71,8 @@ def read_verdicts(path) -> list[dict]:
 
 def verdict(n: int, d: dict, item: dict, source_name: str) -> dict | None:
     what = str(d.get("what", ""))
+    if not what and str(d.get("words", "")).strip():
+        what = "words"                     # the first page's comments.jsonl: `words` with no `what`
     if what == "choice" and not str(d.get("chosen", "")).strip():
         return None
     if what.startswith("words") and not str(d.get("words", "")).strip():

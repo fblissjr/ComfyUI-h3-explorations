@@ -64,7 +64,9 @@ STATES = (
     "as planned",            # a table piece of this subject covers the shot and its graph's region is the plan's kind
     "not as planned",        # a piece covers it and its graph's region is the other kind
     "region not readable",   # a piece covers it and no renders inventory names it, so its region is not read
-    "partly",                # a piece of this subject covers some frames of the shot and not the rest
+    "partly, as planned",    # a piece of this subject covers some frames of the shot and not the rest; its kind as above
+    "partly, not as planned",
+    "partly, region not readable",
     "source, said why",      # a `source` line leaves the subject as the original here, with words
     "source, no line",       # the subject is here and the table says nothing about them on these frames
     "presence unsure",       # the shots file cannot say the subject is here, so nothing is planned
@@ -220,13 +222,15 @@ def state_of(row: dict) -> str:
     for p in row["laid"]:
         covered.update(range(p["frames"][0], p["frames"][1] + 1))
     whole = set(range(row["first"], row["last"] + 1))
-    if row["laid"] and covered != whole:
-        return "partly"
     if row["laid"]:
         kinds = {p["region"] for p in row["laid"]}
         if None in kinds:
-            return "region not readable"
-        return "as planned" if all(row["wanted"] in GRAPH_KIND.get(k, ()) for k in kinds) else "not as planned"
+            kind = "region not readable"
+        elif all(row["wanted"] in GRAPH_KIND.get(k, ()) for k in kinds):
+            kind = "as planned"
+        else:
+            kind = "not as planned"
+        return f"partly, {kind}" if covered != whole else kind
     return "source, said why" if row["left"] else "source, no line"
 
 

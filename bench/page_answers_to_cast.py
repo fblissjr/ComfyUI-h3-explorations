@@ -14,7 +14,10 @@ cast's: a tile is stored whole or not at all, a number becomes a box, a subject 
 outlined people`, the latest line stands.
 
 **How a line is read.** Only lines whose `who` is `owner` and whose `row` is a who-is-who row (`WHO_ROWS`) are
-taken; a session's test clicks are listed as left out. Lines are grouped by tile (the table's file name and the
+taken. Two shapes of click: the first page's (a numbered PERSON and a button naming who they are, `BUTTONS`), and
+the who page's of 2026-10-12 (a SUBJECT and a button: their number on the tile, `not outlined`, or `not in
+shot`; the last two both store as `none of the outlined people`, the cast's one word, and `seeds` decides per
+load how strongly to read it). Otherwise: a session's test clicks are listed as left out. Lines are grouped by tile (the table's file name and the
 source frame it shows); on a tile, the LATEST click for each numbered person is the answer (`taken back` leaves
 that person unanswered). A button is read through `BUTTONS` to a subject's label or to `none of these`; a `not
 sure` that stands on any person means the tile is NOT stored and is printed as waiting on the owner, since
@@ -82,7 +85,7 @@ def previews(specs: list[str]) -> dict[str, dict]:
 
 def tiles(lines: list[tuple[int, dict]]) -> dict[tuple[str, int], dict]:
     """The owner's who-is-who lines grouped by tile: the latest button per person, and every words line, in order."""
-    out: dict[tuple[str, int], dict] = defaultdict(lambda: {"buttons": {}, "words": [], "lines": []})
+    out: dict[tuple[str, int], dict] = defaultdict(lambda: {"buttons": {}, "by_subject": {}, "words": [], "lines": []})
     for n, d in lines:
         if d.get("who") != "owner" or d.get("row") not in WHO_ROWS or not d.get("table"):
             continue
@@ -91,6 +94,9 @@ def tiles(lines: list[tuple[int, dict]]) -> dict[tuple[str, int], dict]:
         t["lines"].append(n)
         if d.get("what") == "words" and d.get("words"):
             t["words"].append((n, str(d["words"])))
+        elif d.get("what") == "choice" and d.get("subject"):
+            # the who page's lines (2026-10-12): one click names a SUBJECT's number, or says they are not outlined or not in the shot
+            t["by_subject"][str(d["subject"])] = (n, str(d.get("chosen", "")), str(d.get("at", "")))
         elif d.get("what") == "choice" and str(d.get("person", "")).isdigit():
             t["buttons"][int(d["person"])] = (n, str(d.get("chosen", "")), str(d.get("at", "")))
     return dict(out)
@@ -123,6 +129,13 @@ def plan(tile_key, tile, table_info, table: dict) -> dict:
             none.append(person)
         else:
             named.append((person, meaning))
+    for subject, (n, chosen, _at) in sorted(tile["by_subject"].items()):
+        if chosen.isdigit():
+            named.append((int(chosen), subject))
+        elif chosen not in ("not outlined", "not in shot"):
+            raise SystemExit(f"{name} frame {frame}: line {n} has a button this tool does not know: {chosen!r}")
+        # `not outlined` and `not in shot` both leave the subject unnamed: the cast file stores `none of the outlined
+        # people` for them (its one word for it); `not in shot` is the strong reading, which `seeds` takes per load
     return {"table": name, "frame": frame, "shot": int(shot["shot"]), "named": named, "none_of_these": none,
             "unsure": unsure, "words": tile["words"], "lines": tile["lines"],
             "last_at": max((at for _, _, at in tile["buttons"].values()), default="")}
