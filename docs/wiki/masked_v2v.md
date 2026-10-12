@@ -1197,6 +1197,23 @@ The file is untracked and is not shown here:
    draws. *Tracked since the evening of 2026-10-11. The kitchen shot's
    video was drawn before that, by the one-off the tool was written from:
    `data/2026-10-11_fun_gate_inputs/draw_lids_on_mesh.py`.*
+   **A second drawing, since 2026-10-12 and not yet rendered with:**
+   `bench/draw_face_points.py` draws the pose model's face points on the
+   body-model video as white lines and dots at the face's true size (each
+   eye's lash ring, eyelid and crease lines and iris, the brows, the nose,
+   the lips), with the same record, read-back, sheet and `verify`, and
+   `bench/check_draw_face_points.py` holds it. A part whose points a person
+   saw are off her face is left out by name. What it cannot say is whether
+   the lines can be told apart at a face's size on the canvas: its sheet
+   is where that is seen. On the first shot drawn they could not, and
+   `bench/crop_reference_to_head.py` (the same day, held by
+   `bench/check_crop_reference_to_head.py`, not yet rendered with either)
+   cuts a reference video to one box round the shot's head and enlarges it
+   to the canvas, and writes the points carried into the new picture, so
+   that the lids or the face are drawn on the cut body model at the new
+   size. A reference cut this way no longer lies over the source pixel for
+   pixel, and the line of text that says what `<Video 1>` is has to say
+   so.
 4. **The load.** A job file's load names the marked video: `motion: mesh`,
    `motion_file`, `motion_first` (`../../workflows/masked_job_graph.py`),
    and its `text` names a text file. It goes through `bench/masked_job.py`

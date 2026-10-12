@@ -216,7 +216,17 @@ def off_the_sources_clock() -> str:
     assert any("A NEIGHBOUR FITS BETTER" in line for line in said) and any(line.startswith("FAILED") for line in said), said
     none = dm.run(str(WORK / "mesh_on.mkv"), str(pts), 0, N, WORK / "nosrc.mp4", "the check", grow=GROW, say=quiet)
     assert none["passed"] and none["body_model_against_the_source"] == "not looked at: no --source"
-    return "a body model that moves with the source passes; the same one a frame late or a frame early fails the run while its marks read back; with no source the look is said not to be made"
+    part = video(WORK / "source_from_4.mkv", src[4:])                               # a source cut from the original: its frame 0 is source frame 4
+    cut = dm.run(str(WORK / "mesh_on.mkv"), str(pts), 4, N - 4, WORK / "cut.mp4", "the check", grow=GROW, mesh_first=0, source=str(part), source_first=4, say=quiet)
+    assert cut["passed"] and cut["body_model_against_the_source"]["a_neighbour_fits_better"] is False, cut["body_model_against_the_source"]
+    try:
+        dm.run(str(WORK / "mesh_on.mkv"), str(pts), 4, N - 4, WORK / "cut2.mp4", "the check", grow=GROW, mesh_first=0, source=str(part), say=quiet)
+    except SystemExit as exc:
+        assert "--source-first" in str(exc), exc
+    else:
+        raise AssertionError("a cut source read as if it began on source frame 0 was accepted")
+    return ("a body model that moves with the source passes; the same one a frame late or a frame early fails the run while its marks read back; "
+            "with no source the look is said not to be made; a source cut from the original is read from the frame it is said to begin on")
 
 
 def the_size_rule() -> str:

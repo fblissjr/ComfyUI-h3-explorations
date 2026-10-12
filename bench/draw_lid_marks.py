@@ -3,7 +3,7 @@
 
     python bench/draw_lid_marks.py --mesh MESH.mp4 --points SHOT_points.npz --first 1575 --count 155 \\
         --out data/<job>/lead_mesh_with_lids_1575.mp4 --by <session> [--source SOURCE.mov] \\
-        [--bare 1533-1540 --bare-by <who looked>] [--grow 3] [--mesh-first N] [--points-first N]
+        [--bare 1533-1540 --bare-by <who looked>] [--grow 3] [--mesh-first N] [--points-first N] [--source-first N]
 
 The body-model video carries the head; its face is a neutral modelled one that never changes, so nothing in
 it says how open the eyes are. This
@@ -161,6 +161,17 @@ def moves_with(source: np.ndarray, mesh: np.ndarray) -> dict[int, float]:
     return out
 
 
+def source_frames(source: str, size: tuple[int, int], first: int, count: int, source_first: int = 0) -> np.ndarray:
+    """The original's frames `first` on, fitted to the canvas as the loader fits them. `source_first` is the source
+    frame of the video's frame 0: 0 for the original itself, the span's first for a video cut from it."""
+    w, h = size
+    got = list(stream(source, (w, h), first - source_first, count, vf=FIT.format(w=w, h=h), pix="rgb24")) if first >= source_first else []
+    if len(got) != count:
+        raise SystemExit(f"{source} gave {len(got)} of the {count} frames from source frame {first}, taking its frame 0 to be source frame {source_first}: "
+                         "say which source frame it begins on with --source-first")
+    return np.stack(got)
+
+
 def slipped(lags: dict[int, float]) -> bool:
     """True when a neighbouring frame fits better than the frame itself by more than the margin."""
     other = [v for k, v in lags.items() if k != 0 and not np.isnan(v)]
@@ -215,7 +226,7 @@ def sheet(path: Path, source_frames: np.ndarray, first: int, marked: np.ndarray,
 
 def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by: str, *, names: list[str] | None = None,
         mesh_first: int | None = None, points_first: int | None = None, grow: float | None = None, bare: list[int] | None = None,
-        bare_by: str = "", source: str = "", say=print) -> dict:
+        bare_by: str = "", source: str = "", source_first: int = 0, say=print) -> dict:
     """Draw, write, read back, record. Returns the record; `passed` is False when the read-back fits a neighbour."""
     if bare and not bare_by:
         raise SystemExit("--bare names frames a person looked at: say who with --bare-by")
@@ -247,8 +258,8 @@ def run(mesh_path: str, points_path: str, first: int, count: int, out: Path, by:
     area = np.array([white_expected(rings[f], factor) if drawn[f] else 0.0 for f in range(count)])
     back = read_back(out, mesh, area, drawn)
     white, lags, on_bare, no_change = back["white"], back["lags"], back["on_bare"], back["no_change"]
-    src = np.stack(list(stream(source, (w, h), first, count, vf=FIT.format(w=w, h=h), pix="rgb24"))) if source else None
-    moves = moves_with(src, mesh) if src is not None and len(src) == count else None
+    src = source_frames(source, (w, h), first, count, source_first) if source else None
+    moves = moves_with(src, mesh) if src is not None else None
     off_clock = bool(moves and slipped(moves))
     passed = bool(back["passed"] and not off_clock)
     size = [float(np.median([np.ptp(r[:, k]) for f in range(count) for r in rings[f]]) * factor) for k in (0, 1)]
@@ -354,10 +365,11 @@ def main() -> int:
     a.add_argument("--bare", default="", help="source frames to leave with no marks, as a person saw them: 1533-1540,1560")
     a.add_argument("--bare-by", default="", help="who looked")
     a.add_argument("--source", default="", help="the original video: writes a sheet to look at")
+    a.add_argument("--source-first", type=int, default=0, help="the source frame of that video's frame 0, for one cut from the original; 0 when left out")
     v = a.parse_args()
     names = json.loads(Path(v.names).read_text()) if v.names else None
     rec = run(v.mesh, v.points, v.first, v.count, Path(v.out), v.by, names=names, mesh_first=v.mesh_first, points_first=v.points_first,
-              grow=v.grow, bare=frames_arg(v.bare), bare_by=v.bare_by, source=v.source)
+              grow=v.grow, bare=frames_arg(v.bare), bare_by=v.bare_by, source=v.source, source_first=v.source_first)
     return 0 if rec["passed"] else 1
 
 

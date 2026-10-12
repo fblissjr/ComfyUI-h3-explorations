@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 112 |
+| [`check_*`](#check) | 114 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 149 |
+| [the rest](#the-rest) | 151 |
 
 ## check
 
@@ -43,12 +43,14 @@ this file is only a way to find a script by what it says it does.
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
 | [`check_core_sparse_capture.py`](check_core_sparse_capture.py) | `core_sparse_capture.py` records core's sparse path and changes nothing. |
 | [`check_correctness.py`](check_correctness.py) | Check the patched MiniMax H3 forward against the stock one. |
+| [`check_crop_reference_to_head.py`](check_crop_reference_to_head.py) | `bench/crop_reference_to_head.py` against a reference video whose every frame says where its face is, read from the VIDEO IT WROTE. |
 | [`check_denoise_mask_probe.py`](check_denoise_mask_probe.py) | `denoise_mask_probe.py` observes the mask and changes nothing. |
 | [`check_distill_grid.py`](check_distill_grid.py) | Check every distilled graph samples ON the sigma grid its LoRA was distilled at. |
 | [`check_distill_settings.py`](check_distill_settings.py) | Check every distill is loaded at the shift and step count it was trained at. |
 | [`check_dit_prefix_attention.py`](check_dit_prefix_attention.py) | Controls for `bench/measure_dit_prefix_attention.py`, on a synthetic capture. |
 | [`check_doc_inventory.py`](check_doc_inventory.py) | Every check on disk has a row in the index, and every row names a real file. |
 | [`check_doc_links.py`](check_doc_links.py) | Fail when a doc points at a file or line that is not there any more. |
+| [`check_draw_face_points.py`](check_draw_face_points.py) | `bench/draw_face_points.py` against a face whose every line is known by construction, read from the VIDEO IT WROTE. |
 | [`check_draw_lid_marks.py`](check_draw_lid_marks.py) | `bench/draw_lid_marks.py` against a face whose eyes are known by construction, read from the VIDEO IT WROTE. |
 | [`check_exact_blocks.py`](check_exact_blocks.py) | `MiniMaxH3ExactBlocks` rests on a name, so assert the thing the name stands for. |
 | [`check_frame_sheet.py`](check_frame_sheet.py) | The frame reader in `bench/_lib/frames.py` and the sheet tool built on it, against a clip made for the purpose. |
@@ -335,12 +337,14 @@ this file is only a way to find a script by what it says it does.
 | [`convert_sam3d_body_checkpoint.py`](convert_sam3d_body_checkpoint.py) | Repack Meta's SAM 3D Body checkpoint and its MHR rig as the one safetensors file core loads, from the originals. |
 | [`convert_sam3d_body_vith_checkpoint.py`](convert_sam3d_body_vith_checkpoint.py) | Repack Meta's ViT-H SAM 3D Body checkpoint and its MHR rig as the one safetensors file this pack's loader reads. |
 | [`count_packed_rows.py`](count_packed_rows.py) | Exact packed-sequence rows, per segment, from the real `PackedLayout`. |
+| [`crop_reference_to_head.py`](crop_reference_to_head.py) | Cut a reference video to ONE box round a shot's head and scale it back up to the canvas. |
 | [`decode_draft_keepers.py`](decode_draft_keepers.py) | Give draft renders their real decode, from the latents the drafts saved. |
 | [`depth_profile_tables.py`](depth_profile_tables.py) | Per-block tables from the depth-profile outputs: Sol's error, the dense kernels' error, and whether the ranking holds across scenes. |
 | [`derive_attention_share.py`](derive_attention_share.py) | What fraction of an H3 sampler is attention, bounded from an A/B we already ran. |
 | [`diff_clip_graphs.py`](diff_clip_graphs.py) | What actually differs between two rendered clips? Read from the graphs they were rendered from. |
 | [`diff_prompt_corpus.py`](diff_prompt_corpus.py) | Report every prompt FEATURE where the vendor is unanimous and we diverge. |
 | [`distill_signatures.py`](distill_signatures.py) | Which measured properties separate the distills consistently across scenes? |
+| [`draw_face_points.py`](draw_face_points.py) | Draw a shot's face on its body-model video, as lines and dots through the pose model's points. |
 | [`draw_lid_marks.py`](draw_lid_marks.py) | Draw a shot's eye openings on its body-model video: the motion video a masked load reads for expression. |
 | [`emulate_kitchen_int8_by_segment.py`](emulate_kitchen_int8_by_segment.py) | Independent CPU emulation of kitchen-like INT8 attention, per query segment (verifier's own). |
 | [`encode_format_ab.py`](encode_format_ab.py) | #38: which save format removes the dark blocking, at what size. |
