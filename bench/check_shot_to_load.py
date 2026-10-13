@@ -191,7 +191,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False, writer=None)
+                 existing=False, writer=None, why_before=None, why_after=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -467,6 +467,16 @@ def a_loads_job_file_stands_alone() -> str:
         assert cut["loads"][0]["motion_file"].endswith("references/a_0104_0143/a_head_reference_0104_0143.mp4") and cut["loads"][0]["motion_first"] == 104, cut["loads"][0]
         assert (cut["job"]["first"], cut["job"]["frames"]) == (104, 40) and "CUT BY A LOOK" in cut["job"]["note"]
         refused(lambda: made.load(first=150, frames=20, why="w"), "not inside the shot")
+        # each end of a cut with its own reason (2026-10-13: a load remade shorter carried one sentence on both entries)
+        two = made.load(first=104, frames=40, why_before="frames before 104 are another load's", why_after="a hand is over the face after 143", name="a_fp_0104")
+        assert [(x["first"], x["frames"], x["why"]) for x in two["job"]["left_out"]] == [(100, 4, "frames before 104 are another load's"),
+                                                                                     (144, 16, "a hand is over the face after 143")], two["job"]["left_out"]
+        assert "100-103: frames before 104 are another load's 144-159: a hand is over the face after 143" in two["job"]["note"], two["job"]["note"]
+        mixed = made.load(first=104, frames=40, why="one reason", why_after="its own", name="a_fp_0104")
+        assert [x["why"] for x in mixed["job"]["left_out"]] == ["one reason", "its own"], mixed["job"]["left_out"]
+        refused(lambda: made.load(first=104, frames=40, why_after="only the end is said", name="a_fp_0104"), "say what a look cut before it", "--why-before")
+        refused(lambda: made.load(first=100, frames=40, why_before="nothing is cut there", why_after="w", name="a_fp_0100"), "--why-before is given and no frame before the load is cut")
+        masked_job.left_out(two["job"])
         # the margin is the plan's region's. A band the plan asks is REFUSED: it is cut out of a keep-out the preview does not track
         refused(lambda: made.load("b", name="b_hfp_0100"), "the plan asks a hair band for 'b' (0.6)", f"{cfg.MASKED_JOB_HAIR_BAND['cuts']!r}",
                 "tracks b, a, c", "would refuse this load at its plan", "take `hair_band` out")

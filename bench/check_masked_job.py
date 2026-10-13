@@ -129,6 +129,7 @@ seek case runs ffmpeg on a clip of a few hundred small frames.
 from __future__ import annotations
 
 import copy
+import datetime
 import hashlib
 import json
 import shutil
@@ -1109,6 +1110,11 @@ def a_text_is_of_its_frames():
             line = next(i for i, l in enumerate(r["shown"]) if l.startswith("NO LOOK IS RECORDED FOR THIS BUILD"))
             assert "nobody has looked" in r["shown"][line] and "to record one:" in r["shown"][line + 1], r["shown"][line:]
         drawn, undrawn = unseen[0]["look"], unseen[1]["look"]
+        # the strip's time is UTC and says so, never a local time with no zone
+        import re
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", drawn["strip_drawn"]), drawn["strip_drawn"]
+        took = datetime.datetime.fromtimestamp((capture / "looks" / "b_0700.mp4").stat().st_mtime, datetime.timezone.utc)
+        assert drawn["strip_drawn"] == took.strftime("%Y-%m-%dT%H:%M:%SZ"), (drawn["strip_drawn"], took)
         assert drawn["strip"] == str(capture / "looks" / "b_0700.mp4") and drawn["strip_drawn"] and "looked" in drawn["how"], drawn
         assert undrawn["strip"] is None and undrawn["strip_drawn"] is None and "video" in undrawn["how"], undrawn
         after = [r["shown"][next(i for i, l in enumerate(r["shown"]) if l.startswith("NO LOOK")) + 1] for r in unseen]
@@ -1188,6 +1194,18 @@ def the_gate_before_a_render():
             ["execution_error", {"node_type": "X", "exception_type": "E", "exception_message": "why"}]]}, "outputs": {}})
         assert failed["status"] == "error" and failed["error"]["exception_message"] == "why" and failed["files"] == [], failed
         assert (tool.stem_of("preview"), tool.stem_of("render", "b_0700")) == ("preview", "b_0700.render")
+        # what a load's node wrote itself, which no history lists: a plan that saved its plan file was reported as "0 files"
+        with tempfile.TemporaryDirectory() as made:
+            windows = Path(made) / "b_0700_windows"
+            built = {"load": {"name": "b_0700"}, "windows_folder": str(windows)}
+            assert tool.windows_files({"output_folder": "/a/preview"}) is None and tool.windows_files(built) == []
+            assert tool.plan_file_missing("plan", built, []) == [str(windows / "b_0700_plan.json")] and tool.plan_file_missing("preview", {}, None) == []
+            windows.mkdir()
+            for name in ("b_0700_window_1_planned_region.npz", "b_0700_plan.json"):
+                (windows / name).write_bytes(b"")
+            wrote = tool.windows_files(built)
+            assert wrote == ["b_0700_plan.json", "b_0700_window_1_planned_region.npz"], wrote
+            assert tool.plan_file_missing("plan", built, wrote) == [] and tool.plan_file_missing("render", built, []) == []
 
 
 def _job_file(tmp: Path, job: dict) -> Path:

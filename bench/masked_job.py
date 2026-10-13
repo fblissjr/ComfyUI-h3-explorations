@@ -512,7 +512,8 @@ def look_or_shown(capture: Path, one: dict, told: dict, look=looked_at) -> dict:
         strip = Path(named) if named and Path(named).is_absolute() else capture / "looks" / (named or f"{one['name']}.mp4")
         drawn = strip.is_file()
         return {"recorded": False, "why": str(e).split(" To look: ")[0], "strip": str(strip) if drawn else None,
-                "strip_drawn": (datetime.datetime.fromtimestamp(strip.stat().st_mtime).isoformat(timespec="seconds")
+                # in UTC and saying so: until 2026-10-13 this printed the machine's local time with no zone
+                "strip_drawn": (datetime.datetime.fromtimestamp(strip.stat().st_mtime, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                                 if drawn else None),
                 "how": (f"bench/capture_masked_run.py looked {capture} --by WHO --loads {one['name']} --note WHAT_WAS_SEEN"
                         if drawn else
@@ -1232,6 +1233,24 @@ def read_history(entry: dict) -> dict:
     return out
 
 
+def windows_files(built: dict) -> list[str] | None:
+    """The names in a load's windows folder: what its node wrote itself (a plan's `<load>_plan.json` and planned
+    regions, a render's windows), which the server's history never lists. None for a run with no such folder (a
+    preview); empty when the folder is not there."""
+    if not built.get("windows_folder"):
+        return None
+    folder = Path(built["windows_folder"])
+    return sorted(p.name for p in folder.iterdir()) if folder.is_dir() else []
+
+
+def plan_file_missing(stage: str, built: dict, wrote: list[str] | None) -> list[str]:
+    """A plan that ran and left no plan file, as the path that should be there; nothing otherwise."""
+    if stage != "plan" or wrote is None:
+        return []
+    name = f"{built['load']['name']}_plan.json"
+    return [] if name in wrote else [str(Path(built["windows_folder"]) / name)]
+
+
 def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
     """Fill a queued run's record from the server's history: for a run queued without `--wait`, or by a peer.
 
@@ -1258,9 +1277,19 @@ def collect(folder: Path, stage: str, *, host: str, load: str = "") -> int:
     if built.get("expects"):
         record["found"], record["missing"] = found_on_disk(built["expects"], Path(built["output"]))
         record["subjects_not_found"] = subjects_not_found(record["found"], Path(built["output"]))
+    wrote = windows_files(built)
+    if wrote is not None:
+        # a load's node writes its windows folder itself and the history lists none of it: until 2026-10-13 a plan
+        # that saved its plan file and its planned region was reported as "0 files"
+        record["windows_files"] = wrote
+        if plan_file_missing(stage, built, wrote):
+            record["missing"] = plan_file_missing(stage, built, wrote)
     queued.write_text(json.dumps(record, indent=1) + "\n")
     print(f"{record['status']}" + (f" in {record['seconds']} s" if "seconds" in record else "")
-          + f"; {len(record['files'])} files; the record is {queued}")
+          + (f"; {len(record['files'])} files" if wrote is None else
+             f"; the server's history lists {len(record['files'])} file(s), and the node itself wrote {len(wrote)} into {built['windows_folder']}"
+             + (f": {', '.join(wrote[:6])}" + (" ..." if len(wrote) > 6 else "") if wrote else ""))
+          + f"; the record is {queued}")
     if "error" in record:
         print(json.dumps(record["error"], indent=1))
     if record.get("subjects_not_found"):
