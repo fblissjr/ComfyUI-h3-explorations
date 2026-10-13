@@ -143,7 +143,7 @@ def the_videos_voice_tables_are_named_in_its_manifest():
         kept, tool.REPO = tool.REPO, tmp           # the tables are named from the repo's root: here, the temporary folder
         try:
             (tmp / "data" / "audio").mkdir()
-            (tmp / "data" / "audio" / "per_frame.csv").write_text("frame,voiced\n")
+            (tmp / "data" / "audio" / "per_frame.csv").write_text("frame,voiced\n" + "".join(f"{n},0\n" for n in range(24)))
             (tmp / "data" / "audio" / "spans.json").write_text("{}")
             _refused(lambda: tool.voice("fun.mkv", data=tmp / "data", per_frame="data/audio/per_frame.csv", spans="data/audio/gone.json", by="a session"), "is not a file")
             outside = Path(tempfile.mkdtemp()) / "spans.json"
@@ -152,10 +152,24 @@ def the_videos_voice_tables_are_named_in_its_manifest():
             _, named = tool.voice("fun.mkv", data=tmp / "data", per_frame=str(tmp / "data/audio/per_frame.csv"), spans="data/audio/spans.json", by="a session")
             assert named["voice"]["per_frame"] == "data/audio/per_frame.csv" and named["voice"]["spans"] == "data/audio/spans.json" \
                 and named["voice"]["named_by"] == "a session" and named["voice"]["named_at"].endswith("Z"), named["voice"]
+            # the frames the table covers are read from the table and kept beside its name
+            assert named["voice"]["frames"] == [0, 23], named["voice"]
             # found by the copy's name as by the input's, and each a file
             for name in ("fun.mkv", "fun_24p.mkv"):
                 got = tool.voice_tables(name, tmp / "data")
-                assert got == {"per_frame": tmp / "data/audio/per_frame.csv", "spans": tmp / "data/audio/spans.json"}, got
+                assert got == {"per_frame": tmp / "data/audio/per_frame.csv", "spans": tmp / "data/audio/spans.json", "frames": [0, 23]}, got
+            # a table changed since it was named is refused, as is one with a frame missing, with no row, or with no frame column
+            table = tmp / "data" / "audio" / "per_frame.csv"
+            good = table.read_text()
+            table.write_text(good + "24,1\n")
+            _refused(lambda: tool.voice_tables("fun.mkv", tmp / "data"), "covered frames 0-23 when it was named", "now covers 0-24", "Name it again")
+            table.write_text(good.replace("7,0\n", ""))
+            _refused(lambda: tool.voice_tables("fun.mkv", tmp / "data"), "a frame is missing")
+            table.write_text("frame,voiced\n")
+            _refused(lambda: tool.voice("fun.mkv", data=tmp / "data", per_frame="data/audio/per_frame.csv", spans="data/audio/spans.json", by="a session"), "has no row")
+            table.write_text("n,voiced\n0,0\n")
+            _refused(lambda: tool.voice_tables("fun.mkv", tmp / "data"), "no `frame` column")
+            table.write_text(good)
             # naming them is nothing a render reads: the fingerprint does not move, and init again keeps them
             assert named["fingerprint"] == first["fingerprint"], "naming the voice tables moved the fingerprint"
             _, again = tool.init("fun.mkv", copy="fun_24p.mkv", **where)

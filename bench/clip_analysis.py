@@ -96,8 +96,27 @@ def init(name: str, *, data: Path, inputs: Path, copy: str = "", made_by: str = 
     return folder, manifest
 
 
+def frames_of_table(path: Path) -> list[int]:
+    """[first, last] source frame a per-frame voice table has a row for, read from its own `frame` column. Refused
+    when it has no row, no such column, or a frame missing between its first and its last: a table is said to
+    cover the frames it holds, never the frames somebody meant it to."""
+    import csv
+    with open(path, newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    try:
+        held = sorted(int(r["frame"]) for r in rows)
+    except (KeyError, TypeError, ValueError):
+        raise cf.Refused(f"the voice table {path} has no `frame` column of whole numbers") from None
+    if not held:
+        raise cf.Refused(f"the voice table {path} has no row")
+    if held != list(range(held[0], held[-1] + 1)):
+        raise cf.Refused(f"the voice table {path} has {len(held)} rows for frames {held[0]} to {held[-1]}: a frame is missing or given twice")
+    return [held[0], held[-1]]
+
+
 def voice(name: str, *, data: Path, per_frame: str, spans: str, by: str) -> tuple[Path, dict]:
-    """Name a video's voice tables in its manifest. Both must be files under the repo; they are named from its root."""
+    """Name a video's voice tables in its manifest, with the frames the per-frame table covers (read from the table,
+    never typed). Both must be files under the repo; they are named from its root."""
     folder = cf.folder_of_file(name, data)
     named = {}
     for key, given in (("per_frame", per_frame), ("spans", spans)):
@@ -109,13 +128,16 @@ def voice(name: str, *, data: Path, per_frame: str, spans: str, by: str) -> tupl
         named[key] = str(path.resolve().relative_to(REPO.resolve()))
     import datetime
     manifest = cf.read_manifest(folder)
-    manifest["voice"] = {**named, "named_by": by, "named_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    manifest["voice"] = {**named, "frames": frames_of_table(REPO / named["per_frame"]), "frames_are": "the per-frame table's own first and last frame",
+                         "named_by": by, "named_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     return folder, cf.write_manifest(folder, manifest)
 
 
 def voice_tables(source_name: str, data: Path) -> dict:
-    """A video's voice tables as its manifest names them: {"per_frame", "spans"}, each a path that is a file.
-    Refused when the manifest names none, with the command that names them, or when one is gone."""
+    """A video's voice tables as its manifest names them: {"per_frame", "spans"}, each a path that is a file, and
+    `frames`, the [first, last] source frame the per-frame table covers, read from the table now. Refused when the
+    manifest names none, with the command that names them; when one is gone; and when the table no longer covers
+    the frames the manifest says it did when it was named."""
     folder = cf.folder_of_file(source_name, data)
     named = cf.read_manifest(folder).get("voice")
     if not named or not named.get("per_frame") or not named.get("spans"):
@@ -127,6 +149,10 @@ def voice_tables(source_name: str, data: Path) -> dict:
         if not path.is_file():
             raise cf.Refused(f"{folder.name}'s manifest names the voice table {named[key]!r}, which is not a file")
         out[key] = path
+    out["frames"] = frames_of_table(out["per_frame"])
+    if named.get("frames") is not None and list(named["frames"]) != out["frames"]:
+        raise cf.Refused(f"{folder.name}'s manifest says its voice table covered frames {named['frames'][0]}-{named['frames'][1]} when it was named, and "
+                         f"{named['per_frame']} now covers {out['frames'][0]}-{out['frames'][1]}: it was changed since. Name it again (`clip_analysis.py voice`)")
     return out
 
 

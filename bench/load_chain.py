@@ -32,7 +32,8 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - A subject's options for the capture (`pieces`, `least`, `hold`, `drop`, `grade`) are keys on the subject in the
   job file, and only what the job says is passed. KNOWN GAP: the loads made before this tool ran with
   `pieces=largest` typed into the script, and their job files do not say so; nothing is backfilled.
-- The video's voice tables from its analysis folder's manifest (`clip_analysis.py voice`); refused when absent.
+- The video's voice tables from its analysis folder's manifest (`clip_analysis.py voice`); refused when absent, and
+  when the per-frame table does not cover every frame of the load (the frames it covers are read from the table).
 - The pose model's store from `H3_MODEL_STORE` (the folder holding one named `h3_config.POSE_MODEL`), or
   `--model-store`; refused without. `docs/comfy_notes.md` lists the key.
 - The words only a person has: `--grounds` and `--show` for a render (who relayed the go and on what it rests;
@@ -481,6 +482,18 @@ class World:
         return code
 
 
+def voice_for(ctx: dict, world) -> dict:
+    """The video's voice tables, held to the load: refused when the per-frame table does not cover every frame of
+    the load (the tables of a video are made for a stretch of it, and a load past that stretch has none)."""
+    voice = world.voice(Path(ctx["job"]["source"]).name)
+    first, last = ctx["load"]["first"], ctx["load"]["first"] + ctx["load"]["frames"] - 1
+    a, b = voice["frames"]
+    if not (a <= first and last <= b):
+        raise Refused(f"the video's voice tables cover source frames {a}-{b} and the load is {first}-{last}: make the tables for these frames and name "
+                      "them (`bench/clip_analysis.py voice`); a capture reads the voice on every frame of its load")
+    return voice
+
+
 def empty_queue(world, why: str) -> None:
     running, pending = world.queue()
     if (running, pending) != (0, 0):
@@ -540,7 +553,7 @@ def step_first(ctx: dict, world, a) -> None:
     for path in (cap, cap.with_name(cap.name + "_first")):
         if path.exists():
             raise Refused(f"{path} exists: the first step makes the first capture, once")
-    files, voice = preview_files(ctx, world.output), world.voice(Path(ctx["job"]["source"]).name)
+    files, voice = preview_files(ctx, world.output), voice_for(ctx, world)
     who = who_is_who_file(ctx, world, files)
     world.run(ctx, "files first", tool(world, "capture_masked_run.py") + ["files"] + capture_args(ctx, world, files)
               + ["--loads", ctx["job_file"], "--voice", voice["per_frame"], "--made-by", a.by])
@@ -570,7 +583,7 @@ def step_on_plan(ctx: dict, world, a, hashed=frame_hash) -> None:
     if not plan_graph.is_file():
         raise Refused(f"{plan_graph} is not there")
     empty_queue(world, "the capture is built again in place, and a queued graph may be reading its masks")
-    files, voice = preview_files(ctx, world.output), world.voice(Path(ctx["job"]["source"]).name)
+    files, voice = preview_files(ctx, world.output), voice_for(ctx, world)
     who = who_is_who_file(ctx, world, files) if ctx["job"].get("who_is_who") else ctx["job_folder"] / f"{ctx['name']}.who_is_who.json"
     if not who.is_file() and not world.dry:
         raise Refused(f"{who} is not there: the first step, which makes it, has not run for this job folder")

@@ -62,7 +62,7 @@ class Machine:
     def __init__(self, root: Path):
         self.host, self.dry, self.python, self.pose_model = "nowhere:0", False, "PY", "pose-model"
         self.output, self.inputs, self.data = root / "output", root / "input", root / "data"
-        self.busy, self.ran, self.on, self.voiced = (0, 0), [], {}, True
+        self.busy, self.ran, self.on, self.voiced, self.voice_frames = (0, 0), [], {}, True, (0, 199)
 
     def queue(self):
         return self.busy
@@ -76,7 +76,7 @@ class Machine:
     def voice(self, source_name):
         if not self.voiced:
             raise lc.Refused("the manifest names no voice tables")
-        return {"per_frame": self.data / "voice.csv", "spans": self.data / "spans.json"}
+        return {"per_frame": self.data / "voice.csv", "spans": self.data / "spans.json", "frames": list(self.voice_frames)}
 
     def run(self, ctx, label, argv, stop=True):
         self.ran.append((label, [str(x) for x in argv]))
@@ -288,6 +288,15 @@ def the_first_step() -> str:
         m.voiced = False
         refused(lambda: lc.step_first(made.ctx(), m, args()), "no voice tables")
         m.voiced = True
+        # the tables cover a stretch of the video: a load with a frame outside it is refused, at either end, and one that just fits is not
+        ran = len(m.ran)
+        for covered in ((0, 128), (111, 199)):
+            m.voice_frames = covered
+            refused(lambda: lc.step_first(made.ctx(), m, args()), f"cover source frames {covered[0]}-{covered[1]}", "the load is 110-129")
+        assert len(m.ran) == ran, "something ran for a load the voice tables do not cover"
+        m.voice_frames = (110, 129)
+        assert lc.voice_for(made.ctx(), m)["frames"] == [110, 129]
+        m.voice_frames = (0, 199)
         for folder in ("2026-01-03_ld", "2026-01-03_ld_first"):
             (made.root / "data" / folder).mkdir()
             refused(lambda: lc.step_first(made.ctx(), m, args()), "exists", "once")
