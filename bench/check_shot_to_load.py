@@ -37,6 +37,9 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    the plan is refused at `job`, naming the keep-out the preview does not track; a load under the song node's
    shortest is refused in the builder's words; `--dry` refuses both and writes nothing; and the load that is
    written passes `masked_job_graph.check_load`, which no case here held a written load to before.
+7d. **The text step** says who wrote a load's text: the writer's words into `texts.<label>.by` with when and by
+   which session, and nothing else of the job file changed; the chain's `read_job` and the builder's `text_entry`
+   then take it; refused with no text file, with no words, and once the load's plan is built; `--dry` writes nothing.
 8. **The reference step** (and `--existing`, for a load made again on the same frames: nothing run, the record
    held to the job's frames) runs the pose pass in the subject's tracked box on the LOAD's frames with the mask
    read from the preview's first frame, then the reference tool; writes the drawn form into the job file by
@@ -185,7 +188,7 @@ class Made:
 
 def args(**more) -> argparse.Namespace:
     given = dict(by="the session", day="2026-01-03", cast=None, queue=False, first=None, frames=None, why=None, remake=False, plain=None, model_store="",
-                 existing=False)
+                 existing=False, writer=None)
     given.update(more)
     return argparse.Namespace(**given)
 
@@ -495,6 +498,42 @@ def a_load_the_builder_would_refuse_is_not_written() -> str:
             "a dry run refuses the same and writes nothing; the load that is written passes the builder's check of a load")
 
 
+def the_text_step() -> str:
+    """The text's writer had to be set in the job file by hand after the chain refused it (the first real load, twice)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        job_file = made.jobs / "a_fp_0100.json"
+        job_file.write_text(json.dumps(made.load(), indent=1))
+        a = args(job_file=str(job_file), writer="a writer, from frames 100 to 159   looked at every fifth")
+        refused(lambda: stl.step_text(a, made.m), "is not written, or is empty")
+        (made.jobs / "a_fp_0100.txt").write_text("the words of the load\n")
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="  "), made.m), "--writer takes a person's words")
+        refused(lambda: lc.read_job(job_file, made.root), "texts.a_fp_0100.by is empty", "bench/shot_to_load.py text")
+        before = job_file.read_bytes()
+        made.m.dry = True
+        stl.step_text(a, made.m)
+        assert job_file.read_bytes() == before, "a dry run wrote the job file"
+        made.m.dry = False
+        stl.step_text(a, made.m)
+        d = json.loads(job_file.read_text())
+        by = d["job"]["texts"]["a_fp_0100"]["by"]
+        assert by.startswith("a writer, from frames 100 to 159 looked at every fifth; entered 20") and by.endswith("by the session (bench/shot_to_load.py text)"), by
+        was = json.loads(before)
+        was["job"]["texts"]["a_fp_0100"]["by"] = by
+        assert d == was, "the text step changed more of the job file than the writer"
+        assert lc.read_job(job_file, made.root)["text"] == made.jobs / "a_fp_0100.txt"
+        masked_job.text_entry(d["job"], "a_fp_0100", made.jobs)
+        # once the plan is built the job file is the plan's, and is not edited
+        folder = made.root / "data" / "2026-01-03_a_fp_0100_job"
+        folder.mkdir()
+        (folder / "job.plan.json").write_bytes(job_file.read_bytes())
+        kept = job_file.read_bytes()
+        refused(lambda: stl.step_text(args(job_file=str(job_file), writer="another"), made.m), "the plan of a_fp_0100 is built", "not edited after")
+        assert job_file.read_bytes() == kept
+    return ("the text's writer is said with a flag and goes into the job file with when and by which session, nothing else changed; the chain then reads the "
+            "load; refused with no text, with no words, and once the plan is built; a dry run writes nothing")
+
+
 def a_job_renders_from_the_present_copy() -> str:
     with tempfile.TemporaryDirectory() as tmp:
         made = Made(Path(tmp))
@@ -664,6 +703,7 @@ case("preview against a builder that refuses a folder that is there: the first r
 case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
 case("a load the builder would refuse is not written, in a dry run as well", a_load_the_builder_would_refuse_is_not_written)
+case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the figures, at the canvas and in the reference", the_figures)

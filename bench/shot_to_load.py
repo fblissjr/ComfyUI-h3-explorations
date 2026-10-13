@@ -6,7 +6,9 @@
     <python> bench/shot_to_load.py job --shots SHOTS.json --plan PLAN.json --shot FIRST --subject LABEL --preview PREVIEW_JOB_FOLDER \\
         --folder INPUTS --by SESSION [--first F --frames N --why "what a look cut"] [--remake]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
-        (a person writes the load's text and says who wrote it; then `bench/load_chain.py first JOB.json`)
+        (a person writes the load's text, a file beside the job file)
+    <python> bench/shot_to_load.py text JOB.json --by SESSION --writer "who wrote it, and from which frames"
+        (then `bench/load_chain.py first JOB.json`)
 
 **What it buys.** The step before a load's chain was hand-work for every shot: a preview job typed from the shots
 record, a pose pass and a head reference run with each other's outputs for arguments, and a job file copied from
@@ -65,6 +67,12 @@ files and runs the two tools, from the video's own records, and leaves to a pers
 
 **It stops for the text.** The job file's text entry names a file and no writer. `bench/load_chain.py` refuses the
 load until the file is there and `texts.<label>.by` says who wrote it.
+
+- `text`: says who wrote it. The text file must be there with words in it; `--writer` is a person's words (who,
+  and from which frames), and they go into `texts.<label>.by` with when they were entered and by which session.
+  Until 2026-10-13 that key was set by opening the job file and editing it. Words that were there are printed
+  as replaced. Refused once the load's plan is built: the job file is then the one the plan was built from, and
+  the chain's render holds it to that copy byte for byte.
 
 **What it cannot see.** Whether a tracker took the right person (the tiles). Whether a face is too small or too
 turned for the drawn lines (the sheet beside the reference, and the figures). What the frames a look should cut
@@ -433,7 +441,8 @@ def step_job(a, world) -> None:
         folder.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(job, indent=1))
         print("wrote", out)
-    print(f"NEXT: bench/shot_to_load.py reference {out} --by {a.by}\nTHEN IT STOPS FOR THE TEXT: write {folder / (name + '.txt')} and say who wrote it in texts.{name}.by")
+    print(f"NEXT: bench/shot_to_load.py reference {out} --by {a.by}\nTHEN IT STOPS FOR THE TEXT: write {folder / (name + '.txt')}, then say who wrote it: "
+          f"bench/shot_to_load.py text {out} --by {a.by} --writer \"who, and from which frames\"")
 
 
 def step_reference(a, world, figures=figures_of) -> None:
@@ -499,10 +508,34 @@ def written(a, ctx: dict, made: dict, record: Path, points: Path, drawn: Path, f
     print(f"  cannot see: {got['cannot_see']}")
     print(f"THE FORM: {form}" + (f", on {a.by}'s word: {why}" if form == "plain" else " (the default; the plain cut is taken only with --plain \"why\")")
           + f". The job file reads {d['loads'][0]['motion_file']}. Open the sheet beside it.")
-    print(f"IT STOPS HERE FOR THE TEXT: {ctx['text']} is a person's, and texts.{load['text']}.by says who wrote it. Then: bench/load_chain.py first {a.job_file} --by ...")
+    print(f"IT STOPS HERE FOR THE TEXT: {ctx['text']} is a person's. When it is written, say who wrote it: bench/shot_to_load.py text {a.job_file} --by {a.by} "
+          f"--writer \"who, and from which frames\". Then: bench/load_chain.py first {a.job_file} --by ...")
 
 
-STEP = {"preview": step_preview, "job": step_job, "reference": step_reference}
+def step_text(a, world) -> None:
+    ctx = load_chain.read_job(Path(a.job_file), need_text=False)
+    label, text = ctx["load"]["text"], ctx["text"]
+    if not str(a.writer or "").strip():
+        raise Refused("--writer takes a person's words: who wrote the text, and from which frames")
+    if not text.is_file() or not text.read_text().strip():
+        raise Refused(f"the load's text {text} is not written, or is empty: it is written first, and then its writer is said")
+    planned = world.data / f"{ctx['day']}_{ctx['job']['name']}_job" / "job.plan.json"
+    if planned.exists():
+        raise Refused(f"the plan of {ctx['name']} is built ({planned}): its job file is the one the plan was built from and is not edited after. "
+                      "A text or a writer that changed is a load made again")
+    d = json.loads(Path(a.job_file).read_text())
+    was = str(d["job"]["texts"][label].get("by") or "").strip()
+    said = f"{' '.join(a.writer.split())}; entered {load_chain.utc_now()} by {a.by} (bench/shot_to_load.py text)"
+    print(f"texts.{label}.by: {said}" + (f"\n  REPLACES: {was}" if was else ""))
+    if world.dry:
+        print("DRY: nothing written.")
+        return
+    d["job"]["texts"][label]["by"] = said
+    Path(a.job_file).write_text(json.dumps(d, indent=1))
+    print(f"wrote {a.job_file}. NEXT: bench/load_chain.py first {a.job_file} --by {a.by}")
+
+
+STEP = {"preview": step_preview, "job": step_job, "reference": step_reference, "text": step_text}
 
 
 def main() -> int:
@@ -530,6 +563,9 @@ def main() -> int:
     r.add_argument("--plain", metavar="WHY", help="take the plain cut, on a person's word; the reason is kept in the job file")
     r.add_argument("--existing", action="store_true", help="a load made again on the same frames: read the reference that is there, run nothing")
     r.add_argument("--model-store", default="", help=f"the folder holding the pose model's folder; over the environment's {load_chain.MODEL_STORE}")
+    t = sub.add_parser("text")
+    t.add_argument("job_file")
+    t.add_argument("--writer", required=True, metavar="WORDS", help="who wrote the load's text, and from which frames; into texts.<label>.by")
     for s in sub.choices.values():
         s.add_argument("--by", required=True, help="the session")
         s.add_argument("--host", default=load_chain.HOST)

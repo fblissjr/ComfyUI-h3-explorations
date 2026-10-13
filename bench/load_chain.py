@@ -177,7 +177,8 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     if need_text and not (Path(job_file).parent / told["file"]).is_file():
         raise Refused(f"the load's text {Path(job_file).parent / told['file']} is not written: it is a person's to write, from the load's own frames")
     if need_text and not str(told.get("by") or "").strip():
-        raise Refused(f"{job_file}: texts.{load.get('text')}.by is empty: say who wrote the text, and from which frames")
+        raise Refused(f"{job_file}: texts.{load.get('text')}.by is empty: say who wrote the text, and from which frames "
+                      f"(bench/shot_to_load.py text {job_file} --by SESSION --writer \"who, and from which frames\")")
     return {"job_file": Path(job_file), "raw": raw, "job": job, "load": load, "name": load["name"], "subject": subject, "subject_keys": mine,
             "capture": capture, "day": day, "job_folder": repo / "data" / f"{day}_{job['name']}_job", "repo": repo,
             "preview": {"folder": pfolder, "name": pjob["name"], "first": pjob["first"], "frames": pjob["frames"], "order": order,
