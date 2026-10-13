@@ -31,6 +31,12 @@
                                         the voice's onset where it ends; a swell shallower than the list's floor and a fall shorter than
                                         half a frame are in the per-frame columns and not in the list; a silent stem has no dip; `at`
                                         prints the dips of a load; nothing is cut
+  runs_gaps_and_dips_on_one_scale       a stereo tone with its channels out of phase, which the voice table's reading (the channels' mean)
+                                        calls silence: the tool's own voiced runs are the tone's on-stretches, by the voice table's own
+                                        rule, its phrases and its dips are read inside them, the record lists the frames on which the
+                                        voice table's runs differ, and the voice table's file is as it was
+  clicks_out_of_phase_keep_their_beats  a click track whose two channels cancel in their mean still gives its tempo and a beat on every
+                                        click: the onset curve is of each channel
   beats_before_the_pulse_are_said       clicks that start late after two stray sounds: the steady run begins where the pulse does, and the
                                         beats laid before it are in the table with their own strength, outside the run
 
@@ -82,13 +88,14 @@ def clicks(times: np.ndarray, seconds: float, amps=None) -> np.ndarray:
     return out
 
 
-def folder_of(root: Path, name: str, vocals: np.ndarray, rest: np.ndarray, frames: int, right: np.ndarray | None = None, runs: list | None = None) -> Path:
+def folder_of(root: Path, name: str, vocals: np.ndarray, rest: np.ndarray, frames: int, right: np.ndarray | None = None, runs: list | None = None,
+              rest_right: np.ndarray | None = None) -> Path:
     """An audio folder as voice_spans leaves one: the two stems and the voice table's record, made by its own functions.
     `right` is the vocals' other channel where it is not the same; `runs` the voiced runs where they are given."""
     d = root / name
     d.mkdir()
     vs.write_wav(d / "vocals.wav", np.stack([vocals, vocals if right is None else right]))
-    vs.write_wav(d / "rest.wav", np.stack([rest, rest]))
+    vs.write_wav(d / "rest.wav", np.stack([rest, rest if rest_right is None else rest_right]))
     level = vs.frame_levels(vocals, RATE, FPS)[:frames]
     (d / "voice_spans.json").write_text(json.dumps({"fps": FPS, "frames": frames, "threshold_dbfs": vs.THRESHOLD_DB,
                                                     "voiced_spans_inclusive": runs if runs is not None else vs.voiced_spans(level)}))
@@ -149,8 +156,15 @@ with tempfile.TemporaryDirectory() as tmp:
             out[lo:hi] = amp * np.sin(2 * np.pi * 440.0 * t[lo:hi])
         return out
     dipped = folder_of(root, "dipped", level_of([(60, 65, 0.03), (90, 95, 0.21), (110, 110.25, 0.03)]), np.zeros(int(FRAMES * RATE / FPS), np.float32), FRAMES)
-    ran_dips = {d.name: run("dips", str(d)) for d in (dipped, silent)}
-    ran = {d.name: (run("phrases", str(d)), run("beats", str(d), "--shots", str(shots))) for d in (voiced, silent, steady, drift, accent, faint, slow, late, cancel, gaps, dipped)}
+    # out of phase: the voice table's own reading of this stem is silence, and so are its runs (made by its own functions, in folder_of)
+    wide = tones(FRAMES, [(20, 60), (80, 100)])
+    wide[int(round(40 * RATE / FPS)):int(round(45 * RATE / FPS))] = 0.0                      # a silence of five frames inside the first stretch
+    phase = folder_of(root, "phase", wide, np.zeros_like(wide), FRAMES, right=-wide, runs=vs.voiced_spans(vs.frame_levels((wide - wide) / 2, RATE, FPS)[:FRAMES]))
+    table_was = (phase / "voice_spans.json").read_bytes()
+    flip_clicks = clicks(steady_t, seconds)
+    flip = folder_of(root, "flip", np.zeros(int(seconds * RATE), np.float32), flip_clicks, int(seconds * FPS), rest_right=-flip_clicks)
+    ran_dips = {d.name: run("dips", str(d)) for d in (dipped, silent, phase)}
+    ran = {d.name: (run("phrases", str(d)), run("beats", str(d), "--shots", str(shots))) for d in (voiced, silent, steady, drift, accent, faint, slow, late, cancel, gaps, dipped, phase, flip)}
 
     def phrases_come_back():
         assert ran["voiced"][0].returncode == 0, ran["voiced"][0].stderr
@@ -354,6 +368,38 @@ with tempfile.TemporaryDirectory() as tmp:
         assert "the dips the phrases pass over" in ran_dips["dipped"].stdout, ran_dips["dipped"].stdout
         return f"one phrase with no gap; the dip listed at 60 for 5 frames, {d['deepest_db_under_the_sung_level']} dB under, onset where it ends {d['vocal_onset_where_it_ends_over_the_songs_strong_onset']} of a strong one"
 
+    def one_scale():
+        assert json.loads(table_was)["voiced_spans_inclusive"] == [], "the fixture's voice table hears this stem"
+        rec = json.loads((phase / "phrases.record.json").read_text())
+        assert rec["voiced_runs_inclusive"] == [[20, 59], [80, 99]] and rec["voiced_runs"] == 2, rec["voiced_runs_inclusive"]
+        assert [(x["first_frame"], x["last_frame"], x["run"]) for x in rec["phrases"]] == [(20, 39, 1), (45, 59, 1), (80, 99, 2)], rec["phrases"]
+        assert [(g["first_frame"], g["frames"], g["a_break"]) for g in rec["gaps"]] == [(40.0, 5.0, True)], rec["gaps"]
+        against = rec["against_the_voice_tables_runs"]
+        assert against["its_runs"] == 0 and against["frames_that_differ"] == 60 and against["voiced_here_and_not_in_the_voice_table"] == [[20, 59], [80, 99]] \
+            and against["voiced_in_the_voice_table_and_not_here"] == [], against
+        assert "NOT read from voice_spans.json" in rec["the_voiced_runs_are"] and "60 frame(s) are voiced in one and not the other" in ran["phase"][0].stdout, ran["phase"][0].stdout
+        table = rows(phase / "phrases_per_frame.csv")
+        assert [table[n]["voiced_run"] for n in (19, 20, 42, 59, 60, 80, 99, 100)] == ["", "1", "1", "1", "", "2", "2", ""], [table[n]["voiced_run"] for n in (19, 20, 42, 59, 60, 80, 99, 100)]
+        dips = json.loads((phase / "dips.record.json").read_text())
+        assert dips["voiced_runs_inclusive"] == rec["voiced_runs_inclusive"] and any(d["starts"] == 40.0 and d["frames"] == 5.0 and d["voiced_run"] == 1 for d in dips["dips"]), dips["dips"]
+        said = run("at", str(phase), "--frames", "30-50").stdout
+        assert "in the voiced run 20-59, 10 frames after its start" in said, said
+        assert (phase / "voice_spans.json").read_bytes() == table_was, "the voice table's record was written to"
+        # the rule is the voice table's own: a gap of JOIN frames is closed and one of JOIN + 1 is two runs
+        lev = np.full((60, cs.STEPS), -10.0, np.float32)
+        lev[20:20 + vs.JOIN] = -90.0
+        joined = cs.own_runs(lev, vs.THRESHOLD_DB)
+        lev[20:20 + vs.JOIN + 1] = -90.0
+        assert joined == [[0, 59]] and cs.own_runs(lev, vs.THRESHOLD_DB) == [[0, 19], [20 + vs.JOIN + 1, 59]], (joined, cs.own_runs(lev, vs.THRESHOLD_DB))
+        return "the tool's own runs are the tone's on-stretches where the voice table has none; phrases, gaps and dips are read inside them; the voice table is untouched"
+
+    def clicks_out_of_phase():
+        rec = json.loads((flip / "beats.record.json").read_text())
+        assert rec["tempo_bpm"] is not None and abs(rec["tempo_bpm"] - 120.0) < 1.5 and rec["settings"]["channels"] == 2 and "each channel" in rec["settings"]["the_onset_curve_is"], rec["tempo_bpm"]
+        off = nearest(flip, steady_t[2:-2])
+        assert np.median(off) < 0.5 and off.max() < 1.0, (float(np.median(off)), float(off.max()))
+        return f"tempo {rec['tempo_bpm']}, a beat within {off.max():.2f} frames of every click, where the channels' mean is silence"
+
     def beats_before_the_pulse():
         rec = json.loads((late / "beats.record.json").read_text())
         table = rows(late / "beats_per_frame.csv")
@@ -380,6 +426,8 @@ with tempfile.TemporaryDirectory() as tmp:
     case("one clock in one table", one_clock)
     case("an accent every second click", an_accent)
     case("a dip the line passes over is listed", a_dip_the_line_passes_over)
+    case("runs, gaps and dips on one scale", one_scale)
+    case("clicks out of phase keep their beats", clicks_out_of_phase)
     case("beats before the pulse are said", beats_before_the_pulse)
 
 if __name__ == "__main__":

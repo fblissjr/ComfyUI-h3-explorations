@@ -32,8 +32,12 @@ samples sit in the first packet's time and are not sound, and an edit list can h
 **phrases.** The vocals stem's level at `STEPS` steps a frame, where the voice table has one. THE LEVEL IS THE
 POWER OF BOTH CHANNELS, not of their mean: where the two channels differ their mean reads low, and on the first
 real run ten of thirty-five breaks hung on that (a reader's finding, 2026-10-13). The voice table's own level IS
-of the mean, and its line was set on that scale; the record says so. Inside each voiced run of
-`voice_spans.json`, every stretch under that table's line is a GAP, listed with its length and its deepest
+of the mean, and its line was set on that scale; the record says so. THE VOICED RUNS ARE THE TOOL'S OWN, made from
+this same level by the voice table's own rule (its line, its join, its least length: `voice_spans.voiced_spans`,
+imported), so that a run's edges and what is quiet inside it are on ONE scale; `voice_spans.json` is read for the
+frame rate, the frame count and the line, and the record lists the frames on which its runs and these differ. The
+voice table itself is not changed: a load's text leans on it as it is. Inside each voiced run, every stretch
+under that table's line is a GAP, listed with its length and its deepest
 level; a gap of `BREAK` steps or more is a phrase break, and the stretches between breaks are the phrases. It
 cannot see: a break sung through with no drop in level; a held note from a new phrase; whose voice it is, or a
 backing voice (the stem holds every voice); a breath the separation put in the other stem.
@@ -49,7 +53,8 @@ even where the level barely moved). NOTHING IS CUT: the floor only bounds the li
 breath between two sung lines, a consonant inside one or the separation's residue is a reading of the table, the
 reader's. It cannot see which of those a dip is, nor a breath with no fall in level at all.
 
-**beats.** From the rest stem: an onset curve (the rise of the spectrum from one short step to the next), a
+**beats.** From the rest stem: an onset curve (the rise of EACH channel's spectrum from one short step to the next,
+summed: of the channels' mean a wide hit can cancel and lose its start), a
 tempo from that curve's likeness to itself a beat later, and a grid laid by the tracker of Ellis (2007), which
 walks the curve keeping beats near one period apart. Beside the grid: the tempo, the three strongest tempo
 candidates (a tempo and its double or half are the same music to this method), how much stronger the curve is on
@@ -190,6 +195,37 @@ def step_levels(sound: np.ndarray, rate: int, fps: float, frames: int, steps: in
     return out
 
 
+def own_runs(level: np.ndarray, line: float, steps: int = STEPS) -> list[list[int]]:
+    """The voiced runs of this table's own level, by the voice table's own rule: a frame is voiced when its level
+    (the power over its steps) is over the line; gaps of `voice_spans.JOIN` frames or fewer are closed and runs
+    under `voice_spans.LEAST` frames dropped. One scale for the runs and for what is quiet inside them."""
+    import voice_spans
+    power = np.nanmean(10.0 ** (np.nan_to_num(level.astype(np.float64), nan=-140.0) / 10.0), axis=1)
+    frame = 10.0 * np.log10(np.maximum(power, 1e-14))
+    return [[int(a), int(b)] for a, b in voice_spans.voiced_spans(frame.astype(np.float32), line)]
+
+
+def runs_differ(mine: list[list[int]], theirs: list[list[int]], frames: int) -> dict:
+    """The frames voiced in one set of runs and not in the other, as runs."""
+    a, b = np.zeros(frames, bool), np.zeros(frames, bool)
+    for lo, hi in mine:
+        a[lo:hi + 1] = True
+    for lo, hi in theirs:
+        b[lo:hi + 1] = True
+
+    def as_runs(mask):
+        out, start = [], None
+        for n, on in enumerate(list(mask) + [False]):
+            if on and start is None:
+                start = n
+            elif not on and start is not None:
+                out.append([start, n - 1])
+                start = None
+        return out
+    return {"voiced_here_and_not_in_the_voice_table": as_runs(a & ~b), "voiced_in_the_voice_table_and_not_here": as_runs(b & ~a),
+            "frames_that_differ": int((a != b).sum())}
+
+
 def gaps_and_phrases(level: np.ndarray, runs: list[list[int]], line: float, steps: int = STEPS, least: int = BREAK) -> tuple[list[dict], list[dict]]:
     """Every gap under `line` inside each voiced run, and the phrases the breaks leave. `level` is [frames, steps];
     places are in steps, given back as frames (a step is 1/steps of a frame)."""
@@ -256,16 +292,23 @@ def dips_of(level: np.ndarray, runs: list[list[int]], line: float, steps: int = 
     return ref.reshape(level.shape), out
 
 
-def onset_curve(mono: np.ndarray, rate: int) -> tuple[np.ndarray, float]:
-    """The onset curve of a signal and its steps a second. Step k of the curve is the rise into the window whose
-    MIDDLE is at k / steps-a-second + `HALF_WINDOW` seconds: every time read off the curve has that added."""
+def onset_curve(sound: np.ndarray, rate: int) -> tuple[np.ndarray, float]:
+    """The onset curve of a sound, [samples, channels], and its steps a second: the rise of EACH channel's spectrum,
+    summed. Not of the channels' mean, in which a hit that differs between them cancels and loses its start. Step k
+    of the curve is the rise into the window whose MIDDLE is at k / steps-a-second + `HALF_WINDOW` seconds: every
+    time read off the curve has that added."""
     from scipy import signal
-    if rate != BEAT_RATE:
-        g = np.gcd(rate, BEAT_RATE)
-        mono = signal.resample_poly(mono, BEAT_RATE // g, rate // g)
-    _, _, z = signal.stft(mono, fs=BEAT_RATE, nperseg=WINDOW, noverlap=WINDOW - HOP, boundary=None, padded=False)
-    mag = np.log1p(1000.0 * np.abs(z))
-    flux = np.maximum(mag[:, 1:] - mag[:, :-1], 0.0).sum(0)
+    sound = sound if sound.ndim == 2 else sound[:, None]
+    flux = None
+    for c in range(sound.shape[1]):
+        one = sound[:, c]
+        if rate != BEAT_RATE:
+            g = np.gcd(rate, BEAT_RATE)
+            one = signal.resample_poly(one, BEAT_RATE // g, rate // g)
+        _, _, z = signal.stft(one, fs=BEAT_RATE, nperseg=WINDOW, noverlap=WINDOW - HOP, boundary=None, padded=False)
+        mag = np.log1p(1000.0 * np.abs(z))
+        rise = np.maximum(mag[:, 1:] - mag[:, :-1], 0.0).sum(0)
+        flux = rise if flux is None else flux + rise
     flux = np.concatenate([[0.0], flux])
     per_second = BEAT_RATE / HOP
     wide = max(int(per_second), 1)
@@ -374,9 +417,10 @@ def step_offset(a) -> int:
 def step_phrases(a) -> int:
     folder = Path(a.folder)
     spans = read_spans(folder)
-    fps, frames, line, runs = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"]), spans["voiced_spans_inclusive"]
+    fps, frames, line, theirs = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"]), spans["voiced_spans_inclusive"]
     sound, rate = read_wav(folder / "vocals.wav")
     level = step_levels(sound, rate, fps, frames)
+    runs = own_runs(level, line)
     gaps, phrases = gaps_and_phrases(level, runs, line)
     of = {}
     for p in phrases:
@@ -397,9 +441,17 @@ def step_phrases(a) -> int:
                                   "this one, so a stretch can be over the line here and under it there",
                   "channels": int(sound.shape[1]), "fps": fps, "frames": frames,
                   "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"},
-                 table, {"voiced_runs": len(runs), "phrases": phrases, "gaps": gaps})
+                 table, {"voiced_runs": len(runs), "voiced_runs_inclusive": runs,
+                         "the_voiced_runs_are": "this table's own, made from its own level by the voice table's rule (voice_spans.voiced_spans: its line, its "
+                                                "join, its least length); NOT read from voice_spans.json, whose runs are of the channels' mean. A load's text "
+                                                "leans on the voice table, which is not changed by this",
+                         "against_the_voice_tables_runs": {"its_runs": len(theirs), **runs_differ(runs, theirs, frames)},
+                         "phrases": phrases, "gaps": gaps})
     (folder / "phrases.record.json").write_text(json.dumps(rec, indent=1) + "\n")
     lengths = sorted(p["last_frame"] - p["first_frame"] + 1 for p in phrases)
+    differ = runs_differ(runs, theirs, frames)
+    print(f"the voiced runs are this table's own ({len(runs)}; the voice table has {len(theirs)}, and {differ['frames_that_differ']} frame(s) are voiced in one and not "
+          "the other: its level is the channels' mean)")
     print(f"{len(phrases)} phrase(s) in {len(runs)} voiced run(s) over {frames} frames; {len(gaps)} gap(s) under {line} dBFS inside the runs, "
           f"{sum(1 for g in gaps if g['a_break'])} of them {BREAK / STEPS:g} frames or longer and taken as breaks"
           + (f"; a phrase is {lengths[0]} to {lengths[-1]} frames, {lengths[len(lengths) // 2]} at the middle" if lengths else ""))
@@ -416,12 +468,13 @@ def shown(place: float) -> float:
 def step_dips(a) -> int:
     folder = Path(a.folder)
     spans = read_spans(folder)
-    fps, frames, line, runs = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"]), spans["voiced_spans_inclusive"]
+    fps, frames, line = float(spans["fps"]), int(spans["frames"]), float(spans["threshold_dbfs"])
     sound, rate = read_wav(folder / "vocals.wav")
     level = step_levels(sound, rate, fps, frames)
+    runs = own_runs(level, line)                                  # the same runs as the phrases table's: one scale
     ref, dips = dips_of(level, runs, line)
     # the vocals stem's own onset curve, on the clock of the beats' table, and its strength where each dip ends
-    curve, per_second = onset_curve(sound.mean(1), rate)
+    curve, per_second = onset_curve(sound, rate)
     top = float(np.percentile(curve, 99)) if np.any(curve) else 0.0
     at = lambda frame: int(np.clip(round((frame / fps - HALF_WINDOW) * per_second), 0, max(len(curve) - 1, 0)))        # noqa: E731
     onset = np.full(frames, np.nan)
@@ -448,9 +501,10 @@ def step_dips(a) -> int:
                  {"steps_a_frame": STEPS, "the_sung_level_is_percentile": DIP_PERCENTILE, "within_frames_either_side": DIP_WINDOW_FRAMES,
                   "listed_from_db_under_it": DIP_FLOOR, "listed_from_steps": DIP_LEAST, "the_voice_tables_line_dbfs": line,
                   "the_level_is": "the power of both channels of the vocals stem, as in the phrases table",
+                  "the_voiced_runs_are": "this tool's own, from that level by the voice table's rule, as in the phrases table",
                   "the_songs_strong_onset_is": "the 99th percentile of the vocals stem's own onset curve", "fps": fps, "frames": frames,
                   "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"},
-                 table, {"said": "a list, not a cut: the floor bounds what is listed and nothing here says which dip is a break between two sung lines",
+                 table, {"voiced_runs_inclusive": runs, "said": "a list, not a cut: the floor bounds what is listed and nothing here says which dip is a break between two sung lines",
                          "dips": dips})
     (folder / "dips.record.json").write_text(json.dumps(rec, indent=1) + "\n")
     inside = [d for d in dips if d["wholly_inside_the_run"]]
@@ -462,9 +516,9 @@ def step_dips(a) -> int:
     return 0
 
 
-def grid(mono: np.ndarray, rate: int) -> dict:
-    """The onset curve, the tempo, the beats in seconds and the figures beside them."""
-    curve, per_second = onset_curve(mono, rate)
+def grid(sound: np.ndarray, rate: int) -> dict:
+    """The onset curve, the tempo, the beats in seconds and the figures beside them. `sound` is [samples, channels]."""
+    curve, per_second = onset_curve(sound, rate)
     bpm, candidates = tempo_of(curve, per_second)
     if np.isnan(bpm):
         return {"curve": curve, "per_second": per_second, "bpm": None, "candidates": [], "beats": np.array([]), "strength": np.array([]), "on_over_off": None,
@@ -514,7 +568,7 @@ def step_beats(a) -> int:
     spans = read_spans(folder)
     fps, frames = float(spans["fps"]), int(spans["frames"])
     sound, rate = read_wav(folder / "rest.wav")
-    g = grid(sound.mean(1), rate)
+    g = grid(sound, rate)
     beat_frames = g["beats"] * fps                                   # a beat's place in frames, with its part of a frame
     # the per-frame onset column on the beats' own clock: a step of the curve is the rise into a window whose middle is HALF_WINDOW later
     onset = np.full(frames, np.nan)
@@ -579,7 +633,8 @@ def step_beats(a) -> int:
                                              "cuts_placed_by_chance_would_be": {"middle": round(more["a_beat_is_frames"] / 4, 2), "most": round(more["a_beat_is_frames"] / 2, 2)},
                                              "read_from": about(Path(a.shots))}
     rec = record("beats", [folder / "rest.wav", folder / "voice_spans.json"] + ([Path(a.shots)] if a.shots else []),
-                 {"sound_rate": BEAT_RATE, "window": WINDOW, "step": HOP, "tempos_looked_for_bpm": list(TEMPO_RANGE), "leans_to_bpm": TEMPO_CENTER,
+                 {"the_onset_curve_is": "the rise of each channel's spectrum, summed; not of the channels' mean", "channels": int(sound.shape[1]),
+                  "sound_rate": BEAT_RATE, "window": WINDOW, "step": HOP, "tempos_looked_for_bpm": list(TEMPO_RANGE), "leans_to_bpm": TEMPO_CENTER,
                   "lean_octaves": TEMPO_OCTAVES, "tightness": TIGHTNESS, "local_tempo_seconds": LOCAL_SECONDS, "local_tempo_step_seconds": LOCAL_STEP,
                   "near_twice_the_tempo": NEAR, "steady_gap": STEADY_GAP, "steady_strength": STEADY_STRENGTH, "half_window_seconds": HALF_WINDOW, "fps": fps, "frames": frames, "where_the_settings_are_from": "bench/clip_signals.py, beside each constant"}, table, more)
     (folder / "beats.record.json").write_text(json.dumps(rec, indent=1) + "\n")
@@ -639,7 +694,8 @@ def read_signals(folder: Path) -> tuple[list[dict], list[list[int]], np.ndarray,
         absent.append("dips (no dips.record.json: `clip_signals.py dips`)")
     runs = read_spans(folder)["voiced_spans_inclusive"]
     if (folder / "phrases.record.json").is_file():
-        phrases = json.loads((folder / "phrases.record.json").read_text())["phrases"]
+        made = json.loads((folder / "phrases.record.json").read_text())
+        phrases, runs = made["phrases"], made.get("voiced_runs_inclusive", runs)      # the tool's own runs, on the phrases' scale
     else:
         absent.append("phrases (no phrases.record.json: `clip_signals.py phrases`)")
     if (folder / "beats_per_frame.csv").is_file():

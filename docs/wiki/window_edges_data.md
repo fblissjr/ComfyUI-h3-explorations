@@ -70,6 +70,7 @@ signal, a row a source frame, and a record beside each with its inputs by path a
 cannot see, and the table's hash as a fingerprint a capture can name.
 
 - **Item 1, phrases** (`phrases`): the vocals stem's level at several steps a frame; inside each voiced run
+  (the tool's own, made from that level by the voice table's rule)
   every stretch under the voice table's own line is listed as a gap, and a gap of `BREAK` steps or more is a
   break. This is the level alone, not an onset strength: a break sung through with no drop is not found, and
   a run sung through is one phrase. The levels are in the table for a reader who would cut otherwise.
@@ -118,8 +119,13 @@ the tables.
    not hold when the channels were read properly. BUILT: the level is the power of both channels' samples
    together, never of their mean. The voice table's own level is still of the mean, and its record of that is
    a row in [`next_steps.md`](next_steps.md): the table is not made again until it is known which frames
-   change sides and which texts that touches. CONTROL: two channels that cancel in their mean read at the
-   tone's level and their phrase is found.
+   change sides and which texts that touches. A reading of the code then found the runs and what is quiet
+   inside them on two scales (the runs read from the voice table, the gaps and dips on the power of both
+   channels). BUILT: the tool makes its own voiced runs, from its own level, by the voice table's own rule
+   (imported: its line, its join, its least length), writes them in its records, and lists the frames on which
+   the voice table's runs differ; runs, gaps and dips are on one scale. CONTROL: two channels that cancel in
+   their mean read at the tone's level and their phrase is found; a stereo tone the voice table's reading
+   calls silence comes back as its own on-stretches, with the voice table's file as it was.
 2. **A fall of the level that does not cross the voiced line was invisible**, so a breath inside a phrase a
    whole voiced run long was missed, and the print said the phrase ran far past a load's end where a dip lay
    close after it. BUILT, as data and not as a cut: the `dips` table. Every step's level against the sung
@@ -135,7 +141,9 @@ the tables.
 3. **Two clocks in one table**: a beat's time had half the tracker's window added and the per-frame onset
    column did not, so a beat's own onset sat as often in the row before as in its own. BUILT: one clock, the
    middle of the window, for both. CONTROL: on a click track every beat's row is the row whose onset is the
-   strongest round it, and is its click's own frame.
+   strongest round it, and is its click's own frame. The same reading of the code found the onset curve still
+   made from the channels' mean; it is the rise of each channel's spectrum, summed. CONTROL: clicks whose
+   channels cancel in their mean keep their tempo and a beat on every click.
 4. **The tempo is right**: the reader's own grid gave the same period and nearly all the tool's beats sit on
    it; what read as a half tempo is a hit of another band half-way between every pair of beats, which the
    table did not hold. BUILT: where a tempo candidate lies near twice the tempo, the place half-way between
