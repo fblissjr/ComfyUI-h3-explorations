@@ -295,6 +295,37 @@ def shot_rules() -> str:
     assert not cap.flag_track("a", "run1", rows, _table((0, N - 1, "picked", None, 1), (N, 2 * N - 1, "absent", 0.2, 0)), 100)
     held = cap.flag_track("a", "run1", rows, _table((0, N - 1, "picked", None, 1), (N, 2 * N - 1, "taken (corrected)", 0.6, 1)), 100)
     assert held and held[0]["source_frames"] == [[100 + N, 100 + 2 * N - 1]], "a corrected shot with no track was not seen as taken"
+    # WHOSE empty track it is. For a subject a load replaces it is the top level; for one who is only an OTHER of the loads it is data
+    # with figures, and blocks nothing; a subject of one load and an other of another is a subject
+    taken = _table((0, 2 * N - 1, "picked", None, 1))
+    load_of_b = [{"name": "ld", "subject": "b", "others": ["a"], "first_source_frame": 100}]
+    assert empty[0]["rule"] == "track_empty_in_a_taken_shot" and empty[0]["level"] == cap.LEVELS[2], "with no runs handed in, an empty track was not held as a subject's"
+    own = cap.flag_track("a", "run1", rows, taken, 100, [{"name": "ld", "subject": "a", "others": ["b"]}])
+    assert [(f["rule"], f["level"]) for f in own] == [("track_empty_in_a_taken_shot", cap.LEVELS[2])], "THE LOAD'S OWN SUBJECT with no mask in a taken shot did not fail"
+    pair = cap.flag_track("a", "run1", rows, taken, 100, [{"name": "ld", "subject": "b", "subjects": ["b", "a"], "others": []}])
+    assert pair[0]["rule"] == "track_empty_in_a_taken_shot", "the second subject of a load of two was held as an other"
+    both = cap.flag_track("a", "run1", rows, taken, 100, load_of_b + [{"name": "l2", "subject": "a", "others": ["b"]}])
+    assert both[0]["rule"] == "track_empty_in_a_taken_shot", "a subject of one load who is an other of another was let through as an other"
+    nobody = cap.flag_track("a", "run1", rows, taken, 100, [{"name": "ld", "subject": "b", "others": []}])
+    assert nobody[0]["rule"] == "track_empty_in_a_taken_shot", "a subject named by no load was let through as an other"
+    cells = np.zeros((2 * N, H // cap.CELL, W // cap.CELL), bool)
+    cells[:, 0, 0] = True                                           # the load's region is the top left cell on every frame
+    box = rows[N - 1]["track_box"]
+    as_other = cap.flag_track("a", "run1", rows, taken, 100, load_of_b, {"ld": (100, cells)}, [W, H])
+    assert [(f["rule"], f["level"]) for f in as_other] == [("other_has_no_track_in_a_taken_shot", cap.LEVELS[0])], as_other
+    fig = as_other[0]["figures"]
+    want = round(float(np.hypot(max(0, box[0] - cap.CELL), max(0, box[1] - cap.CELL))), 1)
+    assert fig["an_other_of"] == ["ld"] and fig["each"] == list(range(100 + N, 100 + 2 * N)) and fig["cannot_see"] == cap.OTHER_CANNOT_SEE, fig
+    assert fig["beside"] == [{"source_frames": [100 + N, 100 + 2 * N - 1], "after": None, "before": {
+        "source_frame": 100 + N - 1, "share_of_the_frame": rows[N - 1]["track_share"], "px": int(round(rows[N - 1]["track_share"] * W * H)), "box": box}}], fig["beside"]
+    gap = fig["region_gap_px"]["ld"][0]
+    assert gap["least_px"] == want and gap["frames_with_a_region"] == N and gap["their_last_box_is_of_frame"] == 100 + N - 1 and want > 0, (gap, want, box)
+    assert "is an OTHER of ld" in as_other[0]["why"] and f"at least {want} px" in as_other[0]["why"] and "CANNOT SEE: whether they are hidden" in as_other[0]["why"], as_other[0]["why"]
+    assert cap.flag_track("a", "run1", rows, taken, 100, load_of_b)[0]["figures"]["region_gap_px"]["ld"][0]["least_px"] is None, "a gap was printed with no saved region to measure"
+    assert cap.box_gap([32, 32, 40, 40], np.zeros((4, 4), bool), 16) is None and cap.box_gap([0, 0, 20, 20], np.eye(4, dtype=bool), 16) == 0.0
+    assert cap.box_gap([40, 8, 48, 12], np.eye(4, dtype=bool)[:1].repeat(4, 0) * np.array([[1, 0, 0, 0]], bool), 16) == 24.0, "a box 24 px right of the first column's cells"
+    # the gate and verify: an other's flag blocks neither; the own subject's blocks both
+    assert cap.gate_verdict([{**as_other[0], "id": "f001"}], [])["verdict"] == "clear" and cap.gate_verdict([{**own[0], "id": "f001"}], [])["verdict"] == "blocked"
     # a load that holds a shot its subject has no mask on: frames 100-119, cuts at 106 and 112
     there = np.r_[np.ones(6, bool), np.zeros(6, bool), np.ones(8, bool)]
     assert cap.shots_without(there, [106, 112], 100) == [[106, 111]]
@@ -905,6 +936,10 @@ def verifying() -> str:
     assert by(cap.verify_checks(manifest(good, [plan_run]), []))["class_map_for_a_planned_part"]["ok"] is True
     empty = {"rule": "track_empty_in_a_taken_shot", "subject": "a", "seen_by": "p", "source_frames": [[104, 105]], "why": "no mask"}
     assert by(cap.verify_checks(manifest(good, [run]), [empty]))["track_where_the_shot_table_says_taken"]["ok"] is False
+    as_other = {"rule": "other_has_no_track_in_a_taken_shot", "subject": "a", "seen_by": "p", "source_frames": [[104, 105]], "why": "an OTHER of ld",
+                "figures": {"frames": 2, "each": [104, 105], "an_other_of": ["ld"]}}
+    passed = by(cap.verify_checks(manifest(good, [run]), [as_other]))["track_where_the_shot_table_says_taken"]
+    assert passed["ok"] is True and passed["an_other_of"] == ["ld"] and passed["why"] == "an OTHER of ld" and passed["source_frames"] == [[104, 105]], passed
     # a person's statement accounts for an empty frame it covers, by subject; a frame it does not cover still fails
     gone = {**empty, "source_frames": [[104, 109]], "figures": {"frames": 5, "each": [104, 105, 107, 108, 109]}}
     walked = {"subject": "a", "source_frames": [104, 109], "why": "walks out of the shot", "by": "someone"}

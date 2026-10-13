@@ -91,7 +91,8 @@ rules, each with its constant below: a shot taken close to the match line or in 
 subject is not in (`--not-in`); a shot called absent with somebody on screen; a part mask that spills off its
 subject, changes size against its own recent frames, or moves within the subject's box; one run's region over
 another subject's mask; a region that is mostly not the subject; a track empty inside a shot the subject was
-taken in; and a text that names a voice over frames with none, or the reverse (`--text`, `--voice-spans`).
+taken in (the top level for a subject a load replaces; for one who is only an other of the loads it is data, with
+their size beside the gap and how far the load's region lies from their last box); and a text that names a voice over frames with none, or the reverse (`--text`, `--voice-spans`).
 With a pose table (`pose=` on `--mask`), before its mesh is used as a motion video: a body fitted to the whole
 frame and not to the subject's box, top level when another subject is in the frame; several bodies under one
 name; a frame with a mask and no body; a hand the hand decoder did not refine; a body mostly outside the frame
@@ -102,7 +103,8 @@ It reads the capture folder only and writes `verify.json`; exit 0 when every che
 one did not or could not be made (a check that cannot run is not a pass). The checks: every mask video of a
 sighting was written in one run (`WRITTEN_TOGETHER_S`: a folder that holds two previews under one name is
 how a morning's mask gets loaded in the afternoon), is at the capture's canvas and reaches the span; a
-subject's track is not empty on frames its shot table says it was taken in; a plan that carries a part has
+subject's track is not empty on frames its shot table says it was taken in (a subject a load replaces; an
+other's empty track passes as data with its figures); a plan that carries a part has
 that subject's class map; and for every rendered run, the region the windows SAVED against the region read
 back from the review picture, cell for cell, with the carried masks' pixels over a pixel apart (`files` reads both when both
 exist and keeps the comparison). The saved files are what the node gave the sampler; the review reader is
@@ -1720,7 +1722,8 @@ def readers_agreement(saved: tuple, review: tuple) -> dict:
 def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict] | tuple = ()) -> list[dict]:
     """Every check `verify` makes, each `{"check", "about", "ok", "why"}`; `ok` is None when it could not be made.
 
-    `track_flags` are `flag_track`'s for every sighting: a track empty inside a shot it was taken in.
+    `track_flags` are `flag_track`'s for every sighting: a track empty inside a shot it was taken in. One of a
+    subject who is only an other of the loads is data, passed with its figures and what it cannot see.
     `statements` are a person's, kept in the capture (`no_mask_statements.json`): a subject has no mask from
     one source frame to another and that is known (they walk out of the shot; no load is made for them there).
     An empty frame a statement covers is accounted for, with who said it and why; one that no statement covers
@@ -1754,6 +1757,10 @@ def verify_checks(manifest: dict, track_flags: list[dict], statements: list[dict
             add("inputs_reach_the_span", about, not short and at <= first, ("; ".join(short) or f"the masks start on source frame {at}")
                 + f"; the span is {first}-{first + frames - 1}" if short or at > first else f"every mask video covers {first}-{first + frames - 1}")
     for f in track_flags:
+        if f["rule"] == "other_has_no_track_in_a_taken_shot":      # data: an other of the loads, replaced by none of them
+            add("track_where_the_shot_table_says_taken", f"{f['subject']} by {f['seen_by']}", True, f["why"], source_frames=f["source_frames"],
+                an_other_of=f["figures"]["an_other_of"], figures=f["figures"])
+            continue
         each = f.get("figures", {}).get("each") or [n for a, b in f["source_frames"] for n in range(a, b + 1)]
         said = [s for s in statements if s["subject"] == f["subject"]]
         used = [s for s in said if any(s["source_frames"][0] <= n <= s["source_frames"][1] for n in each)]
@@ -1865,14 +1872,15 @@ def at_checks(manifest: dict, firsts: dict[str, tuple[int | None, str]]) -> tupl
 def verify(a: argparse.Namespace) -> None:
     folder = Path(a.capture)
     m = json.loads((folder / "manifest.json").read_text())
-    track_flags = []
+    track_flags, regions = [], run_regions(folder, m["runs"])
     for s in m["subjects"]:
         rows = json.loads((folder / "subjects" / s["label"] / "per_frame.json").read_text())["rows"]
         for seen in s["sightings"]:
             path = folder / "subjects" / s["label"] / f"shots__{seen['by']}.json"
             if path.is_file():
                 track_flags += flag_track(s["label"], seen["by"], [r for r in rows if r["seen_by"] == seen["by"]],
-                                          json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]))
+                                          json.loads(path.read_text()), seen.get("shots_first_source_frame", seen["first_source_frame"]),
+                                          m["runs"], regions, m["size"], m.get("cell_px", CELL))
     kept = folder / "no_mask_statements.json"
     statements = json.loads(kept.read_text())["statements"] if kept.is_file() else []
     if a.no_mask:
@@ -2489,8 +2497,44 @@ def flag_never(label: str, by: str, rows: list[dict], table: dict | None, first:
              "figures": {"frames": len(rows), "a_shot_is_picked": bool(picked)}}]
 
 
-def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: int) -> list[dict]:
-    """Frames with no mask inside a shot the subject was taken in."""
+#: What nobody can read off an other's empty track, said wherever one is reported.
+OTHER_CANNOT_SEE = ("whether they are hidden on those frames or the tracker lost them while they are in view; in view, with the load's region "
+                    "reaching them, nothing would keep the region off them")
+
+
+def box_gap(box: list[int], cells: np.ndarray, cell: int) -> float | None:
+    """The least distance in pixels between a box [x0, y0, x1, y1] and a frame's region cells; 0 when they touch
+    or overlap, None when the frame has no region."""
+    ys, xs = np.nonzero(cells)
+    if not len(ys):
+        return None
+    dx = np.maximum(0, np.maximum(box[0] - (xs + 1) * cell, xs * cell - box[2]))
+    dy = np.maximum(0, np.maximum(box[1] - (ys + 1) * cell, ys * cell - box[3]))
+    return round(float(np.hypot(dx, dy).min()), 1)
+
+
+def run_regions(folder: Path, runs: list[dict]) -> dict:
+    """Each run's saved region cells, as {name: (the source frame of its first, [n, h / CELL, w / CELL])}, where it has one."""
+    out = {}
+    for run in runs:
+        path = folder / "runs" / run["name"] / "region.npz"
+        if path.is_file() and run.get("first_source_frame") is not None:
+            out[run["name"]] = (int(run["first_source_frame"]), np.load(path)["region"])
+    return out
+
+
+def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: int, runs: list[dict] | None = None,
+               regions: dict | None = None, size: list[int] | None = None, cell: int = CELL) -> list[dict]:
+    """Frames with no mask inside a shot the subject was taken in.
+
+    FOR A SUBJECT A LOAD REPLACES this is the top level and fails `verify`: nothing regenerates where the load's
+    own subject has no mask. FOR ONE WHO IS ONLY AN OTHER of the capture's loads (kept out of a region, replaced
+    by none: `runs`, the manifest's) it is data and blocks nothing: a small figure at the back who drops out
+    behind somebody is no fault of the load (2026-10-13: lead_fp_1424 stopped at `first` on the second subject,
+    hidden behind the third on nine frames of a load of the lead). The flag then says the frames, how large they
+    are on the frames beside each gap, and how far each load's region lies from their last box on the empty
+    frames (`regions`, the runs' saved cells; `box_gap`), with what it cannot see. A subject of one load and an
+    other of another is a subject: it fails as before. With no `runs` handed in everybody is held as a subject."""
     if table is None:
         return []
     taken = [(at + s["first_frame"], at + s["last_frame"]) for s in table["shots"] if shot_state(s)[0] in ("taken", "picked")]
@@ -2498,9 +2542,42 @@ def flag_track(label: str, by: str, rows: list[dict], table: dict | None, at: in
              and any(a <= r["source_frame"] <= b for a, b in taken)]
     if not empty:
         return []
-    return [{"rule": "track_empty_in_a_taken_shot", "level": LEVELS[2], "subject": label, "seen_by": by,
-             "source_frames": frame_spans(empty), "why": f"{label} has no mask on {len(empty)} frame(s) of shots they were taken in: "
-             "nothing regenerates there", "figures": {"frames": len(empty), "each": empty}}]
+    other_of = [run["name"] for run in runs or [] if label in (run.get("others") or [])]
+    if not other_of or any(label in subjects_of(run) for run in runs or []):
+        return [{"rule": "track_empty_in_a_taken_shot", "level": LEVELS[2], "subject": label, "seen_by": by,
+                 "source_frames": frame_spans(empty), "why": f"{label} has no mask on {len(empty)} frame(s) of shots they were taken in: "
+                 "nothing regenerates there", "figures": {"frames": len(empty), "each": empty}}]
+    area = (size[0] * size[1]) if size else None
+    there = sorted((r for r in rows if r.get("track_share") and r.get("track_box")), key=lambda r: r["source_frame"])
+    said = lambda r: None if r is None else {"source_frame": r["source_frame"], "share_of_the_frame": r["track_share"],                 # noqa: E731
+                                             "px": None if area is None else int(round(r["track_share"] * area)), "box": r["track_box"]}
+    beside, gaps = [], {}
+    for a, b in frame_spans(empty, join=1):
+        before = next((r for r in reversed(there) if r["source_frame"] < a), None)
+        after = next((r for r in there if r["source_frame"] > b), None)
+        beside.append({"source_frames": [a, b], "before": said(before), "after": said(after)})
+        last = before or after
+        for name in other_of:
+            first, cells = (regions or {}).get(name, (None, None))
+            each = {} if cells is None or last is None else {
+                f: box_gap(last["track_box"], cells[f - first], cell) for f in range(a, b + 1) if 0 <= f - first < len(cells)}
+            had = [g for g in each.values() if g is not None]
+            gaps.setdefault(name, []).append({"source_frames": [a, b], "their_last_box_is_of_frame": None if last is None else last["source_frame"],
+                                              "least_px": min(had) if had else None, "frames_with_a_region": len(had), "each": each})
+    sizes = "; ".join(f"{x['source_frames'][0]}-{x['source_frames'][1]}: " + ", ".join(
+        f"{word} it (frame {v['source_frame']}) " + (f"{v['px']} px" if v["px"] is not None else f"{v['share_of_the_frame']} of the frame")
+        for word, v in (("before", x["before"]), ("after", x["after"])) if v) or f"{x['source_frames'][0]}-{x['source_frames'][1]}: no frame beside it has a mask"
+        for x in beside)
+    far = "; ".join(f"{name}: " + ", ".join(
+        f"{g['source_frames'][0]}-{g['source_frames'][1]} at least {g['least_px']} px" if g["least_px"] is not None else
+        f"{g['source_frames'][0]}-{g['source_frames'][1]} not worked out (no saved region on those frames, or no box of theirs to measure from)" for g in rows_)
+        for name, rows_ in gaps.items())
+    return [{"rule": "other_has_no_track_in_a_taken_shot", "level": LEVELS[0], "subject": label, "seen_by": by, "source_frames": frame_spans(empty),
+             "why": f"{label} is an OTHER of {', '.join(other_of)}, not a subject of any load here, and has no mask on {len(empty)} frame(s) of shots they "
+                    f"were taken in. Nothing of theirs regenerates, so this is data and not a failure; on those frames nothing keeps a region off them. "
+                    f"Their size on the frames beside: {sizes}. From their last box to the load's region on the empty frames: {far}. "
+                    f"CANNOT SEE: {OTHER_CANNOT_SEE}",
+             "figures": {"frames": len(empty), "each": empty, "an_other_of": other_of, "beside": beside, "region_gap_px": gaps, "cannot_see": OTHER_CANNOT_SEE}}]
 
 
 def part_faults(rows: list[dict]) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -3400,7 +3477,7 @@ def preflight(a: argparse.Namespace) -> None:
                 span = (m["first_frame"], m["first_frame"] + m["frames"] - 1)
                 flags += [x for x in f if x["source_frames"][0][0] <= span[1] and x["source_frames"][0][1] >= span[0]]
                 shots += [x for x in sh if x["source_frames"][0] <= span[1] and x["source_frames"][1] >= span[0]]
-            flags += flag_track(s["label"], by, mine, table, at) + flag_parts(s["label"], by, mine)
+            flags += flag_track(s["label"], by, mine, table, at, m["runs"], run_regions(folder, m["runs"]), m["size"], m.get("cell_px", CELL)) + flag_parts(s["label"], by, mine)
             flags += flag_never(s["label"], by, mine, table, m["first_frame"])
             path = folder / "subjects" / s["label"] / f"pose__{by}.json"
             if path.is_file():
