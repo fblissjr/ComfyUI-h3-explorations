@@ -18,7 +18,10 @@ rulings that changed them.
 3. **first**: refused when the capture or its `_first` copy exists; who is who made again from the preview's
    tables, each with the frame it begins on, or the file the job names and no command; the capture with the load
    as a plan; the strip under `<capture>_first`.
-4. **plan**: refused on a queue that is not empty, with no capture, or with a plan graph already built.
+4. **plan**: refused on a queue that is not empty, with no capture, or with a plan graph already built; and, in a
+   dry run as well and before any command, when the builder's own dry build refuses the load (the first real
+   load, 2026-10-13: `plan --dry` exited 0 and the plan was then refused on a key the job file held all along).
+   That the dry build holds what a build holds and writes nothing is `check_masked_job.py`'s, on the real builder.
 5. **on-plan**: refused with no plan file, on a queue that is not empty, or when `_first` exists; the masks the plan
    graph reads under the capture are hashed and recorded (a video outside the capture is not); the capture is
    copied to `_first` and the copy is the same files; the capture is built in place with `--overwrite` on the
@@ -66,6 +69,10 @@ class Machine:
         self.host, self.dry, self.python, self.pose_model = "nowhere:0", False, "PY", "pose-model"
         self.output, self.inputs, self.data = root / "output", root / "input", root / "data"
         self.busy, self.ran, self.on, self.voiced, self.voice_frames, self.frames = (0, 0), [], {}, True, (0, 199), {}
+        self.builder_says = ""           # what the builder's dry build refuses with; "" when it would build
+
+    def builder_refuses(self, ctx, stage):
+        return self.builder_says
 
     def queue(self):
         return self.busy
@@ -320,13 +327,21 @@ def the_plan_step() -> str:
         m.busy = (1, 0)
         refused(lambda: lc.step_plan(made.ctx(), m, args()), "the queue is not empty (1 running, 0 pending)")
         m.busy = (0, 0)
+        # what the builder refuses stops the step before a command is run, and a dry run the same
+        m.builder_says = "load 'ld': the hair band is cut out of the keep-out 'clothes', which is not among the load's `others`"
+        for dry in (True, False):
+            m.dry = dry
+            refused(lambda: lc.step_plan(made.ctx(), m, args()), "the builder refuses this load's plan", "nothing was built or queued", "'clothes'")
+        assert m.labels() == [], f"a refused plan ran {m.labels()}"
+        m.builder_says, m.dry = "", False
         lc.step_plan(made.ctx(), m, args())
         build, queue = m.said("build plan"), m.said("queue plan")
         assert build[1:4] == ["bench/masked_job.py", "build", "plan"] and build[build.index("--date") + 1] == "2026-01-03", build
         assert queue[2] == "queue" and queue[3].endswith("2026-01-03_ld_job") and queue[4:7] == ["plan", "--load", "ld"] and "--wait" in queue, queue
         made.planned()
         refused(lambda: lc.step_plan(made.ctx(), m, args()), "already built", "never a second one")
-    return "a plan is refused with no first capture, on a queue that is not empty and when one is built; it is built with the capture's day and queued"
+    return ("a plan is refused with no first capture, on a queue that is not empty, when one is built, and when the builder's dry build refuses it "
+            "(a dry run as well, with no command run); it is built with the capture's day and queued")
 
 
 def the_on_plan_step() -> str:

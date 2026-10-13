@@ -31,8 +31,12 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
 7. **A load's job file stands alone**: `defaults` are `h3_config`'s, the margin by the plan's region; `pick`
    copied and no `pick_at`; the reference named by subject and span, not by the load's name; a text entry with
    no writer, which the chain refuses; a cut with no words refused and with them written into `left_out`; a
-   `hair_band` from the plan; and the refusals (a subject not in the shot, a preview of other frames, no pose
+   plan's `hair_band` refused (7c); and the refusals (a subject not in the shot, a preview of other frames, no pose
    pass for the subject, a whole-person region).
+7c. **A load the builder would refuse is not written** (the first real load's fault, 2026-10-13). A `hair_band` in
+   the plan is refused at `job`, naming the keep-out the preview does not track; a load under the song node's
+   shortest is refused in the builder's words; `--dry` refuses both and writes nothing; and the load that is
+   written passes `masked_job_graph.check_load`, which no case here held a written load to before.
 8. **The reference step** (and `--existing`, for a load made again on the same frames: nothing run, the record
    held to the job's frames) runs the pose pass in the subject's tracked box on the LOAD's frames with the mask
    read from the preview's first frame, then the reference tool; writes the drawn form into the job file by
@@ -388,7 +392,9 @@ def a_loads_name_is_made() -> str:
         (made.root / "data" / "2025-12-30_a_fp_0100c").mkdir()
         stl.step_job(a, made.m)
         assert (made.jobs / "a_fp_0100d.json").is_file() and not (made.jobs / "a_fp_0100c.json").exists(), sorted(p.name for p in made.jobs.iterdir())
-        # the name carries the load's own first frame and the region's form
+        # the name carries the load's own first frame and the region's form (b's band is taken out: a band is refused, below)
+        del made.plan["subjects"]["b"]["hair_band"]
+        made.write()
         b = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder), first=104, frames=20, why="a look cut it")
         stl.step_job(b, made.m)
         assert (made.jobs / "b_hfp_0104.json").is_file(), sorted(p.name for p in made.jobs.iterdir())
@@ -435,10 +441,14 @@ def a_loads_job_file_stands_alone() -> str:
         assert cut["loads"][0]["motion_file"].endswith("references/a_0104_0143/a_head_reference_0104_0143.mp4") and cut["loads"][0]["motion_first"] == 104, cut["loads"][0]
         assert (cut["job"]["first"], cut["job"]["frames"]) == (104, 40) and "CUT BY A LOOK" in cut["job"]["note"]
         refused(lambda: made.load(first=150, frames=20, why="w"), "not inside the shot")
-        # the margin and the band are the plan's region's and the plan's
-        band = made.load("b", name="b_hfp_0100")
-        assert band["defaults"]["margin"] == cfg.MASKED_LOAD_MARGIN["face and hair"] != cfg.MASKED_LOAD_MARGIN["face"] and band["loads"][0]["hair_band"] == 0.6, band
-        masked_job.loads_of(band)
+        # the margin is the plan's region's. A band the plan asks is REFUSED: it is cut out of a keep-out the preview does not track
+        refused(lambda: made.load("b", name="b_hfp_0100"), "the plan asks a hair band for 'b' (0.6)", f"{cfg.MASKED_JOB_HAIR_BAND['cuts']!r}",
+                "tracks b, a, c", "would refuse this load at its plan", "take `hair_band` out")
+        del made.plan["subjects"]["b"]["hair_band"]
+        plain = made.load("b", name="b_hfp_0100")
+        assert plain["defaults"]["margin"] == cfg.MASKED_LOAD_MARGIN["face and hair"] != cfg.MASKED_LOAD_MARGIN["face"] and "hair_band" not in plain["loads"][0], plain
+        for one in masked_job.loads_of(plain):
+            graphs.check_load(plain["job"], one, masked_job.chain_lengths())
         refused(lambda: made.load("c", name="c_x_0100"), "'whole'", "part loads")
         refused(lambda: made.load("b", shot=160, name="b_hfp_0160"), "does not say 'b' is in 160-199")
         # a preview of other frames, and a preview with no pose pass for the subject
@@ -450,6 +460,39 @@ def a_loads_job_file_stands_alone() -> str:
         refused(lambda: stl.load_job(shots, plan, stl.shot_of(shots, 100), "a", bare, "p", "v", made.m.output, "s", "2026-01-03", "n"), "no pose pass for 'a'")
     return ("a load's job file carries its settings in defaults from h3_config, the margin by the plan's region, pick with no pick_at, a reference named by "
             "subject and span, a text with no writer that the chain refuses, and a cut's words in left_out")
+
+
+def a_load_the_builder_would_refuse_is_not_written() -> str:
+    """The first real load's fault (2026-10-13): `job` wrote a load with the plan's hair band, `job --dry` and the
+    chain's `plan --dry` each exited 0, and the builder refused it at its plan."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        folder = made.preview_ran(made.preview())
+        b = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="b", preview=str(folder))
+        for dry in (True, False):
+            made.m.dry = dry
+            refused(lambda: stl.step_job(b, made.m), "the plan asks a hair band", "Nothing is written")
+        assert not list(made.jobs.iterdir()), f"a refused load was written: {sorted(p.name for p in made.jobs.iterdir())}"
+        # with the band out of the plan the same load is written, and a dry run of it writes nothing and says what it held
+        del made.plan["subjects"]["b"]["hair_band"]
+        made.write()
+        made.m.dry = True
+        stl.step_job(b, made.m)
+        assert not list(made.jobs.iterdir()), "a dry run wrote a job file"
+        # anything else the builder refuses on the job file alone stops it too, dry or not: a load under the song node's shortest
+        _, least = masked_job.shortest_load()
+        short = args(**{**vars(b), "first": 100, "frames": least - 1, "why": "a look cut it"})
+        for dry in (True, False):
+            made.m.dry = dry
+            refused(lambda: stl.step_job(short, made.m), "the builder would refuse this load, so nothing is written", f"{least - 1} frames")
+        assert not list(made.jobs.iterdir()), f"a refused load was written: {sorted(p.name for p in made.jobs.iterdir())}"
+        made.m.dry = False
+        stl.step_job(b, made.m)
+        d = json.loads((made.jobs / "b_hfp_0100.json").read_text())
+        for one in masked_job.loads_of(d):
+            graphs.check_load(d["job"], one, masked_job.chain_lengths())
+    return ("a plan's hair band is refused at `job` with the keep-out the preview lacks, and a load under the shortest is refused as the builder would; "
+            "a dry run refuses the same and writes nothing; the load that is written passes the builder's check of a load")
 
 
 def a_job_renders_from_the_present_copy() -> str:
@@ -620,6 +663,7 @@ case("preview: the job file, once, queued only when told", the_preview_step)
 case("preview against a builder that refuses a folder that is there: the first real run's fault", the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there)
 case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
+case("a load the builder would refuse is not written, in a dry run as well", a_load_the_builder_would_refuse_is_not_written)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)
 case("the figures, at the canvas and in the reference", the_figures)

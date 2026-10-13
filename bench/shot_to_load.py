@@ -48,7 +48,11 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   the frames cut go into `left_out` with those words). The name is made here: `<subject>_<form>_<first>`, a
   letter after it for a remake (`--remake`), and one that exists is refused. The job file names its preview
   (`job.preview`), its capture, its reference by where it WILL be, and a text file that is not written yet.
-  A subject's `pick` is the preview's; it carries no `pick_at`, since a load tracks nobody.
+  A subject's `pick` is the preview's; it carries no `pick_at`, since a load tracks nobody. Before the file is
+  written, and in a `--dry` run as well, the load is held to the builder's refusals that need neither its
+  capture nor its text (`load_held_as_the_builder_holds`). A plan that asks a `hair_band` is refused here: the
+  band is cut out of a keep-out no preview of this tool tracks, and until 2026-10-13 the load was written and
+  its own builder refused it at the plan.
 - `reference`: on the LOAD's own frames, so the box is round the head on those frames: the pose pass in the
   subject's tracked box, then `bench/head_reference.py`, which writes the drawn form and the plain cut both. It
   goes to `Video/<video>/references/<subject>_<first>_<last>/`: a reference belongs to a shot, a subject and a
@@ -146,6 +150,28 @@ def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
         if path.exists():
             raise Refused(f"the {what} {path} exists. A run never reuses a name: a preview made again takes that folder moved aside by a person")
     return folder, saves_to
+
+
+def load_held_as_the_builder_holds(given: dict, world) -> None:
+    """A load's job file held, before it is written, to every refusal of the builder that needs neither the load's
+    capture nor its text: the job block, the video's analysis folder and the file's identity, each load's keys and
+    settings (`masked_job_graph.check_load`, with the planner's windows), the shortest load, and `left_out`. A dry
+    run is held the same. What it does not do: read a capture, a text or a mask, which are not there yet; the
+    chain's `plan --dry` holds the load to those."""
+    import masked_job
+    import masked_job_graph
+    try:
+        job = given["job"]
+        masked_job_graph.check_job(job)
+        masked_job.analysed(job, world.data)
+        _, least = masked_job.shortest_load()
+        for one in masked_job.loads_of(given):
+            if one["frames"] < least:
+                raise ValueError(f"load {one['name']!r} is {one['frames']} frames and the song node takes no load under {least}")
+            masked_job_graph.check_load(job, one, masked_job.chain_lengths())
+        masked_job.left_out(job)
+    except (ValueError, masked_job.Refused) as e:
+        raise Refused(f"the builder would refuse this load, so nothing is written: {e}") from None
 
 
 def shot_of(shots: dict, first: int) -> dict:
@@ -287,6 +313,16 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             "motion_file": str(reference), "motion_first": a}
     band = p.get("hair_band")
     if band is not None:
+        # The band is cut out of ONE keep-out, which must be among the load's `others`, and a preview made by this tool
+        # tracks the shot's subjects and nothing else. The first real load (2026-10-13, the second subject's 949-1009)
+        # was written with the plan's band and refused by its own builder two steps later, at its plan.
+        cuts = h3_config.MASKED_JOB_HAIR_BAND["cuts"]
+        if cuts not in load["others"]:
+            raise Refused(f"the plan asks a hair band for {subject!r} ({band['value'] if isinstance(band, dict) else band}), and a band is cut out of the keep-out "
+                          f"{cuts!r} (h3_config.MASKED_JOB_HAIR_BAND). The preview {preview['name']} tracks {', '.join(theirs)} and no {cuts!r}, so the builder "
+                          f"would refuse this load at its plan. Nothing is written. This tool's previews track a shot's subjects only, so no load made here can "
+                          f"carry a band: take `hair_band` out of {subject!r} in the plan file and the load is made without one, or write by hand a load on a "
+                          f"preview that tracks the keep-out")
         load["hair_band"] = band["value"] if isinstance(band, dict) else band
     subjects = [{k: v for k, v in s.items() if k in ("label", "phrase", "pick", "parts", "still", "pose")} for s in preview["subjects"]]
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. ONE LOAD: {subject}, {region}, source frames {a} to {b} ({n} frames) of the shot "
@@ -389,7 +425,11 @@ def step_job(a, world) -> None:
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
-    if not world.dry:
+    load_held_as_the_builder_holds(job, world)
+    if world.dry:
+        print("DRY: nothing written. The load was held to the builder's refusals that need neither its capture nor its text (the job block, the file's "
+              "identity, the load's keys and settings, the shortest load, left_out). NOT exercised: anything read from a capture, a text or a mask.")
+    else:
         folder.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(job, indent=1))
         print("wrote", out)

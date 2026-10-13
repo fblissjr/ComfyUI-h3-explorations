@@ -746,7 +746,12 @@ def a_hair_band_under_a_part():
         base = {k: v for k, v in PART.items() if k != "continue_from"}
         banded = {**base, "name": "a_band", "hair_band": 0.5, "hair_band_cuts": "b"}
         plain = {**base, "name": "a_plain"}
+        # a dry build: everything a build holds, and nothing written (the chain's `plan --dry` is this)
+        would = tool.build_loads(_loads_file(tmp, capture, loads=(banded, plain)), "plan", [], **where, dry=True)
+        assert len(would) == 2 and not would[0].parent.exists(), f"a dry build wrote: {sorted(p.name for p in would[0].parent.glob('*'))}"
+        _refused(lambda: tool.build_loads(_loads_file(tmp, capture, loads=({**banded, "name": "a_dry", "hair_band_cuts": "c"},)), "plan", [], **where, dry=True), "not among")
         written = tool.build_loads(_loads_file(tmp, capture, loads=(banded, plain)), "plan", [], **where)
+        assert written == would, (written, would)
         built, other = (json.loads(p.with_suffix(".built.json").read_text()) for p in written)
         made = Path(built["files"]["others"][0][0])
         assert made.name == "a_band.plan.b_less_hair_band.mkv" and made.parent == written[0].parent and built["files"]["others"][0][1] == banded["first"], built["files"]["others"]

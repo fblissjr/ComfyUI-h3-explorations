@@ -900,10 +900,13 @@ def measured(job: dict, one: dict, capture: Path, graph: dict) -> dict:
 
 
 def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data: Path, output: Path,
-                inputs: Path, repo: Path = REPO, analysis=analysed, look=looked_at) -> list[Path]:
+                inputs: Path, repo: Path = REPO, analysis=analysed, look=looked_at, dry: bool = False) -> list[Path]:
     """Write the plan or render graph of each chosen load into the job folder; returns the graph files. Every
     chosen load's text is held to its frames first (`texts_for`), and a plan records the look it is built on,
-    or that none is recorded (`look`, through `look_or_shown`: shown, never refused)."""
+    or that none is recorded (`look`, through `look_or_shown`: shown, never refused).
+
+    Every refusal comes before the first write. `dry` stops there: the graphs are built in memory, held to
+    everything a real build holds them to, and nothing is written (the files that would be are returned)."""
     given = json.loads(job_file.read_text())
     if "job" not in given:
         raise Refused(f"{job_file} has no `job` block")
@@ -962,6 +965,8 @@ def build_loads(job_file: Path, stage: str, names: list[str], *, date: str, data
         todo.append((one, graph, graph_file, saves_to, files, told, says, text_lines, seen, band))
     looks = {one["name"]: look_or_shown(capture, one, texts[one["name"]], look)
              for one in (chosen if stage == "plan" else ())}
+    if dry:
+        return [graph_file for _one, _graph, graph_file, *_rest in todo]
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"job.{stage}.json").write_bytes(job_file.read_bytes())
     for one, graph, graph_file, saves_to, files, told, says, text_lines, seen, band in todo:
@@ -1278,6 +1283,7 @@ def main() -> int:
     b.add_argument("job_file", type=Path)
     b.add_argument("--date", default=datetime.date.today().isoformat(), help="the date in the job folder's name")
     b.add_argument("--load", action="append", default=[], metavar="NAME", help="plan or render: only this load; repeatable")
+    b.add_argument("--dry", action="store_true", help="plan or render: refuse what a build refuses, and write nothing")
     q = sub.add_parser("queue", help="post a built stage to the server: the one step that uses the card")
     q.add_argument("folder", type=Path)
     q.add_argument("stage", choices=STAGES)
@@ -1293,6 +1299,12 @@ def main() -> int:
     c.add_argument("--host", default=HOST)
     a = p.parse_args()
     try:
+        if a.command == "build" and a.dry:
+            if a.stage == "preview":
+                raise Refused("--dry is for plan and render: a preview's build makes its folders as it goes")
+            would = build_loads(a.job_file, a.stage, a.load, date=a.date, data=REPO / "data", output=h3_config.output_dir(), inputs=input_dir(), dry=True)
+            print("DRY: nothing written. Held to every refusal of a build; it would write\n  " + "\n  ".join(str(p) for p in would))
+            return 0
         if a.command == "build" and a.stage != "preview":
             for graph_file in build_loads(a.job_file, a.stage, a.load, date=a.date, data=REPO / "data",
                                           output=h3_config.output_dir(), inputs=input_dir()):

@@ -66,7 +66,8 @@ fact of the machine is an environment key; nothing is found by a name left over 
   (the words the generated delivery table reads), a copy of the list kept in the job folder first.
 
 Every command a step runs is printed before it runs and its output kept under the job folder (`chain/`).
-`--dry` prints the commands and runs none; it still refuses what the step refuses on the files alone.
+`--dry` prints the commands and runs none; it still refuses what the step refuses on the files alone. For `plan`
+that includes everything the builder refuses: its build is run with `dry`, which writes nothing.
 
 **What it cannot see.** Whether the masks are on the right person (the look is for that). Whether the preview
 it is pointed at is the right one for the shot. Whether a mask file that still decodes equal was made from the
@@ -468,6 +469,16 @@ class World:
         except clip_folder.Refused as e:
             raise Refused(str(e)) from None
 
+    def builder_refuses(self, ctx: dict, stage: str) -> str:
+        """Why the builder would refuse this load's `stage`, in its own words, or "" when it would build: its real
+        build run with `dry`, which holds everything a build holds and writes nothing."""
+        import masked_job
+        try:
+            masked_job.build_loads(ctx["job_file"], stage, [ctx["name"]], date=ctx["day"], data=self.data, output=self.output, inputs=self.inputs, dry=True)
+        except masked_job.Refused as e:
+            return str(e)
+        return ""
+
     def frames_of(self, path: Path) -> int:
         """A video's frame count, by ffprobe's count of its packets."""
         import clip_folder
@@ -586,6 +597,11 @@ def step_plan(ctx: dict, world, a) -> None:
     if (ctx["job_folder"] / f"{ctx['name']}.plan.json").exists():
         raise Refused(f"a plan graph of {ctx['name']} is already built in {ctx['job_folder'].name}: never a second one under a name")
     empty_queue(world, "a plan is queued on an empty queue")
+    # The builder's own refusals, before anything is run and in a dry run as well. On the first real load (2026-10-13)
+    # `plan --dry` exited 0 and the plan itself was then refused by its builder, on a key the job file had held all along.
+    why = world.builder_refuses(ctx, "plan")
+    if why:
+        raise Refused(f"the builder refuses this load's plan, and nothing was built or queued: {why}")
     world.run(ctx, "build plan", tool(world, "masked_job.py") + ["build", "plan", ctx["job_file"], "--date", ctx["day"]])
     world.run(ctx, "queue plan", tool(world, "masked_job.py") + ["queue", ctx["job_folder"], "plan", "--load", ctx["name"], "--host", world.host, "--wait"])
 
