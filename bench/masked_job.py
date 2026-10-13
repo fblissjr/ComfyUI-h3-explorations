@@ -459,6 +459,15 @@ def _when(value, what: str) -> datetime.datetime:
     return at
 
 
+def utc_said(value) -> str:
+    """A capture's time as it is printed to a person: UTC, saying so. The capture tool writes this machine's local
+    time with no zone (`_when`), and what is stored stays that; a value that is not a time is printed as it is."""
+    try:
+        return datetime.datetime.fromisoformat(str(value)).astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return str(value)
+
+
 def looked_at(capture: Path, one: dict, told: dict) -> dict:
     """The look a load is built on, or a refusal. A passing check says no rule failed, never that the masks are
     on the right person or that the text is of these frames (the owner, 2026-10-10), so somebody who did not
@@ -483,7 +492,7 @@ def looked_at(capture: Path, one: dict, told: dict) -> dict:
     since = [(look, row) for look, row in mine if _when(look.get("at"), f"a look's `at` in {kept}") > written]
     if not since:
         look = mine[-1][0]
-        raise Refused(f"the last look at load {name!r} ({look.get('by')}, {look.get('at')}) is not later than the capture, "
+        raise Refused(f"the last look at load {name!r} ({look.get('by')}, {utc_said(look.get('at'))}) is not later than the capture, "
                       f"written {written.isoformat()}: what was made again is looked at again." + how)
     want = {"frames": frames, "text_frames": told["frames"], "text_sha256": told["sha256"]}
     for look, row in reversed(since):
@@ -493,7 +502,7 @@ def looked_at(capture: Path, one: dict, told: dict) -> dict:
     said = {"frames": f"as source frames {row.get('frames')}, and it is {frames}",
             "text_frames": f"with a text written from {row.get('text_frames')}, and its text is written from {told['frames']}",
             "text_sha256": "with other words in its text than it has now"}
-    raise Refused(f"load {name!r} was looked at ({look.get('by')}, {look.get('at')}) "
+    raise Refused(f"load {name!r} was looked at ({look.get('by')}, {utc_said(look.get('at'))}) "
                   + "; ".join(said[key] for key, value in want.items() if row.get(key) != value)
                   + ": that look is of something else than this build." + how)
 
@@ -527,7 +536,7 @@ def look_lines(look) -> list[str]:
     if not isinstance(look, dict):
         return []
     if look.get("recorded", True):
-        return [f"looked at by {look.get('by')} at {look.get('at')}" + (f", strip {look['strip']}" if look.get("strip") else "")]
+        return [f"looked at by {look.get('by')} at {utc_said(look.get('at'))}" + (f", strip {look['strip']}" if look.get("strip") else "")]
     strip = f"the strip is {look['strip']} (drawn {look['strip_drawn']})" if look.get("strip") else "no strip is drawn"
     return [f"NO LOOK IS RECORDED FOR THIS BUILD: {look['why']}", f"  {strip}; to record one: {look['how']}"]
 

@@ -428,6 +428,30 @@ fixed the same day, said inline below.**
     one zoomed plan of 2026-10-12: handed canvas-size frames, a zoom
     enlarges those pixels and is "not a sharper picture"; whether a job
     can hand the node the clip's own frames has not been read.
+- **A capture's times are the machine's local time with no zone, and
+  that clock is load-bearing** (2026-10-13; a row, the stored form not
+  changed). Seen as `looks.json`'s `at` reading five hours behind the
+  day's UTC stamps.
+  - *How wide.* It is the capture tool's one clock: every time
+    `bench/capture_masked_run.py` writes is
+    `datetime.now().isoformat()` (status, flags, outcomes, looks, the
+    region and plan records; `grep -n "datetime.datetime.now()"` in that
+    file lists them).
+  - *Who depends on it.* `bench/masked_job.py::_when` REFUSES a time
+    that carries a zone, so that a look and its capture are compared on
+    one clock; a look written in UTC alone would be refused by the
+    builder. `bench/load_chain.py` reads a zoneless time as this
+    machine's local time (`in_utc`, `later`) and writes UTC in the go
+    file.
+  - *What was done.* Where one of these times is printed to a person it
+    is printed in UTC with a Z: the builder's look line and its two
+    refusals (`utc_said`), the strip's time, the chain's refusal of an
+    earlier look. What is stored is as it was.
+  - *What is wanted, on a quiet card and in one change.* The capture
+    tool writing an offset with its times, `_when` taking both forms
+    and comparing as times, and a word on captures already on disk,
+    which hold the old form. Not piecemeal: a half-changed clock makes
+    a look read hours newer or older than it is.
 - **The text grader has no donor for a masked load, so its command fails
   every masked text** (2026-10-13, from the chain's first real load; a
   row, nothing built). `docs/prompting.md` gives one command to hold a

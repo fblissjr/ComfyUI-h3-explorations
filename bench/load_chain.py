@@ -308,7 +308,7 @@ def the_look(ctx: dict) -> dict:
         raise Refused(f"{cap.name} is not the capture on the node's plan: run the on-plan step first")
     status = json.loads((cap / "status.json").read_text())
     if not later(look["at"], status["written"]):
-        raise Refused(f"the last look ({look['at']}) is not later than the capture ({status['written']}): it is a look of an earlier capture")
+        raise Refused(f"the last look ({in_utc(look['at'])}) is not later than the capture ({in_utc(status['written'])}): it is a look of an earlier capture")
     if look["by"] == status.get("made_by"):
         raise Refused(f"the last look is by {look['by']}, who made the capture: a look is somebody else's")
     flags = json.loads((cap / "flags.json").read_text())
