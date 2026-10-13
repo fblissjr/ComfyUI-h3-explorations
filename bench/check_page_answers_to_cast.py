@@ -21,6 +21,10 @@ only worth having if what it stores is what the owner last said, once, through t
                                              STORED, whole, and the tiles after it are stored
   a_tile_that_cannot_be_read_leaves_the_cast_as_it_was every tile is read before any is written: a refusal on a later tile
                                              stores nothing of an earlier one
+  frame_fields_are_added_and_nothing_else    `--frame-fields` gives an entry a hand wrote its `frames_boxed` (a box that stands in the
+                                             cast file inside the shot) and `frames_on` (a plain frame marked on), with `present`,
+                                             `how` and `by` byte for byte; a `yes` with no frame and a `no` with one are printed, the
+                                             word unchanged; a second run adds nothing; `--dry-run` writes nothing; `--span` holds it
   a_span_leaves_the_tiles_outside_it         with --span, a tile of an older preview outside it is counted and left where it would
                                              stop the run; inside the span a table no preview holds is still refused
   not_outlined_alone_is_stored_for_that_subject  on a numbered picture, `on this frame, not outlined` with no number clicked is a
@@ -53,6 +57,7 @@ No model, no card; the cast file module is imported from its file, no ComfyUI.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -229,6 +234,38 @@ def main() -> int:
         r = run(p5)
         case("a_tile_that_cannot_be_read_leaves_the_cast_as_it_was", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr
              and not cast_lines(p5), r.stdout + r.stderr + json.dumps(cast_lines(p5)))
+
+        f15 = Path(tempfile.mkdtemp(dir=d))
+        hand15 = {(2000, "lead"): {"present": "yes", "how": "frame 2010: 1 is the lead", "by": "owner, by hand"},
+                  (2000, "second"): {"present": "no", "how": "nobody like her", "by": "owner, by hand"},
+                  (2100, "lead"): {"present": "yes", "how": "a session's reading of stills", "by": "a session"}}
+        p15 = setup_plain(f15, [plain(1, 2050, "lead", "not outlined"), plain(2, 2060, "lead", "not on frame"),
+                                plain(3, 2070, "second", "not outlined")], hand15)       # second is `no` by hand and marked on 2070
+        cf15 = importlib.util.spec_from_file_location("cast_file", HERE / "cast_file.py")
+        mod15 = importlib.util.module_from_spec(cf15)
+        cf15.loader.exec_module(mod15)
+        mod15.append(p15["cast"], [mod15.entry("lead", 2010, "here", by="owner", box=[10, 10, 50, 80], size=[1024, 768], table="t.json"),
+                                   mod15.entry("lead", 2020, "none of the outlined people", by="owner", table="t.json"),
+                                   mod15.entry("lead", 5000, "here", by="owner", box=[10, 10, 50, 80], size=[1024, 768], table="t.json")])
+        before15 = Path(p15["shots"]).read_bytes()
+        cmd15 = [sys.executable, str(TOOL), "--answers", str(p15["answers"]), "--cast", str(p15["cast"]), "--shots", str(p15["shots"]), "--frame-fields"]
+        r_dry = subprocess.run(cmd15 + ["--dry-run"], capture_output=True, text=True)
+        dry_wrote = Path(p15["shots"]).read_bytes() != before15
+        r = subprocess.run(cmd15, capture_output=True, text=True)
+        lead15, second15, later15 = who(p15, 2000, "lead"), who(p15, 2000, "second"), who(p15, 2100, "lead")
+        same_word = all({k: v for k, v in got.items() if k in ("present", "how", "by")} == hand15[key]
+                        for key, got in (((2000, "lead"), lead15), ((2000, "second"), second15), ((2100, "lead"), later15)))
+        r_again = subprocess.run(cmd15, capture_output=True, text=True)
+        r_span = subprocess.run(cmd15 + ["--span", "2100-2299", "--dry-run"], capture_output=True, text=True)
+        case("frame_fields_are_added_and_nothing_else", r.returncode == 0 and not dry_wrote and "would add to 4 entries" in r_dry.stdout
+             and (lead15["frames_boxed"], lead15["frames_on"]) == ([2010], [2050]) and (second15["frames_boxed"], second15["frames_on"]) == ([], [2070])
+             and (later15["frames_boxed"], later15["frames_on"]) == ([], []) and same_word and "frames_from" in lead15
+             and "FOR A PERSON TO READ, the word is not changed" in r.stdout and "second is `no` in the record and has a frame" in r.stdout
+             and "NO FRAME:" in r.stdout and "shot 2100-2299: lead is `yes`" in r.stdout and "added to 4 entries" in r.stdout
+             and "added to 0 entries; already carrying the same 4" in r_again.stdout and len(cast_lines(p15)) == 3
+             and "--frame-fields at 20" in json.loads(Path(p15["shots"]).read_text())["written_by"]
+             and "would add to 0 entries; already carrying the same 2" in r_span.stdout,
+             r_dry.stdout + r.stdout + r.stderr + r_again.stdout + r_span.stdout + json.dumps([lead15, second15, later15]))
 
         f14 = Path(tempfile.mkdtemp(dir=d))
         older = "older_lead_shots_00001_shots.json"                      # a table of a preview this run does not name

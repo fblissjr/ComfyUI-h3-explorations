@@ -3,6 +3,7 @@
 
     <python> bench/page_answers_to_cast.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
         [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run]
+    <python> bench/page_answers_to_cast.py --answers ... --cast ... --shots data/<stem>/shots.json --frame-fields [--span FIRST-LAST] [--dry-run]
 
 A numbered picture's tile goes into the cast file; a plain frame's answer goes into a shots record (`--shots`).
 
@@ -70,6 +71,18 @@ are copied nowhere: the page reads them from its own file, and they count over a
 words is for a person to read. A run that wrote entries says so at the end of the record's `written_by`, after
 whatever was there: when, from which lines, and on how many shots the owner's words were left unread. With no
 `--preview` at all, the tiles of numbered pictures are counted and left for a run that names their previews.
+
+**The frame fields of an entry a hand wrote** (`--frame-fields`, 2026-10-13). A tool that needs a frame a subject
+was marked ON reads `frames_on` and `frames_boxed` and never a sentence of `how` (`bench/shot_to_load.py` picks a
+tracker's frame from them). An entry this tool writes carries both; an entry consolidated by hand before the fields
+existed has neither, and this tool will not make it again, since it does not replace another hand's word. This mode
+ADDS THE TWO FIELDS AND NOTHING ELSE to every entry of the `--shots` records (inside `--span`, when one is given):
+`frames_boxed` is the frames inside the shot on which a box stands for the subject in the cast file, and
+`frames_on` the frames inside it the owner marked the subject on by a plain frame's `on this frame, not outlined`.
+`present`, `how` and `by` are left byte for byte, whoever wrote them; `frames_from` on the entry says where the
+two came from and when. It reads no numbered picture and writes nothing to the cast file. An entry whose word is
+`no` or `unsure` and that gains a frame is printed as one for a person to read, and its word is still not changed;
+a `yes` entry that gains none is printed too, since a tracker will pick that subject on the shot's middle.
 
 **Nothing is written twice.** A tile whose answer already stands in the cast file, line for line, is listed as
 already there. A tile whose answer differs is appended (the latest line stands, nothing is rewritten), and the
@@ -275,6 +288,45 @@ def shot_entries(shot: dict, plains: list[dict], standing: dict, name: str) -> d
     return out
 
 
+def frame_fields(records: list[dict], standing: dict, answers: list[tuple[int, dict]], span, now: str, answers_name: str) -> dict:
+    """Add `frames_on` and `frames_boxed` to every entry of the records (inside `span`), leaving its word as it is.
+    Returns what was done: the entries changed per record, those already carrying the same, and the two lists a
+    person reads (a word that is not `yes` with a frame; a `yes` with none)."""
+    marked: dict[tuple[str, str], set[int]] = defaultdict(set)         # (video, subject) -> frames marked ON by a plain click that stands
+    latest: dict[tuple[str, str, int], str] = {}
+    for _n, d in answers:
+        if d.get("who") == "owner" and d.get("row") in WHO_ROWS and d.get("table") == PLAIN and d.get("what") == "choice" and d.get("subject"):
+            latest[(str(d.get("video")), str(d["subject"]), int(d["source_frame"]))] = str(d.get("chosen", ""))
+    for (video, subject, frame), chosen in latest.items():
+        if PLAIN_BUTTONS.get(chosen, ("",))[0] == "yes":
+            marked[(video, subject)].add(frame)
+    done = {"changed": {}, "there": 0, "not_yes_with_a_frame": [], "yes_with_none": []}
+    for k, f in enumerate(records):
+        rec = f["record"]
+        for shot in rec["shots"]:
+            if span and (shot["last"] < span[0] or shot["first"] > span[1]):
+                continue
+            for subject in rec["subjects"]:
+                entry = shot["who"].get(subject)
+                if entry is None:
+                    continue
+                boxed = sorted(fr for (who, fr), line in standing.items() if who == subject and line["box"] is not None and shot["first"] <= fr <= shot["last"])
+                on = sorted(fr for fr in marked.get((str(rec.get("video")), subject), ()) if shot["first"] <= fr <= shot["last"])
+                where = f"{f['path']} shot {shot['first']}-{shot['last']}: {subject}"
+                if entry.get("present") != "yes" and (boxed or on):
+                    done["not_yes_with_a_frame"].append(f"{where} is `{entry.get('present')}` in the record and has a frame: boxed {boxed}, marked on {on}")
+                if entry.get("present") == "yes" and not boxed and not on:
+                    done["yes_with_none"].append(f"{where} is `yes` and no frame is boxed or marked for them in the shot: a tracker picks them on its middle")
+                if entry.get("frames_on") == on and entry.get("frames_boxed") == boxed:
+                    done["there"] += 1
+                    continue
+                entry["frames_on"], entry["frames_boxed"] = on, boxed
+                entry["frames_from"] = (f"added by bench/page_answers_to_cast.py --frame-fields at {now} from the boxes that stand in the cast file and the "
+                                        f"plain-frame answers in {answers_name}; `present`, `how` and `by` are as they were")
+                done["changed"][k] = done["changed"].get(k, 0) + 1
+    return done
+
+
 def write_whole(path: str, text: str, read_as: str) -> None:
     """Replace a shots file in one move, unless somebody wrote it since this run read it."""
     if Path(path).read_text() != read_as:
@@ -296,6 +348,8 @@ def main() -> int:
     ap.add_argument("--shots", action="append", default=[], metavar="SHOTS.json",
                     help="the video's shots record; a plain frame's answers are taken into it and into the cast file")
     ap.add_argument("--span", metavar="FIRST-LAST", help="only the tiles whose source frame is inside; the others are counted and left")
+    ap.add_argument("--frame-fields", action="store_true",
+                    help="add frames_on and frames_boxed to every entry of the --shots records (inside --span) and change nothing else of them")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     span = None
@@ -313,6 +367,27 @@ def main() -> int:
     loaded = {name: json.loads(info["path"].read_text()) for name, info in tables.items()}
     answers = read_answers(a.answers)
     standing = cf.current(cf.read(a.cast))
+    if a.frame_fields:
+        if not records or a.preview:
+            ap.error("--frame-fields takes --shots and no --preview: it adds two fields to a record's entries and reads no numbered picture")
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        done = frame_fields(records, standing, answers, span, now, answers_name)
+        for line in done["not_yes_with_a_frame"]:
+            print("FOR A PERSON TO READ, the word is not changed: " + line)
+        for line in done["yes_with_none"]:
+            print("NO FRAME: " + line)
+        for k, count in sorted(done["changed"].items()):
+            rec = records[k]["record"]
+            did = (f"`frames_on` and `frames_boxed` added to {count} entr{'y' if count == 1 else 'ies'} by bench/page_answers_to_cast.py --frame-fields at {now}"
+                   + (f" (frames {span[0]}-{span[1]})" if span else "") + f", from the cast file {a.cast} and {a.answers}; no entry's `present`, `how` or `by` was changed")
+            rec["written_by"] = f"{rec['written_by']}; {did}" if rec.get("written_by") else did
+            if not a.dry_run:
+                write_whole(records[k]["path"], json.dumps(rec, indent=1), records[k]["text"])
+        total = sum(done["changed"].values())
+        print(f"\nframe fields: {'would add' if a.dry_run else 'added'} to {total} entr{'y' if total == 1 else 'ies'}; already carrying the same {done['there']}; "
+              f"`yes` with no frame {len(done['yes_with_none'])}; not `yes` and with a frame {len(done['not_yes_with_a_frame'])}; "
+              + ", ".join(r["path"] for r in records))
+        return 0
     left_out = [(n, d.get("who")) for n, d in answers if d.get("row") in WHO_ROWS and d.get("who") != "owner"]
     if left_out:
         print(f"left out, not the owner's: {len(left_out)} line(s) by " + ", ".join(sorted({str(w) for _, w in left_out})))
