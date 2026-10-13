@@ -11,7 +11,9 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
 2. **The order** is the plan's unless the shot carries a person's `order`, and an `order` that is not the
    shot's subjects is refused. A subject the record does not say is in the shot gets no tracker.
 3. **A subject with a box in the cast file inside the shot is seeded** from it and carries no `pick_at`; a box
-   outside the shot, or another subject's, seeds nothing.
+   outside the shot, or another subject's, seeds nothing. THE SEEDED ARE TRACKED FIRST, whatever the plan's order,
+   and the note says the seed decides and the job's `pick` does not; a person's `order` on the shot is still over
+   that.
 4. **The plan must say what from**: a subject with no `still` or no `parts` is refused with the keys.
 5. **The preview step** writes `shot_c_<first>`, refuses one that is there, and queues only when told, on an
    empty queue.
@@ -243,6 +245,18 @@ def a_box_in_the_cast_file_seeds() -> str:
         job = made.preview(cast_lines=lines)["job"]
         graphs.check_job(job)
         assert "a: SEEDED from the cast file" in job["note"]
+        # THE SEEDED FIRST, whatever the plan's order (b, a, c): a guess by the largest person takes whoever is left. The
+        # first real preview ran the unseeded subject first and it took the seeded one's person (2026-10-13, shot 604)
+        assert [s["label"] for s in job["subjects"]] == ["a", "b", "c"], [s["label"] for s in job["subjects"]]
+        assert "the seeded before the others" in job["note"] and "THE SEED DECIDES who is tracked" in job["note"] \
+            and "`pick: largest` stands in the job file only because the builder asks" in job["note"], job["note"]
+        # two seeded, one not: the two in the plan's order, then the other; a person's `order` on the shot is still over it
+        both = lines + [cast_file.entry("b", 130, cast_file.HERE, by="a person", box=[100, 20, 30, 40], size=[w, h], table="t.json", at="t4")]
+        assert [s["label"] for s in made.preview(cast_lines=both)["job"]["subjects"]] == ["b", "a", "c"]
+        made.shots["shots"][1]["order"] = ["c", "b", "a"]
+        by_hand = made.preview(cast_lines=lines)["job"]
+        assert [s["label"] for s in by_hand["subjects"]] == ["c", "b", "a"] and "the shot's own `order`" in by_hand["note"], by_hand["note"]
+        del made.shots["shots"][1]["order"]
         # a cast line whose own words have an empty field (a page answer with no time on it): printed with no hole, and said
         holed = [cast_file.entry("a", 125, cast_file.HERE, by="a person, on the page at  (lines 3-4)", box=[10, 20, 30, 40], size=[w, h], table="t.json", at="t1")]
         note = made.preview(cast_lines=holed)["job"]["note"]
@@ -312,6 +326,7 @@ def the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there() -> 
                     return subprocess.CompletedProcess(argv, 5)
                 folder.mkdir(parents=True)
                 (folder / "job.json").write_text(json.dumps({"job": job}))
+                stdout.write("a line of the builder's that is longer than the screen shows: " + "x" * 400 + " THE END OF THE LINE\n")
                 stdout.write("built\n")
             else:
                 assert Path(argv[3]).is_dir(), f"the queue was handed a job folder that is not there: {argv[3]}"
@@ -322,7 +337,16 @@ def the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there() -> 
         kept, lc.subprocess.run = lc.subprocess.run, builder
         try:
             a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), queue=True)
-            stl.step_preview(a, m)
+            import contextlib
+            import io
+            screen = io.StringIO()
+            with contextlib.redirect_stdout(screen):
+                stl.step_preview(a, m)
+            print(screen.getvalue(), end="")
+            # a line longer than the screen shows is cut there and SAYS so; the kept file has it whole
+            shown = next(line for line in screen.getvalue().splitlines() if "longer than the screen shows" in line)
+            assert "THE END OF THE LINE" not in shown and "[CUT HERE:" in shown and "whole in the kept file]" in shown, shown
+            assert "THE END OF THE LINE" in (made.jobs / "chain" / "shot_c_0100.build_preview.out").read_text()
             folder = made.root / "data" / "2026-01-03_shot_c_0100_job"
             assert ran == ["build", "queue"] and (folder / "job.json").is_file(), ran
             # the output is kept beside the job file, and the job folder holds only what the builder put there

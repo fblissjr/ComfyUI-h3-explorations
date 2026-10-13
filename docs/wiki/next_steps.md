@@ -339,6 +339,40 @@ fixed the same day, said inline below.**
   Owed to it: a field in the job file, carried by the build record, that
   says why a load took the plain cut (today the reading says the reason
   was not read, and the lead hands it in with `--prefer`).
+- **The shots record has no frame fields yet, in either half, and a
+  marked frame is not a pick** (2026-10-13, from the chain's first real
+  preview). `bench/shot_to_load.py` picks an unseeded subject on a frame
+  the shots record names as a field (`frames_on`, `frames_boxed`), and
+  `data/fun/shots.json` has neither on any entry, so every unseeded
+  subject is picked on its shot's middle and the job's note says so.
+  - *Frames 1920-6394.* Those entries were written by
+    `bench/page_answers_to_cast.py --shots` the evening before the fields
+    existed. Run on the same answers again it writes them; nothing else
+    about those entries changes.
+  - *Frames 0-1919.* That half was consolidated by hand from several
+    sources and the tool cannot make it again. Its frames are in the cast
+    file: every line there with a box is a frame a person outlined the
+    subject on. What is wanted is a mode of the same tool that adds the
+    two fields to the entries that are there, from the cast file's
+    standing boxes and the plain answers, and leaves `present`, `how` and
+    `by` as they are.
+  - *What the fields do not buy.* A frame the subject is marked ON says
+    they are in the picture, not which person they are: the tracker still
+    takes the largest person on it. On the first real preview the
+    unseeded subject, picked that way, took the person another subject
+    was seeded on; the tool now runs seeded subjects first, which mends
+    that case and no other. The lead's count on the previews of
+    1920-6394, made with typed picks before the tool: about half the
+    picks are the wrong person, nearly all the largest person where the
+    subject is smaller. A pick is right when a person has outlined the
+    subject, which is a seed: the open question is how the owner gives
+    one box a shot at the least cost, and it is not answered here.
+  - *The tile says two things for a seeded subject.* Its heading reads
+    "the largest person, picked on frame N" (`shot_table.py`, where the
+    heading is written from the job's `pick`) while its row reads "taken
+    (seeded)" (`subject_track.py`). The job tool cannot leave `pick` out:
+    the builder asks one of every subject. Saying one thing there is a
+    change to node code and waits for a landing.
 - **The capture cannot read a load rendered zoomed in, so such a load
   cannot be rendered through the job tool** (2026-10-13; the list, nothing
   built). Asked for by the lead as the next piece of tooling after the

@@ -25,7 +25,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   the `still` its face is taken from, the `parts` the part model ticks for it, and optionally `hair_band`. A
   subject whose plan lacks `still` or `parts` is refused with the keys to add.
 - The cast file (`--cast`): where it holds an answer inside the shot for a subject, that tracker is seeded from
-  it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded).
+  it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded). A seeded
+  subject's tracker runs before an unseeded one's, whatever the plan's order: the unseeded one's guess then
+  takes only who is left.
 - The preview's own job folder (`--preview`, handed in by name): its subjects, its files, the frame they begin on.
 - The video's analysis folder (`clip_folder.py`), found by the file a record was made on: a job is written to
   render from the video's PRESENT copy, whatever copy the shots record or the preview names, and a record made
@@ -160,14 +162,24 @@ def planned(plan: dict, label: str) -> dict:
     return p
 
 
-def order_of(shot: dict, plan: dict, present: list[str]) -> tuple[list[str], str]:
-    """The order a shot's trackers run in, and where it is from: the shot's own `order`, a person's, else the plan's."""
+def order_of(shot: dict, plan: dict, present: list[str], seeded=()) -> tuple[list[str], str]:
+    """The order a shot's trackers run in, and where it is from: the shot's own `order`, a person's; else the
+    seeded subjects before the others, each group in the plan's order.
+
+    A seed is a person's word for who the subject is; a pick by the largest person is a guess that takes whoever an
+    earlier tracker has not. On the first real preview (2026-10-13, shot 604) the plan's order ran the unseeded
+    subject first, and its guess took the person the other subject was then seeded on."""
     if shot.get("order"):
         unknown = [x for x in shot["order"] if x not in present]
         if unknown or sorted(shot["order"]) != sorted(present):
             raise Refused(f"the shot's `order` {shot['order']} is not the subjects the record says are in it ({present})")
         return list(shot["order"]), "the shot's own `order` in the shots record, a person's"
-    return [k for k in plan["subjects"] if k in present], "the plan's subject order, a starting value: nothing says who is larger on this shot"
+    by_plan = [k for k in plan["subjects"] if k in present]
+    first, rest = [k for k in by_plan if k in seeded], [k for k in by_plan if k not in seeded]
+    if first and rest:
+        return first + rest, ("the seeded before the others, since a seed is a person's word and a pick by the largest person takes whoever an earlier "
+                              "tracker has not; within each, the plan's subject order, a starting value")
+    return by_plan, "the plan's subject order, a starting value: nothing says who is larger on this shot"
 
 
 def pick_of(shot: dict, label: str) -> tuple[int, str]:
@@ -198,13 +210,14 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
     present = [k for k in shots["subjects"] if shot["who"][k]["present"] == "yes"]
     if not present:
         raise Refused(f"the shots record says nobody of ours is in {shot['first']}-{shot['last']}: there is nothing to preview")
-    order, order_from = order_of(shot, plan, present)
     canvas = list(h3_config.MASKED_JOB_CANVAS)
+    seeds = {label: seed_of(cast_lines, label, shot, canvas) for label in present}
+    order, order_from = order_of(shot, plan, present, [k for k, v in seeds.items() if v is not None])
     subjects, said = [], []
     for label in order:
         p = planned(plan, label)
         one = {"label": label, "pick": PICK, "parts": list(p["parts"]), "still": p["still"]}
-        seed = seed_of(cast_lines, label, shot, canvas)
+        seed = seeds[label]
         if seed is not None:
             one["seeds"] = seed["text"]
             # the cast line's own words, with no hole where one of its fields is empty: a line entered from a page answer
@@ -212,7 +225,9 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             why = "; ".join(r["why"] for r in seed["shots"] if r["seed"])
             holed = " ".join(why.split()) != why
             said.append(f"{label}: SEEDED from the cast file ({' '.join(why.split())}"
-                        + ("; a field of that line is EMPTY in the cast file, as it reads there" if holed else "") + "), so the order does not matter for them")
+                        + ("; a field of that line is EMPTY in the cast file, as it reads there" if holed else "")
+                        + f"): THE SEED DECIDES who is tracked; `pick: {PICK}` stands in the job file only because the builder asks one of every "
+                          "subject, and decides nothing here")
         else:
             one["pick_at"], where = pick_of(shot, label)
             said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}")
@@ -325,7 +340,7 @@ def step_preview(a, world) -> None:
     if out.exists():
         raise Refused(f"{out} exists: a preview made again takes a shot's record changed first, and its job file moved aside by a person")
     print(f"{job['job']['name']}: source frames {shot['first']}-{shot['last']}; " + "; ".join(
-        f"{s['label']} " + ("seeded from the cast" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
+        f"{s['label']} " + ("seeded from the cast (its `pick` decides nothing)" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
     print(job["job"]["note"])
     folder, _ = held_as_the_builder_holds(job["job"], a.day, world)
     if world.dry:

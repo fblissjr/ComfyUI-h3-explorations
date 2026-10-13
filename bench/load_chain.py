@@ -105,6 +105,8 @@ REVIEW_MEDIA = "data/{video}/review/media"             # links to the clips, whe
 #: The song node's inputs a render graph may differ from its plan graph in.
 RENDER_DIFFERS_IN = ["filename_prefix", "preview"]
 BAND_SUFFIXES = (".plan.clothes_less_hair_band.mkv", ".render.clothes_less_hair_band.mkv")
+#: How much of a line of a command's output is shown on the screen; the kept file has it whole.
+TAIL_CHARS = 300
 #: A window's own video in a load's windows folder: `<name>_window_<N>.mp4`, and not its mask review or its zoomed picture.
 WINDOW_VIDEO = r"_window_(\d+)\.mp4$"
 
@@ -492,7 +494,9 @@ class World:
             code = subprocess.run([str(a) for a in argv], stdout=f, stderr=subprocess.STDOUT, cwd=REPO).returncode
         tail = log.read_text().splitlines()[-4:]
         kept = log.relative_to(REPO) if log.is_relative_to(REPO) else log
-        print(f"    exit {code} at {utc_now()}; kept in {kept}\n" + "\n".join("    | " + t[:300] for t in tail), flush=True)
+        # a long line is cut on the screen and says so, with where it is whole
+        shown = [t if len(t) <= TAIL_CHARS else t[:TAIL_CHARS] + f" [CUT HERE: {len(t)} characters, whole in the kept file]" for t in tail]
+        print(f"    exit {code} at {utc_now()}; kept in {kept}\n" + "\n".join("    | " + t for t in shown), flush=True)
         if code and stop:
             raise Refused(f"{label} did not exit 0 (exit {code}); the step stops here")
         return code
