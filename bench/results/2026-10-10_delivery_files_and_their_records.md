@@ -622,7 +622,10 @@ and goes if the gain cannot be seen or measured there.
   day: the tie is handed in on the row from the piece's build record, is
   not found by a name, and nothing is written back into a capture. What
   changes for a row so tied: frames its run carried no mask on are left as
-  the source and named; its changes are measured from the mask the run
-  carried; the ends net reads it; its capture's masks have the word on its
-  frames; its table is written into the capture. Case 21 of
+  the source and named; how much it changed is read under the mask the run
+  carried (the record's `under`), which is what the ends net reads; how
+  far its changes reach from its subject is still measured from the
+  subject's track, now with the run's own margin and not the default; its
+  capture's masks have the word on its frames; its table is written into
+  the capture. Case 21 of
   `bench/check_assemble_delivery.py`, which fails without the reading.
