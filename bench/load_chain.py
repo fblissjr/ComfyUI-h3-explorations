@@ -29,6 +29,10 @@ fact of the machine is an environment key; nothing is found by a name left over 
 - The preview's own job folder: the files it saved (`preview.queued.json`), the subjects in its order and THE
   SOURCE FRAME ITS FILES BEGIN ON (its job's `first`), which is the `at`, `shots_at` and `pose_at` of every mask.
   Never typed.
+- The load's keep-outs (`job.keep_outs`: things on the subject kept as the source's, each a mask video on the
+  preview's frames, written by `bench/shot_to_load.py job` from the plan): each is handed to the capture as a
+  `--mask` of its own and is one of the run's others. Refused: one the job names and the load's `others` does not,
+  one the load keeps out with no file named, a file that is not there.
 - A subject's options for the capture (`pieces`, `least`, `hold`, `drop`, `grade`) are keys on the subject in the
   job file, and only what the job says is passed. KNOWN GAP: the loads made before this tool ran with
   `pieces=largest` typed into the script, and their job files do not say so; nothing is backfilled.
@@ -181,7 +185,23 @@ def read_job(job_file: Path, repo: Path = REPO, need_text: bool = True) -> dict:
     if need_text and not str(told.get("by") or "").strip():
         raise Refused(f"{job_file}: texts.{load.get('text')}.by is empty: say who wrote the text, and from which frames "
                       f"(bench/shot_to_load.py text {job_file} --by SESSION --writer \"who, and from which frames\")")
+    # THE LOAD'S KEEP-OUTS (`job.keep_outs`, written by `bench/shot_to_load.py job` from the plan): mask videos on the
+    # preview's frames, each a subject of the capture and one of the load's `others`. Held both ways: a keep-out the
+    # job names and the load does not keep out is drawn again in silence; one the load keeps out with no file named
+    # cannot be handed to the capture.
+    kept = [(k["name"], Path(k["track"])) for k in (job.get("keep_outs") or {}).get("made", [])]
+    people_named = [o for o in load.get("others") or [] if o in order]
+    for name, _track in kept:
+        if name not in (load.get("others") or []):
+            raise Refused(f"{job_file}: the job names the keep-out {name!r} and the load's `others` does not: it would be drawn again")
+        if name in order:
+            raise Refused(f"{job_file}: the keep-out {name!r} has the label of a subject of the preview {pjob['name']}")
+    stray = [o for o in load.get("others") or [] if o not in order and o not in [n for n, _ in kept]]
+    if stray:
+        raise Refused(f"{job_file}: the load keeps out {stray}, which is neither a subject of the preview {pjob['name']} ({', '.join(order)}) nor a keep-out "
+                      "the job names with its file (`job.keep_outs`): the capture cannot be handed it")
     return {"job_file": Path(job_file), "raw": raw, "job": job, "load": load, "name": load["name"], "subject": subject, "subject_keys": mine,
+            "keep_outs": kept, "others_named": people_named,
             "capture": capture, "day": day, "job_folder": repo / "data" / f"{day}_{job['name']}_job", "repo": repo,
             "preview": {"folder": pfolder, "name": pjob["name"], "first": pjob["first"], "frames": pjob["frames"], "order": order,
                         "files": ran.get("files") or [], "output": pjob["output"]},
@@ -237,11 +257,17 @@ def mask_specs(ctx: dict, files: dict) -> list[str]:
             if key in ctx["subject_keys"]:
                 spec += f",{key}={ctx['subject_keys'][key]}"
         out.append(spec)
+    for name, track in ctx.get("keep_outs") or []:
+        if not track.is_file():
+            raise Refused(f"the keep-out {name!r} is named at {track}, which is not a file: `bench/shot_to_load.py job` makes it when it writes the job file")
+        out.append(f"{name}:track={track},by={by},at={at}")
     return out
 
 
 def others_of(ctx: dict) -> list[str]:
-    return [label for label in ctx["preview"]["order"] if label != ctx["subject"]]
+    """Everybody and everything the capture's run of the load is told is not the subject: the preview's other
+    subjects, then the load's keep-outs."""
+    return [label for label in ctx["preview"]["order"] if label != ctx["subject"]] + [name for name, _ in ctx.get("keep_outs") or []]
 
 
 def still_of(ctx: dict, inputs: Path) -> Path:

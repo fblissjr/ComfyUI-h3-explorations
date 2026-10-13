@@ -43,6 +43,14 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    the plan is refused at `job`, naming the keep-out the preview does not track; a load under the song node's
    shortest is refused in the builder's words; `--dry` refuses both and writes nothing; and the load that is
    written passes `masked_job_graph.check_load`, which no case here held a written load to before.
+7e. **A subject's keep-outs** (2026-10-13: the second subject's loads carried none and a render drew her apron
+   again). A plan's `keep_outs` (of `held`, `hands`, `clothes`, with `keep_outs_by`) are in the load's `others`
+   and in `job.keep_outs` with each file and its classes; a load written without one the plan names is red, here
+   and at the chain's `read_job`. The job step cuts the hands and the clothing from the preview's class map
+   before it writes the job file and takes the held things as the preview saved them; a dry run cuts nothing; a
+   file that is there is held to a fresh cut and refused when it differs; a preview with no class map of the
+   subject is refused. The cut itself is held on a class map written as the part node writes one: the classes'
+   pixels on every frame, and the torso is not clothing.
 7d. **The text step** says who wrote a load's text: the writer's words into `texts.<label>.by` with when and by
    which session, and nothing else of the job file changed; the chain's `read_job` and the builder's `text_entry`
    then take it; refused with no text file, with no words, and once the load's plan is built; `--dry` writes nothing.
@@ -63,6 +71,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -179,7 +188,7 @@ class Made:
         out, listed = self.root / "output" / job["job"]["output"] / name, []
         out.mkdir(parents=True, exist_ok=True)
         for s in job["job"]["subjects"]:
-            for kind, suffix in (("track", "mkv"), ("parts", "mkv"), ("mesh", "mp4")):
+            for kind, suffix in (("track", "mkv"), ("parts", "mkv"), ("classes", "mkv"), ("held_things", "mkv"), ("mesh", "mp4")):
                 (out / f"{name}_{s['label']}_{kind}_00001.{suffix}").write_bytes(b"")
                 listed.append(f"{job['job']['output']}/{name}/{name}_{s['label']}_{kind}_00001.{suffix}")
             (out / f"{name}_{s['label']}_shots_00001_shots.json").write_text("{}")
@@ -190,7 +199,9 @@ class Made:
         shots, plan = self.read()
         pjob = self.preview(shot)
         folder = self.preview_ran(pjob)
-        return stl.load_job(shots, plan, stl.shot_of(shots, shot), subject, pjob["job"], str(folder), "v", self.m.output, "the session", "2026-01-03", name, now="now", **more)
+        saved = json.loads((folder / "preview.queued.json").read_text())["files"]
+        return stl.load_job(shots, plan, stl.shot_of(shots, shot), subject, pjob["job"], str(folder), "v", self.m.output, "the session", "2026-01-03", name, now="now",
+                            preview_files=saved, **more)
 
 
 def args(**more) -> argparse.Namespace:
@@ -571,6 +582,99 @@ def a_load_the_builder_would_refuse_is_not_written() -> str:
             "a dry run refuses the same and writes nothing; the load that is written passes the builder's check of a load")
 
 
+def a_subjects_keep_outs() -> str:
+    """Every load of the second subject through the tool carried no clothing, hands or held-thing keep-out, and the
+    first render drew her apron as the still's top (2026-10-13). The plan names them; `job` makes and names them."""
+    import numpy as np
+    from _lib.frames import read_mask
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        plain = made.load()
+        assert "keep_outs" not in plain["job"] and plain["loads"][0]["others"] == ["b", "c"], "a load has keep-outs nobody named"
+        made.plan["subjects"]["a"].update(keep_outs=["held", "hands", "clothes"], keep_outs_by="a person, 2026-01-01: her apron was drawn again")
+        d = made.load()
+        job, load = d["job"], d["loads"][0]
+        # THE CASE THAT GOES RED when a load of a subject whose plan names a keep-out is written without it
+        assert load["others"] == ["b", "c", "held", "hands", "clothes"], f"the plan names three keep-outs for a and the load keeps out {load['others']}"
+        kept = {k["name"]: k for k in job["keep_outs"]["made"]}
+        assert list(kept) == ["held", "hands", "clothes"] and job["keep_outs"]["of"] == "a" and job["keep_outs"]["first"] == 100, job["keep_outs"]
+        out = made.m.output
+        assert kept["held"]["track"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_a_held_things_00001.mkv") and "classes" not in kept["held"], kept["held"]
+        assert kept["hands"]["track"] == str(out / "Video/v/keep_outs/shot_c_0100/shot_c_0100_a_hands.mkv") and kept["hands"]["classes"] == list(stl.KEEP_OUTS["hands"]) \
+            and kept["hands"]["cut_from"] == str(out / "Video/v/the session/shot_c_0100/shot_c_0100_a_classes_00001.mkv"), kept["hands"]
+        assert kept["clothes"]["classes"] == ["Apparel", "Upper_Clothing"] and "Torso" not in kept["clothes"]["classes"], kept["clothes"]
+        assert "KEPT AS THE SOURCE'S ON THIS LOAD, from the plan (a person, 2026-01-01: her apron was drawn again)" in job["note"] \
+            and "`clothes` (Apparel + Upper_Clothing of the class map)" in job["note"], job["note"]
+        graphs.check_job(job)
+        for one in masked_job.loads_of(d):
+            graphs.check_load(job, one, masked_job.chain_lengths())
+        # the chain reads the load as written, and refuses the same file with a keep-out taken out of `others`
+        (made.jobs / "a_fp_0100.json").write_text(json.dumps(d))
+        assert [n for n, _ in lc.read_job(made.jobs / "a_fp_0100.json", made.root, need_text=False)["keep_outs"]] == ["held", "hands", "clothes"]
+        d["loads"][0]["others"] = ["b", "c", "held", "hands"]
+        (made.jobs / "a_fp_0100.json").write_text(json.dumps(d))
+        refused(lambda: lc.read_job(made.jobs / "a_fp_0100.json", made.root, need_text=False), "the job names the keep-out 'clothes'", "drawn again")
+        (made.jobs / "a_fp_0100.json").unlink()
+        # what the plan may say
+        for wrong, words in (({"keep_outs": ["held", "apron"]}, "a list of"), ({"keep_outs": []}, "a list of"), ({"keep_outs": ["held", "held"]}, "each once"),
+                             ({"keep_outs_by": " "}, "`keep_outs_by` says who chose them")):
+            was = dict(made.plan["subjects"]["a"])
+            made.plan["subjects"]["a"].update(wrong)
+            refused(made.load, words)
+            made.plan["subjects"]["a"] = was
+        # THE JOB STEP makes the cut ones before it writes the job file; a dry run makes nothing and says what it would
+        folder = made.preview_ran(made.preview())
+        a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), subject="a", preview=str(folder))
+        cuts = []
+
+        def cut(class_map, classes, to):
+            cuts.append((Path(class_map).name, tuple(classes), Path(to).name))
+            Path(to).parent.mkdir(parents=True, exist_ok=True)
+            Path(to).write_bytes(b"cut")
+            return {"frames": 60, "size": [64, 48], "frames_with_the_mask": 60, "px_most": 9}
+        made.m.dry = True
+        stl.step_job(a, made.m, cut=cut)
+        assert cuts == [] and not (out / "Video/v/keep_outs").exists() and not list(made.jobs.iterdir()), "a dry run cut a keep-out or wrote a job file"
+        made.m.dry = False
+        stl.step_job(a, made.m, cut=cut)
+        assert cuts == [("shot_c_0100_a_classes_00001.mkv", stl.KEEP_OUTS["hands"], "shot_c_0100_a_hands.mkv"),
+                        ("shot_c_0100_a_classes_00001.mkv", stl.KEEP_OUTS["clothes"], "shot_c_0100_a_clothes.mkv")], cuts
+        record = json.loads((out / "Video/v/keep_outs/shot_c_0100/shot_c_0100_a_hands.json").read_text())
+        assert record["classes"] == list(stl.KEEP_OUTS["hands"]) and record["first_source_frame"] == 100 and record["of"] == "a", record
+        assert json.loads((made.jobs / "a_fp_0100.json").read_text())["loads"][0]["others"][-3:] == ["held", "hands", "clothes"]
+        # a second load of the same subject on the same preview: the files are there, cut again and held equal; not equal is refused
+        a.remake = True
+        stl.step_job(a, made.m, cut=cut, hashed=lambda path: "the same")
+        assert len(cuts) == 4 and all(c[2].endswith(".cut_again.mkv") for c in cuts[2:]) and not list((out / "Video/v/keep_outs/shot_c_0100").glob("*cut_again*")), cuts
+        assert (made.jobs / "a_fp_0100b.json").is_file()
+        refused(lambda: stl.step_job(a, made.m, cut=cut, hashed=lambda path: path), "is there and is NOT what its classes cut", "moved aside by a person")
+        assert not (made.jobs / "a_fp_0100c.json").exists(), "a job file was written over a keep-out of another making"
+        # a preview that saved no class map of the subject cannot give them
+        (folder / "preview.queued.json").write_text(json.dumps({"status": "success", "files": [
+            f for f in json.loads((folder / "preview.queued.json").read_text())["files"] if "_a_classes_" not in f]}))
+        refused(lambda: stl.step_job(a, made.m, cut=cut), "saved 0 `classes` video(s) of 'a'", "the preview is made again")
+        # THE CUT ITSELF, on a class map written as the part node writes one (the grey level is the class): the pixels of the classes, on every frame
+        import capture_masked_run as cap
+        names = cap._pack("sapiens2_parts").CLASS_NAMES
+        cmap = np.zeros((3, 48, 64), np.uint8)
+        cmap[:, 4:20, 4:20] = names.index("Upper_Clothing")
+        cmap[:, 20:30, 4:20] = names.index("Torso")
+        cmap[1, 30:40, 30:50] = names.index("Apparel")
+        cmap[:, 40:46, 50:60] = names.index("Left_Hand")
+        video = Path(tmp) / "classes.mkv"
+        enc = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", "64x48", "-r", "24", "-i", "-", "-c:v", "ffv1", "-level", "3",
+                              str(video)], input=cmap.tobytes())
+        assert enc.returncode == 0 and (cap.read_classes(str(video), (64, 48), 0, 0, 3) == cmap).all(), "the class map did not come back as written"
+        got = stl.cut_keep_out(video, list(stl.KEEP_OUTS["clothes"]), Path(tmp) / "made" / "clothes.mkv")
+        back = read_mask(str(Path(tmp) / "made" / "clothes.mkv"), (64, 48), 0, 0, 3)[0]
+        want = np.isin(cmap, [names.index("Apparel"), names.index("Upper_Clothing")])
+        assert (back == want).all() and not back[:, 20:30, 4:20].any() and got == {"frames": 3, "size": [64, 48], "frames_with_the_mask": 3, "px_most": 16 * 16 + 10 * 20}, got
+        hands = stl.cut_keep_out(video, list(stl.KEEP_OUTS["hands"]), Path(tmp) / "made" / "hands.mkv")
+        assert (read_mask(str(Path(tmp) / "made" / "hands.mkv"), (64, 48), 0, 0, 3)[0] == (cmap == names.index("Left_Hand"))).all() and hands["px_most"] == 60, hands
+    return ("a plan's keep-outs are named in the load's others and written with their files into the job file; the job step cuts the hands and the clothing from "
+            "the preview's class map and takes the held things as saved; a file that is there is held to a fresh cut; the torso is not clothing")
+
+
 def the_text_step() -> str:
     """The text's writer had to be set in the job file by hand after the chain refused it (the first real load, twice)."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -778,6 +882,7 @@ case("preview against a builder that refuses a folder that is there: the first r
 case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
 case("a load the builder would refuse is not written, in a dry run as well", a_load_the_builder_would_refuse_is_not_written)
+case("a subject's keep-outs: named by the plan, made and named by the job step", a_subjects_keep_outs)
 case("text: who wrote it, said with a flag", the_text_step)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)
 case("reference: on the load's frames, drawn by default", the_reference_step)

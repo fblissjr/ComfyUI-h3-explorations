@@ -15,6 +15,10 @@ rulings that changed them.
    fault of 2026-10-13, which this tool exists to make untypable). Only the options the job sets on a subject are
    passed, with no `pieces` unless it says; no pose table for a subject whose job says `pose: false`, and a
    refusal when one is owed and missing; the other subjects in the preview's order.
+2b. **A load's keep-outs** (`job.keep_outs`, 2026-10-13: the second subject's loads carried none and a render drew
+   her apron again). Each is a `--mask` of its own on the preview's first frame, at `first` and at `on-plan`, and
+   one of the run's others on the plan. Refused: a keep-out the job names that the load's `others` leaves out; one
+   the load keeps out with no file named; a named file that is not there.
 3. **first**: refused when the capture or its `_first` copy exists; who is who made again from the preview's
    tables, each with the frame it begins on, or the file the job names and no command; the capture with the load
    as a plan; the strip under `<capture>_first`. With verify failed and the gate blocked every command still
@@ -266,6 +270,57 @@ def a_masks_at_is_the_previews_first_frame() -> str:
         refused(lambda: lc.preview_files(made.ctx(), made.m.output), "lists 2 track videos for 'a'")
     return ("a load that begins after its preview takes every mask from the preview's first frame and its own first frame is in none; only the "
             "options the job sets are passed; a pose table only where the job does not say pose: false")
+
+
+def a_loads_keep_outs() -> str:
+    """The second subject's loads through the chain carried no clothing, hands or held-thing keep-out, and the first
+    render drew her apron again (2026-10-13). The job names each with its file; the chain hands each to the capture."""
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        keeps = made.m.output / "Video/v/keep_outs/pv"
+        keeps.mkdir(parents=True)
+        kept = [{"name": "held", "track": str(made.m.output / "Video/v/s/pv/pv_a_held_things_00001.mkv")},
+                {"name": "hands", "track": str(keeps / "pv_a_hands.mkv"), "classes": ["Left_Hand"]},
+                {"name": "clothes", "track": str(keeps / "pv_a_clothes.mkv"), "classes": ["Apparel"]}]
+        for k in kept:
+            Path(k["track"]).write_bytes(b"")
+        made.job["keep_outs"] = {"of": "a", "by": "the plan (a person)", "preview": "pv", "first": 100, "made": kept}
+        made.load["others"] = ["b", "held", "hands", "clothes"]
+        made.write()
+        ctx = made.ctx()
+        specs = lc.mask_specs(ctx, lc.preview_files(ctx, made.m.output))
+        assert specs[2:] == [f"{k['name']}:track={k['track']},by=pv,at=100" for k in kept], specs[2:]
+        assert lc.others_of(ctx) == ["b", "held", "hands", "clothes"], lc.others_of(ctx)
+        # the first capture is handed five masks, and the capture on the plan names all four as the run's others
+        lc.step_first(ctx, made.m, args())
+        files = made.m.said("files first")
+        assert files.count("--mask") == 5 and f"clothes:track={kept[2]['track']},by=pv,at=100" in files, files
+        made.capture(on_plan=False)
+        made.planned()
+        windows = lc.plan_windows(ctx, made.m.output)
+        windows.mkdir(parents=True)
+        (windows / "ld_plan.json").write_text("{}")
+        (made.root / "data/2026-01-03_ld_job/ld.who_is_who.json").write_text("{}")
+        made.m.ran.clear()
+        lc.step_on_plan(made.ctx(), made.m, args(), hashed=lambda path: "h")
+        on_plan = made.m.said("files on plan")
+        assert on_plan[on_plan.index("--run") + 1] == f"ld:preview={windows},subject=a,others=b+held+hands+clothes,at=110", on_plan[on_plan.index("--run") + 1]
+        assert on_plan.count("--mask") == 5, on_plan
+        # A LOAD WRITTEN WITHOUT A KEEP-OUT ITS JOB NAMES is refused: it would be drawn again in silence
+        made.load["others"] = ["b", "held", "hands"]
+        made.write()
+        refused(made.ctx, "the job names the keep-out 'clothes' and the load's `others` does not", "drawn again")
+        # one the load keeps out with no file named cannot be handed to the capture
+        made.load["others"] = ["b", "held", "hands", "clothes"]
+        made.job["keep_outs"]["made"] = kept[:2]
+        made.write()
+        refused(made.ctx, "the load keeps out ['clothes']", "`job.keep_outs`")
+        made.job["keep_outs"]["made"] = kept
+        made.write()
+        Path(kept[1]["track"]).unlink()
+        refused(lambda: lc.mask_specs(made.ctx(), lc.preview_files(made.ctx(), made.m.output)), "the keep-out 'hands' is named at", "not a file")
+    return ("a load's keep-outs are each a mask of the capture on the preview's frames and one of the run's others, at first and on the plan; a keep-out the job "
+            "names and the load does not keep out, one kept out with no file, and a file that is not there are refused")
 
 
 def the_first_step() -> str:
@@ -679,6 +734,7 @@ def the_page_step() -> str:
 
 case("the job file and the preview it names", the_job_file_and_its_preview)
 case("a mask's at is the preview's first frame", a_masks_at_is_the_previews_first_frame)
+case("a load's keep-outs reach its capture", a_loads_keep_outs)
 case("first: who is who, the first capture, its strip under _first", the_first_step)
 case("a kept output is not replaced, and a step has its own help", a_kept_output_is_not_replaced_and_a_step_has_its_own_help)
 case("plan: built and queued on an empty queue, once", the_plan_step)

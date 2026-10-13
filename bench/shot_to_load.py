@@ -30,6 +30,9 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   subject whose plan lacks `still` or `parts` is refused with the keys to add. Optionally `pieces` (with
   `pieces_by`: who chose it, on what): how the capture reads the subject's part, copied by `job` onto the
   subject in the load's job file, where the chain passes it to the capture. This tool sets it for nobody.
+  Optionally `keep_outs` (with `keep_outs_by`): which of `held`, `hands` and `clothes` that subject's loads keep
+  as the source's (`KEEP_OUTS`). `job` makes each from the preview's own files, names it in the load's `others`
+  and writes where its file is into the job file (`job.keep_outs`), from which the chain hands it to the capture.
 - The cast file (`--cast`): where it holds an answer inside the shot for a subject, that tracker is seeded from
   it (`bench/cast_file.py::seeds`; a "none of the outlined people" answer leaves the shot unseeded). A seeded
   subject's tracker runs before an unseeded one's, whatever the plan's order: the unseeded one's guess then
@@ -122,6 +125,20 @@ REFERENCES = "Video/{video}/references/{subject}_{first:04d}_{last:04d}"
 FORM = {"face": "fp", "face and hair": "hfp"}
 #: What a preview's tracker picks with. A guess, which is why the preview step stops for the tiles.
 PICK = "largest"
+#: Where a subject's keep-outs go: by the video, the preview they were cut from and the subject, never by a load's name.
+KEEP_OUTS_AT = "Video/{video}/keep_outs/{preview}"
+#: THE KEEP-OUTS A PLAN MAY NAME FOR A SUBJECT: things on that person a part load must leave as the source's. Each is
+#: a mask video on the preview's own frames, a subject of the load's capture and one of the load's `others`. `held` is
+#: the preview's own held-things file as saved; the other two are classes of the preview's class map of that subject,
+#: not clipped to the track and not cleaned to a largest piece.
+#: INHERITED from the session cuts of 2026-10-12 (the hands and arms after a hand at her face was drawn again; the
+#: clothing after a blouse strap in the margin was) and MEASURED 2026-10-13: cut again from that day's class map of a
+#: shot of 457 frames, each is that day's own mask on every frame with no pixel differing; with `Torso` added to the
+#: clothing it is equal on 29 of the 457, so the torso was left out on purpose. Every load of the second subject
+#: through this tool carried none of them until that day, and the first render drew her apron as the still's top.
+KEEP_OUTS = {"held": None,
+             "hands": ("Left_Hand", "Right_Hand", "Left_Lower_Arm", "Left_Upper_Arm", "Right_Lower_Arm", "Right_Upper_Arm"),
+             "clothes": ("Apparel", "Upper_Clothing")}
 #: What a plan may say of how the capture reads a subject's part (`bench/capture_masked_run.py`, `pieces=` on a `--mask`).
 PIECES = ("largest",)
 PLAN_KEYS = "`still` (the picture its face is taken from, under the server's input folder) and `parts` (the part model's ticks for it)"
@@ -298,6 +315,98 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {}}, "defaults": {}, "loads": []}
 
 
+def keep_outs_of(p: dict, subject: str, preview: dict, people: list[str], video: str, output: Path, preview_files) -> tuple[dict | None, str]:
+    """A load's keep-outs as the job file holds them, and the note's sentence: nothing when the plan names none.
+
+    Each is {"name", "track": the mask video, on the preview's frames} and for a cut one its `classes`, the class
+    map it is cut from and where the cut is written. `preview_files` is what the preview's record says it saved,
+    under the output folder. Refused: a name that is not a keep-out, one that is a person of the preview, no
+    `keep_outs_by`, and a preview that saved no class map or no held-things file of the subject."""
+    names = p.get("keep_outs")
+    if names is None:
+        return None, ""
+    by = " ".join(str(p.get("keep_outs_by") or "").split())
+    if not isinstance(names, list) or not names or len(set(names)) != len(names) or any(k not in KEEP_OUTS for k in names) or not by:
+        raise Refused(f"the plan's `keep_outs` for {subject!r} is {names!r} with `keep_outs_by` {p.get('keep_outs_by')!r}: a list of {tuple(KEEP_OUTS)}, "
+                      "each once, and `keep_outs_by` says who chose them and on what")
+    clash = [k for k in names if k in people]
+    if clash:
+        raise Refused(f"the keep-out name(s) {clash} are subjects of the preview {preview['name']}: a keep-out and a person cannot share a label in one capture")
+    if preview_files is None:
+        raise Refused(f"the plan names keep-outs for {subject!r} and the preview's saved files were not handed in: they are cut from the preview's own class map")
+
+    def saved(kind: str) -> Path:
+        found = [f for f in preview_files if f"_{subject}_{kind}_" in Path(f).name and f.endswith(".mkv")]
+        if len(found) != 1:
+            raise Refused(f"the preview {preview['name']} saved {len(found)} `{kind}` video(s) of {subject!r} where one is meant, and the plan names keep-outs "
+                          f"for them ({', '.join(names)}): they are made from that preview's own files, so the preview is made again with them, or the plan's "
+                          "`keep_outs` is taken out")
+        return output / found[0]
+    folder = output / KEEP_OUTS_AT.format(video=video, preview=preview["name"])
+    made = []
+    for k in names:
+        if KEEP_OUTS[k] is None:
+            made.append({"name": k, "track": str(saved("held_things")), "what": "the preview's own held-things file, as saved"})
+        else:
+            made.append({"name": k, "track": str(folder / f"{preview['name']}_{subject}_{k}.mkv"), "classes": list(KEEP_OUTS[k]),
+                         "cut_from": str(saved("classes")), "what": "those classes of the preview's class map of the subject, not clipped to the track"})
+    said = (f" KEPT AS THE SOURCE'S ON THIS LOAD, from the plan ({by}): " + "; ".join(
+        f"`{k['name']}` ({'the preview held-things file' if 'classes' not in k else ' + '.join(k['classes']) + ' of the class map'})" for k in made)
+        + ". Each is one of the load's `others` and a subject of its capture, on the preview's frames.")
+    return {"of": subject, "by": f"the plan ({by})", "preview": preview["name"], "first": preview["first"], "made": made}, said
+
+
+def cut_keep_out(class_map: Path, classes: list[str], out: Path) -> dict:
+    """Write one keep-out: the pixels of a saved class map that carry any of `classes`, as a mask video on the class
+    map's own frames. Figures of what was written."""
+    import numpy as np
+    import capture_masked_run as cap
+    names = cap._pack("sapiens2_parts").CLASS_NAMES
+    w, h, n = cap.probe(str(class_map))
+    mask = np.isin(cap.read_classes(str(class_map), (w, h), 0, 0, n), [names.index(c) for c in classes])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cap.write_mask_video(out, mask)
+    px = mask.reshape(n, -1).sum(1)
+    return {"frames": int(n), "size": [int(w), int(h)], "frames_with_the_mask": int((px > 0).sum()), "px_most": int(px.max()) if n else 0}
+
+
+def make_keep_outs(kept: dict | None, world, cut=cut_keep_out, hashed=None) -> list[str]:
+    """Make the keep-outs a load's job file names that are cut from a class map, and say what was done of each.
+
+    One file a preview, a subject and a keep-out, so a second load of the same subject on the same preview finds
+    it there. A file that is there is not trusted because it is there: the cut is made again beside it and the two
+    are held to each other frame by frame (`load_chain.frame_hash`); equal, the one there stands; not equal, refused.
+    The held-things file is the preview's own and is only looked for."""
+    hashed = hashed or load_chain.frame_hash
+    lines = []
+    for k in (kept or {}).get("made", []):
+        track = Path(k["track"])
+        if "classes" not in k:
+            if not track.is_file() and not world.dry:
+                raise Refused(f"the keep-out `{k['name']}` is the preview's held-things file {track}, which is not there")
+            lines.append(f"keep-out `{k['name']}`: {track} ({k['what']})")
+            continue
+        if world.dry:
+            lines.append(f"keep-out `{k['name']}`: WOULD BE CUT from {k['cut_from']} ({' + '.join(k['classes'])}) to {track}" + (" (a file is there: held to a fresh cut)" if track.exists() else ""))
+            continue
+        if track.exists():
+            again = track.with_name(track.stem + ".cut_again.mkv")
+            cut(Path(k["cut_from"]), k["classes"], again)
+            same = hashed(str(again)) == hashed(str(track))
+            again.unlink()
+            if not same:
+                raise Refused(f"{track} is there and is NOT what its classes cut from {k['cut_from']} now: a keep-out of another making. It is read and moved aside by a person")
+            lines.append(f"keep-out `{k['name']}`: {track} was there, and a cut made again now decodes equal to it on every frame")
+            continue
+        got = cut(Path(k["cut_from"]), k["classes"], track)
+        track.with_suffix(".json").write_text(json.dumps({"what": "a keep-out cut by bench/shot_to_load.py from a preview's class map", "name": k["name"], "of": kept["of"],
+                                                         "classes": k["classes"], "cut_from": k["cut_from"], "preview": kept["preview"],
+                                                         "first_source_frame": kept["first"], "made_at": load_chain.utc_now(), **got}, indent=1) + "\n")
+        lines.append(f"keep-out `{k['name']}`: cut {' + '.join(k['classes'])} from {k['cut_from']} to {track}: {got['frames']} frames, on the mask on "
+                     f"{got['frames_with_the_mask']}, up to {got['px_most']} px")
+    return lines
+
+
 def preview_name(shot: dict) -> str:
     return f"shot_c_{shot['first']:04d}"
 
@@ -317,7 +426,8 @@ def free_name(base: str, taken, remake: bool) -> str:
 
 def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, preview_folder: str, video: str, output: Path, by: str, day: str,
              name: str, first: int | None = None, frames: int | None = None, why: str = "", now: str = "", source: str | None = None,
-             why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None) -> dict:
+             why_before: str = "", why_after: str = "", zoomed: str | None = None, least: int | None = None, least_why: str | None = None,
+             preview_files: list[str] | None = None) -> dict:
     """The job file of one subject's load on a shot, from the shot's preview. `preview` is the preview's own job
     block; `source` is the file the load renders from, the video's present copy (the preview's own when left out)."""
     import h3_config
@@ -356,6 +466,8 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
     reference = output / REFERENCES.format(video=video, subject=subject, first=a, last=b) / f"{subject}_head_reference_{a:04d}_{b:04d}.mp4"
     load = {"name": name, "first": a, "frames": n, "subject": subject, "others": [k for k in theirs if k != subject], "text": name,
             "motion_file": str(reference), "motion_first": a}
+    kept, kept_said = keep_outs_of(p, subject, preview, list(theirs), video, output, preview_files)
+    load["others"] += [k["name"] for k in (kept or {}).get("made", [])]
     band = p.get("hair_band")
     if band is not None:
         # The band is cut out of ONE keep-out, which must be among the load's `others`, and a preview made by this tool
@@ -404,13 +516,13 @@ def load_job(shots: dict, plan: dict, shot: dict, subject: str, preview: dict, p
             f"{shot['first']}-{shot['last']}, its masks from the preview {preview['name']} (job.preview), in the frozen form: the body model cut to the head "
             f"with the face points drawn, made on these frames by this tool's `reference` step. Its settings are in `defaults`, from workflows/h3_config.py. "
             f"THE TEXT IS NOT WRITTEN: {name}.txt beside this file is a person's, and texts.{name}.by says who wrote it."
-            + pieces + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
+            + pieces + kept_said + chosen + (f" CUT BY A LOOK: {cut_said}" if cut else ""))
     return {"job": {"name": name, "note": note, "source": source or preview["source"], "first": a, "frames": n, "canvas": list(preview["canvas"]),
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects,
                     "left_out": [{"subject": subject, "first": x, "frames": y - x + 1, "why": said} for x, y, said in cut],
                     "capture": f"data/{day}_{name}", "preview": preview_folder,
                     "texts": {name: {"file": f"{name}.txt", "frames": [a, b], "by": ""}},
-                    **({"zoomed": zoom_block} if zoom_block else {}),
+                    **({"keep_outs": kept} if kept else {}), **({"zoomed": zoom_block} if zoom_block else {}),
                     "reference": {"form": "drawn", "why": "the form for a face, head or hair replacement (AGENTS.md, Settled)", "made": None}},
             "defaults": {**h3_config.MASKED_LOAD_DEFAULTS, "margin": h3_config.MASKED_LOAD_MARGIN[region], "seed": h3_config.SEED},
             "loads": [load]}
@@ -481,14 +593,15 @@ def step_preview(a, world) -> None:
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")
 
 
-def step_job(a, world) -> None:
+def step_job(a, world, cut=cut_keep_out, hashed=None) -> None:
     shots, plan = _load(a.shots, a.plan)
     shot = shot_of(shots, a.shot)
     pfolder = Path(a.preview)
     for name in ("job.json", "preview.queued.json"):
         if not (pfolder / name).is_file():
             raise Refused(f"the preview's job folder {pfolder} holds no {name}")
-    if json.loads((pfolder / "preview.queued.json").read_text()).get("status") != "success":
+    ran = json.loads((pfolder / "preview.queued.json").read_text())
+    if ran.get("status") != "success":
         raise Refused(f"the preview in {pfolder} did not end in success")
     preview = json.loads((pfolder / "job.json").read_text())["job"]
     video, source, earlier = working_copy(Path(preview["source"]).name, world)
@@ -502,13 +615,17 @@ def step_job(a, world) -> None:
     name = free_name(f"{a.subject}_{FORM[region]}_{first:04d}", taken, a.remake)
     rel = str(pfolder.resolve().relative_to(REPO.resolve())) if pfolder.resolve().is_relative_to(REPO.resolve()) else str(pfolder)
     job = load_job(shots, plan, shot, a.subject, preview, rel, video, world.output, a.by, a.day, name, a.first, a.frames, a.why or "", load_chain.utc_now(),
-                   source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why)
+                   source=str(source), why_before=a.why_before or "", why_after=a.why_after or "", zoomed=a.zoomed, least=a.least, least_why=a.least_why,
+                   preview_files=ran.get("files") or [])
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "ITS PREVIEW WAS MADE ON AN EARLIER COPY")
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
     print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
     load_held_as_the_builder_holds(job, world)
+    # the keep-outs the plan names are made before the job file that points at them is written; a dry run says what would be
+    for line in make_keep_outs(job["job"].get("keep_outs"), world, cut, hashed):
+        print(line)
     if world.dry:
         print("DRY: nothing written. The load was held to the builder's refusals that need neither its capture nor its text (the job block, the file's "
               "identity, the load's keys and settings, the shortest load, left_out). NOT exercised: anything read from a capture, a text or a mask.")
