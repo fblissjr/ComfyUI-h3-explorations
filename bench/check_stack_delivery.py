@@ -7,7 +7,10 @@ frame, a different level on every frame, so a panel says which frame of which fi
 picture beside each piece with a saved graph as ComfyUI writes one; and a table of those pieces.
 
 1. **The table is read through the assembler's readers**: a row's piece, its first frame, whose it is and what it
-   gives back; `--alias` renames a subject on the picture, in the rows and in the `source` lines alike.
+   gives back; `--alias` renames a subject on the picture, in the rows and in the `source` lines alike. A
+   reference's path is read out of a picture's metadata, so it is opened only when it is a plain video file on
+   this machine: a URL, a protocol string, a name that is no video's and a file that is not there are each
+   refused with the reason, and a real video is kept (the control).
 2. **What the middle row reads, frame by frame**: a row's mask picture on the frame counted from the PIECE's
    first frame, and its reference on the frame counted from the GRAPH's first frame, which differ for a load
    that continued a stored window (the piece begins later than its graph loads from). A frame no row covers
@@ -56,7 +59,7 @@ def flat(path: Path, size: str, frames: int, level: str) -> None:
     ffmpeg("-f", "lavfi", "-i", f"nullsrc=size={size}:rate=24,format=gray,geq=lum='{level}'", "-frames:v", str(frames), "-pix_fmt", "yuv420p", str(path))
 
 
-def picture(path: Path, first: int, ref: Path | None, ref_start: int = 0) -> None:
+def picture(path: Path, first: int, ref: Path | str | None, ref_start: int = 0) -> None:
     """The picture beside a piece, with the graph that made it: where it loaded from, and its reference wired in."""
     from PIL import Image
     from PIL.PngImagePlugin import PngInfo
@@ -131,7 +134,24 @@ def the_table_as_read() -> str:
     bare.write_text(f"3-4 {m.root / 'nothing_00001.mp4'} 3\n")
     (only,), _ = sd.read_rows(str(bare), 24.0, {})
     assert (only["graph_first"], only["ref"], only["subject"]) == (3, None, None), only
-    return "a row's piece, first frame, subject and what it gives back; an alias renames a subject everywhere; a piece with no picture has no reference"
+    # A REFERENCE'S PATH IS READ FROM A PICTURE'S METADATA: only a plain video file on this machine is opened. A URL, a
+    # protocol string, a file that is no video by its name and a file that is not there each leave the row with no
+    # reference and the reason; the control is the same piece naming a real video, which keeps it
+    odd = m.root / "odd_00001.mp4"
+    odd.write_bytes(b"")
+    (m.root / "notes.txt").write_text("not a video")
+    odd_table = m.root / "odd.txt"
+    odd_table.write_text(f"3-4 {odd} 3\n")
+    for named, why in (("http://example.invalid/x.mp4", "not a path on this machine"), ("concat:/etc/hostname|/etc/hosts", "not a path on this machine"),
+                       (str(m.root / "notes.txt"), "does not end in one of"), (str(m.root / "gone.mp4"), "not a file on this machine")):
+        picture(odd.with_suffix(".png"), 3, named)          # as written: a URL keeps its two slashes
+        (row,), _ = sd.read_rows(str(odd_table), 24.0, {})
+        assert row["ref"] is None and why in row["ref_refused"] and sd.panels_of(3, [row])[1:] == [], (named, row)
+    picture(odd.with_suffix(".png"), 3, m.ref_a)
+    (row,), _ = sd.read_rows(str(odd_table), 24.0, {})
+    assert row["ref"] == (str(m.ref_a), 0) and row["ref_refused"] is None, row
+    return ("a row's piece, first frame, subject and what it gives back; an alias renames a subject everywhere; a piece with no picture has no "
+            "reference; a reference named in a picture's metadata is opened only when it is a plain video file on this machine")
 
 
 def what_each_frame_reads() -> str:

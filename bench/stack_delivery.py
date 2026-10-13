@@ -34,6 +34,10 @@ picture. The rate and the sound from the clip.
 clip's, and each of the top and bottom rows held against the file it came from on its own frame and on the
 frames either side (small, grey, below the label). Printed as figures.
 
+**A reference's path comes out of a picture's metadata**, not from whoever runs this, so it is opened only when
+it is a plain video file on this machine (`not_a_plain_video`), and every file here is opened as a local file
+and by no other protocol. A reference that is not opened is said when the table is read and has no panel.
+
 **What it cannot show or see.** The parts in their own colours (not in a render's files); the still a render
 took a face from; a zoomed render's mask at its whole-frame place (its mask picture is of the zoomed box, as
 the node drew it). The read-back cannot see the middle row: whether a mask picture or a reference is on the
@@ -70,6 +74,23 @@ def _assembler():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+#: What a reference video's file may end in. A reference's path is read out of a picture file's metadata, so it is
+#: not this tool's caller's word: only a plain video file on disk is opened, never a URL, a protocol string or a
+#: playlist that would have ffmpeg fetch something else.
+VIDEO_SUFFIXES = (".mp4", ".mov", ".mkv", ".webm")
+
+
+def not_a_plain_video(path: str) -> str | None:
+    """Why a path read from a saved graph is not opened, or None when it is a plain video file on this machine."""
+    if "://" in path or path.split(":", 1)[0] in ("concat", "subfile", "data", "pipe", "fd", "cache", "crypto", "async", "http", "https", "tcp", "udp", "rtmp", "ftp"):
+        return "it is not a path on this machine"
+    if Path(path).suffix.lower() not in VIDEO_SUFFIXES:
+        return f"its name does not end in one of {', '.join(VIDEO_SUFFIXES)}"
+    if not Path(path).is_file():
+        return "it is not a file on this machine"
+    return None
 
 
 def frame_of(seconds: float, rate: float) -> int:
@@ -126,10 +147,14 @@ def read_rows(table: str, rate: float, aliases: dict[str, str]) -> tuple[list[di
         for label, wanted in r["restore"]:
             text = tool.restore_text(label, wanted)
             less.append(name(label) + text[len(label):])
+        refused = not_a_plain_video(ref[0]) if ref else None
+        if refused:
+            print(f"the reference the saved graph of {Path(r['piece']).name} names is NOT OPENED ({refused}): {ref[0]!r}", flush=True)
+            ref = None
         rows.append({"first": r["first"], "last": r["last"], "piece": r["piece"], "piece_first": r["piece_first"],
                      "name": Path(r["piece"]).stem.rsplit("_", 1)[0], "subject": name(r["subject"]) if r.get("subject") else None, "less": less,
                      "mask": str(Path(r["piece"]).with_name(Path(r["piece"]).stem + "_with_mask.mp4")),
-                     "graph_first": r["piece_first"] if graph_first is None else graph_first, "ref": ref})
+                     "graph_first": r["piece_first"] if graph_first is None else graph_first, "ref": ref, "ref_refused": refused})
     return rows, [{**i, "subject": name(i["subject"])} for i in tool.read_intents(table)]
 
 
@@ -163,7 +188,8 @@ class Reader:
     def __init__(self, path: str, skip: int, vf: str, w: int, h: int, pix: str = "rgb24"):
         self.at, c = skip, 3 if pix == "rgb24" else 1
         self.size, self.shape = w * h * c, (h, w, 3) if c == 3 else (h, w)
-        self.p = subprocess.Popen(["ffmpeg", "-v", "error", "-threads", "2", "-i", path, "-vf", f"select='gte(n\\,{max(skip, 0)})'," + vf,
+        self.p = subprocess.Popen(["ffmpeg", "-v", "error", "-threads", "2", "-protocol_whitelist", "file", "-i", "file:" + str(Path(path).resolve()),
+                                   "-vf", f"select='gte(n\\,{max(skip, 0)})'," + vf,
                                    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", pix, "-"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     def frame(self, n: int):
