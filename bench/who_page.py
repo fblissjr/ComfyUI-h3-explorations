@@ -2,7 +2,7 @@
 """One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it.
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
-        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] [--notes PREVIEWS_RUN.jsonl] \\
+        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST | --shot FIRST ...] [--notes PREVIEWS_RUN.jsonl] \\
         [--source COPY --every-cut-of FIRST-LAST] [--cast data/<stem>/cast/cast.jsonl] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
@@ -31,7 +31,9 @@ from by its `--out` folder's name (`/<folder>/index.html` on the page server, wh
 it), and it writes `page.json` beside itself: its span, its previews and when it was built. A page is NEVER
 WRITTEN OVER ANOTHER: an `--out` that holds a page of another span, or one that does not say its span (a page
 made before 2026-10-13), is refused by name, since the owner's answers were given on the page as it stood. The
-same span is built again in place.
+same span is built again in place. `--shot FIRST`, repeatable, names the record's shots one by one in place of a
+span: the questions still open on shots far apart are put to the owner on one page, in one batch (2026-10-13). Such
+a page says which shots it is of, and one of other shots is not written over it.
 
 **A session's reading, as a guess.** `--notes` takes the file a session wrote when it looked at each preview's
 tiles (one line a preview: `job_file`, `first`, and per subject `picked_number`, `picked_looks_like`,
@@ -390,8 +392,8 @@ def span_of(text: str | None, shots: dict) -> list[int]:
     return [int(first), int(last)]
 
 
-def not_over_another(out: Path, span: list[int]) -> None:
-    """Refuse an `--out` that holds another page: one of another span, or one that does not say its span."""
+def not_over_another(out: Path, span: list[int], only: list[int] | None = None) -> None:
+    """Refuse an `--out` that holds another page: one of another span or of other named shots, or one that does not say its span."""
     if not (out / "index.html").is_file():
         return
     said = json.loads((out / "page.json").read_text()).get("span") if (out / "page.json").is_file() else None
@@ -401,17 +403,22 @@ def not_over_another(out: Path, span: list[int]) -> None:
     if said != span:
         raise SystemExit(f"{out} holds the page of frames {said[0]}-{said[1]} and this one is of {span[0]}-{span[1]}. A page is not written "
                          "over another: give this one an --out of its own")
+    named = json.loads((out / "page.json").read_text()).get("only_shots")
+    if named != only:
+        raise SystemExit(f"{out} holds the page of {'the shots beginning on ' + str(named) if named else 'every shot of its span'} and this one is of "
+                         f"{'the shots beginning on ' + str(only) if only else 'every shot of its span'}. A page is not written over another: give this one "
+                         "an --out of its own")
 
 
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
          long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
-         every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None) -> str:
+         every_cut: list[list[int]] | None = None, least_cut: int = 1, standing: dict | None = None, only: list[int] | None = None) -> str:
     """`every_cut` names record shots (first, last) shown cut by cut: one picture for each of the tracker's own cuts
     of the shot that is `least_cut` frames or longer, where every other shot has one picture."""
     rows = []
     span = span or [int(shots["span"][0]), int(shots["span"][1])]
     for s in shots["shots"]:
-        if s["last"] < span[0] or s["first"] > span[1]:
+        if s["last"] < span[0] or s["first"] > span[1] or (only and s["first"] not in only):
             continue
         who = []
         for label in shots["subjects"]:
@@ -508,7 +515,9 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         rows.append(f'<tr><td class="f">{s["first"]}-{s["last"]}<br><span class="how">{s["last"] - s["first"] + 1} f</span></td>'
                     f'<td>{"".join(who)}{note}</td><td><div class="tiles">{"".join(tiles) or ("<span class=no>the trackers found nobody on this shot</span>" if covered else "<span class=no>no preview covers this shot</span>")}</div></td>'
                     f'<td>{wtxt or "<span class=no>none yet</span>"}{box}</td></tr>')
-    head = (f'<p>{html.escape(shots["video"])}: the shots of frames {span[0]}-{span[1]}'
+    head = (f'<p>{html.escape(shots["video"])}: '
+            + (f'the {len(only)} shot(s) named for this page, beginning on {", ".join(map(str, only))}; every other shot of the record is left off'
+               if only else f'the shots of frames {span[0]}-{span[1]}')
             + (f' (the record holds {shots["span"][0]}-{shots["span"][1]})' if span != [int(shots["span"][0]), int(shots["span"][1])] else "")
             + (f' of {shots["source_frames"]} frames' if shots.get("source_frames") else "")
             + f'. Record: {html.escape(shots.get("written_by", ""))}</p>'
@@ -540,6 +549,8 @@ def main() -> int:
     ap.add_argument("--long-shot-frames", type=int, default=LONG_SHOT_FRAMES,
                     help=f"a shot longer than this also shows its first- and last-quarter source frames (needs --source); {LONG_SHOT_FRAMES} by default, a starting value")
     ap.add_argument("--span", metavar="FIRST-LAST", help="only the record's shots with a frame inside these source frames; the record's own span when left out")
+    ap.add_argument("--shot", action="append", default=[], type=int, metavar="FIRST",
+                    help="only this shot of the record, by its first frame; repeatable, in place of --span")
     ap.add_argument("--notes", metavar="PREVIEWS_RUN.jsonl", help="a session's notes on the previews' tiles, one line a preview; shown under each tile in a "
                     "closed fold, headed as a session's guess and not the owner's")
     ap.add_argument("--every-cut-of", action="append", default=[], metavar="FIRST-LAST",
@@ -550,8 +561,15 @@ def main() -> int:
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
-    span = span_of(a.span, shots)
-    not_over_another(Path(a.out), span)
+    only = sorted(set(a.shot)) or None
+    if only:
+        by_first = {s["first"]: s for s in shots["shots"]}
+        if a.span or any(f not in by_first for f in only):
+            raise SystemExit(f"--shot names the record's shots by their first frames, in place of --span: {[f for f in only if f not in by_first] or '--span was given too'}")
+        span = [only[0], by_first[only[-1]]["last"]]
+    else:
+        span = span_of(a.span, shots)
+    not_over_another(Path(a.out), span, only)
     answers = [json.loads(t) for t in Path(a.answers).read_text().splitlines() if t.strip()] if a.answers else []
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -574,13 +592,13 @@ def main() -> int:
     if a.cast:
         import cast_file
         standing = cast_file.current(cast_file.read(a.cast))
-    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing)
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut, standing, only)
     for name, first in sorted(set(notes or {}) - {(p["name"], p["first"]) for p in made}):
         print(f"a note names a preview this page was not given, and is shown nowhere: {name} (first frame {first}), {notes[(name, first)]['from']} "
               f"line {notes[(name, first)]['line']}")
     (out / "index.html").write_text(text)
     (out / "page.json").write_text(json.dumps({
-        "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span,
+        "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span, "only_shots": only,
         "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots),
         "notes": a.notes, "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []

@@ -16,6 +16,9 @@ own words beside it, and each of those can be off by one.
   quarter_frames_are_the_shots_own      the pure rule: nothing under the line, the quarters of the shot's own length over it
   a_span_shows_only_its_shots           with --span, a shot with no frame inside it has no row, and the header names the span
   the_address_is_the_outs               the page says it is answered from /<the --out folder's name>/index.html, not from /who/
+  named_shots_make_a_page               with --shot, repeatable, only the record's shots named have a row, the header says so, a first frame
+                                        that is no shot's and --shot with --span are refused, and a page of other named shots is not
+                                        written over it
   a_page_is_not_written_over_another    an --out holding a page of another span, or one that does not say its span, is refused
                                         with its bytes as they were; the same span is built again in place
   a_sessions_reading_is_a_guess_in_a_closed_fold   with --notes, a preview's line is under that preview's tiles and no other, in a
@@ -143,6 +146,19 @@ def main() -> int:
         part = (own / "index.html").read_text() if r.returncode == 0 else r.stdout + r.stderr
         case("a_span_shows_only_its_shots", r.returncode == 0 and part.count("<tr>") - 1 == 2 and "100-101" not in part and "102-129" in part
              and "the shots of frames 125-159 (the record holds 100-159)" in part and ":8765/part/index.html" in part, part[:1500])
+        named = Path(d) / "named"
+        r = run({**p, "out": named}, "--preview", p["pv"], "--shot", "100", "--shot", "130")
+        got = (named / "index.html").read_text() if r.returncode == 0 else r.stdout + r.stderr
+        r4 = run({**p, "out": named}, "--preview", p["pv"], "--shot", "100", "--shot", "102", "--shot", "130")     # the same first and last frames, other shots
+        r5 = run({**p, "out": Path(d) / "n2"}, "--preview", p["pv"], "--shot", "101")
+        r6 = run({**p, "out": Path(d) / "n3"}, "--preview", p["pv"], "--shot", "100", "--span", "100-159")
+        r7 = run({**p, "out": named}, "--preview", p["pv"], "--shot", "130", "--shot", "100")
+        case("named_shots_make_a_page", r.returncode == 0 and got.count("<tr>") - 1 == 2 and "102-129" not in got and "100-101" in got and "130-159" in got
+             and "the 2 shot(s) named for this page, beginning on 100, 130" in got and json.loads((named / "page.json").read_text())["only_shots"] == [100, 130]
+             and r4.returncode != 0 and "holds the page of the shots beginning on [100, 130] and this one is of the shots beginning on [100, 102, 130]" in r4.stdout + r4.stderr
+             and r5.returncode != 0 and "[101]" in r5.stdout + r5.stderr and r6.returncode != 0 and "--span was given too" in r6.stdout + r6.stderr
+             and r7.returncode == 0, repr([r.returncode, got.count("<tr>") - 1, "102-129" in got, "100-101" in got, "130-159" in got, "named for this page, beginning on 100, 130" in got,
+                                           r4.returncode, r5.returncode, r6.returncode, r7.returncode]) + r4.stdout + r4.stderr + r5.stdout + r5.stderr + r6.stdout + r6.stderr + r7.stdout + r7.stderr)
         before = (p["out"] / "index.html").read_bytes()
         r = run(p, "--preview", p["pv"], "--span", "125-159")
         bare = Path(d) / "bare"
