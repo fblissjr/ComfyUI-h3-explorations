@@ -10,7 +10,10 @@
 from memory of which render was the good one. This writes it from files: the ledger (`bench/render_ledger.py`:
 every render, how it was made, the owner's lines on it), the shots file and the plan. Beside the table it writes
 a reading that says, for every shot and subject, which render stands and why in one line, and every render it
-passed over with why. It assembles nothing.
+passed over with why. Under each render it names, the reading prints the owner's typed words on that render,
+whole, with when and where the line is (2026-10-13: the owner asked that their words are read with their clicks,
+and this is the page a lead reads before a build). The words decide nothing here: the rule reads choices. It
+assembles nothing.
 
 **The rule for "stands", in this order. Each step is a fact from the files, never a judgement of a picture.**
 
@@ -135,6 +138,22 @@ def last_choice(render: dict) -> dict | None:
     choices = [o for o in render.get("owner") or [] if o.get("what") == "choice" and not o.get("on_the_joined_clip")]
     last = max(choices, key=lambda o: str(o.get("at"))) if choices else None
     return None if last is None or last.get("said") == TAKEN_BACK else last
+
+
+def owners_words(render: dict) -> list[dict]:
+    """The owner's typed words ON A RENDER, oldest first, as the ledger holds them: when, the frame they named, the
+    words whole and where the line is. Words said of a joined clip are of that clip and are not here."""
+    said = [o for o in render.get("owner") or [] if o.get("what") == "words" and not o.get("on_the_joined_clip") and str(o.get("said") or "").strip()]
+    return [{"at": o.get("at"), "frame": o.get("frame"), "said": str(o["said"]), "from": o.get("from"), "row": o.get("row")}
+            for o in sorted(said, key=lambda o: str(o.get("at")))]
+
+
+def words_lines(words: list[dict]) -> list[str]:
+    """The reading's lines for a render's words: each whole, on one line (a line break of the owner's is ` / `, as the
+    ledger's reading writes it), with its time, the frame it named and where the line is."""
+    frame = lambda w: "" if w.get("frame") in (None, "", "None") else f" at frame {w['frame']}"          # noqa: E731
+    return [f"  - the owner's words on it, {str(w.get('at'))[:16]}{frame(w)}: {' / '.join(part.strip() for part in w['said'].splitlines())}"
+            + (f"  [{w['from']}" + (f", row {w['row']}" if w.get("row") else "") + "]" if w.get("from") else "") for w in words]
 
 
 def never_stands(render: dict) -> str | None:
@@ -306,6 +325,11 @@ def decide(ledger: dict, shots: dict, plan: dict, prefers: list[dict] | None = N
                 stands.append({"render": r["name"], "file": r["file"], "written": r["written"], "frames": runs(take), "why": why,
                                "the_owners_last_choice": None if not choice else {"said": choice["said"], "at": choice["at"], "row": choice.get("row")}})
             left = runs(sorted(free))
+            # the owner's typed words on each render named here, beside their choice: they asked that their words are read
+            # with their clicks (2026-10-13), and this reading is what a lead reads before a build
+            by_name = {r["name"]: r for r in on}
+            for named_here in stands + passed:
+                named_here["the_owners_words"] = owners_words(by_name[named_here["render"]])
             entry = {"first": s["first"], "last": s["last"], "subject": label, "present": present[label], "plan_region": wanted,
                      "stands": stands, "passed_over": sorted(passed, key=lambda x: x["written"], reverse=True), "left_as_the_source": left}
             if not stands:
@@ -522,12 +546,14 @@ def reading_text(out: dict, made: str, table: str, built: dict | None = None) ->
             choice = st["the_owners_last_choice"]
             lines.append(f"- STANDS on {', '.join(frames(a, b) for a, b in st['frames'])}: **`{st['render']}`** (written {st['written']}). {st['why']}. "
                          + (f"The owner's last choice on it: \"{choice['said']}\", {str(choice['at'])[:16]}." if choice else "The owner has made no choice on it."))
+            lines += words_lines(st.get("the_owners_words") or [])
         if not e["stands"]:
             lines.append(f"- NOTHING STANDS. The table's line: `source {frames(e['first'], e['last'])} subject={e['subject']} {e['source_line']}`")
         elif e["left_as_the_source"]:
             lines.append(f"- left as the source inside this shot: {', '.join(frames(a, b) for a, b in e['left_as_the_source'])} (no render that may stand covers them)")
         for p in e["passed_over"]:
             lines.append(f"- passed over: `{p['render']}` (written {p['written']}): {p['why']}")
+            lines += words_lines(p.get("the_owners_words") or [])
         lines.append("")
     if out.get("not_in_the_shot"):
         lines += ["## Subjects the shots file says are not in a shot", "",

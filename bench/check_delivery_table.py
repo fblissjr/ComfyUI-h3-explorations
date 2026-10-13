@@ -79,7 +79,8 @@ def render(name: str, span: tuple[int, int], written: str, *, subject: str = "a"
     return {"file": f"Video/s/{name}/{name}_00001.mp4", "name": name, "written": f"2026-01-{written}T00:00:00Z", "span": list(span), "making": making,
             "subjects": [subject, *also], "records": [{"disagrees": ["the record's load is 9 frames from 1; the file holds 3"]}] if making == DISAGREES else [],
             "form": {"region": region, "reference": {"has": has, "says": "what the ledger said of the reference"}},
-            "owner": [{"at": f"2026-02-{o[0]}T00:00:00Z", "what": o[1], "said": o[2], "row": name, **({"on_the_joined_clip": o[3]} if len(o) > 3 else {})} for o in owner]}
+            "owner": [{"at": f"2026-02-{o[0]}T00:00:00Z", "what": o[1], "said": o[2], "row": name, "from": f"verdicts (answers.jsonl:{10 + n})",
+                       **({"on_the_joined_clip": o[3]} if len(o) > 3 else {})} for n, o in enumerate(owner)]}
 
 
 def ledger(*renders: dict) -> dict:
@@ -210,6 +211,31 @@ def restores() -> str:
     shared = [r["name"] for r in out["rows"] if r["first"] == 50]
     assert shared == ["b_hair", "a_face"], shared
     return "every other subject in the shot is given back, `:whole` on a face row and bare on a face and hair row; none where the subject is alone"
+
+
+def the_owners_words_are_in_the_reading() -> str:
+    """The owner asked (2026-10-13) that their typed words are read with their clicks: the reading prints them, whole,
+    under the render they are on, whether it stands or is passed over. They decide nothing."""
+    kept = render("kept", (0, 49), "09", owner=(("02", "words", "love this. great.\n\nthe other one is not replaced though, fyi."), ("03", "choice", "keep this one"),
+                                                 ("04", "words", "SAID OF A JOINED CLIP", "the joined clip")))
+    kept["owner"][0]["frame"] = 15
+    older = render("older", (0, 49), "03", owner=(("05", "choice", "not sure"), ("06", "words", "these two look similar?")))
+    out = decide(kept, older)
+    e = entry(out, 0, "a")
+    assert [s["render"] for s in e["stands"]] == ["kept"] and [w["said"] for w in e["stands"][0]["the_owners_words"]] == ["love this. great.\n\nthe other one is not replaced though, fyi."]
+    assert [w["said"] for w in e["passed_over"][0]["the_owners_words"]] == ["these two look similar?"], e["passed_over"][0]
+    text = dt.reading_text(out, "MADE", "t.txt")
+    stands_at = text.index("- STANDS on 0-49: **`kept`**")
+    words_at = text.index("  - the owner's words on it, 2026-02-02T00:00 at frame 15: love this. great. /  / the other one is not replaced though, fyi.  [verdicts (answers.jsonl:10), row kept]")
+    passed_at = text.index("- passed over: `older`")
+    assert stands_at < words_at < passed_at, "the words are not under the render they are on"
+    assert "  - the owner's words on it, 2026-02-06T00:00: these two look similar?  [verdicts (answers.jsonl:11), row older]" in text[passed_at:], text[passed_at:passed_at + 600]
+    assert "SAID OF A JOINED CLIP" not in text, "words said of a joined clip were printed as words on the render"
+    # the words decide nothing: the same renders with no words stand and are passed over the same
+    bare = decide(render("kept", (0, 49), "09", owner=(("03", "choice", "keep this one"),)), render("older", (0, 49), "03", owner=(("05", "choice", "not sure"),)))
+    assert [(s["render"], s["why"]) for s in entry(bare, 0, "a")["stands"]] == [(s["render"], s["why"]) for s in e["stands"]]
+    assert "the owner's words on it" not in dt.reading_text(bare, "MADE", "t.txt")
+    return "the owner's typed words on a render are printed whole under it in the reading, with when, the frame and where the line is; words of a joined clip are not; they decide nothing"
 
 
 def a_preference() -> str:
@@ -463,6 +489,7 @@ case("the frozen form", the_frozen_form)
 case("what never stands", what_never_stands)
 case("nothing left, and several renders on one shot", nothing_left_and_several_on_a_shot)
 case("restore: the other subjects of the shot", restores)
+case("the owner's words, under the render they are on", the_owners_words_are_in_the_reading)
 case("a preference of the lead's", a_preference)
 case("a hold of the lead's: not this one, and why", a_hold_of_the_leads)
 case("the table reads back through the assembler", the_table_reads_back)
