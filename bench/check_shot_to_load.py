@@ -15,6 +15,12 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
 4. **The plan must say what from**: a subject with no `still` or no `parts` is refused with the keys.
 5. **The preview step** writes `shot_c_<first>`, refuses one that is there, and queues only when told, on an
    empty queue.
+5b. **The first real run's fault** (2026-10-13). With the REAL `World.run`, which keeps each command's output, and
+   a stand-in for the builder that refuses a job folder that exists as the builder does: the preview builds and
+   queues, its output is kept beside the job file, and the job folder holds only what the builder made. A job
+   folder or an output folder that is there, and a file that is not the one the video's folder was made from, are
+   refused before anything is written, in a dry run as well. A seed whose cast line has an empty field is printed
+   with no hole and the empty field said to be the file's.
 6. **A load's name is made**: `<subject>_<form>_<first>`, refused when a job file, a capture or a job folder of
    any day has it, and the next free letter with `--remake`.
 7b. **A job renders from the video's present copy**, whatever copy its preview or the shots record was made on:
@@ -41,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -122,7 +129,9 @@ class Made:
             (root / d).mkdir(parents=True)
         for name in ("copy.mov", "copy_first.mov", "copy_part.mov"):
             (root / "input" / name).write_bytes(b"")
-        about = lambda name, frames: {"name": name, "bytes": 0, "frames": frames, "rate": 24.0, "size": [64, 48], "head_sha256": "made"}   # noqa: E731
+        # each file's identity as it is on disk (empty), so the builder's own hold on the file passes as it would on a real one
+        about = lambda name, frames: {"name": name, "bytes": 0, "frames": frames, "rate": 24.0, "size": [64, 48],   # noqa: E731
+                                      "head_sha256": clip_folder.head_hash(root / "input" / name) if (root / "input" / name).is_file() else "made"}
         # the video's present copy, a copy it had before on the same frame clock, and one that begins on a later frame
         clip_folder.write_manifest(root / "data/v", {"source": about("v.mp4", 260), "derived": about("copy.mov", 260), "copies_before": [
             dict(about("copy_first.mov", 200), first_source_frame=0, replaced_by="copy.mov", replaced_at="2026-01-01", why="its sound was made again"),
@@ -234,6 +243,11 @@ def a_box_in_the_cast_file_seeds() -> str:
         job = made.preview(cast_lines=lines)["job"]
         graphs.check_job(job)
         assert "a: SEEDED from the cast file" in job["note"]
+        # a cast line whose own words have an empty field (a page answer with no time on it): printed with no hole, and said
+        holed = [cast_file.entry("a", 125, cast_file.HERE, by="a person, on the page at  (lines 3-4)", box=[10, 20, 30, 40], size=[w, h], table="t.json", at="t1")]
+        note = made.preview(cast_lines=holed)["job"]["note"]
+        assert "at  (" not in note and "a person, on the page at (lines 3-4)" in note and "a field of that line is EMPTY in the cast file" in note, note
+        assert "EMPTY in the cast file" not in job["note"], "a cast line with no empty field was said to have one"
         assert all("seeds" not in s for s in made.preview()["job"]["subjects"]), "a preview with no cast file was seeded"
     return "a subject with a box in the cast file inside the shot is seeded from it, scaled to the canvas, and carries no pick_at; a box in another shot seeds nothing"
 
@@ -271,6 +285,68 @@ def the_preview_step() -> str:
         assert made.m.said("build preview")[1:] == ["bench/masked_job.py", "build", "preview", str(out), "--date", "2026-01-03"], made.m.said("build preview")
         assert made.m.said("queue preview")[1:5] == ["bench/masked_job.py", "queue", str(made.root / "data/2026-01-03_shot_c_0100_job"), "preview"]
     return "the preview's job file is written as shot_c_<first>, once; it is queued only when told, on an empty queue"
+
+
+def the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there() -> str:
+    """The fault of the first real run (2026-10-13): the tool kept a command's output under the job folder, which made
+    the folder, and the preview's builder refuses a job folder that exists. The machine here is the REAL `World.run`
+    (it keeps the output, as on a real run), and the command it runs is a stand-in for the builder that refuses as the
+    builder does. With the output kept under the job folder again, this case is red."""
+    import subprocess
+    with tempfile.TemporaryDirectory() as tmp:
+        made = Made(Path(tmp))
+        ran = []
+
+        class Real(Machine):
+            def run(self, ctx, label, argv, stop=True):
+                return lc.World.run(self, ctx, label, argv, stop)
+
+        def builder(argv, stdout=None, **more):
+            """`masked_job.py build preview JOB --date DAY` and `queue FOLDER preview`, as far as their folders go."""
+            ran.append(argv[2])
+            if argv[2] == "build":
+                job = json.loads(Path(argv[4]).read_text())["job"]
+                folder = made.root / "data" / f"{argv[6]}_{job['name']}_job"
+                if folder.exists():
+                    stdout.write(f"REFUSED: the job folder {folder} exists. A run never reuses a name: give the job a new `name`.\n")
+                    return subprocess.CompletedProcess(argv, 5)
+                folder.mkdir(parents=True)
+                (folder / "job.json").write_text(json.dumps({"job": job}))
+                stdout.write("built\n")
+            else:
+                assert Path(argv[3]).is_dir(), f"the queue was handed a job folder that is not there: {argv[3]}"
+                stdout.write("queued\n")
+            return subprocess.CompletedProcess(argv, 0)
+
+        m = Real(made.root)
+        kept, lc.subprocess.run = lc.subprocess.run, builder
+        try:
+            a = args(shots=str(made.shots_file), plan=str(made.plan_file), shot=100, folder=str(made.jobs), queue=True)
+            stl.step_preview(a, m)
+            folder = made.root / "data" / "2026-01-03_shot_c_0100_job"
+            assert ran == ["build", "queue"] and (folder / "job.json").is_file(), ran
+            # the output is kept beside the job file, and the job folder holds only what the builder put there
+            assert sorted(p.name for p in (made.jobs / "chain").iterdir()) == ["shot_c_0100.build_preview.out", "shot_c_0100.queue_preview.out"]
+            assert sorted(p.name for p in folder.iterdir()) == ["job.json"], sorted(p.name for p in folder.iterdir())
+            # held as the builder holds, BEFORE anything is written: a job folder or an output folder that is there, by name;
+            # and a dry run stops on the same refusals
+            (made.jobs / "shot_c_0100.json").unlink()
+            for dry in (False, True):
+                m.dry = dry
+                refused(lambda: stl.step_preview(a, m), "the job folder", "shot_c_0100_job exists", "never reuses a name")
+            assert not (made.jobs / "shot_c_0100.json").exists() and ran == ["build", "queue"], "a refused preview wrote its job file or ran a command"
+            m.dry = False
+            shutil.rmtree(folder)
+            (m.output / "Video/v/the session/shot_c_0100").mkdir(parents=True)
+            refused(lambda: stl.step_preview(a, m), "the output folder", "exists")
+            # a file that is not the one the video's folder was made from is the builder's refusal too
+            shutil.rmtree(m.output / "Video")
+            (made.root / "input" / "copy.mov").write_bytes(b"changed since")
+            refused(lambda: stl.step_preview(a, m), "copy.mov is not the file this folder was made from")
+        finally:
+            lc.subprocess.run = kept
+    return ("with the real run keeping each command's output, a builder that refuses a job folder that is there builds and queues the preview; the output is "
+            "beside the job file; a folder that is there, and a file that is not the video's, are refused before anything is written, in a dry run too")
 
 
 def a_loads_name_is_made() -> str:
@@ -517,6 +593,7 @@ case("the trackers' order, and who is in the shot", the_order_and_who_is_in_the_
 case("a box in the cast file seeds its tracker", a_box_in_the_cast_file_seeds)
 case("the plan says what a subject's face is taken from", the_plan_says_what_from)
 case("preview: the job file, once, queued only when told", the_preview_step)
+case("preview against a builder that refuses a folder that is there: the first real run's fault", the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there)
 case("a load's name is made, and refused when taken", a_loads_name_is_made)
 case("a load's job file stands alone", a_loads_job_file_stands_alone)
 case("a job renders from the video's present copy", a_job_renders_from_the_present_copy)

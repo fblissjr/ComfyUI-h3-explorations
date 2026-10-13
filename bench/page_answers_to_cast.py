@@ -321,7 +321,9 @@ def main() -> int:
         if not p["named"] and not p["none_of_these"]:
             print(f"no button stands: {head}; nothing stored{words}")
             continue
-        by = f"owner, on the page at {p['last_at']} ({Path(a.answers).name} lines {p['lines'][0]}-{p['lines'][-1]}), entered by page_answers_to_cast"
+        # an answer with no time on it is said so: until 2026-10-13 the line then read "on the page at  (", a hole
+        when = f"at {p['last_at']}" if p["last_at"] else "at a time the answers do not give"
+        by = f"owner, on the page {when} ({Path(a.answers).name} lines {p['lines'][0]}-{p['lines'][-1]}), entered by page_answers_to_cast"
         try:
             lines = cf.from_tile(loaded[name], name, tables[name]["first"], p["shot"], tables[name]["subjects"], p["named"], by)
         except ValueError as e:

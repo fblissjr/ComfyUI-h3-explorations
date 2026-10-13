@@ -475,18 +475,24 @@ class World:
             raise Refused(str(e)) from None
 
     def run(self, ctx: dict, label: str, argv: list[str], stop: bool = True) -> int:
-        """Run one command of a step: printed first, its output kept under the job folder, its last lines shown."""
+        """Run one command of a step: printed first, its output kept, its last lines shown.
+
+        The output is kept under the job folder (`chain/`), unless the step names another place (`ctx["logs"]`). A
+        step whose command MAKES the job folder must name one: the preview's builder refuses a job folder that
+        exists, and until 2026-10-13 keeping its output made the folder first, so the first real preview of a shot
+        was refused by the tool that ran it."""
         line = " ".join(str(a) for a in argv)
         print(f"\n--- {label}\n    {line}", flush=True)
         if self.dry:
             return 0
-        logs = ctx["job_folder"] / "chain"
+        logs = Path(ctx["logs"]) if ctx.get("logs") else ctx["job_folder"] / "chain"
         logs.mkdir(parents=True, exist_ok=True)
         log = logs / f"{ctx['name']}.{label.replace(' ', '_')}.out"
         with open(log, "w") as f:
             code = subprocess.run([str(a) for a in argv], stdout=f, stderr=subprocess.STDOUT, cwd=REPO).returncode
         tail = log.read_text().splitlines()[-4:]
-        print(f"    exit {code} at {utc_now()}; kept in {log.relative_to(REPO)}\n" + "\n".join("    | " + t[:300] for t in tail), flush=True)
+        kept = log.relative_to(REPO) if log.is_relative_to(REPO) else log
+        print(f"    exit {code} at {utc_now()}; kept in {kept}\n" + "\n".join("    | " + t[:300] for t in tail), flush=True)
         if code and stop:
             raise Refused(f"{label} did not exit 0 (exit {code}); the step stops here")
         return code

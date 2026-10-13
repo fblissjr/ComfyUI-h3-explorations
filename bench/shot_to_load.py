@@ -37,7 +37,11 @@ files and runs the two tools, from the video's own records, and leaves to a pers
 
 - `preview`: ONE preview a shot, every subject the record says is in it, a pose pass for each. Each tracker picks
   the largest person on its frame, which is a guess: the step stops there for the tiles to be looked at.
-  `--queue` builds and queues it on an empty queue; without it the two commands are printed.
+  `--queue` builds and queues it on an empty queue; without it the two commands are printed. Before anything
+  is written the job is held to the builder's refusals that write nothing (`held_as_the_builder_holds`), and
+  `--dry` stops there and says so: a dry run does NOT build the graph or queue, and the first real preview
+  found what no dry run could (2026-10-13: the tool's own log folder made the job folder the builder then
+  refused; the commands' output is kept beside the job file now).
 - `job`: one subject's load on the shot, or on the frames a look left of it (`--first`, `--frames`, with `--why`;
   the frames cut go into `left_out` with those words). The name is made here: `<subject>_<form>_<first>`, a
   letter after it for a remake (`--remake`), and one that exists is refused. The job file names its preview
@@ -123,6 +127,25 @@ def working_copy(name: str, world) -> tuple[str, Path, str]:
     return folder.name, clip_folder.find_source(present["name"], world.inputs), said
 
 
+def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
+    """A preview's job held to every refusal of the builder that writes nothing, before anything is written or
+    queued: the job block, the video's analysis folder and the file's identity, and the two folders the build
+    makes, which must not exist (`bench/masked_job.py::build`: "A run never reuses a name"). Returns those two
+    folders. What it does not do is build the graph: that is the builder's, and only a real run shows it."""
+    import masked_job
+    import masked_job_graph
+    try:
+        masked_job_graph.check_job(job)
+        masked_job.analysed(job, world.data)
+    except (ValueError, masked_job.Refused) as e:
+        raise Refused(str(e)) from None
+    folder, saves_to = masked_job.job_folder(job, day, world.data), masked_job.output_folder(job, world.output)
+    for path, what in ((folder, "job folder"), (saves_to, "output folder")):
+        if path.exists():
+            raise Refused(f"the {what} {path} exists. A run never reuses a name: a preview made again takes that folder moved aside by a person")
+    return folder, saves_to
+
+
 def shot_of(shots: dict, first: int) -> dict:
     shot = next((s for s in shots["shots"] if s["first"] == first), None)
     if shot is None:
@@ -184,7 +207,12 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
         seed = seed_of(cast_lines, label, shot, canvas)
         if seed is not None:
             one["seeds"] = seed["text"]
-            said.append(f"{label}: SEEDED from the cast file ({'; '.join(r['why'] for r in seed['shots'] if r['seed'])}), so the order does not matter for them")
+            # the cast line's own words, with no hole where one of its fields is empty: a line entered from a page answer
+            # with no time on it reads "on the page at  (" in the file, and that is said here as the file's
+            why = "; ".join(r["why"] for r in seed["shots"] if r["seed"])
+            holed = " ".join(why.split()) != why
+            said.append(f"{label}: SEEDED from the cast file ({' '.join(why.split())}"
+                        + ("; a field of that line is EMPTY in the cast file, as it reads there" if holed else "") + "), so the order does not matter for them")
         else:
             one["pick_at"], where = pick_of(shot, label)
             said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}")
@@ -299,18 +327,22 @@ def step_preview(a, world) -> None:
     print(f"{job['job']['name']}: source frames {shot['first']}-{shot['last']}; " + "; ".join(
         f"{s['label']} " + ("seeded from the cast" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
     print(job["job"]["note"])
+    folder, _ = held_as_the_builder_holds(job["job"], a.day, world)
     if world.dry:
+        print("DRY: nothing written, nothing run. The job was held to the builder's refusals that write nothing (the job block, the video's analysis "
+              "folder and the file's identity, the two folders the build makes). NOT exercised: the build of the graph itself, and the queue.")
         return
     Path(a.folder).mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(job, indent=1))
     print("wrote", out)
     build = [world.python, "bench/masked_job.py", "build", "preview", out, "--date", a.day]
-    queue = [world.python, "bench/masked_job.py", "queue", world.data / f"{a.day}_{job['job']['name']}_job", "preview", "--host", world.host, "--wait"]
+    queue = [world.python, "bench/masked_job.py", "queue", folder, "preview", "--host", world.host, "--wait"]
     if not a.queue:
         print("NOT QUEUED (no --queue). To run it, on an empty queue:\n  " + " ".join(map(str, build)) + "\n  " + " ".join(map(str, queue)))
         return
     load_chain.empty_queue(world, "a preview is queued on an empty queue")
-    ctx = {"job_folder": world.data / f"{a.day}_{job['job']['name']}_job", "name": job["job"]["name"]}
+    # the commands' output is kept beside the job file: the build makes the job folder and refuses one that is there
+    ctx = {"job_folder": folder, "name": job["job"]["name"], "logs": Path(a.folder) / "chain"}
     world.run(ctx, "build preview", build)
     world.run(ctx, "queue preview", queue)
     print("THE TILES ARE TO BE LOOKED AT before a load is built on this preview: a pick by the largest person is a guess.")

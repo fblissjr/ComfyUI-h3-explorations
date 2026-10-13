@@ -149,6 +149,13 @@ def main() -> int:
              and lead[0]["box"] == [10.0, 10.0, 50.0, 80.0], json.dumps(got))
         case("a_tile_is_stored_through_from_tile", len(second) == 1 and second[0]["answer"] == "none of the outlined people"
              and lead[0]["table"] == "pv_lead_shots_00001_shots.json", json.dumps(got))
+        # who said so and when, with no hole: an answer that carries a time is given it; one that carries none says so
+        case("the_line_says_when_the_page_was_answered", "on the page at 2026-10-12T10:00:" in lead[0]["by"] and "at  (" not in lead[0]["by"], lead[0]["by"])
+        with tempfile.TemporaryDirectory() as tmp_untimed:
+            untimed = setup(Path(tmp_untimed), [line(1, source_frame=1010, person=1, chosen="the lead", at="")])
+            r_untimed = run(untimed)
+            by = (cast_lines(untimed) or [{"by": "nothing was stored: " + r_untimed.stdout + r_untimed.stderr}])[0]["by"]
+            case("an_answer_with_no_time_is_said_so_and_leaves_no_hole", "on the page at a time the answers do not give (" in by and "at  (" not in by, by)
         case("not_sure_stores_nothing", "WAITING on the owner" in r.stdout and "frame 1150" in r.stdout
              and not any(x["frame"] == 1150 for x in got), r.stdout)
         case("words_are_printed_and_not_read", "1 is the singer, 2 is a passer-by" in r.stdout, r.stdout)
