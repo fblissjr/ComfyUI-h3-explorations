@@ -17,6 +17,110 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-13
 
+*The entries from here to the next note were written by the afternoon's lead
+session (mrpin) from the morning lead's files (`internal/` notes and handoff,
+untracked), the Open List's inbox notes `owner_terminal_2026-10-13T*`, and
+the commits. The owner's words were taken down by the morning's lead (mrfit);
+the inbox note or commit named is the nearer record.*
+
+- **A piece is laid only from its own build record, and a clip from before
+  the 12th is an example, never a piece** (the owner, 2026-10-13, in the
+  lead's terminal: the inbox notes of 13:36Z and 13:39Z; with them, that
+  "not possible" is not an answer where an earlier day did the thing, and
+  that the whole of the source video is the aim, every shot a piece once
+  through the builder). A render with no build record, one whose queue
+  record names no file, or one whose file disagrees with its record is not
+  laid and is rendered again. What it replaces: the joined clip of the 12th
+  laid the 10th's pieces wherever the 12th had none, and held stretches as
+  the source on sessions' readings. Where it lives now: step 3 of the rule
+  in `bench/delivery_table.py`, and the render ledger's `MAKING` column
+  (`bench/render_ledger.py`). What it costs on playback is the Open List's
+  row 22: the lead's face is the source again wherever only a 10th piece
+  existed.
+- **The delivery table is generated from records, never typed** (the
+  morning lead's brief to the tooling session, at the owner's ask of 13:16Z
+  for a clip that is "the manifest's pieces and nothing scraped from
+  folders"; `bench/delivery_table.py`, 33860bc5 and after). Which render
+  stands on a shot is one stated rule: the lead's `--prefer` with a printed
+  reason; the owner's keep; else the newest render in the frozen form whose
+  file agrees with its record. The afternoon lead's rulings on it, each in
+  the tool: a render the owner's last choice says is not the one does not
+  stand and cannot be preferred (e09baaec); the page's own positive button
+  is a keep (dc454c17); the plain cut stands as the form's exception with
+  its reason handed in by `--prefer`, since no record holds why a load took
+  it. What it replaces: a table typed at the end of a day from memory of
+  which render was the good one.
+- **One working copy of the whole video, one clock** (the morning lead,
+  2026-10-13, after the owner's 13:39Z note; the copy and its record are
+  beside each other under the server's input folder, `fun_0000_6394_24p`).
+  `data/fun/manifest.json` names it since 15:18Z and `data/fun/shots.json`
+  is the two halves merged (its `span` and `written_by` say how; the first
+  half is kept as `shots_0000_1919.json`). What it replaces: two part
+  copies, the second on an offset clock.
+- **A load's masks sat on the wrong frames when the load began after its
+  preview, and a look read the symptom as the picture's** (found by the
+  tooling session, mrolaf, 14:34Z, measured against the preview's own track
+  video). The session scripts that ran every load of the 12th and 13th
+  passed the load's own first frame as `at=` on each `--mask`; `at=` is the
+  source frame the mask FILE begins on (`bench/capture_masked_run.py`'s
+  docstring). It is right only when a load begins where its preview does.
+  Two builds of the third subject's middle shot had every mask early by the
+  gap between the load's first frame and the preview's; a blind reader then
+  saw the part sitting on his shoulder and arm on the load's first frames,
+  and the load was cut to start later, which made the offset larger.
+  Nothing was rendered on either (their folders carry `SUPERSEDED.txt`).
+  What it used to claim: the morning's notes and the job file of the second
+  build said the first frames were cut "after the blind reader's second
+  look"; that look was of shifted masks and the cut is void. Where it lives
+  now: `verify` fails a sighting whose `at` is not its preview's job's
+  first frame and names by which it could not check (75d20ec4); the load
+  chain reads `at` from the preview's own job, so it is not typed
+  (`bench/load_chain.py`). The load as rendered is `third_fp_1310c`, its
+  note saying which look its frames rest on.
+- **The strip's movement panel never cropped the reference** (the tooling
+  session, 14:13Z, measured on a strip of the day; 1d946fd1). What it used
+  to claim: the morning's handoff and its draft for this page said the
+  panel "crops the 4:3 reference to a near-square" and had misled two
+  readers. The tile was always the whole frame, fitted and padded; a
+  reference on a black ground has no edge to see on a black panel, and a
+  head crop cuts its figure at the reference's own edge. The tile's outline
+  is now drawn and its heading says it is the whole frame.
+- **One load from its preview to the page is one tracked tool, and the job
+  file is the record a load is made again from** (the afternoon lead's
+  rulings to the tooling session, 14:32Z and 14:51Z; `bench/load_chain.py`,
+  c4c71d32; `bench/shot_to_load.py`, c7cc24e4). What a load depends on is a
+  key in its job file or a named file it points at (`job.preview`, the mask
+  options, the form of its reference and why); a fact of the video lives
+  with the video (the voice tables in its manifest; each subject's still
+  and part ticks in `data/<video>/plan.json`, so a reference picture
+  changes in one line); a fact of the machine is an environment key
+  (`H3_MODEL_STORE`). The drawn form is the default and the plain cut is
+  taken only on a person's word with its reason; the tool prints the face
+  and lash-line figures and decides nothing from them. A head reference is
+  made on the load's own frames and belongs to a shot, a subject and a
+  span, never to a load's name. One preview a shot, every subject present.
+  The go for a render is a file beside the job file, which is not edited
+  after its plan is built. What it replaces: four session scripts copied
+  from session to session with the name changed, thirteen positional
+  arguments each; three different things having decided drawn points or
+  the plain cut; a reference made over a whole shot before a look cut the
+  load.
+- **The third subject's face-only loads, and what goes with a face** (the
+  morning lead built them on the owner's rulings of the 11th and 12th; the
+  blind readings are beside each capture, `reading_blind.md`). His region
+  is the part model's face and neck, so his beard, moustache and the fringe
+  over his forehead are replaced with the still's face. What it used to
+  claim: each render's page item said his beard was the original's;
+  corrected on the page from the readings. Whether that stands is the
+  owner's (the Open List's row 23).
+- **The afternoon's lead is an Opus session working from files** (the
+  owner, 2026-10-13, about 14:05Z in the morning lead's terminal, to keep
+  that session's context; the handoff is in `internal/`). The tooling
+  session reports to the afternoon's lead from then.
+
+*The entries below were written by the tooling session (mrolaf) with its
+commits.*
+
 - **No zoomed preview stage is built: one run said enlarging the picture
   changes nothing the part model reads** (the lead's go for the run,
   2026-10-13; the tooling session ran it). `next_steps.md` had said since
