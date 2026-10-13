@@ -75,9 +75,8 @@ cannot see, and the table's hash as a fingerprint a capture can name.
   a run sung through is one phrase. The levels are in the table for a reader who would cut otherwise.
 - **Item 2, a beat grid** (`beats`): the tempo, its three strongest candidates, how much stronger the onset
   curve is on the beats than off them, and the tempo in each stretch, so a tempo that moves shows as a spread.
-  NO DOWNBEAT: a bar's first beat needs a trained model that is not here; the record gives the low band's
-  level on each of the four ways of counting in fours, as figures. With `--shots`, the record's cuts against
-  the grid, once, beside what chance would give.
+  NO DOWNBEAT and no count in fours: a bar's first beat needs a trained model that is not here. With
+  `--shots`, the record's cuts against the grid, once, beside what chance would give.
 - **Item 5, the sound's offset** (`offset`): the first sound packet against the first picture, as the
   container has it, a figure a copy. It cannot see priming samples or an edit list.
 - **A reader's print** (`at`): for a load's first and last frame, the run and the phrase each falls in with
@@ -85,9 +84,37 @@ cannot see, and the table's hash as a fingerprint a capture can name.
   phrase's start or the beat before and whether that is inside the same shot, and how far the phrase runs
   past the load's end. Printed, never stored, and it says nothing about where an edge should be.
 
-**The first real run is a throwaway**, read end to end by a session that did not write the tool before
-anything of it is called made (the lane's rule for a new tool); the figures a real clip gave are in that
-run's records and its reader's words, not here.
+**The first real run was a throwaway and was read twice** by sessions that did not write the tool: the morning's
+lead against this page's standard, and a blind reader who measured the same sound its own way first
+(`reader_first_run/reading.md` in the clip's audio folder, with the script behind every figure). What held: the
+tempo and the grid (the reader's own grid has the same period, and the tool's beats sit on its hits), and the
+offset on the file's own timestamps and edit lists. What was the tool's fault, and is mended in the same day's
+second commit, each with a case seen red:
+
+- the vocal level was read from the two channels' MEAN, which reads low wherever they differ; it is now the
+  power of both channels. The voice table's own level is still of the mean, and its record of that is a row;
+- a beat's time and the per-frame onset column were half a window apart; they are on one clock;
+- a place was rounded up onto the next frame; it is cut, never rounded up;
+- the tracker lays beats before a pulse starts and after it stops; every beat now carries its own strength
+  against the middle beat's and the frames since the beat before, and the record says where the steady run
+  begins and ends, by two settings that are starting values from that one reading;
+- the count in fours is gone: nothing supported it;
+- what the first reading took for a half tempo was a hit of another band half-way between every pair of beats.
+  Where the curve is also like itself at half the period, the place half-way is written beside the grid with
+  the curve's strength there, as a place half-way and never as a beat; where it is as like itself two beats on,
+  the record says every other beat may be the pulse and gives both ways' strength;
+- `at` prints what lies inside a load as well: the phrases that start or end there, the beats, the half-way
+  places, each with its place in the load.
+
+**It is still not called made.** The run is made again as a second throwaway and read again before a load's
+details or the plan strip read any of it.
+
+**Not built, and written down so that it is not rediscovered:** a phrase break found by the fall of the level
+against the sung level round it. The blind reader did this by hand (a dip a fixed depth under the level of the
+singing near it, for half a frame or more) and found dips of several frames inside phrases the line passes over,
+one of them inside a "phrase" a whole voiced run long. How deep and how long such a fall must be to be a break
+between two sung lines is a setting for the owner's ear, on more than one track; the step levels it needs are in
+the table.
 
 **Not built:** the vocal contour's pitch track (item 4; the level is in the phrases table); every picture
 item (3, 6, 7, 8, 9); the figures in a load's own details and on the plan strip, which change the chain's
@@ -98,3 +125,49 @@ signals' fingerprints.
 
 The held tail is where a phrase that runs past a load's end goes wrong. Items 1 and 8 printed for the frames
 just after the load's end tell the planner whether the buffer belongs after the load rather than before it.
+
+## The first run read, and the fixes (2026-10-13, the evening)
+
+The throwaway first run of `bench/clip_signals.py` on this video's two stems was read by two readers who did
+not write it (the morning's lead from the records and the printout; the evening lead's blind reader against
+the sound itself, with a beat grid of its own built from hits it picked). What they found, and the fix for each,
+in the order the fixes are made; every fix is held by a synthetic control in `bench/check_clip_signals.py`,
+seen red first. Nothing here is called made until the run is made again and read again by a session that did
+not write the tool, before any job reads the tables.
+
+1. **The vocal level was read from the two channels averaged as waveforms**, which cancels whatever differs
+   between them in phase, so the stem reads low exactly where it is widest; 10 of the run's 35 phrase breaks
+   did not hold when the channels were read properly. FIX: the power of each channel on its own, the larger
+   kept (or the powers summed), never the mean of the waveforms. CONTROL: a stereo tone with its channels out
+   of phase reads as the tone's level, not as silence.
+2. **A break the level does not cross the voiced line is invisible** (the tool finds gaps under the line only),
+   so a breath inside the phrase 1388-1537 at about 1467-1478 was missed and the printout said the phrase ran
+   96 frames past a load's end where the dip is about 25 after it. FIX, as data and not as a cut: a `dip`
+   table beside the phrases, every frame's level against a local reference (the running maximum over about a
+   second each side) and every dip listed with its frames, its depth in decibels and its length, down to a
+   stated floor and with no threshold that acts; and one more column on the vocals stem, an onset strength
+   (spectral flux), since a phrase that begins after a breath shows as a spike where the level barely moves.
+   The relative-level cut a reader makes by ear is then a reading of this table, not a setting in the tool.
+   CONTROL: a tone with a known six-decibel dip of ten frames above the line appears in the dips table at those
+   frames and that depth; a gap of two frames under `BREAK` does not split a phrase and one of three does.
+3. **Two clocks in one table** (the rows at the source's rate, a beat column at the copy's). FIX: one rate a
+   table, the source's own, rows as source frames; the copies keep the frame index through the retime, so the
+   same row serves them. CONTROL: a click track's beat column reads the same frames read at either rate.
+4. **The tempo is right**: the reader's own grid gave the same period to a hundredth of a frame and 260 of the
+   tool's 266 beats sit on it; what read as a double tempo is a low hit half-way between beats that the tool
+   does not record. FIX: a column of the hits between the beats (the low band's onsets off the grid), not a
+   doubled tempo; the candidates stay in the record. CONTROL: a click track with a softer click between each
+   pair keeps its tempo and lists the between-hits.
+5. **Beats placed before the music's pulse starts and after it ends.** FIX: the grid capped to the span where
+   the onset curve rises above its own floor, the span said in the record, rows outside it empty. CONTROL: a
+   click track with silence at both ends has no beat row in the silence.
+6. **Two rows print a beat on the next frame** (a beat at 1419.08 printed under 1420). FIX: the floor of the
+   fractional frame is the row, the fraction kept beside it, the same rule in the `at` print.
+7. **The `at` print** gains the phrase and beat boundaries inside a load, between its first and last frame, not
+   only at its edges; and the offset record's `cannot_see` says that the encoder's lead-in is unseen, so the
+   2026-10-10 note that the sound starts a fraction of a frame early is neither confirmed nor refuted by it.
+   The offset is confirmed at 0.0 on every copy on the files' own timestamps.
+
+What the second reading then needs from the owner, once: the dips table on 1388-1537 against their ear on
+1467-1478, and two of the ten breaks that did not hold. If the table lists the breath they hear at the depth it
+shows, the phrase signal is data a job can print without anyone's ear inside the tool.
