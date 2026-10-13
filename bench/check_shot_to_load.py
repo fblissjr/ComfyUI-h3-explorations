@@ -16,7 +16,9 @@ builder's own `check_job`, and a load's to `masked_job.loads_of`, so a file the 
    that.
 4. **The plan must say what from**: a subject with no `still` or no `parts` is refused with the keys.
 5. **The preview step** writes `shot_c_<first>`, refuses one that is there, and queues only when told, on an
-   empty queue.
+   empty queue. MADE AGAIN (`--remake`) it takes the next free letter, `shot_c_<first>b`, past a job file here
+   and a job folder of any day; its tables are named by its own name in its own folder, and nothing of the
+   earlier preview is touched.
 5b. **The first real run's fault** (2026-10-13). With the REAL `World.run`, which keeps each command's output, and
    a stand-in for the builder that refuses a job folder that exists as the builder does: the preview builds and
    queues, its output is kept beside the job file, and the job folder holds only what the builder made. A job
@@ -306,7 +308,27 @@ def the_preview_step() -> str:
         assert made.m.labels() == ["build preview", "queue preview"], made.m.labels()
         assert made.m.said("build preview")[1:] == ["bench/masked_job.py", "build", "preview", str(out), "--date", "2026-01-03"], made.m.said("build preview")
         assert made.m.said("queue preview")[1:5] == ["bench/masked_job.py", "queue", str(made.root / "data/2026-01-03_shot_c_0100_job"), "preview"]
-    return "the preview's job file is written as shot_c_<first>, once; it is queued only when told, on an empty queue"
+        # A PREVIEW MADE AGAIN takes the next free letter and leaves the earlier one as it is (2026-10-13: forty-two previews
+        # were to be made again from the owner's answers, each under a name whose job folder was there)
+        (made.root / "data/2026-01-03_shot_c_0100_job").mkdir()
+        refused(lambda: stl.step_preview(a, made.m), "shot_c_0100.json exists", "--remake", "leaves the earlier one as it is")
+        out.unlink()                                             # the job file gone and its job folder there: the builder's own refusal
+        refused(lambda: stl.step_preview(a, made.m), "the job folder", "exists", "--remake")
+        made.m.ran.clear()
+        a.remake = True
+        stl.step_preview(a, made.m)
+        again = json.loads((made.jobs / "shot_c_0100b.json").read_text())["job"]
+        graphs.check_job(again)
+        assert again["name"] == "shot_c_0100b" and "THIS IS A PREVIEW MADE AGAIN: shot_c_0100b, after shot_c_0100" in again["note"], again["note"]
+        assert made.m.said("queue preview")[3] == str(made.root / "data/2026-01-03_shot_c_0100b_job"), made.m.said("queue preview")
+        # its tables are its own name's, in its own folder: what the who page and the cast step are handed as a pair
+        assert masked_job.expected_files(again)["a"]["shots"].startswith("Video/v/the session/shot_c_0100b/shot_c_0100b_a_shots_"), masked_job.expected_files(again)["a"]
+        (made.root / "data/2025-12-30_shot_c_0100c_job").mkdir()      # a job folder of another day holds the next letter
+        stl.step_preview(a, made.m)
+        assert (made.jobs / "shot_c_0100d.json").is_file() and not (made.jobs / "shot_c_0100c.json").exists(), sorted(p.name for p in made.jobs.iterdir())
+        assert sorted(p.name for p in (made.root / "data").glob("*shot_c_0100*")) == ["2025-12-30_shot_c_0100c_job", "2026-01-03_shot_c_0100_job"], "an earlier folder was touched"
+    return ("the preview's job file is written as shot_c_<first>, once; it is queued only when told, on an empty queue; made again it takes the next free "
+            "letter, with the earlier preview's files as they were")
 
 
 def the_preview_step_against_a_builder_that_refuses_a_folder_that_is_there() -> str:

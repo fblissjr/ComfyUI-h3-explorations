@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """From a shot to a load's job file: the preview of the shot, the load's job, its head reference. Then it stops for the text.
 
-    <python> bench/shot_to_load.py preview --shots SHOTS.json --plan PLAN.json --shot FIRST --folder INPUTS --by SESSION [--cast CAST.jsonl] [--queue]
-        (somebody looks at the trackers' tiles; a wrong pick is a person's line in the shots record, and the preview is made again)
+    <python> bench/shot_to_load.py preview --shots SHOTS.json --plan PLAN.json --shot FIRST --folder INPUTS --by SESSION [--cast CAST.jsonl] [--queue] [--remake]
+        (somebody looks at the trackers' tiles; a wrong pick is a person's line in the shots record or a box in the cast
+        file, and the preview is made again with --remake, under the next letter)
     <python> bench/shot_to_load.py job --shots SHOTS.json --plan PLAN.json --shot FIRST --subject LABEL --preview PREVIEW_JOB_FOLDER \\
         --folder INPUTS --by SESSION [--first F --frames N --why "what a look cut"] [--remake]
     <python> bench/shot_to_load.py reference JOB.json --by SESSION [--plain "why"] [--model-store FOLDER] [--existing]
@@ -45,7 +46,11 @@ files and runs the two tools, from the video's own records, and leaves to a pers
   is written the job is held to the builder's refusals that write nothing (`held_as_the_builder_holds`), and
   `--dry` stops there and says so: a dry run does NOT build the graph or queue, and the first real preview
   found what no dry run could (2026-10-13: the tool's own log folder made the job folder the builder then
-  refused; the commands' output is kept beside the job file now).
+  refused; the commands' output is kept beside the job file now). The name is `shot_c_<first>`, and one that a
+  job file here or a job folder of any day has is refused. A PREVIEW MADE AGAIN (the picks corrected, or the
+  owner's answers on the who page now boxes in the cast file) takes `--remake`: the next free letter after the
+  name, `shot_c_<first>b`, as a load made again does. Nothing of the earlier preview is moved, replaced or read;
+  the load's `job` step is handed the preview it is built on by its folder, so which one stands is said there.
 - `job`: one subject's load on the shot, or on the frames a look left of it (`--first`, `--frames`, with `--why`;
   the frames cut go into `left_out` with those words). The name is made here: `<subject>_<form>_<first>`, a
   letter after it for a remake (`--remake`), and one that exists is refused. The job file names its preview
@@ -156,7 +161,7 @@ def held_as_the_builder_holds(job: dict, day: str, world) -> tuple[Path, Path]:
     folder, saves_to = masked_job.job_folder(job, day, world.data), masked_job.output_folder(job, world.output)
     for path, what in ((folder, "job folder"), (saves_to, "output folder")):
         if path.exists():
-            raise Refused(f"the {what} {path} exists. A run never reuses a name: a preview made again takes that folder moved aside by a person")
+            raise Refused(f"the {what} {path} exists. A run never reuses a name: a preview made again takes --remake, which gives it the next free letter")
     return folder, saves_to
 
 
@@ -238,8 +243,9 @@ def seed_of(cast_lines: list[dict] | None, label: str, shot: dict, canvas) -> di
     return got if got["text"] else None
 
 
-def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "") -> dict:
-    """The job file of one shot's preview: every subject the record says is in it, a pose pass for each."""
+def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by: str, cast_lines=None, now: str = "", name: str = "") -> dict:
+    """The job file of one shot's preview: every subject the record says is in it, a pose pass for each. `name` is
+    the preview's, `shot_c_<first>` when left out; a preview made again is handed its lettered name."""
     import h3_config
     present = [k for k in shots["subjects"] if shot["who"][k]["present"] == "yes"]
     if not present:
@@ -267,13 +273,19 @@ def preview_job(shots: dict, plan: dict, shot: dict, video: str, source: str, by
             said.append(f"{label}: the {PICK} person on frame {one['pick_at']}, {where}")
         subjects.append(one)
     frames = shot["last"] - shot["first"] + 1
-    name = f"shot_c_{shot['first']:04d}"
+    base = preview_name(shot)
+    name = name or base
     note = (f"Written by bench/shot_to_load.py for {by}, {now}. THE PREVIEW OF ONE SHOT, source frames {shot['first']} to {shot['last']} ({frames} frames): "
             f"every subject the shots record says is in it, a pose pass for each, nothing sampled. THE TRACKERS RUN IN THIS ORDER: {', '.join(order)} "
             f"({order_from}). THE PICKS: {'; '.join(said)}. A pick by the largest person is a guess: the tiles are looked at before anything is built on this "
-            f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again.")
+            f"preview, and a wrong pick is corrected in the shots record (the shot's `order`, or a frame for the subject) and the preview made again."
+            + (f" THIS IS A PREVIEW MADE AGAIN: {name}, after {base} or a letter before it, which stand as they were made and are not read here." if name != base else ""))
     return {"job": {"name": name, "note": note, "source": source, "first": shot["first"], "frames": frames, "canvas": canvas,
                     "output": OUTPUT_KEY.format(video=video, session=by), "subjects": subjects, "left_out": [], "texts": {}}, "defaults": {}, "loads": []}
+
+
+def preview_name(shot: dict) -> str:
+    return f"shot_c_{shot['first']:04d}"
 
 
 def free_name(base: str, taken, remake: bool) -> str:
@@ -378,11 +390,17 @@ def step_preview(a, world) -> None:
     if a.cast:
         import cast_file
         cast = cast_file.read(a.cast)
-    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now())
+    name = preview_name(shot)
+    if a.remake:
+        # a name is taken by a job file in this folder and by a job folder of any day, as a load's is
+        taken = lambda n: (Path(a.folder) / f"{n}.json").exists() or any(world.data.glob(f"????-??-??_{n}_job"))   # noqa: E731
+        name = free_name(name, taken, True)
+    job = preview_job(shots, plan, shot, video, str(source), a.by, cast, load_chain.utc_now(), name=name)
     job["job"]["note"] += earlier.replace("MADE ON AN EARLIER COPY", "THE SHOTS RECORD NAMES AN EARLIER COPY")
     out = Path(a.folder) / f"{job['job']['name']}.json"
     if out.exists():
-        raise Refused(f"{out} exists: a preview made again takes a shot's record changed first, and its job file moved aside by a person")
+        raise Refused(f"{out} exists: a preview of this shot was made under that name. A preview made again (a pick corrected in the shots record, "
+                      "or a box now in the cast file) takes --remake, which gives it the next free letter and leaves the earlier one as it is")
     print(f"{job['job']['name']}: source frames {shot['first']}-{shot['last']}; " + "; ".join(
         f"{s['label']} " + ("seeded from the cast (its `pick` decides nothing)" if "seeds" in s else f"picked on {s['pick_at']}") for s in job["job"]["subjects"]))
     print(job["job"]["note"])
@@ -554,6 +572,7 @@ def main() -> int:
         s.add_argument("--day", default=today, help="the day in the names of the job's folders; today when left out")
     sub.choices["preview"].add_argument("--cast", help="the cast file: a subject with an answer inside the shot is seeded from it")
     sub.choices["preview"].add_argument("--queue", action="store_true", help="build and queue the preview, on an empty queue")
+    sub.choices["preview"].add_argument("--remake", action="store_true", help="the next free letter after the name, for a preview made again; the earlier one stands")
     j = sub.choices["job"]
     j.add_argument("--subject", required=True)
     j.add_argument("--preview", required=True, help="the job folder of the shot's preview")
