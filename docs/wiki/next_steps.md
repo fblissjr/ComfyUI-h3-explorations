@@ -425,6 +425,29 @@ fixed the same day, said inline below.**
     frames, a zoom enlarges those pixels and is "not a sharper
     picture"; whether a job can hand the node the clip's own frames
     has not been read.
+- **The shots record calls 5935-6394 one shot, and the tracker cut it
+  into twenty-five** (2026-10-13, from the who page of the previews of
+  1920-6394). The record's shots of that half are from scene scores of
+  the copy (`cuts_from` in `data/fun/shots.json`); the preview of that
+  shot (`shot_c_5935`, the lead's table) holds the tracker's own cuts.
+  - *What the table says.* Fifteen of the twenty-five are one frame
+    long; seven are as long as the shortest load the song node takes
+    (`bench/masked_job.py::shortest_load`) or longer, and hold nearly
+    all of the stretch. The tracker has the lead on some of the long
+    ones and on others not.
+  - *What it did to the who page.* The page shows one picture a shot,
+    the one with the most people outlined, and here that was a one-frame
+    cut on which the tracker holds nobody. The owner answered on it and
+    said in words that they could not tell whose a number was. An answer
+    on that frame, a box or not, speaks for one frame.
+  - *What is not known.* Whether the tracker's cuts are real cuts (a
+    strobe, a flash, a fast edit) or its own trouble with the picture.
+    Nobody has looked at them as cuts. Whether the record should be
+    split is a person's ruling after that look; a split changes which
+    frames a preview, a load and an answer are of.
+  - *Until then.* No seed work on that stretch from the one answer. A
+    page of the stretch with one picture a long cut is the way the
+    owner offered to help, and is listed with the lead.
 - **The owner's typed words on the shots of 1920-6394 are in no
   shot's note** (2026-10-13; a row, waiting on a read). The owner asked
   that day that their free-text words are read with their clicks.
