@@ -17,6 +17,23 @@ Older history lives elsewhere and is not copied here:
 
 ## 2026-10-13
 
+- **No zoomed preview stage is built: one run said enlarging the picture
+  changes nothing the part model reads** (the lead's go for the run,
+  2026-10-13; the tooling session ran it). `next_steps.md` had said since
+  2026-10-12 that the preview stage "has no zoom", that the part model
+  "at whole-frame size calls her hands face from about 1025" on
+  1010-1038, and that a preview "run on an enlarged picture of the
+  subject, with every table mapped back to the frame's coordinates, is a
+  tool to write". The premise did not hold against the code: the part
+  model, the body model and the pose pass each already crop to the
+  subject and resize to their own input. And it did not hold against a
+  run: the same preview on those 29 frames cut to a box round the second
+  subject and enlarged twice reads the face class over the same area
+  (`data/2026-10-13_second_cz_1010/`, the reading and its two tables).
+  By a session's look at five frames, her face does not show from about
+  1025: the part there is her hands. `next_steps.md` is corrected. What
+  the run does not cover is said there.
+
 - **A load rendered zoomed in takes a wired motion video, as it is wired**
   (the owner's yes on the Open List's row p04, 2026-10-12 17:05Z, "the
   zoomed load that keeps its motion video: build it next"; built

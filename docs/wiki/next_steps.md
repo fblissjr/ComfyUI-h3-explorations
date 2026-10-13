@@ -282,16 +282,26 @@ fixed the same day, said inline below.**
   zoomed load takes a `motion_file` it names and the node hands that video
   on uncut (`video_mask.zoomed_source`; [`masked_v2v.md`](masked_v2v.md),
   "A small subject, rendered zoomed in"). The preview's own whole-frame
-  body model stays refused on a zoomed load. NOT built: the next
-  sentence's tool, so 1010-1038 is not unblocked by this alone.
-  Part of that change, found 2026-10-12 about 18:00Z: the preview stage
-  (tracker, part model, class map, pose, body model) has no zoom; on
-  1010-1038 the part model at whole-frame size calls her hands face from
-  about 1025 (`data/2026-10-12_second_c_1010/subjects/second/segments.csv`),
-  so a zoomed render alone cannot separate them. The preview run on an
-  enlarged picture of the subject, with every table mapped back to the
-  frame's coordinates, is a tool to write with that change; a cropped
-  copy as its own clip would leave the tables in the crop's coordinates.
+  body model stays refused on a zoomed load.
+  **The zoomed preview stage is NOT to be built on what was known**
+  (2026-10-13, one run at the lead's go; this paragraph used to say the
+  preview stage "has no zoom", that on 1010-1038 the part model "at
+  whole-frame size calls her hands face from about 1025", and that the
+  preview run on an enlarged picture with its tables mapped back "is a
+  tool to write"). Two things were wrong in it. Every model of the
+  preview but the tracker already works on a crop of the subject resized
+  to its own input (`sapiens2_parts.take_crops`; `body_pose.py`;
+  `bench/pose_along_shot.py` takes a box), so enlarging the picture first
+  hands them the same pixels. And the run says so: the same preview on
+  those frames cut to a box round her and enlarged twice gives the face
+  class the same area and the hands as little as before
+  (`data/2026-10-13_second_cz_1010/READING_mrolaf.md` and the two tables
+  beside it). In a look at five frames of the cut, from about 1025 her
+  head is bowed and no face shows: what is called face is her hands under
+  her hair. That stretch needs a decision (the source, or her whole
+  person), not a tool. Not tested by it: a shot where a small face does
+  show, a box round the head alone, the source's pixels without the
+  canvas's reduction.
   The plan of a zoomed load (`render_region: part`) is cheap today and
   says the box the node would take; it was run on 1010-1038 as
   `second_hf_1010_z` (mrhorn).
