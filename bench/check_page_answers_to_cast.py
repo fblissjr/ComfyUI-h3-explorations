@@ -21,6 +21,8 @@ only worth having if what it stores is what the owner last said, once, through t
                                              STORED, whole, and the tiles after it are stored
   a_tile_that_cannot_be_read_leaves_the_cast_as_it_was every tile is read before any is written: a refusal on a later tile
                                              stores nothing of an earlier one
+  a_span_leaves_the_tiles_outside_it         with --span, a tile of an older preview outside it is counted and left where it would
+                                             stop the run; inside the span a table no preview holds is still refused
   not_outlined_alone_is_stored_for_that_subject  on a numbered picture, `on this frame, not outlined` with no number clicked is a
                                              cast line `none of the outlined people` with no box, and `not on this frame` the same
   a_subject_nobody_clicked_for_gets_no_line  on a tile asked of the subjects, the job's other subject is printed NOT ANSWERED
@@ -87,8 +89,8 @@ def setup(folder: Path, lines: list[dict]) -> dict:
     return {"answers": ans, "cast": folder / "cast.jsonl", "preview": f"{job}={tables}"}
 
 
-def run(p: dict, dry=False) -> subprocess.CompletedProcess:
-    cmd = [sys.executable, str(TOOL), "--answers", str(p["answers"]), "--cast", str(p["cast"]), "--preview", p["preview"]]
+def run(p: dict, dry=False, *more: str) -> subprocess.CompletedProcess:
+    cmd = [sys.executable, str(TOOL), "--answers", str(p["answers"]), "--cast", str(p["cast"]), "--preview", p["preview"], *more]
     if dry:
         cmd.append("--dry-run")
     return subprocess.run(cmd, capture_output=True, text=True)
@@ -227,6 +229,21 @@ def main() -> int:
         r = run(p5)
         case("a_tile_that_cannot_be_read_leaves_the_cast_as_it_was", r.returncode != 0 and "no shot shows source frame 1042" in r.stdout + r.stderr
              and not cast_lines(p5), r.stdout + r.stderr + json.dumps(cast_lines(p5)))
+
+        f14 = Path(tempfile.mkdtemp(dir=d))
+        older = "older_lead_shots_00001_shots.json"                      # a table of a preview this run does not name
+        p14 = setup(f14, [line(1, source_frame=500, subject="lead", chosen="1", table=older),
+                          line(2, source_frame=1010, subject="lead", chosen="1")])
+        r_all = run(p14)
+        r_in = run(p14, False, "--span", "1000-1199")
+        with open(p14["answers"], "a") as f:
+            f.write(json.dumps(line(3, source_frame=1150, subject="lead", chosen="1", table=older)) + "\n")
+        r_bad = run(p14, False, "--span", "1000-1199")
+        case("a_span_leaves_the_tiles_outside_it", r_all.returncode != 0 and "no --preview holds this table" in r_all.stdout + r_all.stderr
+             and r_in.returncode == 0 and "outside --span 1000-1199, not read: 1 tile(s)" in r_in.stdout and "stored 1 tile(s)" in r_in.stdout
+             and [x["frame"] for x in cast_lines(p14)] == [1010]
+             and r_bad.returncode != 0 and f"{older}: no --preview holds this table" in r_bad.stdout + r_bad.stderr,
+             r_all.stdout + r_all.stderr + r_in.stdout + r_in.stderr + r_bad.stdout + r_bad.stderr)
 
         f12 = Path(tempfile.mkdtemp(dir=d))
         p12 = setup(f12, [line(1, source_frame=1010, subject="second", chosen="not outlined"),

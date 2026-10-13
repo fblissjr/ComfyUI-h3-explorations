@@ -2,7 +2,7 @@
 """The owner's answers on the review page's numbered pictures, taken into the video's cast file through `bench/cast_file.py`.
 
     <python> bench/page_answers_to_cast.py --answers data/<stem>/poc/answers.jsonl --cast data/<stem>/cast/cast.jsonl \\
-        [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--dry-run]
+        [--preview JOB.json=TABLES_DIR ...] [--shots data/<stem>/shots.json ...] [--span FIRST-LAST] [--dry-run]
 
 A numbered picture's tile goes into the cast file; a plain frame's answer goes into a shots record (`--shots`).
 
@@ -43,6 +43,12 @@ frame no shot shows, is refused by name. Every tile is read before any is writte
 cast file as it was (until 2026-10-13 it came after the tiles before it had been appended). A click naming a
 subject the tile's job does not track (a page made before `who_page.py` asked only about a job's subjects) is
 not a reason to stop: that tile is printed as NOT STORED, whole, and the run goes on.
+
+**A span.** One answers file holds every page's clicks of a video, and a run names the previews of one stretch.
+`--span FIRST-LAST` reads only the tiles whose source frame is inside it; the others are counted and left, as a run
+with no `--preview` leaves the numbered pictures. Inside the span a table no `--preview` holds is still refused by
+name. Without it, the first tile of an older preview stops the run before one of today's is read (2026-10-13: the
+answers of the 12th's previews sort first, and the run for the 13th's forty-two stopped on line 130).
 
 **A plain frame** (the who page's tile of the source itself, where no tracker outlined anybody, and a long shot's
 quarter frames: table `plain`, no person's number). The owner says of each subject `on this frame, not outlined`
@@ -289,8 +295,15 @@ def main() -> int:
     ap.add_argument("--preview", action="append", default=[], metavar="JOB.json=TABLES_DIR")
     ap.add_argument("--shots", action="append", default=[], metavar="SHOTS.json",
                     help="the video's shots record; a plain frame's answers are taken into it and into the cast file")
+    ap.add_argument("--span", metavar="FIRST-LAST", help="only the tiles whose source frame is inside; the others are counted and left")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    span = None
+    if a.span:
+        lo, _, hi = a.span.partition("-")
+        if not (lo.isdigit() and hi.isdigit()) or int(lo) > int(hi):
+            ap.error(f"--span {a.span!r}: write FIRST-LAST, two source frames, as in 1920-6394")
+        span = (int(lo), int(hi))
     if not a.preview and not a.shots:
         ap.error("give a --preview (the numbered pictures' tiles), a --shots (the plain frames'), or both")
     cf = _cast_file()
@@ -303,7 +316,7 @@ def main() -> int:
     left_out = [(n, d.get("who")) for n, d in answers if d.get("row") in WHO_ROWS and d.get("who") != "owner"]
     if left_out:
         print(f"left out, not the owner's: {len(left_out)} line(s) by " + ", ".join(sorted({str(w) for _, w in left_out})))
-    stored = waiting = already = refused = plain = taken = left = outside = 0
+    stored = waiting = already = refused = plain = taken = left = outside = beyond = 0
     left_tables: set[str] = set()
     by_shot: dict[tuple[int, int], dict] = {}        # (which --shots file, the shot's first frame) -> its plain frames
     grouped = tiles(answers)
@@ -314,6 +327,9 @@ def main() -> int:
     for key in sorted(grouped, key=lambda k: (k[1], k[0])):
         tile = grouped[key]
         name, frame = key
+        if span and not span[0] <= frame <= span[1]:
+            beyond += 1
+            continue
         if name == PLAIN:
             # the who page's plain frame (nobody outlined, or a long shot's quarter): no table and no box
             head = f"plain frame {frame}, lines {tile['lines'][0]}-{tile['lines'][-1]}"
@@ -394,6 +410,8 @@ def main() -> int:
         print(f"{'would store' if a.dry_run else 'stored'}: {head}: {said}"
               + (f" (replaces: {'; '.join(replaced)})" if replaced else "") + words)
         stored += 1
+    if beyond:
+        print(f"outside --span {span[0]}-{span[1]}, not read: {beyond} tile(s) of the answers file")
     if left:
         print(f"left for a run that names their previews (no --preview was given): {left} tile(s) of numbered pictures, on "
               + ", ".join(sorted(left_tables)))

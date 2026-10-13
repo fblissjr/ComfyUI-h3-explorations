@@ -14,6 +14,10 @@ own words beside it, and each of those can be off by one.
   a_long_shot_asks_at_its_quarters      with --source, a shot longer than --long-shot-frames shows its first- and last-quarter
                                         frames plain with the two frame buttons, beside the numbered picture; a shorter shot does not
   quarter_frames_are_the_shots_own      the pure rule: nothing under the line, the quarters of the shot's own length over it
+  a_span_shows_only_its_shots           with --span, a shot with no frame inside it has no row, and the header names the span
+  the_address_is_the_outs               the page says it is answered from /<the --out folder's name>/index.html, not from /who/
+  a_page_is_not_written_over_another    an --out holding a page of another span, or one that does not say its span, is refused
+                                        with its bytes as they were; the same span is built again in place
   a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
                                         subject of the record, who is named under it in words
 
@@ -115,6 +119,24 @@ def main() -> int:
              and "NOT THE OWNER" not in page, "")
         r = run(p, "--preview", f"{Path(d) / 'pv.json'}={Path(d) / 'nowhere'}")
         case("a_missing_table_is_refused", r.returncode != 0 and "no table" in r.stdout + r.stderr, r.stdout + r.stderr)
+        case("the_address_is_the_outs", ":8765/out/index.html" in page and "/who/index.html" not in page
+             and json.loads((p["out"] / "page.json").read_text())["span"] == [100, 159], page[:1500])
+        own = Path(d) / "part"
+        r = run({**p, "out": own}, "--preview", p["pv"], "--span", "125-159")
+        part = (own / "index.html").read_text() if r.returncode == 0 else r.stdout + r.stderr
+        case("a_span_shows_only_its_shots", r.returncode == 0 and part.count("<tr>") - 1 == 2 and "100-101" not in part and "102-129" in part
+             and "the shots of frames 125-159 (the record holds 100-159)" in part and ":8765/part/index.html" in part, part[:1500])
+        before = (p["out"] / "index.html").read_bytes()
+        r = run(p, "--preview", p["pv"], "--span", "125-159")
+        bare = Path(d) / "bare"
+        bare.mkdir()
+        (bare / "index.html").write_text("a page made before a page said its span")
+        r2 = run({**p, "out": bare}, "--preview", p["pv"])
+        r3 = run({**p, "out": own}, "--preview", p["pv"], "--span", "125-159")
+        case("a_page_is_not_written_over_another", r.returncode != 0 and "holds the page of frames 100-159 and this one is of 125-159" in r.stdout + r.stderr
+             and (p["out"] / "index.html").read_bytes() == before and r2.returncode != 0 and "does not say its span" in r2.stdout + r2.stderr
+             and (bare / "index.html").read_text() == "a page made before a page said its span" and r3.returncode == 0,
+             r.stdout + r.stderr + r2.stdout + r2.stderr + r3.stdout + r3.stderr)
         # the same tables under a job that names `a` alone: `b` is a subject of the record and not of the job
         solo = Path(d) / "solo.json"
         solo.write_text(json.dumps({"job": {"name": "pv", "first": 100, "frames": 60, "subjects": [{"label": "a"}]}}))

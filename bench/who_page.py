@@ -2,7 +2,7 @@
 """One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it.
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
-        [--answers data/<stem>/poc/answers.jsonl] --out <folder>
+        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
 the masks and identifiers over the input video, so a subject who changes clothes or a shot where nobody was
@@ -24,6 +24,14 @@ take a box from (`cast_file.from_tile` refuses it). Until 2026-10-13 every tile 
 the shots record, and most of a video's previews name one. A subject of the record the job does not track is
 named under the tile in words, with no button.
 
+**A span, and a folder of its own.** `--span FIRST-LAST` shows only the record's shots that have a frame inside
+it, so a page can be made for a stretch of a video whose record is one file. The page says where it is answered
+from by its `--out` folder's name (`/<folder>/index.html` on the page server, which serves the folder that holds
+it), and it writes `page.json` beside itself: its span, its previews and when it was built. A page is NEVER
+WRITTEN OVER ANOTHER: an `--out` that holds a page of another span, or one that does not say its span (a page
+made before 2026-10-13), is refused by name, since the owner's answers were given on the page as it stood. The
+same span is built again in place.
+
 **What it does not do.** It draws nothing: the numbers and outlines are the table's own, made by the tracker
 when the preview ran, so a later correction is not on them. The numbered picture is one frame a shot, the
 table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
@@ -36,6 +44,7 @@ colour and the pose model's points are the layered view's job (`docs/wiki/next_s
 from __future__ import annotations
 
 import argparse
+import datetime
 import html
 import json
 import subprocess
@@ -185,10 +194,36 @@ def plain_tile(shots: dict, s: dict, frame: int, file: str, why: str) -> str:
             f'<div>frame {frame}, the source itself: {why}, so nothing is outlined</div>{ask}<div class="st"></div></div>')
 
 
+def span_of(text: str | None, shots: dict) -> list[int]:
+    """The frames a page is of: `--span FIRST-LAST`, or the record's own span when none is given."""
+    if not text:
+        return [int(shots["span"][0]), int(shots["span"][1])]
+    first, _, last = text.partition("-")
+    if not (first.isdigit() and last.isdigit()) or int(first) > int(last):
+        raise SystemExit(f"--span {text!r}: write FIRST-LAST, two source frames, as in 1920-6394")
+    return [int(first), int(last)]
+
+
+def not_over_another(out: Path, span: list[int]) -> None:
+    """Refuse an `--out` that holds another page: one of another span, or one that does not say its span."""
+    if not (out / "index.html").is_file():
+        return
+    said = json.loads((out / "page.json").read_text()).get("span") if (out / "page.json").is_file() else None
+    if said is None:
+        raise SystemExit(f"{out} holds a page that does not say its span (no page.json: it was made before a page said so). A page is not "
+                         "written over another, since its answers were given on it as it stood: give this one an --out of its own")
+    if said != span:
+        raise SystemExit(f"{out} holds the page of frames {said[0]}-{said[1]} and this one is of {span[0]}-{span[1]}. A page is not written "
+                         "over another: give this one an --out of its own")
+
+
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
-         long_frames: int = LONG_SHOT_FRAMES) -> str:
+         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None) -> str:
     rows = []
+    span = span or [int(shots["span"][0]), int(shots["span"][1])]
     for s in shots["shots"]:
+        if s["last"] < span[0] or s["first"] > span[1]:
+            continue
         who = []
         for label in shots["subjects"]:
             w = s["who"][label]
@@ -247,7 +282,8 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         rows.append(f'<tr><td class="f">{s["first"]}-{s["last"]}<br><span class="how">{s["last"] - s["first"] + 1} f</span></td>'
                     f'<td>{"".join(who)}{note}</td><td><div class="tiles">{"".join(tiles) or ("<span class=no>the trackers found nobody on this shot</span>" if covered else "<span class=no>no preview covers this shot</span>")}</div></td>'
                     f'<td>{wtxt or "<span class=no>none yet</span>"}{box}</td></tr>')
-    head = (f'<p>{html.escape(shots["video"])}: shots {shots["span"][0]}-{shots["span"][1]}'
+    head = (f'<p>{html.escape(shots["video"])}: the shots of frames {span[0]}-{span[1]}'
+            + (f' (the record holds {shots["span"][0]}-{shots["span"][1]})' if span != [int(shots["span"][0]), int(shots["span"][1])] else "")
             + (f' of {shots["source_frames"]} frames' if shots.get("source_frames") else "")
             + f'. Record: {html.escape(shots.get("written_by", ""))}</p>'
             f'<p>A numbered picture is the tracker\'s own at the time of its preview: outlines and numbers as it drew them, '
@@ -259,7 +295,7 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                     + '. The outline on a picture is the tracker\'s whole-person mask, which says who the person is and nothing about what is replaced.</p>')
     me = ('<p>Answering as <input id="me" value="owner" size="10"> (a click or a save is one line appended to the page\'s '
           'answers file, through the local page\'s server). <b>To answer, open this page as '
-          '<code>http://&lt;the page server&gt;:8765/who/index.html</code></b> (the server serves files, not folders, so the '
+          f'<code>http://&lt;the page server&gt;:8765/{html.escape(out.name)}/index.html</code></b> (the server serves files, not folders, so the '
           'file name is needed); opened from the share as a file it only shows. An answer is about THAT FRAME, never about the whole shot: for each '
           'subject, which number they are, <b>on this frame, not outlined</b>, or <b>not on this frame</b>. Whether they are in the shot at '
           'all is a word in the box, and the tracker is left to judge the other frames.</p>')
@@ -277,17 +313,27 @@ def main() -> int:
     ap.add_argument("--source", help="the source copy the frame numbers are of; with it, a shot the trackers found nobody on shows its own middle frame")
     ap.add_argument("--long-shot-frames", type=int, default=LONG_SHOT_FRAMES,
                     help=f"a shot longer than this also shows its first- and last-quarter source frames (needs --source); {LONG_SHOT_FRAMES} by default, a starting value")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--span", metavar="FIRST-LAST", help="only the record's shots with a frame inside these source frames; the record's own span when left out")
+    ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
+    span = span_of(a.span, shots)
+    not_over_another(Path(a.out), span)
     answers = [json.loads(t) for t in Path(a.answers).read_text().splitlines() if t.strip()] if a.answers else []
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     plan = json.load(open(a.plan)) if a.plan else None
-    text = page(shots, previews(a.preview), answers, out, plan, a.source, a.long_shot_frames)
+    made = previews(a.preview)
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span)
     (out / "index.html").write_text(text)
+    (out / "page.json").write_text(json.dumps({
+        "what": "what bench/who_page.py built this page from; a page of another span is not written over it", "span": span,
+        "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "shots": str(a.shots),
+        "previews": [{"job": p["name"], "frames": [p["first"], p["last"]], "tables": str(p["folder"])} for p in made]}, indent=1) + "\n")
     tiles = sorted((out / "tiles").glob("*.jpg")) if (out / "tiles").is_dir() else []
-    print(f"written: {out / 'index.html'}; {len(shots['shots'])} shot(s); {len(tiles)} tile(s) under {out / 'tiles'}")
+    rows = text.count("<tr>") - 1
+    print(f"written: {out / 'index.html'}; frames {span[0]}-{span[1]}; {rows} shot(s) of the record's {len(shots['shots'])}; {len(tiles)} tile(s) under "
+          f"{out / 'tiles'}; answered from /{out.name}/index.html on the page server")
     return 0
 
 
