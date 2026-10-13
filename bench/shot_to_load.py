@@ -507,6 +507,7 @@ def step_job(a, world) -> None:
     out = folder / f"{name}.json"
     print(f"{name}: {a.subject}, {region}, source frames {job['loads'][0]['first']}-{job['loads'][0]['first'] + job['loads'][0]['frames'] - 1}; "
           f"its reference will be {job['loads'][0]['motion_file']}")
+    print(job["job"]["note"])                # the load in words, as the preview step prints its own: a dry run shows every choice made for it
     load_held_as_the_builder_holds(job, world)
     if world.dry:
         print("DRY: nothing written. The load was held to the builder's refusals that need neither its capture nor its text (the job block, the file's "
