@@ -2801,7 +2801,7 @@ reads.
   All on the #40 renders, so both seeds.
 - **Bench, existing:** `bench/blind_batch.py --pairs`,
   `bench/blind_score_app.py` and `bench/score_session.py`, per
-  `docs/eval_comparison.md` section 3 and the `h3-ab-session` skill.
+  `docs/eval_comparison.md` section 3.
 - **Measures:** the owner's free-text verdicts, tallied per pair; notes
   first.
 - **Decision it changes.** It turns the measured leads into defaults.

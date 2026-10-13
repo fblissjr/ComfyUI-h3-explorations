@@ -144,7 +144,7 @@ with none is a helper the others import.
 
 | directory | tracked files | where its index is |
 |---|---|---|
-| `.claude/` | 2 | [below](#claude) |
+| `.claude/` | 1 | [below](#claude) |
 | `archive/` | 26 | [below](#archive) |
 | `assets/` | 1 | [below](#assets) |
 | `bench/` | 729 | [`bench/INDEX.md`](bench/INDEX.md) and [`bench/results/INDEX.md`](bench/results/INDEX.md) for the records |
@@ -164,7 +164,6 @@ with none is a helper the others import.
 
 | file | what it says |
 |---|---|
-| [`skills/h3-ab-session/SKILL.md`](.claude/skills/h3-ab-session/SKILL.md) | Route any rendered comparison in this repo -- "compare these", "A/B", "which LoRA / checkpoint / sampler / knob is better", "blind session", "score the clips", "judge the pair" -- to the one documented process (render with matched seeds, ... |
 | [`skills/h3-prompt/SKILL.md`](.claude/skills/h3-prompt/SKILL.md) | Route any work on an H3 prompt in this repo -- "write a prompt", "edit this prompt", "improve this scene", "adapt it", "convert this t2v prompt to ref2va", "why did this render badly", "is this prompt correct", "what should the speaker ... |
 
 ## archive/

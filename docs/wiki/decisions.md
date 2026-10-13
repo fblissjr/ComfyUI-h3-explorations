@@ -118,6 +118,17 @@ the inbox note or commit named is the nearer record.*
   that session's context; the handoff is in `internal/`). The tooling
   session reports to the afternoon's lead from then.
 
+- **The `h3-ab-session` skill is removed** (the owner, 2026-10-13, about
+  17:00Z, in the afternoon lead's terminal: deleted and staged by them, to
+  go in the next commit). It restated nothing: it routed a rendered
+  comparison to `docs/eval_comparison.md`, which was and stays the
+  authority for the process, and to `bench/blind_batch.py::KEY_DIR`. What
+  it used to claim elsewhere: `docs/open_experiments.md` named the skill
+  beside section 3 of that page as the way a blind session is run (the
+  mention is dropped); the generated `INDEX.md` listed it (regenerated).
+  The dated records under `bench/results/` and `docs/research/` that name
+  the skill are history and are left as written.
+
 *The entries below were written by the tooling session (mrolaf) with its
 commits.*
 
