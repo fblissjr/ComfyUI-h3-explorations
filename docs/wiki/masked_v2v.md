@@ -377,7 +377,17 @@ session cannot work around; these are the lane's own habits, each earned on
   choice when it lets a longer static shot sit in one window with no cut
   between windows. Keep one shot or cut in a single window wherever a valid
   length holds it: it is one text, written from that window's frames, and
-  no join inside the shot to settle. Not every count on the grid is exact
+  no join inside the shot to settle. A shot is a cut: "shot" is H3's own
+  word for one (the owner, 2026-10-13), and it is the word a text uses when
+  it has to describe more than one (`docs/prompting.md`, the `[Shot N]`
+  form). A text that has several shots is not a reason for several windows:
+  they stay in one window, and splitting it to follow the text is asking for
+  trouble. A window is split only when it has to be: a shot longer than
+  `h3_rules.MAX_LENGTH`; memory or time that will not hold the whole
+  window; an edge case; a fix or polish pass on part of it. As built, a
+  load longer than the planner's longest length runs in chained windows
+  even where `h3_rules.MAX_LENGTH` would hold it whole
+  ([`next_steps.md`](next_steps.md)). Not every count on the grid is exact
   on the audio clock as well (`workflows/h3_config.py`, the note on
   `LONG_LENGTH`), and it does not have to be for a window that stands
   alone: core rounds the audio latent's count (`temporal_shape` in core's

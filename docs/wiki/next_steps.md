@@ -438,6 +438,19 @@ fixed the same day, said inline below.**
   shot beside it; the counts then say how many cuts a line stands for.
   It goes away by itself for a shot whose record is split to the cuts.
   Not started.
+- **A shot longer than the planner's longest length and no longer than the
+  model's is cut into two windows** (2026-10-13, read by the tooling
+  session while fitting a single window to its load). The builder gives
+  such a load the last of `loop_plan.CHAIN_LENGTHS` and the song node's
+  schema tops out at the same value (`audio_freeze_song.py`, the
+  `window_frames` input), so the node makes two windows where one of
+  `h3_rules.MAX_LENGTH` would hold the shot. The owner's word of the same
+  day is that a shot is split only when it has to be
+  ([`masked_v2v.md`](masked_v2v.md), "Rules of the lane";
+  [`decisions.md`](decisions.md)). Wanted: a load that fits within
+  `h3_rules.MAX_LENGTH` takes one window of the grid's length that holds
+  it. No shot of `fun.mp4` is in that case (`bench/shot_parts.py` prints
+  each row's window), so nothing waits on it. Not started.
 - **A plan strip does not say that its load renders zoomed in**
   (2026-10-13, from the blind reader of the first zoomed load's plan,
   `lead_fp_1920b`). The strip shows the region on the whole frame, as the

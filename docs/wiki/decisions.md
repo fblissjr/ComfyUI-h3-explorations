@@ -297,6 +297,31 @@ owner's words in its terminal.*
   core's stated ranges. Those entries stand as dated; the reason they give
   for where the list begins is one a session wrote, and the owner's word
   is that it began there because somebody set it so.
+- **A shot is a cut, and a window is split only when it has to be** (the
+  owner, 2026-10-13, in the lead's terminal, later the same afternoon,
+  after agreeing that the record's boundary at frame 1920 of `fun.mp4` is
+  not a cut). Their words, in substance: when they say shot they mean a
+  cut, and "shot" is H3's language for one; if a text has to be broken
+  into several shots by H3's prompting form, that is not a reason to break
+  it into more than one window, and doing so invites trouble; a window is
+  split only where it is absolutely necessary: an edge case, a fix or
+  polish pass, resources that will not hold the full window, or a shot
+  longer than `h3_rules.MAX_LENGTH`. With it, of the frames past a load's
+  own: the only reason to sample more is an overlap buffer before its
+  start or past its end; and of Sol-Attn at a short window: if it declines
+  a call that is fine, since its sparsity can only take quality away. What
+  prompted it: a trial of the joined clip over the whole video failed its
+  own verdict at two boundaries, and a look at the frames showed the shots
+  record had split one continuous shot (1898-1944) at the frame where the
+  short working copy ends, while the cut it was right about (2799/2800)
+  was one the assembler's own reading of the picture had missed. What the
+  repo held: `docs/prompting.md` has the `[Shot N]` form; nothing said a
+  text's shots and a load's windows are two different things. Where it
+  lives now: `masked_v2v.md`, "Rules of the lane". Not built when this was
+  written: the record's two halves made one shot, the assembler taking
+  its cuts from the record, and one window for a load between the
+  planner's longest length and the model's
+  ([`next_steps.md`](next_steps.md)).
 
 ## 2026-10-12
 
