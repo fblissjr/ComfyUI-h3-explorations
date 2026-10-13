@@ -131,9 +131,44 @@ def what_init_refuses():
         assert not (tmp / "data").exists(), "a refused init left a folder behind"
 
 
+def the_videos_voice_tables_are_named_in_its_manifest():
+    with _tmp() as t:
+        tmp = Path(t)
+        where = dict(data=tmp / "data", inputs=tmp / "input")
+        _clip(tmp / "input" / "fun.mkv", frames=25)
+        _clip(tmp / "input" / "fun_24p.mkv", frames=24, level=90)
+        folder, first = tool.init("fun.mkv", copy="fun_24p.mkv", **where)
+        # none named yet: a reader is refused, with the command that names them
+        _refused(lambda: tool.voice_tables("fun_24p.mkv", tmp / "data"), "names no voice tables", "clip_analysis.py voice")
+        kept, tool.REPO = tool.REPO, tmp           # the tables are named from the repo's root: here, the temporary folder
+        try:
+            (tmp / "data" / "audio").mkdir()
+            (tmp / "data" / "audio" / "per_frame.csv").write_text("frame,voiced\n")
+            (tmp / "data" / "audio" / "spans.json").write_text("{}")
+            _refused(lambda: tool.voice("fun.mkv", data=tmp / "data", per_frame="data/audio/per_frame.csv", spans="data/audio/gone.json", by="a session"), "is not a file")
+            outside = Path(tempfile.mkdtemp()) / "spans.json"
+            outside.write_text("{}")
+            _refused(lambda: tool.voice("fun.mkv", data=tmp / "data", per_frame="data/audio/per_frame.csv", spans=str(outside), by="a session"), "not under the repo")
+            _, named = tool.voice("fun.mkv", data=tmp / "data", per_frame=str(tmp / "data/audio/per_frame.csv"), spans="data/audio/spans.json", by="a session")
+            assert named["voice"]["per_frame"] == "data/audio/per_frame.csv" and named["voice"]["spans"] == "data/audio/spans.json" \
+                and named["voice"]["named_by"] == "a session" and named["voice"]["named_at"].endswith("Z"), named["voice"]
+            # found by the copy's name as by the input's, and each a file
+            for name in ("fun.mkv", "fun_24p.mkv"):
+                got = tool.voice_tables(name, tmp / "data")
+                assert got == {"per_frame": tmp / "data/audio/per_frame.csv", "spans": tmp / "data/audio/spans.json"}, got
+            # naming them is nothing a render reads: the fingerprint does not move, and init again keeps them
+            assert named["fingerprint"] == first["fingerprint"], "naming the voice tables moved the fingerprint"
+            _, again = tool.init("fun.mkv", copy="fun_24p.mkv", **where)
+            assert again["voice"] == named["voice"], "init again dropped the voice tables"
+            (tmp / "data/audio/spans.json").unlink()
+            _refused(lambda: tool.voice_tables("fun.mkv", tmp / "data"), "which is not a file")
+        finally:
+            tool.REPO = kept
+
+
 def main() -> int:
     for fn in (init_makes_the_folder_by_the_file_name, init_again_keeps_what_a_render_reads, the_readme_names_earlier_work,
-               what_init_refuses):
+               what_init_refuses, the_videos_voice_tables_are_named_in_its_manifest):
         case(fn.__name__.replace("_", " "), fn)
     return finish()
 

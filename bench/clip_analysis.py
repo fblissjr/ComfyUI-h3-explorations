@@ -2,6 +2,7 @@
 """Make and fill an input video's analysis folder: the workflow that runs before any job on that video.
 
     <python> bench/clip_analysis.py init fun.mp4 [--copy fun_24p.mov --made-by "how" --checked "what the check said"]
+    <python> bench/clip_analysis.py voice fun.mp4 --per-frame VOICE_PER_FRAME.csv --spans VOICE_SPANS.json --by WHO
 
 **What it buys.** A rule that depends on the picture takes its value from this clip, measured before anything
 renders (the owner, 2026-10-10; AGENTS.md). So the measuring is a workflow of its own that runs first, its
@@ -18,6 +19,12 @@ says so in words. Run again on the same file it changes nothing that a render re
 same name with other bytes it makes the folder named by the whole file name, and the old one stays the old
 file's. It also writes `README.md`, which says what the folder is and names the older, dated folders under
 `data/` that hold earlier work on the same video: nothing existing is moved or deleted.
+
+**voice** names the video's two voice tables in its manifest (`voice`: the per-frame table a capture takes
+with `--voice` and the spans file its preflight takes with `--voice-spans`, each by a path from the repo's
+root, with who said so and when). They are facts of the video, measured once: until 2026-10-13 their paths
+were typed into every session's script. A tool that needs them reads them here (`voice_tables`) and refuses
+when the manifest names none. Naming them changes nothing a render reads, so the fingerprint does not move.
 
 To come, in this order: the subjects' pass (trackers, parts, pose) queued for the whole clip and gathered
 into `analysis/<run>/` with checksums and the manifest's mask table; `profile.json`, what the clip measured
@@ -89,6 +96,40 @@ def init(name: str, *, data: Path, inputs: Path, copy: str = "", made_by: str = 
     return folder, manifest
 
 
+def voice(name: str, *, data: Path, per_frame: str, spans: str, by: str) -> tuple[Path, dict]:
+    """Name a video's voice tables in its manifest. Both must be files under the repo; they are named from its root."""
+    folder = cf.folder_of_file(name, data)
+    named = {}
+    for key, given in (("per_frame", per_frame), ("spans", spans)):
+        path = Path(given) if Path(given).is_absolute() else REPO / given
+        if not path.is_file():
+            raise cf.Refused(f"the voice table {given!r} is not a file")
+        if not path.resolve().is_relative_to(REPO.resolve()):
+            raise cf.Refused(f"the voice table {given!r} is not under the repo: a video's tables are named from the repo's root")
+        named[key] = str(path.resolve().relative_to(REPO.resolve()))
+    import datetime
+    manifest = cf.read_manifest(folder)
+    manifest["voice"] = {**named, "named_by": by, "named_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    return folder, cf.write_manifest(folder, manifest)
+
+
+def voice_tables(source_name: str, data: Path) -> dict:
+    """A video's voice tables as its manifest names them: {"per_frame", "spans"}, each a path that is a file.
+    Refused when the manifest names none, with the command that names them, or when one is gone."""
+    folder = cf.folder_of_file(source_name, data)
+    named = cf.read_manifest(folder).get("voice")
+    if not named or not named.get("per_frame") or not named.get("spans"):
+        raise cf.Refused(f"{folder.name}'s manifest names no voice tables: run `bench/clip_analysis.py voice {source_name} --per-frame ... "
+                         f"--spans ... --by WHO` once for the video")
+    out = {}
+    for key in ("per_frame", "spans"):
+        path = REPO / named[key]
+        if not path.is_file():
+            raise cf.Refused(f"{folder.name}'s manifest names the voice table {named[key]!r}, which is not a file")
+        out[key] = path
+    return out
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="command", required=True)
@@ -97,8 +138,17 @@ def main() -> int:
     i.add_argument("--copy", default="", help="the file name of the every-frame copy jobs render from")
     i.add_argument("--made-by", default="", help="how the copy was made")
     i.add_argument("--checked", default="", help="what the copy's frame-for-frame check against the input said")
+    v = sub.add_parser("voice", help="name the video's voice tables in its manifest; no server, no card")
+    v.add_argument("name", help="the input video's file name, or its copy's")
+    v.add_argument("--per-frame", required=True, help="the per-frame voice table a capture takes with --voice")
+    v.add_argument("--spans", required=True, help="the voice spans file a capture's preflight takes with --voice-spans")
+    v.add_argument("--by", required=True, help="who names them")
     a = p.parse_args()
     try:
+        if a.command == "voice":
+            folder, manifest = voice(a.name, data=REPO / "data", per_frame=a.per_frame, spans=a.spans, by=a.by)
+            print(f"{folder}\n  voice tables: {manifest['voice']['per_frame']} and {manifest['voice']['spans']}, named by {manifest['voice']['named_by']}")
+            return 0
         folder, manifest = init(a.name, data=REPO / "data", inputs=masked_job.input_dir(), copy=a.copy,
                                 made_by=a.made_by, checked=a.checked)
     except cf.Refused as e:
