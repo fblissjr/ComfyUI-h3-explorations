@@ -2,7 +2,8 @@
 """One plain page, a row a shot: who is in it and on whose word, each tracker's numbered picture of the shot, and the owner's words on it.
 
     <python> bench/who_page.py --shots data/<stem>/shots.json --preview JOB.json=TABLES_DIR [--preview ...] \\
-        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] [--notes PREVIEWS_RUN.jsonl] --out <folder>
+        [--answers data/<stem>/poc/answers.jsonl] [--span FIRST-LAST] [--notes PREVIEWS_RUN.jsonl] \\
+        [--source COPY --every-cut-of FIRST-LAST] --out <folder>
 
 **What it buys.** The owner asked (2026-10-12) to see, in a super simple page, who is labelled in each shot, with
 the masks and identifiers over the input video, so a subject who changes clothes or a shot where nobody was
@@ -42,9 +43,21 @@ headed as a session's guess and not the owner's, with the file and the time it w
 click, not before it. It presses no button and colours none. A line that names no preview given is printed when
 the page is built; a tile with no line says so.
 
-**What it does not do.** It draws nothing: the numbers and outlines are the table's own, made by the tracker
-when the preview ran, so a later correction is not on them. The numbered picture is one frame a shot, the
-table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
+**A shot shown cut by cut, with boxes in colour.** `--every-cut-of FIRST-LAST` names a shot of the record
+that the tracker cut into several of its own (2026-10-13: the record's one shot 5935-6394 was twenty-five to the
+tracker, the page's one picture of it was a one-frame cut, and the owner could not tell whether a number was the
+person's they meant). The page then shows one picture for each of that tracker's cuts as long as the shortest
+load (`bench/masked_job.py::shortest_load`: a shorter cut cannot be a load of its own), each on the frame the
+tracker numbered, with its own buttons; the shorter cuts are counted and named, not shown. With `--source` each
+is three pictures: the frame as the tracker saw it (`fitted_frame`), the same frame with EACH PERSON'S BOX in a
+colour of their own and their number in that colour on a dark plate at the box's middle (`boxes_picture`, from
+the table's boxes; the number buttons carry the same colours), and the tracker's own picture. A box is a box:
+where two cross, the picture cannot say whose pixels are whose, and the page says so. A fill of each person's
+own pixels needs the tracker's masks, which no preview saves; that is node work and is not here.
+
+**What it does not do.** Outside a shot shown cut by cut it draws nothing: the numbers and outlines are the
+table's own, made by the tracker when the preview ran, so a later correction is not on them. The numbered
+picture is one frame a shot, the table's shown frame. A shot longer than `LONG_SHOT_FRAMES` (or `--long-shot-frames`) also shows the source's
 own frame at its first and last quarter, with the two frame buttons and no numbers, so a subject who walks
 in after the shown frame can be said to be on THAT frame (the owner's ask, 2026-10-12: late entrances were
 not labelled); `bench/page_answers_to_cast.py --shots` takes such answers into the shots record's `present`, and
@@ -61,7 +74,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 PRESENT_WORD = {"yes": "yes", "no": "no", "unsure": "UNSURE"}
 #: A shot longer than this shows its first- and last-quarter frames as well as the shown one. Reasoned, a
@@ -69,6 +82,19 @@ PRESENT_WORD = {"yes": "yes", "no": "no", "unsure": "UNSURE"}
 #: second, so a shot this long has room for an entrance the one shown frame misses, and a shorter one shows
 #: little that its middle frame does not. Change it when the owner says the extra frames of a shot were noise.
 LONG_SHOT_FRAMES = 96
+
+
+#: A colour for each person on a picture of boxes, by their number. Reasoned, starting values: twelve hues that
+#: stand apart from one another on a dark plate and over skin and cloth. With more people than colours they come
+#: round again, and the legend then shows two numbers in one colour.
+BOX_COLOURS = ((255, 221, 0), (0, 229, 255), (255, 64, 255), (118, 255, 3), (64, 128, 255), (255, 255, 255),
+               (255, 128, 171), (29, 233, 182), (179, 136, 255), (255, 171, 64), (128, 216, 255), (204, 255, 144))
+BOXES_SAY = ("A box is a box: the smallest upright rectangle round the tracker's outline of a person. Where two boxes cross, "
+             "this picture cannot say whose pixels are whose; the tracker's own picture carries the outlines.")
+
+
+def colour_of(person: int) -> tuple[int, int, int]:
+    return BOX_COLOURS[(int(person) - 1) % len(BOX_COLOURS)]
 
 
 def quarter_frames(shot: dict, long_frames: int = LONG_SHOT_FRAMES) -> list[int]:
@@ -105,13 +131,15 @@ def band(table: dict, picture: Path, k: int) -> Image.Image:
     return sheet.crop((0, k * h, sheet.size[0], (k + 1) * h))
 
 
-def tiles_for(shot: dict, pv: dict, out: Path) -> list[dict]:
-    """Each subject's band of this preview's table whose shot overlaps the record's shot, cut and saved."""
+def tiles_for(shot: dict, pv: dict, out: Path, nobody_too: bool = False) -> list[dict]:
+    """Each subject's band of this preview's table whose shot overlaps the record's shot, cut and saved. A band with
+    nobody on it is left out (said in words, not shown black) unless `nobody_too`, which a shot shown cut by cut
+    asks for: a long cut the tracker outlined nobody on is still a cut the owner is asked about."""
     found = []
     for label, table in pv["tables"].items():
         inside = [(k, ts) for k, ts in enumerate(table["shots"])
                   if not (pv["first"] + int(ts["last_frame"]) < shot["first"] or pv["first"] + int(ts["first_frame"]) > shot["last"])]
-        for k, ts in [x for x in inside if x[1].get("people")]:    # a band with nobody on it is said in words, not shown black
+        for k, ts in [x for x in inside if x[1].get("people") or nobody_too]:
             lo, hi = pv["first"] + int(ts["first_frame"]), pv["first"] + int(ts["last_frame"])
             picture = pv["folder"] / f"{pv['name']}_{label}_shots_00001_shots.png"
             name = f"{shot['first']:04d}_{pv['name']}_{label}_shot{int(ts['shot'])}.jpg"
@@ -121,6 +149,7 @@ def tiles_for(shot: dict, pv: dict, out: Path) -> list[dict]:
                           "shown": pv["first"] + int(ts["shown_frame"]), "table_frame": int(ts["shown_frame"]),
                           "table": picture.name.replace(".png", ".json"), "frames": [lo, hi],
                           "people": [int(p["person"]) for p in ts.get("people", [])], "subjects": pv["subjects"],
+                          "boxes": [{"person": int(p["person"]), "box": p.get("box")} for p in ts.get("people", [])], "size": table.get("size"),
                           "partial": lo < shot["first"] or hi > shot["last"]})
     return found
 
@@ -137,6 +166,51 @@ def owner_words(answers: list[dict], first: int, last: int) -> list[dict]:
         if first <= f <= last and str(d.get("words", "")).strip():
             out.append({"frame": f, "at": str(d.get("at", ""))[:16], "words": str(d["words"]).strip()})
     return out
+
+
+def fitted_frame(source: str, frame: int, size: list[int], out: Path) -> str | None:
+    """The source's own frame as a preview's tracker saw it: cut to the table's proportions about the middle and
+    scaled to the table's size, which is what the job's video loader does with its width and height (inherited:
+    VideoHelperSuite's `crop=...,scale=...` for a custom size; the job's loader is that node). A box of the table
+    then lies on this picture pixel for pixel."""
+    (out / "tiles").mkdir(parents=True, exist_ok=True)
+    w, h = int(size[0]), int(size[1])
+    name, ar = f"{frame:04d}_as_tracked_{w}x{h}.jpg", w / h
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", source, "-vf",
+                        f"select=eq(n\\,{frame}),crop=if(gt({ar}\\,a)\\,iw\\,ih*{ar}):if(gt({ar}\\,a)\\,iw/{ar}\\,ih),scale={w}:{h}",
+                        "-frames:v", "1", str(out / "tiles" / name)], capture_output=True, text=True)
+    return f"tiles/{name}" if r.returncode == 0 and (out / "tiles" / name).is_file() else None
+
+
+def boxes_picture(fitted: str, t: dict, out: Path) -> str:
+    """The fitted frame with each person's box in a colour of their own and their number, in that colour on a dark
+    plate, at the box's middle. The larger box is drawn first, so a small one inside it is not drawn over; a plate
+    that would lie on another is moved down by its own height."""
+    im = Image.open(out / fitted).convert("RGB")
+    draw = ImageDraw.Draw(im)
+    try:
+        font = ImageFont.load_default(size=max(18, im.size[1] // 24))
+    except TypeError:      # an older Pillow has one size
+        font = ImageFont.load_default()
+    people = sorted((p for p in t["boxes"] if p["box"]), key=lambda p: -(p["box"][2] * p["box"][3]))
+    for p in people:
+        x, y, w, h = p["box"]
+        draw.rectangle((x, y, x + w - 1, y + h - 1), outline=colour_of(p["person"]), width=max(2, im.size[1] // 250))
+    plates = []
+    for p in sorted(people, key=lambda p: p["person"]):
+        x, y, w, h = p["box"]
+        text = str(p["person"])
+        tb = draw.textbbox((0, 0), text, font=font)
+        pw, ph = tb[2] - tb[0] + 14, tb[3] - tb[1] + 12
+        px, py = min(max(x + w / 2 - pw / 2, 0), im.size[0] - pw), min(max(y + h / 2 - ph / 2, 0), im.size[1] - ph)
+        while any(abs(px - qx) < pw and abs(py - qy) < ph for qx, qy in plates) and py + 2 * ph <= im.size[1]:
+            py += ph
+        plates.append((px, py))
+        draw.rectangle((px, py, px + pw, py + ph), fill=(16, 16, 16), outline=colour_of(p["person"]), width=2)
+        draw.text((px + 7 - tb[0], py + 6 - tb[1]), text, fill=colour_of(p["person"]), font=font)
+    name = f"{t['shown']:04d}_{t['preview']}_{t['label']}_shot{t['shot']}_boxes.jpg"
+    im.save(out / "tiles" / name, quality=90)
+    return f"tiles/{name}"
 
 
 def plain_frame(source: str, frame: int, out: Path) -> str | None:
@@ -157,6 +231,7 @@ th{background:#1e2127;position:sticky;top:0}.f{font-family:ui-monospace,monospac
 button{font:inherit;font-size:14px;margin:2px;padding:4px 10px;border:1px solid #555;border-radius:4px;background:#23272e;color:#eee;cursor:pointer}
 button.on{background:#3b6cf0;border-color:#3b6cf0}.st{font-size:13px;color:#9c9}textarea{width:100%;min-height:60px;background:#1b1e24;color:#eee;border:1px solid #555;font:inherit}
 .guess{margin-top:8px;font-size:14px;color:#aab}.guess summary{cursor:pointer;color:#c9a227}
+.three{display:flex;flex-wrap:wrap;gap:8px}.three img{width:640px}.chip{display:inline-block;padding:0 7px;border:2px solid;border-radius:3px;background:#101010;font-weight:700}
 .say{margin-top:8px}#me{background:#1b1e24;color:#eee;border:1px solid #555;padding:4px}.w{font-size:16px;color:#ddd;white-space:pre-line;margin-bottom:8px}.how{font-size:14px;color:#9aa3b2}"""
 
 SCRIPT = """<script>
@@ -277,7 +352,10 @@ def not_over_another(out: Path, span: list[int]) -> None:
 
 
 def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, plan: dict | None = None, source: str | None = None,
-         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None) -> str:
+         long_frames: int = LONG_SHOT_FRAMES, span: list[int] | None = None, notes: dict | None = None,
+         every_cut: list[list[int]] | None = None, least_cut: int = 1) -> str:
+    """`every_cut` names record shots (first, last) shown cut by cut: one picture for each of the tracker's own cuts
+    of the shot that is `least_cut` frames or longer, where every other shot has one picture."""
     rows = []
     span = span or [int(shots["span"][0]), int(shots["span"][1])]
     for s in shots["shots"]:
@@ -290,11 +368,13 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
             who.append(f'<div class="{cls}"><b>{html.escape(label)}</b>: {PRESENT_WORD[w["present"]]}'
                        f'<div class="how">{html.escape(w.get("how", ""))} <i>({html.escape(w.get("by", ""))})</i></div></div>')
         found, covered = [], False
+        by_cut = [s["first"], s["last"]] in (every_cut or [])
         for pv in previews_:
             if pv["last"] < s["first"] or pv["first"] > s["last"]:
                 continue
             covered = True
-            found.extend(tiles_for(s, pv, out))
+            found.extend(tiles_for(s, pv, out, nobody_too=by_cut))
+        every, found = found, [x for x in found if x["people"]]
         # ONE picture a shot: every tracker of a preview drew its own picture of the same shot with its own numbering,
         # and asking the same question under each confused the owner (2026-10-12). The picture with the most people
         # outlined is shown; ties go to the first preview and the first tracker listed.
@@ -307,13 +387,47 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
         if found:
             mid = (s["first"] + s["last"]) // 2
             t = max(found, key=lambda x: (len(x["people"]), -abs(x["shown"] - mid)))   # most people; then nearest the middle
-            others = [x for x in found if x is not t]
+            shown, said = [t], ""
+            if by_cut:
+                # that tracker's cuts of the shot, each as long as a load can be: a shorter cut cannot be a load of its
+                # own, so who is on it decides nothing by itself. A long cut with nobody outlined is asked about plain.
+                length = lambda x: x["frames"][1] - x["frames"][0] + 1                                               # noqa: E731
+                cuts = sorted((x for x in every if (x["preview"], x["label"]) == (t["preview"], t["label"])), key=lambda x: x["frames"][0])
+                long = [x for x in cuts if length(x) >= least_cut]
+                short = [x for x in cuts if length(x) < least_cut]
+                shown = [x for x in long if x["people"]] or [t]
+                said = (f'<div class="how"><b>This shot is shown cut by cut.</b> {html.escape(t["label"])}\'s tracker ({html.escape(t["preview"])}) cut it into '
+                        f'{len(cuts)}; the {len(long)} of {least_cut} frames or more (the shortest a load can be) are shown, each on the frame the tracker '
+                        f'numbered, holding {sum(length(x) for x in long)} of the shot\'s {s["last"] - s["first"] + 1} frames. '
+                        f'{len(short)} shorter cut(s) are not shown: ' + (", ".join(f"{x['frames'][0]}-{x['frames'][1]}" for x in short) or "none") + '.</div>')
+                if source:
+                    for x in (x for x in long if not x["people"]):
+                        f = plain_frame(source, x["shown"], out)
+                        if f:
+                            tiles.append(plain_tile(shots, s, x["shown"], f, f"the tracker outlined nobody on its cut {x['frames'][0]}-{x['frames'][1]}"))
+            others = [x for x in found if x not in shown and not (by_cut and (x["preview"], x["label"]) == (t["preview"], t["label"]))]
+        for t in (shown if found else []):
             part = " (the table's shot runs %d-%d)" % tuple(t["frames"]) if t["partial"] else ""
             # only the subjects this tile's job tracks, in the record's order (then any the record does not name)
             asked = [sub for sub in shots["subjects"] if sub in t["subjects"]] + [sub for sub in t["subjects"] if sub not in shots["subjects"]]
+            # a picture of boxes for a shot shown cut by cut: the frame as the tracker saw it, plain, and again with each person's box
+            fitted = fitted_frame(source, t["shown"], t["size"], out) if by_cut and source and t.get("size") else None
+            boxed = boxes_picture(fitted, t, out) if fitted else None
+            inked = lambda n: (' style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (colour_of(n) * 2)) if boxed else ""       # noqa: E731
+            cut = f', its cut {t["frames"][0]}-{t["frames"][1]}' if by_cut else ""
+            pictures = f'<img src="{t["file"]}" alt="">'
+            if boxed:
+                legend = " ".join(f'<span class="chip" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)">{p["person"]}</span>' % (colour_of(p["person"]) * 2)
+                                  for p in sorted(t["boxes"], key=lambda p: p["person"]) if p["box"])
+                pictures = (f'<div class="three"><div><img src="{fitted}" alt=""><div>frame {t["shown"]}, the source itself</div></div>'
+                            f'<div><img src="{boxed}" alt=""><div>the same frame, each person\'s box in a colour of their own: {legend}</div></div>'
+                            f'<div><img src="{t["file"]}" alt=""><div>the tracker\'s own picture of it, with its outlines</div></div></div>'
+                            f'<div class="how">{BOXES_SAY}</div>')
+            elif by_cut:
+                pictures += '<div class="how">no picture of boxes: ' + ("no --source was given" if not source else "the frame could not be cut from the source") + '</div>'
             ask = "".join(
                 f'<div class="ask"><span class="lab">{html.escape(sub)} is</span>'
-                + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}">{n}</button>' for n in t["people"])
+                + "".join(f'<button data-sub="{html.escape(sub)}" data-chosen="{n}"{inked(n)}>{n}</button>' for n in t["people"])
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not outlined">on this frame, not outlined</button>'
                 + f'<button data-sub="{html.escape(sub)}" data-chosen="not on frame">not on this frame</button></div>'
                 for sub in asked)
@@ -323,10 +437,11 @@ def page(shots: dict, previews_: list[dict], answers: list[dict], out: Path, pla
                         f'tracks {html.escape(", ".join(t["subjects"]))} and nobody else, so a number for another subject has no tracker to go to.</div>')
             also = (f'<div class="how">{len(others)} other picture(s) of this shot exist (' + "; ".join(
                 f"{html.escape(x['label'])}'s tracker, frame {x['shown']}, people {x['people'] or 'none'}" for x in others)
-                + '); not shown, one question a shot</div>') if others else ""
+                + '); not shown, one question a shot</div>') if others and t is shown[0] else ""
+            also = (said if t is shown[0] else "") + also
             tiles.append(f'<div class="tile" data-table="{html.escape(t["table"])}" data-frame="{t["shown"]}" data-tf="{t["table_frame"]}" '
-                         f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}"><img src="{t["file"]}" alt="">'
-                         f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}), '
+                         f'data-shot="{t["shot"]}" data-lo="{s["first"]}" data-hi="{s["last"]}">{pictures}'
+                         f'<div>frame {t["shown"]} as {html.escape(t["label"])}\'s tracker numbered it ({html.escape(t["preview"])} shot {t["shot"]}{cut}), '
                          f'people {t["people"] or "none"}{part}</div>{ask}<div class="st"></div>{also}{guess(notes, t, found)}</div>')
         if source:      # a long shot: its first and last quarter as well, so an entrance after the shown frame has a frame to be said on
             for q, which in zip(quarter_frames(s, long_frames), ("first", "last")):
@@ -375,6 +490,9 @@ def main() -> int:
     ap.add_argument("--span", metavar="FIRST-LAST", help="only the record's shots with a frame inside these source frames; the record's own span when left out")
     ap.add_argument("--notes", metavar="PREVIEWS_RUN.jsonl", help="a session's notes on the previews' tiles, one line a preview; shown under each tile in a "
                     "closed fold, headed as a session's guess and not the owner's")
+    ap.add_argument("--every-cut-of", action="append", default=[], metavar="FIRST-LAST",
+                    help="a shot of the record to show cut by cut: one picture for each of the tracker's own cuts of it as long as the shortest load "
+                    "(bench/masked_job.py::shortest_load), and with --source each frame plain and again with every person's box in a colour of their own; repeatable")
     ap.add_argument("--out", required=True, help="the page's own folder; its name is the page's address on the page server, and a page of another span there is refused")
     a = ap.parse_args()
     shots = json.load(open(a.shots))
@@ -386,7 +504,19 @@ def main() -> int:
     plan = json.load(open(a.plan)) if a.plan else None
     made = previews(a.preview)
     notes = notes_of(a.notes)
-    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes)
+    every_cut, least_cut = [], 1
+    for text in a.every_cut_of:
+        try:
+            pair = [int(v) for v in text.split("-")]
+        except ValueError:
+            pair = []
+        if len(pair) != 2 or not any([s["first"], s["last"]] == pair for s in shots["shots"]):
+            raise SystemExit(f"--every-cut-of {text!r} is not a shot of the record (its shots are FIRST-LAST, whole)")
+        every_cut.append(pair)
+    if every_cut:
+        import masked_job      # only here: the page needs nothing of the builder otherwise
+        least_cut = masked_job.shortest_load()[1]
+    text = page(shots, made, answers, out, plan, a.source, a.long_shot_frames, span, notes, every_cut, least_cut)
     for name, first in sorted(set(notes or {}) - {(p["name"], p["first"]) for p in made}):
         print(f"a note names a preview this page was not given, and is shown nowhere: {name} (first frame {first}), {notes[(name, first)]['from']} "
               f"line {notes[(name, first)]['line']}")

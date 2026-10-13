@@ -25,6 +25,13 @@ own words beside it, and each of those can be off by one.
                                         that tracker showed another frame than the picture on the page, the fold says so in capitals
   a_tile_asks_only_its_jobs_subjects    a numbered picture has buttons for the subjects its preview's job names and for no other
                                         subject of the record, who is named under it in words
+  a_shot_is_shown_cut_by_cut            with --every-cut-of, a record shot the tracker cut into five shows the cuts as long as the
+                                        shortest load and no shorter one, each with its own buttons on its own frame; a long cut
+                                        with nobody outlined is asked about plain; the shorter cuts are counted and named; the
+                                        same shot without the flag has one picture; a span that is no shot of the record is refused
+  the_boxes_are_each_persons_own        the picture of boxes is the table's own size, each person's box is drawn in that person's
+                                        colour where the table puts it, the number buttons carry the same colours, and the page
+                                        says a box is a box
 
     <python> bench/check_who_page.py
 
@@ -42,7 +49,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from who_page import quarter_frames  # noqa: E402
+from who_page import BOXES_SAY, colour_of, quarter_frames  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 TOOL = HERE / "who_page.py"
@@ -200,8 +207,65 @@ def main() -> int:
             r = run(p, "--preview", p["pv"], "--source", str(src))
             page = (p["out"] / "index.html").read_text()
             case("a_short_shot_asks_once", page.split("<tr>")[3].count('data-table="plain"') == 0, "")
+            # one shot of the record that the tracker cut into five: a one-frame cut, two long ones with people, a long one with nobody, a two-frame tail
+            import masked_job
+            least = masked_job.shortest_load()[1]
+            cuts = [{"shot": 1, "first_frame": 0, "last_frame": 0, "shown_frame": 0, "people": [{"person": 1, "box": [1, 1, 5, 5]}]},
+                    {"shot": 2, "first_frame": 1, "last_frame": least, "shown_frame": 3,
+                     "people": [{"person": 1, "box": [20, 20, 100, 150]}, {"person": 2, "box": [170, 50, 120, 150]}]},
+                    {"shot": 3, "first_frame": least + 1, "last_frame": 3 * least, "shown_frame": least + 2, "people": [{"person": 1, "box": [10, 10, 30, 30]}]},
+                    {"shot": 4, "first_frame": 3 * least + 1, "last_frame": 4 * least + 3, "shown_frame": 3 * least + 5, "people": []},
+                    {"shot": 5, "first_frame": 4 * least + 4, "last_frame": 4 * least + 5, "shown_frame": 4 * least + 4, "people": [{"person": 1, "box": [1, 1, 5, 5]}]}]
+            total = 4 * least + 6
+            # a table large enough that a number's plate at a box's middle is clear of the box's own edges
+            (Path(d) / "t" / "cut_a_shots_00001_shots.json").write_text(json.dumps({**table(cuts), "size": [320, 240]}))
+            im = Image.new("RGB", (64, 48 * 5))
+            for k in range(5):
+                im.paste(COLOURS[k % 4], (0, 48 * k, 64, 48 * (k + 1)))
+            im.save(Path(d) / "t" / "cut_a_shots_00001_shots.png")
+            (Path(d) / "cut.json").write_text(json.dumps({"job": {"name": "cut", "first": 100, "frames": total, "subjects": [{"label": "a"}]}}))
+            one = Path(d) / "one_shot.json"
+            one.write_text(json.dumps({"schema": "h3_shots/1", "video": "t.mp4", "span": [100, 99 + total], "subjects": ["a", "b"], "shots": [
+                {"first": 100, "last": 99 + total, "who": {"a": {"present": "yes", "how": "", "by": "x"}, "b": {"present": "no", "how": "", "by": "x"}}}]}))
+            long_src = Path(d) / "long.mp4"
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=128x90:r=24:d=60", "-frames:v", str(101 + total),
+                            "-pix_fmt", "yuv420p", str(long_src)], check=True)       # 128x90 is not the table's shape: the frame is cut to it, as the loader does
+            q = {**p, "shots": one, "out": Path(d) / "cuts"}
+            r = run(q, "--preview", f"{Path(d) / 'cut.json'}={Path(d) / 't'}", "--source", str(long_src), "--every-cut-of", f"100-{99 + total}", "--long-shot-frames", "100000")
+            text = (q["out"] / "index.html").read_text() if r.returncode == 0 else ""
+            numbered = [t for t in text.split('<div class="tile"')[1:] if 'data-table="plain"' not in t]
+            plain = [t for t in text.split('<div class="tile"')[1:] if 'data-table="plain"' in t]
+            r1 = run({**q, "out": Path(d) / "once"}, "--preview", f"{Path(d) / 'cut.json'}={Path(d) / 't'}", "--source", str(long_src), "--long-shot-frames", "100000")
+            once = (Path(d) / "once" / "index.html").read_text() if r1.returncode == 0 else ""
+            r2 = run({**q, "out": Path(d) / "no"}, "--preview", f"{Path(d) / 'cut.json'}={Path(d) / 't'}", "--every-cut-of", "100-120")
+            case("a_shot_is_shown_cut_by_cut", r.returncode == 0 and len(numbered) == 2 and 'data-frame="103"' in numbered[0] and 'data-shot="2"' in numbered[0]
+                 and f'data-frame="{102 + least}"' in numbered[1] and 'data-shot="3"' in numbered[1] and numbered[0].count('data-sub="a"') == 4
+                 and numbered[1].count('data-sub="a"') == 3 and len(plain) == 1 and f'data-frame="{105 + 3 * least}"' in plain[0]
+                 and f"the tracker outlined nobody on its cut {101 + 3 * least}-{103 + 4 * least}" in plain[0]
+                 and f"cut it into 5; the 3 of {least} frames or more" in text and f"holding {total - 3} of the shot's {total} frames" in text
+                 and f"2 shorter cut(s) are not shown: 100-100, {104 + 4 * least}-{105 + 4 * least}." in text and text.count("This shot is shown cut by cut") == 1
+                 and r1.returncode == 0 and once.count('<div class="tile"') == 1 and "_boxes" not in once and "cut by cut" not in once
+                 and r2.returncode != 0 and "is not a shot of the record" in r2.stdout + r2.stderr and not (Path(d) / "no" / "index.html").exists(),
+                 r.stdout + r.stderr + r2.stdout + r2.stderr + f" numbered {len(numbered)} plain {len(plain)} once {once.count('tile')}")
+            boxes = q["out"] / "tiles" / "0103_cut_a_shot2_boxes.jpg"
+            fitted = q["out"] / "tiles" / "0103_as_tracked_320x240.jpg"
+            if boxes.is_file() and fitted.is_file():
+                im = Image.open(boxes).convert("RGB")
+                left, right, off = im.getpixel((20, 40)), im.getpixel((289, 180)), im.getpixel((150, 30))     # person 1's left edge, person 2's right edge, between them
+                plate1, plate2 = im.getpixel((70, 95)), im.getpixel((230, 125))                              # each box's middle: a dark plate or the number's ink
+                yellow, cyan = colour_of(1), colour_of(2)
+                ok = (im.size == (320, 240) == Image.open(fitted).size and left[0] - left[2] > 100 and right[2] - right[0] > 100 and abs(off[0] - off[2]) < 25
+                      and plate1 != off and plate2 != off and Image.open(fitted).getpixel((70, 95))[0] == Image.open(fitted).getpixel((150, 30))[0]
+                      and yellow[0] > yellow[2] and cyan[2] > cyan[0]
+                      and 'data-chosen="1" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (yellow * 2) in numbered[0]
+                      and 'data-chosen="2" style="color:rgb(%d,%d,%d);border-color:rgb(%d,%d,%d)"' % (cyan * 2) in numbered[0]
+                      and BOXES_SAY in numbered[0] and "0103_cut_a_shot2_boxes.jpg" in numbered[0] and "0103_as_tracked_320x240.jpg" in numbered[0]
+                      and 'style="color' not in once)
+                case("the_boxes_are_each_persons_own", ok, f"{im.size} left {left} right {right} off {off}")
+            else:
+                case("the_boxes_are_each_persons_own", False, f"no picture of boxes: {sorted(x.name for x in (q['out'] / 'tiles').glob('*'))}")
         else:
-            print("not graded: a_long_shot_asks_at_its_quarters (no ffmpeg on the path)")
+            print("not graded: a_long_shot_asks_at_its_quarters, a_shot_is_shown_cut_by_cut, the_boxes_are_each_persons_own (no ffmpeg on the path)")
 
     print(f"{'FAIL' if fails else 'ok'}: {fails} failing case(s)")
     return 1 if fails else 0
