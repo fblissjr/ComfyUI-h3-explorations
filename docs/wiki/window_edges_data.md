@@ -58,6 +58,42 @@ phrase, a blink or a head turn that an edge cuts through is carried by nothing o
    edge is not set mid-whip and a reader knows a smear is the camera's. Cannot see: a subject moving against a
    still camera (that is the subjects' own figure, item 8).
 
+## What is built
+
+**2026-10-13, the same day: items 1, 2 and 5, from the two stems and the copies alone.**
+[`bench/clip_signals.py`](../../bench/clip_signals.py) with
+[`bench/check_clip_signals.py`](../../bench/check_clip_signals.py), on made sound with each break seen red. No
+library was added: scipy, numpy and PyAV were in the environment; librosa and every ready-made beat tracker
+were not, so the onset curve and the tracker are the tool's own short code, and what that loses is said in its
+record. The files live in the video's audio folder, beside the voice table they are read with: one file a
+signal, a row a source frame, and a record beside each with its inputs by path and hash, its settings, what it
+cannot see, and the table's hash as a fingerprint a capture can name.
+
+- **Item 1, phrases** (`phrases`): the vocals stem's level at several steps a frame; inside each voiced run
+  every stretch under the voice table's own line is listed as a gap, and a gap of `BREAK` steps or more is a
+  break. This is the level alone, not an onset strength: a break sung through with no drop is not found, and
+  a run sung through is one phrase. The levels are in the table for a reader who would cut otherwise.
+- **Item 2, a beat grid** (`beats`): the tempo, its three strongest candidates, how much stronger the onset
+  curve is on the beats than off them, and the tempo in each stretch, so a tempo that moves shows as a spread.
+  NO DOWNBEAT: a bar's first beat needs a trained model that is not here; the record gives the low band's
+  level on each of the four ways of counting in fours, as figures. With `--shots`, the record's cuts against
+  the grid, once, beside what chance would give.
+- **Item 5, the sound's offset** (`offset`): the first sound packet against the first picture, as the
+  container has it, a figure a copy. It cannot see priming samples or an edit list.
+- **A reader's print** (`at`): for a load's first and last frame, the run and the phrase each falls in with
+  the frames to their ends, the beats either side, how many frames earlier the load would begin on the
+  phrase's start or the beat before and whether that is inside the same shot, and how far the phrase runs
+  past the load's end. Printed, never stored, and it says nothing about where an edge should be.
+
+**The first real run is a throwaway**, read end to end by a session that did not write the tool before
+anything of it is called made (the lane's rule for a new tool); the figures a real clip gave are in that
+run's records and its reader's words, not here.
+
+**Not built:** the vocal contour's pitch track (item 4; the level is in the phrases table); every picture
+item (3, 6, 7, 8, 9); the figures in a load's own details and on the plan strip, which change the chain's
+files and wait for a day with no load between its plan and its render; the capture's manifest naming the
+signals' fingerprints.
+
 ## One remark, not a rule
 
 The held tail is where a phrase that runs past a load's end goes wrong. Items 1 and 8 printed for the frames

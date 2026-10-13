@@ -499,6 +499,56 @@ fixed the same day, said inline below.**
   not a fix made beside running loads. The small way: the strip's label
   says "N of these frames" where a span holds more than the flag counts.
   Not started.
+- **A load cannot name a subset of its subject's parts** (2026-10-13;
+  the next working day's first tooling job, the lead's ruling). The
+  owner's answer of that day on the second subject in 1010-1038: where
+  her head is bowed and no face shows, her hair stays the new hair. So
+  that shot is face and hair on 1010-1024 and hair alone on 1025-1038,
+  and no job can say it: a load's part is the preview's saved parts
+  file, every part the plan names for the subject. Measured on the
+  class map of `shot_c_1010`, why the saved part will not do: her
+  face-and-neck classes are on every frame of 1025-1038, about as many
+  pixels as her hair. Wanted: `shot_to_load.py job --parts NAME ...
+  --parts-by "who and why"`, a subset of the subject's plan parts; the
+  job step cuts that load's part mask from the preview's class map as a
+  keep-out is cut (`cut_keep_out`), and the chain hands the capture
+  that file as the load's part (`load_chain.mask_specs`, one place), so
+  the builder loads what the capture read. A load naming no subset has
+  no new key and reads as before; a part not in the subject's plan is
+  refused. NOT KNOWN, and the card will say: how the head-reference
+  step and the gate read a load whose part is hair alone where no face
+  shows. It is the first of its kind and owes a look whatever its
+  flags. The piece it is held against is the one of 2026-10-10 on the
+  review page. Not started.
+- **The delivery table orders overlapping keeps by the render's time, not
+  the keep's** (2026-10-13). Where the owner kept more than one render
+  on the same frames, `bench/delivery_table.py` takes the newer RENDER
+  first. The owner's rule of that day ([`decisions.md`](decisions.md),
+  its last entry of 2026-10-13) starts from which KEEP is the more
+  recent and their words on each. The two agreed on the one case of the
+  day and would not where an older render is kept after a newer one.
+  Wanted: keeps on the same frames ordered by the time of the keep,
+  both keeps and the owner's words on each printed, and the rule's
+  other grounds left to the lead's `--prefer` with its reason. Not
+  started.
+- **`bench/break_checks.py` cannot run `check_masked_job`** (2026-10-13,
+  from the build of the two-shot load). Its copy of the repo leaves
+  `.git` out and that check asks git for HEAD, so the control is red in
+  the copy whatever the break; the builder worked round it with a
+  commit made inside the copy. Wanted: the copy carries enough of a
+  repository for a check that asks for HEAD, or the check takes the
+  commit from its caller. Not started.
+- **The first real run of the sound's signals wants three looks**
+  (2026-10-13, `bench/clip_signals.py`, from its throwaway run on
+  `fun.mp4`). The tempo it settles on is half of what two of its own
+  stretches give, and its strongest unweighted candidates sit either
+  side of the doubled tempo and not on it; several phrases are a whole
+  voiced run long, the line being a level and the singing unbroken; and
+  all three copies give no offset at all, where a session of 2026-10-10
+  noted the source's sound starting a part of a frame early. Each is
+  what the method's own record says it cannot see; whether a finer beat
+  level and a phrase cut by the fall of the level against its own
+  neighbourhood are wanted is for whoever reads that run. Not started.
 - **Of several boxes in one cut, the seed is the one clicked last**
   (2026-10-13, from the preview of 6105-6394, where it was a frame inside
   a fade to black). `bench/cast_file.py::seeds` gives a cut one seed and,

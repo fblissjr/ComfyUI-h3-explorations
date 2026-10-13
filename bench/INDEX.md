@@ -8,14 +8,14 @@ this file is only a way to find a script by what it says it does.
 
 | group | scripts |
 |---|---|
-| [`check_*`](#check) | 128 |
+| [`check_*`](#check) | 129 |
 | [`measure_*`](#measure) | 37 |
 | [`analyze_*`](#analyze) | 23 |
 | [`grade_*`](#grade) | 21 |
 | [`compare_*`](#compare) | 19 |
 | [`build_*`](#build) | 18 |
 | [`probe_*`](#probe) | 11 |
-| [the rest](#the-rest) | 165 |
+| [the rest](#the-rest) | 166 |
 
 ## check
 
@@ -38,6 +38,7 @@ this file is only a way to find a script by what it says it does.
 | [`check_checkpoint_overlay.py`](check_checkpoint_overlay.py) | An overlay plus its base is the target, tensor for tensor, and the pieces select what they name. |
 | [`check_clip_analysis.py`](check_clip_analysis.py) | Check the tool that makes an input video's analysis folder. |
 | [`check_clip_folder.py`](check_clip_folder.py) | Check the analysis folder's shared rules: which folder is a video's, and whether it still is. |
+| [`check_clip_signals.py`](check_clip_signals.py) | `bench/clip_signals.py` on made sound: each case is a way a phrase edge, a beat or an offset could be a frame out, or a poor fit could read as a good one. |
 | [`check_clone_v_wiring.py`](check_clone_v_wiring.py) | Check that `clone_v` reaches the forward, and only on modes that earn it. |
 | [`check_conditioning_behaviour.py`](check_conditioning_behaviour.py) | Does `MiniMaxH3Conditioning` still do the things it exists to do? |
 | [`check_contact_sheets.py`](check_contact_sheets.py) | `bench/contact_sheets.py` against a clip made for the purpose: the folder, the names, the tiles, and no second set. |
@@ -340,6 +341,7 @@ this file is only a way to find a script by what it says it does.
 | [`classify_kijai_pdd_banks.py`](classify_kijai_pdd_banks.py) | Record: bench/results/2026-09-25_upstream_pdd_comparison.md section 1. Network (HTTP range requests to Hugging Face) and CPU; no GPU. |
 | [`clip_analysis.py`](clip_analysis.py) | Make and fill an input video's analysis folder: the workflow that runs before any job on that video. |
 | [`clip_recipe_coverage.py`](clip_recipe_coverage.py) | Which rendered recipes have a graph in this repo, and which have none. |
+| [`clip_signals.py`](clip_signals.py) | Signals of a clip's own sound, a row a source frame, for whoever sets a window's first and last frame: phrases, a beat grid, the sound's offset to the picture. |
 | [`compile_marker_corpus.py`](compile_marker_corpus.py) | CLOSED RECORD since 2026-09-18. This compiler stamps every shot after the first with a cut time, and its compiled corpus is pinned by hash (August 2026 marker grading). Kept byte for byte because dated records were produced by it; do not ... |
 | [`contact_sheets.py`](contact_sheets.py) | Contact sheets of an input video's own frames, made once and kept: one folder a video, one file a frame range. |
 | [`control_blk_cnt_public_api.py`](control_blk_cnt_public_api.py) | One positive and one negative control on `blk_cnt`, through the PUBLIC API. |
